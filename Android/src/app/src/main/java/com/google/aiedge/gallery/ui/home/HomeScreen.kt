@@ -16,8 +16,11 @@
 
 package com.google.aiedge.gallery.ui.home
 
+import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.OpenableColumns
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
@@ -49,6 +52,7 @@ import androidx.compose.material.icons.automirrored.outlined.NoteAdd
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -80,12 +84,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -93,7 +103,6 @@ import com.google.aiedge.gallery.GalleryTopAppBar
 import com.google.aiedge.gallery.R
 import com.google.aiedge.gallery.data.AppBarAction
 import com.google.aiedge.gallery.data.AppBarActionType
-import com.google.aiedge.gallery.data.ConfigKey
 import com.google.aiedge.gallery.data.ImportedModelInfo
 import com.google.aiedge.gallery.data.Task
 import com.google.aiedge.gallery.ui.common.TaskIcon
@@ -101,7 +110,6 @@ import com.google.aiedge.gallery.ui.common.getTaskBgColor
 import com.google.aiedge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.aiedge.gallery.ui.preview.PreviewModelManagerViewModel
 import com.google.aiedge.gallery.ui.theme.GalleryTheme
-import com.google.aiedge.gallery.ui.theme.ThemeSettings
 import com.google.aiedge.gallery.ui.theme.customColors
 import com.google.aiedge.gallery.ui.theme.titleMediumNarrow
 import kotlinx.coroutines.delay
@@ -109,6 +117,12 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "AGHomeScreen"
 private const val TASK_COUNT_ANIMATION_DURATION = 250
+private const val MAX_TASK_CARD_PADDING = 24
+private const val MIN_TASK_CARD_PADDING = 18
+private const val MAX_TASK_CARD_RADIUS = 43.5
+private const val MIN_TASK_CARD_RADIUS = 30
+private const val MAX_TASK_CARD_ICON_SIZE = 56
+private const val MIN_TASK_CARD_ICON_SIZE = 50
 
 /** Navigation destination data */
 object HomeScreenDestination {
@@ -127,6 +141,7 @@ fun HomeScreen(
   val uiState by modelManagerViewModel.uiState.collectAsState()
   var showSettingsDialog by remember { mutableStateOf(false) }
   var showImportModelSheet by remember { mutableStateOf(false) }
+  var showUnsupportedFileTypeDialog by remember { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
   var showImportDialog by remember { mutableStateOf(false) }
   var showImportingDialog by remember { mutableStateOf(false) }
@@ -135,17 +150,21 @@ fun HomeScreen(
   val coroutineScope = rememberCoroutineScope()
   val snackbarHostState = remember { SnackbarHostState() }
   val scope = rememberCoroutineScope()
-
-  val nonEmptyTasks = uiState.tasks.filter { it.models.size > 0 }
-  val loadingHfModels = uiState.loadingHfModels
+  val context = LocalContext.current
 
   val filePickerLauncher: ActivityResultLauncher<Intent> = rememberLauncherForActivityResult(
     contract = ActivityResultContracts.StartActivityForResult()
   ) { result ->
     if (result.resultCode == android.app.Activity.RESULT_OK) {
       result.data?.data?.let { uri ->
-        selectedLocalModelFileUri.value = uri
-        showImportDialog = true
+        val fileName = getFileName(context = context, uri = uri)
+        Log.d(TAG, "Selected file: $fileName")
+        if (fileName != null && !fileName.endsWith(".task")) {
+          showUnsupportedFileTypeDialog = true
+        } else {
+          selectedLocalModelFileUri.value = uri
+          showImportDialog = true
+        }
       } ?: run {
         Log.d(TAG, "No file selected or URI is null.")
       }
@@ -154,36 +173,29 @@ fun HomeScreen(
     }
   }
 
-  Scaffold(
-    modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-    topBar = {
-      GalleryTopAppBar(
-        title = stringResource(HomeScreenDestination.titleRes),
-        rightAction = AppBarAction(
-          actionType = AppBarActionType.APP_SETTING, actionFn = {
-            showSettingsDialog = true
-          }
-        ),
-        loadingHfModels = loadingHfModels,
-        scrollBehavior = scrollBehavior,
-      )
-    },
-    floatingActionButton = {
-      // A floating action button to show "import model" bottom sheet.
-      SmallFloatingActionButton(
-        onClick = {
-          showImportModelSheet = true
-        },
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.secondary,
-      ) {
-        Icon(Icons.Filled.Add, "")
-      }
+  Scaffold(modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection), topBar = {
+    GalleryTopAppBar(
+      title = stringResource(HomeScreenDestination.titleRes),
+      rightAction = AppBarAction(actionType = AppBarActionType.APP_SETTING, actionFn = {
+        showSettingsDialog = true
+      }),
+      scrollBehavior = scrollBehavior,
+    )
+  }, floatingActionButton = {
+    // A floating action button to show "import model" bottom sheet.
+    SmallFloatingActionButton(
+      onClick = {
+        showImportModelSheet = true
+      },
+      containerColor = MaterialTheme.colorScheme.secondaryContainer,
+      contentColor = MaterialTheme.colorScheme.secondary,
+    ) {
+      Icon(Icons.Filled.Add, "")
     }
-  ) { innerPadding ->
+  }) { innerPadding ->
     Box(contentAlignment = Alignment.BottomCenter, modifier = Modifier.fillMaxSize()) {
       TaskList(
-        tasks = nonEmptyTasks,
+        tasks = uiState.tasks,
         navigateToTaskScreen = navigateToTaskScreen,
         loadingModelAllowlist = uiState.loadingModelAllowlist,
         modifier = Modifier.fillMaxSize(),
@@ -198,16 +210,8 @@ fun HomeScreen(
   if (showSettingsDialog) {
     SettingsDialog(
       curThemeOverride = modelManagerViewModel.readThemeOverride(),
+      modelManagerViewModel = modelManagerViewModel,
       onDismissed = { showSettingsDialog = false },
-      onOk = { curConfigValues ->
-        // Update theme settings.
-        // This will update app's theme.
-        val themeOverride = curConfigValues[ConfigKey.THEME.label] as String
-        ThemeSettings.themeOverride.value = themeOverride
-
-        // Save to data store.
-        modelManagerViewModel.saveThemeOverride(themeOverride)
-      },
     )
   }
 
@@ -232,10 +236,6 @@ fun HomeScreen(
           val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "*/*"
-            putExtra(
-              Intent.EXTRA_MIME_TYPES,
-              arrayOf("application/x-binary", "application/octet-stream")
-            )
             // Single select.
             putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
           }
@@ -259,13 +259,11 @@ fun HomeScreen(
   // Import dialog
   if (showImportDialog) {
     selectedLocalModelFileUri.value?.let { uri ->
-      ModelImportDialog(uri = uri,
-        onDismiss = { showImportDialog = false },
-        onDone = { info ->
-          selectedImportedModelInfo.value = info
-          showImportDialog = false
-          showImportingDialog = true
-        })
+      ModelImportDialog(uri = uri, onDismiss = { showImportDialog = false }, onDone = { info ->
+        selectedImportedModelInfo.value = info
+        showImportDialog = false
+        showImportingDialog = true
+      })
     }
   }
 
@@ -273,8 +271,7 @@ fun HomeScreen(
   if (showImportingDialog) {
     selectedLocalModelFileUri.value?.let { uri ->
       selectedImportedModelInfo.value?.let { info ->
-        ModelImportingDialog(
-          uri = uri,
+        ModelImportingDialog(uri = uri,
           info = info,
           onDismiss = { showImportingDialog = false },
           onDone = {
@@ -292,6 +289,22 @@ fun HomeScreen(
     }
   }
 
+  // Alert dialog for unsupported file type.
+  if (showUnsupportedFileTypeDialog) {
+    AlertDialog(
+      onDismissRequest = { showUnsupportedFileTypeDialog = false },
+      title = { Text("Unsupported file type") },
+      text = {
+        Text("Only \".task\" file type is supported.")
+      },
+      confirmButton = {
+        Button(onClick = { showUnsupportedFileTypeDialog = false }) {
+          Text(stringResource(R.string.ok))
+        }
+      },
+    )
+  }
+
   if (uiState.loadingModelAllowlistError.isNotEmpty()) {
     AlertDialog(
       icon = {
@@ -307,11 +320,9 @@ fun HomeScreen(
         modelManagerViewModel.loadModelAllowlist()
       },
       confirmButton = {
-        TextButton(
-          onClick = {
-            modelManagerViewModel.loadModelAllowlist()
-          }
-        ) {
+        TextButton(onClick = {
+          modelManagerViewModel.loadModelAllowlist()
+        }) {
           Text("Retry")
         }
       },
@@ -327,6 +338,38 @@ private fun TaskList(
   modifier: Modifier = Modifier,
   contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
+  val density = LocalDensity.current
+  val windowInfo = LocalWindowInfo.current
+  val screenWidthDp = remember {
+    with(density) {
+      windowInfo.containerSize.width.toDp()
+    }
+  }
+  val screenHeightDp = remember {
+    with(density) {
+      windowInfo.containerSize.height.toDp()
+    }
+  }
+  val sizeFraction = remember { ((screenWidthDp - 360.dp) / (410.dp - 360.dp)).coerceIn(0f, 1f) }
+  val linkColor = MaterialTheme.customColors.linkColor
+
+  val introText = buildAnnotatedString {
+    append("Welcome to AI Edge Gallery! Explore a world of \namazing on-device models from ")
+    withLink(
+      link = LinkAnnotation.Url(
+        url = "https://huggingface.co/litert-community", // Replace with the actual URL
+        styles = TextLinkStyles(
+          style = SpanStyle(
+            color = linkColor,
+            textDecoration = TextDecoration.Underline,
+          )
+        )
+      )
+    ) {
+      append("LiteRT community")
+    }
+  }
+
   Box(modifier = modifier.fillMaxSize()) {
     LazyVerticalGrid(
       columns = GridCells.Fixed(count = 2),
@@ -335,10 +378,15 @@ private fun TaskList(
       horizontalArrangement = Arrangement.spacedBy(8.dp),
       verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+      // New rel
+      item(key = "newReleaseNotification", span = { GridItemSpan(2) }) {
+        NewReleaseNotification()
+      }
+
       // Headline.
       item(key = "headline", span = { GridItemSpan(2) }) {
         Text(
-          "Welcome to AI Edge Gallery! Explore a world of \namazing on-device models from LiteRT community",
+          introText,
           textAlign = TextAlign.Center,
           style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
           modifier = Modifier.padding(bottom = 20.dp)
@@ -364,14 +412,21 @@ private fun TaskList(
           }
         }
       } else {
-        // Cards.
+        // LLM Cards.
+        item(key = "llmCardsHeader", span = { GridItemSpan(2) }) {
+          Text(
+            "Example LLM Use Cases",
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 4.dp)
+          )
+        }
+
         items(tasks) { task ->
           TaskCard(
-            task = task,
-            onClick = {
+            sizeFraction = sizeFraction, task = task, onClick = {
               navigateToTaskScreen(task)
-            },
-            modifier = Modifier
+            }, modifier = Modifier
               .fillMaxWidth()
               .aspectRatio(1f)
           )
@@ -388,7 +443,7 @@ private fun TaskList(
     Box(
       modifier = Modifier
         .fillMaxWidth()
-        .height(LocalConfiguration.current.screenHeightDp.dp * 0.25f)
+        .height(screenHeightDp * 0.25f)
         .background(
           Brush.verticalGradient(
             colors = MaterialTheme.customColors.homeBottomGradient,
@@ -400,7 +455,15 @@ private fun TaskList(
 }
 
 @Composable
-private fun TaskCard(task: Task, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun TaskCard(
+  task: Task, onClick: () -> Unit, sizeFraction: Float, modifier: Modifier = Modifier
+) {
+  val padding =
+    (MAX_TASK_CARD_PADDING - MIN_TASK_CARD_PADDING) * sizeFraction + MIN_TASK_CARD_PADDING
+  val radius = (MAX_TASK_CARD_RADIUS - MIN_TASK_CARD_RADIUS) * sizeFraction + MIN_TASK_CARD_RADIUS
+  val iconSize =
+    (MAX_TASK_CARD_ICON_SIZE - MIN_TASK_CARD_ICON_SIZE) * sizeFraction + MIN_TASK_CARD_ICON_SIZE
+
   // Observes the model count and updates the model count label with a fade-in/fade-out animation
   // whenever the count changes.
   val modelCount by remember {
@@ -445,7 +508,7 @@ private fun TaskCard(task: Task, onClick: () -> Unit, modifier: Modifier = Modif
 
   Card(
     modifier = modifier
-      .clip(RoundedCornerShape(43.5.dp))
+      .clip(RoundedCornerShape(radius.dp))
       .clickable(
         onClick = onClick,
       ),
@@ -456,39 +519,24 @@ private fun TaskCard(task: Task, onClick: () -> Unit, modifier: Modifier = Modif
     Column(
       modifier = Modifier
         .fillMaxSize()
-        .padding(24.dp),
+        .padding(padding.dp),
     ) {
       // Icon.
-      TaskIcon(task = task)
+      TaskIcon(task = task, width = iconSize.dp)
 
-      Spacer(modifier = Modifier.weight(1f))
+      Spacer(modifier = Modifier.weight(2f))
 
       // Title.
-      val pair = task.type.label.splitByFirstSpace()
       Text(
-        pair.first,
+        task.type.label,
         color = MaterialTheme.colorScheme.primary,
         style = titleMediumNarrow.copy(
           fontSize = 20.sp,
           fontWeight = FontWeight.Bold,
         ),
       )
-      if (pair.second.isNotEmpty()) {
-        Text(
-          pair.second,
-          color = MaterialTheme.colorScheme.primary,
-          style = titleMediumNarrow.copy(
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-          ),
-          modifier = Modifier.layout { measurable, constraints ->
-            val placeable = measurable.measure(constraints)
-            layout(placeable.width, placeable.height) {
-              placeable.placeRelative(0, -4.dp.roundToPx())
-            }
-          }
-        )
-      }
+
+      Spacer(modifier = Modifier.weight(1f))
 
       // Model count.
       Text(
@@ -503,12 +551,21 @@ private fun TaskCard(task: Task, onClick: () -> Unit, modifier: Modifier = Modif
   }
 }
 
-private fun String.splitByFirstSpace(): Pair<String, String> {
-  val spaceIndex = this.indexOf(' ')
-  if (spaceIndex == -1) {
-    return Pair(this, "")
+// Helper function to get the file name from a URI
+fun getFileName(context: Context, uri: Uri): String? {
+  if (uri.scheme == "content") {
+    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+      if (cursor.moveToFirst()) {
+        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        if (nameIndex != -1) {
+          return cursor.getString(nameIndex)
+        }
+      }
+    }
+  } else if (uri.scheme == "file") {
+    return uri.lastPathSegment
   }
-  return Pair(this.substring(0, spaceIndex), this.substring(spaceIndex + 1))
+  return null
 }
 
 @Preview

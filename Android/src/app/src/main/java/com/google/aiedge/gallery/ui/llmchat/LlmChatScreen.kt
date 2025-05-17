@@ -34,9 +34,9 @@ object LlmChatDestination {
   val route = "LlmChatRoute"
 }
 
-object LlmImageToTextDestination {
+object LlmAskImageDestination {
   @Serializable
-  val route = "LlmImageToTextRoute"
+  val route = "LlmAskImageRoute"
 }
 
 @Composable
@@ -57,11 +57,11 @@ fun LlmChatScreen(
 }
 
 @Composable
-fun LlmImageToTextScreen(
+fun LlmAskImageScreen(
   modelManagerViewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
-  viewModel: LlmImageToTextViewModel = viewModel(
+  viewModel: LlmAskImageViewModel = viewModel(
     factory = ViewModelProvider.Factory
   ),
 ) {
@@ -129,12 +129,7 @@ fun ChatViewWrapper(
         })
       }
     },
-    onBenchmarkClicked = { model, message, warmUpIterations, benchmarkIterations ->
-      if (message is ChatMessageText) {
-        viewModel.benchmark(
-          model = model, message = message
-        )
-      }
+    onBenchmarkClicked = { _, _, _, _ ->
     },
     onResetSessionClicked = { model ->
       viewModel.resetSession(model = model)

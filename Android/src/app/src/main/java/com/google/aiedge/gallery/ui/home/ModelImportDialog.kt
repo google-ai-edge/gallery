@@ -22,12 +22,16 @@ import android.provider.OpenableColumns
 import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.Button
@@ -51,6 +55,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -82,41 +87,34 @@ import java.nio.charset.StandardCharsets
 private const val TAG = "AGModelImportDialog"
 
 private val IMPORT_CONFIGS_LLM: List<Config> = listOf(
-  LabelConfig(key = ConfigKey.NAME),
-  LabelConfig(key = ConfigKey.MODEL_TYPE),
-  NumberSliderConfig(
+  LabelConfig(key = ConfigKey.NAME), LabelConfig(key = ConfigKey.MODEL_TYPE), NumberSliderConfig(
     key = ConfigKey.DEFAULT_MAX_TOKENS,
     sliderMin = 100f,
     sliderMax = 1024f,
     defaultValue = DEFAULT_MAX_TOKEN.toFloat(),
     valueType = ValueType.INT
-  ),
-  NumberSliderConfig(
+  ), NumberSliderConfig(
     key = ConfigKey.DEFAULT_TOPK,
     sliderMin = 5f,
     sliderMax = 40f,
     defaultValue = DEFAULT_TOPK.toFloat(),
     valueType = ValueType.INT
-  ),
-  NumberSliderConfig(
+  ), NumberSliderConfig(
     key = ConfigKey.DEFAULT_TOPP,
     sliderMin = 0.0f,
     sliderMax = 1.0f,
     defaultValue = DEFAULT_TOPP,
     valueType = ValueType.FLOAT
-  ),
-  NumberSliderConfig(
+  ), NumberSliderConfig(
     key = ConfigKey.DEFAULT_TEMPERATURE,
     sliderMin = 0.0f,
     sliderMax = 2.0f,
     defaultValue = DEFAULT_TEMPERATURE,
     valueType = ValueType.FLOAT
-  ),
-  BooleanSwitchConfig(
+  ), BooleanSwitchConfig(
     key = ConfigKey.SUPPORT_IMAGE,
     defaultValue = false,
-  ),
-  SegmentedButtonConfig(
+  ), SegmentedButtonConfig(
     key = ConfigKey.COMPATIBLE_ACCELERATORS,
     defaultValue = Accelerator.CPU.label,
     options = listOf(Accelerator.CPU.label, Accelerator.GPU.label),
@@ -126,9 +124,7 @@ private val IMPORT_CONFIGS_LLM: List<Config> = listOf(
 
 @Composable
 fun ModelImportDialog(
-  uri: Uri,
-  onDismiss: () -> Unit,
-  onDone: (ImportedModelInfo) -> Unit
+  uri: Uri, onDismiss: () -> Unit, onDone: (ImportedModelInfo) -> Unit
 ) {
   val context = LocalContext.current
   val info = remember { getFileSizeAndDisplayNameFromUri(context = context, uri = uri) }
@@ -150,15 +146,23 @@ fun ModelImportDialog(
       putAll(initialValues)
     }
   }
+  val interactionSource = remember { MutableInteractionSource() }
 
   Dialog(
     onDismissRequest = onDismiss,
   ) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+    val focusManager = LocalFocusManager.current
+    Card(
+      modifier = Modifier
+        .fillMaxWidth()
+        .clickable(
+          interactionSource = interactionSource, indication = null // Disable the ripple effect
+        ) {
+          focusManager.clearFocus()
+        }, shape = RoundedCornerShape(16.dp)
+    ) {
       Column(
-        modifier = Modifier
-          .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)
       ) {
         // Title.
         Text(
@@ -167,11 +171,18 @@ fun ModelImportDialog(
           modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        // Default configs for users to set.
-        ConfigEditorsPanel(
-          configs = IMPORT_CONFIGS_LLM,
-          values = values,
-        )
+        Column(
+          modifier = Modifier
+            .verticalScroll(rememberScrollState())
+            .weight(1f, fill = false),
+          verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+          // Default configs for users to set.
+          ConfigEditorsPanel(
+            configs = IMPORT_CONFIGS_LLM,
+            values = values,
+          )
+        }
 
         // Button row.
         Row(
@@ -210,10 +221,7 @@ fun ModelImportDialog(
 
 @Composable
 fun ModelImportingDialog(
-  uri: Uri,
-  info: ImportedModelInfo,
-  onDismiss: () -> Unit,
-  onDone: (ImportedModelInfo) -> Unit
+  uri: Uri, info: ImportedModelInfo, onDismiss: () -> Unit, onDone: (ImportedModelInfo) -> Unit
 ) {
   var error by remember { mutableStateOf("") }
   val context = LocalContext.current
@@ -222,8 +230,7 @@ fun ModelImportingDialog(
 
   LaunchedEffect(Unit) {
     // Import.
-    importModel(
-      context = context,
+    importModel(context = context,
       coroutineScope = coroutineScope,
       fileName = info.fileName,
       fileSize = info.fileSize,
@@ -236,8 +243,7 @@ fun ModelImportingDialog(
       },
       onError = {
         error = it
-      }
-    )
+      })
   }
 
   Dialog(
@@ -246,9 +252,7 @@ fun ModelImportingDialog(
   ) {
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
       Column(
-        modifier = Modifier
-          .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)
       ) {
         // Title.
         Text(
@@ -280,13 +284,10 @@ fun ModelImportingDialog(
         // Has error.
         else {
           Row(
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)
           ) {
             Icon(
-              Icons.Rounded.Error,
-              contentDescription = "",
-              tint = MaterialTheme.colorScheme.error
+              Icons.Rounded.Error, contentDescription = "", tint = MaterialTheme.colorScheme.error
             )
             Text(
               error,

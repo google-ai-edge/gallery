@@ -22,7 +22,7 @@ import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.google.aiedge.gallery.data.Model
 import com.google.aiedge.gallery.data.TASK_LLM_CHAT
-import com.google.aiedge.gallery.data.TASK_LLM_IMAGE_TO_TEXT
+import com.google.aiedge.gallery.data.TASK_LLM_ASK_IMAGE
 import com.google.aiedge.gallery.data.Task
 import com.google.aiedge.gallery.ui.common.chat.ChatMessageBenchmarkLlmResult
 import com.google.aiedge.gallery.ui.common.chat.ChatMessageLoading
@@ -49,6 +49,7 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
   fun generateResponse(model: Model, input: String, image: Bitmap? = null, onError: () -> Unit) {
     viewModelScope.launch(Dispatchers.Default) {
       setInProgress(true)
+      setPreparing(true)
 
       // Loading.
       addMessage(
@@ -88,6 +89,7 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
               timeToFirstToken = (firstTokenTs - start) / 1000f
               prefillSpeed = prefillTokens / timeToFirstToken
               firstRun = false
+              setPreparing(false)
             } else {
               decodeTokens++
             }
@@ -137,10 +139,12 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
           },
           cleanUpListener = {
             setInProgress(false)
+            setPreparing(false)
           })
       } catch (e: Exception) {
         Log.e(TAG, "Error occurred while running inference", e)
         setInProgress(false)
+        setPreparing(false)
         onError()
       }
     }
@@ -194,98 +198,6 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
     }
   }
 
-  fun benchmark(model: Model, message: ChatMessageText) {
-    viewModelScope.launch(Dispatchers.Default) {
-      setInProgress(true)
-
-      // Wait for model to be initialized.
-      while (model.instance == null) {
-        delay(100)
-      }
-      val instance = model.instance as LlmModelInstance
-      val prefillTokens = instance.session.sizeInTokens(message.content)
-
-      // Add the message to show benchmark results.
-      val benchmarkLlmResult = ChatMessageBenchmarkLlmResult(
-        orderedStats = STATS,
-        statValues = mutableMapOf(),
-        running = true,
-        latencyMs = -1f,
-      )
-      addMessage(model = model, message = benchmarkLlmResult)
-
-      // Run inference.
-      val result = StringBuilder()
-      var firstRun = true
-      var timeToFirstToken = 0f
-      var firstTokenTs = 0L
-      var decodeTokens = 0
-      var prefillSpeed = 0f
-      var decodeSpeed: Float
-      val start = System.currentTimeMillis()
-      var lastUpdateTime = 0L
-      LlmChatModelHelper.runInference(model = model,
-        input = message.content,
-        resultListener = { partialResult, done ->
-          val curTs = System.currentTimeMillis()
-
-          if (firstRun) {
-            firstTokenTs = System.currentTimeMillis()
-            timeToFirstToken = (firstTokenTs - start) / 1000f
-            prefillSpeed = prefillTokens / timeToFirstToken
-            firstRun = false
-
-            // Update message to show prefill speed.
-            replaceLastMessage(
-              model = model,
-              message = ChatMessageBenchmarkLlmResult(
-                orderedStats = STATS,
-                statValues = mutableMapOf(
-                  "prefill_speed" to prefillSpeed,
-                  "time_to_first_token" to timeToFirstToken,
-                  "latency" to (curTs - start).toFloat() / 1000f,
-                ),
-                running = false,
-                latencyMs = -1f,
-              ),
-              type = ChatMessageType.BENCHMARK_LLM_RESULT,
-            )
-          } else {
-            decodeTokens++
-          }
-          result.append(partialResult)
-
-          if (curTs - lastUpdateTime > 500 || done) {
-            decodeSpeed = decodeTokens / ((curTs - firstTokenTs) / 1000f)
-            if (decodeSpeed.isNaN()) {
-              decodeSpeed = 0f
-            }
-            replaceLastMessage(
-              model = model, message = ChatMessageBenchmarkLlmResult(
-                orderedStats = STATS,
-                statValues = mutableMapOf(
-                  "prefill_speed" to prefillSpeed,
-                  "decode_speed" to decodeSpeed,
-                  "time_to_first_token" to timeToFirstToken,
-                  "latency" to (curTs - start).toFloat() / 1000f,
-                ),
-                running = !done,
-                latencyMs = -1f,
-              ), type = ChatMessageType.BENCHMARK_LLM_RESULT
-            )
-            lastUpdateTime = curTs
-
-            if (done) {
-              setInProgress(false)
-            }
-          }
-        },
-        cleanUpListener = {
-          setInProgress(false)
-        })
-    }
-  }
-
   fun handleError(
     context: Context,
     model: Model,
@@ -320,15 +232,8 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
     )
 
     // Re-generate the response automatically.
-    generateResponse(model = model, input = triggeredMessage.content, onError = {
-      handleError(
-        context = context,
-        model = model,
-        modelManagerViewModel = modelManagerViewModel,
-        triggeredMessage = triggeredMessage
-      )
-    })
+    generateResponse(model = model, input = triggeredMessage.content, onError = {})
   }
 }
 
-class LlmImageToTextViewModel : LlmChatViewModel(curTask = TASK_LLM_IMAGE_TO_TEXT)
+class LlmAskImageViewModel : LlmChatViewModel(curTask = TASK_LLM_ASK_IMAGE)

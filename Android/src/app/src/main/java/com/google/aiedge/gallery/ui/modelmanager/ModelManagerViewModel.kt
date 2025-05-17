@@ -37,15 +37,16 @@ import com.google.aiedge.gallery.data.ModelAllowlist
 import com.google.aiedge.gallery.data.ModelDownloadStatus
 import com.google.aiedge.gallery.data.ModelDownloadStatusType
 import com.google.aiedge.gallery.data.TASKS
+import com.google.aiedge.gallery.data.TASK_LLM_ASK_IMAGE
 import com.google.aiedge.gallery.data.TASK_LLM_CHAT
-import com.google.aiedge.gallery.data.TASK_LLM_IMAGE_TO_TEXT
-import com.google.aiedge.gallery.data.TASK_LLM_USECASES
+import com.google.aiedge.gallery.data.TASK_LLM_PROMPT_LAB
 import com.google.aiedge.gallery.data.Task
 import com.google.aiedge.gallery.data.TaskType
 import com.google.aiedge.gallery.data.ValueType
 import com.google.aiedge.gallery.data.getModelByName
 import com.google.aiedge.gallery.ui.common.AuthConfig
 import com.google.aiedge.gallery.ui.common.convertValueToTargetType
+import com.google.aiedge.gallery.ui.common.getJsonResponse
 import com.google.aiedge.gallery.ui.common.processTasks
 import com.google.aiedge.gallery.ui.imageclassification.ImageClassificationModelHelper
 import com.google.aiedge.gallery.ui.imagegeneration.ImageGenerationModelHelper
@@ -59,8 +60,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.json.Json
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationRequest
 import net.openid.appauth.AuthorizationResponse
@@ -73,7 +72,7 @@ import java.net.URL
 private const val TAG = "AGModelManagerViewModel"
 private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
 private const val MODEL_ALLOWLIST_URL =
-  "https://raw.githubusercontent.com/jinjingforever/kokoro-codelab-jingjin/refs/heads/main/model_allowlist.json"
+  "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlist.json"
 
 data class ModelInitializationStatus(
   val status: ModelInitializationStatusType, var error: String = ""
@@ -115,11 +114,6 @@ data class ModelManagerUiState(
    * A map that tracks the initialization status of each model, indexed by model name.
    */
   val modelInitializationStatus: Map<String, ModelInitializationStatus>,
-
-  /**
-   * Whether Hugging Face models from the given community are currently being loaded.
-   */
-  val loadingHfModels: Boolean = false,
 
   /**
    * Whether the app is loading and processing the model allowlist.
@@ -196,8 +190,9 @@ open class ModelManagerViewModel(
     )
   }
 
-  fun cancelDownloadModel(model: Model) {
+  fun cancelDownloadModel(task: Task, model: Model) {
     downloadRepository.cancelDownloadModel(model)
+    deleteModel(task = task, model = model)
   }
 
   fun deleteModel(task: Task, model: Model) {
@@ -311,13 +306,13 @@ open class ModelManagerViewModel(
           onDone = onDone,
         )
 
-        TaskType.LLM_USECASES -> LlmChatModelHelper.initialize(
+        TaskType.LLM_PROMPT_LAB -> LlmChatModelHelper.initialize(
           context = context,
           model = model,
           onDone = onDone,
         )
 
-        TaskType.LLM_IMAGE_TO_TEXT -> LlmChatModelHelper.initialize(
+        TaskType.LLM_ASK_IMAGE -> LlmChatModelHelper.initialize(
           context = context,
           model = model,
           onDone = onDone,
@@ -341,8 +336,8 @@ open class ModelManagerViewModel(
         TaskType.TEXT_CLASSIFICATION -> TextClassificationModelHelper.cleanUp(model = model)
         TaskType.IMAGE_CLASSIFICATION -> ImageClassificationModelHelper.cleanUp(model = model)
         TaskType.LLM_CHAT -> LlmChatModelHelper.cleanUp(model = model)
-        TaskType.LLM_USECASES -> LlmChatModelHelper.cleanUp(model = model)
-        TaskType.LLM_IMAGE_TO_TEXT -> LlmChatModelHelper.cleanUp(model = model)
+        TaskType.LLM_PROMPT_LAB -> LlmChatModelHelper.cleanUp(model = model)
+        TaskType.LLM_ASK_IMAGE -> LlmChatModelHelper.cleanUp(model = model)
         TaskType.IMAGE_GENERATION -> ImageGenerationModelHelper.cleanUp(model = model)
         TaskType.TEST_TASK_1 -> {}
         TaskType.TEST_TASK_2 -> {}
@@ -446,14 +441,14 @@ open class ModelManagerViewModel(
     // Create model.
     val model = createModelFromImportedModelInfo(info = info)
 
-    for (task in listOf(TASK_LLM_CHAT, TASK_LLM_USECASES, TASK_LLM_IMAGE_TO_TEXT)) {
+    for (task in listOf(TASK_LLM_ASK_IMAGE, TASK_LLM_PROMPT_LAB, TASK_LLM_CHAT)) {
       // Remove duplicated imported model if existed.
       val modelIndex = task.models.indexOfFirst { info.fileName == it.name && it.imported }
       if (modelIndex >= 0) {
         Log.d(TAG, "duplicated imported model found in task. Removing it first")
         task.models.removeAt(modelIndex)
       }
-      if (task == TASK_LLM_IMAGE_TO_TEXT && model.llmSupportImage || task != TASK_LLM_IMAGE_TO_TEXT) {
+      if (task == TASK_LLM_ASK_IMAGE && model.llmSupportImage || task != TASK_LLM_ASK_IMAGE) {
         task.models.add(model)
       }
       task.updateTrigger.value = System.currentTimeMillis()
@@ -502,7 +497,7 @@ open class ModelManagerViewModel(
 
       // Check expiration (with 5-minute buffer).
       val curTs = System.currentTimeMillis()
-      val expirationTs = tokenData.expiresAtSeconds - 5 * 60
+      val expirationTs = tokenData.expiresAtMs - 5 * 60
       Log.d(
         TAG,
         "Checking whether token has expired or not. Current ts: $curTs, expires at: $expirationTs"
@@ -562,7 +557,7 @@ open class ModelManagerViewModel(
             } else {
               // Token exchange successful. Store the tokens securely
               Log.d(TAG, "Token exchange successful. Storing tokens...")
-              dataStoreRepository.saveAccessTokenData(
+              saveAccessToken(
                 accessToken = tokenResponse.accessToken!!,
                 refreshToken = tokenResponse.refreshToken!!,
                 expiresAt = tokenResponse.accessTokenExpirationTime!!
@@ -604,6 +599,18 @@ open class ModelManagerViewModel(
         )
       }
     }
+  }
+
+  fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long) {
+    dataStoreRepository.saveAccessTokenData(
+      accessToken = accessToken,
+      refreshToken = refreshToken,
+      expiresAt = expiresAt,
+    )
+  }
+
+  fun clearAccessToken() {
+    dataStoreRepository.clearAccessTokenData()
   }
 
   private fun processPendingDownloads() {
@@ -673,11 +680,11 @@ open class ModelManagerViewModel(
           if (allowedModel.taskTypes.contains(TASK_LLM_CHAT.type.id)) {
             TASK_LLM_CHAT.models.add(model)
           }
-          if (allowedModel.taskTypes.contains(TASK_LLM_USECASES.type.id)) {
-            TASK_LLM_USECASES.models.add(model)
+          if (allowedModel.taskTypes.contains(TASK_LLM_PROMPT_LAB.type.id)) {
+            TASK_LLM_PROMPT_LAB.models.add(model)
           }
-          if (allowedModel.taskTypes.contains(TASK_LLM_IMAGE_TO_TEXT.type.id)) {
-            TASK_LLM_IMAGE_TO_TEXT.models.add(model)
+          if (allowedModel.taskTypes.contains(TASK_LLM_ASK_IMAGE.type.id)) {
+            TASK_LLM_ASK_IMAGE.models.add(model)
           }
         }
 
@@ -732,9 +739,9 @@ open class ModelManagerViewModel(
 
       // Add to task.
       TASK_LLM_CHAT.models.add(model)
-      TASK_LLM_USECASES.models.add(model)
+      TASK_LLM_PROMPT_LAB.models.add(model)
       if (model.llmSupportImage) {
-        TASK_LLM_IMAGE_TO_TEXT.models.add(model)
+        TASK_LLM_ASK_IMAGE.models.add(model)
       }
 
       // Update status.
@@ -825,38 +832,6 @@ open class ModelManagerViewModel(
     return ModelDownloadStatus(
       status = status, receivedBytes = receivedBytes, totalBytes = totalBytes
     )
-  }
-
-  @OptIn(ExperimentalSerializationApi::class)
-  private inline fun <reified T> getJsonResponse(url: String): T? {
-    try {
-      val connection = URL(url).openConnection() as HttpURLConnection
-      connection.requestMethod = "GET"
-      connection.connect()
-
-      val responseCode = connection.responseCode
-      if (responseCode == HttpURLConnection.HTTP_OK) {
-        val inputStream = connection.inputStream
-        val response = inputStream.bufferedReader().use { it.readText() }
-
-        // Parse JSON using kotlinx.serialization
-        val json = Json {
-          // Handle potential extra fields
-          ignoreUnknownKeys = true
-          allowComments = true
-          allowTrailingComma = true
-        }
-        val jsonObj = json.decodeFromString<T>(response)
-        return jsonObj
-      } else {
-        Log.e(TAG, "HTTP error: $responseCode")
-      }
-    } catch (e: Exception) {
-      Log.e(TAG, "Error when getting json response: ${e.message}")
-      e.printStackTrace()
-    }
-
-    return null
   }
 
   private fun isFileInExternalFilesDir(fileName: String): Boolean {

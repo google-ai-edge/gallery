@@ -20,10 +20,9 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.aiedge.gallery.data.Model
-import com.google.aiedge.gallery.data.TASK_LLM_USECASES
+import com.google.aiedge.gallery.data.TASK_LLM_PROMPT_LAB
 import com.google.aiedge.gallery.data.Task
 import com.google.aiedge.gallery.ui.common.chat.ChatMessageBenchmarkLlmResult
-import com.google.aiedge.gallery.ui.common.chat.ChatMessageLoading
 import com.google.aiedge.gallery.ui.common.chat.Stat
 import com.google.aiedge.gallery.ui.common.processLlmResponse
 import com.google.aiedge.gallery.ui.llmchat.LlmChatModelHelper
@@ -44,9 +43,9 @@ data class LlmSingleTurnUiState(
   val inProgress: Boolean = false,
 
   /**
-   * Indicates whether the model is currently being initialized.
+   * Indicates whether the model is preparing (before outputting any result and after initializing).
    */
-  val initializing: Boolean = false,
+  val preparing: Boolean = false,
 
   // model -> <template label -> response>
   val responsesByModel: Map<String, Map<String, String>>,
@@ -65,14 +64,14 @@ private val STATS = listOf(
   Stat(id = "latency", label = "Latency", unit = "sec")
 )
 
-open class LlmSingleTurnViewModel(val task: Task = TASK_LLM_USECASES) : ViewModel() {
+open class LlmSingleTurnViewModel(val task: Task = TASK_LLM_PROMPT_LAB) : ViewModel() {
   private val _uiState = MutableStateFlow(createUiState(task = task))
   val uiState = _uiState.asStateFlow()
 
   fun generateResponse(model: Model, input: String) {
     viewModelScope.launch(Dispatchers.Default) {
       setInProgress(true)
-      setInitializing(true)
+      setPreparing(true)
 
       // Wait for instance to be initialized.
       while (model.instance == null) {
@@ -98,7 +97,7 @@ open class LlmSingleTurnViewModel(val task: Task = TASK_LLM_USECASES) : ViewMode
           val curTs = System.currentTimeMillis()
 
           if (firstRun) {
-            setInitializing(false)
+            setPreparing(false)
             firstTokenTs = System.currentTimeMillis()
             timeToFirstToken = (firstTokenTs - start) / 1000f
             prefillSpeed = prefillTokens / timeToFirstToken
@@ -148,7 +147,7 @@ open class LlmSingleTurnViewModel(val task: Task = TASK_LLM_USECASES) : ViewMode
         },
         singleTurn = true,
         cleanUpListener = {
-          setInitializing(false)
+          setPreparing(false)
           setInProgress(false)
         })
     }
@@ -167,8 +166,8 @@ open class LlmSingleTurnViewModel(val task: Task = TASK_LLM_USECASES) : ViewMode
     _uiState.update { _uiState.value.copy(inProgress = inProgress) }
   }
 
-  fun setInitializing(initializing: Boolean) {
-    _uiState.update { _uiState.value.copy(initializing = initializing) }
+  fun setPreparing(preparing: Boolean) {
+    _uiState.update { _uiState.value.copy(preparing = preparing) }
   }
 
   fun updateResponse(model: Model, promptTemplateType: PromptTemplateType, response: String) {

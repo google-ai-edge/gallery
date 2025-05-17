@@ -37,7 +37,7 @@ import javax.crypto.SecretKey
 data class AccessTokenData(
   val accessToken: String,
   val refreshToken: String,
-  val expiresAtSeconds: Long
+  val expiresAtMs: Long
 )
 
 interface DataStoreRepository {
@@ -46,6 +46,7 @@ interface DataStoreRepository {
   fun saveThemeOverride(theme: String)
   fun readThemeOverride(): String
   fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long)
+  fun clearAccessTokenData()
   fun readAccessTokenData(): AccessTokenData?
   fun saveImportedModels(importedModels: List<ImportedModelInfo>)
   fun readImportedModels(): List<ImportedModelInfo>
@@ -131,6 +132,18 @@ class DefaultDataStoreRepository(
         preferences[PreferencesKeys.ENCRYPTED_REFRESH_TOKEN] = encryptedRefreshToken
         preferences[PreferencesKeys.REFRESH_TOKEN_IV] = refreshTokenIv
         preferences[PreferencesKeys.ACCESS_TOKEN_EXPIRES_AT] = expiresAt
+      }
+    }
+  }
+
+  override fun clearAccessTokenData() {
+    return runBlocking {
+      dataStore.edit { preferences ->
+        preferences.remove(PreferencesKeys.ENCRYPTED_ACCESS_TOKEN)
+        preferences.remove(PreferencesKeys.ACCESS_TOKEN_IV)
+        preferences.remove(PreferencesKeys.ENCRYPTED_REFRESH_TOKEN)
+        preferences.remove(PreferencesKeys.REFRESH_TOKEN_IV)
+        preferences.remove(PreferencesKeys.ACCESS_TOKEN_EXPIRES_AT)
       }
     }
   }

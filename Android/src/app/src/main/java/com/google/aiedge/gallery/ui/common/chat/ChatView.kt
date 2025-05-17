@@ -19,6 +19,7 @@ package com.google.aiedge.gallery.ui.common.chat
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +28,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,10 +38,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.google.aiedge.gallery.data.Model
 import com.google.aiedge.gallery.data.ModelDownloadStatusType
 import com.google.aiedge.gallery.data.Task
@@ -81,7 +86,7 @@ fun ChatView(
   chatInputType: ChatInputType = ChatInputType.TEXT,
   showStopButtonInInputWhenInProgress: Boolean = false,
 ) {
-  val uiStat by viewModel.uiState.collectAsState()
+  val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val selectedModel = modelManagerUiState.selectedModel
 
@@ -158,7 +163,9 @@ fun ChatView(
       model = selectedModel,
       modelManagerViewModel = modelManagerViewModel,
       showResetSessionButton = true,
-      isResettingSession = uiStat.isResettingSession,
+      isResettingSession = uiState.isResettingSession,
+      inProgress = uiState.inProgress,
+      modelPreparing = uiState.preparing,
       onResetSessionClicked = onResetSessionClicked,
       onConfigChanged = { old, new ->
         viewModel.addConfigChangedMessage(

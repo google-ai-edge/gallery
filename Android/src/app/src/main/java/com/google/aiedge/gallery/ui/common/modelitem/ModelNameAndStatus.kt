@@ -16,6 +16,9 @@
 
 package com.google.aiedge.gallery.ui.common.modelitem
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
@@ -30,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusModifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,134 +58,164 @@ import com.google.aiedge.gallery.ui.theme.labelSmallNarrow
  * - "Unzipping..." status for unzipping processes.
  * - Model size for successful downloads.
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ModelNameAndStatus(
   model: Model,
   task: Task,
   downloadStatus: ModelDownloadStatus?,
   isExpanded: Boolean,
+  sharedTransitionScope: SharedTransitionScope,
+  animatedVisibilityScope: AnimatedVisibilityScope,
   modifier: Modifier = Modifier
 ) {
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
   var curDownloadProgress = 0f
 
-  Column(
-    horizontalAlignment = if (isExpanded) Alignment.CenterHorizontally else Alignment.Start
-  ) {
-    // Model name.
-    Row(
-      verticalAlignment = Alignment.CenterVertically,
+  with(sharedTransitionScope) {
+    Column(
+      horizontalAlignment = if (isExpanded) Alignment.CenterHorizontally else Alignment.Start
     ) {
-      Text(
-        model.name,
-        maxLines = 1,
-        overflow = TextOverflow.MiddleEllipsis,
-        style = MaterialTheme.typography.titleMedium,
-        modifier = modifier,
-      )
-    }
-
-    Row(verticalAlignment = Alignment.CenterVertically) {
-      // Status icon.
-      if (!inProgress && !isPartiallyDownloaded) {
-        StatusIcon(
-          downloadStatus = downloadStatus,
-          modifier = modifier.padding(end = 4.dp)
+      // Model name.
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text(
+          model.name,
+          maxLines = 1,
+          overflow = TextOverflow.MiddleEllipsis,
+          style = MaterialTheme.typography.titleMedium,
+          modifier = Modifier.sharedElement(
+            rememberSharedContentState(key = "model_name"),
+            animatedVisibilityScope = animatedVisibilityScope
+          )
         )
       }
 
-      // Failure message.
-      if (downloadStatus != null && downloadStatus.status == ModelDownloadStatusType.FAILED) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-          Text(
-            downloadStatus.errorMessage,
-            color = MaterialTheme.colorScheme.error,
-            style = labelSmallNarrow,
-            overflow = TextOverflow.Ellipsis,
-            modifier = modifier,
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        // Status icon.
+        if (!inProgress && !isPartiallyDownloaded) {
+          StatusIcon(
+            downloadStatus = downloadStatus,
+            modifier = modifier
+              .padding(end = 4.dp)
+              .sharedElement(
+                rememberSharedContentState(key = "download_status_icon"),
+                animatedVisibilityScope = animatedVisibilityScope
+              )
           )
         }
-      }
 
-      // Status label
-      else {
-        var sizeLabel = model.totalBytes.humanReadableSize()
-        var fontSize = 11.sp
-
-        // Populate the status label.
-        if (downloadStatus != null) {
-          // For in-progress model, show {receivedSize} / {totalSize} - {rate} - {remainingTime}
-          if (inProgress || isPartiallyDownloaded) {
-            var totalSize = downloadStatus.totalBytes
-            if (totalSize == 0L) {
-              totalSize = model.totalBytes
-            }
-            sizeLabel =
-              "${downloadStatus.receivedBytes.humanReadableSize(extraDecimalForGbAndAbove = true)} of ${totalSize.humanReadableSize()}"
-            if (downloadStatus.bytesPerSecond > 0) {
-              sizeLabel =
-                "$sizeLabel · ${downloadStatus.bytesPerSecond.humanReadableSize()} / s"
-              if (downloadStatus.remainingMs >= 0) {
-                sizeLabel =
-                  "$sizeLabel\n${downloadStatus.remainingMs.formatToHourMinSecond()} left"
-              }
-            }
-            if (isPartiallyDownloaded) {
-              sizeLabel = "$sizeLabel (resuming...)"
-            }
-            curDownloadProgress =
-              downloadStatus.receivedBytes.toFloat() / downloadStatus.totalBytes.toFloat()
-            if (curDownloadProgress.isNaN()) {
-              curDownloadProgress = 0f
-            }
-            fontSize = 9.sp
-          }
-          // Status for unzipping.
-          else if (downloadStatus.status == ModelDownloadStatusType.UNZIPPING) {
-            sizeLabel = "Unzipping..."
-          }
-        }
-
-        Column(
-          horizontalAlignment = if (isExpanded) Alignment.CenterHorizontally else Alignment.Start,
-        ) {
-          for ((index, line) in sizeLabel.split("\n").withIndex()) {
+        // Failure message.
+        if (downloadStatus != null && downloadStatus.status == ModelDownloadStatusType.FAILED) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-              line,
-              color = MaterialTheme.colorScheme.secondary,
-              maxLines = 1,
-              style = labelSmallNarrow.copy(fontSize = fontSize, lineHeight = 10.sp),
-              textAlign = if (isExpanded) TextAlign.Center else TextAlign.Start,
-              overflow = TextOverflow.Visible,
-              modifier = modifier.offset(y = if (index == 0) 0.dp else (-1).dp)
+              downloadStatus.errorMessage,
+              color = MaterialTheme.colorScheme.error,
+              style = labelSmallNarrow,
+              overflow = TextOverflow.Ellipsis,
+              modifier = Modifier.sharedElement(
+                rememberSharedContentState(key = "failure_messsage"),
+                animatedVisibilityScope = animatedVisibilityScope
+              )
             )
           }
         }
-      }
-    }
 
-    // Download progress bar.
-    if (inProgress || isPartiallyDownloaded) {
-      val animatedProgress = remember { Animatable(0f) }
-      LinearProgressIndicator(
-        progress = { animatedProgress.value },
-        color = getTaskIconColor(task = task),
-        trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        modifier = modifier.padding(top = 2.dp)
-      )
-      LaunchedEffect(curDownloadProgress) {
-        animatedProgress.animateTo(curDownloadProgress, animationSpec = tween(150))
+        // Status label
+        else {
+          var sizeLabel = model.totalBytes.humanReadableSize()
+          var fontSize = 11.sp
+
+          // Populate the status label.
+          if (downloadStatus != null) {
+            // For in-progress model, show {receivedSize} / {totalSize} - {rate} - {remainingTime}
+            if (inProgress || isPartiallyDownloaded) {
+              var totalSize = downloadStatus.totalBytes
+              if (totalSize == 0L) {
+                totalSize = model.totalBytes
+              }
+              sizeLabel =
+                "${downloadStatus.receivedBytes.humanReadableSize(extraDecimalForGbAndAbove = true)} of ${totalSize.humanReadableSize()}"
+              if (downloadStatus.bytesPerSecond > 0) {
+                sizeLabel =
+                  "$sizeLabel · ${downloadStatus.bytesPerSecond.humanReadableSize()} / s"
+                if (downloadStatus.remainingMs >= 0) {
+                  sizeLabel =
+                    "$sizeLabel\n${downloadStatus.remainingMs.formatToHourMinSecond()} left"
+                }
+              }
+              if (isPartiallyDownloaded) {
+                sizeLabel = "$sizeLabel (resuming...)"
+              }
+              curDownloadProgress =
+                downloadStatus.receivedBytes.toFloat() / downloadStatus.totalBytes.toFloat()
+              if (curDownloadProgress.isNaN()) {
+                curDownloadProgress = 0f
+              }
+              fontSize = 9.sp
+            }
+            // Status for unzipping.
+            else if (downloadStatus.status == ModelDownloadStatusType.UNZIPPING) {
+              sizeLabel = "Unzipping..."
+            }
+          }
+
+          Column(
+            horizontalAlignment = if (isExpanded) Alignment.CenterHorizontally else Alignment.Start,
+          ) {
+            for ((index, line) in sizeLabel.split("\n").withIndex()) {
+              Text(
+                line,
+                color = MaterialTheme.colorScheme.secondary,
+                maxLines = 1,
+                style = labelSmallNarrow.copy(fontSize = fontSize, lineHeight = 10.sp),
+                textAlign = if (isExpanded) TextAlign.Center else TextAlign.Start,
+                overflow = TextOverflow.Visible,
+                modifier = Modifier
+                  .offset(y = if (index == 0) 0.dp else (-1).dp)
+                  .sharedElement(
+                    rememberSharedContentState(key = "status_label_${index}"),
+                    animatedVisibilityScope = animatedVisibilityScope
+                  )
+              )
+            }
+          }
+        }
       }
-    }
-    // Unzipping progress.
-    else if (downloadStatus?.status == ModelDownloadStatusType.UNZIPPING) {
-      LinearProgressIndicator(
-        color = getTaskIconColor(task = task),
-        trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        modifier = Modifier
-          .padding(top = 2.dp),
-      )
+
+      // Download progress bar.
+      if (inProgress || isPartiallyDownloaded) {
+        val animatedProgress = remember { Animatable(0f) }
+        LinearProgressIndicator(
+          progress = { animatedProgress.value },
+          color = getTaskIconColor(task = task),
+          trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+          modifier = Modifier
+            .padding(top = 2.dp)
+            .sharedElement(
+              rememberSharedContentState(key = "download_progress_bar"),
+              animatedVisibilityScope = animatedVisibilityScope
+            )
+        )
+        LaunchedEffect(curDownloadProgress) {
+          animatedProgress.animateTo(curDownloadProgress, animationSpec = tween(150))
+        }
+      }
+      // Unzipping progress.
+      else if (downloadStatus?.status == ModelDownloadStatusType.UNZIPPING) {
+        LinearProgressIndicator(
+          color = getTaskIconColor(task = task),
+          trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+          modifier = Modifier
+            .padding(top = 2.dp)
+            .sharedElement(
+              rememberSharedContentState(key = "unzip_progress_bar"),
+              animatedVisibilityScope = animatedVisibilityScope
+            )
+        )
+      }
     }
   }
 }

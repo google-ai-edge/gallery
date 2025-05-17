@@ -39,6 +39,11 @@ data class ChatUiState(
   val isResettingSession: Boolean = false,
 
   /**
+   * Indicates whether the model is preparing (before outputting any result and after initializing).
+   */
+  val preparing: Boolean = false,
+
+  /**
    * A map of model names to lists of chat messages.
    */
   val messagesByModel: Map<String, MutableList<ChatMessage>> = mapOf(),
@@ -202,6 +207,10 @@ open class ChatViewModel(val task: Task) : ViewModel() {
 
   fun setIsResettingSession(isResettingSession: Boolean) {
     _uiState.update { _uiState.value.copy(isResettingSession = isResettingSession) }
+  }
+
+  fun setPreparing(preparing: Boolean) {
+    _uiState.update { _uiState.value.copy(preparing = preparing) }
   }
 
   fun addConfigChangedMessage(

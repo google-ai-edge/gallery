@@ -68,7 +68,6 @@ fun GalleryTopAppBar(
   leftAction: AppBarAction? = null,
   rightAction: AppBarAction? = null,
   scrollBehavior: TopAppBarScrollBehavior? = null,
-  loadingHfModels: Boolean = false,
   subtitle: String = "",
 ) {
   CenterAlignedTopAppBar(
@@ -149,28 +148,6 @@ fun GalleryTopAppBar(
               tint = MaterialTheme.colorScheme.primary
             )
           }
-        }
-
-        // Click an icon to open "download manager".
-        AppBarActionType.DOWNLOAD_MANAGER -> {
-          if (loadingHfModels) {
-            CircularProgressIndicator(
-              trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-              strokeWidth = 3.dp,
-              modifier = Modifier
-                .padding(end = 12.dp)
-                .size(20.dp)
-            )
-          }
-//          else {
-//            IconButton(onClick = rightAction.actionFn) {
-//              Icon(
-//                imageVector = Deployed_code,
-//                contentDescription = "",
-//                tint = MaterialTheme.colorScheme.primary
-//              )
-//            }
-//          }
         }
 
         AppBarActionType.MODEL_SELECTOR -> {

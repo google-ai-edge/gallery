@@ -70,7 +70,7 @@ fun ModelList(
 ) {
   // This is just to update "models" list when task.updateTrigger is updated so that the UI can
   // be properly updated.
-  val models by remember {
+  val models by remember(task) {
     derivedStateOf {
       val trigger = task.updateTrigger.value
       if (trigger >= 0) {
@@ -80,7 +80,7 @@ fun ModelList(
       }
     }
   }
-  val importedModels by remember {
+  val importedModels by remember(task) {
     derivedStateOf {
       val trigger = task.updateTrigger.value
       if (trigger >= 0) {

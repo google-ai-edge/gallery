@@ -42,6 +42,9 @@ class PreviewDataStoreRepository : DataStoreRepository {
     return null
   }
 
+  override fun clearAccessTokenData() {
+  }
+
   override fun saveImportedModels(importedModels: List<ImportedModelInfo>) {
   }
 

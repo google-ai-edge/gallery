@@ -339,7 +339,7 @@ fun PromptTemplatesPanel(
 
           val modelInitializing =
             modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
-          if (inProgress && !modelInitializing) {
+          if (inProgress && !modelInitializing && !uiState.preparing) {
             IconButton(
               onClick = {
                 onStopButtonClicked(model)

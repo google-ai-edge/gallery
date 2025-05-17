@@ -21,6 +21,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -39,7 +40,11 @@ import com.google.aiedge.gallery.ui.common.chat.Histogram
 import com.google.aiedge.gallery.ui.common.chat.Stat
 import com.google.aiedge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.aiedge.gallery.ui.theme.customColors
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.Json
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import kotlin.math.abs
 import kotlin.math.ln
 import kotlin.math.max
@@ -487,4 +492,39 @@ fun processLlmResponse(response: String): String {
   newContent = newContent.replace("\\n", "\n")
 
   return newContent
+}
+
+@OptIn(ExperimentalSerializationApi::class)
+inline fun <reified T> getJsonResponse(url: String): T? {
+  try {
+    val connection = URL(url).openConnection() as HttpURLConnection
+    connection.requestMethod = "GET"
+    connection.connect()
+
+    val responseCode = connection.responseCode
+    if (responseCode == HttpURLConnection.HTTP_OK) {
+      val inputStream = connection.inputStream
+      val response = inputStream.bufferedReader().use { it.readText() }
+
+      // Parse JSON using kotlinx.serialization
+      val json = Json {
+        // Handle potential extra fields
+        ignoreUnknownKeys = true
+        allowComments = true
+        allowTrailingComma = true
+      }
+      val jsonObj = json.decodeFromString<T>(response)
+      return jsonObj
+    } else {
+      Log.e("AGUtils", "HTTP error: $responseCode")
+    }
+  } catch (e: Exception) {
+    Log.e(
+      "AGUtils",
+      "Error when getting json response: ${e.message}"
+    )
+    e.printStackTrace()
+  }
+
+  return null
 }

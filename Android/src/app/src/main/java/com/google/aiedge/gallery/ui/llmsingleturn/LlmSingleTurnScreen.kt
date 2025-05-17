@@ -73,6 +73,7 @@ fun LlmSingleTurnScreen(
 ) {
   val task = viewModel.task
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+  val uiState by viewModel.uiState.collectAsState()
   val selectedModel = modelManagerUiState.selectedModel
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
@@ -114,6 +115,8 @@ fun LlmSingleTurnScreen(
       task = task,
       model = selectedModel,
       modelManagerViewModel = modelManagerViewModel,
+      inProgress = uiState.inProgress,
+      modelPreparing = uiState.preparing,
       onConfigChanged = { _, _ -> },
       onBackClicked = { handleNavigateUp() },
       onModelSelected = { newSelectedModel ->

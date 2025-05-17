@@ -26,6 +26,8 @@ import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Error
@@ -48,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.aiedge.gallery.data.Model
 import com.google.aiedge.gallery.data.Task
 import com.google.aiedge.gallery.ui.modelmanager.ModelManagerViewModel
@@ -291,11 +294,32 @@ fun DownloadAndTryButton(
       modifier = Modifier.padding(end = 4.dp)
     )
 
+    val textColor = MaterialTheme.colorScheme.onPrimary
     if (checkingToken) {
-      Text("Checking access...")
+      BasicText(
+        text = "Checking access...",
+        maxLines = 1,
+        color = { textColor },
+        style = MaterialTheme.typography.bodyMedium,
+        autoSize = TextAutoSize.StepBased(
+          minFontSize = 8.sp,
+          maxFontSize = 14.sp,
+          stepSize = 1.sp
+        )
+      )
     } else {
       if (needToDownloadFirst) {
-        Text("Download & Try it", maxLines = 1)
+        BasicText(
+          text = "Download & Try",
+          maxLines = 1,
+          color = { textColor },
+          style = MaterialTheme.typography.bodyMedium,
+          autoSize = TextAutoSize.StepBased(
+            minFontSize = 8.sp,
+            maxFontSize = 14.sp,
+            stepSize = 1.sp
+          )
+        )
       } else {
         Text("Try it", maxLines = 1)
       }

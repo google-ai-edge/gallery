@@ -108,7 +108,8 @@ fun ModelItemActionButton(
       // Button to cancel the download when it is in progress.
       ModelDownloadStatusType.IN_PROGRESS, ModelDownloadStatusType.UNZIPPING -> IconButton(onClick = {
         modelManagerViewModel.cancelDownloadModel(
-          model
+          task = task,
+          model = model
         )
       }) {
         Icon(

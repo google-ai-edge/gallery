@@ -18,6 +18,8 @@ package com.google.aiedge.gallery.ui.common.chat
 
 import android.util.Log
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,9 +30,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +57,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -89,9 +96,20 @@ fun ConfigDialog(
       putAll(initialValues)
     }
   }
+  val interactionSource = remember { MutableInteractionSource() }
 
   Dialog(onDismissRequest = onDismissed) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+    val focusManager = LocalFocusManager.current
+    Card(
+      modifier = Modifier
+        .fillMaxWidth()
+        .clickable(
+          interactionSource = interactionSource, indication = null // Disable the ripple effect
+        ) {
+          focusManager.clearFocus()
+        },
+      shape = RoundedCornerShape(16.dp)
+    ) {
       Column(
         modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)
       ) {
@@ -114,7 +132,14 @@ fun ConfigDialog(
         }
 
         // List of config rows.
-        ConfigEditorsPanel(configs = configs, values = values)
+        Column(
+          modifier = Modifier
+            .verticalScroll(rememberScrollState())
+            .weight(1f, fill = false),
+          verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+          ConfigEditorsPanel(configs = configs, values = values)
+        }
 
         // Button row.
         Row(
@@ -264,6 +289,8 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
             values[config.key.label] = NaN
           }
         },
+        textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
       ) { innerTextField ->
         Box(
           modifier = Modifier.border(

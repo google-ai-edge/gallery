@@ -41,7 +41,9 @@
             android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Gallery.SplashScreen"
-            android:windowSoftInputMode="adjustResize">
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity">
             <!-- This is for putting the app into launcher -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

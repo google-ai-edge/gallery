@@ -38,7 +38,7 @@ import com.google.aiedge.gallery.ui.theme.customColors
  * Supports markdown.
  */
 @Composable
-fun MessageBodyInfo(message: ChatMessageInfo) {
+fun MessageBodyInfo(message: ChatMessageInfo, smallFontSize: Boolean = true) {
   Row(
     modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center
   ) {
@@ -47,7 +47,11 @@ fun MessageBodyInfo(message: ChatMessageInfo) {
         .clip(RoundedCornerShape(16.dp))
         .background(MaterialTheme.customColors.agentBubbleBgColor)
     ) {
-      MarkdownText(text = message.content, modifier = Modifier.padding(12.dp), smallFontSize = true)
+      MarkdownText(
+        text = message.content,
+        modifier = Modifier.padding(12.dp),
+        smallFontSize = smallFontSize
+      )
     }
   }
 }

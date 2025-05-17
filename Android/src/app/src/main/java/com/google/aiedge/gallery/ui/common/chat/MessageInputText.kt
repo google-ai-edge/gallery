@@ -103,6 +103,7 @@ fun MessageInputText(
   @StringRes textFieldPlaceHolderRes: Int,
   onValueChanged: (String) -> Unit,
   onSendMessage: (List<ChatMessage>) -> Unit,
+  modelPreparing: Boolean = false,
   onOpenPromptTemplatesClicked: () -> Unit = {},
   onStopButtonClicked: () -> Unit = {},
   showPromptTemplatesInMenu: Boolean = false,
@@ -173,7 +174,7 @@ fun MessageInputText(
             .height(80.dp)
             .shadow(2.dp, shape = RoundedCornerShape(8.dp))
             .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)),
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
         )
         Box(modifier = Modifier
           .offset(x = 10.dp, y = (-10).dp)
@@ -219,7 +220,7 @@ fun MessageInputText(
         expanded = showAddContentMenu,
         onDismissRequest = { showAddContentMenu = false }) {
         if (showImagePickerInMenu) {
-          // Take a photo.
+          // Take a picture.
           DropdownMenuItem(
             text = {
               Row(
@@ -227,7 +228,7 @@ fun MessageInputText(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
               ) {
                 Icon(Icons.Rounded.PhotoCamera, contentDescription = "")
-                Text("Take a photo")
+                Text("Take a picture")
               }
             },
             enabled = pickedImages.isEmpty() && !hasImageMessage,
@@ -321,7 +322,7 @@ fun MessageInputText(
       Spacer(modifier = Modifier.width(8.dp))
 
       if (inProgress && showStopButtonWhenInProgress) {
-        if (!modelInitializing) {
+        if (!modelInitializing && !modelPreparing) {
           IconButton(
             onClick = onStopButtonClicked,
             colors = IconButtonDefaults.iconButtonColors(

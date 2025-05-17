@@ -63,6 +63,8 @@ fun ModelPageAppBar(
   modelManagerViewModel: ModelManagerViewModel,
   onBackClicked: () -> Unit,
   onModelSelected: (Model) -> Unit,
+  inProgress: Boolean,
+  modelPreparing: Boolean,
   modifier: Modifier = Modifier,
   isResettingSession: Boolean = false,
   onResetSessionClicked: (Model) -> Unit = {},
@@ -129,15 +131,16 @@ fun ModelPageAppBar(
         val isModelInitializing =
           modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
         if (showConfigButton) {
+          val enableConfigButton = !isModelInitializing && !inProgress
           IconButton(
             onClick = {
               showConfigDialog = true
             },
-            enabled = !isModelInitializing,
+            enabled = enableConfigButton,
             modifier = Modifier
               .scale(0.75f)
               .offset(x = configButtonOffset)
-              .alpha(if (isModelInitializing) 0.5f else 1f)
+              .alpha(if (!enableConfigButton) 0.5f else 1f)
           ) {
             Icon(
               imageVector = Icons.Rounded.Tune,
@@ -154,14 +157,15 @@ fun ModelPageAppBar(
               modifier = Modifier.size(16.dp)
             )
           } else {
+            val enableResetButton = !isModelInitializing && !modelPreparing
             IconButton(
               onClick = {
                 onResetSessionClicked(model)
               },
-              enabled = !isModelInitializing,
+              enabled = enableResetButton,
               modifier = Modifier
                 .scale(0.75f)
-                .alpha(if (isModelInitializing) 0.5f else 1f)
+                .alpha(if (!enableResetButton) 0.5f else 1f)
             ) {
               Icon(
                 imageVector = Icons.Rounded.MapsUgc,

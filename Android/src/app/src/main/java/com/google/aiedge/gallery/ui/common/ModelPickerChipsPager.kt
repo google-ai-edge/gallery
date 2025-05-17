@@ -83,8 +83,11 @@ fun ModelPickerChipsPager(
   val scope = rememberCoroutineScope()
   val density = LocalDensity.current
   val windowInfo = LocalWindowInfo.current
-  val screenWidthDp =
-    remember { with(density) { windowInfo.containerSize.width.toDp() } }
+  val screenWidthDp = remember {
+    with(density) {
+      windowInfo.containerSize.width.toDp()
+    }
+  }
 
   val pagerState = rememberPagerState(initialPage = task.models.indexOf(initialModel),
     pageCount = { task.models.size })
@@ -147,7 +150,7 @@ fun ModelPickerChipsPager(
           }
           Text(
             model.name,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelMedium,
             modifier = Modifier
               .padding(start = 4.dp)
               .widthIn(0.dp, screenWidthDp - 250.dp),

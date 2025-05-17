@@ -32,9 +32,9 @@ enum class TaskType(val label: String, val id: String) {
   TEXT_CLASSIFICATION(label = "Text Classification", id = "text_classification"),
   IMAGE_CLASSIFICATION(label = "Image Classification", id = "image_classification"),
   IMAGE_GENERATION(label = "Image Generation", id = "image_generation"),
-  LLM_CHAT(label = "LLM Chat", id = "llm_chat"),
-  LLM_USECASES(label = "LLM Use Cases", id = "llm_usecases"),
-  LLM_IMAGE_TO_TEXT(label = "LLM Image to Text", id = "llm_image_to_text"),
+  LLM_CHAT(label = "AI Chat", id = "llm_chat"),
+  LLM_PROMPT_LAB(label = "Prompt Lab", id = "llm_prompt_lab"),
+  LLM_ASK_IMAGE(label = "Ask Image", id = "llm_ask_image"),
 
   TEST_TASK_1(label = "Test task 1", id = "test_task_1"),
   TEST_TASK_2(label = "Test task 2", id = "test_task_2")
@@ -93,7 +93,6 @@ val TASK_IMAGE_CLASSIFICATION = Task(
 val TASK_LLM_CHAT = Task(
   type = TaskType.LLM_CHAT,
   icon = Icons.Outlined.Forum,
-//  models = MODELS_LLM,
   models = mutableListOf(),
   description = "Chat with on-device large language models",
   docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
@@ -101,10 +100,9 @@ val TASK_LLM_CHAT = Task(
   textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat
 )
 
-val TASK_LLM_USECASES = Task(
-  type = TaskType.LLM_USECASES,
+val TASK_LLM_PROMPT_LAB = Task(
+  type = TaskType.LLM_PROMPT_LAB,
   icon = Icons.Outlined.Widgets,
-//  models = MODELS_LLM,
   models = mutableListOf(),
   description = "Single turn use cases with on-device large language model",
   docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
@@ -112,10 +110,9 @@ val TASK_LLM_USECASES = Task(
   textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat
 )
 
-val TASK_LLM_IMAGE_TO_TEXT = Task(
-  type = TaskType.LLM_IMAGE_TO_TEXT,
+val TASK_LLM_ASK_IMAGE = Task(
+  type = TaskType.LLM_ASK_IMAGE,
   icon = Icons.Outlined.Mms,
-//  models = MODELS_LLM,
   models = mutableListOf(),
   description = "Ask questions about images with on-device large language models",
   docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
@@ -135,12 +132,9 @@ val TASK_IMAGE_GENERATION = Task(
 
 /** All tasks. */
 val TASKS: List<Task> = listOf(
-//  TASK_TEXT_CLASSIFICATION,
-//  TASK_IMAGE_CLASSIFICATION,
-//  TASK_IMAGE_GENERATION,
-  TASK_LLM_USECASES,
+  TASK_LLM_ASK_IMAGE,
+  TASK_LLM_PROMPT_LAB,
   TASK_LLM_CHAT,
-  TASK_LLM_IMAGE_TO_TEXT
 )
 
 fun getModelByName(name: String): Model? {

@@ -43,7 +43,7 @@ data class AllowedModel(
 
     // Config.
     val isLlmModel =
-      taskTypes.contains(TASK_LLM_CHAT.type.id) || taskTypes.contains(TASK_LLM_USECASES.type.id)
+      taskTypes.contains(TASK_LLM_CHAT.type.id) || taskTypes.contains(TASK_LLM_PROMPT_LAB.type.id)
     var configs: List<Config> = listOf()
     if (isLlmModel) {
       var defaultTopK: Int = DEFAULT_TOPK

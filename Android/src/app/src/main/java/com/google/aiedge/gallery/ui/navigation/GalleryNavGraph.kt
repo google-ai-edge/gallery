@@ -46,8 +46,8 @@ import com.google.aiedge.gallery.data.Model
 import com.google.aiedge.gallery.data.TASK_IMAGE_CLASSIFICATION
 import com.google.aiedge.gallery.data.TASK_IMAGE_GENERATION
 import com.google.aiedge.gallery.data.TASK_LLM_CHAT
-import com.google.aiedge.gallery.data.TASK_LLM_IMAGE_TO_TEXT
-import com.google.aiedge.gallery.data.TASK_LLM_USECASES
+import com.google.aiedge.gallery.data.TASK_LLM_ASK_IMAGE
+import com.google.aiedge.gallery.data.TASK_LLM_PROMPT_LAB
 import com.google.aiedge.gallery.data.TASK_TEXT_CLASSIFICATION
 import com.google.aiedge.gallery.data.Task
 import com.google.aiedge.gallery.data.TaskType
@@ -60,8 +60,8 @@ import com.google.aiedge.gallery.ui.imagegeneration.ImageGenerationDestination
 import com.google.aiedge.gallery.ui.imagegeneration.ImageGenerationScreen
 import com.google.aiedge.gallery.ui.llmchat.LlmChatDestination
 import com.google.aiedge.gallery.ui.llmchat.LlmChatScreen
-import com.google.aiedge.gallery.ui.llmchat.LlmImageToTextDestination
-import com.google.aiedge.gallery.ui.llmchat.LlmImageToTextScreen
+import com.google.aiedge.gallery.ui.llmchat.LlmAskImageDestination
+import com.google.aiedge.gallery.ui.llmchat.LlmAskImageScreen
 import com.google.aiedge.gallery.ui.llmsingleturn.LlmSingleTurnDestination
 import com.google.aiedge.gallery.ui.llmsingleturn.LlmSingleTurnScreen
 import com.google.aiedge.gallery.ui.modelmanager.ModelManager
@@ -233,7 +233,7 @@ fun GalleryNavHost(
       enterTransition = { slideEnter() },
       exitTransition = { slideExit() },
     ) {
-      getModelFromNavigationParam(it, TASK_LLM_USECASES)?.let { defaultModel ->
+      getModelFromNavigationParam(it, TASK_LLM_PROMPT_LAB)?.let { defaultModel ->
         modelManagerViewModel.selectModel(defaultModel)
 
         LlmSingleTurnScreen(
@@ -245,15 +245,15 @@ fun GalleryNavHost(
 
     // LLM image to text.
     composable(
-      route = "${LlmImageToTextDestination.route}/{modelName}",
+      route = "${LlmAskImageDestination.route}/{modelName}",
       arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
       enterTransition = { slideEnter() },
       exitTransition = { slideExit() },
     ) {
-      getModelFromNavigationParam(it, TASK_LLM_IMAGE_TO_TEXT)?.let { defaultModel ->
+      getModelFromNavigationParam(it, TASK_LLM_ASK_IMAGE)?.let { defaultModel ->
         modelManagerViewModel.selectModel(defaultModel)
 
-        LlmImageToTextScreen(
+        LlmAskImageScreen(
           modelManagerViewModel = modelManagerViewModel,
           navigateUp = { navController.navigateUp() },
         )
@@ -287,8 +287,8 @@ fun navigateToTaskScreen(
     TaskType.TEXT_CLASSIFICATION -> navController.navigate("${TextClassificationDestination.route}/${modelName}")
     TaskType.IMAGE_CLASSIFICATION -> navController.navigate("${ImageClassificationDestination.route}/${modelName}")
     TaskType.LLM_CHAT -> navController.navigate("${LlmChatDestination.route}/${modelName}")
-    TaskType.LLM_IMAGE_TO_TEXT -> navController.navigate("${LlmImageToTextDestination.route}/${modelName}")
-    TaskType.LLM_USECASES -> navController.navigate("${LlmSingleTurnDestination.route}/${modelName}")
+    TaskType.LLM_ASK_IMAGE -> navController.navigate("${LlmAskImageDestination.route}/${modelName}")
+    TaskType.LLM_PROMPT_LAB -> navController.navigate("${LlmSingleTurnDestination.route}/${modelName}")
     TaskType.IMAGE_GENERATION -> navController.navigate("${ImageGenerationDestination.route}/${modelName}")
     TaskType.TEST_TASK_1 -> {}
     TaskType.TEST_TASK_2 -> {}

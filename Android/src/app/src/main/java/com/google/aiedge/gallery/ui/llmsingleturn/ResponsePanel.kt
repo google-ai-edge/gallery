@@ -57,7 +57,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.google.aiedge.gallery.data.Model
-import com.google.aiedge.gallery.data.TASK_LLM_USECASES
+import com.google.aiedge.gallery.data.TASK_LLM_PROMPT_LAB
 import com.google.aiedge.gallery.ui.common.chat.MarkdownText
 import com.google.aiedge.gallery.ui.common.chat.MessageBodyBenchmarkLlm
 import com.google.aiedge.gallery.ui.common.chat.MessageBodyLoading
@@ -76,11 +76,11 @@ fun ResponsePanel(
   modelManagerViewModel: ModelManagerViewModel,
   modifier: Modifier = Modifier,
 ) {
-  val task = TASK_LLM_USECASES
+  val task = TASK_LLM_PROMPT_LAB
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val inProgress = uiState.inProgress
-  val initializing = uiState.initializing
+  val initializing = uiState.preparing
   val selectedPromptTemplateType = uiState.selectedPromptTemplateType
   val responseScrollState = rememberScrollState()
   var selectedOptionIndex by remember { mutableIntStateOf(0) }

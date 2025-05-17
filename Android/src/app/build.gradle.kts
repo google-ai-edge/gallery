@@ -27,10 +27,10 @@ android {
 
   defaultConfig {
     applicationId = "com.google.aiedge.gallery"
-    minSdk = 24
+    minSdk = 26
     targetSdk = 35
     versionCode = 1
-    versionName = "20250428"
+    versionName = "0.9.0"
 
     // Needed for HuggingFace auth workflows.
     manifestPlaceholders["appAuthRedirectScheme"] = "com.google.aiedge.gallery.oauth"
