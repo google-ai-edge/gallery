@@ -1,7 +1,3 @@
-# AI Edge Gallery
+# Google AI Edge Gallery
 
-The AI Edge Gallery aims to provide developers and consumers with an easy-to-use
-Android and iOS application to explore, download, and interactively experience
-various Google AI Edge on-device machine learning (ODML) capabilities
-directly on their devices.
-
+Google AI Edge Gallery is a mobile application designed to showcase the capabilities of Google AI Edge models, APIs, and tools. It serves as an interactive playground for developers and potentially tech enthusiasts to explore, experience, and evaluate various on-device ML models (primarily LiteRT-based) directly on their Android and iOS (coming soon) devices.
