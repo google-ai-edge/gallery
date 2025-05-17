@@ -13,7 +13,7 @@
         "temperature": 1.0,
         "accelerators": "cpu,gpu"
       },
-      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_usecases"]
+      "taskTypes": ["llm_chat", "llm_prompt_lab"]
     },
     {
       "name": "Hammer2.1-1.5b q8",
@@ -28,7 +28,7 @@
         "temperature": 1.0,
         "accelerators": "cpu,gpu"
       },
-      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_usecases"]
+      "taskTypes": ["llm_chat", "llm_prompt_lab"]
     },
     {
       "name": "Qwen2.5-1.5B-Instruct q8",
@@ -43,7 +43,7 @@
         "temperature": 1.0,
         "accelerators": "cpu"
       },
-      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_usecases"]
+      "taskTypes": ["llm_chat", "llm_prompt_lab"]
     }
   ]
 }
