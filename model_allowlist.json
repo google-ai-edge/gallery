@@ -1,0 +1,49 @@
+{
+  "models": [
+    {
+      "name": "Gemma3-1B-IT q4",
+      "modelId": "litert-community/Gemma3-1B-IT",
+      "modelFile": "Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task",
+      "description": "A variant of [google/Gemma-3-1B-IT](https://huggingface.co/google/Gemma-3-1B-IT) with 4-bit quantization ready for deployment on Android using the [MediaPipe LLM Inference API](https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference)",
+      "sizeInBytes": 554661246,
+      "version": "20250514",
+      "defaultConfig": {
+        "topK": 64,
+        "topP": 0.95,
+        "temperature": 1.0,
+        "accelerators": "cpu,gpu"
+      },
+      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_usecases"]
+    },
+    {
+      "name": "Hammer2.1-1.5b q8",
+      "modelId": "litert-community/Hammer2.1-1.5b",
+      "modelFile": "Hammer2.1-1.5b_multi-prefill-seq_q8_ekv1280.task",
+      "description": "A variant of [MadeAgents/Hammer2.1-1.5b](https://huggingface.co/MadeAgents/Hammer2.1-1.5b) with 8-bit quantization ready for deployment on Android using the [MediaPipe LLM Inference API](https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference)",
+      "sizeInBytes": 1617946305,
+      "version": "20250514",
+      "defaultConfig": {
+        "topK": 40,
+        "topP": 0.95,
+        "temperature": 1.0,
+        "accelerators": "cpu,gpu"
+      },
+      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_usecases"]
+    },
+    {
+      "name": "Qwen2.5-1.5B-Instruct q8",
+      "modelId": "litert-community/Qwen2.5-1.5B-Instruct",
+      "modelFile": "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task",
+      "description": "A variant of [Qwen/Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct) with 8-bit quantization ready for deployment on Android using the [MediaPipe LLM Inference API](https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference)",
+      "sizeInBytes": 1625493432,
+      "version": "20250514",
+      "defaultConfig": {
+        "topK": 40,
+        "topP": 0.95,
+        "temperature": 1.0,
+        "accelerators": "cpu"
+      },
+      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_usecases"]
+    }
+  ]
+}
