@@ -16,9 +16,10 @@
 
 package com.google.aiedge.gallery.ui.common.chat
 
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -143,6 +144,18 @@ fun ChatPanel(
   val scope = rememberCoroutineScope()
   val haptic = LocalHapticFeedback.current
   var selectedImageMessage by remember { mutableStateOf<ChatMessageImage?>(null) }
+  val hasImageMessageToLastConfigChange = remember(messages) {
+    var foundImageMessage = false
+    for (message in messages.reversed()) {
+      if (message is ChatMessageConfigValuesChange) {
+        break
+      }
+      if (message is ChatMessageImage) {
+        foundImageMessage = true
+      }
+    }
+    foundImageMessage
+  }
 
   var curMessage by remember { mutableStateOf("") } // Correct state
   val focusManager = LocalFocusManager.current
@@ -222,376 +235,346 @@ fun ChatPanel(
     showErrorDialog = modelInitializationStatus?.status == ModelInitializationStatusType.ERROR
   }
 
-  SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
-    AnimatedContent(targetState = selectedImageMessage) { targetSelectedImageMessage ->
-      Column(
-        modifier = modifier.imePadding()
+  Column(
+    modifier = modifier.imePadding()
+  ) {
+    Box(contentAlignment = Alignment.BottomCenter, modifier = Modifier.weight(1f)) {
+      LazyColumn(
+        modifier = Modifier
+          .fillMaxSize()
+          .nestedScroll(nestedScrollConnection),
+        state = listState, verticalArrangement = Arrangement.Top,
       ) {
-        Box(contentAlignment = Alignment.BottomCenter, modifier = Modifier.weight(1f)) {
-          LazyColumn(
+        items(messages) { message ->
+          val imageHistoryCurIndex = remember { mutableIntStateOf(0) }
+          var hAlign: Alignment.Horizontal = Alignment.End
+          var backgroundColor: Color = MaterialTheme.customColors.userBubbleBgColor
+          var hardCornerAtLeftOrRight = false
+          var extraPaddingStart = 48.dp
+          var extraPaddingEnd = 0.dp
+          if (message.side == ChatSide.AGENT) {
+            hAlign = Alignment.Start
+            backgroundColor = MaterialTheme.customColors.agentBubbleBgColor
+            hardCornerAtLeftOrRight = true
+            extraPaddingStart = 0.dp
+            extraPaddingEnd = 48.dp
+          } else if (message.side == ChatSide.SYSTEM) {
+            extraPaddingStart = 24.dp
+            extraPaddingEnd = 24.dp
+            if (message.type == ChatMessageType.PROMPT_TEMPLATES) {
+              extraPaddingStart = 12.dp
+              extraPaddingEnd = 12.dp
+            }
+          }
+          if (message.type == ChatMessageType.IMAGE) {
+            backgroundColor = Color.Transparent
+          }
+          val bubbleBorderRadius = dimensionResource(R.dimen.chat_bubble_corner_radius)
+
+          Column(
             modifier = Modifier
-              .fillMaxSize()
-              .nestedScroll(nestedScrollConnection),
-            state = listState, verticalArrangement = Arrangement.Top,
+              .fillMaxWidth()
+              .padding(
+                start = 12.dp + extraPaddingStart,
+                end = 12.dp + extraPaddingEnd,
+                top = 6.dp,
+                bottom = 6.dp,
+              ),
+            horizontalAlignment = hAlign,
           ) {
-            items(messages) { message ->
-              val imageHistoryCurIndex = remember { mutableIntStateOf(0) }
-              var hAlign: Alignment.Horizontal = Alignment.End
-              var backgroundColor: Color = MaterialTheme.customColors.userBubbleBgColor
-              var hardCornerAtLeftOrRight = false
-              var extraPaddingStart = 48.dp
-              var extraPaddingEnd = 0.dp
-              if (message.side == ChatSide.AGENT) {
-                hAlign = Alignment.Start
-                backgroundColor = MaterialTheme.customColors.agentBubbleBgColor
-                hardCornerAtLeftOrRight = true
-                extraPaddingStart = 0.dp
-                extraPaddingEnd = 48.dp
-              } else if (message.side == ChatSide.SYSTEM) {
-                extraPaddingStart = 24.dp
-                extraPaddingEnd = 24.dp
-                if (message.type == ChatMessageType.PROMPT_TEMPLATES) {
-                  extraPaddingStart = 12.dp
-                  extraPaddingEnd = 12.dp
+            // Sender row.
+            MessageSender(
+              message = message,
+              agentNameRes = task.agentNameRes,
+              imageHistoryCurIndex = imageHistoryCurIndex.intValue
+            )
+
+            // Message body.
+            when (message) {
+              // Loading.
+              is ChatMessageLoading -> MessageBodyLoading()
+
+              // Info.
+              is ChatMessageInfo -> MessageBodyInfo(message = message)
+
+              // Warning
+              is ChatMessageWarning -> MessageBodyWarning(message = message)
+
+              // Config values change.
+              is ChatMessageConfigValuesChange -> MessageBodyConfigUpdate(message = message)
+
+              // Prompt templates.
+              is ChatMessagePromptTemplates -> MessageBodyPromptTemplates(
+                message = message,
+                task = task,
+                onPromptClicked = { template ->
+                  onSendMessage(
+                    selectedModel,
+                    listOf(ChatMessageText(content = template.prompt, side = ChatSide.USER))
+                  )
+                })
+
+              // Non-system messages.
+              else -> {
+                // The bubble shape around the message body.
+                var messageBubbleModifier = Modifier
+                  .clip(
+                    MessageBubbleShape(
+                      radius = bubbleBorderRadius, hardCornerAtLeftOrRight = hardCornerAtLeftOrRight
+                    )
+                  )
+                  .background(backgroundColor)
+                if (message is ChatMessageText) {
+                  messageBubbleModifier = messageBubbleModifier.pointerInput(Unit) {
+                    detectTapGestures(
+                      onLongPress = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        longPressedMessage.value = message
+                        showMessageLongPressedSheet = true
+                      },
+                    )
+                  }
                 }
-              }
-              if (message.type == ChatMessageType.IMAGE) {
-                backgroundColor = Color.Transparent
-              }
-              val bubbleBorderRadius = dimensionResource(R.dimen.chat_bubble_corner_radius)
+                Box(
+                  modifier = messageBubbleModifier,
+                ) {
+                  when (message) {
+                    // Text
+                    is ChatMessageText -> MessageBodyText(message = message)
 
-              Column(
-                modifier = Modifier
-                  .fillMaxWidth()
-                  .padding(
-                    start = 12.dp + extraPaddingStart,
-                    end = 12.dp + extraPaddingEnd,
-                    top = 6.dp,
-                    bottom = 6.dp,
-                  ),
-                horizontalAlignment = hAlign,
-              ) {
-                // Sender row.
-                MessageSender(
-                  message = message,
-                  agentNameRes = task.agentNameRes,
-                  imageHistoryCurIndex = imageHistoryCurIndex.intValue
-                )
-
-                // Message body.
-                when (message) {
-                  // Loading.
-                  is ChatMessageLoading -> MessageBodyLoading()
-
-                  // Info.
-                  is ChatMessageInfo -> MessageBodyInfo(message = message)
-
-                  // Warning
-                  is ChatMessageWarning -> MessageBodyWarning(message = message)
-
-                  // Config values change.
-                  is ChatMessageConfigValuesChange -> MessageBodyConfigUpdate(message = message)
-
-                  // Prompt templates.
-                  is ChatMessagePromptTemplates -> MessageBodyPromptTemplates(message = message,
-                    task = task,
-                    onPromptClicked = { template ->
-                      onSendMessage(
-                        selectedModel,
-                        listOf(ChatMessageText(content = template.prompt, side = ChatSide.USER))
-                      )
-                    })
-
-                  // Non-system messages.
-                  else -> {
-                    // The bubble shape around the message body.
-                    var messageBubbleModifier = Modifier
-                      .clip(
-                        MessageBubbleShape(
-                          radius = bubbleBorderRadius,
-                          hardCornerAtLeftOrRight = hardCornerAtLeftOrRight
-                        )
-                      )
-                      .background(backgroundColor)
-                    if (message is ChatMessageText) {
-                      messageBubbleModifier = messageBubbleModifier.pointerInput(Unit) {
-                        detectTapGestures(
-                          onLongPress = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            longPressedMessage.value = message
-                            showMessageLongPressedSheet = true
-                          },
-                        )
-                      }
+                    // Image
+                    is ChatMessageImage -> {
+                      MessageBodyImage(message = message, modifier = Modifier.clickable {
+                        selectedImageMessage = message
+                      })
                     }
-                    Box(
-                      modifier = messageBubbleModifier,
-                    ) {
-                      when (message) {
-                        // Text
-                        is ChatMessageText -> MessageBodyText(message = message)
 
-                        // Image
-                        is ChatMessageImage -> {
-                          if (targetSelectedImageMessage != message) {
-                            MessageBodyImage(
-                              message = message,
-                              modifier = Modifier
-                                .clickable {
-                                  selectedImageMessage = message
-                                }
-                                .sharedElement(
-                                  sharedContentState = rememberSharedContentState(key = "selected_image"),
-                                  animatedVisibilityScope = this@AnimatedContent,
-                                  clipInOverlayDuringTransition = OverlayClip(
-                                    MessageBubbleShape(
-                                      radius = bubbleBorderRadius
-                                    )
-                                  )
-                                ),
+                    // Image with history (for image gen)
+                    is ChatMessageImageWithHistory -> MessageBodyImageWithHistory(
+                      message = message, imageHistoryCurIndex = imageHistoryCurIndex
+                    )
+
+                    // Classification result
+                    is ChatMessageClassification -> MessageBodyClassification(
+                      message = message, modifier = Modifier.width(
+                        message.maxBarWidth ?: CLASSIFICATION_BAR_MAX_WIDTH
+                      )
+                    )
+
+                    // Benchmark result.
+                    is ChatMessageBenchmarkResult -> MessageBodyBenchmark(message = message)
+
+                    // Benchmark LLM result.
+                    is ChatMessageBenchmarkLlmResult -> MessageBodyBenchmarkLlm(
+                      message = message, modifier = Modifier.wrapContentWidth()
+                    )
+
+                    else -> {}
+                  }
+                }
+
+                if (message.side == ChatSide.AGENT) {
+                  Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                  ) {
+                    LatencyText(message = message)
+                    // A button to show stats for the LLM message.
+                    if (task.type.id.startsWith("llm_") && message is ChatMessageText
+                      // This means we only want to show the action button when the message is done
+                      // generating, at which point the latency will be set.
+                      && message.latencyMs >= 0
+                    ) {
+                      val showingStats =
+                        viewModel.isShowingStats(model = selectedModel, message = message)
+                      MessageActionButton(
+                        label = if (showingStats) "Hide stats" else "Show stats",
+                        icon = Icons.Outlined.Timer,
+                        onClick = {
+                          // Toggle showing stats.
+                          viewModel.toggleShowingStats(selectedModel, message)
+
+                          // Add the stats message after the LLM message.
+                          if (viewModel.isShowingStats(
+                              model = selectedModel, message = message
+                            )
+                          ) {
+                            val llmBenchmarkResult = message.llmBenchmarkResult
+                            if (llmBenchmarkResult != null) {
+                              viewModel.insertMessageAfter(
+                                model = selectedModel,
+                                anchorMessage = message,
+                                messageToAdd = llmBenchmarkResult,
+                              )
+                            }
+                          }
+                          // Remove the stats message.
+                          else {
+                            val curMessageIndex = viewModel.getMessageIndex(
+                              model = selectedModel, message = message
+                            )
+                            viewModel.removeMessageAt(
+                              model = selectedModel, index = curMessageIndex + 1
                             )
                           }
-                        }
-
-                        // Image with history (for image gen)
-                        is ChatMessageImageWithHistory -> MessageBodyImageWithHistory(
-                          message = message, imageHistoryCurIndex = imageHistoryCurIndex
-                        )
-
-                        // Classification result
-                        is ChatMessageClassification -> MessageBodyClassification(
-                          message = message, modifier = Modifier.width(
-                            message.maxBarWidth ?: CLASSIFICATION_BAR_MAX_WIDTH
-                          )
-                        )
-
-                        // Benchmark result.
-                        is ChatMessageBenchmarkResult -> MessageBodyBenchmark(message = message)
-
-                        // Benchmark LLM result.
-                        is ChatMessageBenchmarkLlmResult -> MessageBodyBenchmarkLlm(
-                          message = message, modifier = Modifier.wrapContentWidth()
-                        )
-
-                        else -> {}
-                      }
+                        },
+                        enabled = !uiState.inProgress
+                      )
                     }
-                    if (message.side == ChatSide.AGENT) {
-                      Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                      ) {
-                        LatencyText(message = message)
-                        // A button to show stats for the LLM message.
-                        if (task.type.id.startsWith("llm_") && message is ChatMessageText
-                          // This means we only want to show the action button when the message is done
-                          // generating, at which point the latency will be set.
-                          && message.latencyMs >= 0
-                        ) {
-                          val showingStats =
-                            viewModel.isShowingStats(model = selectedModel, message = message)
-                          MessageActionButton(
-                            label = if (showingStats) "Hide stats" else "Show stats",
-                            icon = Icons.Outlined.Timer,
-                            onClick = {
-                              // Toggle showing stats.
-                              viewModel.toggleShowingStats(selectedModel, message)
+                  }
+                } else if (message.side == ChatSide.USER) {
+                  Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                  ) {
+                    // Run again button.
+                    if (selectedModel.showRunAgainButton) {
+                      MessageActionButton(
+                        label = stringResource(R.string.run_again),
+                        icon = Icons.Rounded.Refresh,
+                        onClick = {
+                          onRunAgainClicked(selectedModel, message)
+                        },
+                        enabled = !uiState.inProgress
+                      )
+                    }
 
-                              // Add the stats message after the LLM message.
-                              if (viewModel.isShowingStats(
-                                  model = selectedModel, message = message
-                                )
-                              ) {
-                                val llmBenchmarkResult = message.llmBenchmarkResult
-                                if (llmBenchmarkResult != null) {
-                                  viewModel.insertMessageAfter(
-                                    model = selectedModel,
-                                    anchorMessage = message,
-                                    messageToAdd = llmBenchmarkResult,
-                                  )
-                                }
-                              }
-                              // Remove the stats message.
-                              else {
-                                val curMessageIndex =
-                                  viewModel.getMessageIndex(
-                                    model = selectedModel,
-                                    message = message
-                                  )
-                                viewModel.removeMessageAt(
-                                  model = selectedModel, index = curMessageIndex + 1
-                                )
-                              }
-                            },
-                            enabled = !uiState.inProgress
-                          )
-                        }
-                      }
-                    } else if (message.side == ChatSide.USER) {
-                      Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                      ) {
-                        // Run again button.
-                        if (selectedModel.showRunAgainButton) {
-                          MessageActionButton(
-                            label = stringResource(R.string.run_again),
-                            icon = Icons.Rounded.Refresh,
-                            onClick = {
-                              onRunAgainClicked(selectedModel, message)
-                            },
-                            enabled = !uiState.inProgress
-                          )
-                        }
-
-                        // Benchmark button
-                        if (selectedModel.showBenchmarkButton) {
-                          MessageActionButton(
-                            label = stringResource(R.string.benchmark),
-                            icon = Icons.Outlined.Timer,
-                            onClick = {
-                              showBenchmarkConfigsDialog = true
-                              benchmarkMessage.value = message
-                            },
-                            enabled = !uiState.inProgress
-                          )
-                        }
-                      }
+                    // Benchmark button
+                    if (selectedModel.showBenchmarkButton) {
+                      MessageActionButton(
+                        label = stringResource(R.string.benchmark),
+                        icon = Icons.Outlined.Timer,
+                        onClick = {
+                          showBenchmarkConfigsDialog = true
+                          benchmarkMessage.value = message
+                        },
+                        enabled = !uiState.inProgress
+                      )
                     }
                   }
                 }
               }
             }
           }
-
-          SnackbarHost(hostState = snackbarHostState, modifier = Modifier.padding(vertical = 4.dp))
-
-          // Show an info message for ask image task to get users started.
-          if (task.type == TaskType.LLM_ASK_IMAGE && messages.isEmpty()) {
-            Column(
-              modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .fillMaxSize(),
-              horizontalAlignment = Alignment.CenterHorizontally,
-              verticalArrangement = Arrangement.Center
-            ) {
-              MessageBodyInfo(
-                ChatMessageInfo(content = "To get started, click + below to add an image and type a prompt to ask a question about it."),
-                smallFontSize = false
-              )
-            }
-          }
-        }
-
-        // Chat input
-        when (chatInputType) {
-          ChatInputType.TEXT -> {
-//        val isLlmTask = task.type == TaskType.LLM_CHAT
-//        val notLlmStartScreen = !(messages.size == 1 && messages[0] is ChatMessagePromptTemplates)
-            val hasImageMessage = messages.any { it is ChatMessageImage }
-            MessageInputText(
-              modelManagerViewModel = modelManagerViewModel,
-              curMessage = curMessage,
-              inProgress = uiState.inProgress,
-              isResettingSession = uiState.isResettingSession,
-              modelPreparing = uiState.preparing,
-              hasImageMessage = hasImageMessage,
-              modelInitializing = modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING,
-              textFieldPlaceHolderRes = task.textInputPlaceHolderRes,
-              onValueChanged = { curMessage = it },
-              onSendMessage = {
-                onSendMessage(selectedModel, it)
-                curMessage = ""
-              },
-              onOpenPromptTemplatesClicked = {
-                onSendMessage(
-                  selectedModel, listOf(
-                    ChatMessagePromptTemplates(
-                      templates = selectedModel.llmPromptTemplates, showMakeYourOwn = false
-                    )
-                  )
-                )
-              },
-              onStopButtonClicked = onStopButtonClicked,
-//          showPromptTemplatesInMenu = isLlmTask && notLlmStartScreen,
-              showPromptTemplatesInMenu = false,
-              showImagePickerInMenu = selectedModel.llmSupportImage,
-              showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
-            )
-          }
-
-          ChatInputType.IMAGE -> MessageInputImage(
-            disableButtons = uiState.inProgress,
-            streamingMessage = streamingMessage,
-            onImageSelected = { bitmap ->
-              onSendMessage(
-                selectedModel, listOf(
-                  ChatMessageImage(
-                    bitmap = bitmap, imageBitMap = bitmap.asImageBitmap(), side = ChatSide.USER
-                  )
-                )
-              )
-            },
-            onStreamImage = { bitmap ->
-              onStreamImageMessage(
-                selectedModel, ChatMessageImage(
-                  bitmap = bitmap, imageBitMap = bitmap.asImageBitmap(), side = ChatSide.USER
-                )
-              )
-            },
-            onStreamEnd = onStreamEnd,
-          )
         }
       }
 
-      // A full-screen image viewer.
-      if (targetSelectedImageMessage != null) {
-        ZoomableBox(
-          modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.9f))
-            .sharedElement(
-              rememberSharedContentState(key = "bounds"),
-              animatedVisibilityScope = this,
-            )
-            .skipToLookaheadSize(),
-        ) {
-          // Image.
-          Image(
-            bitmap = targetSelectedImageMessage.imageBitMap,
-            contentDescription = "",
-            modifier = modifier
-              .fillMaxSize()
-              .graphicsLayer(
-                scaleX = scale,
-                scaleY = scale,
-                translationX = offsetX,
-                translationY = offsetY
-              )
-              .sharedElement(
-                sharedContentState = rememberSharedContentState(key = "selected_image"),
-                animatedVisibilityScope = this@AnimatedContent,
-              ),
-            contentScale = ContentScale.Fit,
-          )
+      SnackbarHost(hostState = snackbarHostState, modifier = Modifier.padding(vertical = 4.dp))
 
-          // Close button.
-          IconButton(
-            onClick = {
-              selectedImageMessage = null
-            },
-            colors = IconButtonDefaults.iconButtonColors(
-              containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            ),
-            modifier = Modifier.offset(x = (-8).dp, y = 8.dp)
-          ) {
-            Icon(
-              Icons.Rounded.Close,
-              contentDescription = "",
-              tint = MaterialTheme.colorScheme.primary
-            )
-          }
+      // Show an info message for ask image task to get users started.
+      if (task.type == TaskType.LLM_ASK_IMAGE && messages.isEmpty()) {
+        Column(
+          modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxSize(),
+          horizontalAlignment = Alignment.CenterHorizontally,
+          verticalArrangement = Arrangement.Center
+        ) {
+          MessageBodyInfo(
+            ChatMessageInfo(content = "To get started, click + below to add an image and type a prompt to ask a question about it."),
+            smallFontSize = false
+          )
         }
+      }
+    }
+
+    // Chat input
+    when (chatInputType) {
+      ChatInputType.TEXT -> {
+//        val isLlmTask = task.type == TaskType.LLM_CHAT
+//        val notLlmStartScreen = !(messages.size == 1 && messages[0] is ChatMessagePromptTemplates)
+        MessageInputText(
+          modelManagerViewModel = modelManagerViewModel,
+          curMessage = curMessage,
+          inProgress = uiState.inProgress,
+          isResettingSession = uiState.isResettingSession,
+          modelPreparing = uiState.preparing,
+          hasImageMessage = hasImageMessageToLastConfigChange,
+          modelInitializing = modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING,
+          textFieldPlaceHolderRes = task.textInputPlaceHolderRes,
+          onValueChanged = { curMessage = it },
+          onSendMessage = {
+            onSendMessage(selectedModel, it)
+            curMessage = ""
+          },
+          onOpenPromptTemplatesClicked = {
+            onSendMessage(
+              selectedModel, listOf(
+                ChatMessagePromptTemplates(
+                  templates = selectedModel.llmPromptTemplates, showMakeYourOwn = false
+                )
+              )
+            )
+          },
+          onStopButtonClicked = onStopButtonClicked,
+//          showPromptTemplatesInMenu = isLlmTask && notLlmStartScreen,
+          showPromptTemplatesInMenu = false,
+          showImagePickerInMenu = selectedModel.llmSupportImage,
+          showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
+        )
+      }
+
+      ChatInputType.IMAGE -> MessageInputImage(
+        disableButtons = uiState.inProgress,
+        streamingMessage = streamingMessage,
+        onImageSelected = { bitmap ->
+          onSendMessage(
+            selectedModel, listOf(
+              ChatMessageImage(
+                bitmap = bitmap, imageBitMap = bitmap.asImageBitmap(), side = ChatSide.USER
+              )
+            )
+          )
+        },
+        onStreamImage = { bitmap ->
+          onStreamImageMessage(
+            selectedModel, ChatMessageImage(
+              bitmap = bitmap, imageBitMap = bitmap.asImageBitmap(), side = ChatSide.USER
+            )
+          )
+        },
+        onStreamEnd = onStreamEnd,
+      )
+    }
+  }
+
+  // A full-screen image viewer.
+  val curSelectedImageMessage = selectedImageMessage
+  AnimatedVisibility(
+    visible = curSelectedImageMessage != null,
+    enter = fadeIn(),
+    exit = fadeOut(),
+  ) {
+    if (curSelectedImageMessage == null) return@AnimatedVisibility
+
+    ZoomableBox(
+      modifier = Modifier
+        .fillMaxSize()
+        .background(Color.Black.copy(alpha = 0.9f))
+    ) {
+      // Image.
+      Image(
+        bitmap = curSelectedImageMessage.imageBitMap,
+        contentDescription = "",
+        modifier = modifier
+          .fillMaxSize()
+          .graphicsLayer(
+            scaleX = scale, scaleY = scale, translationX = offsetX, translationY = offsetY
+          ),
+        contentScale = ContentScale.Fit,
+      )
+
+      // Close button.
+      IconButton(
+        onClick = {
+          selectedImageMessage = null
+        }, colors = IconButtonDefaults.iconButtonColors(
+          containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ), modifier = Modifier.offset(x = (-8).dp, y = 8.dp)
+      ) {
+        Icon(
+          Icons.Rounded.Close, contentDescription = "", tint = MaterialTheme.colorScheme.primary
+        )
       }
     }
   }
@@ -635,7 +618,7 @@ fun ChatPanel(
     }
   }
 
-  // Benchmark config dialog.
+// Benchmark config dialog.
   if (showBenchmarkConfigsDialog) {
     BenchmarkConfigDialog(onDismissed = { showBenchmarkConfigsDialog = false },
       messageToBenchmark = benchmarkMessage.value,
@@ -644,7 +627,7 @@ fun ChatPanel(
       })
   }
 
-  // Sheet to show when a message is long-pressed.
+// Sheet to show when a message is long-pressed.
   if (showMessageLongPressedSheet) {
     val message = longPressedMessage.value
     if (message != null && message is ChatMessageText) {
@@ -700,22 +683,20 @@ fun ZoomableBox(
   var offsetX by remember { mutableFloatStateOf(0f) }
   var offsetY by remember { mutableFloatStateOf(0f) }
   var size by remember { mutableStateOf(IntSize.Zero) }
-  Box(
-    modifier = modifier
-      .clip(RectangleShape)
-      .onSizeChanged { size = it }
-      .pointerInput(Unit) {
-        detectTransformGestures { _, pan, zoom, _ ->
-          scale = maxOf(minScale, minOf(scale * zoom, maxScale))
-          val maxX = (size.width * (scale - 1)) / 2
-          val minX = -maxX
-          offsetX = maxOf(minX, minOf(maxX, offsetX + pan.x))
-          val maxY = (size.height * (scale - 1)) / 2
-          val minY = -maxY
-          offsetY = maxOf(minY, minOf(maxY, offsetY + pan.y))
-        }
-      },
-    contentAlignment = Alignment.TopEnd
+  Box(modifier = modifier
+    .clip(RectangleShape)
+    .onSizeChanged { size = it }
+    .pointerInput(Unit) {
+      detectTransformGestures { _, pan, zoom, _ ->
+        scale = maxOf(minScale, minOf(scale * zoom, maxScale))
+        val maxX = (size.width * (scale - 1)) / 2
+        val minX = -maxX
+        offsetX = maxOf(minX, minOf(maxX, offsetX + pan.x))
+        val maxY = (size.height * (scale - 1)) / 2
+        val minY = -maxY
+        offsetY = maxOf(minY, minOf(maxY, offsetY + pan.y))
+      }
+    }, contentAlignment = Alignment.TopEnd
   ) {
     val scope = ZoomableBoxScopeImpl(scale, offsetX, offsetY)
     scope.content()
@@ -729,9 +710,7 @@ interface ZoomableBoxScope {
 }
 
 private data class ZoomableBoxScopeImpl(
-  override val scale: Float,
-  override val offsetX: Float,
-  override val offsetY: Float
+  override val scale: Float, override val offsetX: Float, override val offsetY: Float
 ) : ZoomableBoxScope
 
 @Preview(showBackground = true)

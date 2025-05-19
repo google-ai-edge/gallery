@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Refresh
@@ -44,6 +46,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.google.aiedge.gallery.data.AppBarAction
@@ -70,6 +73,7 @@ fun GalleryTopAppBar(
   scrollBehavior: TopAppBarScrollBehavior? = null,
   subtitle: String = "",
 ) {
+  val titleColor = MaterialTheme.colorScheme.primary
   CenterAlignedTopAppBar(
     title = {
       Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -85,9 +89,16 @@ fun GalleryTopAppBar(
               tint = Color.Unspecified,
             )
           }
-          Text(
-            title,
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
+          BasicText(
+            text = title,
+            maxLines = 1,
+            color = { titleColor },
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+            autoSize = TextAutoSize.StepBased(
+              minFontSize = 14.sp,
+              maxFontSize = 22.sp,
+              stepSize = 1.sp
+            )
           )
         }
         if (subtitle.isNotEmpty()) {

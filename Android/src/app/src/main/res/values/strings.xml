@@ -15,7 +15,7 @@
 -->
 
 <resources>
-    <string name="app_name">AI Edge Gallery</string>
+    <string name="app_name">Google AI Edge Gallery</string>
     <string name="model_manager">Model Manager</string>
     <string name="downloaded_size">%1$s downloaded</string>
     <string name="cancel">Cancel</string>

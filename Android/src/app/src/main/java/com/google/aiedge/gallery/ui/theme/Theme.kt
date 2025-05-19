@@ -205,7 +205,8 @@ fun GalleryTheme(
   content: @Composable () -> Unit
 ) {
   val themeOverride = ThemeSettings.themeOverride
-  val darkTheme: Boolean = isSystemInDarkTheme() || themeOverride.value == THEME_DARK
+  val darkTheme: Boolean =
+    (isSystemInDarkTheme() || themeOverride.value == THEME_DARK) && themeOverride.value != THEME_LIGHT
 
   StatusBarColorController(useDarkTheme = darkTheme)
 

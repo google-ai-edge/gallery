@@ -42,6 +42,7 @@ object LlmChatModelHelper {
   fun initialize(
     context: Context, model: Model, onDone: (String) -> Unit
   ) {
+    // Prepare options.
     val maxTokens =
       model.getIntConfigValue(key = ConfigKey.MAX_TOKENS, defaultValue = DEFAULT_MAX_TOKEN)
     val topK = model.getIntConfigValue(key = ConfigKey.TOPK, defaultValue = DEFAULT_TOPK)
@@ -62,7 +63,7 @@ object LlmChatModelHelper {
         .setMaxNumImages(if (model.llmSupportImage) 1 else 0)
         .build()
 
-    // Create an instance of the LLM Inference task
+    // Create an instance of the LLM Inference task and session.
     try {
       val llmInference = LlmInference.createFromOptions(context, options)
 
@@ -145,6 +146,9 @@ object LlmChatModelHelper {
     }
 
     // Start async inference.
+    //
+    // For a model that supports image modality, we need to add the text query chunk before adding
+    // image.
     val session = instance.session
     session.addQueryChunk(input)
     if (image != null) {
