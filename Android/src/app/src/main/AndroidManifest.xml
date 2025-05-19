@@ -27,7 +27,7 @@
         android:required="false" />
 
     <application
-        android:name=".GalleryApplication"
+        android:name="com.google.ai.edge.gallery.GalleryApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -38,7 +38,7 @@
         android:theme="@style/Theme.Gallery"
         tools:targetApi="31">
         <activity
-            android:name=".MainActivity"
+            android:name="com.google.ai.edge.gallery.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Gallery.SplashScreen"
             android:screenOrientation="portrait"
@@ -57,7 +57,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="com.google.aiedge.gallery" />
+                <data android:scheme="com.google.ai.edge.gallery" />
             </intent-filter>
         </activity>
 

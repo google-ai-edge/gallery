@@ -22,10 +22,11 @@ plugins {
 }
 
 android {
-  namespace = "com.google.aiedge.gallery"
+  namespace = "com.google.ai.edge.gallery"
   compileSdk = 35
 
   defaultConfig {
+    // Don't change to com.google.ai.edge.gallery yet.
     applicationId = "com.google.aiedge.gallery"
     minSdk = 26
     targetSdk = 35
@@ -33,7 +34,7 @@ android {
     versionName = "0.9.4"
 
     // Needed for HuggingFace auth workflows.
-    manifestPlaceholders["appAuthRedirectScheme"] = "com.google.aiedge.gallery.oauth"
+    manifestPlaceholders["appAuthRedirectScheme"] = "com.google.ai.edge.gallery.oauth"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
