@@ -11,22 +11,7 @@
         "topK": 64,
         "topP": 0.95,
         "temperature": 1.0,
-        "accelerators": "cpu,gpu"
-      },
-      "taskTypes": ["llm_chat", "llm_prompt_lab"]
-    },
-    {
-      "name": "Hammer2.1-1.5b q8",
-      "modelId": "litert-community/Hammer2.1-1.5b",
-      "modelFile": "Hammer2.1-1.5b_multi-prefill-seq_q8_ekv1280.task",
-      "description": "A variant of [MadeAgents/Hammer2.1-1.5b](https://huggingface.co/MadeAgents/Hammer2.1-1.5b) with 8-bit quantization ready for deployment on Android using the [MediaPipe LLM Inference API](https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference)",
-      "sizeInBytes": 1617946305,
-      "version": "20250514",
-      "defaultConfig": {
-        "topK": 40,
-        "topP": 0.95,
-        "temperature": 1.0,
-        "accelerators": "cpu,gpu"
+        "accelerators": "gpu,cpu"
       },
       "taskTypes": ["llm_chat", "llm_prompt_lab"]
     },
