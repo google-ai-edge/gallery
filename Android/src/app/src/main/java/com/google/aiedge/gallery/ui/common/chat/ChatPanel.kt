@@ -342,7 +342,12 @@ fun ChatPanel(
                                 }
                                 .sharedElement(
                                   sharedContentState = rememberSharedContentState(key = "selected_image"),
-                                  animatedVisibilityScope = this@AnimatedContent
+                                  animatedVisibilityScope = this@AnimatedContent,
+                                  clipInOverlayDuringTransition = OverlayClip(
+                                    MessageBubbleShape(
+                                      radius = bubbleBorderRadius
+                                    )
+                                  )
                                 ),
                             )
                           }
@@ -378,7 +383,7 @@ fun ChatPanel(
                       ) {
                         LatencyText(message = message)
                         // A button to show stats for the LLM message.
-                        if ((task.type == TaskType.LLM_CHAT || task.type == TaskType.LLM_ASK_IMAGE) && message is ChatMessageText
+                        if (task.type.id.startsWith("llm_") && message is ChatMessageText
                           // This means we only want to show the action button when the message is done
                           // generating, at which point the latency will be set.
                           && message.latencyMs >= 0
@@ -565,7 +570,7 @@ fun ChatPanel(
               )
               .sharedElement(
                 sharedContentState = rememberSharedContentState(key = "selected_image"),
-                animatedVisibilityScope = this@AnimatedContent
+                animatedVisibilityScope = this@AnimatedContent,
               ),
             contentScale = ContentScale.Fit,
           )

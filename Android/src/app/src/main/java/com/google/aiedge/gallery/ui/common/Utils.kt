@@ -66,6 +66,10 @@ interface LatencyProvider {
 private const val START_THINKING = "***Thinking...***"
 private const val DONE_THINKING = "***Done thinking***"
 
+data class JsonObjAndTextContent<T>(
+  val jsonObj: T, val textContent: String,
+)
+
 /** Format the bytes into a human-readable format. */
 fun Long.humanReadableSize(si: Boolean = true, extraDecimalForGbAndAbove: Boolean = false): String {
   val bytes = this
@@ -473,16 +477,14 @@ fun processTasks() {
 
 fun processLlmResponse(response: String): String {
   // Add "thinking" and "done thinking" around the thinking content.
-  var newContent = response
-    .replace("<think>", "$START_THINKING\n")
-    .replace("</think>", "\n$DONE_THINKING")
+  var newContent =
+    response.replace("<think>", "$START_THINKING\n").replace("</think>", "\n$DONE_THINKING")
 
   // Remove empty thinking content.
   val endThinkingIndex = newContent.indexOf(DONE_THINKING)
   if (endThinkingIndex >= 0) {
     val thinkingContent =
-      newContent.substring(0, endThinkingIndex + DONE_THINKING.length)
-        .replace(START_THINKING, "")
+      newContent.substring(0, endThinkingIndex + DONE_THINKING.length).replace(START_THINKING, "")
         .replace(DONE_THINKING, "")
     if (thinkingContent.isBlank()) {
       newContent = newContent.substring(endThinkingIndex + DONE_THINKING.length)
@@ -495,7 +497,7 @@ fun processLlmResponse(response: String): String {
 }
 
 @OptIn(ExperimentalSerializationApi::class)
-inline fun <reified T> getJsonResponse(url: String): T? {
+inline fun <reified T> getJsonResponse(url: String): JsonObjAndTextContent<T>? {
   try {
     val connection = URL(url).openConnection() as HttpURLConnection
     connection.requestMethod = "GET"
@@ -514,14 +516,13 @@ inline fun <reified T> getJsonResponse(url: String): T? {
         allowTrailingComma = true
       }
       val jsonObj = json.decodeFromString<T>(response)
-      return jsonObj
+      return JsonObjAndTextContent(jsonObj = jsonObj, textContent = response)
     } else {
       Log.e("AGUtils", "HTTP error: $responseCode")
     }
   } catch (e: Exception) {
     Log.e(
-      "AGUtils",
-      "Error when getting json response: ${e.message}"
+      "AGUtils", "Error when getting json response: ${e.message}"
     )
     e.printStackTrace()
   }

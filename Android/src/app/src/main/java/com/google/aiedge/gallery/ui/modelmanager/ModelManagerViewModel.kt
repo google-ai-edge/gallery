@@ -60,6 +60,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.Json
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationRequest
 import net.openid.appauth.AuthorizationResponse
@@ -73,6 +75,7 @@ private const val TAG = "AGModelManagerViewModel"
 private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
 private const val MODEL_ALLOWLIST_URL =
   "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlist.json"
+private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
 
 data class ModelInitializationStatus(
   val status: ModelInitializationStatusType, var error: String = ""
@@ -146,6 +149,7 @@ data class PagerScrollState(
  * and cleaning up models. It also manages the UI state for model management, including the
  * list of tasks, models, download statuses, and initialization statuses.
  */
+@OptIn(ExperimentalSerializationApi::class)
 open class ModelManagerViewModel(
   private val downloadRepository: DownloadRepository,
   private val dataStoreRepository: DataStoreRepository,
@@ -227,8 +231,7 @@ open class ModelManagerViewModel(
       dataStoreRepository.saveImportedModels(importedModels = importedModels)
     }
     val newUiState = uiState.value.copy(
-      modelDownloadStatus = curModelDownloadStatus,
-      tasks = uiState.value.tasks.toList()
+      modelDownloadStatus = curModelDownloadStatus, tasks = uiState.value.tasks.toList()
     )
     _uiState.update { newUiState }
   }
@@ -660,8 +663,17 @@ open class ModelManagerViewModel(
     viewModelScope.launch(Dispatchers.IO) {
       try {
         // Load model allowlist json.
-        val modelAllowlist: ModelAllowlist? =
-          getJsonResponse<ModelAllowlist>(url = MODEL_ALLOWLIST_URL)
+        Log.d(TAG, "Loading model allowlist from internet...")
+        val data = getJsonResponse<ModelAllowlist>(url = MODEL_ALLOWLIST_URL)
+        var modelAllowlist: ModelAllowlist? = data?.jsonObj
+
+        if (modelAllowlist == null) {
+          Log.d(TAG, "Failed to load model allowlist from internet. Trying to load it from disk")
+          modelAllowlist = readModelAllowlistFromDisk()
+        } else {
+          Log.d(TAG, "Done: loading model allowlist from internet")
+          saveModelAllowlistToDisk(modelAllowlistContent = data?.textContent ?: "{}")
+        }
 
         if (modelAllowlist == null) {
           _uiState.update { uiState.value.copy(loadingModelAllowlistError = "Failed to load model list") }
@@ -705,6 +717,40 @@ open class ModelManagerViewModel(
         e.printStackTrace()
       }
     }
+  }
+
+  private fun saveModelAllowlistToDisk(modelAllowlistContent: String) {
+    try {
+      Log.d(TAG, "Saving model allowlist to disk...")
+      val file = File(externalFilesDir, MODEL_ALLOWLIST_FILENAME)
+      file.writeText(modelAllowlistContent)
+      Log.d(TAG, "Done: saving model allowlist to disk.")
+    } catch (e: Exception) {
+      Log.e(TAG, "failed to write model allowlist to disk", e)
+    }
+  }
+
+  private fun readModelAllowlistFromDisk(): ModelAllowlist? {
+    try {
+      Log.d(TAG, "Reading model allowlist from disk...")
+      val file = File(externalFilesDir, MODEL_ALLOWLIST_FILENAME)
+      if (file.exists()) {
+        val content = file.readText()
+        Log.d(TAG, "Model allowlist content from local file: $content")
+        val json = Json {
+          // Handle potential extra fields
+          ignoreUnknownKeys = true
+          allowComments = true
+          allowTrailingComma = true
+        }
+        return json.decodeFromString<ModelAllowlist>(content)
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "failed to read model allowlist from disk", e)
+      return null
+    }
+
+    return null
   }
 
   private fun isModelPartiallyDownloaded(model: Model): Boolean {

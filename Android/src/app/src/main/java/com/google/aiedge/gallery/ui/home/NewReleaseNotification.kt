@@ -51,12 +51,12 @@ fun NewReleaseNotification() {
       val info = getJsonResponse<ReleaseInfo>("https://api.github.com/repos/$REPO/releases/latest")
       if (info != null) {
         val curRelease = BuildConfig.VERSION_NAME
-        val newRelease = info.tag_name
+        val newRelease = info.jsonObj.tag_name
         val isNewer = isNewerRelease(currentRelease = curRelease, newRelease = newRelease)
         Log.d(TAG, "curRelease: $curRelease, newRelease: $newRelease, isNewer: $isNewer")
         if (isNewer) {
           newReleaseVersion = newRelease
-          newReleaseUrl = info.html_url
+          newReleaseUrl = info.jsonObj.html_url
         }
       }
     }
