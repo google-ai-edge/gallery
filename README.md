@@ -5,33 +5,17 @@
 
 **Explore, Experience, and Evaluate the Future of On-Device Generative AI with Google AI Edge.**
 
-The Google AI Edge Gallery is an experimental app that puts the power of cutting-edge Generative AI models directly into your hands, running entirely on your Android *(available now)* and iOS *(coming soon)* devices. Discover what's possible, today! 
-
-## 🚀 What is Google AI Edge Gallery?
-
-Google AI Edge Gallery is your interactive playground for on-device AI. It's built to:
-
-*   **Inspire Developers:** See what you can build with Google AI Edge.
-*   **Showcase Capabilities:** Experience the performance and quality of LiteRT-optimized models.
-*   **Reduce Friction:** Easily try out different models and tasks without writing code.
-*   **Foster Community:** An open-source project for learning.
+The Google AI Edge Gallery is an experimental app that puts the power of cutting-edge Generative AI models directly into your hands, running entirely on your Android *(available now)* and iOS *(coming soon)* devices. Dive into a world of creative and practical AI use cases, all running locally, without needing an internet connection once the model is loaded. Experiment with different models, chat, ask questions with images, explore prompts, and more!
 
 ## ✨ Core Features
 
-*   **📱 On-Device GenAI:** Run LLMs locally – fast, private, and offline-capable.
-*   **🤖 Diverse Model Zoo:** Explore models from the Hugging Face LiteRT Community and Google.
+*   **📱 Run Locally, Fully Offline:** Experience the magic of GenAI without an internet connection. All processing happens directly on your device.
+*   **🤖 Choose Your Model:** Easily switch between different models from Hugging Face and compare their performance.
 *   **✍️ Prompt Lab:** Summarize, rewrite, generate code, or use freeform prompts to explore single-turn LLM use cases.
 *   **💬 AI Chat:** Engage in multi-turn conversations.
 *   **📊 Performance Insights:** Real-time benchmarks (TTFT, decode speed, latency).
 *   **🧩 Bring Your Own Model:** Test your local LiteRT `.task` models.
 *   **🔗 Developer Resources:** Quick links to model cards and source code.
-
-<!-- Insert a compelling GIF showcasing the app in action. See “Drive folder for Images” tab:. -->
-<!--
-<p align="center">
-  <img src="docs/images/app_demo.gif" alt="AI Edge Gallery Demo" width="600"/>
-</p>
--->
 
 ## 🏁 Get Started in Minutes!
 
