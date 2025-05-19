@@ -43,14 +43,11 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -97,11 +94,11 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import com.google.aiedge.gallery.R
 import com.google.aiedge.gallery.data.Model
 import com.google.aiedge.gallery.data.Task
 import com.google.aiedge.gallery.data.TaskType
+import com.google.aiedge.gallery.ui.common.ErrorDialog
 import com.google.aiedge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.aiedge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.aiedge.gallery.ui.preview.PreviewChatModel
@@ -581,44 +578,12 @@ fun ChatPanel(
 
   // Error dialog.
   if (showErrorDialog) {
-    Dialog(
-      onDismissRequest = {
-        showErrorDialog = false
-        navigateUp()
-      },
-    ) {
-      Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-        Column(
-          modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-          // Title
-          Text(
-            "Error",
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 8.dp)
-          )
-
-          // Error
-          Text(
-            modelInitializationStatus?.error ?: "",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-          )
-
-          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Button(onClick = {
-              showErrorDialog = false
-              navigateUp()
-            }) {
-              Text("Close")
-            }
-          }
-        }
-      }
-    }
+    ErrorDialog(error = modelInitializationStatus?.error ?: "", onDismiss = {
+      showErrorDialog = false
+    })
   }
 
-// Benchmark config dialog.
+  // Benchmark config dialog.
   if (showBenchmarkConfigsDialog) {
     BenchmarkConfigDialog(onDismissed = { showBenchmarkConfigsDialog = false },
       messageToBenchmark = benchmarkMessage.value,
@@ -627,7 +592,7 @@ fun ChatPanel(
       })
   }
 
-// Sheet to show when a message is long-pressed.
+  // Sheet to show when a message is long-pressed.
   if (showMessageLongPressedSheet) {
     val message = longPressedMessage.value
     if (message != null && message is ChatMessageText) {

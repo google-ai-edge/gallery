@@ -683,6 +683,9 @@ open class ModelManagerViewModel(
         Log.d(TAG, "Allowlist: $modelAllowlist")
 
         // Convert models in the allowlist.
+        TASK_LLM_CHAT.models.clear()
+        TASK_LLM_PROMPT_LAB.models.clear()
+        TASK_LLM_ASK_IMAGE.models.clear()
         for (allowedModel in modelAllowlist.models) {
           if (allowedModel.disabled == true) {
             continue

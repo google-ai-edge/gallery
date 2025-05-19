@@ -160,7 +160,7 @@ fun ModelList(
       }
 
       // List of imported models within a task.
-      items(items = importedModels) { model ->
+      items(items = importedModels, key = { it.name }) { model ->
         Box {
           ModelItem(
             model = model,

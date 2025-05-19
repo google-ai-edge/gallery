@@ -43,8 +43,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.aiedge.gallery.data.ModelDownloadStatusType
 import com.google.aiedge.gallery.ui.ViewModelProvider
+import com.google.aiedge.gallery.ui.common.ErrorDialog
 import com.google.aiedge.gallery.ui.common.ModelPageAppBar
 import com.google.aiedge.gallery.ui.common.chat.ModelDownloadStatusInfoPanel
+import com.google.aiedge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.aiedge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.aiedge.gallery.ui.preview.PreviewLlmSingleTurnViewModel
 import com.google.aiedge.gallery.ui.preview.PreviewModelManagerViewModel
@@ -78,6 +80,7 @@ fun LlmSingleTurnScreen(
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
   var navigatingUp by remember { mutableStateOf(false) }
+  var showErrorDialog by remember { mutableStateOf(false) }
 
   val handleNavigateUp = {
     navigatingUp = true
@@ -108,6 +111,11 @@ fun LlmSingleTurnScreen(
         modelManagerViewModel.initializeModel(context, task = task, model = selectedModel)
       }
     }
+  }
+
+  val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
+  LaunchedEffect(modelInitializationStatus) {
+    showErrorDialog = modelInitializationStatus?.status == ModelInitializationStatusType.ERROR
   }
 
   Scaffold(modifier = modifier, topBar = {
@@ -185,6 +193,12 @@ fun LlmSingleTurnScreen(
               )
             }
           })
+      }
+
+      if (showErrorDialog) {
+        ErrorDialog(error = modelInitializationStatus?.error ?: "", onDismiss = {
+          showErrorDialog = false
+        })
       }
     }
   }
