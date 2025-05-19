@@ -19,7 +19,7 @@ The Google AI Edge Gallery is an experimental app that puts the power of cutting
 
 ## 🏁 Get Started in Minutes!
 
-1.  **Download the App:** Grab the [latest APK](https://github.com/google-ai-edge/gallery/releases/latest/download/ai-edge-gallery.apk).
+1.  **Download the App:** Grab the [**latest APK**](https://github.com/google-ai-edge/gallery/releases/latest/download/ai-edge-gallery.apk).
 2.  **Install & Explore:** For detailed installation instructions (including for corporate devices) and a full user guide, head over to our [**Project Wiki**](https://github.com/google-ai-edge/gallery/wiki)!
 
 ## 🛠️ Technology Highlights
