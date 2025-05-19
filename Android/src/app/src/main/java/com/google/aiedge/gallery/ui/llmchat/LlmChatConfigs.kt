@@ -67,7 +67,7 @@ fun createLlmChatConfigs(
     ),
     SegmentedButtonConfig(
       key = ConfigKey.ACCELERATOR,
-      defaultValue = if (accelerators.contains(Accelerator.GPU)) Accelerator.GPU.label else accelerators[0].label,
+      defaultValue = accelerators[0].label,
       options = accelerators.map { it.label }
     )
   )

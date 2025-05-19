@@ -78,6 +78,9 @@ open class LlmSingleTurnViewModel(val task: Task = TASK_LLM_PROMPT_LAB) : ViewMo
         delay(100)
       }
 
+      LlmChatModelHelper.resetSession(model = model)
+      delay(500)
+
       // Run inference.
       val instance = model.instance as LlmModelInstance
       val prefillTokens = instance.session.sizeInTokens(input)
@@ -145,7 +148,6 @@ open class LlmSingleTurnViewModel(val task: Task = TASK_LLM_PROMPT_LAB) : ViewMo
             setInProgress(false)
           }
         },
-        singleTurn = true,
         cleanUpListener = {
           setPreparing(false)
           setInProgress(false)

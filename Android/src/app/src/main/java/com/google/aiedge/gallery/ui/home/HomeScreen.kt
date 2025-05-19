@@ -353,7 +353,7 @@ private fun TaskList(
   val linkColor = MaterialTheme.customColors.linkColor
 
   val introText = buildAnnotatedString {
-    append("Welcome to Google AI Edge Gallery! Explore a world of \namazing on-device models from ")
+    append("Welcome to Google AI Edge Gallery! Explore a world of amazing on-device models from ")
     withLink(
       link = LinkAnnotation.Url(
         url = "https://huggingface.co/litert-community", // Replace with the actual URL

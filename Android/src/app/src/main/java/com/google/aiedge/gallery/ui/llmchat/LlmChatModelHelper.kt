@@ -132,12 +132,8 @@ object LlmChatModelHelper {
     input: String,
     resultListener: ResultListener,
     cleanUpListener: CleanUpListener,
-    singleTurn: Boolean = false,
     image: Bitmap? = null,
   ) {
-    if (singleTurn) {
-      resetSession(model = model)
-    }
     val instance = model.instance as LlmModelInstance
 
     // Set listener.

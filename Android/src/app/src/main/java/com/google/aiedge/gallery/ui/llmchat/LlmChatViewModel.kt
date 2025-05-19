@@ -61,6 +61,7 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
       while (model.instance == null) {
         delay(100)
       }
+      delay(500)
 
       // Run inference.
       val instance = model.instance as LlmModelInstance
