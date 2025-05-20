@@ -49,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.AppBarAction
 import com.google.ai.edge.gallery.data.AppBarActionType
 import com.google.ai.edge.gallery.ui.navigation.GalleryNavHost
@@ -65,6 +64,7 @@ fun GalleryApp(navController: NavHostController = rememberNavController()) {
 /**
  * The top app bar.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GalleryTopAppBar(
   title: String,

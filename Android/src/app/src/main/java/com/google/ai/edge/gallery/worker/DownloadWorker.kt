@@ -22,6 +22,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.WorkerParameters
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
+import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_APP_TS
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ERROR_MESSAGE
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_FILE_NAME
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_MODEL_DIR
@@ -36,6 +37,7 @@ import com.google.ai.edge.gallery.data.KEY_MODEL_TOTAL_BYTES
 import com.google.ai.edge.gallery.data.KEY_MODEL_UNZIPPED_DIR
 import com.google.ai.edge.gallery.data.KEY_MODEL_URL
 import com.google.ai.edge.gallery.data.KEY_MODEL_VERSION
+import com.google.ai.edge.gallery.ui.common.readLaunchInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
@@ -60,6 +62,8 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
   private val externalFilesDir = context.getExternalFilesDir(null)
 
   override suspend fun doWork(): Result {
+    val appTs = readLaunchInfo(context = applicationContext)?.ts ?: 0
+
     val fileUrl = inputData.getString(KEY_MODEL_URL)
     val version = inputData.getString(KEY_MODEL_VERSION)!!
     val fileName = inputData.getString(KEY_MODEL_DOWNLOAD_FILE_NAME)
@@ -71,6 +75,12 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
       inputData.getString(KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES)?.split(",") ?: listOf()
     val totalBytes = inputData.getLong(KEY_MODEL_TOTAL_BYTES, 0L)
     val accessToken = inputData.getString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN)
+    val workerAppTs = inputData.getLong(KEY_MODEL_DOWNLOAD_APP_TS, 0L)
+
+    if (workerAppTs > 0 && appTs > 0 && workerAppTs != appTs) {
+      Log.d(TAG, "Worker is from previous launch. Ignoring...")
+      return Result.success()
+    }
 
     return withContext(Dispatchers.IO) {
       if (fileUrl == null || fileName == null) {
@@ -172,11 +182,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 var bytesPerMs = 0f
                 if (lastSetProgressTs != 0L) {
                   if (bytesReadSizeBuffer.size == 5) {
-                    bytesReadSizeBuffer.removeAt(bytesReadLatencyBuffer.lastIndex)
+                    bytesReadSizeBuffer.removeAt(0)
                   }
                   bytesReadSizeBuffer.add(deltaBytes)
                   if (bytesReadLatencyBuffer.size == 5) {
-                    bytesReadLatencyBuffer.removeAt(bytesReadLatencyBuffer.lastIndex)
+                    bytesReadLatencyBuffer.removeAt(0)
                   }
                   bytesReadLatencyBuffer.add(curTs - lastSetProgressTs)
                   deltaBytes = 0L

@@ -18,6 +18,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+<!--    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>-->
+<!--    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>-->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.CAMERA" />
@@ -80,6 +82,12 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+<!--        <service-->
+<!--            android:name=".GalleryService"-->
+<!--            android:foregroundServiceType="dataSync"-->
+<!--            android:exported="false">-->
+<!--        </service>-->
     </application>
 
 </manifest>

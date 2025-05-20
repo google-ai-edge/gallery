@@ -40,6 +40,8 @@ import com.google.ai.edge.gallery.ui.common.chat.Histogram
 import com.google.ai.edge.gallery.ui.common.chat.Stat
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -51,6 +53,9 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sqrt
+
+private const val TAG = "AGUtils"
+private const val LAUNCH_INFO_FILE_NAME = "launch_info"
 
 private val STATS = listOf(
   Stat(id = "min", label = "Min", unit = "ms"),
@@ -68,6 +73,10 @@ private const val DONE_THINKING = "***Done thinking***"
 
 data class JsonObjAndTextContent<T>(
   val jsonObj: T, val textContent: String,
+)
+
+data class LaunchInfo(
+  val ts: Long
 )
 
 /** Format the bytes into a human-readable format. */
@@ -530,4 +539,29 @@ inline fun <reified T> getJsonResponse(url: String): JsonObjAndTextContent<T>? {
   }
 
   return null
+}
+
+fun writeLaunchInfo(context: Context) {
+  try {
+    val gson = Gson()
+    val launchInfo = LaunchInfo(ts = System.currentTimeMillis())
+    val jsonString = gson.toJson(launchInfo)
+    val file = File(context.getExternalFilesDir(null), LAUNCH_INFO_FILE_NAME)
+    file.writeText(jsonString)
+  } catch (e: Exception) {
+    Log.e(TAG, "Failed to write launch info", e)
+  }
+}
+
+fun readLaunchInfo(context: Context): LaunchInfo? {
+  try {
+    val gson = Gson()
+    val type = object : TypeToken<LaunchInfo>() {}.type
+    val file = File(context.getExternalFilesDir(null), LAUNCH_INFO_FILE_NAME)
+    val content = file.readText()
+    return gson.fromJson(content, type)
+  } catch (e: Exception) {
+    Log.e(TAG, "Failed to read launch info", e)
+    return null
+  }
 }

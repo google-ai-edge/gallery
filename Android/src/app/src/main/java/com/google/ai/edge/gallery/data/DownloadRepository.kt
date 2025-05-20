@@ -39,6 +39,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkQuery
 import com.google.ai.edge.gallery.AppLifecycleProvider
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.ui.common.readLaunchInfo
 import com.google.ai.edge.gallery.worker.DownloadWorker
 import com.google.common.util.concurrent.FutureCallback
 import com.google.common.util.concurrent.Futures
@@ -85,24 +86,23 @@ class DefaultDownloadRepository(
   override fun downloadModel(
     model: Model, onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit
   ) {
+    val appTs = readLaunchInfo(context = context)?.ts ?: 0
+
     // Create input data.
     val builder = Data.Builder()
     val totalBytes = model.totalBytes + model.extraDataFiles.sumOf { it.sizeInBytes }
-    val inputDataBuilder = builder.putString(KEY_MODEL_URL, model.url)
-      .putString(KEY_MODEL_VERSION, model.version)
-      .putString(KEY_MODEL_DOWNLOAD_MODEL_DIR, model.normalizedName)
-      .putString(KEY_MODEL_DOWNLOAD_FILE_NAME, model.downloadFileName)
-      .putBoolean(KEY_MODEL_IS_ZIP, model.isZip).putString(KEY_MODEL_UNZIPPED_DIR, model.unzipDir)
-      .putLong(
-        KEY_MODEL_TOTAL_BYTES, totalBytes
-      )
+    val inputDataBuilder =
+      builder.putString(KEY_MODEL_URL, model.url).putString(KEY_MODEL_VERSION, model.version)
+        .putString(KEY_MODEL_DOWNLOAD_MODEL_DIR, model.normalizedName)
+        .putString(KEY_MODEL_DOWNLOAD_FILE_NAME, model.downloadFileName)
+        .putBoolean(KEY_MODEL_IS_ZIP, model.isZip).putString(KEY_MODEL_UNZIPPED_DIR, model.unzipDir)
+        .putLong(KEY_MODEL_TOTAL_BYTES, totalBytes).putLong(KEY_MODEL_DOWNLOAD_APP_TS, appTs)
+
     if (model.extraDataFiles.isNotEmpty()) {
-      inputDataBuilder.putString(
-        KEY_MODEL_EXTRA_DATA_URLS, model.extraDataFiles.joinToString(",") { it.url }
-      ).putString(
+      inputDataBuilder.putString(KEY_MODEL_EXTRA_DATA_URLS,
+        model.extraDataFiles.joinToString(",") { it.url }).putString(
         KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES,
-        model.extraDataFiles.joinToString(",") { it.downloadFileName }
-      )
+        model.extraDataFiles.joinToString(",") { it.downloadFileName })
     }
     if (model.accessToken != null) {
       inputDataBuilder.putString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN, model.accessToken)
@@ -281,8 +281,7 @@ class DefaultDownloadRepository(
 
     // Create an Intent to open your app with a deep link.
     val intent = Intent(
-      Intent.ACTION_VIEW,
-      Uri.parse("com.google.ai.edge.gallery://model/${modelName}")
+      Intent.ACTION_VIEW, Uri.parse("com.google.ai.edge.gallery://model/${modelName}")
     ).apply {
       flags = Intent.FLAG_ACTIVITY_NEW_TASK
     }

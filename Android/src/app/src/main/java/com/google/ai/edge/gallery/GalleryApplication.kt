@@ -23,6 +23,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.ai.edge.gallery.data.AppContainer
 import com.google.ai.edge.gallery.data.DefaultAppContainer
+import com.google.ai.edge.gallery.ui.common.writeLaunchInfo
 import com.google.ai.edge.gallery.ui.theme.ThemeSettings
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_gallery_preferences")
@@ -34,6 +35,8 @@ class GalleryApplication : Application() {
   override fun onCreate() {
     super.onCreate()
 
+
+    writeLaunchInfo(context = this)
     container = DefaultAppContainer(this, dataStore)
 
     // Load theme.
