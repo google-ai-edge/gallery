@@ -16,15 +16,28 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+import android.graphics.Bitmap
 import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -37,9 +50,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
@@ -84,9 +101,10 @@ fun ChatView(
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val selectedModel = modelManagerUiState.selectedModel
+  var selectedImage by remember { mutableStateOf<Bitmap?>(null) }
+  var showImageViewer by remember { mutableStateOf(false) }
 
-  val pagerState = rememberPagerState(
-    initialPage = task.models.indexOf(selectedModel),
+  val pagerState = rememberPagerState(initialPage = task.models.indexOf(selectedModel),
     pageCount = { task.models.size })
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
@@ -139,8 +157,7 @@ fun ChatView(
   LaunchedEffect(pagerState) {
     snapshotFlow {
       PagerScrollState(
-        page = pagerState.currentPage,
-        offset = pagerState.currentPageOffsetFraction
+        page = pagerState.currentPage, offset = pagerState.currentPageOffsetFraction
       )
     }.collect { scrollState ->
       modelManagerViewModel.pagerScrollState.value = scrollState
@@ -164,9 +181,7 @@ fun ChatView(
       onResetSessionClicked = onResetSessionClicked,
       onConfigChanged = { old, new ->
         viewModel.addConfigChangedMessage(
-          oldConfigValues = old,
-          newConfigValues = new,
-          model = selectedModel
+          oldConfigValues = old, newConfigValues = new, model = selectedModel
         )
       },
       onBackClicked = {
@@ -197,9 +212,7 @@ fun ChatView(
             .background(MaterialTheme.colorScheme.surface)
         ) {
           ModelDownloadStatusInfoPanel(
-            model = curSelectedModel,
-            task = task,
-            modelManagerViewModel = modelManagerViewModel
+            model = curSelectedModel, task = task, modelManagerViewModel = modelManagerViewModel
           )
 
           // The main messages panel.
@@ -223,12 +236,59 @@ fun ChatView(
               onStopButtonClicked = {
                 onStopButtonClicked(curSelectedModel)
               },
+              onImageSelected = { bitmap ->
+                selectedImage = bitmap
+                showImageViewer = true
+              },
               modifier = Modifier
                 .weight(1f)
                 .graphicsLayer { alpha = curAlpha },
               chatInputType = chatInputType,
               showStopButtonInInputWhenInProgress = showStopButtonInInputWhenInProgress,
             )
+          }
+        }
+      }
+
+      // Image viewer.
+      AnimatedVisibility(
+        visible = showImageViewer,
+        enter = slideInVertically(initialOffsetY = { fullHeight -> fullHeight }) + fadeIn(),
+        exit = slideOutVertically(
+          targetOffsetY = { fullHeight -> fullHeight },
+        ) + fadeOut()
+      ) {
+        selectedImage?.let { image ->
+          ZoomableBox(
+            modifier = Modifier
+              .fillMaxSize()
+              .padding(top = innerPadding.calculateTopPadding())
+              .background(Color.Black.copy(alpha = 0.95f)),
+          ) {
+            Image(
+              bitmap = image.asImageBitmap(), contentDescription = "",
+              modifier = modifier
+                .fillMaxSize()
+                .graphicsLayer(
+                  scaleX = scale, scaleY = scale, translationX = offsetX, translationY = offsetY
+                ),
+              contentScale = ContentScale.Fit,
+            )
+
+            // Close button.
+            IconButton(
+              onClick = {
+                showImageViewer = false
+              }, colors = IconButtonDefaults.iconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+              ), modifier = Modifier.offset(x = (-8).dp, y = 8.dp)
+            ) {
+              Icon(
+                Icons.Rounded.Close,
+                contentDescription = "",
+                tint = MaterialTheme.colorScheme.primary
+              )
+            }
           }
         }
       }

@@ -16,15 +16,10 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.Image
+import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,7 +29,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -45,13 +39,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Timer
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SnackbarHost
@@ -62,7 +53,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,16 +63,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -92,7 +78,6 @@ import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
@@ -115,7 +100,7 @@ enum class ChatInputType {
 /**
  * Composable function for the main chat panel, displaying messages and handling user input.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatPanel(
   modelManagerViewModel: ModelManagerViewModel,
@@ -130,6 +115,7 @@ fun ChatPanel(
   onStreamImageMessage: (Model, ChatMessageImage) -> Unit = { _, _ -> },
   onStreamEnd: (Int) -> Unit = {},
   onStopButtonClicked: () -> Unit = {},
+  onImageSelected: (Bitmap) -> Unit = {},
   chatInputType: ChatInputType = ChatInputType.TEXT,
   showStopButtonInInputWhenInProgress: Boolean = false,
 ) {
@@ -140,7 +126,6 @@ fun ChatPanel(
   val snackbarHostState = remember { SnackbarHostState() }
   val scope = rememberCoroutineScope()
   val haptic = LocalHapticFeedback.current
-  var selectedImageMessage by remember { mutableStateOf<ChatMessageImage?>(null) }
   val hasImageMessageToLastConfigChange = remember(messages) {
     var foundImageMessage = false
     for (message in messages.reversed()) {
@@ -278,7 +263,7 @@ fun ChatPanel(
                 bottom = 6.dp,
               ),
             horizontalAlignment = hAlign,
-          ) {
+          ) messageColumn@{
             // Sender row.
             MessageSender(
               message = message,
@@ -316,7 +301,8 @@ fun ChatPanel(
                 var messageBubbleModifier = Modifier
                   .clip(
                     MessageBubbleShape(
-                      radius = bubbleBorderRadius, hardCornerAtLeftOrRight = hardCornerAtLeftOrRight
+                      radius = bubbleBorderRadius,
+                      hardCornerAtLeftOrRight = hardCornerAtLeftOrRight
                     )
                   )
                   .background(backgroundColor)
@@ -340,9 +326,12 @@ fun ChatPanel(
 
                     // Image
                     is ChatMessageImage -> {
-                      MessageBodyImage(message = message, modifier = Modifier.clickable {
-                        selectedImageMessage = message
-                      })
+                      MessageBodyImage(
+                        message = message, modifier = Modifier
+                          .clickable {
+                            onImageSelected(message.bitmap)
+                          }
+                      )
                     }
 
                     // Image with history (for image gen)
@@ -534,47 +523,6 @@ fun ChatPanel(
     }
   }
 
-  // A full-screen image viewer.
-  val curSelectedImageMessage = selectedImageMessage
-  AnimatedVisibility(
-    visible = curSelectedImageMessage != null,
-    enter = fadeIn(),
-    exit = fadeOut(),
-  ) {
-    if (curSelectedImageMessage == null) return@AnimatedVisibility
-
-    ZoomableBox(
-      modifier = Modifier
-        .fillMaxSize()
-        .background(Color.Black.copy(alpha = 0.9f))
-    ) {
-      // Image.
-      Image(
-        bitmap = curSelectedImageMessage.imageBitMap,
-        contentDescription = "",
-        modifier = modifier
-          .fillMaxSize()
-          .graphicsLayer(
-            scaleX = scale, scaleY = scale, translationX = offsetX, translationY = offsetY
-          ),
-        contentScale = ContentScale.Fit,
-      )
-
-      // Close button.
-      IconButton(
-        onClick = {
-          selectedImageMessage = null
-        }, colors = IconButtonDefaults.iconButtonColors(
-          containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ), modifier = Modifier.offset(x = (-8).dp, y = 8.dp)
-      ) {
-        Icon(
-          Icons.Rounded.Close, contentDescription = "", tint = MaterialTheme.colorScheme.primary
-        )
-      }
-    }
-  }
-
   // Error dialog.
   if (showErrorDialog) {
     ErrorDialog(error = modelInitializationStatus?.error ?: "", onDismiss = {
@@ -635,47 +583,6 @@ fun ChatPanel(
 
   }
 }
-
-@Composable
-fun ZoomableBox(
-  modifier: Modifier = Modifier,
-  minScale: Float = 1f,
-  maxScale: Float = 5f,
-  content: @Composable ZoomableBoxScope.() -> Unit
-) {
-  var scale by remember { mutableFloatStateOf(1f) }
-  var offsetX by remember { mutableFloatStateOf(0f) }
-  var offsetY by remember { mutableFloatStateOf(0f) }
-  var size by remember { mutableStateOf(IntSize.Zero) }
-  Box(modifier = modifier
-    .clip(RectangleShape)
-    .onSizeChanged { size = it }
-    .pointerInput(Unit) {
-      detectTransformGestures { _, pan, zoom, _ ->
-        scale = maxOf(minScale, minOf(scale * zoom, maxScale))
-        val maxX = (size.width * (scale - 1)) / 2
-        val minX = -maxX
-        offsetX = maxOf(minX, minOf(maxX, offsetX + pan.x))
-        val maxY = (size.height * (scale - 1)) / 2
-        val minY = -maxY
-        offsetY = maxOf(minY, minOf(maxY, offsetY + pan.y))
-      }
-    }, contentAlignment = Alignment.TopEnd
-  ) {
-    val scope = ZoomableBoxScopeImpl(scale, offsetX, offsetY)
-    scope.content()
-  }
-}
-
-interface ZoomableBoxScope {
-  val scale: Float
-  val offsetX: Float
-  val offsetY: Float
-}
-
-private data class ZoomableBoxScopeImpl(
-  override val scale: Float, override val offsetX: Float, override val offsetY: Float
-) : ZoomableBoxScope
 
 @Preview(showBackground = true)
 @Composable
