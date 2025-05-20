@@ -1,6 +1,22 @@
 {
   "models": [
     {
+      "name": "Gemma-3n-E2B-it-int4",
+      "modelId": "google/gemma-3n-E2B-it-litert-preview",
+      "modelFile": "gemma-3n-E2B-it-int4.task",
+      "description": "Preview version of [Gemma 3n E2B](https://ai.google.dev/gemma/docs/gemma-3n) ready for deployment on Android using the [MediaPipe LLM Inference API](https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference). The current checkpoint only supports text and vision input.",
+      "sizeInBytes": 3136226711,
+      "version": "20250520",
+      "llmSupportImage": true,
+      "defaultConfig": {
+        "topK": 64,
+        "topP": 0.95,
+        "temperature": 1.0,
+        "accelerators": "cpu"
+      },
+      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_ask_image"]
+    },
+    {
       "name": "Gemma3-1B-IT q4",
       "modelId": "litert-community/Gemma3-1B-IT",
       "modelFile": "Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task",
