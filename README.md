@@ -7,10 +7,23 @@
 
 The Google AI Edge Gallery is an experimental app that puts the power of cutting-edge Generative AI models directly into your hands, running entirely on your Android *(available now)* and iOS *(coming soon)* devices. Dive into a world of creative and practical AI use cases, all running locally, without needing an internet connection once the model is loaded. Experiment with different models, chat, ask questions with images, explore prompts, and more!
 
+**Overview**
+<img width="1532" alt="Overview" src="https://github.com/user-attachments/assets/4f2702d7-91a0-4eb3-aa76-58bc8e7089c6" />
+
+**Ask Image**
+<img width="1532" alt="Ask Image" src="https://github.com/user-attachments/assets/e2b5b41b-fed0-4a7c-9547-2abb1c10962c" />
+
+**Prompt Lab**
+<img width="1532" alt="Prompt Lab" src="https://github.com/user-attachments/assets/22e459d0-0365-4a92-8570-fb59d4d1e320" />
+
+**AI Chat**
+<img width="1532" alt="AI Chat" src="https://github.com/user-attachments/assets/edaa4f89-237a-4b84-b647-b3c4631f09dc" />
+
 ## ✨ Core Features
 
 *   **📱 Run Locally, Fully Offline:** Experience the magic of GenAI without an internet connection. All processing happens directly on your device.
 *   **🤖 Choose Your Model:** Easily switch between different models from Hugging Face and compare their performance.
+*   **🖼️ Ask Image:** Upload an image and ask questions about it. Get descriptions, solve problems, or identify objects.
 *   **✍️ Prompt Lab:** Summarize, rewrite, generate code, or use freeform prompts to explore single-turn LLM use cases.
 *   **💬 AI Chat:** Engage in multi-turn conversations.
 *   **📊 Performance Insights:** Real-time benchmarks (TTFT, decode speed, latency).
