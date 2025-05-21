@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery.ui.llmchat
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKey
+import com.google.ai.edge.gallery.data.LabelConfig
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.SegmentedButtonConfig
 import com.google.ai.edge.gallery.data.ValueType
@@ -37,12 +38,9 @@ fun createLlmChatConfigs(
   accelerators: List<Accelerator> = DEFAULT_ACCELERATORS,
 ): List<Config> {
   return listOf(
-    NumberSliderConfig(
+    LabelConfig(
       key = ConfigKey.MAX_TOKENS,
-      sliderMin = 100f,
-      sliderMax = 1024f,
-      defaultValue = defaultMaxToken.toFloat(),
-      valueType = ValueType.INT
+      defaultValue = "$defaultMaxToken",
     ),
     NumberSliderConfig(
       key = ConfigKey.TOPK,

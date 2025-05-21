@@ -38,6 +38,8 @@ import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import com.google.ai.edge.gallery.ui.theme.customColors
 
+private val SIZE = 18.dp
+
 /**
  * Composable function to display an icon representing the download status of a model.
  */
@@ -53,7 +55,7 @@ fun StatusIcon(downloadStatus: ModelDownloadStatus?, modifier: Modifier = Modifi
         Icons.AutoMirrored.Outlined.HelpOutline,
         tint = Color(0xFFCCCCCC),
         contentDescription = "",
-        modifier = Modifier.size(14.dp)
+        modifier = Modifier.size(SIZE)
       )
 
       ModelDownloadStatusType.SUCCEEDED -> {
@@ -61,7 +63,7 @@ fun StatusIcon(downloadStatus: ModelDownloadStatus?, modifier: Modifier = Modifi
           Icons.Filled.DownloadForOffline,
           tint = MaterialTheme.customColors.successColor,
           contentDescription = "",
-          modifier = Modifier.size(14.dp)
+          modifier = Modifier.size(SIZE)
         )
       }
 
@@ -69,13 +71,13 @@ fun StatusIcon(downloadStatus: ModelDownloadStatus?, modifier: Modifier = Modifi
         Icons.Rounded.Error,
         tint = Color(0xFFAA0000),
         contentDescription = "",
-        modifier = Modifier.size(14.dp)
+        modifier = Modifier.size(SIZE)
       )
 
       ModelDownloadStatusType.IN_PROGRESS -> Icon(
         Icons.Rounded.Downloading,
         contentDescription = "",
-        modifier = Modifier.size(14.dp)
+        modifier = Modifier.size(SIZE)
       )
 
       else -> {}

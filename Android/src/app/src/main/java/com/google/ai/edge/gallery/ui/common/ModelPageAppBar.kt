@@ -16,12 +16,14 @@
 
 package com.google.ai.edge.gallery.ui.common
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.MapsUgc
@@ -42,7 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.vectorResource
@@ -68,7 +70,7 @@ fun ModelPageAppBar(
   modifier: Modifier = Modifier,
   isResettingSession: Boolean = false,
   onResetSessionClicked: (Model) -> Unit = {},
-  showResetSessionButton: Boolean = false,
+  canShowResetSessionButton: Boolean = false,
   onConfigChanged: (oldConfigValues: Map<String, Any>, newConfigValues: Map<String, Any>) -> Unit = { _, _ -> },
 ) {
   var showConfigDialog by remember { mutableStateOf(false) }
@@ -96,7 +98,7 @@ fun ModelPageAppBar(
         )
         Text(
           task.type.label,
-          style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+          style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
           color = getTaskIconColor(task = task)
         )
       }
@@ -121,11 +123,12 @@ fun ModelPageAppBar(
     },
     // The config button for the model (if existed).
     actions = {
-      val showConfigButton =
-        model.configs.isNotEmpty() && curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+      val downloadSucceeded = curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+      val showConfigButton = model.configs.isNotEmpty() && downloadSucceeded
+      val showResetSessionButton = canShowResetSessionButton && downloadSucceeded
       Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
         var configButtonOffset = 0.dp
-        if (showConfigButton && showResetSessionButton) {
+        if (showConfigButton && canShowResetSessionButton) {
           configButtonOffset = (-40).dp
         }
         val isModelInitializing =
@@ -138,14 +141,14 @@ fun ModelPageAppBar(
             },
             enabled = enableConfigButton,
             modifier = Modifier
-              .scale(0.75f)
               .offset(x = configButtonOffset)
               .alpha(if (!enableConfigButton) 0.5f else 1f)
           ) {
             Icon(
               imageVector = Icons.Rounded.Tune,
               contentDescription = "",
-              tint = MaterialTheme.colorScheme.primary
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(20.dp)
             )
           }
         }
@@ -164,14 +167,23 @@ fun ModelPageAppBar(
               },
               enabled = enableResetButton,
               modifier = Modifier
-                .scale(0.75f)
                 .alpha(if (!enableResetButton) 0.5f else 1f)
             ) {
-              Icon(
-                imageVector = Icons.Rounded.MapsUgc,
-                contentDescription = "",
-                tint = MaterialTheme.colorScheme.primary
-              )
+              Box(
+                modifier = Modifier
+                  .size(32.dp)
+                  .clip(CircleShape)
+                  .background(MaterialTheme.colorScheme.surfaceContainer),
+                contentAlignment = Alignment.Center
+              ) {
+                Icon(
+                  imageVector = Icons.Rounded.MapsUgc,
+                  contentDescription = "",
+                  tint = MaterialTheme.colorScheme.primary,
+                  modifier = Modifier
+                    .size(20.dp)
+                )
+              }
             }
           }
         }

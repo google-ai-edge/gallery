@@ -102,7 +102,7 @@ fun ModelList(
         Text(
           task.description,
           textAlign = TextAlign.Center,
-          style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+          style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
           modifier = Modifier.fillMaxWidth()
         )
       }
@@ -200,7 +200,7 @@ fun ClickableLink(
     Text(
       text = annotatedText,
       textAlign = TextAlign.Center,
-      style = MaterialTheme.typography.bodySmall,
+      style = MaterialTheme.typography.bodyLarge,
       modifier = Modifier
         .padding(start = 6.dp)
         .clickable {

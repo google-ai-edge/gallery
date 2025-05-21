@@ -79,6 +79,9 @@ val bodySmallNarrow =
 val bodySmallSemiBold =
   baseline.bodySmall.copy(fontFamily = nunitoFontFamily, fontWeight = FontWeight.SemiBold)
 
+val bodyMediumSemiBold =
+  baseline.bodyMedium.copy(fontFamily = nunitoFontFamily, fontWeight = FontWeight.SemiBold)
+
 val bodySmallMediumNarrow =
   baseline.bodySmall.copy(fontFamily = nunitoFontFamily, letterSpacing = 0.0.sp, fontSize = 14.sp)
 

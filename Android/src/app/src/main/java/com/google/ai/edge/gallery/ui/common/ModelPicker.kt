@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.ui.common
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +37,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.vectorResource
@@ -83,6 +86,7 @@ fun ModelPicker(
 
     // Model list.
     for (model in task.models) {
+      val selected = model.name == modelManagerUiState.selectedModel.name
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -91,12 +95,16 @@ fun ModelPicker(
           .clickable {
             onModelSelected(model)
           }
+          .background(if (selected) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent)
           .padding(horizontal = 16.dp, vertical = 8.dp),
       ) {
         Spacer(modifier = Modifier.width(24.dp))
         Column(modifier = Modifier.weight(1f)) {
           Text(model.name, style = MaterialTheme.typography.bodyMedium)
-          Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+          Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+          ) {
             StatusIcon(downloadStatus = modelManagerUiState.modelDownloadStatus[model.name])
             Text(
               model.sizeInBytes.humanReadableSize(),
@@ -105,9 +113,9 @@ fun ModelPicker(
             )
           }
         }
-        if (model.name == modelManagerUiState.selectedModel.name) {
+        if (selected) {
           Icon(
-            Icons.Outlined.CheckCircle,
+            Icons.Filled.CheckCircle,
             modifier = Modifier.size(16.dp),
             contentDescription = ""
           )

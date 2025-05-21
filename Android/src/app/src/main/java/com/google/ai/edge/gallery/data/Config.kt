@@ -89,7 +89,7 @@ class NumberSliderConfig(
     type = ConfigEditorType.NUMBER_SLIDER,
     key = key,
     defaultValue = defaultValue,
-    valueType = valueType
+    valueType = valueType,
   )
 
 /**

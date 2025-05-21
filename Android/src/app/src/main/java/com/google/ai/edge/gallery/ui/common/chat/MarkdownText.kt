@@ -44,12 +44,12 @@ fun MarkdownText(
   smallFontSize: Boolean = false
 ) {
   val fontSize =
-    if (smallFontSize) MaterialTheme.typography.bodySmall.fontSize else MaterialTheme.typography.bodyMedium.fontSize
+    if (smallFontSize) MaterialTheme.typography.bodyMedium.fontSize else MaterialTheme.typography.bodyLarge.fontSize
   CompositionLocalProvider {
     ProvideTextStyle(
       value = TextStyle(
         fontSize = fontSize,
-        lineHeight = fontSize * 1.4,
+        lineHeight = fontSize * 1.3,
       )
     ) {
       RichText(

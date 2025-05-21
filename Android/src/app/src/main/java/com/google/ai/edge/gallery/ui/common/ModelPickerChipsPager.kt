@@ -130,8 +130,8 @@ fun ModelPickerChipsPager(
               showModelPicker = true
             }
             .padding(start = 8.dp, end = 2.dp)
-            .padding(vertical = 1.dp)) Inner@{
-          Box(contentAlignment = Alignment.Center, modifier = Modifier.size(18.dp)) {
+            .padding(vertical = 4.dp)) Inner@{
+          Box(contentAlignment = Alignment.Center, modifier = Modifier.size(21.dp)) {
             StatusIcon(downloadStatus = modelManagerUiState.modelDownloadStatus[model.name])
             this@Inner.AnimatedVisibility(
               visible = modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING,
@@ -141,7 +141,7 @@ fun ModelPickerChipsPager(
               // Circular progress indicator.
               CircularProgressIndicator(
                 modifier = Modifier
-                  .size(17.dp)
+                  .size(24.dp)
                   .alpha(0.5f),
                 strokeWidth = 2.dp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -150,7 +150,7 @@ fun ModelPickerChipsPager(
           }
           Text(
             model.name,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelLarge,
             modifier = Modifier
               .padding(start = 4.dp)
               .widthIn(0.dp, screenWidthDp - 250.dp),

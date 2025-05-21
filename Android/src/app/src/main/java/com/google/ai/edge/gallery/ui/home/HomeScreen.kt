@@ -387,7 +387,7 @@ private fun TaskList(
         Text(
           introText,
           textAlign = TextAlign.Center,
-          style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+          style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
           modifier = Modifier.padding(bottom = 20.dp)
         )
       }

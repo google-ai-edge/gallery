@@ -84,27 +84,31 @@ object LlmChatModelHelper {
   }
 
   fun resetSession(model: Model) {
-    Log.d(TAG, "Resetting session for model '${model.name}'")
+    try {
+      Log.d(TAG, "Resetting session for model '${model.name}'")
 
-    val instance = model.instance as LlmModelInstance? ?: return
-    val session = instance.session
-    session.close()
+      val instance = model.instance as LlmModelInstance? ?: return
+      val session = instance.session
+      session.close()
 
-    val inference = instance.engine
-    val topK = model.getIntConfigValue(key = ConfigKey.TOPK, defaultValue = DEFAULT_TOPK)
-    val topP = model.getFloatConfigValue(key = ConfigKey.TOPP, defaultValue = DEFAULT_TOPP)
-    val temperature =
-      model.getFloatConfigValue(key = ConfigKey.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
-    val newSession = LlmInferenceSession.createFromOptions(
-      inference,
-      LlmInferenceSession.LlmInferenceSessionOptions.builder().setTopK(topK).setTopP(topP)
-        .setTemperature(temperature)
-        .setGraphOptions(
-          GraphOptions.builder().setEnableVisionModality(model.llmSupportImage).build()
-        ).build()
-    )
-    instance.session = newSession
-    Log.d(TAG, "Resetting done")
+      val inference = instance.engine
+      val topK = model.getIntConfigValue(key = ConfigKey.TOPK, defaultValue = DEFAULT_TOPK)
+      val topP = model.getFloatConfigValue(key = ConfigKey.TOPP, defaultValue = DEFAULT_TOPP)
+      val temperature =
+        model.getFloatConfigValue(key = ConfigKey.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
+      val newSession = LlmInferenceSession.createFromOptions(
+        inference,
+        LlmInferenceSession.LlmInferenceSessionOptions.builder().setTopK(topK).setTopP(topP)
+          .setTemperature(temperature)
+          .setGraphOptions(
+            GraphOptions.builder().setEnableVisionModality(model.llmSupportImage).build()
+          ).build()
+      )
+      instance.session = newSession
+      Log.d(TAG, "Resetting done")
+    } catch (e: Exception) {
+      Log.d(TAG, "Failed to reset session", e)
+    }
   }
 
   fun cleanUp(model: Model) {
@@ -114,7 +118,7 @@ object LlmChatModelHelper {
 
     val instance = model.instance as LlmModelInstance
     try {
-      instance.session.close()
+      // This will also close the session. Do not call session.close manually.
       instance.engine.close()
     } catch (e: Exception) {
       // ignore

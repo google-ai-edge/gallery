@@ -23,10 +23,18 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.camera.core.CameraControl
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.lifecycle.awaitInstance
+import androidx.camera.view.LifecycleCameraController
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,6 +44,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -53,16 +62,21 @@ import androidx.compose.material.icons.rounded.Photo
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PostAdd
 import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,18 +87,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.focusModifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.ui.common.createTempPictureUri
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+import java.util.concurrent.Executors
 
 /**
  * Composable function to display a text input field for composing chat messages.
@@ -92,6 +111,7 @@ import com.google.ai.edge.gallery.ui.theme.GalleryTheme
  * This function renders a row containing a text field for message input and a send button.
  * It handles message composition, input validation, and sending messages.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessageInputText(
   modelManagerViewModel: ModelManagerViewModel,
@@ -114,6 +134,8 @@ fun MessageInputText(
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   var showAddContentMenu by remember { mutableStateOf(false) }
   var showTextInputHistorySheet by remember { mutableStateOf(false) }
+  var showCameraCaptureBottomSheet by remember { mutableStateOf(false) }
+  var cameraCaptureSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   var tempPhotoUri by remember { mutableStateOf(value = Uri.EMPTY) }
   var pickedImages by remember { mutableStateOf<List<Bitmap>>(listOf()) }
   val updatePickedImages: (Bitmap) -> Unit = { bitmap ->
@@ -145,6 +167,7 @@ fun MessageInputText(
     if (permissionGranted) {
       showAddContentMenu = false
       tempPhotoUri = context.createTempPictureUri()
+//      showCameraCaptureBottomSheet = true
       cameraLauncher.launch(tempPhotoUri)
     }
   }
@@ -241,6 +264,7 @@ fun MessageInputText(
                 ) -> {
                   showAddContentMenu = false
                   tempPhotoUri = context.createTempPictureUri()
+//                  showCameraCaptureBottomSheet = true
                   cameraLauncher.launch(tempPhotoUri)
                 }
 
@@ -313,7 +337,7 @@ fun MessageInputText(
           disabledIndicatorColor = Color.Transparent,
           disabledContainerColor = Color.Transparent,
         ),
-        textStyle = MaterialTheme.typography.bodyMedium,
+        textStyle = MaterialTheme.typography.bodyLarge,
         modifier = Modifier
           .weight(1f)
           .padding(start = 36.dp),
@@ -378,6 +402,90 @@ fun MessageInputText(
       onHistoryItemsDeleteAll = {
         modelManagerViewModel.clearTextInputHistory()
       })
+  }
+
+  if (showCameraCaptureBottomSheet) {
+    ModalBottomSheet(
+      sheetState = cameraCaptureSheetState,
+      onDismissRequest = { showCameraCaptureBottomSheet = false }) {
+      val lifecycleOwner = LocalLifecycleOwner.current
+      val previewUseCase = remember { androidx.camera.core.Preview.Builder().build() }
+      val imageCaptureUseCase = remember { ImageCapture.Builder().build() }
+      var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+      var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
+      val localContext = LocalContext.current
+
+      val executor = remember { Executors.newSingleThreadExecutor() }
+      val capturedImageUri = remember { mutableStateOf<Uri?>(null) }
+
+      fun rebindCameraProvider() {
+        cameraProvider?.let { cameraProvider ->
+          val cameraSelector = CameraSelector.Builder()
+            .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
+            .build()
+          cameraProvider.unbindAll()
+          val camera = cameraProvider.bindToLifecycle(
+            lifecycleOwner = lifecycleOwner,
+            cameraSelector = cameraSelector,
+            previewUseCase,
+            imageCaptureUseCase
+          )
+          cameraControl = camera.cameraControl
+        }
+      }
+
+      LaunchedEffect(Unit) {
+        cameraProvider = ProcessCameraProvider.awaitInstance(localContext)
+        rebindCameraProvider()
+      }
+
+//      val cameraController = remember {
+//        LifecycleCameraController(context).apply {
+//          bindToLifecycle(lifecycleOwner)
+//        }
+//      }
+
+      Box(modifier = Modifier.fillMaxSize()) {
+        // PreviewView for the camera feed.
+        AndroidView(
+          modifier = Modifier.fillMaxSize(),
+          factory = { ctx ->
+            PreviewView(context).also {
+              previewUseCase.surfaceProvider = it.surfaceProvider
+              rebindCameraProvider()
+            }
+//            PreviewView(ctx).apply {
+//              scaleType = PreviewView.ScaleType.FILL_START
+//              implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+//              controller = cameraController // Attach the lifecycle-aware camera controller.
+//            }
+          },
+//          onRelease = {
+//            // Called when the PreviewView is removed from the composable hierarchy
+//            cameraController.unbind() // Unbinds the camera to free up resources
+//          }
+        )
+        // Button that triggers the image capture process
+        IconButton(
+          colors = IconButtonDefaults.iconButtonColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+          ),
+          modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .padding(bottom = 32.dp)
+            .size(64.dp),
+          onClick = {
+          },
+        ) {
+          Icon(
+            Icons.Rounded.PhotoCamera,
+            contentDescription = "",
+            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+            modifier = Modifier.size(36.dp)
+          )
+        }
+      }
+    }
   }
 }
 

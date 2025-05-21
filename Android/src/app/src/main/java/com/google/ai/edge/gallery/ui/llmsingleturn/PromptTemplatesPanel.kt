@@ -241,7 +241,7 @@ fun PromptTemplatesPanel(
                 disabledIndicatorColor = Color.Transparent,
                 disabledContainerColor = Color.Transparent,
               ),
-              textStyle = MaterialTheme.typography.bodyMedium,
+              textStyle = MaterialTheme.typography.bodyLarge,
               placeholder = { Text("Enter content") },
               modifier = Modifier
                 .padding(bottom = 40.dp)

@@ -80,6 +80,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.TaskType
@@ -267,7 +268,7 @@ fun ChatPanel(
             // Sender row.
             MessageSender(
               message = message,
-              agentNameRes = task.agentNameRes,
+              agentName = stringResource(task.agentNameRes),
               imageHistoryCurIndex = imageHistoryCurIndex.intValue
             )
 

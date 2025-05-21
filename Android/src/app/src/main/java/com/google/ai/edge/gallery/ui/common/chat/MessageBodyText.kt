@@ -38,7 +38,7 @@ fun MessageBodyText(message: ChatMessageText) {
   if (message.side == ChatSide.USER) {
     Text(
       message.content,
-      style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+      style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
       color = Color.White,
       modifier = Modifier.padding(12.dp)
     )

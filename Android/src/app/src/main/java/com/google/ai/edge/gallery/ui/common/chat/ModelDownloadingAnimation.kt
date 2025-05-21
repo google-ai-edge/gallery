@@ -226,7 +226,7 @@ fun ModelDownloadingAnimation(
         Text(
           sizeLabel,
           color = MaterialTheme.colorScheme.secondary,
-          style = labelSmallNarrow.copy(fontSize = 9.sp, lineHeight = 10.sp),
+          style = MaterialTheme.typography.labelMedium,
           textAlign = TextAlign.Center,
           overflow = TextOverflow.Visible,
           modifier = Modifier
@@ -266,7 +266,7 @@ fun ModelDownloadingAnimation(
         "Feel free to switch apps or lock your device.\n"
             + "The download will continue in the background.\n"
             + "We'll send a notification when it's done.",
-        style = MaterialTheme.typography.bodyMedium,
+        style = MaterialTheme.typography.bodyLarge,
         textAlign = TextAlign.Center
       )
     }

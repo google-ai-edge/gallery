@@ -174,7 +174,7 @@ fun ChatView(
       task = task,
       model = selectedModel,
       modelManagerViewModel = modelManagerViewModel,
-      showResetSessionButton = true,
+      canShowResetSessionButton = true,
       isResettingSession = uiState.isResettingSession,
       inProgress = uiState.inProgress,
       modelPreparing = uiState.preparing,

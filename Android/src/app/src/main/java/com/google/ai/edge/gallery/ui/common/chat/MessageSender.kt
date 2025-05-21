@@ -17,7 +17,6 @@
 package com.google.ai.edge.gallery.ui.common.chat
 
 import android.graphics.Bitmap
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import com.google.ai.edge.gallery.ui.theme.bodySmallNarrow
-import com.google.ai.edge.gallery.ui.theme.bodySmallSemiBold
 
 data class MessageLayoutConfig(
   val horizontalArrangement: Arrangement.Horizontal,
@@ -56,7 +54,9 @@ data class MessageLayoutConfig(
  */
 @Composable
 fun MessageSender(
-  message: ChatMessage, @StringRes agentNameRes: Int, imageHistoryCurIndex: Int = 0
+  message: ChatMessage,
+  agentName: String = "",
+  imageHistoryCurIndex: Int = 0
 ) {
   // No user label for system messages.
   if (message.side == ChatSide.SYSTEM) {
@@ -64,7 +64,7 @@ fun MessageSender(
   }
 
   val (horizontalArrangement, modifier, userLabel, rightSideLabel) = getMessageLayoutConfig(
-    message = message, agentNameRes = agentNameRes, imageHistoryCurIndex = imageHistoryCurIndex
+    message = message, agentName = agentName, imageHistoryCurIndex = imageHistoryCurIndex
   )
 
   Row(
@@ -76,7 +76,7 @@ fun MessageSender(
       // Sender label.
       Text(
         userLabel,
-        style = bodySmallSemiBold,
+        style = MaterialTheme.typography.titleSmall,
       )
 
       when (message) {
@@ -152,7 +152,7 @@ fun MessageSender(
 @Composable
 private fun getMessageLayoutConfig(
   message: ChatMessage,
-  @StringRes agentNameRes: Int,
+  agentName: String,
   imageHistoryCurIndex: Int,
 ): MessageLayoutConfig {
   var userLabel = stringResource(R.string.chat_you)
@@ -161,7 +161,7 @@ private fun getMessageLayoutConfig(
   var modifier = Modifier.padding(bottom = 2.dp)
 
   if (message.side == ChatSide.AGENT) {
-    userLabel = stringResource(agentNameRes)
+    userLabel = agentName
   }
 
   when (message) {
@@ -207,12 +207,12 @@ fun MessageSenderPreview() {
       // Agent message.
       MessageSender(
         message = ChatMessageText(content = "hello world", side = ChatSide.AGENT),
-        agentNameRes = R.string.chat_generic_agent_name
+        agentName = stringResource(R.string.chat_generic_agent_name)
       )
       // User message.
       MessageSender(
         message = ChatMessageText(content = "hello world", side = ChatSide.USER),
-        agentNameRes = R.string.chat_generic_agent_name
+        agentName = stringResource(R.string.chat_generic_agent_name)
       )
       // Benchmark during warmup.
       MessageSender(
@@ -225,7 +225,8 @@ fun MessageSenderPreview() {
           warmupTotal = 50,
           iterationCurrent = 0,
           iterationTotal = 200
-        ), agentNameRes = R.string.chat_generic_agent_name
+        ),
+        agentName = stringResource(R.string.chat_generic_agent_name)
       )
       // Benchmark during running.
       MessageSender(
@@ -238,7 +239,8 @@ fun MessageSenderPreview() {
           warmupTotal = 50,
           iterationCurrent = 123,
           iterationTotal = 200
-        ), agentNameRes = R.string.chat_generic_agent_name
+        ),
+        agentName = stringResource(R.string.chat_generic_agent_name)
       )
       // Image generation during running.
       MessageSender(
@@ -248,7 +250,7 @@ fun MessageSenderPreview() {
           totalIterations = 10,
           ChatSide.AGENT
         ),
-        agentNameRes = R.string.chat_generic_agent_name,
+        agentName = stringResource(R.string.chat_generic_agent_name),
         imageHistoryCurIndex = 4,
       )
     }

@@ -209,7 +209,7 @@ enum class ConfigKey(val label: String) {
   SUPPORT_IMAGE("Support image"),
   MAX_RESULT_COUNT("Max result count"),
   USE_GPU("Use GPU"),
-  ACCELERATOR("Accelerator"),
+  ACCELERATOR("Choose accelerator"),
   COMPATIBLE_ACCELERATORS("Compatible accelerators"),
   WARM_UP_ITERATIONS("Warm up iterations"),
   BENCHMARK_ITERATIONS("Benchmark iterations"),
