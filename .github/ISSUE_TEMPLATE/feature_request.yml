@@ -1,0 +1,22 @@
+name: Feature request
+description: Use this template to suggest a new feature
+labels: ["type:feature request"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+  - type: textarea
+    id: description
+    attributes:
+      label: >
+        Description of the feature request:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: >
+        What problem are you trying to solve with this feature?
+  - type: textarea
+    id: info
+    attributes:
+      label: >
+        Any other information you'd like to share?
