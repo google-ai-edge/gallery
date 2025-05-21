@@ -1,0 +1,22 @@
+name: Bug report
+description: Use this template to report bugs
+labels: ["type:bug"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+  - type: textarea
+    id: description
+    attributes:
+      label: >
+        Description of the bug:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: >
+        Actual vs expected behavior:
+  - type: textarea
+    id: info
+    attributes:
+      label: >
+        Any other information you'd like to share?
