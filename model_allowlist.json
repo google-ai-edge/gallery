@@ -61,7 +61,39 @@
         "topK": 40,
         "topP": 0.95,
         "temperature": 1.0,
-        "maxTokens": 1024,
+        "maxTokens": 1280,
+        "accelerators": "gpu,cpu"
+      },
+      "taskTypes": ["llm_chat", "llm_prompt_lab"]
+    },
+    {
+      "name": "Hammer2.1-1.5b q8",
+      "modelId": "litert-community/Hammer2.1-1.5b",
+      "modelFile": "Hammer2.1-1.5b_multi-prefill-seq_q8_ekv1280.task",
+      "description": "Hammer 2.1 model with strong function calling capability. These models are based on the Qwen 2.5 coder series and utilize function masking techniques and other advanced technologies. Hammer 2.1 series bring significant enhancements, while still maintaining the basic functionality of Hammer 2.0's Single-Turn interaction and further strengthening other capabilities.",
+      "sizeInBytes": 1625493432,
+      "version": "4e4a594e06ead9ad93e5a09a60eeea932561136cef0edd572d258144b42de6a2",
+      "defaultConfig": {
+        "topK": 40,
+        "topP": 0.95,
+        "temperature": 0.0,
+        "maxTokens": 1280,
+        "accelerators": "gpu,cpu"
+      },
+      "taskTypes": ["llm_chat", "llm_prompt_lab"]
+    },
+    {
+      "name": "Phi-4-mini-instruct q8",
+      "modelId": "litert-community/Phi-4-mini-instruct",
+      "modelFile": "Phi-4-mini-instruct_multi-prefill-seq_q8_ekv1280.task",
+      "description": "Phi-4-mini-instruct is a lightweight open model built upon synthetic data and filtered publicly available websites - with a focus on high-quality, reasoning dense data. The model belongs to the Phi-4 model family and supports 128K token context length.",
+      "sizeInBytes": 3944275882,
+      "version": "e494f9e827fbf47ac271d67dde77308f4a7683ad1ff630ab5bec926f17573b5f",
+      "defaultConfig": {
+        "topK": 40,
+        "topP": 0.95,
+        "temperature": 0.0,
+        "maxTokens": 1280,
         "accelerators": "cpu"
       },
       "taskTypes": ["llm_chat", "llm_prompt_lab"]
