@@ -23,6 +23,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -75,9 +76,11 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -103,6 +106,8 @@ import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
+
+private const val TAG = "AGMessageInputText"
 
 /**
  * Composable function to display a text input field for composing chat messages.
@@ -135,7 +140,7 @@ fun MessageInputText(
   var showAddContentMenu by remember { mutableStateOf(false) }
   var showTextInputHistorySheet by remember { mutableStateOf(false) }
   var showCameraCaptureBottomSheet by remember { mutableStateOf(false) }
-  var cameraCaptureSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+  val cameraCaptureSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   var tempPhotoUri by remember { mutableStateOf(value = Uri.EMPTY) }
   var pickedImages by remember { mutableStateOf<List<Bitmap>>(listOf()) }
   val updatePickedImages: (Bitmap) -> Unit = { bitmap ->
@@ -150,21 +155,6 @@ fun MessageInputText(
     checkFrontCamera(context = context, callback = { hasFrontCamera = it })
   }
 
-  // launches camera
-  val cameraLauncher =
-    rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { isImageSaved ->
-      if (isImageSaved) {
-        handleImageSelected(
-          context = context,
-          uri = tempPhotoUri,
-          onImageSelected = { bitmap ->
-            updatePickedImages(bitmap)
-          },
-          rotateForPortrait = true,
-        )
-      }
-    }
-
   // Permission request when taking picture.
   val takePicturePermissionLauncher = rememberLauncherForActivityResult(
     ActivityResultContracts.RequestPermission()
@@ -173,7 +163,6 @@ fun MessageInputText(
       showAddContentMenu = false
       tempPhotoUri = context.createTempPictureUri()
       showCameraCaptureBottomSheet = true
-//      cameraLauncher.launch(tempPhotoUri)
     }
   }
 
@@ -270,7 +259,6 @@ fun MessageInputText(
                   showAddContentMenu = false
                   tempPhotoUri = context.createTempPictureUri()
                   showCameraCaptureBottomSheet = true
-//                  cameraLauncher.launch(tempPhotoUri)
                 }
 
                 // Otherwise, ask for permission
@@ -420,24 +408,26 @@ fun MessageInputText(
       var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
       var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
       val localContext = LocalContext.current
-      var cameraSide by remember { mutableStateOf(CameraSelector.LENS_FACING_BACK) }
-
+      var cameraSide by remember { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
       val executor = remember { Executors.newSingleThreadExecutor() }
-      val capturedImageUri = remember { mutableStateOf<Uri?>(null) }
 
       fun rebindCameraProvider() {
         cameraProvider?.let { cameraProvider ->
           val cameraSelector = CameraSelector.Builder()
             .requireLensFacing(cameraSide)
             .build()
-          cameraProvider.unbindAll()
-          val camera = cameraProvider.bindToLifecycle(
-            lifecycleOwner = lifecycleOwner,
-            cameraSelector = cameraSelector,
-            previewUseCase,
-            imageCaptureUseCase
-          )
-          cameraControl = camera.cameraControl
+          try {
+            cameraProvider.unbindAll()
+            val camera = cameraProvider.bindToLifecycle(
+              lifecycleOwner = lifecycleOwner,
+              cameraSelector = cameraSelector,
+              previewUseCase,
+              imageCaptureUseCase
+            )
+            cameraControl = camera.cameraControl
+          } catch (e: Exception) {
+            Log.d(TAG, "Failed to bind camera", e)
+          }
         }
       }
 
@@ -450,31 +440,25 @@ fun MessageInputText(
         rebindCameraProvider()
       }
 
-//      val cameraController = remember {
-//        LifecycleCameraController(context).apply {
-//          bindToLifecycle(lifecycleOwner)
-//        }
-//      }
+      DisposableEffect(Unit) { // Or key on lifecycleOwner if it makes more sense
+        onDispose {
+          cameraProvider?.unbindAll() // Unbind all use cases from the camera provider
+          if (!executor.isShutdown) {
+            executor.shutdown()     // Shut down the executor service
+          }
+        }
+      }
 
       Box(modifier = Modifier.fillMaxSize()) {
         // PreviewView for the camera feed.
         AndroidView(
           modifier = Modifier.fillMaxSize(),
           factory = { ctx ->
-            PreviewView(context).also {
+            PreviewView(ctx).also {
               previewUseCase.surfaceProvider = it.surfaceProvider
               rebindCameraProvider()
             }
-//            PreviewView(ctx).apply {
-//              scaleType = PreviewView.ScaleType.FILL_START
-//              implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-//              controller = cameraController // Attach the lifecycle-aware camera controller.
-//            }
           },
-//          onRelease = {
-//            // Called when the PreviewView is removed from the composable hierarchy
-//            cameraController.unbind() // Unbinds the camera to free up resources
-//          }
         )
 
         // Close button.
@@ -508,9 +492,9 @@ fun MessageInputText(
             .size(64.dp)
             .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape),
           onClick = {
-            scope.launch {
-              val callback = object : ImageCapture.OnImageCapturedCallback() {
-                override fun onCaptureSuccess(image: ImageProxy) {
+            val callback = object : ImageCapture.OnImageCapturedCallback() {
+              override fun onCaptureSuccess(image: ImageProxy) {
+                try {
                   var bitmap = image.toBitmap()
                   val rotation = image.imageInfo.rotationDegrees
                   bitmap = if (rotation != 0) {
@@ -520,13 +504,18 @@ fun MessageInputText(
                     Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
                   } else bitmap
                   updatePickedImages(bitmap)
+                } catch (e: Exception) {
+                  Log.e(TAG, "Failed to process image", e)
+                } finally {
                   image.close()
+                  scope.launch {
+                    cameraCaptureSheetState.hide()
+                    showCameraCaptureBottomSheet = false
+                  }
                 }
               }
-              imageCaptureUseCase.takePicture(executor, callback)
-              cameraCaptureSheetState.hide()
-              showCameraCaptureBottomSheet = false
             }
+            imageCaptureUseCase.takePicture(executor, callback)
           },
         ) {
           Icon(
