@@ -24,6 +24,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import android.util.Log
+import android.util.Size
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,6 +33,9 @@ import androidx.camera.core.CameraControl
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageProxy
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.lifecycle.awaitInstance
 import androidx.camera.view.PreviewView
@@ -404,7 +408,20 @@ fun MessageInputText(
 
       val lifecycleOwner = LocalLifecycleOwner.current
       val previewUseCase = remember { androidx.camera.core.Preview.Builder().build() }
-      val imageCaptureUseCase = remember { ImageCapture.Builder().build() }
+      val imageCaptureUseCase = remember {
+        // Try to limit the image size.
+        val preferredSize = Size(512, 512)
+        val resolutionStrategy = ResolutionStrategy(
+          preferredSize,
+          ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+        )
+        val resolutionSelector = ResolutionSelector.Builder()
+          .setResolutionStrategy(resolutionStrategy)
+          .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+          .build()
+
+        ImageCapture.Builder().setResolutionSelector(resolutionSelector).build()
+      }
       var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
       var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
       val localContext = LocalContext.current
@@ -501,6 +518,7 @@ fun MessageInputText(
                     val matrix = Matrix().apply {
                       postRotate(rotation.toFloat())
                     }
+                    Log.d(TAG, "image size: ${bitmap.width}, ${bitmap.height}")
                     Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
                   } else bitmap
                   updatePickedImages(bitmap)
@@ -590,7 +608,7 @@ private fun rotateImageIfNecessary(bitmap: Bitmap, rotateForPortrait: Boolean = 
 
 private fun checkFrontCamera(context: Context, callback: (Boolean) -> Unit) {
   val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-  cameraProviderFuture.addListener(Runnable {
+  cameraProviderFuture.addListener({
     val cameraProvider = cameraProviderFuture.get()
     try {
       // Attempt to select the default front camera
