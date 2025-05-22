@@ -80,7 +80,6 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.TaskType
@@ -266,9 +265,13 @@ fun ChatPanel(
             horizontalAlignment = hAlign,
           ) messageColumn@{
             // Sender row.
+            var agentName = stringResource(task.agentNameRes)
+            if (message.accelerator.isNotEmpty()) {
+              agentName = "$agentName on ${message.accelerator}"
+            }
             MessageSender(
               message = message,
-              agentName = stringResource(task.agentNameRes),
+              agentName = agentName,
               imageHistoryCurIndex = imageHistoryCurIndex.intValue
             )
 

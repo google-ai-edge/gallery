@@ -141,6 +141,7 @@ open class ChatViewModel(val task: Task) : ViewModel() {
           content = newContent,
           side = lastMessage.side,
           latencyMs = latencyMs,
+          accelerator = lastMessage.accelerator,
         )
         newMessages.removeAt(newMessages.size - 1)
         newMessages.add(newLastMessage)

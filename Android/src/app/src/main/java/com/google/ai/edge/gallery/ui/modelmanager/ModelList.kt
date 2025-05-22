@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Description
@@ -91,11 +92,14 @@ fun ModelList(
     }
   }
 
+  val listState = rememberLazyListState()
+
   Box(contentAlignment = Alignment.BottomEnd) {
     LazyColumn(
       modifier = modifier.padding(top = 8.dp),
       contentPadding = contentPadding,
       verticalArrangement = Arrangement.spacedBy(8.dp),
+      state = listState,
     ) {
       // Headline.
       item(key = "headline") {
@@ -103,7 +107,9 @@ fun ModelList(
           task.description,
           textAlign = TextAlign.Center,
           style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-          modifier = Modifier.fillMaxWidth()
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
         )
       }
 

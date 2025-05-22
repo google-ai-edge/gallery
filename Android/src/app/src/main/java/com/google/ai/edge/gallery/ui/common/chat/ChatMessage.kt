@@ -44,7 +44,10 @@ data class Classification(val label: String, val score: Float, val color: Color)
 
 /** Base class for a chat message. */
 open class ChatMessage(
-  open val type: ChatMessageType, open val side: ChatSide, open val latencyMs: Float = -1f
+  open val type: ChatMessageType,
+  open val side: ChatSide,
+  open val latencyMs: Float = -1f,
+  open val accelerator: String = "",
 ) {
   open fun clone(): ChatMessage {
     return ChatMessage(type = type, side = side, latencyMs = latencyMs)
@@ -52,7 +55,8 @@ open class ChatMessage(
 }
 
 /** Chat message for showing loading status. */
-class ChatMessageLoading : ChatMessage(type = ChatMessageType.LOADING, side = ChatSide.AGENT)
+class ChatMessageLoading(override val accelerator: String = "") :
+  ChatMessage(type = ChatMessageType.LOADING, side = ChatSide.AGENT, accelerator = accelerator)
 
 /** Chat message for info (help). */
 class ChatMessageInfo(val content: String) :
@@ -79,12 +83,19 @@ open class ChatMessageText(
 
   // Benchmark result for LLM response.
   var llmBenchmarkResult: ChatMessageBenchmarkLlmResult? = null,
-) : ChatMessage(type = ChatMessageType.TEXT, side = side, latencyMs = latencyMs) {
+  override val accelerator: String = "",
+) : ChatMessage(
+  type = ChatMessageType.TEXT,
+  side = side,
+  latencyMs = latencyMs,
+  accelerator = accelerator
+) {
   override fun clone(): ChatMessageText {
     return ChatMessageText(
       content = content,
       side = side,
       latencyMs = latencyMs,
+      accelerator = accelerator,
       isMarkdown = isMarkdown,
       llmBenchmarkResult = llmBenchmarkResult,
     )
@@ -168,10 +179,12 @@ class ChatMessageBenchmarkLlmResult(
   val statValues: MutableMap<String, Float>,
   val running: Boolean,
   override val latencyMs: Float = 0f,
+  override val accelerator: String = "",
 ) : ChatMessage(
   type = ChatMessageType.BENCHMARK_LLM_RESULT,
   side = ChatSide.AGENT,
-  latencyMs = latencyMs
+  latencyMs = latencyMs,
+  accelerator = accelerator,
 )
 
 data class Histogram(

@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.data
 
 // Keys used to send/receive data to Work.
 const val KEY_MODEL_URL = "KEY_MODEL_URL"
+const val KEY_MODEL_NAME = "KEY_MODEL_NAME"
 const val KEY_MODEL_VERSION = "KEY_MODEL_VERSION"
 const val KEY_MODEL_DOWNLOAD_MODEL_DIR = "KEY_MODEL_DOWNLOAD_MODEL_DIR"
 const val KEY_MODEL_DOWNLOAD_FILE_NAME = "KEY_MODEL_DOWNLOAD_FILE_NAME"

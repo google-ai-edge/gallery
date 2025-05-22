@@ -16,10 +16,16 @@
 
 package com.google.ai.edge.gallery.worker
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.Data
+import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_APP_TS
@@ -32,6 +38,7 @@ import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_REMAINING_MS
 import com.google.ai.edge.gallery.data.KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES
 import com.google.ai.edge.gallery.data.KEY_MODEL_EXTRA_DATA_URLS
 import com.google.ai.edge.gallery.data.KEY_MODEL_IS_ZIP
+import com.google.ai.edge.gallery.data.KEY_MODEL_NAME
 import com.google.ai.edge.gallery.data.KEY_MODEL_START_UNZIPPING
 import com.google.ai.edge.gallery.data.KEY_MODEL_TOTAL_BYTES
 import com.google.ai.edge.gallery.data.KEY_MODEL_UNZIPPED_DIR
@@ -57,14 +64,40 @@ data class UrlAndFileName(
   val fileName: String,
 )
 
+private const val FOREGROUND_NOTIFICATION_CHANNEL_ID = "model_download_channel_foreground"
+private var channelCreated = false
+
 class DownloadWorker(context: Context, params: WorkerParameters) :
   CoroutineWorker(context, params) {
   private val externalFilesDir = context.getExternalFilesDir(null)
+
+  private val notificationManager =
+    context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+  // Unique notification id.
+  private val notificationId: Int = params.id.hashCode()
+
+  init {
+    if (!channelCreated) {
+      // Create a notification channel for showing notifications for model downloading progress.
+      val channel = NotificationChannel(
+        FOREGROUND_NOTIFICATION_CHANNEL_ID,
+        "Model Downloading",
+        // Make it silent.
+        NotificationManager.IMPORTANCE_LOW
+      ).apply {
+        description = "Notifications for model downloading"
+      }
+      notificationManager.createNotificationChannel(channel)
+      channelCreated = true
+    }
+  }
 
   override suspend fun doWork(): Result {
     val appTs = readLaunchInfo(context = applicationContext)?.ts ?: 0
 
     val fileUrl = inputData.getString(KEY_MODEL_URL)
+    val modelName = inputData.getString(KEY_MODEL_NAME) ?: "Model"
     val version = inputData.getString(KEY_MODEL_VERSION)!!
     val fileName = inputData.getString(KEY_MODEL_DOWNLOAD_FILE_NAME)
     val modelDir = inputData.getString(KEY_MODEL_DOWNLOAD_MODEL_DIR)!!
@@ -87,6 +120,9 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
         Result.failure()
       } else {
         return@withContext try {
+          // Set the worker as a foreground service immediately.
+          setForeground(createForegroundInfo(progress = 0, modelName = modelName))
+
           // Collect data for all files.
           val allFiles: MutableList<UrlAndFileName> = mutableListOf()
           allFiles.add(UrlAndFileName(url = fileUrl, fileName = fileName))
@@ -206,6 +242,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                     KEY_MODEL_DOWNLOAD_REMAINING_MS, remainingMs.toLong()
                   ).build()
                 )
+                setForeground(
+                  createForegroundInfo(
+                    progress = (downloadedBytes * 100 / totalBytes).toInt(), modelName = modelName
+                  )
+                )
                 Log.d(TAG, "downloadedBytes: $downloadedBytes")
                 lastSetProgressTs = curTs
               }
@@ -221,11 +262,10 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               setProgress(Data.Builder().putBoolean(KEY_MODEL_START_UNZIPPING, true).build())
 
               // Prepare target dir.
-              val destDir =
-                File(
-                  externalFilesDir,
-                  listOf(modelDir, version, unzippedDir).joinToString(File.separator)
-                )
+              val destDir = File(
+                externalFilesDir,
+                listOf(modelDir, version, unzippedDir).joinToString(File.separator)
+              )
               if (!destDir.exists()) {
                 destDir.mkdirs()
               }
@@ -274,6 +314,44 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           )
         }
       }
+    }
+  }
+
+  override suspend fun getForegroundInfo(): ForegroundInfo {
+    // Initial progress is 0
+    return createForegroundInfo(0)
+  }
+
+  /**
+   * Creates a [ForegroundInfo] object for the download worker's ongoing notification.
+   * This notification is used to keep the worker running in the foreground, indicating
+   * to the user that an active download is in progress.
+   */
+  private fun createForegroundInfo(progress: Int, modelName: String? = null): ForegroundInfo {
+    // Create a notification for the foreground service
+    var title = "Downloading model"
+    if (modelName != null) {
+      title = "Downloading \"$modelName\""
+    }
+    val content = "Downloading in progress: $progress%"
+
+    val notification =
+      NotificationCompat.Builder(applicationContext, FOREGROUND_NOTIFICATION_CHANNEL_ID)
+        .setContentTitle(title).setContentText(content)
+        .setSmallIcon(android.R.drawable.ic_dialog_info)
+        .setOngoing(true) // Makes the notification non-dismissable
+        .setProgress(100, progress, false) // Show progress
+        .build()
+
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      ForegroundInfo(
+        notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+      )
+    } else {
+      ForegroundInfo(
+        notificationId,
+        notification,
+      )
     }
   }
 }

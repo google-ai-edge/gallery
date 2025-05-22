@@ -24,7 +24,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
@@ -92,7 +91,8 @@ class DefaultDownloadRepository(
     val builder = Data.Builder()
     val totalBytes = model.totalBytes + model.extraDataFiles.sumOf { it.sizeInBytes }
     val inputDataBuilder =
-      builder.putString(KEY_MODEL_URL, model.url).putString(KEY_MODEL_VERSION, model.version)
+      builder.putString(KEY_MODEL_NAME, model.name).putString(KEY_MODEL_URL, model.url)
+        .putString(KEY_MODEL_VERSION, model.version)
         .putString(KEY_MODEL_DOWNLOAD_MODEL_DIR, model.normalizedName)
         .putString(KEY_MODEL_DOWNLOAD_FILE_NAME, model.downloadFileName)
         .putBoolean(KEY_MODEL_IS_ZIP, model.isZip).putString(KEY_MODEL_UNZIPPED_DIR, model.unzipDir)
@@ -271,13 +271,11 @@ class DefaultDownloadRepository(
 
     // Create the NotificationChannel, but only on API 26+ because
     // the NotificationChannel class is new and not in the support library
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      val importance = NotificationManager.IMPORTANCE_HIGH
-      val channel = NotificationChannel(channelId, channelName, importance)
-      val notificationManager: NotificationManager =
-        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-      notificationManager.createNotificationChannel(channel)
-    }
+    val importance = NotificationManager.IMPORTANCE_HIGH
+    val channel = NotificationChannel(channelId, channelName, importance)
+    val notificationManager: NotificationManager =
+      context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    notificationManager.createNotificationChannel(channel)
 
     // Create an Intent to open your app with a deep link.
     val intent = Intent(

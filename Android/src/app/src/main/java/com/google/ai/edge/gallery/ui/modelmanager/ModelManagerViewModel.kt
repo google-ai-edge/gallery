@@ -382,6 +382,8 @@ open class ModelManagerViewModel(
       }
       _uiState.update { _uiState.value.copy(textInputHistory = newHistory) }
       dataStoreRepository.saveTextInputHistory(_uiState.value.textInputHistory)
+    } else {
+      promoteTextInputHistoryItem(text)
     }
   }
 

@@ -20,6 +20,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.lifecycle.viewModelScope
+import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.TASK_LLM_CHAT
 import com.google.ai.edge.gallery.data.TASK_LLM_ASK_IMAGE
@@ -47,6 +48,7 @@ private val STATS = listOf(
 
 open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task = curTask) {
   fun generateResponse(model: Model, input: String, image: Bitmap? = null, onError: () -> Unit) {
+    val accelerator = model.getStringConfigValue(key = ConfigKey.ACCELERATOR, defaultValue = "")
     viewModelScope.launch(Dispatchers.Default) {
       setInProgress(true)
       setPreparing(true)
@@ -54,7 +56,7 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
       // Loading.
       addMessage(
         model = model,
-        message = ChatMessageLoading(),
+        message = ChatMessageLoading(accelerator = accelerator),
       )
 
       // Wait for instance to be initialized.
@@ -103,7 +105,12 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
 
               // Add an empty message that will receive streaming results.
               addMessage(
-                model = model, message = ChatMessageText(content = "", side = ChatSide.AGENT)
+                model = model,
+                message = ChatMessageText(
+                  content = "",
+                  side = ChatSide.AGENT,
+                  accelerator = accelerator
+                )
               )
             }
 
@@ -133,6 +140,7 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
                     ),
                     running = false,
                     latencyMs = -1f,
+                    accelerator = accelerator,
                   )
                 )
               }

@@ -180,6 +180,9 @@ private fun getMessageLayoutConfig(
       horizontalArrangement = Arrangement.SpaceBetween
       modifier = modifier.fillMaxWidth()
       userLabel = "Stats"
+      if (message.accelerator.isNotEmpty()) {
+        userLabel = "${userLabel} on ${message.accelerator}"
+      }
     }
 
     is ChatMessageImageWithHistory -> {

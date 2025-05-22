@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
@@ -56,6 +58,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.TASK_LLM_PROMPT_LAB
 import com.google.ai.edge.gallery.ui.common.chat.MarkdownText
@@ -88,6 +92,7 @@ fun ResponsePanel(
   val pagerState = rememberPagerState(
     initialPage = task.models.indexOf(model),
     pageCount = { task.models.size })
+  val accelerator = model.getStringConfigValue(key = ConfigKey.ACCELERATOR, defaultValue = "")
 
   // Select the "response" tab when prompt template changes.
   LaunchedEffect(selectedPromptTemplateType) {
@@ -191,7 +196,22 @@ fun ResponsePanel(
                         .size(16.dp)
                         .alpha(0.7f)
                     )
-                    Text(text = title)
+                    var curTitle = title
+                    if (accelerator.isNotEmpty()) {
+                      curTitle = "$curTitle on $accelerator"
+                    }
+                    val titleColor = MaterialTheme.colorScheme.primary
+                    BasicText(
+                      text = curTitle,
+                      maxLines = 1,
+                      color = { titleColor },
+                      style = MaterialTheme.typography.bodyMedium,
+                      autoSize = TextAutoSize.StepBased(
+                        minFontSize = 9.sp,
+                        maxFontSize = 14.sp,
+                        stepSize = 1.sp
+                      )
+                    )
                   }
                 })
               }

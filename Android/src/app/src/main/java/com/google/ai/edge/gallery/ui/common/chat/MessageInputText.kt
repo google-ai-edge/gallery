@@ -23,7 +23,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -31,9 +30,9 @@ import androidx.annotation.StringRes
 import androidx.camera.core.CameraControl
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageProxy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.lifecycle.awaitInstance
-import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -57,12 +56,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.FlipCameraAndroid
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Photo
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PostAdd
 import androidx.compose.material.icons.rounded.Stop
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -81,13 +80,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.focusModifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -96,13 +95,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.ui.common.createTempPictureUri
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
 /**
@@ -131,6 +130,7 @@ fun MessageInputText(
   showStopButtonWhenInProgress: Boolean = false,
 ) {
   val context = LocalContext.current
+  val scope = rememberCoroutineScope()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   var showAddContentMenu by remember { mutableStateOf(false) }
   var showTextInputHistorySheet by remember { mutableStateOf(false) }
@@ -143,6 +143,11 @@ fun MessageInputText(
     newPickedImages.addAll(pickedImages)
     newPickedImages.add(bitmap)
     pickedImages = newPickedImages.toList()
+  }
+  var hasFrontCamera by remember { mutableStateOf(false) }
+
+  LaunchedEffect(Unit) {
+    checkFrontCamera(context = context, callback = { hasFrontCamera = it })
   }
 
   // launches camera
@@ -167,8 +172,8 @@ fun MessageInputText(
     if (permissionGranted) {
       showAddContentMenu = false
       tempPhotoUri = context.createTempPictureUri()
-//      showCameraCaptureBottomSheet = true
-      cameraLauncher.launch(tempPhotoUri)
+      showCameraCaptureBottomSheet = true
+//      cameraLauncher.launch(tempPhotoUri)
     }
   }
 
@@ -264,8 +269,8 @@ fun MessageInputText(
                 ) -> {
                   showAddContentMenu = false
                   tempPhotoUri = context.createTempPictureUri()
-//                  showCameraCaptureBottomSheet = true
-                  cameraLauncher.launch(tempPhotoUri)
+                  showCameraCaptureBottomSheet = true
+//                  cameraLauncher.launch(tempPhotoUri)
                 }
 
                 // Otherwise, ask for permission
@@ -408,12 +413,14 @@ fun MessageInputText(
     ModalBottomSheet(
       sheetState = cameraCaptureSheetState,
       onDismissRequest = { showCameraCaptureBottomSheet = false }) {
+
       val lifecycleOwner = LocalLifecycleOwner.current
       val previewUseCase = remember { androidx.camera.core.Preview.Builder().build() }
       val imageCaptureUseCase = remember { ImageCapture.Builder().build() }
       var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
       var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
       val localContext = LocalContext.current
+      var cameraSide by remember { mutableStateOf(CameraSelector.LENS_FACING_BACK) }
 
       val executor = remember { Executors.newSingleThreadExecutor() }
       val capturedImageUri = remember { mutableStateOf<Uri?>(null) }
@@ -421,7 +428,7 @@ fun MessageInputText(
       fun rebindCameraProvider() {
         cameraProvider?.let { cameraProvider ->
           val cameraSelector = CameraSelector.Builder()
-            .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
+            .requireLensFacing(cameraSide)
             .build()
           cameraProvider.unbindAll()
           val camera = cameraProvider.bindToLifecycle(
@@ -436,6 +443,10 @@ fun MessageInputText(
 
       LaunchedEffect(Unit) {
         cameraProvider = ProcessCameraProvider.awaitInstance(localContext)
+        rebindCameraProvider()
+      }
+
+      LaunchedEffect(cameraSide) {
         rebindCameraProvider()
       }
 
@@ -465,24 +476,91 @@ fun MessageInputText(
 //            cameraController.unbind() // Unbinds the camera to free up resources
 //          }
         )
+
+        // Close button.
+        IconButton(
+          onClick = {
+            scope.launch {
+              cameraCaptureSheetState.hide()
+              showCameraCaptureBottomSheet = false
+            }
+          }, colors = IconButtonDefaults.iconButtonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+          ), modifier = Modifier
+            .offset(x = (-8).dp, y = 8.dp)
+            .align(Alignment.TopEnd)
+        ) {
+          Icon(
+            Icons.Rounded.Close,
+            contentDescription = "",
+            tint = MaterialTheme.colorScheme.primary
+          )
+        }
+
         // Button that triggers the image capture process
         IconButton(
           colors = IconButtonDefaults.iconButtonColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            containerColor = MaterialTheme.colorScheme.primary,
           ),
           modifier = Modifier
             .align(Alignment.BottomCenter)
             .padding(bottom = 32.dp)
-            .size(64.dp),
+            .size(64.dp)
+            .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape),
           onClick = {
+            scope.launch {
+              val callback = object : ImageCapture.OnImageCapturedCallback() {
+                override fun onCaptureSuccess(image: ImageProxy) {
+                  var bitmap = image.toBitmap()
+                  val rotation = image.imageInfo.rotationDegrees
+                  bitmap = if (rotation != 0) {
+                    val matrix = Matrix().apply {
+                      postRotate(rotation.toFloat())
+                    }
+                    Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                  } else bitmap
+                  updatePickedImages(bitmap)
+                  image.close()
+                }
+              }
+              imageCaptureUseCase.takePicture(executor, callback)
+              cameraCaptureSheetState.hide()
+              showCameraCaptureBottomSheet = false
+            }
           },
         ) {
           Icon(
             Icons.Rounded.PhotoCamera,
             contentDescription = "",
-            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+            tint = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.size(36.dp)
           )
+        }
+
+        // Button that toggles the front and back camera.
+        if (hasFrontCamera) {
+          IconButton(
+            colors = IconButtonDefaults.iconButtonColors(
+              containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            ),
+            modifier = Modifier
+              .align(Alignment.BottomEnd)
+              .padding(bottom = 40.dp, end = 32.dp)
+              .size(48.dp),
+            onClick = {
+              cameraSide = when (cameraSide) {
+                CameraSelector.LENS_FACING_BACK -> CameraSelector.LENS_FACING_FRONT
+                else -> CameraSelector.LENS_FACING_BACK
+              }
+            },
+          ) {
+            Icon(
+              Icons.Rounded.FlipCameraAndroid,
+              contentDescription = "",
+              tint = MaterialTheme.colorScheme.onSecondaryContainer,
+              modifier = Modifier.size(24.dp)
+            )
+          }
         }
       }
     }
@@ -501,13 +579,7 @@ private fun handleImageSelected(
   val bitmap: Bitmap? = try {
     val inputStream = context.contentResolver.openInputStream(uri)
     val tmpBitmap = BitmapFactory.decodeStream(inputStream)
-    if (rotateForPortrait && tmpBitmap.width > tmpBitmap.height) {
-      val matrix = Matrix()
-      matrix.postRotate(90f)
-      Bitmap.createBitmap(tmpBitmap, 0, 0, tmpBitmap.width, tmpBitmap.height, matrix, true)
-    } else {
-      tmpBitmap
-    }
+    rotateImageIfNecessary(bitmap = tmpBitmap, rotateForPortrait = rotateForPortrait)
   } catch (e: Exception) {
     e.printStackTrace()
     null
@@ -515,6 +587,31 @@ private fun handleImageSelected(
   if (bitmap != null) {
     onImageSelected(bitmap)
   }
+}
+
+private fun rotateImageIfNecessary(bitmap: Bitmap, rotateForPortrait: Boolean = false): Bitmap {
+  return if (rotateForPortrait && bitmap.width > bitmap.height) {
+    val matrix = Matrix()
+    matrix.postRotate(90f)
+    Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+  } else {
+    bitmap
+  }
+}
+
+private fun checkFrontCamera(context: Context, callback: (Boolean) -> Unit) {
+  val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+  cameraProviderFuture.addListener(Runnable {
+    val cameraProvider = cameraProviderFuture.get()
+    try {
+      // Attempt to select the default front camera
+      val hasFront = cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)
+      callback(hasFront)
+    } catch (e: Exception) {
+      e.printStackTrace()
+      callback(false)
+    }
+  }, ContextCompat.getMainExecutor(context))
 }
 
 private fun createMessagesToSend(pickedImages: List<Bitmap>, text: String): List<ChatMessage> {
