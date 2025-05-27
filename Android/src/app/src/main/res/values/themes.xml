@@ -16,7 +16,7 @@
 -->
 
 <resources>
-    <style name="Theme.Gallery" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Gallery" parent="Theme.Material3Expressive.Light.NoActionBar" />
     <style name="Theme.Gallery.SplashScreen" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">#2A2A34</item>
         <item name="postSplashScreenTheme">@style/Theme.Gallery</item>
