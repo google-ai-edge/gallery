@@ -130,10 +130,13 @@ object HomeScreenDestination {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+import androidx.navigation.NavController
+
 @Composable
 fun HomeScreen(
   modelManagerViewModel: ModelManagerViewModel,
   navigateToTaskScreen: (Task) -> Unit,
+  navController: NavController, // Add NavController
   modifier: Modifier = Modifier
 ) {
   val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -210,6 +213,7 @@ fun HomeScreen(
     SettingsDialog(
       curThemeOverride = modelManagerViewModel.readThemeOverride(),
       modelManagerViewModel = modelManagerViewModel,
+      navController = navController, // Pass NavController
       onDismissed = { showSettingsDialog = false },
     )
   }
@@ -571,10 +575,16 @@ fun getFileName(context: Context, uri: Uri): String? {
 @Composable
 fun HomeScreenPreview(
 ) {
+  // Preview will not have a real NavController, so this might need adjustment
+  // if SettingsDialog is to be previewed from here. For now, focusing on functionality.
+  // For a simple preview, one might pass a dummy NavController or conditional logic.
+  val context = LocalContext.current
+  val dummyNavController = remember { NavController(context) }
   GalleryTheme {
     HomeScreen(
-      modelManagerViewModel = PreviewModelManagerViewModel(context = LocalContext.current),
+      modelManagerViewModel = PreviewModelManagerViewModel(context = context),
       navigateToTaskScreen = {},
+      navController = dummyNavController, // Pass dummy NavController for preview
     )
   }
 }

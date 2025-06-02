@@ -39,6 +39,17 @@ object LlmChatModelHelper {
   // Indexed by model name.
   private val cleanUpListeners: MutableMap<String, CleanUpListener> = mutableMapOf()
 
+  fun primeSessionWithSystemPrompt(model: Model, systemPrompt: String) {
+      val instance = model.instance as? LlmModelInstance ?: return
+      try {
+          instance.session.addQueryChunk(systemPrompt)
+          Log.d(TAG, "Session primed with system prompt.")
+      } catch (e: Exception) {
+          Log.e(TAG, "Error priming session with system prompt: ", e)
+          // Consider how to handle this error, maybe throw or callback
+      }
+  }
+
   fun initialize(
     context: Context, model: Model, onDone: (String) -> Unit
   ) {

@@ -33,9 +33,7 @@ enum class TaskType(val label: String, val id: String) {
   IMAGE_CLASSIFICATION(label = "Image Classification", id = "image_classification"),
   IMAGE_GENERATION(label = "Image Generation", id = "image_generation"),
   LLM_CHAT(label = "AI Chat", id = "llm_chat"),
-  LLM_PROMPT_LAB(label = "Prompt Lab", id = "llm_prompt_lab"),
-  LLM_ASK_IMAGE(label = "Ask Image", id = "llm_ask_image"),
-
+  // LLM_PROMPT_LAB and LLM_ASK_IMAGE removed from enum
   TEST_TASK_1(label = "Test task 1", id = "test_task_1"),
   TEST_TASK_2(label = "Test task 2", id = "test_task_2")
 }
@@ -100,25 +98,8 @@ val TASK_LLM_CHAT = Task(
   textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat
 )
 
-val TASK_LLM_PROMPT_LAB = Task(
-  type = TaskType.LLM_PROMPT_LAB,
-  icon = Icons.Outlined.Widgets,
-  models = mutableListOf(),
-  description = "Single turn use cases with on-device large language model",
-  docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
-  sourceCodeUrl = "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
-  textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat
-)
-
-val TASK_LLM_ASK_IMAGE = Task(
-  type = TaskType.LLM_ASK_IMAGE,
-  icon = Icons.Outlined.Mms,
-  models = mutableListOf(),
-  description = "Ask questions about images with on-device large language models",
-  docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
-  sourceCodeUrl = "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
-  textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat
-)
+// TASK_LLM_PROMPT_LAB definition removed
+// TASK_LLM_ASK_IMAGE definition removed
 
 val TASK_IMAGE_GENERATION = Task(
   type = TaskType.IMAGE_GENERATION,
@@ -132,9 +113,12 @@ val TASK_IMAGE_GENERATION = Task(
 
 /** All tasks. */
 val TASKS: List<Task> = listOf(
-  TASK_LLM_ASK_IMAGE,
-  TASK_LLM_PROMPT_LAB,
-  TASK_LLM_CHAT,
+  TASK_TEXT_CLASSIFICATION,
+  TASK_IMAGE_CLASSIFICATION,
+  TASK_IMAGE_GENERATION,
+  TASK_LLM_CHAT
+  // TASK_LLM_ASK_IMAGE removed
+  // TASK_LLM_PROMPT_LAB removed
 )
 
 fun getModelByName(name: String): Model? {

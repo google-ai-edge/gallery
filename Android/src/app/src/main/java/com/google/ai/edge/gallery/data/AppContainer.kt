@@ -42,6 +42,6 @@ interface AppContainer {
 class DefaultAppContainer(ctx: Context, dataStore: DataStore<Preferences>) : AppContainer {
   override val context = ctx
   override val lifecycleProvider = GalleryLifecycleProvider()
-  override val dataStoreRepository = DefaultDataStoreRepository(dataStore)
+  override val dataStoreRepository = DefaultDataStoreRepository(dataStore, ctx) // Pass context here
   override val downloadRepository = DefaultDownloadRepository(ctx, lifecycleProvider)
 }

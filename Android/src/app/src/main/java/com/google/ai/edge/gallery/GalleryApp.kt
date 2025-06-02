@@ -47,10 +47,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.google.ai.edge.gallery.data.AppContainer // Needed for type
 import com.google.ai.edge.gallery.data.AppBarAction
 import com.google.ai.edge.gallery.data.AppBarActionType
+import com.google.ai.edge.gallery.ui.common.LocalAppContainer
 import com.google.ai.edge.gallery.ui.navigation.GalleryNavHost
 
 /**
@@ -58,7 +62,10 @@ import com.google.ai.edge.gallery.ui.navigation.GalleryNavHost
  */
 @Composable
 fun GalleryApp(navController: NavHostController = rememberNavController()) {
-  GalleryNavHost(navController = navController)
+  val appContainer = (LocalContext.current.applicationContext as GalleryApplication).container
+  CompositionLocalProvider(LocalAppContainer provides appContainer) {
+    GalleryNavHost(navController = navController)
+  }
 }
 
 /**

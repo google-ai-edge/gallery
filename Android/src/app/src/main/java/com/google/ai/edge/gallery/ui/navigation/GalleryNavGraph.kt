@@ -46,8 +46,8 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.TASK_IMAGE_CLASSIFICATION
 import com.google.ai.edge.gallery.data.TASK_IMAGE_GENERATION
 import com.google.ai.edge.gallery.data.TASK_LLM_CHAT
-import com.google.ai.edge.gallery.data.TASK_LLM_ASK_IMAGE
-import com.google.ai.edge.gallery.data.TASK_LLM_PROMPT_LAB
+// import com.google.ai.edge.gallery.data.TASK_LLM_ASK_IMAGE // Removed
+// import com.google.ai.edge.gallery.data.TASK_LLM_PROMPT_LAB // Removed
 import com.google.ai.edge.gallery.data.TASK_TEXT_CLASSIFICATION
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.TaskType
@@ -58,19 +58,53 @@ import com.google.ai.edge.gallery.ui.imageclassification.ImageClassificationDest
 import com.google.ai.edge.gallery.ui.imageclassification.ImageClassificationScreen
 import com.google.ai.edge.gallery.ui.imagegeneration.ImageGenerationDestination
 import com.google.ai.edge.gallery.ui.imagegeneration.ImageGenerationScreen
-import com.google.ai.edge.gallery.ui.llmchat.LlmChatDestination
+// LlmChatDestination will be defined in this file now
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatScreen
-import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageDestination
-import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageScreen
-import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnDestination
-import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnScreen
+// import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageDestination // Removed
+// import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageScreen // Removed
+// import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnDestination // Removed
+// import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnScreen // Removed
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.textclassification.TextClassificationDestination
 import com.google.ai.edge.gallery.ui.textclassification.TextClassificationScreen
-
+import com.google.ai.edge.gallery.ui.userprofile.UserProfileScreen
+import com.google.ai.edge.gallery.ui.persona.PersonaManagementScreen // Added import
+import com.google.ai.edge.gallery.ui.conversationhistory.ConversationHistoryScreen // Added import
+// ViewModelProvider.Factory will provide UserProfileViewModel
+// import com.google.ai.edge.gallery.ui.common.LocalAppContainer // Not needed if VM is through factory
 private const val TAG = "AGGalleryNavGraph"
 private const val ROUTE_PLACEHOLDER = "placeholder"
+internal const val UserProfileRoute = "userProfile" // As per subtask for direct use
+
+object UserProfileDestination {
+    const val route = "userProfile"
+}
+
+object PersonaManagementDestination {
+    const val route = "personaManagement"
+}
+
+// Define LlmChatDestination here as per structure in LlmChatScreen.kt modifications
+object LlmChatDestination {
+  const val routeTemplate = "LlmChatRoute" // Base for non-conversation specific chat
+  const val conversationIdArg = "conversationId"
+  const val modelNameArg = "modelName" // Added modelNameArg for clarity
+
+  // Route for opening an existing conversation: LlmChatRoute/conversation/{conversationId}?modelName={modelName}
+  val routeForConversation = "$routeTemplate/conversation/{$conversationIdArg}?$modelNameArg={$modelNameArg}"
+
+  // Route for starting a new chat with a pre-selected model: LlmChatRoute/new/{modelName}
+  val routeForNewChatWithModel = "$routeTemplate/new/{$modelNameArg}"
+
+  // General route for new chat (model selected elsewhere or default): LlmChatRoute
+  val routeForNewChat = routeTemplate
+}
+
+object ConversationHistoryDestination {
+    const val route = "conversationHistory"
+}
+
 private const val ENTER_ANIMATION_DURATION_MS = 500
 private val ENTER_ANIMATION_EASING = EaseOutExpo
 private const val ENTER_ANIMATION_DELAY_MS = 100
@@ -122,6 +156,7 @@ fun GalleryNavHost(
       pickedTask = task
       showModelManager = true
     },
+    navController = navController // Pass NavController to HomeScreen
   )
 
   // Model manager.
@@ -210,54 +245,98 @@ fun GalleryNavHost(
     }
 
     // LLM chat demos.
+
+    // Route for starting a new chat with a selected model (current primary way to enter chat)
     composable(
-      route = "${LlmChatDestination.route}/{modelName}",
-      arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
+      route = LlmChatDestination.routeForNewChatWithModel,
+      arguments = listOf(navArgument(LlmChatDestination.modelNameArg) { type = NavType.StringType }),
       enterTransition = { slideEnter() },
       exitTransition = { slideExit() },
-    ) {
-      getModelFromNavigationParam(it, TASK_LLM_CHAT)?.let { defaultModel ->
-        modelManagerViewModel.selectModel(defaultModel)
-
-        LlmChatScreen(
-          modelManagerViewModel = modelManagerViewModel,
-          navigateUp = { navController.navigateUp() },
-        )
+    ) { navBackStackEntry ->
+      val modelName = navBackStackEntry.arguments?.getString(LlmChatDestination.modelNameArg)
+      getModelByName(modelName ?: "")?.let { model -> // Use getModelByName from Tasks.kt
+          modelManagerViewModel.selectModel(model)
+          LlmChatScreen(
+              modelManagerViewModel = modelManagerViewModel,
+              navigateUp = { navController.navigateUp() },
+              conversationId = null // Explicitly null for new chat
+          )
+      } ?: run {
+          // Handle model not found, perhaps navigate back or show error
+          Text("Model $modelName not found.")
       }
     }
 
-    // LLM single turn.
+    // Route for opening an existing conversation
     composable(
-      route = "${LlmSingleTurnDestination.route}/{modelName}",
-      arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
+      route = LlmChatDestination.routeForConversation,
+      arguments = listOf(
+          navArgument(LlmChatDestination.conversationIdArg) { type = NavType.StringType },
+          navArgument(LlmChatDestination.modelNameArg) { type = NavType.StringType } // Model name is mandatory here
+      ),
       enterTransition = { slideEnter() },
       exitTransition = { slideExit() },
-    ) {
-      getModelFromNavigationParam(it, TASK_LLM_PROMPT_LAB)?.let { defaultModel ->
-        modelManagerViewModel.selectModel(defaultModel)
+    ) { navBackStackEntry ->
+      val conversationId = navBackStackEntry.arguments?.getString(LlmChatDestination.conversationIdArg)
+      val modelName = navBackStackEntry.arguments?.getString(LlmChatDestination.modelNameArg)
 
-        LlmSingleTurnScreen(
-          modelManagerViewModel = modelManagerViewModel,
-          navigateUp = { navController.navigateUp() },
-        )
+      getModelByName(modelName ?: "")?.let { model ->
+          modelManagerViewModel.selectModel(model) // Ensure this model is selected
+          LlmChatScreen(
+              modelManagerViewModel = modelManagerViewModel,
+              navigateUp = { navController.navigateUp() },
+              conversationId = conversationId
+          )
+      } ?: run {
+          Text("Model $modelName not found for conversation $conversationId.")
       }
     }
 
-    // LLM image to text.
+    // Optional: General route for new chat if model is already selected in ViewModel (less explicit)
+    // composable(
+    //   route = LlmChatDestination.routeForNewChat,
+    //   enterTransition = { slideEnter() },
+    //   exitTransition = { slideExit() },
+    // ) {
+    //   // This assumes a model is already selected in modelManagerViewModel for TASK_LLM_CHAT
+    //   // Or LlmChatScreen/ViewModel can handle model selection if none is active
+    //   LlmChatScreen(
+    //       modelManagerViewModel = modelManagerViewModel,
+    //       navigateUp = { navController.navigateUp() },
+    //       conversationId = null
+    //   )
+    // }
+
+    // LLM single turn. - REMOVED
+
+    // LLM image to text. - REMOVED
+
+    // User Profile Screen
     composable(
-      route = "${LlmAskImageDestination.route}/{modelName}",
-      arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
+      route = UserProfileDestination.route,
       enterTransition = { slideEnter() },
       exitTransition = { slideExit() },
     ) {
-      getModelFromNavigationParam(it, TASK_LLM_ASK_IMAGE)?.let { defaultModel ->
-        modelManagerViewModel.selectModel(defaultModel)
+      // val appContainer = LocalAppContainer.current // Not strictly needed if factory handles it
+      // val factory = ViewModelProvider.Factory(appContainer) // Factory is global
+      UserProfileScreen(
+        navController = navController,
+        viewModelFactory = ViewModelProvider.Factory
+      )
+    }
 
-        LlmAskImageScreen(
-          modelManagerViewModel = modelManagerViewModel,
-          navigateUp = { navController.navigateUp() },
-        )
-      }
+    composable(PersonaManagementDestination.route) {
+      PersonaManagementScreen(
+        navController = navController,
+        viewModelFactory = ViewModelProvider.Factory
+      )
+    }
+
+    composable(ConversationHistoryDestination.route) {
+      ConversationHistoryScreen(
+        navController = navController,
+        viewModelFactory = ViewModelProvider.Factory
+      )
     }
   }
 
@@ -284,12 +363,24 @@ fun navigateToTaskScreen(
 ) {
   val modelName = model?.name ?: ""
   when (taskType) {
+    // Removed UserProfileRoute from here as it's not a task-based navigation
     TaskType.TEXT_CLASSIFICATION -> navController.navigate("${TextClassificationDestination.route}/${modelName}")
     TaskType.IMAGE_CLASSIFICATION -> navController.navigate("${ImageClassificationDestination.route}/${modelName}")
-    TaskType.LLM_CHAT -> navController.navigate("${LlmChatDestination.route}/${modelName}")
-    TaskType.LLM_ASK_IMAGE -> navController.navigate("${LlmAskImageDestination.route}/${modelName}")
-    TaskType.LLM_PROMPT_LAB -> navController.navigate("${LlmSingleTurnDestination.route}/${modelName}")
+    TaskType.LLM_CHAT -> {
+        // This is for starting a new chat from task selection, so use modelName
+        if (modelName.isNotEmpty()) {
+            navController.navigate("${LlmChatDestination.routeTemplate}/new/${modelName}")
+        } else {
+            // Fallback or error: model name is expected here
+            Log.e(TAG, "LLM_CHAT navigation attempted without a model name.")
+            // Optionally navigate to a generic new chat route if one exists and handles model selection
+            // navController.navigate(LlmChatDestination.routeForNewChat)
+        }
+    }
+    // TaskType.LLM_ASK_IMAGE removed
+    // TaskType.LLM_PROMPT_LAB removed
     TaskType.IMAGE_GENERATION -> navController.navigate("${ImageGenerationDestination.route}/${modelName}")
+    // TaskType.USER_PROFILE -> navController.navigate(UserProfileDestination.route) // Example if it were a task
     TaskType.TEST_TASK_1 -> {}
     TaskType.TEST_TASK_2 -> {}
   }
