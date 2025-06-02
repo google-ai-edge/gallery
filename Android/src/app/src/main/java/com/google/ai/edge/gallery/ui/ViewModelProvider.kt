@@ -22,13 +22,17 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.google.ai.edge.gallery.GalleryApplication
+import com.google.ai.edge.gallery.data.TASK_LLM_CHAT // Import TASK_LLM_CHAT
 import com.google.ai.edge.gallery.ui.imageclassification.ImageClassificationViewModel
 import com.google.ai.edge.gallery.ui.imagegeneration.ImageGenerationViewModel
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatViewModel
-import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageViewModel
-import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnViewModel
+// import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageViewModel // Removed
+// import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnViewModel // Removed
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.textclassification.TextClassificationViewModel
+import com.google.ai.edge.gallery.ui.userprofile.UserProfileViewModel
+import com.google.ai.edge.gallery.ui.persona.PersonaViewModel
+import com.google.ai.edge.gallery.ui.conversationhistory.ConversationHistoryViewModel // Added import
 
 object ViewModelProvider {
   val Factory = viewModelFactory {
@@ -55,22 +59,34 @@ object ViewModelProvider {
 
     // Initializer for LlmChatViewModel.
     initializer {
-      LlmChatViewModel()
+      val dataStoreRepository = galleryApplication().container.dataStoreRepository
+      LlmChatViewModel(dataStoreRepository = dataStoreRepository, curTask = TASK_LLM_CHAT)
     }
 
-    // Initializer for LlmSingleTurnViewModel..
-    initializer {
-      LlmSingleTurnViewModel()
-    }
-
-    // Initializer for LlmAskImageViewModel.
-    initializer {
-      LlmAskImageViewModel()
-    }
+    // Initializer for LlmSingleTurnViewModel.. - REMOVED
+    // Initializer for LlmAskImageViewModel. - REMOVED
 
     // Initializer for ImageGenerationViewModel.
     initializer {
       ImageGenerationViewModel()
+    }
+
+    // Initializer for UserProfileViewModel.
+    initializer {
+      val dataStoreRepository = galleryApplication().container.dataStoreRepository
+      UserProfileViewModel(dataStoreRepository = dataStoreRepository)
+    }
+
+    // Initializer for PersonaViewModel.
+    initializer {
+      val dataStoreRepository = galleryApplication().container.dataStoreRepository
+      PersonaViewModel(dataStoreRepository = dataStoreRepository)
+    }
+
+    // Initializer for ConversationHistoryViewModel.
+    initializer {
+      val dataStoreRepository = galleryApplication().container.dataStoreRepository
+      ConversationHistoryViewModel(dataStoreRepository = dataStoreRepository)
     }
   }
 }

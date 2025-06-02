@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- UserProfileScreen.kt -->
+    <string name="user_profile_title">개인 프로필</string>
+    <string name="user_profile_name_label">이름</string>
+    <string name="user_profile_summary_label">요약 / 소개</string>
+    <string name="user_profile_skills_title">기술</string>
+    <string name="user_profile_experience_title">경험</string>
+    <string name="user_profile_add_skill_button">기술 추가</string>
+    <string name="user_profile_add_experience_button">경험 추가</string>
+    <string name="user_profile_skill_label_prefix">기술 %d</string>
+    <string name="user_profile_experience_label_prefix">경험 %d</string>
+    <string name="user_profile_no_skills">아직 추가된 기술이 없습니다.</string>
+    <string name="user_profile_no_experience">아직 추가된 경험이 없습니다.</string>
+    <string name="user_profile_save_button">프로필 저장</string>
+    <string name="user_profile_saved_dialog_title">프로필 저장됨</string>
+    <string name="user_profile_saved_dialog_message">프로필 정보가 성공적으로 저장되었습니다.</string>
+    <string name="user_profile_back_button_desc">뒤로</string>
+    <string name="user_profile_remove_item_desc">항목 삭제</string>
+
+    <!-- PersonaManagementScreen.kt -->
+    <string name="persona_management_title">페르소나 관리</string>
+    <string name="persona_management_add_fab_desc">페르소나 추가</string>
+    <string name="persona_management_no_personas">아직 생성된 페르소나가 없습니다. '+' 버튼을 클릭하여 추가하세요.</string>
+    <string name="persona_item_active_desc">활성 페르소나</string>
+    <string name="persona_item_inactive_desc">페르소나</string>
+    <string name="persona_item_edit_desc">페르소나 수정</string>
+    <string name="persona_item_delete_desc">페르소나 삭제</string>
+    <string name="persona_delete_dialog_title">페르소나 삭제</string>
+    <string name="persona_delete_dialog_message">'%s' 페르소나를 정말 삭제하시겠습니까?</string>
+    <string name="persona_delete_dialog_confirm_button">삭제</string>
+    <string name="persona_delete_dialog_cancel_button">취소</string>
+    <string name="persona_add_edit_dialog_add_title">새 페르소나 추가</string>
+    <string name="persona_add_edit_dialog_edit_title">페르소나 수정</string>
+    <string name="persona_add_edit_dialog_name_label">페르소나 이름</string>
+    <string name="persona_add_edit_dialog_prompt_label">페르소나 프롬프트 (시스템 프롬프트)</string>
+    <string name="persona_add_edit_dialog_add_button">페르소나 추가</string>
+    <string name="persona_add_edit_dialog_save_button">변경사항 저장</string>
+    <string name="persona_add_edit_dialog_name_default_assist">도움이 되는 어시스턴트</string>
+    <string name="persona_add_edit_dialog_prompt_default_assist">당신은 도움이 되고 친절한 AI 어시스턴트입니다. 간결하고 정확한 정보를 제공하려고 노력합니다.</string>
+    <string name="persona_add_edit_dialog_name_default_creative">창의적인 브레인스토머</string>
+    <string name="persona_add_edit_dialog_prompt_default_creative">당신은 창의적인 브레인스토밍 파트너입니다. 열정적이고 다양한 아이디어를 생성하며 여러 각도에서 탐색하도록 장려합니다.</string>
+    <string name="persona_item_default_suffix">(기본)</string>
+
+    <!-- LlmChatScreen.kt (ChatViewWrapper) -->
+    <string name="chat_custom_system_prompt_label">사용자 정의 시스템 프롬프트 입력 (선택 사항)</string>
+    <string name="chat_default_agent_name">AI 어시스턴트</string>
+    <string name="chat_history_button_desc">대화 기록</string>
+    <string name="chat_new_conversation_title_prefix">다음 날짜의 채팅</string>
+    <string name="chat_reset_session_confirm_title">채팅 초기화?</string>
+    <string name="chat_reset_session_confirm_message">현재 설정으로 새 채팅 세션을 시작합니다. 현재 메시지는 화면에서 지워지지만 메시지가 있는 경우 대화는 저장됩니다. 확실합니까?</string>
+    <string name="chat_reset_session_confirm_button">초기화</string>
+
+    <!-- ConversationHistoryScreen.kt -->
+    <string name="conversation_history_title">대화 기록</string>
+    <string name="conversation_history_no_conversations">아직 대화가 없습니다.</string>
+    <string name="conversation_history_item_title_prefix">%s 대화</string>
+    <string name="conversation_history_last_activity_prefix">마지막 활동: %s</string>
+    <string name="conversation_history_delete_dialog_title">대화 삭제</string>
+    <string name="conversation_history_delete_dialog_message">이 대화를 정말 삭제하시겠습니까?</string>
+    <string name="conversation_history_delete_dialog_confirm_button">삭제</string>
+
+    <!-- SettingsDialog.kt -->
+    <string name="settings_personal_profile_title">개인 프로필</string>
+    <string name="settings_edit_profile_button">프로필 수정</string>
+    <string name="settings_persona_management_title">페르소나 관리</string>
+    <string name="settings_manage_personas_button">페르소나 관리</string>
+
+    <!-- Common -->
+    <string name="dialog_ok_button">확인</string>
+    <string name="dialog_cancel_button">취소</string>
+</resources>

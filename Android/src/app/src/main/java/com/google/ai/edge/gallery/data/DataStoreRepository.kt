@@ -16,9 +16,11 @@
 
 package com.google.ai.edge.gallery.data
 
+import android.content.Context // Added import
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import com.google.ai.edge.gallery.R // Added import for R class
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -27,9 +29,13 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.google.ai.edge.gallery.ui.theme.THEME_AUTO
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import java.security.KeyStore
+import java.util.UUID
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -50,6 +56,30 @@ interface DataStoreRepository {
   fun readAccessTokenData(): AccessTokenData?
   fun saveImportedModels(importedModels: List<ImportedModelInfo>)
   fun readImportedModels(): List<ImportedModelInfo>
+
+  fun saveUserProfile(userProfile: UserProfile)
+  fun readUserProfile(): UserProfile?
+  fun savePersonas(personas: List<Persona>)
+  fun readPersonas(): List<Persona>
+  fun addPersona(persona: Persona)
+  fun updatePersona(persona: Persona)
+  fun deletePersona(personaId: String)
+  fun saveConversations(conversations: List<Conversation>)
+  fun readConversations(): List<Conversation>
+  fun getConversationById(conversationId: String): Conversation?
+  fun addConversation(conversation: Conversation)
+  fun updateConversation(conversation: Conversation)
+  fun deleteConversation(conversationId: String)
+
+  fun saveActivePersonaId(personaId: String?)
+  fun readActivePersonaId(): Flow<String?>
+
+  fun saveUserDocuments(documents: List<UserDocument>)
+  fun readUserDocuments(): Flow<List<UserDocument>>
+  fun addUserDocument(document: UserDocument)
+  fun updateUserDocument(document: UserDocument)
+  fun deleteUserDocument(documentId: String)
+  fun getUserDocumentById(documentId: String): Flow<UserDocument?>
 }
 
 /**
@@ -62,7 +92,8 @@ interface DataStoreRepository {
  * DataStore is used to persist data as JSON strings under specified keys.
  */
 class DefaultDataStoreRepository(
-  private val dataStore: DataStore<Preferences>
+  private val dataStore: DataStore<Preferences>,
+  private val context: Context // Added context
 ) :
   DataStoreRepository {
 
@@ -85,6 +116,13 @@ class DefaultDataStoreRepository(
 
     // Data for all imported models.
     val IMPORTED_MODELS = stringPreferencesKey("imported_models")
+
+    val ENCRYPTED_USER_PROFILE = stringPreferencesKey("encrypted_user_profile")
+    val USER_PROFILE_IV = stringPreferencesKey("user_profile_iv")
+    val PERSONAS_LIST = stringPreferencesKey("personas_list")
+    val CONVERSATIONS_LIST = stringPreferencesKey("conversations_list")
+    val ACTIVE_PERSONA_ID = stringPreferencesKey("active_persona_id")
+    val USER_DOCUMENTS_LIST = stringPreferencesKey("user_documents_list")
   }
 
   private val keystoreAlias: String = "com_google_aiedge_gallery_access_token_key"
@@ -189,7 +227,8 @@ class DefaultDataStoreRepository(
       val infosStr = preferences[PreferencesKeys.IMPORTED_MODELS] ?: "[]"
       val gson = Gson()
       val listType = object : TypeToken<List<ImportedModelInfo>>() {}.type
-      gson.fromJson(infosStr, listType)
+      // Ensure to return emptyList() if fromJson returns null
+      return gson.fromJson(infosStr, listType) ?: emptyList()
     }
   }
 
@@ -197,7 +236,8 @@ class DefaultDataStoreRepository(
     val infosStr = preferences[PreferencesKeys.TEXT_INPUT_HISTORY] ?: "[]"
     val gson = Gson()
     val listType = object : TypeToken<List<String>>() {}.type
-    return gson.fromJson(infosStr, listType)
+    // Ensure to return emptyList() if fromJson returns null
+    return gson.fromJson(infosStr, listType) ?: emptyList()
   }
 
   private fun getOrCreateSecretKey(): SecretKey {
@@ -242,5 +282,240 @@ class DefaultDataStoreRepository(
       // Handle decryption errors (e.g., key not found)
       null
     }
+  }
+
+  override fun saveUserProfile(userProfile: UserProfile) {
+    runBlocking {
+      val gson = Gson()
+      val jsonString = gson.toJson(userProfile)
+      val (encryptedProfile, iv) = encrypt(jsonString)
+      dataStore.edit { preferences ->
+        preferences[PreferencesKeys.ENCRYPTED_USER_PROFILE] = encryptedProfile
+        preferences[PreferencesKeys.USER_PROFILE_IV] = iv
+      }
+    }
+  }
+
+  override fun readUserProfile(): UserProfile? {
+    return runBlocking {
+      val preferences = dataStore.data.first()
+      val encryptedProfile = preferences[PreferencesKeys.ENCRYPTED_USER_PROFILE]
+      val iv = preferences[PreferencesKeys.USER_PROFILE_IV]
+
+      if (encryptedProfile != null && iv != null) {
+        try {
+          val decryptedJson = decrypt(encryptedProfile, iv)
+          if (decryptedJson != null) {
+            Gson().fromJson(decryptedJson, UserProfile::class.java)
+          } else {
+            UserProfile() // Return default if decryption fails
+          }
+        } catch (e: Exception) {
+          UserProfile() // Return default on error
+        }
+      } else {
+        UserProfile() // Return default if not found
+      }
+    }
+  }
+
+  override fun savePersonas(personas: List<Persona>) {
+    runBlocking {
+      dataStore.edit { preferences ->
+        val gson = Gson()
+        val jsonString = gson.toJson(personas)
+        preferences[PreferencesKeys.PERSONAS_LIST] = jsonString
+      }
+    }
+  }
+
+  override fun readPersonas(): List<Persona> {
+    return runBlocking {
+      val preferences = dataStore.data.first()
+      val jsonString = preferences[PreferencesKeys.PERSONAS_LIST]
+      val gson = Gson()
+      val listType = object : TypeToken<List<Persona>>() {}.type
+      var personas: List<Persona> = if (jsonString != null) {
+        try {
+          gson.fromJson(jsonString, listType) ?: emptyList<Persona>()
+        } catch (e: Exception) {
+          emptyList<Persona>() // Return empty list on deserialization error
+        }
+      } else {
+        emptyList<Persona>()
+      }
+
+      if (personas.isEmpty()) {
+        personas = listOf(
+          Persona(
+            id = UUID.randomUUID().toString(),
+            name = context.getString(R.string.persona_add_edit_dialog_name_default_assist),
+            prompt = context.getString(R.string.persona_add_edit_dialog_prompt_default_assist),
+            isDefault = true
+          ),
+          Persona(
+            id = UUID.randomUUID().toString(),
+            name = context.getString(R.string.persona_add_edit_dialog_name_default_creative),
+            prompt = context.getString(R.string.persona_add_edit_dialog_prompt_default_creative),
+            isDefault = true
+          )
+        )
+        // Save these default personas back to DataStore
+        savePersonas(personas)
+      }
+      personas
+    }
+  }
+
+  override fun addPersona(persona: Persona) {
+    val currentPersonas = readPersonas().toMutableList()
+    currentPersonas.add(persona)
+    savePersonas(currentPersonas)
+  }
+
+  override fun updatePersona(persona: Persona) {
+    val currentPersonas = readPersonas().toMutableList()
+    val index = currentPersonas.indexOfFirst { it.id == persona.id }
+    if (index != -1) {
+      currentPersonas[index] = persona
+      savePersonas(currentPersonas)
+    }
+  }
+
+  override fun deletePersona(personaId: String) {
+    val currentPersonas = readPersonas().toMutableList()
+    currentPersonas.removeAll { it.id == personaId }
+    savePersonas(currentPersonas)
+  }
+
+  override fun saveConversations(conversations: List<Conversation>) {
+    runBlocking {
+      dataStore.edit { preferences ->
+        val gson = Gson()
+        val jsonString = gson.toJson(conversations)
+        preferences[PreferencesKeys.CONVERSATIONS_LIST] = jsonString
+      }
+    }
+  }
+
+  override fun readConversations(): List<Conversation> {
+    return runBlocking {
+      val preferences = dataStore.data.first()
+      val jsonString = preferences[PreferencesKeys.CONVERSATIONS_LIST]
+      val gson = Gson()
+      val listType = object : TypeToken<List<Conversation>>() {}.type
+      if (jsonString != null) {
+        try {
+          gson.fromJson(jsonString, listType) ?: emptyList<Conversation>()
+        } catch (e: Exception) {
+          emptyList<Conversation>() // Return empty list on deserialization error
+        }
+      } else {
+        emptyList<Conversation>()
+      }
+    }
+  }
+
+  override fun getConversationById(conversationId: String): Conversation? {
+    return readConversations().firstOrNull { it.id == conversationId }
+  }
+
+  override fun addConversation(conversation: Conversation) {
+    val currentConversations = readConversations().toMutableList()
+    currentConversations.add(conversation)
+    saveConversations(currentConversations)
+  }
+
+  override fun updateConversation(conversation: Conversation) {
+    val currentConversations = readConversations().toMutableList()
+    val index = currentConversations.indexOfFirst { it.id == conversation.id }
+    if (index != -1) {
+      currentConversations[index] = conversation
+      saveConversations(currentConversations)
+    }
+  }
+
+  override fun deleteConversation(conversationId: String) {
+    val currentConversations = readConversations().toMutableList()
+    currentConversations.removeAll { it.id == conversationId }
+    saveConversations(currentConversations)
+  }
+
+  override fun saveActivePersonaId(personaId: String?) {
+    runBlocking {
+      dataStore.edit { preferences ->
+        if (personaId == null) {
+          preferences.remove(PreferencesKeys.ACTIVE_PERSONA_ID)
+        } else {
+          preferences[PreferencesKeys.ACTIVE_PERSONA_ID] = personaId
+        }
+      }
+    }
+  }
+
+  override fun readActivePersonaId(): Flow<String?> {
+    return dataStore.data.map { preferences ->
+      preferences[PreferencesKeys.ACTIVE_PERSONA_ID]
+    }.distinctUntilChanged()
+  }
+
+  override fun saveUserDocuments(documents: List<UserDocument>) {
+      runBlocking {
+          dataStore.edit { preferences ->
+              val gson = Gson()
+              val jsonString = gson.toJson(documents)
+              preferences[PreferencesKeys.USER_DOCUMENTS_LIST] = jsonString
+          }
+      }
+  }
+
+  override fun readUserDocuments(): Flow<List<UserDocument>> {
+      return dataStore.data.map { preferences ->
+          val jsonString = preferences[PreferencesKeys.USER_DOCUMENTS_LIST]
+          if (jsonString != null) {
+              val gson = Gson()
+              val type = object : TypeToken<List<UserDocument>>() {}.type
+              gson.fromJson(jsonString, type) ?: emptyList<UserDocument>()
+          } else {
+              emptyList<UserDocument>()
+          }
+      }.distinctUntilChanged()
+  }
+
+  override fun addUserDocument(document: UserDocument) {
+      runBlocking { // Consider making these suspend functions if runBlocking becomes an issue
+          val currentDocuments = readUserDocuments().first().toMutableList()
+          currentDocuments.removeAll { it.id == document.id } // Remove if already exists by ID, then add
+          currentDocuments.add(document)
+          saveUserDocuments(currentDocuments)
+      }
+  }
+
+  override fun updateUserDocument(document: UserDocument) {
+      runBlocking {
+          val currentDocuments = readUserDocuments().first().toMutableList()
+          val index = currentDocuments.indexOfFirst { it.id == document.id }
+          if (index != -1) {
+              currentDocuments[index] = document
+              saveUserDocuments(currentDocuments)
+          } else {
+              // Optionally add if not found, or log an error
+              addUserDocument(document) // Or handle error: document to update not found
+          }
+      }
+  }
+
+  override fun deleteUserDocument(documentId: String) {
+      runBlocking {
+          val currentDocuments = readUserDocuments().first().toMutableList()
+          currentDocuments.removeAll { it.id == documentId }
+          saveUserDocuments(currentDocuments)
+      }
+  }
+
+  override fun getUserDocumentById(documentId: String): Flow<UserDocument?> {
+     return readUserDocuments().map { documents ->
+         documents.find { it.id == documentId }
+     }
   }
 }

@@ -60,8 +60,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.navigation.NavController
+import com.google.ai.edge.gallery.R // Added import for R class
 import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import com.google.ai.edge.gallery.ui.navigation.PersonaManagementDestination // For the route
+import com.google.ai.edge.gallery.ui.navigation.UserProfileDestination // For the route
 import com.google.ai.edge.gallery.ui.theme.THEME_AUTO
 import com.google.ai.edge.gallery.ui.theme.THEME_DARK
 import com.google.ai.edge.gallery.ui.theme.THEME_LIGHT
@@ -79,6 +83,7 @@ private val THEME_OPTIONS = listOf(THEME_AUTO, THEME_LIGHT, THEME_DARK)
 fun SettingsDialog(
   curThemeOverride: String,
   modelManagerViewModel: ModelManagerViewModel,
+  navController: NavController, // Add NavController
   onDismissed: () -> Unit,
 ) {
   var selectedTheme by remember { mutableStateOf(curThemeOverride) }
@@ -253,6 +258,46 @@ fun SettingsDialog(
                   }
                 }
               }
+            }
+          }
+
+          // Personal Profile Section
+          Column(
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Text(
+              stringResource(R.string.settings_personal_profile_title),
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+              modifier = Modifier.padding(bottom = 8.dp)
+            )
+            OutlinedButton(
+              onClick = {
+                navController.navigate(UserProfileDestination.route)
+                onDismissed() // Optionally dismiss settings dialog after navigation
+              },
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Text(stringResource(R.string.settings_edit_profile_button))
+            }
+          }
+
+          // Persona Management Section
+          Column(
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Text(
+              stringResource(R.string.settings_persona_management_title),
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+              modifier = Modifier.padding(top = 16.dp, bottom = 8.dp) // Add top padding
+            )
+            OutlinedButton(
+              onClick = {
+                navController.navigate(PersonaManagementDestination.route)
+                onDismissed() // Optionally dismiss settings dialog
+              },
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Text(stringResource(R.string.settings_manage_personas_button))
             }
           }
         }

@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <!--
  Copyright 2025 Google LLC
 
@@ -18,8 +19,8 @@
     <string name="app_name">Google AI Edge Gallery</string>
     <string name="model_manager">Model Manager</string>
     <string name="downloaded_size">%1$s downloaded</string>
-    <string name="cancel">Cancel</string>
-    <string name="ok">OK</string>
+    <!-- <string name="cancel">Cancel</string> Replaced by dialog_cancel_button -->
+    <!-- <string name="ok">OK</string> Replaced by dialog_ok_button -->
     <string name="confirm_delete_model_dialog_title">Delete download</string>
     <string name="confirm_delete_model_dialog_content">Are you sure you want to delete the downloaded model \"%s\"?</string>
     <string name="notification_title_success">Model download succeeded</string>
@@ -29,7 +30,7 @@
     <string name="chat_textinput_placeholder">Type message…</string>
     <string name="chat_you">You</string>
     <string name="chat_llm_agent_name">LLM</string>
-    <string name="chat_generic_agent_name">Model</string>
+    <string name="chat_generic_agent_name">Model</string> <!-- Consider using chat_default_agent_name for new features -->
     <string name="chat_generic_result_name">Result</string>
     <string name="model_not_downloaded_msg">Model not downloaded yet</string>
     <string name="model_is_initializing_msg">Initializing model…</string>
@@ -40,4 +41,75 @@
     <string name="benchmark">Run benchmark</string>
     <string name="warming_up">warming up…</string>
     <string name="running">running</string>
+
+    <!-- UserProfileScreen.kt -->
+    <string name="user_profile_title">Personal Profile</string>
+    <string name="user_profile_name_label">Name</string>
+    <string name="user_profile_summary_label">Summary / Bio</string>
+    <string name="user_profile_skills_title">Skills</string>
+    <string name="user_profile_experience_title">Experience</string>
+    <string name="user_profile_add_skill_button">Add Skill</string>
+    <string name="user_profile_add_experience_button">Add Experience</string>
+    <string name="user_profile_skill_label_prefix">Skill %d</string>
+    <string name="user_profile_experience_label_prefix">Experience %d</string>
+    <string name="user_profile_no_skills">No skills added yet.</string>
+    <string name="user_profile_no_experience">No experience added yet.</string>
+    <string name="user_profile_save_button">Save Profile</string>
+    <string name="user_profile_saved_dialog_title">Profile Saved</string>
+    <string name="user_profile_saved_dialog_message">Your profile information has been saved successfully.</string>
+    <string name="user_profile_back_button_desc">Back</string>
+    <string name="user_profile_remove_item_desc">Remove item</string>
+
+    <!-- PersonaManagementScreen.kt -->
+    <string name="persona_management_title">Manage Personas</string>
+    <string name="persona_management_add_fab_desc">Add Persona</string>
+    <string name="persona_management_no_personas">No personas created yet. Click the '+' button to add one.</string>
+    <string name="persona_item_active_desc">Active Persona</string>
+    <string name="persona_item_inactive_desc">Persona</string>
+    <string name="persona_item_edit_desc">Edit Persona</string>
+    <string name="persona_item_delete_desc">Delete Persona</string>
+    <string name="persona_delete_dialog_title">Delete Persona</string>
+    <string name="persona_delete_dialog_message">Are you sure you want to delete \'%s\'?</string> <!-- %s is persona name -->
+    <string name="persona_delete_dialog_confirm_button">Delete</string>
+    <!-- <string name="persona_delete_dialog_cancel_button">Cancel</string> Using common dialog_cancel_button -->
+    <string name="persona_add_edit_dialog_add_title">Add New Persona</string>
+    <string name="persona_add_edit_dialog_edit_title">Edit Persona</string>
+    <string name="persona_add_edit_dialog_name_label">Persona Name</string>
+    <string name="persona_add_edit_dialog_prompt_label">Persona Prompt (System Prompt)</string>
+    <string name="persona_add_edit_dialog_add_button">Add Persona</string>
+    <string name="persona_add_edit_dialog_save_button">Save Changes</string>
+    <string name="persona_add_edit_dialog_name_default_assist">Helpful Assistant</string>
+    <string name="persona_add_edit_dialog_prompt_default_assist">You are a helpful and friendly AI assistant. You are concise and try to provide accurate information.</string>
+    <string name="persona_add_edit_dialog_name_default_creative">Creative Brainstormer</string>
+    <string name="persona_add_edit_dialog_prompt_default_creative">You are a creative brainstorming partner. You are enthusiastic and generate diverse ideas, encouraging exploration of different angles.</string>
+    <string name="persona_item_default_suffix">(Default)</string>
+
+    <!-- LlmChatScreen.kt (ChatViewWrapper) -->
+    <string name="chat_custom_system_prompt_label">Enter a custom system prompt (optional)</string>
+    <string name="chat_default_agent_name">AI Assistant</string> <!-- Replaces R.string.chat_generic_agent_name for new features -->
+    <string name="chat_history_button_desc">Conversation History</string>
+    <string name="chat_new_conversation_title_prefix">Chat on</string> <!-- For auto-title if user doesn't set one -->
+    <string name="chat_reset_session_confirm_title">Reset Chat?</string>
+    <string name="chat_reset_session_confirm_message">This will start a new chat session with the current settings. The current messages will be cleared from view but the conversation will be saved if it has messages. Are you sure?</string>
+    <string name="chat_reset_session_confirm_button">Reset</string>
+
+    <!-- ConversationHistoryScreen.kt -->
+    <string name="conversation_history_title">Conversation History</string>
+    <string name="conversation_history_no_conversations">No conversations yet.</string>
+    <string name="conversation_history_item_title_prefix">Conversation on %s</string> <!-- %s is date -->
+    <string name="conversation_history_last_activity_prefix">Last activity: %s</string> <!-- %s is date -->
+    <string name="conversation_history_delete_dialog_title">Delete Conversation</string>
+    <string name="conversation_history_delete_dialog_message">Are you sure you want to delete this conversation?</string>
+    <string name="conversation_history_delete_dialog_confirm_button">Delete</string>
+
+    <!-- SettingsDialog.kt -->
+    <string name="settings_personal_profile_title">Personal Profile</string>
+    <string name="settings_edit_profile_button">Edit Your Profile</string>
+    <string name="settings_persona_management_title">Persona Management</string>
+    <string name="settings_manage_personas_button">Manage Personas</string>
+
+    <!-- Common -->
+    <string name="dialog_ok_button">OK</string>
+    <string name="dialog_cancel_button">Cancel</string>
+
 </resources>

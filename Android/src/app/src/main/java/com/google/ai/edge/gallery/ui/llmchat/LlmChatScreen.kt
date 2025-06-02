@@ -17,10 +17,18 @@
 package com.google.ai.edge.gallery.ui.llmchat
 
 import android.graphics.Bitmap
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.* // For Column, Row, Spacer, padding, etc.
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.* // For TextField, TopAppBar, etc.
+import androidx.compose.runtime.* // For remember, mutableStateOf, collectAsState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource // For string resources
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.ai.edge.gallery.data.Model // Ensure Model is imported
 import com.google.ai.edge.gallery.ui.ViewModelProvider
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
@@ -30,115 +38,157 @@ import kotlinx.serialization.Serializable
 
 /** Navigation destination data */
 object LlmChatDestination {
-  @Serializable
-  val route = "LlmChatRoute"
-}
-
-object LlmAskImageDestination {
-  @Serializable
-  val route = "LlmAskImageRoute"
+  @Serializable // Keep serializable if used in NavType directly, though we'll use String for nav args
+  const val routeTemplate = "LlmChatRoute"
+  const val conversationIdArg = "conversationId"
+  // Route for opening an existing conversation
+  val routeForConversation = "$routeTemplate/conversation/{$conversationIdArg}"
+  // Route for starting a new chat, potentially with a pre-selected model
+  const val modelNameArg = "modelName"
+  val routeForNewChatWithModel = "$routeTemplate/new/{$modelNameArg}"
+  val routeForNewChat = routeTemplate // General new chat
 }
 
 @Composable
 fun LlmChatScreen(
-  modelManagerViewModel: ModelManagerViewModel,
-  navigateUp: () -> Unit,
-  modifier: Modifier = Modifier,
-  viewModel: LlmChatViewModel = viewModel(
-    factory = ViewModelProvider.Factory
-  ),
+    modelManagerViewModel: ModelManagerViewModel,
+    navigateUp: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: LlmChatViewModel = viewModel(factory = ViewModelProvider.Factory),
+    conversationId: String? = null // New parameter
 ) {
-  ChatViewWrapper(
-    viewModel = viewModel,
-    modelManagerViewModel = modelManagerViewModel,
-    navigateUp = navigateUp,
-    modifier = modifier,
-  )
+    var customSystemPromptInput by remember { mutableStateOf("") }
+    val currentConversation by viewModel.currentConversation.collectAsState()
+    val activePersona by viewModel.activePersona.collectAsState()
+    val uiMessages by viewModel.uiMessages.collectAsState() // Observe uiMessages
+
+    // Prioritize model from conversation if available, then from ModelManagerViewModel
+    val selectedModel: Model? = remember(currentConversation, modelManagerViewModel.getSelectedModel(viewModel.task.type)) {
+        modelManagerViewModel.getSelectedModel(viewModel.task.type)
+    }
+
+    LaunchedEffect(conversationId, selectedModel) {
+        if (selectedModel == null) {
+            android.util.Log.e("LlmChatScreen", "No model selected for chat.")
+            return@LaunchedEffect
+        }
+        if (conversationId != null) {
+            viewModel.loadConversation(conversationId, selectedModel)
+        } else {
+            if (currentConversation == null || (currentConversation?.id == null && currentConversation?.messages.isNullOrEmpty())) {
+                // Let user type system prompt. startNewConversation will be called on first send.
+            }
+        }
+    }
+
+    ChatViewWrapper(
+        viewModel = viewModel,
+        modelManagerViewModel = modelManagerViewModel,
+        navigateUp = navigateUp,
+        navController = navController, // Pass navController
+        modifier = modifier,
+        customSystemPromptInput = customSystemPromptInput,
+        onCustomSystemPromptChange = { customSystemPromptInput = it },
+        activePersonaName = activePersona?.name ?: currentConversation?.activePersonaId?.let { "ID: $it" } // Fallback to ID if name not loaded
+    )
 }
 
-@Composable
-fun LlmAskImageScreen(
-  modelManagerViewModel: ModelManagerViewModel,
-  navigateUp: () -> Unit,
-  modifier: Modifier = Modifier,
-  viewModel: LlmAskImageViewModel = viewModel(
-    factory = ViewModelProvider.Factory
-  ),
-) {
-  ChatViewWrapper(
-    viewModel = viewModel,
-    modelManagerViewModel = modelManagerViewModel,
-    navigateUp = navigateUp,
-    modifier = modifier,
-  )
-}
+// Removed duplicated ChatViewWrapper call and imports that were above it.
+// The ExperimentalMaterial3Api annotation is kept for the actual ChatViewWrapper below.
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatViewWrapper(
-  viewModel: LlmChatViewModel,
-  modelManagerViewModel: ModelManagerViewModel,
-  navigateUp: () -> Unit,
-  modifier: Modifier = Modifier
+    viewModel: LlmChatViewModel,
+    modelManagerViewModel: ModelManagerViewModel,
+    navigateUp: () -> Unit,
+    navController: NavController, // Added navController parameter
+    modifier: Modifier = Modifier,
+    customSystemPromptInput: String,
+    onCustomSystemPromptChange: (String) -> Unit,
+    activePersonaName: String?
 ) {
-  val context = LocalContext.current
+    val context = LocalContext.current
+    val currentConvo by viewModel.currentConversation.collectAsState()
+    val messagesForUi by viewModel.uiMessages.collectAsState()
+    val selectedModel = modelManagerViewModel.getSelectedModel(viewModel.task.type)
 
-  ChatView(
-    task = viewModel.task,
-    viewModel = viewModel,
-    modelManagerViewModel = modelManagerViewModel,
-    onSendMessage = { model, messages ->
-      for (message in messages) {
-        viewModel.addMessage(
-          model = model,
-          message = message,
+    // Show system prompt input if no conversation has started or if it's a new, empty conversation
+    val showSystemPromptInput = currentConvo == null || (currentConvo?.id != null && currentConvo!!.messages.isEmpty())
+
+
+    Column(modifier = modifier.fillMaxSize()) {
+        TopAppBar(
+            title = {
+                Text(activePersonaName ?: stringResource(viewModel.task.agentNameRes))
+            },
+            navigationIcon = {
+                IconButton(onClick = navigateUp) {
+                    Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.user_profile_back_button_desc)) // Reused
+                }
+            },
+            actions = {
+                IconButton(onClick = { navController.navigate(ConversationHistoryDestination.route) }) {
+                    Icon(Icons.Filled.History, contentDescription = stringResource(R.string.chat_history_button_desc))
+                }
+            }
         )
-      }
 
-      var text = ""
-      var image: Bitmap? = null
-      var chatMessageText: ChatMessageText? = null
-      for (message in messages) {
-        if (message is ChatMessageText) {
-          chatMessageText = message
-          text = message.content
-        } else if (message is ChatMessageImage) {
-          image = message.bitmap
+        if (showSystemPromptInput) {
+            OutlinedTextField(
+                value = customSystemPromptInput,
+                onValueChange = onCustomSystemPromptChange,
+                label = { Text(stringResource(R.string.chat_custom_system_prompt_label)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                maxLines = 3
+            )
         }
-      }
-      if (text.isNotEmpty() && chatMessageText != null) {
-        modelManagerViewModel.addTextInputHistory(text)
-        viewModel.generateResponse(model = model, input = text, image = image, onError = {
-          viewModel.handleError(
-            context = context,
-            model = model,
+
+        ChatView(
+            task = viewModel.task,
+            viewModel = viewModel,
             modelManagerViewModel = modelManagerViewModel,
-            triggeredMessage = chatMessageText,
-          )
-        })
-      }
-    },
-    onRunAgainClicked = { model, message ->
-      if (message is ChatMessageText) {
-        viewModel.runAgain(model = model, message = message, onError = {
-          viewModel.handleError(
-            context = context,
-            model = model,
-            modelManagerViewModel = modelManagerViewModel,
-            triggeredMessage = message,
-          )
-        })
-      }
-    },
-    onBenchmarkClicked = { _, _, _, _ ->
-    },
-    onResetSessionClicked = { model ->
-      viewModel.resetSession(model = model)
-    },
-    showStopButtonInInputWhenInProgress = true,
-    onStopButtonClicked = { model ->
-      viewModel.stopResponse(model = model)
-    },
-    navigateUp = navigateUp,
-    modifier = modifier,
-  )
+            messages = messagesForUi,
+            onSendMessage = { modelFromChatView, userMessages ->
+                val userInputMessage = userMessages.firstNotNullOfOrNull { it as? ChatMessageText }?.content ?: ""
+                val imageBitmap = userMessages.firstNotNullOfOrNull { it as? ChatMessageImage }?.bitmap
+
+                if (userInputMessage.isNotBlank() || imageBitmap != null) {
+                    selectedModel?.let { validSelectedModel ->
+                        modelManagerViewModel.addTextInputHistory(userInputMessage)
+
+                        if (currentConvo == null || (currentConvo?.id != null && currentConvo!!.messages.isEmpty() && !currentConvo!!.initialSystemPrompt.isNullOrEmpty().not() && customSystemPromptInput.isBlank())) {
+                            viewModel.startNewConversation(
+                                customSystemPrompt = if (customSystemPromptInput.isNotBlank()) customSystemPromptInput else null,
+                                selectedPersonaId = viewModel.activePersona.value?.id,
+                                title = userInputMessage.take(30).ifBlank { stringResource(R.string.chat_new_conversation_title_prefix) }, // Use string resource
+                                selectedModel = validSelectedModel
+                            )
+                        }
+                        viewModel.generateChatResponse(model = validSelectedModel, input = userInputMessage, image = imageBitmap)
+                    } ?: run {
+                        android.util.Log.e("ChatViewWrapper", "No model selected, cannot send message.")
+                        // Potentially show error to user
+                    }
+                }
+            },
+            // TODO: Add confirmation dialog for reset session
+            onResetSessionClicked = { model ->
+                 selectedModel?.let {
+                    onCustomSystemPromptChange("")
+                    viewModel.startNewConversation(
+                        customSystemPrompt = null,
+                        selectedPersonaId = viewModel.activePersona.value?.id,
+                        title = stringResource(R.string.chat_new_conversation_title_prefix), // Use string resource
+                        selectedModel = it
+                    )
+                 }
+            },
+            showStopButtonInInputWhenInProgress = true,
+            onStopButtonClicked = { model -> viewModel.stopResponse(model) },
+            navigateUp = navigateUp
+        )
+    }
 }
