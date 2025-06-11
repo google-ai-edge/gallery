@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./Android
+        working-directory: ./Android/src
     steps:
       - name: Checkout the source code
         uses: actions/checkout@v3
