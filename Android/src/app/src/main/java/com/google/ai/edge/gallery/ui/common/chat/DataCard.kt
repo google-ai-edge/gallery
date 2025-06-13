@@ -37,9 +37,8 @@ import com.google.ai.edge.gallery.ui.theme.labelSmallNarrowMedium
 /**
  * Composable function to display a data card with a label and a numeric value.
  *
- * This function renders a column containing a label and a formatted numeric value.
- * It provides options for highlighting the value and displaying a placeholder when the value is not
- * available.
+ * This function renders a column containing a label and a formatted numeric value. It provides
+ * options for highlighting the value and displaying a placeholder when the value is not available.
  */
 @Composable
 fun DataCard(
@@ -47,7 +46,7 @@ fun DataCard(
   value: Float?,
   unit: String,
   highlight: Boolean = false,
-  showPlaceholder: Boolean = false
+  showPlaceholder: Boolean = false,
 ) {
   var strValue = "-"
   Column {
@@ -57,19 +56,13 @@ fun DataCard(
     } else {
       strValue = if (value == null) "-" else "%.2f".format(value)
       if (highlight) {
-        Text(
-          strValue, style = bodySmallMediumNarrowBold, color = MaterialTheme.colorScheme.primary
-        )
+        Text(strValue, style = bodySmallMediumNarrowBold, color = MaterialTheme.colorScheme.primary)
       } else {
         Text(strValue, style = bodySmallMediumNarrow)
       }
     }
     if (strValue != "-") {
-      Text(
-        unit, style = labelSmallNarrow, modifier = Modifier
-          .alpha(0.5f)
-          .offset(y = (-1).dp)
-      )
+      Text(unit, style = labelSmallNarrow, modifier = Modifier.alpha(0.5f).offset(y = (-1).dp))
     }
   }
 }
@@ -80,13 +73,25 @@ fun DataCardPreview() {
   GalleryTheme {
     Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
       DataCard(
-        label = "sum", value = 123.45f, unit = "ms", highlight = true, showPlaceholder = false
+        label = "sum",
+        value = 123.45f,
+        unit = "ms",
+        highlight = true,
+        showPlaceholder = false,
       )
       DataCard(
-        label = "average", value = 12.3f, unit = "ms", highlight = false, showPlaceholder = false
+        label = "average",
+        value = 12.3f,
+        unit = "ms",
+        highlight = false,
+        showPlaceholder = false,
       )
       DataCard(
-        label = "test", value = null, unit = "ms", highlight = false, showPlaceholder = false
+        label = "test",
+        value = null,
+        unit = "ms",
+        highlight = false,
+        showPlaceholder = false,
       )
     }
   }

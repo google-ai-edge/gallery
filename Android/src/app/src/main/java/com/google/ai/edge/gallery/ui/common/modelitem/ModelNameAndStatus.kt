@@ -52,8 +52,8 @@ import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
  * This function renders the model's name and its current download status, including:
  * - Model name.
  * - Failure message (if download failed).
- * - Download progress (received size, total size, download rate, remaining time) for
- *   in-progress downloads.
+ * - Download progress (received size, total size, download rate, remaining time) for in-progress
+ *   downloads.
  * - "Unzipping..." status for unzipping processes.
  * - Model size for successful downloads.
  */
@@ -66,7 +66,7 @@ fun ModelNameAndStatus(
   isExpanded: Boolean,
   sharedTransitionScope: SharedTransitionScope,
   animatedVisibilityScope: AnimatedVisibilityScope,
-  modifier: Modifier = Modifier
+  modifier: Modifier = Modifier,
 ) {
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
@@ -77,18 +77,17 @@ fun ModelNameAndStatus(
       horizontalAlignment = if (isExpanded) Alignment.CenterHorizontally else Alignment.Start
     ) {
       // Model name.
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
+      Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
           model.name,
           maxLines = 1,
           overflow = TextOverflow.MiddleEllipsis,
           style = MaterialTheme.typography.titleMedium,
-          modifier = Modifier.sharedElement(
-            rememberSharedContentState(key = "model_name"),
-            animatedVisibilityScope = animatedVisibilityScope
-          )
+          modifier =
+            Modifier.sharedElement(
+              rememberSharedContentState(key = "model_name"),
+              animatedVisibilityScope = animatedVisibilityScope,
+            ),
         )
       }
 
@@ -97,12 +96,13 @@ fun ModelNameAndStatus(
         if (!inProgress && !isPartiallyDownloaded) {
           StatusIcon(
             downloadStatus = downloadStatus,
-            modifier = modifier
-              .padding(end = 4.dp)
-              .sharedElement(
-                rememberSharedContentState(key = "download_status_icon"),
-                animatedVisibilityScope = animatedVisibilityScope
-              )
+            modifier =
+              modifier
+                .padding(end = 4.dp)
+                .sharedElement(
+                  rememberSharedContentState(key = "download_status_icon"),
+                  animatedVisibilityScope = animatedVisibilityScope,
+                ),
           )
         }
 
@@ -114,10 +114,11 @@ fun ModelNameAndStatus(
               color = MaterialTheme.colorScheme.error,
               style = labelSmallNarrow,
               overflow = TextOverflow.Ellipsis,
-              modifier = Modifier.sharedElement(
-                rememberSharedContentState(key = "failure_messsage"),
-                animatedVisibilityScope = animatedVisibilityScope
-              )
+              modifier =
+                Modifier.sharedElement(
+                  rememberSharedContentState(key = "failure_messsage"),
+                  animatedVisibilityScope = animatedVisibilityScope,
+                ),
             )
           }
         }
@@ -138,8 +139,7 @@ fun ModelNameAndStatus(
               sizeLabel =
                 "${downloadStatus.receivedBytes.humanReadableSize(extraDecimalForGbAndAbove = true)} of ${totalSize.humanReadableSize()}"
               if (downloadStatus.bytesPerSecond > 0) {
-                sizeLabel =
-                  "$sizeLabel · ${downloadStatus.bytesPerSecond.humanReadableSize()} / s"
+                sizeLabel = "$sizeLabel · ${downloadStatus.bytesPerSecond.humanReadableSize()} / s"
                 if (downloadStatus.remainingMs >= 0) {
                   sizeLabel =
                     "$sizeLabel\n${downloadStatus.remainingMs.formatToHourMinSecond()} left"
@@ -162,7 +162,7 @@ fun ModelNameAndStatus(
           }
 
           Column(
-            horizontalAlignment = if (isExpanded) Alignment.CenterHorizontally else Alignment.Start,
+            horizontalAlignment = if (isExpanded) Alignment.CenterHorizontally else Alignment.Start
           ) {
             for ((index, line) in sizeLabel.split("\n").withIndex()) {
               Text(
@@ -172,12 +172,12 @@ fun ModelNameAndStatus(
                 style = labelSmallNarrow.copy(fontSize = fontSize, lineHeight = 10.sp),
                 textAlign = if (isExpanded) TextAlign.Center else TextAlign.Start,
                 overflow = TextOverflow.Visible,
-                modifier = Modifier
-                  .offset(y = if (index == 0) 0.dp else (-1).dp)
-                  .sharedElement(
-                    rememberSharedContentState(key = "status_label_${index}"),
-                    animatedVisibilityScope = animatedVisibilityScope
-                  )
+                modifier =
+                  Modifier.offset(y = if (index == 0) 0.dp else (-1).dp)
+                    .sharedElement(
+                      rememberSharedContentState(key = "status_label_${index}"),
+                      animatedVisibilityScope = animatedVisibilityScope,
+                    ),
               )
             }
           }
@@ -191,12 +191,12 @@ fun ModelNameAndStatus(
           progress = { animatedProgress.value },
           color = getTaskIconColor(task = task),
           trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-          modifier = Modifier
-            .padding(top = 2.dp)
-            .sharedElement(
-              rememberSharedContentState(key = "download_progress_bar"),
-              animatedVisibilityScope = animatedVisibilityScope
-            )
+          modifier =
+            Modifier.padding(top = 2.dp)
+              .sharedElement(
+                rememberSharedContentState(key = "download_progress_bar"),
+                animatedVisibilityScope = animatedVisibilityScope,
+              ),
         )
         LaunchedEffect(curDownloadProgress) {
           animatedProgress.animateTo(curDownloadProgress, animationSpec = tween(150))
@@ -207,12 +207,12 @@ fun ModelNameAndStatus(
         LinearProgressIndicator(
           color = getTaskIconColor(task = task),
           trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-          modifier = Modifier
-            .padding(top = 2.dp)
-            .sharedElement(
-              rememberSharedContentState(key = "unzip_progress_bar"),
-              animatedVisibilityScope = animatedVisibilityScope
-            )
+          modifier =
+            Modifier.padding(top = 2.dp)
+              .sharedElement(
+                rememberSharedContentState(key = "unzip_progress_bar"),
+                animatedVisibilityScope = animatedVisibilityScope,
+              ),
         )
       }
     }

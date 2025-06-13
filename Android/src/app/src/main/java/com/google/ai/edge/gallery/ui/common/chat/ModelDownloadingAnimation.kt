@@ -16,6 +16,11 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+// import com.google.ai.edge.gallery.ui.preview.MODEL_TEST1
+// import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
+// import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
@@ -47,13 +52,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
@@ -62,14 +64,10 @@ import com.google.ai.edge.gallery.ui.common.formatToHourMinSecond
 import com.google.ai.edge.gallery.ui.common.getTaskIconColor
 import com.google.ai.edge.gallery.ui.common.humanReadableSize
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import com.google.ai.edge.gallery.ui.preview.MODEL_TEST1
-import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
-import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
-import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.pow
+import kotlinx.coroutines.delay
 
 private val GRID_SIZE = 240.dp
 private val GRID_SPACING = 0.dp
@@ -77,7 +75,6 @@ private const val PAUSE_DURATION = 200
 private const val ANIMATION_DURATION = 500
 private const val START_SCALE = 0.9f
 private const val END_SCALE = 0.6f
-
 
 /**
  * Composable function to display a loading animation using a 2x2 grid of images with a synchronized
@@ -87,7 +84,7 @@ private const val END_SCALE = 0.6f
 fun ModelDownloadingAnimation(
   model: Model,
   task: Task,
-  modelManagerViewModel: ModelManagerViewModel
+  modelManagerViewModel: ModelManagerViewModel,
 ) {
   val scale = remember { Animatable(END_SCALE) }
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -103,25 +100,26 @@ fun ModelDownloadingAnimation(
       // Phase 1: Scale up
       scale.animateTo(
         targetValue = START_SCALE,
-        animationSpec = tween(
-          durationMillis = ANIMATION_DURATION,
-          easing = multiBounceEasing(bounces = 3, decay = 0.02f)
-        )
+        animationSpec =
+          tween(
+            durationMillis = ANIMATION_DURATION,
+            easing = multiBounceEasing(bounces = 3, decay = 0.02f),
+          ),
       )
       delay(PAUSE_DURATION.toLong())
 
       // Phase 2: Scale down
       scale.animateTo(
         targetValue = END_SCALE,
-        animationSpec = tween(
-          durationMillis = ANIMATION_DURATION,
-          easing = multiBounceEasing(bounces = 3, decay = 0.02f)
-        )
+        animationSpec =
+          tween(
+            durationMillis = ANIMATION_DURATION,
+            easing = multiBounceEasing(bounces = 3, decay = 0.02f),
+          ),
       )
       delay(PAUSE_DURATION.toLong())
     }
   }
-
 
   // Failure message.
   val curDownloadStatus = downloadStatus
@@ -139,57 +137,54 @@ fun ModelDownloadingAnimation(
   else {
     Column(
       horizontalAlignment = Alignment.CenterHorizontally,
-      modifier = Modifier.offset(y = -GRID_SIZE / 8)
+      modifier = Modifier.offset(y = -GRID_SIZE / 8),
     ) {
       LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         horizontalArrangement = Arrangement.spacedBy(GRID_SPACING),
         verticalArrangement = Arrangement.spacedBy(GRID_SPACING),
-        modifier = Modifier
-          .width(GRID_SIZE)
-          .height(GRID_SIZE)
+        modifier = Modifier.width(GRID_SIZE).height(GRID_SIZE),
       ) {
         itemsIndexed(
           listOf(
             R.drawable.pantegon,
             R.drawable.double_circle,
             R.drawable.circle,
-            R.drawable.four_circle
+            R.drawable.four_circle,
           )
         ) { index, imageResource ->
           val currentScale =
             if (index == 0 || index == 3) scale.value else START_SCALE + END_SCALE - scale.value
 
           Box(
-            modifier = Modifier
-              .width((GRID_SIZE - GRID_SPACING) / 2)
-              .height((GRID_SIZE - GRID_SPACING) / 2),
-            contentAlignment = when (index) {
-              0 -> Alignment.BottomEnd
-              1 -> Alignment.BottomStart
-              2 -> Alignment.TopEnd
-              3 -> Alignment.TopStart
-              else -> Alignment.Center
-            }
+            modifier =
+              Modifier.width((GRID_SIZE - GRID_SPACING) / 2).height((GRID_SIZE - GRID_SPACING) / 2),
+            contentAlignment =
+              when (index) {
+                0 -> Alignment.BottomEnd
+                1 -> Alignment.BottomStart
+                2 -> Alignment.TopEnd
+                3 -> Alignment.TopStart
+                else -> Alignment.Center
+              },
           ) {
             Image(
               painter = painterResource(id = imageResource),
               contentDescription = "",
               contentScale = ContentScale.Fit,
               colorFilter = ColorFilter.tint(getTaskIconColor(index = index)),
-              modifier = Modifier
-                .graphicsLayer {
-                  scaleX = currentScale
-                  scaleY = currentScale
-                  rotationZ = currentScale * 120
-                  alpha = 0.8f
-                }
-                .size(70.dp)
+              modifier =
+                Modifier.graphicsLayer {
+                    scaleX = currentScale
+                    scaleY = currentScale
+                    rotationZ = currentScale * 120
+                    alpha = 0.8f
+                  }
+                  .size(70.dp),
             )
           }
         }
       }
-
 
       // Download stats
       var sizeLabel = model.totalBytes.humanReadableSize()
@@ -203,8 +198,7 @@ fun ModelDownloadingAnimation(
           sizeLabel =
             "${curDownloadStatus.receivedBytes.humanReadableSize(extraDecimalForGbAndAbove = true)} of ${totalSize.humanReadableSize()}"
           if (curDownloadStatus.bytesPerSecond > 0) {
-            sizeLabel =
-              "$sizeLabel · ${curDownloadStatus.bytesPerSecond.humanReadableSize()} / s"
+            sizeLabel = "$sizeLabel · ${curDownloadStatus.bytesPerSecond.humanReadableSize()} / s"
             if (curDownloadStatus.remainingMs >= 0) {
               sizeLabel =
                 "$sizeLabel · ${curDownloadStatus.remainingMs.formatToHourMinSecond()} left"
@@ -229,8 +223,7 @@ fun ModelDownloadingAnimation(
           style = MaterialTheme.typography.labelMedium,
           textAlign = TextAlign.Center,
           overflow = TextOverflow.Visible,
-          modifier = Modifier
-            .padding(bottom = 4.dp)
+          modifier = Modifier.padding(bottom = 4.dp),
         )
       }
 
@@ -241,10 +234,7 @@ fun ModelDownloadingAnimation(
           progress = { animatedProgress.value },
           color = getTaskIconColor(task = task),
           trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 36.dp)
-            .padding(horizontal = 36.dp)
+          modifier = Modifier.fillMaxWidth().padding(bottom = 36.dp).padding(horizontal = 36.dp),
         )
         LaunchedEffect(curDownloadProgress) {
           animatedProgress.animateTo(curDownloadProgress, animationSpec = tween(150))
@@ -255,23 +245,19 @@ fun ModelDownloadingAnimation(
         LinearProgressIndicator(
           color = getTaskIconColor(task = task),
           trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 36.dp)
-            .padding(horizontal = 36.dp)
+          modifier = Modifier.fillMaxWidth().padding(bottom = 36.dp).padding(horizontal = 36.dp),
         )
       }
 
       Text(
-        "Feel free to switch apps or lock your device.\n"
-            + "The download will continue in the background.\n"
-            + "We'll send a notification when it's done.",
+        "Feel free to switch apps or lock your device.\n" +
+          "The download will continue in the background.\n" +
+          "We'll send a notification when it's done.",
         style = MaterialTheme.typography.bodyLarge,
-        textAlign = TextAlign.Center
+        textAlign = TextAlign.Center,
       )
     }
   }
-
 }
 
 // Custom Easing function for a multi-bounce effect
@@ -283,18 +269,18 @@ fun multiBounceEasing(bounces: Int, decay: Float): Easing = Easing { x ->
   }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun ModelDownloadingAnimationPreview() {
-  val context = LocalContext.current
+// @Preview(showBackground = true)
+// @Composable
+// fun ModelDownloadingAnimationPreview() {
+//   val context = LocalContext.current
 
-  GalleryTheme {
-    Row(modifier = Modifier.padding(16.dp)) {
-      ModelDownloadingAnimation(
-        model = MODEL_TEST1,
-        task = TASK_TEST1,
-        modelManagerViewModel = PreviewModelManagerViewModel(context = context)
-      )
-    }
-  }
-}
+//   GalleryTheme {
+//     Row(modifier = Modifier.padding(16.dp)) {
+//       ModelDownloadingAnimation(
+//         model = MODEL_TEST1,
+//         task = TASK_TEST1,
+//         modelManagerViewModel = PreviewModelManagerViewModel(context = context),
+//       )
+//     }
+//   }
+// }

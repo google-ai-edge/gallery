@@ -66,69 +66,50 @@ fun ModelItemActionButton(
   Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
     when (downloadStatus?.status) {
       // Button to start the download.
-      ModelDownloadStatusType.NOT_DOWNLOADED, ModelDownloadStatusType.FAILED ->
+      ModelDownloadStatusType.NOT_DOWNLOADED,
+      ModelDownloadStatusType.FAILED ->
         if (showDownloadButton) {
-          IconButton(onClick = {
-            onDownloadClicked(model)
-          }) {
-            Icon(
-              Icons.Rounded.FileDownload,
-              contentDescription = "",
-              tint = getTaskIconColor(task),
-            )
+          IconButton(onClick = { onDownloadClicked(model) }) {
+            Icon(Icons.Rounded.FileDownload, contentDescription = "", tint = getTaskIconColor(task))
           }
         }
 
       // Button to delete the download.
       ModelDownloadStatusType.SUCCEEDED -> {
         if (showDeleteButton) {
-          IconButton(onClick = {
-            showConfirmDeleteDialog = true
-          }) {
-            Icon(
-              Icons.Rounded.Delete,
-              contentDescription = "",
-              tint = getTaskIconColor(task),
-            )
+          IconButton(onClick = { showConfirmDeleteDialog = true }) {
+            Icon(Icons.Rounded.Delete, contentDescription = "", tint = getTaskIconColor(task))
           }
-
         }
       }
 
       // Show spinner when the model is partially downloaded because it might some time for
       // background task to be started by Android.
       ModelDownloadStatusType.PARTIALLY_DOWNLOADED -> {
-        CircularProgressIndicator(
-          modifier = Modifier
-            .padding(end = 12.dp)
-            .size(24.dp)
-        )
+        CircularProgressIndicator(modifier = Modifier.padding(end = 12.dp).size(24.dp))
       }
 
       // Button to cancel the download when it is in progress.
-      ModelDownloadStatusType.IN_PROGRESS, ModelDownloadStatusType.UNZIPPING -> IconButton(onClick = {
-        modelManagerViewModel.cancelDownloadModel(
-          task = task,
-          model = model
-        )
-      }) {
-        Icon(
-          Icons.Rounded.Cancel,
-          contentDescription = "",
-          tint = getTaskIconColor(task),
-        )
-      }
+      ModelDownloadStatusType.IN_PROGRESS,
+      ModelDownloadStatusType.UNZIPPING ->
+        IconButton(
+          onClick = { modelManagerViewModel.cancelDownloadModel(task = task, model = model) }
+        ) {
+          Icon(Icons.Rounded.Cancel, contentDescription = "", tint = getTaskIconColor(task))
+        }
 
       else -> {}
     }
   }
 
   if (showConfirmDeleteDialog) {
-    ConfirmDeleteModelDialog(model = model, onConfirm = {
-      modelManagerViewModel.deleteModel(task = task, model = model)
-      showConfirmDeleteDialog = false
-    }, onDismiss = {
-      showConfirmDeleteDialog = false
-    })
+    ConfirmDeleteModelDialog(
+      model = model,
+      onConfirm = {
+        modelManagerViewModel.deleteModel(task = task, model = model)
+        showConfirmDeleteDialog = false
+      },
+      onDismiss = { showConfirmDeleteDialog = false },
+    )
   }
 }

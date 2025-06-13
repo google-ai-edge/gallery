@@ -16,7 +16,7 @@
 
 package com.google.ai.edge.gallery.ui.common
 
-import android.net.Uri
+import androidx.core.net.toUri
 import net.openid.appauth.AuthorizationServiceConfiguration
 
 object AuthConfig {
@@ -34,8 +34,9 @@ object AuthConfig {
   private const val tokenEndpoint = "https://huggingface.co/oauth/token"
 
   // OAuth service configuration (AppAuth library requires this)
-  val authServiceConfig = AuthorizationServiceConfiguration(
-    Uri.parse(authEndpoint), // Authorization endpoint
-    Uri.parse(tokenEndpoint) // Token exchange endpoint
-  )
+  val authServiceConfig =
+    AuthorizationServiceConfiguration(
+      authEndpoint.toUri(), // Authorization endpoint
+      tokenEndpoint.toUri(), // Token exchange endpoint
+    )
 }

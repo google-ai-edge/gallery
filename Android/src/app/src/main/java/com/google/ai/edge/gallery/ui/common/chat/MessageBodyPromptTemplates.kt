@@ -16,13 +16,17 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.preview.ALL_PREVIEW_TASKS
+// import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,13 +45,10 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.data.PromptTemplate
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.getTaskIconColor
-import com.google.ai.edge.gallery.ui.preview.ALL_PREVIEW_TASKS
-import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 
 private const val CARD_HEIGHT = 100
 
@@ -63,16 +64,15 @@ fun MessageBodyPromptTemplates(
 
   Column(
     modifier = Modifier.padding(top = 12.dp),
-    verticalArrangement = Arrangement.spacedBy(8.dp)
+    verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     Text(
       "Try an example prompt",
-      style = MaterialTheme.typography.titleLarge.copy(
-        fontWeight = FontWeight.Bold,
-        brush = Brush.linearGradient(
-          colors = gradientColors,
-        )
-      ),
+      style =
+        MaterialTheme.typography.titleLarge.copy(
+          fontWeight = FontWeight.Bold,
+          brush = Brush.linearGradient(colors = gradientColors),
+        ),
       modifier = Modifier.fillMaxWidth(),
       textAlign = TextAlign.Center,
     )
@@ -80,41 +80,30 @@ fun MessageBodyPromptTemplates(
       Text(
         "Or make your own",
         style = MaterialTheme.typography.titleSmall,
-        modifier = Modifier
-          .fillMaxWidth()
-          .offset(y = (-4).dp),
+        modifier = Modifier.fillMaxWidth().offset(y = (-4).dp),
         textAlign = TextAlign.Center,
       )
     }
     LazyColumn(
-      modifier = Modifier
-        .height((rowCount * (CARD_HEIGHT + 8)).dp),
+      modifier = Modifier.height((rowCount * (CARD_HEIGHT + 8)).dp),
       verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       // Cards.
       items(message.templates) { template ->
         Box(
-          modifier = Modifier
-            .border(
-              width = 1.dp,
-              color = color.copy(alpha = 0.3f),
-              shape = RoundedCornerShape(24.dp)
-            )
-            .height(CARD_HEIGHT.dp)
-            .shadow(
-              elevation = 2.dp,
-              shape = RoundedCornerShape(24.dp),
-              spotColor = color
-            )
-            .background(MaterialTheme.colorScheme.surface)
-            .clickable {
-              onPromptClicked(template)
-            }
+          modifier =
+            Modifier.border(
+                width = 1.dp,
+                color = color.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(24.dp),
+              )
+              .height(CARD_HEIGHT.dp)
+              .shadow(elevation = 2.dp, shape = RoundedCornerShape(24.dp), spotColor = color)
+              .background(MaterialTheme.colorScheme.surface)
+              .clickable { onPromptClicked(template) }
         ) {
           Column(
-            modifier = Modifier
-              .padding(horizontal = 12.dp, vertical = 20.dp)
-              .fillMaxSize(),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 20.dp).fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
           ) {
             Text(
@@ -134,35 +123,37 @@ fun MessageBodyPromptTemplates(
   }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun MessageBodyPromptTemplatesPreview() {
-  for ((index, task) in ALL_PREVIEW_TASKS.withIndex()) {
-    task.index = index
-    for (model in task.models) {
-      model.preProcess()
-    }
-  }
+// @Preview(showBackground = true)
+// @Composable
+// fun MessageBodyPromptTemplatesPreview() {
+//   for ((index, task) in ALL_PREVIEW_TASKS.withIndex()) {
+//     task.index = index
+//     for (model in task.models) {
+//       model.preProcess()
+//     }
+//   }
 
-  GalleryTheme {
-    Row(modifier = Modifier.padding(16.dp)) {
-      MessageBodyPromptTemplates(
-        message = ChatMessagePromptTemplates(
-          templates = listOf(
-            PromptTemplate(
-              title = "Math Worksheets",
-              description = "Create a set of math worksheets for parents",
-              prompt = ""
-            ),
-            PromptTemplate(
-              title = "Shape Sequencer",
-              description = "Find the next shape in a sequence",
-              prompt = ""
-            )
-          )
-        ),
-        task = TASK_TEST1,
-      )
-    }
-  }
-}
+//   GalleryTheme {
+//     Row(modifier = Modifier.padding(16.dp)) {
+//       MessageBodyPromptTemplates(
+//         message =
+//           ChatMessagePromptTemplates(
+//             templates =
+//               listOf(
+//                 PromptTemplate(
+//                   title = "Math Worksheets",
+//                   description = "Create a set of math worksheets for parents",
+//                   prompt = "",
+//                 ),
+//                 PromptTemplate(
+//                   title = "Shape Sequencer",
+//                   description = "Find the next shape in a sequence",
+//                   prompt = "",
+//                 ),
+//               )
+//           ),
+//         task = TASK_TEST1,
+//       )
+//     }
+//   }
+// }

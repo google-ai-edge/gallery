@@ -30,82 +30,85 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import com.google.ai.edge.gallery.proto.Theme
 
-private val lightScheme = lightColorScheme(
-  primary = primaryLight,
-  onPrimary = onPrimaryLight,
-  primaryContainer = primaryContainerLight,
-  onPrimaryContainer = onPrimaryContainerLight,
-  secondary = secondaryLight,
-  onSecondary = onSecondaryLight,
-  secondaryContainer = secondaryContainerLight,
-  onSecondaryContainer = onSecondaryContainerLight,
-  tertiary = tertiaryLight,
-  onTertiary = onTertiaryLight,
-  tertiaryContainer = tertiaryContainerLight,
-  onTertiaryContainer = onTertiaryContainerLight,
-  error = errorLight,
-  onError = onErrorLight,
-  errorContainer = errorContainerLight,
-  onErrorContainer = onErrorContainerLight,
-  background = backgroundLight,
-  onBackground = onBackgroundLight,
-  surface = surfaceLight,
-  onSurface = onSurfaceLight,
-  surfaceVariant = surfaceVariantLight,
-  onSurfaceVariant = onSurfaceVariantLight,
-  outline = outlineLight,
-  outlineVariant = outlineVariantLight,
-  scrim = scrimLight,
-  inverseSurface = inverseSurfaceLight,
-  inverseOnSurface = inverseOnSurfaceLight,
-  inversePrimary = inversePrimaryLight,
-  surfaceDim = surfaceDimLight,
-  surfaceBright = surfaceBrightLight,
-  surfaceContainerLowest = surfaceContainerLowestLight,
-  surfaceContainerLow = surfaceContainerLowLight,
-  surfaceContainer = surfaceContainerLight,
-  surfaceContainerHigh = surfaceContainerHighLight,
-  surfaceContainerHighest = surfaceContainerHighestLight,
-)
+private val lightScheme =
+  lightColorScheme(
+    primary = primaryLight,
+    onPrimary = onPrimaryLight,
+    primaryContainer = primaryContainerLight,
+    onPrimaryContainer = onPrimaryContainerLight,
+    secondary = secondaryLight,
+    onSecondary = onSecondaryLight,
+    secondaryContainer = secondaryContainerLight,
+    onSecondaryContainer = onSecondaryContainerLight,
+    tertiary = tertiaryLight,
+    onTertiary = onTertiaryLight,
+    tertiaryContainer = tertiaryContainerLight,
+    onTertiaryContainer = onTertiaryContainerLight,
+    error = errorLight,
+    onError = onErrorLight,
+    errorContainer = errorContainerLight,
+    onErrorContainer = onErrorContainerLight,
+    background = backgroundLight,
+    onBackground = onBackgroundLight,
+    surface = surfaceLight,
+    onSurface = onSurfaceLight,
+    surfaceVariant = surfaceVariantLight,
+    onSurfaceVariant = onSurfaceVariantLight,
+    outline = outlineLight,
+    outlineVariant = outlineVariantLight,
+    scrim = scrimLight,
+    inverseSurface = inverseSurfaceLight,
+    inverseOnSurface = inverseOnSurfaceLight,
+    inversePrimary = inversePrimaryLight,
+    surfaceDim = surfaceDimLight,
+    surfaceBright = surfaceBrightLight,
+    surfaceContainerLowest = surfaceContainerLowestLight,
+    surfaceContainerLow = surfaceContainerLowLight,
+    surfaceContainer = surfaceContainerLight,
+    surfaceContainerHigh = surfaceContainerHighLight,
+    surfaceContainerHighest = surfaceContainerHighestLight,
+  )
 
-private val darkScheme = darkColorScheme(
-  primary = primaryDark,
-  onPrimary = onPrimaryDark,
-  primaryContainer = primaryContainerDark,
-  onPrimaryContainer = onPrimaryContainerDark,
-  secondary = secondaryDark,
-  onSecondary = onSecondaryDark,
-  secondaryContainer = secondaryContainerDark,
-  onSecondaryContainer = onSecondaryContainerDark,
-  tertiary = tertiaryDark,
-  onTertiary = onTertiaryDark,
-  tertiaryContainer = tertiaryContainerDark,
-  onTertiaryContainer = onTertiaryContainerDark,
-  error = errorDark,
-  onError = onErrorDark,
-  errorContainer = errorContainerDark,
-  onErrorContainer = onErrorContainerDark,
-  background = backgroundDark,
-  onBackground = onBackgroundDark,
-  surface = surfaceDark,
-  onSurface = onSurfaceDark,
-  surfaceVariant = surfaceVariantDark,
-  onSurfaceVariant = onSurfaceVariantDark,
-  outline = outlineDark,
-  outlineVariant = outlineVariantDark,
-  scrim = scrimDark,
-  inverseSurface = inverseSurfaceDark,
-  inverseOnSurface = inverseOnSurfaceDark,
-  inversePrimary = inversePrimaryDark,
-  surfaceDim = surfaceDimDark,
-  surfaceBright = surfaceBrightDark,
-  surfaceContainerLowest = surfaceContainerLowestDark,
-  surfaceContainerLow = surfaceContainerLowDark,
-  surfaceContainer = surfaceContainerDark,
-  surfaceContainerHigh = surfaceContainerHighDark,
-  surfaceContainerHighest = surfaceContainerHighestDark,
-)
+private val darkScheme =
+  darkColorScheme(
+    primary = primaryDark,
+    onPrimary = onPrimaryDark,
+    primaryContainer = primaryContainerDark,
+    onPrimaryContainer = onPrimaryContainerDark,
+    secondary = secondaryDark,
+    onSecondary = onSecondaryDark,
+    secondaryContainer = secondaryContainerDark,
+    onSecondaryContainer = onSecondaryContainerDark,
+    tertiary = tertiaryDark,
+    onTertiary = onTertiaryDark,
+    tertiaryContainer = tertiaryContainerDark,
+    onTertiaryContainer = onTertiaryContainerDark,
+    error = errorDark,
+    onError = onErrorDark,
+    errorContainer = errorContainerDark,
+    onErrorContainer = onErrorContainerDark,
+    background = backgroundDark,
+    onBackground = onBackgroundDark,
+    surface = surfaceDark,
+    onSurface = onSurfaceDark,
+    surfaceVariant = surfaceVariantDark,
+    onSurfaceVariant = onSurfaceVariantDark,
+    outline = outlineDark,
+    outlineVariant = outlineVariantDark,
+    scrim = scrimDark,
+    inverseSurface = inverseSurfaceDark,
+    inverseOnSurface = inverseOnSurfaceDark,
+    inversePrimary = inversePrimaryDark,
+    surfaceDim = surfaceDimDark,
+    surfaceBright = surfaceBrightDark,
+    surfaceContainerLowest = surfaceContainerLowestDark,
+    surfaceContainerLow = surfaceContainerLowDark,
+    surfaceContainer = surfaceContainerDark,
+    surfaceContainerHigh = surfaceContainerHighDark,
+    surfaceContainerHighest = surfaceContainerHighestDark,
+  )
 
 @Immutable
 data class CustomColors(
@@ -121,66 +124,54 @@ data class CustomColors(
 
 val LocalCustomColors = staticCompositionLocalOf { CustomColors() }
 
-val lightCustomColors = CustomColors(
-  taskBgColors = listOf(
-    // green
-    Color(0xFFE1F6DE),
-    // blue
-    Color(0xFFEDF0FF),
-    // yellow
-    Color(0xFFFFEFC9),
-    // red
-    Color(0xFFFFEDE6),
-  ),
-  taskIconColors = listOf(
-    Color(0xFF34A853),
-    Color(0xFF1967D2),
-    Color(0xFFE37400),
-    Color(0xFFD93025),
-  ),
-  taskIconShapeBgColor = Color.White,
-  homeBottomGradient = listOf(
-    Color(0x00F8F9FF),
-    Color(0xffFFEFC9)
-  ),
-  agentBubbleBgColor = Color(0xFFe9eef6),
-  userBubbleBgColor = Color(0xFF32628D),
-  linkColor = Color(0xFF32628D),
-  successColor = Color(0xff3d860b),
-)
+val lightCustomColors =
+  CustomColors(
+    taskBgColors =
+      listOf(
+        // green
+        Color(0xFFE1F6DE),
+        // blue
+        Color(0xFFEDF0FF),
+        // yellow
+        Color(0xFFFFEFC9),
+        // red
+        Color(0xFFFFEDE6),
+      ),
+    taskIconColors =
+      listOf(Color(0xFF34A853), Color(0xFF1967D2), Color(0xFFE37400), Color(0xFFD93025)),
+    taskIconShapeBgColor = Color.White,
+    homeBottomGradient = listOf(Color(0x00F8F9FF), Color(0xffFFEFC9)),
+    agentBubbleBgColor = Color(0xFFe9eef6),
+    userBubbleBgColor = Color(0xFF32628D),
+    linkColor = Color(0xFF32628D),
+    successColor = Color(0xff3d860b),
+  )
 
-val darkCustomColors = CustomColors(
-  taskBgColors = listOf(
-    // green
-    Color(0xFF2E312D),
-    // blue
-    Color(0xFF303033),
-    // yellow
-    Color(0xFF33302A),
-    // red
-    Color(0xFF362F2D),
-  ),
-  taskIconColors = listOf(
-    Color(0xFF6DD58C),
-    Color(0xFFAAC7FF),
-    Color(0xFFFFB955),
-    Color(0xFFFFB4AB),
-  ),
-  taskIconShapeBgColor = Color(0xFF202124),
-  homeBottomGradient = listOf(
-    Color(0x00F8F9FF),
-    Color(0x1AF6AD01)
-  ),
-  agentBubbleBgColor = Color(0xFF1b1c1d),
-  userBubbleBgColor = Color(0xFF1f3760),
-  linkColor = Color(0xFF9DCAFC),
-  successColor = Color(0xFFA1CE83),
-)
+val darkCustomColors =
+  CustomColors(
+    taskBgColors =
+      listOf(
+        // green
+        Color(0xFF2E312D),
+        // blue
+        Color(0xFF303033),
+        // yellow
+        Color(0xFF33302A),
+        // red
+        Color(0xFF362F2D),
+      ),
+    taskIconColors =
+      listOf(Color(0xFF6DD58C), Color(0xFFAAC7FF), Color(0xFFFFB955), Color(0xFFFFB4AB)),
+    taskIconShapeBgColor = Color(0xFF202124),
+    homeBottomGradient = listOf(Color(0x00F8F9FF), Color(0x1AF6AD01)),
+    agentBubbleBgColor = Color(0xFF1b1c1d),
+    userBubbleBgColor = Color(0xFF1f3760),
+    linkColor = Color(0xFF9DCAFC),
+    successColor = Color(0xFFA1CE83),
+  )
 
 val MaterialTheme.customColors: CustomColors
-  @Composable
-  @ReadOnlyComposable
-  get() = LocalCustomColors.current
+  @Composable @ReadOnlyComposable get() = LocalCustomColors.current
 
 /**
  * Controls the color of the phone's status bar icons based on whether the app is using a dark
@@ -201,30 +192,23 @@ fun StatusBarColorController(useDarkTheme: Boolean) {
 }
 
 @Composable
-fun GalleryTheme(
-  content: @Composable () -> Unit
-) {
+fun GalleryTheme(content: @Composable () -> Unit) {
   val themeOverride = ThemeSettings.themeOverride
   val darkTheme: Boolean =
-    (isSystemInDarkTheme() || themeOverride.value == THEME_DARK) && themeOverride.value != THEME_LIGHT
+    (isSystemInDarkTheme() || themeOverride.value == Theme.THEME_DARK) &&
+      themeOverride.value != Theme.THEME_LIGHT
 
   StatusBarColorController(useDarkTheme = darkTheme)
 
-  val colorScheme = when {
-    darkTheme -> darkScheme
-    else -> lightScheme
-  }
+  val colorScheme =
+    when {
+      darkTheme -> darkScheme
+      else -> lightScheme
+    }
 
   val customColorsPalette = if (darkTheme) darkCustomColors else lightCustomColors
 
-  CompositionLocalProvider(
-    LocalCustomColors provides customColorsPalette
-  ) {
-    MaterialTheme(
-      colorScheme = colorScheme,
-      typography = AppTypography,
-      content = content
-    )
+  CompositionLocalProvider(LocalCustomColors provides customColorsPalette) {
+    MaterialTheme(colorScheme = colorScheme, typography = AppTypography, content = content)
   }
 }
-

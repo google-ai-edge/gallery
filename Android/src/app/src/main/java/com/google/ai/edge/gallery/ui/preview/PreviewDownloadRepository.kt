@@ -24,22 +24,19 @@ import java.util.UUID
 
 class PreviewDownloadRepository : DownloadRepository {
   override fun downloadModel(
-    model: Model, onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit
-  ) {
-  }
+    model: Model,
+    onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
+  ) {}
 
-  override fun cancelDownloadModel(model: Model) {
-  }
+  override fun cancelDownloadModel(model: Model) {}
 
-  override fun cancelAll(models: List<Model>, onComplete: () -> Unit) {
-  }
+  override fun cancelAll(models: List<Model>, onComplete: () -> Unit) {}
 
   override fun observerWorkerProgress(
     workerId: UUID,
     model: Model,
-    onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit
-  ) {
-  }
+    onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
+  ) {}
 
   override fun getEnqueuedOrRunningWorkInfos(): List<AGWorkInfo> {
     return listOf()

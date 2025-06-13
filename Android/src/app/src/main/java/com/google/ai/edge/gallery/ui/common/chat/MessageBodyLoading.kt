@@ -16,12 +16,12 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,29 +33,21 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.ui.common.getTaskIconColor
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val IMAGE_RESOURCES = listOf(
-  R.drawable.pantegon,
-  R.drawable.double_circle,
-  R.drawable.circle,
-  R.drawable.four_circle
-)
+private val IMAGE_RESOURCES =
+  listOf(R.drawable.pantegon, R.drawable.double_circle, R.drawable.circle, R.drawable.four_circle)
 
 private const val ANIMATION_DURATION = 300
 private const val ANIMATION_DURATION2 = 300
 private const val PAUSE_DURATION = 200
 private const val PAUSE_DURATION2 = 0
 
-/**
- * Composable function to display a loading indicator.
- */
+/** Composable function to display a loading indicator. */
 @Composable
 fun MessageBodyLoading() {
   val progress = remember { Animatable(0f) }
@@ -67,18 +59,17 @@ fun MessageBodyLoading() {
       var progressJob = launch {
         progress.animateTo(
           targetValue = 1f,
-          animationSpec = tween(
-            durationMillis = ANIMATION_DURATION,
-            easing = multiBounceEasing(bounces = 3, decay = 0.02f)
-          )
+          animationSpec =
+            tween(
+              durationMillis = ANIMATION_DURATION,
+              easing = multiBounceEasing(bounces = 3, decay = 0.02f),
+            ),
         )
       }
       var alphaJob = launch {
         alphaAnim.animateTo(
           targetValue = 1f,
-          animationSpec = tween(
-            durationMillis = ANIMATION_DURATION / 2,
-          )
+          animationSpec = tween(durationMillis = ANIMATION_DURATION / 2),
         )
       }
       progressJob.join()
@@ -88,18 +79,17 @@ fun MessageBodyLoading() {
       progressJob = launch {
         progress.animateTo(
           targetValue = 0f,
-          animationSpec = tween(
-            durationMillis = ANIMATION_DURATION2,
-            easing = multiBounceEasing(bounces = 3, decay = 0.02f)
-          )
+          animationSpec =
+            tween(
+              durationMillis = ANIMATION_DURATION2,
+              easing = multiBounceEasing(bounces = 3, decay = 0.02f),
+            ),
         )
       }
       alphaJob = launch {
         alphaAnim.animateTo(
           targetValue = 0f,
-          animationSpec = tween(
-            durationMillis = ANIMATION_DURATION2 / 2,
-          )
+          animationSpec = tween(durationMillis = ANIMATION_DURATION2 / 2),
         )
       }
 
@@ -118,25 +108,21 @@ fun MessageBodyLoading() {
         contentDescription = "",
         contentScale = ContentScale.Fit,
         colorFilter = ColorFilter.tint(getTaskIconColor(index = index)),
-        modifier = Modifier
-          .graphicsLayer {
-            scaleX = progress.value * 0.2f + 0.8f
-            scaleY = progress.value * 0.2f + 0.8f
-            rotationZ = progress.value * 100
-            alpha = if (index != activeImageIndex.intValue) 0f else alphaAnim.value
-          }
-          .size(24.dp)
+        modifier =
+          Modifier.graphicsLayer {
+              scaleX = progress.value * 0.2f + 0.8f
+              scaleY = progress.value * 0.2f + 0.8f
+              rotationZ = progress.value * 100
+              alpha = if (index != activeImageIndex.intValue) 0f else alphaAnim.value
+            }
+            .size(24.dp),
       )
     }
   }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun MessageBodyLoadingPreview() {
-  GalleryTheme {
-    Row(modifier = Modifier.padding(16.dp)) {
-      MessageBodyLoading()
-    }
-  }
-}
+// @Preview(showBackground = true)
+// @Composable
+// fun MessageBodyLoadingPreview() {
+//   GalleryTheme { Row(modifier = Modifier.padding(16.dp)) { MessageBodyLoading() } }
+// }

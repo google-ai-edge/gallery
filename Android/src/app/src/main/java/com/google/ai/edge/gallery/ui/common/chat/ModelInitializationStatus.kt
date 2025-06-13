@@ -16,6 +16,9 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,37 +37,35 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 
 /**
  * Composable function to display a visual indicator for model initialization status.
  *
- * This function renders a row containing a circular progress indicator and a message
- * indicating that the model is currently initializing. It provides a visual cue to the
- * user that the model is in a loading state.
+ * This function renders a row containing a circular progress indicator and a message indicating
+ * that the model is currently initializing. It provides a visual cue to the user that the model is
+ * in a loading state.
  */
 @Composable
 fun ModelInitializationStatusChip() {
   Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
     Box(
-      modifier = Modifier
-        .padding(8.dp)
-        .clip(CircleShape)
-        .background(MaterialTheme.colorScheme.secondaryContainer)
+      modifier =
+        Modifier.padding(8.dp)
+          .clip(CircleShape)
+          .background(MaterialTheme.colorScheme.secondaryContainer)
     ) {
       Row(
         modifier = Modifier.padding(top = 4.dp, bottom = 4.dp, start = 8.dp, end = 8.dp),
         horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
       ) {
         // Circular progress indicator.
         CircularProgressIndicator(
           modifier = Modifier.size(14.dp),
           strokeWidth = 2.dp,
-          color = MaterialTheme.colorScheme.onSecondaryContainer
+          color = MaterialTheme.colorScheme.onSecondaryContainer,
         )
 
         Spacer(modifier = Modifier.width(8.dp))
@@ -80,10 +81,8 @@ fun ModelInitializationStatusChip() {
   }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun ModelInitializationStatusPreview() {
-  GalleryTheme {
-    ModelInitializationStatusChip()
-  }
-}
+// @Preview(showBackground = true)
+// @Composable
+// fun ModelInitializationStatusPreview() {
+//   GalleryTheme { ModelInitializationStatusChip() }
+// }

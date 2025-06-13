@@ -36,9 +36,7 @@ fun MessageBodyImage(message: ChatMessageImage, modifier: Modifier = Modifier) {
   Image(
     bitmap = message.imageBitMap,
     contentDescription = "",
-    modifier = modifier
-      .height(imageHeight.dp)
-      .width(imageWidth.dp),
+    modifier = modifier.height(imageHeight.dp).width(imageWidth.dp),
     contentScale = ContentScale.Fit,
   )
 }

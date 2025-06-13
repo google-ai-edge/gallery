@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
-package com.google.ai.edge.gallery.ui.common.chat
+package com.google.ai.edge.gallery.ui.common
 
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.preview.MODEL_TEST1
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.util.Log
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -61,7 +64,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.google.ai.edge.gallery.data.BooleanSwitchConfig
@@ -70,8 +72,6 @@ import com.google.ai.edge.gallery.data.LabelConfig
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.SegmentedButtonConfig
 import com.google.ai.edge.gallery.data.ValueType
-import com.google.ai.edge.gallery.ui.preview.MODEL_TEST1
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
 import kotlin.Double.Companion.NaN
 
@@ -92,33 +92,32 @@ fun ConfigDialog(
   showCancel: Boolean = true,
 ) {
   val values: SnapshotStateMap<String, Any> = remember {
-    mutableStateMapOf<String, Any>().apply {
-      putAll(initialValues)
-    }
+    mutableStateMapOf<String, Any>().apply { putAll(initialValues) }
   }
   val interactionSource = remember { MutableInteractionSource() }
 
   Dialog(onDismissRequest = onDismissed) {
     val focusManager = LocalFocusManager.current
     Card(
-      modifier = Modifier
-        .fillMaxWidth()
-        .clickable(
-          interactionSource = interactionSource, indication = null // Disable the ripple effect
+      modifier =
+        Modifier.fillMaxWidth().clickable(
+          interactionSource = interactionSource,
+          indication = null, // Disable the ripple effect
         ) {
           focusManager.clearFocus()
         },
-      shape = RoundedCornerShape(16.dp)
+      shape = RoundedCornerShape(16.dp),
     ) {
       Column(
-        modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier.padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
       ) {
         // Dialog title and subtitle.
         Column {
           Text(
             title,
             style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 8.dp),
           )
           // Subtitle.
           if (subtitle.isNotEmpty()) {
@@ -126,35 +125,27 @@ fun ConfigDialog(
               subtitle,
               style = labelSmallNarrow,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier = Modifier.offset(y = (-6).dp)
+              modifier = Modifier.offset(y = (-6).dp),
             )
           }
         }
 
         // List of config rows.
         Column(
-          modifier = Modifier
-            .verticalScroll(rememberScrollState())
-            .weight(1f, fill = false),
-          verticalArrangement = Arrangement.spacedBy(16.dp)
+          modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
+          verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
           ConfigEditorsPanel(configs = configs, values = values)
         }
 
         // Button row.
         Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp),
+          modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
           horizontalArrangement = Arrangement.End,
         ) {
           // Cancel button.
           if (showCancel) {
-            TextButton(
-              onClick = { onDismissed() },
-            ) {
-              Text("Cancel")
-            }
+            TextButton(onClick = { onDismissed() }) { Text("Cancel") }
           }
 
           // Ok button
@@ -162,7 +153,7 @@ fun ConfigDialog(
             onClick = {
               Log.d(TAG, "Values from dialog: $values")
               onOk(values.toMap())
-            },
+            }
           ) {
             Text(okBtnLabel)
           }
@@ -172,9 +163,7 @@ fun ConfigDialog(
   }
 }
 
-/**
- * Composable function to display a list of config editor rows.
- */
+/** Composable function to display a list of config editor rows. */
 @Composable
 fun ConfigEditorsPanel(configs: List<Config>, values: SnapshotStateMap<String, Any>) {
   for (config in configs) {
@@ -210,11 +199,12 @@ fun LabelRow(config: LabelConfig, values: SnapshotStateMap<String, Any>) {
     // Field label.
     Text(config.key.label, style = MaterialTheme.typography.titleSmall)
     // Content label.
-    val label = try {
-      values[config.key.label] as String
-    } catch (e: Exception) {
-      ""
-    }
+    val label =
+      try {
+        values[config.key.label] as String
+      } catch (e: Exception) {
+        ""
+      }
     Text(label, style = MaterialTheme.typography.bodyMedium)
   }
 }
@@ -222,9 +212,9 @@ fun LabelRow(config: LabelConfig, values: SnapshotStateMap<String, Any>) {
 /**
  * Composable function to display a number slider with an associated text input field.
  *
- * This function renders a row containing a slider and a text field, both used to modify
- * a numeric value. The slider allows users to visually adjust the value within a specified range,
- * while the text field provides precise numeric input.
+ * This function renders a row containing a slider and a text field, both used to modify a numeric
+ * value. The slider allows users to visually adjust the value within a specified range, while the
+ * text field provides precise numeric input.
  */
 @Composable
 fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String, Any>) {
@@ -233,52 +223,50 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
     Text(config.key.label, style = MaterialTheme.typography.titleSmall)
 
     // Controls row.
-    Row(
-      modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
       var isFocused by remember { mutableStateOf(false) }
       val focusRequester = remember { FocusRequester() }
 
       // Number slider.
-      val sliderValue = try {
-        values[config.key.label] as Float
-      } catch (e: Exception) {
-        0f
-      }
-      Slider(modifier = Modifier
-        .height(24.dp)
-        .weight(1f),
+      val sliderValue =
+        try {
+          values[config.key.label] as Float
+        } catch (e: Exception) {
+          0f
+        }
+      Slider(
+        modifier = Modifier.height(24.dp).weight(1f),
         value = sliderValue,
         valueRange = config.sliderMin..config.sliderMax,
-        onValueChange = { values[config.key.label] = it })
+        onValueChange = { values[config.key.label] = it },
+      )
 
       Spacer(modifier = Modifier.width(8.dp))
 
       // Text field.
-      val textFieldValue = try {
-        when (config.valueType) {
-          ValueType.FLOAT -> {
-            "%.2f".format(values[config.key.label] as Float)
-          }
+      val textFieldValue =
+        try {
+          when (config.valueType) {
+            ValueType.FLOAT -> {
+              "%.2f".format(values[config.key.label] as Float)
+            }
 
-          ValueType.INT -> {
-            "${(values[config.key.label] as Float).toInt()}"
-          }
+            ValueType.INT -> {
+              "${(values[config.key.label] as Float).toInt()}"
+            }
 
-          else -> {
-            ""
+            else -> {
+              ""
+            }
           }
+        } catch (e: Exception) {
+          ""
         }
-      } catch (e: Exception) {
-        ""
-      }
       // A smaller text field.
       BasicTextField(
         value = textFieldValue,
-        modifier = Modifier
-          .width(80.dp)
-          .focusRequester(focusRequester)
-          .onFocusChanged {
+        modifier =
+          Modifier.width(80.dp).focusRequester(focusRequester).onFocusChanged {
             isFocused = it.isFocused
           },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -293,15 +281,16 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
         cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
       ) { innerTextField ->
         Box(
-          modifier = Modifier.border(
-            width = if (isFocused) 2.dp else 1.dp,
-            color = if (isFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-            shape = RoundedCornerShape(4.dp)
-          )
+          modifier =
+            Modifier.border(
+              width = if (isFocused) 2.dp else 1.dp,
+              color =
+                if (isFocused) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.outline,
+              shape = RoundedCornerShape(4.dp),
+            )
         ) {
-          Box(modifier = Modifier.padding(8.dp)) {
-            innerTextField()
-          }
+          Box(modifier = Modifier.padding(8.dp)) { innerTextField() }
         }
       }
     }
@@ -311,16 +300,17 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
 /**
  * Composable function to display a row with a boolean switch.
  *
- * This function renders a row containing a label and a switch, allowing users to toggle
- * a boolean value.
+ * This function renders a row containing a label and a switch, allowing users to toggle a boolean
+ * value.
  */
 @Composable
 fun BooleanSwitchRow(config: BooleanSwitchConfig, values: SnapshotStateMap<String, Any>) {
-  val switchValue = try {
-    values[config.key.label] as Boolean
-  } catch (e: Exception) {
-    false
-  }
+  val switchValue =
+    try {
+      values[config.key.label] as Boolean
+    } catch (e: Exception) {
+      false
+    }
   Column(modifier = Modifier.fillMaxWidth()) {
     Text(config.key.label, style = MaterialTheme.typography.titleSmall)
     Switch(checked = switchValue, onCheckedChange = { values[config.key.label] = it })
@@ -331,63 +321,66 @@ fun BooleanSwitchRow(config: BooleanSwitchConfig, values: SnapshotStateMap<Strin
 fun SegmentedButtonRow(config: SegmentedButtonConfig, values: SnapshotStateMap<String, Any>) {
   val selectedOptions: List<String> = remember { (values[config.key.label] as String).split(",") }
   var selectionStates: List<Boolean> by remember {
-    mutableStateOf(List(config.options.size) { index ->
-      selectedOptions.contains(config.options[index])
-    })
+    mutableStateOf(
+      List(config.options.size) { index -> selectedOptions.contains(config.options[index]) }
+    )
   }
 
   Column(modifier = Modifier.fillMaxWidth()) {
     Text(config.key.label, style = MaterialTheme.typography.titleSmall)
     MultiChoiceSegmentedButtonRow {
       config.options.forEachIndexed { index, label ->
-        SegmentedButton(shape = SegmentedButtonDefaults.itemShape(
-          index = index, count = config.options.size
-        ), onCheckedChange = {
-          var newSelectionStates = selectionStates.toMutableList()
-          val selectedCount = newSelectionStates.count { it }
+        SegmentedButton(
+          shape = SegmentedButtonDefaults.itemShape(index = index, count = config.options.size),
+          onCheckedChange = {
+            var newSelectionStates = selectionStates.toMutableList()
+            val selectedCount = newSelectionStates.count { it }
 
-          // Single select.
-          if (!config.allowMultiple) {
-            if (!newSelectionStates[index]) {
-              newSelectionStates = MutableList(config.options.size) { it == index }
+            // Single select.
+            if (!config.allowMultiple) {
+              if (!newSelectionStates[index]) {
+                newSelectionStates = MutableList(config.options.size) { it == index }
+              }
             }
-          }
-          // Multiple select.
-          else {
-            if (!(selectedCount == 1 && newSelectionStates[index])) {
-              newSelectionStates[index] = !newSelectionStates[index]
+            // Multiple select.
+            else {
+              if (!(selectedCount == 1 && newSelectionStates[index])) {
+                newSelectionStates[index] = !newSelectionStates[index]
+              }
             }
-          }
-          selectionStates = newSelectionStates
+            selectionStates = newSelectionStates
 
-          values[config.key.label] =
-            config.options.filterIndexed { index, option -> selectionStates[index] }
-              .joinToString(",")
-        }, checked = selectionStates[index], label = { Text(label) })
+            values[config.key.label] =
+              config.options
+                .filterIndexed { index, option -> selectionStates[index] }
+                .joinToString(",")
+          },
+          checked = selectionStates[index],
+          label = { Text(label) },
+        )
       }
     }
-
   }
 }
 
-@Composable
-@Preview(showBackground = true)
-fun ConfigDialogPreview() {
-  GalleryTheme {
-    val defaultValues: MutableMap<String, Any> = mutableMapOf()
-    for (config in MODEL_TEST1.configs) {
-      defaultValues[config.key.label] = config.defaultValue
-    }
+// @Composable
+// @Preview(showBackground = true)
+// fun ConfigDialogPreview() {
+//   GalleryTheme {
+//     val defaultValues: MutableMap<String, Any> = mutableMapOf()
+//     for (config in MODEL_TEST1.configs) {
+//       defaultValues[config.key.label] = config.defaultValue
+//     }
 
-    Column {
-      ConfigDialog(
-        title = "Dialog title",
-        subtitle = "20250413",
-        configs = MODEL_TEST1.configs,
-        initialValues = defaultValues,
-        onDismissed = {},
-        onOk = {},
-      )
-    }
-  }
-}
+//     Column {
+//       ConfigDialog(
+//         title = "Dialog title",
+//         subtitle = "20250413",
+//         configs = MODEL_TEST1.configs,
+//         initialValues = defaultValues,
+//         onDismissed = {},
+//         onOk = {},
+//       )
+//     }
+//   }
+// }

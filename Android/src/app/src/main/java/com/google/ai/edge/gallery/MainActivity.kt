@@ -32,14 +32,6 @@ class MainActivity : ComponentActivity() {
 
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
-    setContent {
-      GalleryTheme {
-        Surface(
-          modifier = Modifier.fillMaxSize()
-        ) {
-          GalleryApp()
-        }
-      }
-    }
+    setContent { GalleryTheme { Surface(modifier = Modifier.fillMaxSize()) { GalleryApp() } } }
   }
 }

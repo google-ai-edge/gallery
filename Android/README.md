@@ -1,1 +1,1 @@
-# AI Edge Gallery (Android)
+# Google AI Edge Gallery (Android)

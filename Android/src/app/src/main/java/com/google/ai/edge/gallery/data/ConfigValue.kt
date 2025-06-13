@@ -16,64 +16,55 @@
 
 package com.google.ai.edge.gallery.data
 
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
-import kotlinx.serialization.descriptors.SerialDescriptor
-import kotlinx.serialization.descriptors.buildClassSerialDescriptor
-import kotlinx.serialization.encoding.Decoder
-import kotlinx.serialization.encoding.Encoder
-import kotlinx.serialization.json.JsonDecoder
-import kotlinx.serialization.json.JsonPrimitive
-
-@Serializable(with = ConfigValueSerializer::class)
+// @Serializable(with = ConfigValueSerializer::class)
 sealed class ConfigValue {
-  @Serializable
+  // @Serializable
   data class IntValue(val value: Int) : ConfigValue()
 
-  @Serializable
+  // @Serializable
   data class FloatValue(val value: Float) : ConfigValue()
 
-  @Serializable
+  // @Serializable
   data class StringValue(val value: String) : ConfigValue()
 }
 
-/**
- * Custom serializer for the ConfigValue class.
- *
- * This object implements the KSerializer interface to provide custom serialization and
- * deserialization logic for the ConfigValue class. It handles different types of ConfigValue
- * (IntValue, FloatValue, StringValue) and supports JSON format.
- */
-object ConfigValueSerializer : KSerializer<ConfigValue> {
-  override val descriptor: SerialDescriptor = buildClassSerialDescriptor("ConfigValue")
+// /**
+//  * Custom serializer for the ConfigValue class.
+//  *
+//  * This object implements the KSerializer interface to provide custom serialization and
+//  * deserialization logic for the ConfigValue class. It handles different types of ConfigValue
+//  * (IntValue, FloatValue, StringValue) and supports JSON format.
+//  */
+// object ConfigValueSerializer : KSerializer<ConfigValue> {
+//   override val descriptor: SerialDescriptor = buildClassSerialDescriptor("ConfigValue")
 
-  override fun serialize(encoder: Encoder, value: ConfigValue) {
-    when (value) {
-      is ConfigValue.IntValue -> encoder.encodeInt(value.value)
-      is ConfigValue.FloatValue -> encoder.encodeFloat(value.value)
-      is ConfigValue.StringValue -> encoder.encodeString(value.value)
-    }
-  }
+//   override fun serialize(encoder: Encoder, value: ConfigValue) {
+//     when (value) {
+//       is ConfigValue.IntValue -> encoder.encodeInt(value.value)
+//       is ConfigValue.FloatValue -> encoder.encodeFloat(value.value)
+//       is ConfigValue.StringValue -> encoder.encodeString(value.value)
+//     }
+//   }
 
-  override fun deserialize(decoder: Decoder): ConfigValue {
-    val input = decoder as? JsonDecoder
-      ?: throw SerializationException("This serializer only works with Json")
-    return when (val element = input.decodeJsonElement()) {
-      is JsonPrimitive -> {
-        if (element.isString) {
-          ConfigValue.StringValue(element.content)
-        } else if (element.content.contains('.')) {
-          ConfigValue.FloatValue(element.content.toFloat())
-        } else {
-          ConfigValue.IntValue(element.content.toInt())
-        }
-      }
+//   override fun deserialize(decoder: Decoder): ConfigValue {
+//     val input =
+//       decoder as? JsonDecoder
+//         ?: throw SerializationException("This serializer only works with Json")
+//     return when (val element = input.decodeJsonElement()) {
+//       is JsonPrimitive -> {
+//         if (element.isString) {
+//           ConfigValue.StringValue(element.content)
+//         } else if (element.content.contains('.')) {
+//           ConfigValue.FloatValue(element.content.toFloat())
+//         } else {
+//           ConfigValue.IntValue(element.content.toInt())
+//         }
+//       }
 
-      else -> throw SerializationException("Expected JsonPrimitive")
-    }
-  }
-}
+//       else -> throw SerializationException("Expected JsonPrimitive")
+//     }
+//   }
+// }
 
 fun getIntConfigValue(configValue: ConfigValue?, default: Int): Int {
   if (configValue == null) {

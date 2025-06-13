@@ -22,8 +22,8 @@ import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.TASK_LLM_CHAT
 import com.google.ai.edge.gallery.data.TASK_LLM_ASK_IMAGE
+import com.google.ai.edge.gallery.data.TASK_LLM_CHAT
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageBenchmarkLlmResult
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageLoading
@@ -39,25 +39,28 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGLlmChatViewModel"
-private val STATS = listOf(
-  Stat(id = "time_to_first_token", label = "1st token", unit = "sec"),
-  Stat(id = "prefill_speed", label = "Prefill speed", unit = "tokens/s"),
-  Stat(id = "decode_speed", label = "Decode speed", unit = "tokens/s"),
-  Stat(id = "latency", label = "Latency", unit = "sec")
-)
+private val STATS =
+  listOf(
+    Stat(id = "time_to_first_token", label = "1st token", unit = "sec"),
+    Stat(id = "prefill_speed", label = "Prefill speed", unit = "tokens/s"),
+    Stat(id = "decode_speed", label = "Decode speed", unit = "tokens/s"),
+    Stat(id = "latency", label = "Latency", unit = "sec"),
+  )
 
 open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task = curTask) {
-  fun generateResponse(model: Model, input: String, image: Bitmap? = null, onError: () -> Unit) {
+  fun generateResponse(
+    model: Model,
+    input: String,
+    images: List<Bitmap> = listOf(),
+    onError: () -> Unit,
+  ) {
     val accelerator = model.getStringConfigValue(key = ConfigKey.ACCELERATOR, defaultValue = "")
     viewModelScope.launch(Dispatchers.Default) {
       setInProgress(true)
       setPreparing(true)
 
       // Loading.
-      addMessage(
-        model = model,
-        message = ChatMessageLoading(accelerator = accelerator),
-      )
+      addMessage(model = model, message = ChatMessageLoading(accelerator = accelerator))
 
       // Wait for instance to be initialized.
       while (model.instance == null) {
@@ -68,9 +71,7 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
       // Run inference.
       val instance = model.instance as LlmModelInstance
       var prefillTokens = instance.session.sizeInTokens(input)
-      if (image != null) {
-        prefillTokens += 257
-      }
+      prefillTokens += images.size * 257
 
       var firstRun = true
       var timeToFirstToken = 0f
@@ -81,9 +82,10 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
       val start = System.currentTimeMillis()
 
       try {
-        LlmChatModelHelper.runInference(model = model,
+        LlmChatModelHelper.runInference(
+          model = model,
           input = input,
-          image = image,
+          images = images,
           resultListener = { partialResult, done ->
             val curTs = System.currentTimeMillis()
 
@@ -106,18 +108,17 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
               // Add an empty message that will receive streaming results.
               addMessage(
                 model = model,
-                message = ChatMessageText(
-                  content = "",
-                  side = ChatSide.AGENT,
-                  accelerator = accelerator
-                )
+                message =
+                  ChatMessageText(content = "", side = ChatSide.AGENT, accelerator = accelerator),
               )
             }
 
             // Incrementally update the streamed partial results.
             val latencyMs: Long = if (done) System.currentTimeMillis() - start else -1
             updateLastTextMessageContentIncrementally(
-              model = model, partialContent = partialResult, latencyMs = latencyMs.toFloat()
+              model = model,
+              partialContent = partialResult,
+              latencyMs = latencyMs.toFloat(),
             )
 
             if (done) {
@@ -130,18 +131,21 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
 
               if (lastMessage is ChatMessageText) {
                 updateLastTextMessageLlmBenchmarkResult(
-                  model = model, llmBenchmarkResult = ChatMessageBenchmarkLlmResult(
-                    orderedStats = STATS,
-                    statValues = mutableMapOf(
-                      "prefill_speed" to prefillSpeed,
-                      "decode_speed" to decodeSpeed,
-                      "time_to_first_token" to timeToFirstToken,
-                      "latency" to (curTs - start).toFloat() / 1000f,
+                  model = model,
+                  llmBenchmarkResult =
+                    ChatMessageBenchmarkLlmResult(
+                      orderedStats = STATS,
+                      statValues =
+                        mutableMapOf(
+                          "prefill_speed" to prefillSpeed,
+                          "decode_speed" to decodeSpeed,
+                          "time_to_first_token" to timeToFirstToken,
+                          "latency" to (curTs - start).toFloat() / 1000f,
+                        ),
+                      running = false,
+                      latencyMs = -1f,
+                      accelerator = accelerator,
                     ),
-                    running = false,
-                    latencyMs = -1f,
-                    accelerator = accelerator,
-                  )
                 )
               }
             }
@@ -149,7 +153,8 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
           cleanUpListener = {
             setInProgress(false)
             setPreparing(false)
-          })
+          },
+        )
       } catch (e: Exception) {
         Log.e(TAG, "Error occurred while running inference", e)
         setInProgress(false)
@@ -201,9 +206,7 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
       addMessage(model = model, message = message.clone())
 
       // Run inference.
-      generateResponse(
-        model = model, input = message.content, onError = onError
-      )
+      generateResponse(model = model, input = message.content, onError = onError)
     }
   }
 
@@ -229,16 +232,14 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
     // Add a warning message for re-initializing the session.
     addMessage(
       model = model,
-      message = ChatMessageWarning(content = "Error occurred. Re-initializing the session.")
+      message = ChatMessageWarning(content = "Error occurred. Re-initializing the session."),
     )
 
     // Add the triggered message back.
     addMessage(model = model, message = triggeredMessage)
 
     // Re-initialize the session/engine.
-    modelManagerViewModel.initializeModel(
-      context = context, task = task, model = model
-    )
+    modelManagerViewModel.initializeModel(context = context, task = task, model = model)
 
     // Re-generate the response automatically.
     generateResponse(model = model, input = triggeredMessage.content, onError = {})

@@ -16,52 +16,48 @@
 
 package com.google.ai.edge.gallery.ui.preview
 
-import android.content.Context
-import com.google.ai.edge.gallery.data.ModelDownloadStatus
-import com.google.ai.edge.gallery.data.ModelDownloadStatusType
-import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerUiState
-import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import kotlinx.coroutines.flow.update
+class PreviewModelManagerViewModel {}
 
-class PreviewModelManagerViewModel(context: Context) :
-  ModelManagerViewModel(
-    downloadRepository = PreviewDownloadRepository(),
-    dataStoreRepository = PreviewDataStoreRepository(),
-    context = context
-  ) {
+// class PreviewModelManagerViewModel(context: Context) :
+//   ModelManagerViewModel(
+//     downloadRepository = PreviewDownloadRepository(),
+//     // dataStoreRepository = PreviewDataStoreRepository(),
+//     context = context,
+//   ) {
 
-  init {
-    for ((index, task) in ALL_PREVIEW_TASKS.withIndex()) {
-      task.index = index
-      for (model in task.models) {
-        model.preProcess()
-      }
-    }
+//   init {
+//     for ((index, task) in ALL_PREVIEW_TASKS.withIndex()) {
+//       task.index = index
+//       for (model in task.models) {
+//         model.preProcess()
+//       }
+//     }
 
-    val modelDownloadStatus = mapOf(
-      MODEL_TEST1.name to ModelDownloadStatus(
-        status = ModelDownloadStatusType.IN_PROGRESS,
-        receivedBytes = 1234,
-        totalBytes = 3456,
-        bytesPerSecond = 2333,
-        remainingMs = 324,
-      ),
-      MODEL_TEST2.name to ModelDownloadStatus(
-        status = ModelDownloadStatusType.SUCCEEDED
-      ),
-      MODEL_TEST3.name to ModelDownloadStatus(
-        status = ModelDownloadStatusType.FAILED, errorMessage = "Http code 404"
-      ),
-      MODEL_TEST4.name to ModelDownloadStatus(
-        status = ModelDownloadStatusType.NOT_DOWNLOADED
-      ),
-    )
-    val newUiState = ModelManagerUiState(
-      tasks = ALL_PREVIEW_TASKS,
-      modelDownloadStatus = modelDownloadStatus,
-      modelInitializationStatus = mapOf(),
-      selectedModel = MODEL_TEST2,
-    )
-    _uiState.update { newUiState }
-  }
-}
+//     val modelDownloadStatus =
+//       mapOf(
+//         MODEL_TEST1.name to
+//           ModelDownloadStatus(
+//             status = ModelDownloadStatusType.IN_PROGRESS,
+//             receivedBytes = 1234,
+//             totalBytes = 3456,
+//             bytesPerSecond = 2333,
+//             remainingMs = 324,
+//           ),
+//         MODEL_TEST2.name to ModelDownloadStatus(status = ModelDownloadStatusType.SUCCEEDED),
+//         MODEL_TEST3.name to
+//           ModelDownloadStatus(
+//             status = ModelDownloadStatusType.FAILED,
+//             errorMessage = "Http code 404",
+//           ),
+//         MODEL_TEST4.name to ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED),
+//       )
+//     val newUiState =
+//       ModelManagerUiState(
+//         tasks = ALL_PREVIEW_TASKS,
+//         modelDownloadStatus = modelDownloadStatus,
+//         modelInitializationStatus = mapOf(),
+//         selectedModel = MODEL_TEST2,
+//       )
+//     _uiState.update { newUiState }
+//   }
+// }

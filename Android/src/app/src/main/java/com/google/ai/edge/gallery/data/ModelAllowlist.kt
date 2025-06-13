@@ -16,15 +16,17 @@
 
 package com.google.ai.edge.gallery.data
 
-import com.google.ai.edge.gallery.ui.llmchat.DEFAULT_ACCELERATORS
-import com.google.ai.edge.gallery.ui.llmchat.DEFAULT_TEMPERATURE
-import com.google.ai.edge.gallery.ui.llmchat.DEFAULT_TOPK
-import com.google.ai.edge.gallery.ui.llmchat.DEFAULT_TOPP
-import com.google.ai.edge.gallery.ui.llmchat.createLlmChatConfigs
-import kotlinx.serialization.Serializable
+import com.google.gson.annotations.SerializedName
+
+data class DefaultConfig(
+  @SerializedName("topK") val topK: Int?,
+  @SerializedName("topP") val topP: Float?,
+  @SerializedName("temperature") val temperature: Float?,
+  @SerializedName("accelerators") val accelerators: String?,
+  @SerializedName("maxTokens") val maxTokens: Int?,
+)
 
 /** A model in the model allowlist. */
-@Serializable
 data class AllowedModel(
   val name: String,
   val modelId: String,
@@ -32,10 +34,11 @@ data class AllowedModel(
   val description: String,
   val sizeInBytes: Long,
   val version: String,
-  val defaultConfig: Map<String, ConfigValue>,
+  val defaultConfig: DefaultConfig,
   val taskTypes: List<String>,
   val disabled: Boolean? = null,
   val llmSupportImage: Boolean? = null,
+  val estimatedPeakMemoryInBytes: Long? = null,
 ) {
   fun toModel(): Model {
     // Construct HF download url.
@@ -46,25 +49,13 @@ data class AllowedModel(
       taskTypes.contains(TASK_LLM_CHAT.type.id) || taskTypes.contains(TASK_LLM_PROMPT_LAB.type.id)
     var configs: List<Config> = listOf()
     if (isLlmModel) {
-      var defaultTopK: Int = DEFAULT_TOPK
-      var defaultTopP: Float = DEFAULT_TOPP
-      var defaultTemperature: Float = DEFAULT_TEMPERATURE
-      var defaultMaxToken = 1024
+      var defaultTopK: Int = defaultConfig.topK ?: DEFAULT_TOPK
+      var defaultTopP: Float = defaultConfig.topP ?: DEFAULT_TOPP
+      var defaultTemperature: Float = defaultConfig.temperature ?: DEFAULT_TEMPERATURE
+      var defaultMaxToken = defaultConfig.maxTokens ?: 1024
       var accelerators: List<Accelerator> = DEFAULT_ACCELERATORS
-      if (defaultConfig.containsKey("topK")) {
-        defaultTopK = getIntConfigValue(defaultConfig["topK"], defaultTopK)
-      }
-      if (defaultConfig.containsKey("topP")) {
-        defaultTopP = getFloatConfigValue(defaultConfig["topP"], defaultTopP)
-      }
-      if (defaultConfig.containsKey("temperature")) {
-        defaultTemperature = getFloatConfigValue(defaultConfig["temperature"], defaultTemperature)
-      }
-      if (defaultConfig.containsKey("maxTokens")) {
-        defaultMaxToken = getIntConfigValue(defaultConfig["maxTokens"], defaultMaxToken)
-      }
-      if (defaultConfig.containsKey("accelerators")) {
-        val items = getStringConfigValue(defaultConfig["accelerators"], "gpu").split(",")
+      if (defaultConfig.accelerators != null) {
+        val items = defaultConfig.accelerators.split(",")
         accelerators = mutableListOf()
         for (item in items) {
           if (item == "cpu") {
@@ -74,13 +65,14 @@ data class AllowedModel(
           }
         }
       }
-      configs = createLlmChatConfigs(
-        defaultTopK = defaultTopK,
-        defaultTopP = defaultTopP,
-        defaultTemperature = defaultTemperature,
-        defaultMaxToken = defaultMaxToken,
-        accelerators = accelerators,
-      )
+      configs =
+        createLlmChatConfigs(
+          defaultTopK = defaultTopK,
+          defaultTopP = defaultTopP,
+          defaultTemperature = defaultTemperature,
+          defaultMaxToken = defaultMaxToken,
+          accelerators = accelerators,
+        )
     }
 
     // Misc.
@@ -97,6 +89,7 @@ data class AllowedModel(
       info = description,
       url = downloadUrl,
       sizeInBytes = sizeInBytes,
+      estimatedPeakMemoryInBytes = estimatedPeakMemoryInBytes,
       configs = configs,
       downloadFileName = modelFile,
       showBenchmarkButton = showBenchmarkButton,
@@ -112,8 +105,4 @@ data class AllowedModel(
 }
 
 /** The model allowlist. */
-@Serializable
-data class ModelAllowlist(
-  val models: List<AllowedModel>,
-)
-
+data class ModelAllowlist(val models: List<AllowedModel>)

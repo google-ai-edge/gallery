@@ -63,69 +63,74 @@ import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.BooleanSwitchConfig
 import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKey
+import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
+import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
+import com.google.ai.edge.gallery.data.DEFAULT_TOPK
+import com.google.ai.edge.gallery.data.DEFAULT_TOPP
 import com.google.ai.edge.gallery.data.IMPORTS_DIR
 import com.google.ai.edge.gallery.data.LabelConfig
-import com.google.ai.edge.gallery.data.ImportedModelInfo
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.SegmentedButtonConfig
 import com.google.ai.edge.gallery.data.ValueType
-import com.google.ai.edge.gallery.ui.common.chat.ConfigEditorsPanel
+import com.google.ai.edge.gallery.data.convertValueToTargetType
+import com.google.ai.edge.gallery.proto.ImportedModel
+import com.google.ai.edge.gallery.proto.LlmConfig
+import com.google.ai.edge.gallery.ui.common.ConfigEditorsPanel
 import com.google.ai.edge.gallery.ui.common.ensureValidFileName
 import com.google.ai.edge.gallery.ui.common.humanReadableSize
-import com.google.ai.edge.gallery.ui.llmchat.DEFAULT_MAX_TOKEN
-import com.google.ai.edge.gallery.ui.llmchat.DEFAULT_TEMPERATURE
-import com.google.ai.edge.gallery.ui.llmchat.DEFAULT_TOPK
-import com.google.ai.edge.gallery.ui.llmchat.DEFAULT_TOPP
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 private const val TAG = "AGModelImportDialog"
 
-private val IMPORT_CONFIGS_LLM: List<Config> = listOf(
-  LabelConfig(key = ConfigKey.NAME), LabelConfig(key = ConfigKey.MODEL_TYPE), NumberSliderConfig(
-    key = ConfigKey.DEFAULT_MAX_TOKENS,
-    sliderMin = 100f,
-    sliderMax = 1024f,
-    defaultValue = DEFAULT_MAX_TOKEN.toFloat(),
-    valueType = ValueType.INT
-  ), NumberSliderConfig(
-    key = ConfigKey.DEFAULT_TOPK,
-    sliderMin = 5f,
-    sliderMax = 40f,
-    defaultValue = DEFAULT_TOPK.toFloat(),
-    valueType = ValueType.INT
-  ), NumberSliderConfig(
-    key = ConfigKey.DEFAULT_TOPP,
-    sliderMin = 0.0f,
-    sliderMax = 1.0f,
-    defaultValue = DEFAULT_TOPP,
-    valueType = ValueType.FLOAT
-  ), NumberSliderConfig(
-    key = ConfigKey.DEFAULT_TEMPERATURE,
-    sliderMin = 0.0f,
-    sliderMax = 2.0f,
-    defaultValue = DEFAULT_TEMPERATURE,
-    valueType = ValueType.FLOAT
-  ), BooleanSwitchConfig(
-    key = ConfigKey.SUPPORT_IMAGE,
-    defaultValue = false,
-  ), SegmentedButtonConfig(
-    key = ConfigKey.COMPATIBLE_ACCELERATORS,
-    defaultValue = Accelerator.CPU.label,
-    options = listOf(Accelerator.CPU.label, Accelerator.GPU.label),
-    allowMultiple = true,
+private val IMPORT_CONFIGS_LLM: List<Config> =
+  listOf(
+    LabelConfig(key = ConfigKey.NAME),
+    LabelConfig(key = ConfigKey.MODEL_TYPE),
+    NumberSliderConfig(
+      key = ConfigKey.DEFAULT_MAX_TOKENS,
+      sliderMin = 100f,
+      sliderMax = 1024f,
+      defaultValue = DEFAULT_MAX_TOKEN.toFloat(),
+      valueType = ValueType.INT,
+    ),
+    NumberSliderConfig(
+      key = ConfigKey.DEFAULT_TOPK,
+      sliderMin = 5f,
+      sliderMax = 40f,
+      defaultValue = DEFAULT_TOPK.toFloat(),
+      valueType = ValueType.INT,
+    ),
+    NumberSliderConfig(
+      key = ConfigKey.DEFAULT_TOPP,
+      sliderMin = 0.0f,
+      sliderMax = 1.0f,
+      defaultValue = DEFAULT_TOPP,
+      valueType = ValueType.FLOAT,
+    ),
+    NumberSliderConfig(
+      key = ConfigKey.DEFAULT_TEMPERATURE,
+      sliderMin = 0.0f,
+      sliderMax = 2.0f,
+      defaultValue = DEFAULT_TEMPERATURE,
+      valueType = ValueType.FLOAT,
+    ),
+    BooleanSwitchConfig(key = ConfigKey.SUPPORT_IMAGE, defaultValue = false),
+    SegmentedButtonConfig(
+      key = ConfigKey.COMPATIBLE_ACCELERATORS,
+      defaultValue = Accelerator.CPU.label,
+      options = listOf(Accelerator.CPU.label, Accelerator.GPU.label),
+      allowMultiple = true,
+    ),
   )
-)
 
 @Composable
-fun ModelImportDialog(
-  uri: Uri, onDismiss: () -> Unit, onDone: (ImportedModelInfo) -> Unit
-) {
+fun ModelImportDialog(uri: Uri, onDismiss: () -> Unit, onDone: (ImportedModel) -> Unit) {
   val context = LocalContext.current
   val info = remember { getFileSizeAndDisplayNameFromUri(context = context, uri = uri) }
   val fileSize by remember { mutableLongStateOf(info.first) }
@@ -142,78 +147,110 @@ fun ModelImportDialog(
     }
   }
   val values: SnapshotStateMap<String, Any> = remember {
-    mutableStateMapOf<String, Any>().apply {
-      putAll(initialValues)
-    }
+    mutableStateMapOf<String, Any>().apply { putAll(initialValues) }
   }
   val interactionSource = remember { MutableInteractionSource() }
 
-  Dialog(
-    onDismissRequest = onDismiss,
-  ) {
+  Dialog(onDismissRequest = onDismiss) {
     val focusManager = LocalFocusManager.current
     Card(
-      modifier = Modifier
-        .fillMaxWidth()
-        .clickable(
-          interactionSource = interactionSource, indication = null // Disable the ripple effect
+      modifier =
+        Modifier.fillMaxWidth().clickable(
+          interactionSource = interactionSource,
+          indication = null, // Disable the ripple effect
         ) {
           focusManager.clearFocus()
-        }, shape = RoundedCornerShape(16.dp)
+        },
+      shape = RoundedCornerShape(16.dp),
     ) {
       Column(
-        modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier.padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
       ) {
         // Title.
         Text(
           "Import Model",
           style = MaterialTheme.typography.titleLarge,
-          modifier = Modifier.padding(bottom = 8.dp)
+          modifier = Modifier.padding(bottom = 8.dp),
         )
 
         Column(
-          modifier = Modifier
-            .verticalScroll(rememberScrollState())
-            .weight(1f, fill = false),
-          verticalArrangement = Arrangement.spacedBy(16.dp)
+          modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
+          verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
           // Default configs for users to set.
-          ConfigEditorsPanel(
-            configs = IMPORT_CONFIGS_LLM,
-            values = values,
-          )
+          ConfigEditorsPanel(configs = IMPORT_CONFIGS_LLM, values = values)
         }
 
         // Button row.
         Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp),
+          modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
           horizontalArrangement = Arrangement.End,
         ) {
           // Cancel button.
-          TextButton(
-            onClick = { onDismiss() },
-          ) {
-            Text("Cancel")
-          }
+          TextButton(onClick = { onDismiss() }) { Text("Cancel") }
 
           // Import button
           Button(
             onClick = {
-              onDone(
-                ImportedModelInfo(
-                  fileName = fileName,
-                  fileSize = fileSize,
-                  defaultValues = values,
+              val supportedAccelerators =
+                (convertValueToTargetType(
+                    value = values.get(ConfigKey.COMPATIBLE_ACCELERATORS.label)!!,
+                    valueType = ValueType.STRING,
+                  )
+                    as String)
+                  .split(",")
+              val defaultMaxTokens =
+                convertValueToTargetType(
+                  value = values.get(ConfigKey.DEFAULT_MAX_TOKENS.label)!!,
+                  valueType = ValueType.INT,
                 )
-              )
-            },
+                  as Int
+              val defaultTopk =
+                convertValueToTargetType(
+                  value = values.get(ConfigKey.DEFAULT_TOPK.label)!!,
+                  valueType = ValueType.INT,
+                )
+                  as Int
+              val defaultTopp =
+                convertValueToTargetType(
+                  value = values.get(ConfigKey.DEFAULT_TOPP.label)!!,
+                  valueType = ValueType.FLOAT,
+                )
+                  as Float
+              val defaultTemperature =
+                convertValueToTargetType(
+                  value = values.get(ConfigKey.DEFAULT_TEMPERATURE.label)!!,
+                  valueType = ValueType.FLOAT,
+                )
+                  as Float
+              val supportImage =
+                convertValueToTargetType(
+                  value = values.get(ConfigKey.SUPPORT_IMAGE.label)!!,
+                  valueType = ValueType.BOOLEAN,
+                )
+                  as Boolean
+              val importedModel: ImportedModel =
+                ImportedModel.newBuilder()
+                  .setFileName(fileName)
+                  .setFileSize(fileSize)
+                  .setLlmConfig(
+                    LlmConfig.newBuilder()
+                      .addAllCompatibleAccelerators(supportedAccelerators)
+                      .setDefaultMaxTokens(defaultMaxTokens)
+                      .setDefaultTopk(defaultTopk)
+                      .setDefaultTopp(defaultTopp)
+                      .setDefaultTemperature(defaultTemperature)
+                      .setSupportImage(supportImage)
+                      .build()
+                  )
+                  .build()
+              onDone(importedModel)
+            }
           ) {
             Text("Import")
           }
         }
-
       }
     }
   }
@@ -221,7 +258,10 @@ fun ModelImportDialog(
 
 @Composable
 fun ModelImportingDialog(
-  uri: Uri, info: ImportedModelInfo, onDismiss: () -> Unit, onDone: (ImportedModelInfo) -> Unit
+  uri: Uri,
+  info: ImportedModel,
+  onDismiss: () -> Unit,
+  onDone: (ImportedModel) -> Unit,
 ) {
   var error by remember { mutableStateOf("") }
   val context = LocalContext.current
@@ -230,20 +270,16 @@ fun ModelImportingDialog(
 
   LaunchedEffect(Unit) {
     // Import.
-    importModel(context = context,
+    importModel(
+      context = context,
       coroutineScope = coroutineScope,
       fileName = info.fileName,
       fileSize = info.fileSize,
       uri = uri,
-      onDone = {
-        onDone(info)
-      },
-      onProgress = {
-        progress = it
-      },
-      onError = {
-        error = it
-      })
+      onDone = { onDone(info) },
+      onProgress = { progress = it },
+      onError = { error = it },
+    )
   }
 
   Dialog(
@@ -252,13 +288,14 @@ fun ModelImportingDialog(
   ) {
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
       Column(
-        modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier.padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
       ) {
         // Title.
         Text(
           "Import Model",
           style = MaterialTheme.typography.titleLarge,
-          modifier = Modifier.padding(bottom = 8.dp)
+          modifier = Modifier.padding(bottom = 8.dp),
         )
 
         // No error.
@@ -272,9 +309,7 @@ fun ModelImportingDialog(
             val animatedProgress = remember { Animatable(0f) }
             LinearProgressIndicator(
               progress = { animatedProgress.value },
-              modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
+              modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             )
             LaunchedEffect(progress) {
               animatedProgress.animateTo(progress, animationSpec = tween(150))
@@ -284,24 +319,23 @@ fun ModelImportingDialog(
         // Has error.
         else {
           Row(
-            verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
           ) {
             Icon(
-              Icons.Rounded.Error, contentDescription = "", tint = MaterialTheme.colorScheme.error
+              Icons.Rounded.Error,
+              contentDescription = "",
+              tint = MaterialTheme.colorScheme.error,
             )
             Text(
               error,
               style = MaterialTheme.typography.labelSmall,
               color = MaterialTheme.colorScheme.error,
-              modifier = Modifier.padding(top = 4.dp)
+              modifier = Modifier.padding(top = 4.dp),
             )
           }
           Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Button(onClick = {
-              onDismiss()
-            }) {
-              Text("Close")
-            }
+            Button(onClick = { onDismiss() }) { Text("Close") }
           }
         }
       }
@@ -376,17 +410,17 @@ private fun getFileSizeAndDisplayNameFromUri(context: Context, uri: Uri): Pair<L
   var displayName = ""
 
   try {
-    contentResolver.query(
-      uri, arrayOf(OpenableColumns.SIZE, OpenableColumns.DISPLAY_NAME), null, null, null
-    )?.use { cursor ->
-      if (cursor.moveToFirst()) {
-        val sizeIndex = cursor.getColumnIndexOrThrow(OpenableColumns.SIZE)
-        fileSize = cursor.getLong(sizeIndex)
+    contentResolver
+      .query(uri, arrayOf(OpenableColumns.SIZE, OpenableColumns.DISPLAY_NAME), null, null, null)
+      ?.use { cursor ->
+        if (cursor.moveToFirst()) {
+          val sizeIndex = cursor.getColumnIndexOrThrow(OpenableColumns.SIZE)
+          fileSize = cursor.getLong(sizeIndex)
 
-        val nameIndex = cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)
-        displayName = cursor.getString(nameIndex)
+          val nameIndex = cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)
+          displayName = cursor.getString(nameIndex)
+        }
       }
-    }
   } catch (e: Exception) {
     e.printStackTrace()
     return Pair(0L, "")

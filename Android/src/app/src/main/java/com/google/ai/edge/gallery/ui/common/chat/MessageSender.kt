@@ -16,9 +16,10 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
-import android.graphics.Bitmap
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,40 +33,37 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import com.google.ai.edge.gallery.ui.theme.bodySmallNarrow
 
 data class MessageLayoutConfig(
   val horizontalArrangement: Arrangement.Horizontal,
   val modifier: Modifier,
   val userLabel: String,
-  val rightSideLabel: String
+  val rightSideLabel: String,
 )
 
 /**
  * Composable function to display the sender information for a chat message.
  *
- * This function handles different types of chat messages, including system messages,
- * benchmark results, and image generation results, and displays the appropriate sender label
- * and status information.
+ * This function handles different types of chat messages, including system messages, benchmark
+ * results, and image generation results, and displays the appropriate sender label and status
+ * information.
  */
 @Composable
-fun MessageSender(
-  message: ChatMessage,
-  agentName: String = "",
-  imageHistoryCurIndex: Int = 0
-) {
+fun MessageSender(message: ChatMessage, agentName: String = "", imageHistoryCurIndex: Int = 0) {
   // No user label for system messages.
   if (message.side == ChatSide.SYSTEM) {
     return
   }
 
-  val (horizontalArrangement, modifier, userLabel, rightSideLabel) = getMessageLayoutConfig(
-    message = message, agentName = agentName, imageHistoryCurIndex = imageHistoryCurIndex
-  )
+  val (horizontalArrangement, modifier, userLabel, rightSideLabel) =
+    getMessageLayoutConfig(
+      message = message,
+      agentName = agentName,
+      imageHistoryCurIndex = imageHistoryCurIndex,
+    )
 
   Row(
     modifier = modifier,
@@ -74,10 +72,7 @@ fun MessageSender(
   ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
       // Sender label.
-      Text(
-        userLabel,
-        style = MaterialTheme.typography.titleSmall,
-      )
+      Text(userLabel, style = MaterialTheme.typography.titleSmall)
 
       when (message) {
         // Benchmark running status.
@@ -87,21 +82,18 @@ fun MessageSender(
             CircularProgressIndicator(
               modifier = Modifier.size(10.dp),
               strokeWidth = 1.5.dp,
-              color = MaterialTheme.colorScheme.secondary
+              color = MaterialTheme.colorScheme.secondary,
             )
             Spacer(modifier = Modifier.width(4.dp))
           }
-          val statusLabel = if (message.isWarmingUp()) {
-            stringResource(R.string.warming_up)
-          } else if (message.isRunning()) {
-            stringResource(R.string.running)
-          } else ""
+          val statusLabel =
+            if (message.isWarmingUp()) {
+              stringResource(R.string.warming_up)
+            } else if (message.isRunning()) {
+              stringResource(R.string.running)
+            } else ""
           if (statusLabel.isNotEmpty()) {
-            Text(
-              statusLabel,
-              color = MaterialTheme.colorScheme.secondary,
-              style = bodySmallNarrow,
-            )
+            Text(statusLabel, color = MaterialTheme.colorScheme.secondary, style = bodySmallNarrow)
           }
         }
 
@@ -112,7 +104,7 @@ fun MessageSender(
             CircularProgressIndicator(
               modifier = Modifier.size(10.dp),
               strokeWidth = 1.5.dp,
-              color = MaterialTheme.colorScheme.secondary
+              color = MaterialTheme.colorScheme.secondary,
             )
           }
         }
@@ -124,7 +116,7 @@ fun MessageSender(
             CircularProgressIndicator(
               modifier = Modifier.size(10.dp),
               strokeWidth = 1.5.dp,
-              color = MaterialTheme.colorScheme.secondary
+              color = MaterialTheme.colorScheme.secondary,
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
@@ -141,8 +133,7 @@ fun MessageSender(
     when (message) {
       is ChatMessageBenchmarkResult,
       is ChatMessageImageWithHistory,
-      is ChatMessageBenchmarkLlmResult,
-        -> {
+      is ChatMessageBenchmarkLlmResult -> {
         Text(rightSideLabel, style = MaterialTheme.typography.bodySmall)
       }
     }
@@ -169,11 +160,12 @@ private fun getMessageLayoutConfig(
       horizontalArrangement = Arrangement.SpaceBetween
       modifier = modifier.fillMaxWidth()
       userLabel = "Benchmark"
-      rightSideLabel = if (message.isWarmingUp()) {
-        "${message.warmupCurrent}/${message.warmupTotal}"
-      } else {
-        "${message.iterationCurrent}/${message.iterationTotal}"
-      }
+      rightSideLabel =
+        if (message.isWarmingUp()) {
+          "${message.warmupCurrent}/${message.warmupTotal}"
+        } else {
+          "${message.iterationCurrent}/${message.iterationTotal}"
+        }
     }
 
     is ChatMessageBenchmarkLlmResult -> {
@@ -198,64 +190,68 @@ private fun getMessageLayoutConfig(
     horizontalArrangement = horizontalArrangement,
     modifier = modifier,
     userLabel = userLabel,
-    rightSideLabel = rightSideLabel
+    rightSideLabel = rightSideLabel,
   )
 }
 
-@Preview(showBackground = true)
-@Composable
-fun MessageSenderPreview() {
-  GalleryTheme {
-    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-      // Agent message.
-      MessageSender(
-        message = ChatMessageText(content = "hello world", side = ChatSide.AGENT),
-        agentName = stringResource(R.string.chat_generic_agent_name)
-      )
-      // User message.
-      MessageSender(
-        message = ChatMessageText(content = "hello world", side = ChatSide.USER),
-        agentName = stringResource(R.string.chat_generic_agent_name)
-      )
-      // Benchmark during warmup.
-      MessageSender(
-        message = ChatMessageBenchmarkResult(
-          orderedStats = listOf(),
-          statValues = mutableMapOf(),
-          values = listOf(),
-          histogram = Histogram(listOf(), 0),
-          warmupCurrent = 10,
-          warmupTotal = 50,
-          iterationCurrent = 0,
-          iterationTotal = 200
-        ),
-        agentName = stringResource(R.string.chat_generic_agent_name)
-      )
-      // Benchmark during running.
-      MessageSender(
-        message = ChatMessageBenchmarkResult(
-          orderedStats = listOf(),
-          statValues = mutableMapOf(),
-          values = listOf(),
-          histogram = Histogram(listOf(), 0),
-          warmupCurrent = 50,
-          warmupTotal = 50,
-          iterationCurrent = 123,
-          iterationTotal = 200
-        ),
-        agentName = stringResource(R.string.chat_generic_agent_name)
-      )
-      // Image generation during running.
-      MessageSender(
-        message = ChatMessageImageWithHistory(
-          bitmaps = listOf(Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)),
-          imageBitMaps = listOf(),
-          totalIterations = 10,
-          ChatSide.AGENT
-        ),
-        agentName = stringResource(R.string.chat_generic_agent_name),
-        imageHistoryCurIndex = 4,
-      )
-    }
-  }
-}
+// @Preview(showBackground = true)
+// @Composable
+// fun MessageSenderPreview() {
+//   GalleryTheme {
+//     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp))
+// {
+//       // Agent message.
+//       MessageSender(
+//         message = ChatMessageText(content = "hello world", side = ChatSide.AGENT),
+//         agentName = stringResource(R.string.chat_generic_agent_name),
+//       )
+//       // User message.
+//       MessageSender(
+//         message = ChatMessageText(content = "hello world", side = ChatSide.USER),
+//         agentName = stringResource(R.string.chat_generic_agent_name),
+//       )
+//       // Benchmark during warmup.
+//       MessageSender(
+//         message =
+//           ChatMessageBenchmarkResult(
+//             orderedStats = listOf(),
+//             statValues = mutableMapOf(),
+//             values = listOf(),
+//             histogram = Histogram(listOf(), 0),
+//             warmupCurrent = 10,
+//             warmupTotal = 50,
+//             iterationCurrent = 0,
+//             iterationTotal = 200,
+//           ),
+//         agentName = stringResource(R.string.chat_generic_agent_name),
+//       )
+//       // Benchmark during running.
+//       MessageSender(
+//         message =
+//           ChatMessageBenchmarkResult(
+//             orderedStats = listOf(),
+//             statValues = mutableMapOf(),
+//             values = listOf(),
+//             histogram = Histogram(listOf(), 0),
+//             warmupCurrent = 50,
+//             warmupTotal = 50,
+//             iterationCurrent = 123,
+//             iterationTotal = 200,
+//           ),
+//         agentName = stringResource(R.string.chat_generic_agent_name),
+//       )
+//       // Image generation during running.
+//       MessageSender(
+//         message =
+//           ChatMessageImageWithHistory(
+//             bitmaps = listOf(Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)),
+//             imageBitMaps = listOf(),
+//             totalIterations = 10,
+//             ChatSide.AGENT,
+//           ),
+//         agentName = stringResource(R.string.chat_generic_agent_name),
+//         imageHistoryCurIndex = 4,
+//       )
+//     }
+//   }
+// }
