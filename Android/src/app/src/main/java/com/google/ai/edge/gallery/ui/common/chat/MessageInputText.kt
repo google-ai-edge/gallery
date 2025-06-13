@@ -49,6 +49,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -183,14 +184,12 @@ fun MessageInputText(
       }
     }
 
-  Box(contentAlignment = Alignment.CenterStart) {
+  Column {
     // A preview panel for the selected image.
     if (pickedImages.isNotEmpty()) {
       Row(
         modifier =
-          Modifier.offset(x = 16.dp, y = (-80).dp)
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
+          Modifier.offset(x = 16.dp).fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
       ) {
         for (image in pickedImages) {
@@ -223,176 +222,178 @@ fun MessageInputText(
       }
     }
 
-    // A plus button to show a popup menu to add stuff to the chat.
-    IconButton(
-      enabled = !inProgress && !isResettingSession,
-      onClick = { showAddContentMenu = true },
-      modifier = Modifier.offset(x = 16.dp).alpha(0.8f),
-    ) {
-      Icon(Icons.Rounded.Add, contentDescription = "", modifier = Modifier.size(28.dp))
-    }
-    Row(
-      modifier =
-        Modifier.fillMaxWidth()
-          .padding(12.dp)
-          .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)),
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      val enableAddImageMenuItems = (imageMessageCount + pickedImages.size) < MAX_IMAGE_COUNT
-      DropdownMenu(
-        expanded = showAddContentMenu,
-        onDismissRequest = { showAddContentMenu = false },
+    Box(contentAlignment = Alignment.CenterStart) {
+      // A plus button to show a popup menu to add stuff to the chat.
+      IconButton(
+        enabled = !inProgress && !isResettingSession,
+        onClick = { showAddContentMenu = true },
+        modifier = Modifier.offset(x = 16.dp).alpha(0.8f),
       ) {
-        if (showImagePickerInMenu) {
-          // Take a picture.
-          DropdownMenuItem(
-            text = {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-              ) {
-                Icon(Icons.Rounded.PhotoCamera, contentDescription = "")
-                Text("Take a picture")
-              }
-            },
-            enabled = enableAddImageMenuItems,
-            onClick = {
-              // Check permission
-              when (PackageManager.PERMISSION_GRANTED) {
-                // Already got permission. Call the lambda.
-                ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) -> {
-                  showAddContentMenu = false
-                  showCameraCaptureBottomSheet = true
-                }
-
-                // Otherwise, ask for permission
-                else -> {
-                  takePicturePermissionLauncher.launch(Manifest.permission.CAMERA)
-                }
-              }
-            },
-          )
-
-          // Pick an image from album.
-          DropdownMenuItem(
-            text = {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-              ) {
-                Icon(Icons.Rounded.Photo, contentDescription = "")
-                Text("Pick from album")
-              }
-            },
-            enabled = enableAddImageMenuItems,
-            onClick = {
-              // Launch the photo picker and let the user choose only images.
-              pickMedia.launch(
-                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-              )
-              showAddContentMenu = false
-            },
-          )
-        }
-
-        // Prompt templates.
-        if (showPromptTemplatesInMenu) {
-          DropdownMenuItem(
-            text = {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-              ) {
-                Icon(Icons.Rounded.PostAdd, contentDescription = "")
-                Text("Prompt templates")
-              }
-            },
-            onClick = {
-              onOpenPromptTemplatesClicked()
-              showAddContentMenu = false
-            },
-          )
-        }
-        // Prompt history.
-        DropdownMenuItem(
-          text = {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-              Icon(Icons.Rounded.History, contentDescription = "")
-              Text("Input history")
-            }
-          },
-          onClick = {
-            showAddContentMenu = false
-            showTextInputHistorySheet = true
-          },
-        )
+        Icon(Icons.Rounded.Add, contentDescription = "", modifier = Modifier.size(28.dp))
       }
+      Row(
+        modifier =
+          Modifier.fillMaxWidth()
+            .padding(12.dp)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        val enableAddImageMenuItems = (imageMessageCount + pickedImages.size) < MAX_IMAGE_COUNT
+        DropdownMenu(
+          expanded = showAddContentMenu,
+          onDismissRequest = { showAddContentMenu = false },
+        ) {
+          if (showImagePickerInMenu) {
+            // Take a picture.
+            DropdownMenuItem(
+              text = {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                  Icon(Icons.Rounded.PhotoCamera, contentDescription = "")
+                  Text("Take a picture")
+                }
+              },
+              enabled = enableAddImageMenuItems,
+              onClick = {
+                // Check permission
+                when (PackageManager.PERMISSION_GRANTED) {
+                  // Already got permission. Call the lambda.
+                  ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) -> {
+                    showAddContentMenu = false
+                    showCameraCaptureBottomSheet = true
+                  }
 
-      // Text field.
-      TextField(
-        value = curMessage,
-        minLines = 1,
-        maxLines = 3,
-        onValueChange = onValueChanged,
-        colors =
-          TextFieldDefaults.colors(
-            unfocusedContainerColor = Color.Transparent,
-            focusedContainerColor = Color.Transparent,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            disabledIndicatorColor = Color.Transparent,
-            disabledContainerColor = Color.Transparent,
-          ),
-        textStyle = MaterialTheme.typography.bodyLarge,
-        modifier = Modifier.weight(1f).padding(start = 36.dp),
-        placeholder = { Text(stringResource(textFieldPlaceHolderRes)) },
-      )
+                  // Otherwise, ask for permission
+                  else -> {
+                    takePicturePermissionLauncher.launch(Manifest.permission.CAMERA)
+                  }
+                }
+              },
+            )
 
-      Spacer(modifier = Modifier.width(8.dp))
+            // Pick an image from album.
+            DropdownMenuItem(
+              text = {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                  Icon(Icons.Rounded.Photo, contentDescription = "")
+                  Text("Pick from album")
+                }
+              },
+              enabled = enableAddImageMenuItems,
+              onClick = {
+                // Launch the photo picker and let the user choose only images.
+                pickMedia.launch(
+                  PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                )
+                showAddContentMenu = false
+              },
+            )
+          }
 
-      if (inProgress && showStopButtonWhenInProgress) {
-        if (!modelInitializing && !modelPreparing) {
+          // Prompt templates.
+          if (showPromptTemplatesInMenu) {
+            DropdownMenuItem(
+              text = {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                  Icon(Icons.Rounded.PostAdd, contentDescription = "")
+                  Text("Prompt templates")
+                }
+              },
+              onClick = {
+                onOpenPromptTemplatesClicked()
+                showAddContentMenu = false
+              },
+            )
+          }
+          // Prompt history.
+          DropdownMenuItem(
+            text = {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+              ) {
+                Icon(Icons.Rounded.History, contentDescription = "")
+                Text("Input history")
+              }
+            },
+            onClick = {
+              showAddContentMenu = false
+              showTextInputHistorySheet = true
+            },
+          )
+        }
+
+        // Text field.
+        TextField(
+          value = curMessage,
+          minLines = 1,
+          maxLines = 3,
+          onValueChange = onValueChanged,
+          colors =
+            TextFieldDefaults.colors(
+              unfocusedContainerColor = Color.Transparent,
+              focusedContainerColor = Color.Transparent,
+              focusedIndicatorColor = Color.Transparent,
+              unfocusedIndicatorColor = Color.Transparent,
+              disabledIndicatorColor = Color.Transparent,
+              disabledContainerColor = Color.Transparent,
+            ),
+          textStyle = MaterialTheme.typography.bodyLarge,
+          modifier = Modifier.weight(1f).padding(start = 36.dp),
+          placeholder = { Text(stringResource(textFieldPlaceHolderRes)) },
+        )
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        if (inProgress && showStopButtonWhenInProgress) {
+          if (!modelInitializing && !modelPreparing) {
+            IconButton(
+              onClick = onStopButtonClicked,
+              colors =
+                IconButtonDefaults.iconButtonColors(
+                  containerColor = MaterialTheme.colorScheme.secondaryContainer
+                ),
+            ) {
+              Icon(
+                Icons.Rounded.Stop,
+                contentDescription = "",
+                tint = MaterialTheme.colorScheme.primary,
+              )
+            }
+          }
+        } // Send button. Only shown when text is not empty.
+        else if (curMessage.isNotEmpty()) {
           IconButton(
-            onClick = onStopButtonClicked,
+            enabled = !inProgress && !isResettingSession,
+            onClick = {
+              onSendMessage(
+                createMessagesToSend(pickedImages = pickedImages, text = curMessage.trim())
+              )
+              pickedImages = listOf()
+            },
             colors =
               IconButtonDefaults.iconButtonColors(
                 containerColor = MaterialTheme.colorScheme.secondaryContainer
               ),
           ) {
             Icon(
-              Icons.Rounded.Stop,
+              Icons.AutoMirrored.Rounded.Send,
               contentDescription = "",
+              modifier = Modifier.offset(x = 2.dp),
               tint = MaterialTheme.colorScheme.primary,
             )
           }
         }
-      } // Send button. Only shown when text is not empty.
-      else if (curMessage.isNotEmpty()) {
-        IconButton(
-          enabled = !inProgress && !isResettingSession,
-          onClick = {
-            onSendMessage(
-              createMessagesToSend(pickedImages = pickedImages, text = curMessage.trim())
-            )
-            pickedImages = listOf()
-          },
-          colors =
-            IconButtonDefaults.iconButtonColors(
-              containerColor = MaterialTheme.colorScheme.secondaryContainer
-            ),
-        ) {
-          Icon(
-            Icons.AutoMirrored.Rounded.Send,
-            contentDescription = "",
-            modifier = Modifier.offset(x = 2.dp),
-            tint = MaterialTheme.colorScheme.primary,
-          )
-        }
+        Spacer(modifier = Modifier.width(4.dp))
       }
-      Spacer(modifier = Modifier.width(4.dp))
     }
   }
 
