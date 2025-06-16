@@ -17,9 +17,11 @@ workRuntime = "2.10.1"
 dataStore = "1.1.7"
 gson = "2.13.1"
 lifecycleProcess = "2.9.0"
+protobuf = "0.9.5"
+protobufJavaLite = "4.26.1"
 #noinspection GradleDependency
 mediapipeTasksText = "0.10.21"
-mediapipeTasksGenai = "0.10.24"
+mediapipeTasksGenai = "0.10.25"
 mediapipeTasksImageGenerator = "0.10.21"
 commonmark = "1.0.0-alpha02"
 richtext = "1.0.0-alpha02"
@@ -49,7 +51,7 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 material = { module = "com.google.android.material:material", version.ref = "material" }
 material-icon-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIconExtended" }
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntime" }
-androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "dataStore" }
+androidx-datastore = { group = "androidx.datastore", name = "datastore", version.ref = "dataStore" }
 com-google-code-gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycleProcess" }
 mediapipe-tasks-text = { group = "com.google.mediapipe", name = "tasks-text", version.ref = "mediapipeTasksText" }
@@ -66,10 +68,11 @@ camerax-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", vers
 camerax-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraX"}
 openid-appauth = { group = "net.openid", name = "appauth", version.ref = "netOpenidAppauth" }
 androidx-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
+protobuf-javalite = { group = "com.google.protobuf", name = "protobuf-javalite", version.ref = "protobufJavaLite" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "serializationPlugin" }
-
+protobuf = {id = "com.google.protobuf", version.ref = "protobuf"}

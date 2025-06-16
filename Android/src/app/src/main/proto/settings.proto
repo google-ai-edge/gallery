@@ -1,0 +1,65 @@
+/* Copyright 2025 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+syntax = "proto3";
+
+package com.google.ai.edge.gallery.proto;
+
+option java_package = "com.google.ai.edge.gallery.proto";
+option java_multiple_files = true;
+
+enum Theme {
+  THEME_UNSPECIFIED = 0;
+
+  // Force to use light theme.
+  THEME_LIGHT = 1;
+
+  // Force to use dark theme.
+  THEME_DARK = 2;
+
+  // Use the system them setting on user's phone.
+  THEME_AUTO = 3;
+}
+
+message AccessTokenData {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_at_ms = 3;
+}
+
+message ImportedModel {
+  string file_name = 1;
+  int64 file_size = 2;
+
+  oneof config {
+    LlmConfig llm_config = 3;
+  }
+}
+
+message LlmConfig {
+  repeated string compatible_accelerators = 1;
+  int32 default_max_tokens = 2;
+  int32 default_topk = 3;
+  float default_topp = 4;
+  float default_temperature = 5;
+  bool support_image = 6;
+}
+
+message Settings {
+  Theme theme = 1;
+  AccessTokenData access_token_data = 2;
+  repeated string text_input_history = 3;
+  repeated ImportedModel imported_model = 4;
+}

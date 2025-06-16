@@ -34,3 +34,13 @@ const val KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES = "KEY_MODEL_EXTRA_DATA_DOWNL
 const val KEY_MODEL_IS_ZIP = "KEY_MODEL_IS_ZIP"
 const val KEY_MODEL_UNZIPPED_DIR = "KEY_MODEL_UNZIPPED_DIR"
 const val KEY_MODEL_START_UNZIPPING = "KEY_MODEL_START_UNZIPPING"
+
+// Default values for LLM models.
+const val DEFAULT_MAX_TOKEN = 1024
+const val DEFAULT_TOPK = 40
+const val DEFAULT_TOPP = 0.9f
+const val DEFAULT_TEMPERATURE = 1.0f
+val DEFAULT_ACCELERATORS = listOf(Accelerator.GPU)
+
+// Max number of images allowed in a "ask image" session.
+const val MAX_IMAGE_COUNT = 10

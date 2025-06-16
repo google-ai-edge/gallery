@@ -52,28 +52,22 @@ private val SHAPES: List<Int> =
   listOf(R.drawable.pantegon, R.drawable.double_circle, R.drawable.circle, R.drawable.four_circle)
 
 /**
- * Composable that displays an icon representing a task. It consists of a background
- * image and a foreground icon, both centered within a square box.
+ * Composable that displays an icon representing a task. It consists of a background image and a
+ * foreground icon, both centered within a square box.
  */
 @Composable
 fun TaskIcon(task: Task, modifier: Modifier = Modifier, width: Dp = 56.dp) {
-  Box(
-    modifier = modifier
-      .width(width)
-      .aspectRatio(1f),
-    contentAlignment = Alignment.Center,
-  ) {
+  Box(modifier = modifier.width(width).aspectRatio(1f), contentAlignment = Alignment.Center) {
     Image(
       painter = getTaskIconBgShape(task = task),
       contentDescription = "",
-      modifier = Modifier
-        .fillMaxSize()
-        .alpha(0.6f),
+      modifier = Modifier.fillMaxSize().alpha(0.6f),
       contentScale = ContentScale.Fit,
-      colorFilter = ColorFilter.tint(
-        MaterialTheme.customColors.taskIconShapeBgColor,
-        blendMode = BlendMode.SrcIn
-      )
+      colorFilter =
+        ColorFilter.tint(
+          MaterialTheme.customColors.taskIconShapeBgColor,
+          blendMode = BlendMode.SrcIn,
+        ),
     )
     Icon(
       task.icon ?: ImageVector.vectorResource(task.iconVectorResourceId!!),

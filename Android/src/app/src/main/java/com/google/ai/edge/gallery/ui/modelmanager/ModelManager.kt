@@ -16,6 +16,11 @@
 
 package com.google.ai.edge.gallery.ui.modelmanager
 
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
+// import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -26,16 +31,11 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import com.google.ai.edge.gallery.GalleryTopAppBar
 import com.google.ai.edge.gallery.data.AppBarAction
 import com.google.ai.edge.gallery.data.AppBarActionType
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
-import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 
 /** A screen to manage models. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -72,16 +72,14 @@ fun ModelManager(
   }
 
   // Handle system's edge swipe.
-  BackHandler {
-    navigateUp()
-  }
+  BackHandler { navigateUp() }
 
   Scaffold(
     modifier = modifier,
     topBar = {
       GalleryTopAppBar(
         title = title,
-        leftAction = AppBarAction(actionType = AppBarActionType.NAVIGATE_UP, actionFn = navigateUp)
+        leftAction = AppBarAction(actionType = AppBarActionType.NAVIGATE_UP, actionFn = navigateUp),
       )
     },
   ) { innerPadding ->
@@ -90,22 +88,22 @@ fun ModelManager(
       modelManagerViewModel = viewModel,
       contentPadding = innerPadding,
       onModelClicked = onModelClicked,
-      modifier = Modifier.fillMaxSize()
+      modifier = Modifier.fillMaxSize(),
     )
   }
 }
 
-@Preview
-@Composable
-fun ModelManagerPreview() {
-  val context = LocalContext.current
+// @Preview
+// @Composable
+// fun ModelManagerPreview() {
+//   val context = LocalContext.current
 
-  GalleryTheme {
-    ModelManager(
-      viewModel = PreviewModelManagerViewModel(context = context),
-      onModelClicked = {},
-      task = TASK_TEST1,
-      navigateUp = {},
-    )
-  }
-}
+//   GalleryTheme {
+//     ModelManager(
+//       viewModel = PreviewModelManagerViewModel(context = context),
+//       onModelClicked = {},
+//       task = TASK_TEST1,
+//       navigateUp = {},
+//     )
+//   }
+// }

@@ -18,14 +18,14 @@ package com.google.ai.edge.gallery.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-//val primaryLight = Color(0xFF32628D)
+// val primaryLight = Color(0xFF32628D)
 val primaryLight = Color(0xFF1F1F1F)
 val onPrimaryLight = Color(0xFFFFFFFF)
 val primaryContainerLight = Color(0xFFD0E4FF)
 val onPrimaryContainerLight = Color(0xFF144A74)
 val secondaryLight = Color(0xFF526070)
 val onSecondaryLight = Color(0xFFFFFFFF)
-//val secondaryContainerLight = Color(0xFFD6E4F7)
+// val secondaryContainerLight = Color(0xFFD6E4F7)
 val secondaryContainerLight = Color(0xFFC2E7FF)
 val onSecondaryContainerLight = Color(0xFF3B4857)
 val tertiaryLight = Color(0xFF775A0B)

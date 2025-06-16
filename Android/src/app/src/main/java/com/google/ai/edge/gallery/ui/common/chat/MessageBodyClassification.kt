@@ -16,6 +16,8 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,11 +34,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 
 val CLASSIFICATION_BAR_HEIGHT = 8.dp
 val CLASSIFICATION_BAR_MAX_WIDTH = 200.dp
@@ -44,7 +43,8 @@ val CLASSIFICATION_BAR_MAX_WIDTH = 200.dp
 /**
  * Composable function to display classification results.
  *
- * This function renders a list of classifications, each with its label, score, and a visual score bar.
+ * This function renders a list of classifications, each with its label, score, and a visual score
+ * bar.
  */
 @Composable
 fun MessageBodyClassification(
@@ -52,45 +52,40 @@ fun MessageBodyClassification(
   modifier: Modifier = Modifier,
   oneLineLabel: Boolean = false,
 ) {
-  Column(
-    modifier = modifier.padding(12.dp)
-  ) {
+  Column(modifier = modifier.padding(12.dp)) {
     for (classification in message.classifications) {
-      Row(
-        modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
-      ) {
+      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         // Classification label.
         Text(
           classification.label,
           maxLines = if (oneLineLabel) 1 else Int.MAX_VALUE,
           overflow = TextOverflow.Ellipsis,
           style = MaterialTheme.typography.bodySmall,
-          modifier = Modifier.weight(1f)
+          modifier = Modifier.weight(1f),
         )
         // Classification score.
         Text(
           "%.2f".format(classification.score),
           style = MaterialTheme.typography.bodySmall,
-          modifier = Modifier
-            .align(Alignment.Bottom),
+          modifier = Modifier.align(Alignment.Bottom),
         )
       }
       Spacer(modifier = Modifier.height(2.dp))
       // Score bar.
       Box {
         Box(
-          modifier = Modifier
-            .fillMaxWidth()
-            .height(CLASSIFICATION_BAR_HEIGHT)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceDim)
+          modifier =
+            Modifier.fillMaxWidth()
+              .height(CLASSIFICATION_BAR_HEIGHT)
+              .clip(CircleShape)
+              .background(MaterialTheme.colorScheme.surfaceDim)
         )
         Box(
-          modifier = Modifier
-            .fillMaxWidth(classification.score)
-            .height(CLASSIFICATION_BAR_HEIGHT)
-            .clip(CircleShape)
-            .background(classification.color)
+          modifier =
+            Modifier.fillMaxWidth(classification.score)
+              .height(CLASSIFICATION_BAR_HEIGHT)
+              .clip(CircleShape)
+              .background(classification.color)
         )
       }
       Spacer(modifier = Modifier.height(6.dp))
@@ -98,18 +93,20 @@ fun MessageBodyClassification(
   }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun MessageBodyClassificationPreview() {
-  GalleryTheme {
-    MessageBodyClassification(
-      message = ChatMessageClassification(
-        classifications = listOf(
-          Classification(label = "label1", score = 0.3f, color = Color.Red),
-          Classification(label = "label2", score = 0.7f, color = Color.Blue)
-        ),
-        latencyMs = 12345f,
-      ),
-    )
-  }
-}
+// @Preview(showBackground = true)
+// @Composable
+// fun MessageBodyClassificationPreview() {
+//   GalleryTheme {
+//     MessageBodyClassification(
+//       message =
+//         ChatMessageClassification(
+//           classifications =
+//             listOf(
+//               Classification(label = "label1", score = 0.3f, color = Color.Red),
+//               Classification(label = "label2", score = 0.7f, color = Color.Blue),
+//             ),
+//           latencyMs = 12345f,
+//         )
+//     )
+//   }
+// }

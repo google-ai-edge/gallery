@@ -23,11 +23,11 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.net.toUri
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -38,7 +38,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkQuery
 import com.google.ai.edge.gallery.AppLifecycleProvider
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.ui.common.readLaunchInfo
+import com.google.ai.edge.gallery.common.readLaunchInfo
 import com.google.ai.edge.gallery.worker.DownloadWorker
 import com.google.common.util.concurrent.FutureCallback
 import com.google.common.util.concurrent.Futures
@@ -53,7 +53,8 @@ data class AGWorkInfo(val modelName: String, val workId: String)
 
 interface DownloadRepository {
   fun downloadModel(
-    model: Model, onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit
+    model: Model,
+    onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   )
 
   fun cancelDownloadModel(model: Model)
@@ -83,7 +84,8 @@ class DefaultDownloadRepository(
   private val workManager = WorkManager.getInstance(context)
 
   override fun downloadModel(
-    model: Model, onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit
+    model: Model,
+    onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
     val appTs = readLaunchInfo(context = context)?.ts ?: 0
 
@@ -91,18 +93,24 @@ class DefaultDownloadRepository(
     val builder = Data.Builder()
     val totalBytes = model.totalBytes + model.extraDataFiles.sumOf { it.sizeInBytes }
     val inputDataBuilder =
-      builder.putString(KEY_MODEL_NAME, model.name).putString(KEY_MODEL_URL, model.url)
+      builder
+        .putString(KEY_MODEL_NAME, model.name)
+        .putString(KEY_MODEL_URL, model.url)
         .putString(KEY_MODEL_VERSION, model.version)
         .putString(KEY_MODEL_DOWNLOAD_MODEL_DIR, model.normalizedName)
         .putString(KEY_MODEL_DOWNLOAD_FILE_NAME, model.downloadFileName)
-        .putBoolean(KEY_MODEL_IS_ZIP, model.isZip).putString(KEY_MODEL_UNZIPPED_DIR, model.unzipDir)
-        .putLong(KEY_MODEL_TOTAL_BYTES, totalBytes).putLong(KEY_MODEL_DOWNLOAD_APP_TS, appTs)
+        .putBoolean(KEY_MODEL_IS_ZIP, model.isZip)
+        .putString(KEY_MODEL_UNZIPPED_DIR, model.unzipDir)
+        .putLong(KEY_MODEL_TOTAL_BYTES, totalBytes)
+        .putLong(KEY_MODEL_DOWNLOAD_APP_TS, appTs)
 
     if (model.extraDataFiles.isNotEmpty()) {
-      inputDataBuilder.putString(KEY_MODEL_EXTRA_DATA_URLS,
-        model.extraDataFiles.joinToString(",") { it.url }).putString(
-        KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES,
-        model.extraDataFiles.joinToString(",") { it.downloadFileName })
+      inputDataBuilder
+        .putString(KEY_MODEL_EXTRA_DATA_URLS, model.extraDataFiles.joinToString(",") { it.url })
+        .putString(
+          KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES,
+          model.extraDataFiles.joinToString(",") { it.downloadFileName },
+        )
     }
     if (model.accessToken != null) {
       inputDataBuilder.putString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN, model.accessToken)
@@ -111,20 +119,19 @@ class DefaultDownloadRepository(
 
     // Create worker request.
     val downloadWorkRequest =
-      OneTimeWorkRequestBuilder<DownloadWorker>().setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-        .setInputData(inputData).addTag("$MODEL_NAME_TAG:${model.name}").build()
+      OneTimeWorkRequestBuilder<DownloadWorker>()
+        .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+        .setInputData(inputData)
+        .addTag("$MODEL_NAME_TAG:${model.name}")
+        .build()
 
     val workerId = downloadWorkRequest.id
 
     // Start!
-    workManager.enqueueUniqueWork(
-      model.name, ExistingWorkPolicy.REPLACE, downloadWorkRequest
-    )
+    workManager.enqueueUniqueWork(model.name, ExistingWorkPolicy.REPLACE, downloadWorkRequest)
 
     // Observe progress.
-    observerWorkerProgress(
-      workerId = workerId, model = model, onStatusUpdated = onStatusUpdated
-    )
+    observerWorkerProgress(workerId = workerId, model = model, onStatusUpdated = onStatusUpdated)
   }
 
   override fun cancelDownloadModel(model: Model) {
@@ -143,7 +150,8 @@ class DefaultDownloadRepository(
     }
     val combinedFuture: ListenableFuture<List<Operation.State.SUCCESS>> = Futures.allAsList(futures)
     Futures.addCallback(
-      combinedFuture, object : FutureCallback<List<Operation.State.SUCCESS>> {
+      combinedFuture,
+      object : FutureCallback<List<Operation.State.SUCCESS>> {
         override fun onSuccess(result: List<Operation.State.SUCCESS>?) {
           // All cancellations are complete
           onComplete()
@@ -154,7 +162,8 @@ class DefaultDownloadRepository(
           t.printStackTrace()
           onComplete()
         }
-      }, MoreExecutors.directExecutor()
+      },
+      MoreExecutors.directExecutor(),
     )
   }
 
@@ -175,45 +184,41 @@ class DefaultDownloadRepository(
             if (!startUnzipping) {
               if (receivedBytes != 0L) {
                 onStatusUpdated(
-                  model, ModelDownloadStatus(
+                  model,
+                  ModelDownloadStatus(
                     status = ModelDownloadStatusType.IN_PROGRESS,
                     totalBytes = model.totalBytes,
                     receivedBytes = receivedBytes,
                     bytesPerSecond = downloadRate,
                     remainingMs = remainingSeconds,
-                  )
+                  ),
                 )
               }
             } else {
               onStatusUpdated(
-                model, ModelDownloadStatus(
-                  status = ModelDownloadStatusType.UNZIPPING,
-                )
+                model,
+                ModelDownloadStatus(status = ModelDownloadStatusType.UNZIPPING),
               )
             }
           }
 
           WorkInfo.State.SUCCEEDED -> {
             Log.d("repo", "worker %s success".format(workerId.toString()))
-            onStatusUpdated(
-              model, ModelDownloadStatus(
-                status = ModelDownloadStatusType.SUCCEEDED,
-              )
-            )
+            onStatusUpdated(model, ModelDownloadStatus(status = ModelDownloadStatusType.SUCCEEDED))
             sendNotification(
-              title = context.getString(
-                R.string.notification_title_success
-              ),
+              title = context.getString(R.string.notification_title_success),
               text = context.getString(R.string.notification_content_success).format(model.name),
               modelName = model.name,
             )
           }
 
-          WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> {
+          WorkInfo.State.FAILED,
+          WorkInfo.State.CANCELLED -> {
             var status = ModelDownloadStatusType.FAILED
             val errorMessage = workInfo.outputData.getString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE) ?: ""
             Log.d(
-              "repo", "worker %s FAILED or CANCELLED: %s".format(workerId.toString(), errorMessage)
+              "repo",
+              "worker %s FAILED or CANCELLED: %s".format(workerId.toString(), errorMessage),
             )
             if (workInfo.state == WorkInfo.State.CANCELLED) {
               status = ModelDownloadStatusType.NOT_DOWNLOADED
@@ -225,7 +230,8 @@ class DefaultDownloadRepository(
               )
             }
             onStatusUpdated(
-              model, ModelDownloadStatus(status = status, errorMessage = errorMessage)
+              model,
+              ModelDownloadStatus(status = status, errorMessage = errorMessage),
             )
           }
 
@@ -278,29 +284,35 @@ class DefaultDownloadRepository(
     notificationManager.createNotificationChannel(channel)
 
     // Create an Intent to open your app with a deep link.
-    val intent = Intent(
-      Intent.ACTION_VIEW, Uri.parse("com.google.ai.edge.gallery://model/${modelName}")
-    ).apply {
-      flags = Intent.FLAG_ACTIVITY_NEW_TASK
-    }
+    val intent =
+      Intent(Intent.ACTION_VIEW, "com.google.ai.edge.gallery://model/${modelName}".toUri()).apply {
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+      }
 
     // Create a PendingIntent
-    val pendingIntent: PendingIntent = PendingIntent.getActivity(
-      context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
+    val pendingIntent: PendingIntent =
+      PendingIntent.getActivity(
+        context,
+        0,
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+      )
 
-
-    val builder = NotificationCompat.Builder(context, channelId)
-      // TODO: replace icon.
-      .setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(title).setContentText(text)
-      .setPriority(NotificationCompat.PRIORITY_HIGH).setContentIntent(pendingIntent)
-      .setAutoCancel(true)
+    val builder =
+      NotificationCompat.Builder(context, channelId)
+        // TODO: replace icon.
+        .setSmallIcon(android.R.drawable.ic_dialog_info)
+        .setContentTitle(title)
+        .setContentText(text)
+        .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .setContentIntent(pendingIntent)
+        .setAutoCancel(true)
 
     with(NotificationManagerCompat.from(context)) {
       // notificationId is a unique int for each notification that you must define
-      if (ActivityCompat.checkSelfPermission(
-          context, Manifest.permission.POST_NOTIFICATIONS
-        ) != PackageManager.PERMISSION_GRANTED
+      if (
+        ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+          PackageManager.PERMISSION_GRANTED
       ) {
         // Permission not granted, return or handle accordingly. In real app, request permission.
         return

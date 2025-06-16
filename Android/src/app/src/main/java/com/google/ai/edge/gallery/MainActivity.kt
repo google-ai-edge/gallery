@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -32,14 +33,11 @@ class MainActivity : ComponentActivity() {
 
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
-    setContent {
-      GalleryTheme {
-        Surface(
-          modifier = Modifier.fillMaxSize()
-        ) {
-          GalleryApp()
-        }
-      }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      // Fix for three-button nav not properly going edge-to-edge.
+      // See: https://issuetracker.google.com/issues/298296168
+      window.isNavigationBarContrastEnforced = false
     }
+    setContent { GalleryTheme { Surface(modifier = Modifier.fillMaxSize()) { GalleryApp() } } }
   }
 }

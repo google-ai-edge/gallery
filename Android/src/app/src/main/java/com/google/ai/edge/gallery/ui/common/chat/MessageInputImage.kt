@@ -16,6 +16,9 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -28,7 +31,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -49,11 +51,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.google.ai.edge.gallery.ui.common.createTempPictureUri
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 
 private const val TAG = "AGMessageInputImage"
 
@@ -102,30 +102,28 @@ fun MessageInputImage(
     }
 
   // Permission request when taking picture.
-  val takePicturePermissionLauncher = rememberLauncherForActivityResult(
-    ActivityResultContracts.RequestPermission()
-  ) { permissionGranted ->
-    if (permissionGranted) {
-      tempPhotoUri = context.createTempPictureUri()
-      cameraLauncher.launch(tempPhotoUri)
+  val takePicturePermissionLauncher =
+    rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+      permissionGranted ->
+      if (permissionGranted) {
+        tempPhotoUri = context.createTempPictureUri()
+        cameraLauncher.launch(tempPhotoUri)
+      }
     }
-  }
 
   // Permission request when using live camera.
-  val liveCameraPermissionLauncher = rememberLauncherForActivityResult(
-    ActivityResultContracts.RequestPermission()
-  ) { permissionGranted ->
-    if (permissionGranted) {
-      showLiveCameraDialog = true
+  val liveCameraPermissionLauncher =
+    rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+      permissionGranted ->
+      if (permissionGranted) {
+        showLiveCameraDialog = true
+      }
     }
-  }
 
   val buttonAlpha = if (disableButtons) 0.3f else 1f
 
   Row(
-    modifier = Modifier
-      .fillMaxWidth()
-      .padding(12.dp),
+    modifier = Modifier.fillMaxWidth().padding(12.dp),
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.End,
   ) {
@@ -139,9 +137,8 @@ fun MessageInputImage(
         // Launch the photo picker and let the user choose only images.
         pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
       },
-      colors = IconButtonDefaults.iconButtonColors(
-        containerColor = MaterialTheme.colorScheme.primary,
-      ),
+      colors =
+        IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
       modifier = Modifier.alpha(buttonAlpha),
     ) {
       Icon(Icons.Rounded.Photo, contentDescription = "", tint = MaterialTheme.colorScheme.onPrimary)
@@ -157,9 +154,7 @@ fun MessageInputImage(
         // Check permission
         when (PackageManager.PERMISSION_GRANTED) {
           // Already got permission. Call the lambda.
-          ContextCompat.checkSelfPermission(
-            context, Manifest.permission.CAMERA
-          ) -> {
+          ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) -> {
             tempPhotoUri = context.createTempPictureUri()
             cameraLauncher.launch(tempPhotoUri)
           }
@@ -170,15 +165,14 @@ fun MessageInputImage(
           }
         }
       },
-      colors = IconButtonDefaults.iconButtonColors(
-        containerColor = MaterialTheme.colorScheme.primary,
-      ),
+      colors =
+        IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
       modifier = Modifier.alpha(buttonAlpha),
     ) {
       Icon(
         Icons.Rounded.PhotoCamera,
         contentDescription = "",
-        tint = MaterialTheme.colorScheme.onPrimary
+        tint = MaterialTheme.colorScheme.onPrimary,
       )
     }
 
@@ -192,9 +186,7 @@ fun MessageInputImage(
         // Check permission
         when (PackageManager.PERMISSION_GRANTED) {
           // Already got permission. Call the lambda.
-          ContextCompat.checkSelfPermission(
-            context, Manifest.permission.CAMERA
-          ) -> {
+          ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) -> {
             showLiveCameraDialog = true
           }
 
@@ -204,25 +196,30 @@ fun MessageInputImage(
           }
         }
       },
-      colors = IconButtonDefaults.iconButtonColors(
-        containerColor = MaterialTheme.colorScheme.primary,
-      ),
+      colors =
+        IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
       modifier = Modifier.alpha(buttonAlpha),
     ) {
       Icon(
-        Icons.Rounded.Videocam, contentDescription = "", tint = MaterialTheme.colorScheme.onPrimary
+        Icons.Rounded.Videocam,
+        contentDescription = "",
+        tint = MaterialTheme.colorScheme.onPrimary,
       )
     }
   }
 
   // Live camera stream dialog.
   if (showLiveCameraDialog) {
-    LiveCameraDialog(
-      streamingMessage = streamingMessage, onDismissed = { averageFps ->
-        onStreamEnd(averageFps)
-        showLiveCameraDialog = false
-      }, onBitmap = onStreamImage
-    )
+    // TODO(migration)
+    //
+    // LiveCameraDialog(
+    //   streamingMessage = streamingMessage,
+    //   onDismissed = { averageFps ->
+    //     onStreamEnd(averageFps)
+    //     showLiveCameraDialog = false
+    //   },
+    //   onBitmap = onStreamImage,
+    // )
   }
 }
 
@@ -237,33 +234,33 @@ private fun handleImageSelected(
 ) {
   Log.d(TAG, "Selected URI: $uri")
 
-  val bitmap: Bitmap? = try {
-    val inputStream = context.contentResolver.openInputStream(uri)
-    val tmpBitmap = BitmapFactory.decodeStream(inputStream)
-    if (rotateForPortrait && tmpBitmap.width > tmpBitmap.height) {
-      val matrix = Matrix()
-      matrix.postRotate(90f)
-      Bitmap.createBitmap(tmpBitmap, 0, 0, tmpBitmap.width, tmpBitmap.height, matrix, true)
-    } else {
-      tmpBitmap
+  val bitmap: Bitmap? =
+    try {
+      val inputStream = context.contentResolver.openInputStream(uri)
+      val tmpBitmap = BitmapFactory.decodeStream(inputStream)
+      if (rotateForPortrait && tmpBitmap.width > tmpBitmap.height) {
+        val matrix = Matrix()
+        matrix.postRotate(90f)
+        Bitmap.createBitmap(tmpBitmap, 0, 0, tmpBitmap.width, tmpBitmap.height, matrix, true)
+      } else {
+        tmpBitmap
+      }
+    } catch (e: Exception) {
+      e.printStackTrace()
+      null
     }
-  } catch (e: Exception) {
-    e.printStackTrace()
-    null
-  }
   if (bitmap != null) {
     onImageSelected(bitmap)
   }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun MessageInputImagePreview() {
-  GalleryTheme {
-    Column {
-      MessageInputImage(onImageSelected = {})
-      MessageInputImage(disableButtons = true, onImageSelected = {})
-    }
-  }
-}
-
+// @Preview(showBackground = true)
+// @Composable
+// fun MessageInputImagePreview() {
+//   GalleryTheme {
+//     Column {
+//       MessageInputImage(onImageSelected = {})
+//       MessageInputImage(disableButtons = true, onImageSelected = {})
+//     }
+//   }
+// }

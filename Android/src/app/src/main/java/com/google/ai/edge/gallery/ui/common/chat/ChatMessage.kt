@@ -17,10 +17,11 @@
 package com.google.ai.edge.gallery.ui.common.chat
 
 import android.graphics.Bitmap
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.Dp
+import com.google.ai.edge.gallery.common.Classification
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.PromptTemplate
 
 enum class ChatMessageType {
   INFO,
@@ -33,14 +34,14 @@ enum class ChatMessageType {
   CONFIG_VALUES_CHANGE,
   BENCHMARK_RESULT,
   BENCHMARK_LLM_RESULT,
-  PROMPT_TEMPLATES
+  PROMPT_TEMPLATES,
 }
 
 enum class ChatSide {
-  USER, AGENT, SYSTEM
+  USER,
+  AGENT,
+  SYSTEM,
 }
-
-data class Classification(val label: String, val score: Float, val color: Color)
 
 /** Base class for a chat message. */
 open class ChatMessage(
@@ -70,7 +71,7 @@ class ChatMessageWarning(val content: String) :
 class ChatMessageConfigValuesChange(
   val model: Model,
   val oldValues: Map<String, Any>,
-  val newValues: Map<String, Any>
+  val newValues: Map<String, Any>,
 ) : ChatMessage(type = ChatMessageType.CONFIG_VALUES_CHANGE, side = ChatSide.SYSTEM)
 
 /** Chat message for plain text. */
@@ -84,12 +85,13 @@ open class ChatMessageText(
   // Benchmark result for LLM response.
   var llmBenchmarkResult: ChatMessageBenchmarkLlmResult? = null,
   override val accelerator: String = "",
-) : ChatMessage(
-  type = ChatMessageType.TEXT,
-  side = side,
-  latencyMs = latencyMs,
-  accelerator = accelerator
-) {
+) :
+  ChatMessage(
+    type = ChatMessageType.TEXT,
+    side = side,
+    latencyMs = latencyMs,
+    accelerator = accelerator,
+  ) {
   override fun clone(): ChatMessageText {
     return ChatMessageText(
       content = content,
@@ -107,15 +109,14 @@ class ChatMessageImage(
   val bitmap: Bitmap,
   val imageBitMap: ImageBitmap,
   override val side: ChatSide,
-  override val latencyMs: Float = 0f
-) :
-  ChatMessage(type = ChatMessageType.IMAGE, side = side, latencyMs = latencyMs) {
+  override val latencyMs: Float = 0f,
+) : ChatMessage(type = ChatMessageType.IMAGE, side = side, latencyMs = latencyMs) {
   override fun clone(): ChatMessageImage {
     return ChatMessageImage(
       bitmap = bitmap,
       imageBitMap = imageBitMap,
       side = side,
-      latencyMs = latencyMs
+      latencyMs = latencyMs,
     )
   }
 }
@@ -128,8 +129,7 @@ class ChatMessageImageWithHistory(
   override val side: ChatSide,
   override val latencyMs: Float = 0f,
   var curIteration: Int = 0, // 0-based
-) :
-  ChatMessage(type = ChatMessageType.IMAGE_WITH_HISTORY, side = side, latencyMs = latencyMs) {
+) : ChatMessage(type = ChatMessageType.IMAGE_WITH_HISTORY, side = side, latencyMs = latencyMs) {
   fun isRunning(): Boolean {
     return curIteration < totalIterations - 1
   }
@@ -141,7 +141,8 @@ class ChatMessageClassification(
   override val latencyMs: Float = 0f,
   // Typical android phone width is > 320dp
   val maxBarWidth: Dp? = null,
-) : ChatMessage(type = ChatMessageType.CLASSIFICATION, side = ChatSide.AGENT, latencyMs = latencyMs)
+) :
+  ChatMessage(type = ChatMessageType.CLASSIFICATION, side = ChatSide.AGENT, latencyMs = latencyMs)
 
 /** A stat used in benchmark result. */
 data class Stat(val id: String, val label: String, val unit: String)
@@ -162,7 +163,7 @@ class ChatMessageBenchmarkResult(
   ChatMessage(
     type = ChatMessageType.BENCHMARK_RESULT,
     side = ChatSide.AGENT,
-    latencyMs = latencyMs
+    latencyMs = latencyMs,
   ) {
   fun isWarmingUp(): Boolean {
     return warmupCurrent < warmupTotal
@@ -180,23 +181,18 @@ class ChatMessageBenchmarkLlmResult(
   val running: Boolean,
   override val latencyMs: Float = 0f,
   override val accelerator: String = "",
-) : ChatMessage(
-  type = ChatMessageType.BENCHMARK_LLM_RESULT,
-  side = ChatSide.AGENT,
-  latencyMs = latencyMs,
-  accelerator = accelerator,
-)
+) :
+  ChatMessage(
+    type = ChatMessageType.BENCHMARK_LLM_RESULT,
+    side = ChatSide.AGENT,
+    latencyMs = latencyMs,
+    accelerator = accelerator,
+  )
 
-data class Histogram(
-  val buckets: List<Int>,
-  val maxCount: Int,
-  val highlightBucketIndex: Int = -1
-)
+data class Histogram(val buckets: List<Int>, val maxCount: Int, val highlightBucketIndex: Int = -1)
 
 /** Chat message for showing prompt templates. */
 class ChatMessagePromptTemplates(
   val templates: List<PromptTemplate>,
   val showMakeYourOwn: Boolean = true,
 ) : ChatMessage(type = ChatMessageType.PROMPT_TEMPLATES, side = ChatSide.SYSTEM)
-
-data class PromptTemplate(val title: String, val description: String, val prompt: String)

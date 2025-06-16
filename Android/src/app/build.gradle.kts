@@ -19,6 +19,7 @@ plugins {
   alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.kotlin.serialization)
+  alias(libs.plugins.protobuf)
 }
 
 android {
@@ -26,12 +27,11 @@ android {
   compileSdk = 36
 
   defaultConfig {
-    // Don't change to com.google.ai.edge.gallery yet.
     applicationId = "com.google.aiedge.gallery"
     minSdk = 26
     targetSdk = 36
     versionCode = 1
-    versionName = "1.0.3"
+    versionName = "1.0.4"
 
     // Needed for HuggingFace auth workflows.
     manifestPlaceholders["appAuthRedirectScheme"] = "com.google.ai.edge.gallery.oauth"
@@ -42,10 +42,7 @@ android {
   buildTypes {
     release {
       isMinifyEnabled = false
-      proguardFiles(
-        getDefaultProguardFile("proguard-android-optimize.txt"),
-        "proguard-rules.pro"
-      )
+      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("debug")
     }
   }
@@ -76,7 +73,7 @@ dependencies {
   implementation(libs.kotlinx.serialization.json)
   implementation(libs.material.icon.extended)
   implementation(libs.androidx.work.runtime)
-  implementation(libs.androidx.datastore.preferences)
+  implementation(libs.androidx.datastore)
   implementation(libs.com.google.code.gson)
   implementation(libs.androidx.lifecycle.process)
   implementation(libs.mediapipe.tasks.text)
@@ -93,6 +90,7 @@ dependencies {
   implementation(libs.camerax.view)
   implementation(libs.openid.appauth)
   implementation(libs.androidx.splashscreen)
+  implementation(libs.protobuf.javalite)
   testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.junit)
   androidTestImplementation(libs.androidx.espresso.core)
@@ -101,4 +99,9 @@ dependencies {
   debugImplementation(libs.androidx.ui.tooling)
   debugImplementation(libs.androidx.ui.test.manifest)
   implementation(libs.material)
+}
+
+protobuf {
+  protoc { artifact = "com.google.protobuf:protoc:4.26.1" }
+  generateProtoTasks { all().forEach { it.plugins { create("java") { option("lite") } } } }
 }

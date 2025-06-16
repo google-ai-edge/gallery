@@ -16,19 +16,15 @@
 
 package com.google.ai.edge.gallery.ui
 
-import android.app.Application
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.google.ai.edge.gallery.GalleryApplication
-import com.google.ai.edge.gallery.ui.imageclassification.ImageClassificationViewModel
-import com.google.ai.edge.gallery.ui.imagegeneration.ImageGenerationViewModel
-import com.google.ai.edge.gallery.ui.llmchat.LlmChatViewModel
 import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageViewModel
+import com.google.ai.edge.gallery.ui.llmchat.LlmChatViewModel
 import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import com.google.ai.edge.gallery.ui.textclassification.TextClassificationViewModel
 
 object ViewModelProvider {
   val Factory = viewModelFactory {
@@ -36,42 +32,23 @@ object ViewModelProvider {
     initializer {
       val downloadRepository = galleryApplication().container.downloadRepository
       val dataStoreRepository = galleryApplication().container.dataStoreRepository
+      val lifecycleProvider = galleryApplication().container.lifecycleProvider
       ModelManagerViewModel(
         downloadRepository = downloadRepository,
         dataStoreRepository = dataStoreRepository,
+        lifecycleProvider = lifecycleProvider,
         context = galleryApplication().container.context,
       )
     }
 
-    // Initializer for TextClassificationViewModel
-    initializer {
-      TextClassificationViewModel()
-    }
-
-    // Initializer for ImageClassificationViewModel
-    initializer {
-      ImageClassificationViewModel()
-    }
-
     // Initializer for LlmChatViewModel.
-    initializer {
-      LlmChatViewModel()
-    }
+    initializer { LlmChatViewModel() }
 
     // Initializer for LlmSingleTurnViewModel..
-    initializer {
-      LlmSingleTurnViewModel()
-    }
+    initializer { LlmSingleTurnViewModel() }
 
     // Initializer for LlmAskImageViewModel.
-    initializer {
-      LlmAskImageViewModel()
-    }
-
-    // Initializer for ImageGenerationViewModel.
-    initializer {
-      ImageGenerationViewModel()
-    }
+    initializer { LlmAskImageViewModel() }
   }
 }
 

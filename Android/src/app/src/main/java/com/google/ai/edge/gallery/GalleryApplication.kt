@@ -18,15 +18,35 @@ package com.google.ai.edge.gallery
 
 import android.app.Application
 import android.content.Context
+import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.core.Serializer
+import androidx.datastore.dataStore
+import com.google.ai.edge.gallery.common.writeLaunchInfo
 import com.google.ai.edge.gallery.data.AppContainer
 import com.google.ai.edge.gallery.data.DefaultAppContainer
-import com.google.ai.edge.gallery.ui.common.writeLaunchInfo
+import com.google.ai.edge.gallery.proto.Settings
 import com.google.ai.edge.gallery.ui.theme.ThemeSettings
+import com.google.protobuf.InvalidProtocolBufferException
+import java.io.InputStream
+import java.io.OutputStream
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_gallery_preferences")
+object SettingsSerializer : Serializer<Settings> {
+  override val defaultValue: Settings = Settings.getDefaultInstance()
+
+  override suspend fun readFrom(input: InputStream): Settings {
+    try {
+      return Settings.parseFrom(input)
+    } catch (exception: InvalidProtocolBufferException) {
+      throw CorruptionException("Cannot read proto.", exception)
+    }
+  }
+
+  override suspend fun writeTo(t: Settings, output: OutputStream) = t.writeTo(output)
+}
+
+private val Context.dataStore: DataStore<Settings> by
+  dataStore(fileName = "settings.pb", serializer = SettingsSerializer)
 
 class GalleryApplication : Application() {
   /** AppContainer instance used by the rest of classes to obtain dependencies */
@@ -35,11 +55,10 @@ class GalleryApplication : Application() {
   override fun onCreate() {
     super.onCreate()
 
-
     writeLaunchInfo(context = this)
     container = DefaultAppContainer(this, dataStore)
 
-    // Load theme.
-    ThemeSettings.themeOverride.value = container.dataStoreRepository.readThemeOverride()
+    // Load saved theme.
+    ThemeSettings.themeOverride.value = container.dataStoreRepository.readTheme()
   }
 }

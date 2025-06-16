@@ -16,6 +16,9 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+// import com.google.ai.edge.gallery.ui.preview.MODEL_TEST1
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,33 +37,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.ai.edge.gallery.data.ConfigKey
-import com.google.ai.edge.gallery.ui.common.convertValueToTargetType
-import com.google.ai.edge.gallery.ui.common.getConfigValueString
-import com.google.ai.edge.gallery.ui.preview.MODEL_TEST1
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+import com.google.ai.edge.gallery.data.convertValueToTargetType
+import com.google.ai.edge.gallery.data.getConfigValueString
 import com.google.ai.edge.gallery.ui.theme.bodySmallNarrow
 import com.google.ai.edge.gallery.ui.theme.titleSmaller
 
 /**
  * Composable function to display a message indicating configuration value changes.
  *
- * This function renders a centered row containing a box that displays the old and new
- * values of configuration settings that have been updated.
+ * This function renders a centered row containing a box that displays the old and new values of
+ * configuration settings that have been updated.
  */
 @Composable
 fun MessageBodyConfigUpdate(message: ChatMessageConfigValuesChange) {
-  Row(
-    modifier = Modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.Center,
-  ) {
+  Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
     Box(
-      modifier = Modifier
-        .clip(RoundedCornerShape(4.dp))
-        .background(MaterialTheme.colorScheme.tertiaryContainer)
+      modifier =
+        Modifier.clip(RoundedCornerShape(4.dp))
+          .background(MaterialTheme.colorScheme.tertiaryContainer)
     ) {
       Column(modifier = Modifier.padding(8.dp)) {
         // Title.
@@ -74,11 +70,7 @@ fun MessageBodyConfigUpdate(message: ChatMessageConfigValuesChange) {
           // Keys
           Column {
             for (config in message.model.configs) {
-              Text(
-                "${config.key.label}:",
-                style = bodySmallNarrow,
-                modifier = Modifier.alpha(0.6f),
-              )
+              Text("${config.key.label}:", style = bodySmallNarrow, modifier = Modifier.alpha(0.6f))
             }
           }
 
@@ -88,23 +80,25 @@ fun MessageBodyConfigUpdate(message: ChatMessageConfigValuesChange) {
           Column {
             for (config in message.model.configs) {
               val key = config.key.label
-              val oldValue: Any = convertValueToTargetType(
-                value = message.oldValues.getValue(key), valueType = config.valueType
-              )
-              val newValue: Any = convertValueToTargetType(
-                value = message.newValues.getValue(key), valueType = config.valueType
-              )
+              val oldValue: Any =
+                convertValueToTargetType(
+                  value = message.oldValues.getValue(key),
+                  valueType = config.valueType,
+                )
+              val newValue: Any =
+                convertValueToTargetType(
+                  value = message.newValues.getValue(key),
+                  valueType = config.valueType,
+                )
               if (oldValue == newValue) {
                 Text("$newValue", style = bodySmallNarrow)
               } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                  Text(
-                    getConfigValueString(oldValue, config), style = bodySmallNarrow
-                  )
+                  Text(getConfigValueString(oldValue, config), style = bodySmallNarrow)
                   Text(
                     "▸",
                     style = bodySmallNarrow.copy(fontSize = 12.sp),
-                    modifier = Modifier.padding(start = 4.dp, end = 4.dp)
+                    modifier = Modifier.padding(start = 4.dp, end = 4.dp),
                   )
                   Text(
                     getConfigValueString(newValue, config),
@@ -121,24 +115,24 @@ fun MessageBodyConfigUpdate(message: ChatMessageConfigValuesChange) {
   }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun MessageBodyConfigUpdatePreview() {
-  GalleryTheme {
-    Row(modifier = Modifier.padding(16.dp)) {
-      MessageBodyConfigUpdate(
-        message = ChatMessageConfigValuesChange(
-          model = MODEL_TEST1,
-          oldValues = mapOf(
-            ConfigKey.MAX_RESULT_COUNT.label to 100,
-            ConfigKey.USE_GPU.label to false
-          ),
-          newValues = mapOf(
-            ConfigKey.MAX_RESULT_COUNT.label to 200,
-            ConfigKey.USE_GPU.label to true
-          )
-        )
-      )
-    }
-  }
-}
+// @Preview(showBackground = true)
+// @Composable
+// fun MessageBodyConfigUpdatePreview() {
+//   GalleryTheme {
+//     Row(modifier = Modifier.padding(16.dp)) {
+//       MessageBodyConfigUpdate(
+//         message = ChatMessageConfigValuesChange(
+//           model = MODEL_TEST1,
+//           oldValues = mapOf(
+//             ConfigKey.MAX_RESULT_COUNT.label to 100,
+//             ConfigKey.USE_GPU.label to false
+//           ),
+//           newValues = mapOf(
+//             ConfigKey.MAX_RESULT_COUNT.label to 200,
+//             ConfigKey.USE_GPU.label to true
+//           )
+//         )
+//       )
+//     }
+//   }
+// }

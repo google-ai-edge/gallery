@@ -16,52 +16,55 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.tooling.preview.Preview
 import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.ValueType
-import com.google.ai.edge.gallery.ui.common.convertValueToTargetType
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+import com.google.ai.edge.gallery.data.convertValueToTargetType
+import com.google.ai.edge.gallery.ui.common.ConfigDialog
 
 private const val DEFAULT_BENCHMARK_WARM_UP_ITERATIONS = 50f
 private const val DEFAULT_BENCHMARK_ITERATIONS = 200f
 
-private val BENCHMARK_CONFIGS: List<Config> = listOf(
-  NumberSliderConfig(
-    key = ConfigKey.WARM_UP_ITERATIONS,
-    sliderMin = 10f,
-    sliderMax = 200f,
-    defaultValue = DEFAULT_BENCHMARK_WARM_UP_ITERATIONS,
-    valueType = ValueType.INT
-  ),
-  NumberSliderConfig(
-    key = ConfigKey.BENCHMARK_ITERATIONS,
-    sliderMin = 50f,
-    sliderMax = 500f,
-    defaultValue = DEFAULT_BENCHMARK_ITERATIONS,
-    valueType = ValueType.INT
-  ),
-)
+private val BENCHMARK_CONFIGS: List<Config> =
+  listOf(
+    NumberSliderConfig(
+      key = ConfigKey.WARM_UP_ITERATIONS,
+      sliderMin = 10f,
+      sliderMax = 200f,
+      defaultValue = DEFAULT_BENCHMARK_WARM_UP_ITERATIONS,
+      valueType = ValueType.INT,
+    ),
+    NumberSliderConfig(
+      key = ConfigKey.BENCHMARK_ITERATIONS,
+      sliderMin = 50f,
+      sliderMax = 500f,
+      defaultValue = DEFAULT_BENCHMARK_ITERATIONS,
+      valueType = ValueType.INT,
+    ),
+  )
 
-private val BENCHMARK_CONFIGS_INITIAL_VALUES = mapOf(
-  ConfigKey.WARM_UP_ITERATIONS.label to DEFAULT_BENCHMARK_WARM_UP_ITERATIONS,
-  ConfigKey.BENCHMARK_ITERATIONS.label to DEFAULT_BENCHMARK_ITERATIONS
-)
+private val BENCHMARK_CONFIGS_INITIAL_VALUES =
+  mapOf(
+    ConfigKey.WARM_UP_ITERATIONS.label to DEFAULT_BENCHMARK_WARM_UP_ITERATIONS,
+    ConfigKey.BENCHMARK_ITERATIONS.label to DEFAULT_BENCHMARK_ITERATIONS,
+  )
 
 /**
  * Composable function to display a configuration dialog for benchmarking a chat message.
  *
- * This function renders a configuration dialog specifically tailored for setting up
- * benchmark parameters. It allows users to specify warm-up and benchmark iterations
- * before running a benchmark test on a given chat message.
+ * This function renders a configuration dialog specifically tailored for setting up benchmark
+ * parameters. It allows users to specify warm-up and benchmark iterations before running a
+ * benchmark test on a given chat message.
  */
 @Composable
 fun BenchmarkConfigDialog(
   onDismissed: () -> Unit,
   messageToBenchmark: ChatMessage?,
-  onBenchmarkClicked: (ChatMessage, warmUpIterations: Int, benchmarkIterations: Int) -> Unit
+  onBenchmarkClicked: (ChatMessage, warmUpIterations: Int, benchmarkIterations: Int) -> Unit,
 ) {
   ConfigDialog(
     title = "Benchmark configs",
@@ -75,28 +78,32 @@ fun BenchmarkConfigDialog(
 
       // Start benchmark.
       messageToBenchmark?.let { message ->
-        val warmUpIterations = convertValueToTargetType(
-          value = curConfigValues.getValue(ConfigKey.WARM_UP_ITERATIONS.label),
-          valueType = ValueType.INT
-        ) as Int
-        val benchmarkIterations = convertValueToTargetType(
-          value = curConfigValues.getValue(ConfigKey.BENCHMARK_ITERATIONS.label),
-          valueType = ValueType.INT
-        ) as Int
+        val warmUpIterations =
+          convertValueToTargetType(
+            value = curConfigValues.getValue(ConfigKey.WARM_UP_ITERATIONS.label),
+            valueType = ValueType.INT,
+          )
+            as Int
+        val benchmarkIterations =
+          convertValueToTargetType(
+            value = curConfigValues.getValue(ConfigKey.BENCHMARK_ITERATIONS.label),
+            valueType = ValueType.INT,
+          )
+            as Int
         onBenchmarkClicked(message, warmUpIterations, benchmarkIterations)
       }
     },
   )
 }
 
-@Preview(showBackground = true)
-@Composable
-fun BenchmarkConfigDialogPreview() {
-  GalleryTheme {
-    BenchmarkConfigDialog(
-      onDismissed = {},
-      messageToBenchmark = null,
-      onBenchmarkClicked = { _, _, _ -> }
-    )
-  }
-}
+// @Preview(showBackground = true)
+// @Composable
+// fun BenchmarkConfigDialogPreview() {
+//   GalleryTheme {
+//     BenchmarkConfigDialog(
+//       onDismissed = {},
+//       messageToBenchmark = null,
+//       onBenchmarkClicked = { _, _, _ -> },
+//     )
+//   }
+// }

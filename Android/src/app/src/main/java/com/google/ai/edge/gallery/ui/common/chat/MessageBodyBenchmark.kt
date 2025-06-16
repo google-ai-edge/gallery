@@ -16,6 +16,8 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,9 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import kotlin.math.max
 
 private const val DEFAULT_HISTOGRAM_BAR_HEIGHT = 50f
@@ -41,37 +41,31 @@ private const val DEFAULT_HISTOGRAM_BAR_HEIGHT = 50f
 /**
  * Composable function to display benchmark results within a chat message.
  *
- * This function renders benchmark statistics (e.g., average latency) in data cards and
- * visualizes the latency distribution using a histogram.
+ * This function renders benchmark statistics (e.g., average latency) in data cards and visualizes
+ * the latency distribution using a histogram.
  */
 @Composable
 fun MessageBodyBenchmark(message: ChatMessageBenchmarkResult) {
   Column(
-    modifier = Modifier
-      .padding(12.dp)
-      .fillMaxWidth(),
-    verticalArrangement = Arrangement.spacedBy(8.dp)
+    modifier = Modifier.padding(12.dp).fillMaxWidth(),
+    verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     // Data cards.
-    Row(
-      modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
-    ) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
       for (stat in message.orderedStats) {
         DataCard(
           label = stat.label,
           unit = stat.unit,
           value = message.statValues[stat.id],
           highlight = stat.id == message.highlightStat,
-          showPlaceholder = message.isWarmingUp()
+          showPlaceholder = message.isWarmingUp(),
         )
       }
     }
 
     // Histogram
     if (message.histogram.buckets.isNotEmpty()) {
-      Row(
-        horizontalArrangement = Arrangement.spacedBy(2.dp)
-      ) {
+      Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         for ((index, count) in message.histogram.buckets.withIndex()) {
           var barBgColor = MaterialTheme.colorScheme.onSurfaceVariant
           var alpha = 0.3f
@@ -84,24 +78,24 @@ fun MessageBodyBenchmark(message: ChatMessageBenchmarkResult) {
           }
           // Bar container.
           Column(
-            modifier = Modifier
-              .height(DEFAULT_HISTOGRAM_BAR_HEIGHT.dp)
-              .width(4.dp),
+            modifier = Modifier.height(DEFAULT_HISTOGRAM_BAR_HEIGHT.dp).width(4.dp),
             verticalArrangement = Arrangement.Bottom,
           ) {
             // Bar content.
             Box(
-              modifier = Modifier
-                .height(
-                  max(
-                    1f,
-                    count.toFloat() / message.histogram.maxCount.toFloat() * DEFAULT_HISTOGRAM_BAR_HEIGHT
-                  ).dp
-                )
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp, 20.dp, 0.dp, 0.dp))
-                .alpha(alpha)
-                .background(barBgColor)
+              modifier =
+                Modifier.height(
+                    max(
+                        1f,
+                        count.toFloat() / message.histogram.maxCount.toFloat() *
+                          DEFAULT_HISTOGRAM_BAR_HEIGHT,
+                      )
+                      .dp
+                  )
+                  .fillMaxWidth()
+                  .clip(RoundedCornerShape(20.dp, 20.dp, 0.dp, 0.dp))
+                  .alpha(alpha)
+                  .background(barBgColor)
             )
           }
         }
@@ -110,31 +104,31 @@ fun MessageBodyBenchmark(message: ChatMessageBenchmarkResult) {
   }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun MessageBodyBenchmarkPreview() {
-  GalleryTheme {
-    MessageBodyBenchmark(
-      message = ChatMessageBenchmarkResult(
-        orderedStats = listOf(
-          Stat(id = "stat1", label = "Stat1", unit = "ms"),
-          Stat(id = "stat2", label = "Stat2", unit = "ms"),
-          Stat(id = "stat3", label = "Stat3", unit = "ms"),
-          Stat(id = "stat4", label = "Stat4", unit = "ms")
-        ),
-        statValues = mutableMapOf(
-          "stat1" to 0.3f,
-          "stat2" to 0.4f,
-          "stat3" to 0.5f,
-        ),
-        values = listOf(),
-        histogram = Histogram(listOf(), 0),
-        warmupCurrent = 0,
-        warmupTotal = 0,
-        iterationCurrent = 0,
-        iterationTotal = 0,
-        highlightStat = "stat2"
-      )
-    )
-  }
-}
+// @Preview(showBackground = true)
+// @Composable
+// fun MessageBodyBenchmarkPreview() {
+//   GalleryTheme {
+//     MessageBodyBenchmark(
+//       message = ChatMessageBenchmarkResult(
+//         orderedStats = listOf(
+//           Stat(id = "stat1", label = "Stat1", unit = "ms"),
+//           Stat(id = "stat2", label = "Stat2", unit = "ms"),
+//           Stat(id = "stat3", label = "Stat3", unit = "ms"),
+//           Stat(id = "stat4", label = "Stat4", unit = "ms")
+//         ),
+//         statValues = mutableMapOf(
+//           "stat1" to 0.3f,
+//           "stat2" to 0.4f,
+//           "stat3" to 0.5f,
+//         ),
+//         values = listOf(),
+//         histogram = Histogram(listOf(), 0),
+//         warmupCurrent = 0,
+//         warmupTotal = 0,
+//         iterationCurrent = 0,
+//         iterationTotal = 0,
+//         highlightStat = "stat2"
+//       )
+//     )
+//   }
+// }

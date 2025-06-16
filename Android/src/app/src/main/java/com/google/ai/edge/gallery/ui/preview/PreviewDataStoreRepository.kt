@@ -16,39 +16,42 @@
 
 package com.google.ai.edge.gallery.ui.preview
 
-import com.google.ai.edge.gallery.data.AccessTokenData
-import com.google.ai.edge.gallery.data.DataStoreRepository
-import com.google.ai.edge.gallery.data.ImportedModelInfo
+// TODO(migration)
+//
+// import com.google.ai.edge.gallery.data.AccessTokenData
+// import com.google.ai.edge.gallery.data.DataStoreRepository
+// import com.google.ai.edge.gallery.data.ImportedModelInfo
 
-class PreviewDataStoreRepository : DataStoreRepository {
-  override fun saveTextInputHistory(history: List<String>) {
-  }
+// class PreviewDataStoreRepository : DataStoreRepository
+class PreviewDataStoreRepository {
+  // override fun saveTextInputHistory(history: List<String>) {
+  // }
 
-  override fun readTextInputHistory(): List<String> {
-    return listOf()
-  }
+  // override fun readTextInputHistory(): List<String> {
+  //   return listOf()
+  // }
 
-  override fun saveThemeOverride(theme: String) {
-  }
+  // override fun saveThemeOverride(theme: String) {
+  // }
 
-  override fun readThemeOverride(): String {
-    return ""
-  }
+  // override fun readThemeOverride(): String {
+  //   return ""
+  // }
 
-  override fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long) {
-  }
+  // override fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long) {
+  // }
 
-  override fun readAccessTokenData(): AccessTokenData? {
-    return null
-  }
+  // override fun readAccessTokenData(): AccessTokenData? {
+  //   return null
+  // }
 
-  override fun clearAccessTokenData() {
-  }
+  // override fun clearAccessTokenData() {
+  // }
 
-  override fun saveImportedModels(importedModels: List<ImportedModelInfo>) {
-  }
+  // override fun saveImportedModels(importedModels: List<ImportedModelInfo>) {
+  // }
 
-  override fun readImportedModels(): List<ImportedModelInfo> {
-    return listOf()
-  }
+  // override fun readImportedModels(): List<ImportedModelInfo> {
+  //   return listOf()
+  // }
 }
