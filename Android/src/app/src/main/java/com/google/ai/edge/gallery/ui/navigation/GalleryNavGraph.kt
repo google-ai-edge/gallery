@@ -47,6 +47,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.TASK_LLM_ASK_AUDIO
 import com.google.ai.edge.gallery.data.TASK_LLM_ASK_IMAGE
 import com.google.ai.edge.gallery.data.TASK_LLM_CHAT
 import com.google.ai.edge.gallery.data.TASK_LLM_PROMPT_LAB
@@ -55,6 +56,8 @@ import com.google.ai.edge.gallery.data.TaskType
 import com.google.ai.edge.gallery.data.getModelByName
 import com.google.ai.edge.gallery.ui.ViewModelProvider
 import com.google.ai.edge.gallery.ui.home.HomeScreen
+import com.google.ai.edge.gallery.ui.llmchat.LlmAskAudioDestination
+import com.google.ai.edge.gallery.ui.llmchat.LlmAskAudioScreen
 import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageDestination
 import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageScreen
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatDestination
@@ -209,7 +212,7 @@ fun GalleryNavHost(
       }
     }
 
-    // LLM image to text.
+    // Ask image.
     composable(
       route = "${LlmAskImageDestination.route}/{modelName}",
       arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
@@ -220,6 +223,23 @@ fun GalleryNavHost(
         modelManagerViewModel.selectModel(defaultModel)
 
         LlmAskImageScreen(
+          modelManagerViewModel = modelManagerViewModel,
+          navigateUp = { navController.navigateUp() },
+        )
+      }
+    }
+
+    // Ask audio.
+    composable(
+      route = "${LlmAskAudioDestination.route}/{modelName}",
+      arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
+      enterTransition = { slideEnter() },
+      exitTransition = { slideExit() },
+    ) {
+      getModelFromNavigationParam(it, TASK_LLM_ASK_AUDIO)?.let { defaultModel ->
+        modelManagerViewModel.selectModel(defaultModel)
+
+        LlmAskAudioScreen(
           modelManagerViewModel = modelManagerViewModel,
           navigateUp = { navController.navigateUp() },
         )
@@ -256,6 +276,7 @@ fun navigateToTaskScreen(
   when (taskType) {
     TaskType.LLM_CHAT -> navController.navigate("${LlmChatDestination.route}/${modelName}")
     TaskType.LLM_ASK_IMAGE -> navController.navigate("${LlmAskImageDestination.route}/${modelName}")
+    TaskType.LLM_ASK_AUDIO -> navController.navigate("${LlmAskAudioDestination.route}/${modelName}")
     TaskType.LLM_PROMPT_LAB ->
       navController.navigate("${LlmSingleTurnDestination.route}/${modelName}")
     TaskType.TEST_TASK_1 -> {}

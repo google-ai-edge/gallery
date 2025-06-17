@@ -29,6 +29,7 @@ import com.google.ai.edge.gallery.data.DEFAULT_TOPP
 import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT
 import com.google.ai.edge.gallery.data.Model
 import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mediapipe.tasks.genai.llminference.AudioModelOptions
 import com.google.mediapipe.tasks.genai.llminference.GraphOptions
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
@@ -62,13 +63,16 @@ object LlmChatModelHelper {
         Accelerator.GPU.label -> LlmInference.Backend.GPU
         else -> LlmInference.Backend.GPU
       }
-    val options =
+    val optionsBuilder =
       LlmInference.LlmInferenceOptions.builder()
         .setModelPath(model.getPath(context = context))
         .setMaxTokens(maxTokens)
         .setPreferredBackend(preferredBackend)
         .setMaxNumImages(if (model.llmSupportImage) MAX_IMAGE_COUNT else 0)
-        .build()
+    if (model.llmSupportAudio) {
+      optionsBuilder.setAudioModelOptions(AudioModelOptions.builder().build())
+    }
+    val options = optionsBuilder.build()
 
     // Create an instance of the LLM Inference task and session.
     try {
@@ -82,7 +86,10 @@ object LlmChatModelHelper {
             .setTopP(topP)
             .setTemperature(temperature)
             .setGraphOptions(
-              GraphOptions.builder().setEnableVisionModality(model.llmSupportImage).build()
+              GraphOptions.builder()
+                .setEnableVisionModality(model.llmSupportImage)
+                .setEnableAudioModality(model.llmSupportAudio)
+                .build()
             )
             .build(),
         )
@@ -115,7 +122,10 @@ object LlmChatModelHelper {
             .setTopP(topP)
             .setTemperature(temperature)
             .setGraphOptions(
-              GraphOptions.builder().setEnableVisionModality(model.llmSupportImage).build()
+              GraphOptions.builder()
+                .setEnableVisionModality(model.llmSupportImage)
+                .setEnableAudioModality(model.llmSupportAudio)
+                .build()
             )
             .build(),
         )
@@ -159,6 +169,7 @@ object LlmChatModelHelper {
     resultListener: ResultListener,
     cleanUpListener: CleanUpListener,
     images: List<Bitmap> = listOf(),
+    audioClips: List<ByteArray> = listOf(),
   ) {
     val instance = model.instance as LlmModelInstance
 
@@ -172,9 +183,14 @@ object LlmChatModelHelper {
     // For a model that supports image modality, we need to add the text query chunk before adding
     // image.
     val session = instance.session
-    session.addQueryChunk(input)
+    if (input.trim().isNotEmpty()) {
+      session.addQueryChunk(input)
+    }
     for (image in images) {
       session.addImage(BitmapImageBuilder(image).build())
+    }
+    for (audioClip in audioClips) {
+      session.addAudio(audioClip)
     }
     val unused = session.generateResponseAsync(resultListener)
   }
