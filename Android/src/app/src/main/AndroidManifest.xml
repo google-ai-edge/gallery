@@ -70,17 +70,6 @@
             </intent-filter>
         </activity>
 
-        <!-- For LLM inference engine -->
-        <uses-native-library
-            android:name="libOpenCL.so"
-            android:required="false" />
-        <uses-native-library
-            android:name="libOpenCL-car.so"
-            android:required="false" />
-        <uses-native-library
-            android:name="libOpenCL-pixel.so"
-            android:required="false" />
-
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
