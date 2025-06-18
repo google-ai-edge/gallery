@@ -87,6 +87,9 @@ data class Model(
   /** Whether the LLM model supports image input. */
   val llmSupportImage: Boolean = false,
 
+  /** Whether the LLM model supports audio input. */
+  val llmSupportAudio: Boolean = false,
+
   /** Whether the model is imported or not. */
   val imported: Boolean = false,
 

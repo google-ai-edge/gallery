@@ -50,6 +50,7 @@ enum class ConfigKey(val label: String) {
   DEFAULT_TOPP("Default TopP"),
   DEFAULT_TEMPERATURE("Default temperature"),
   SUPPORT_IMAGE("Support image"),
+  SUPPORT_AUDIO("Support audio"),
   MAX_RESULT_COUNT("Max result count"),
   USE_GPU("Use GPU"),
   ACCELERATOR("Choose accelerator"),
