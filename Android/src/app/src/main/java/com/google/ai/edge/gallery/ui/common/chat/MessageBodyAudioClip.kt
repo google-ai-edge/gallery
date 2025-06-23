@@ -14,16 +14,20 @@
  * limitations under the License.
  */
 
-package com.google.ai.edge.gallery.common
+package com.google.ai.edge.gallery.ui.common.chat
 
-import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 
-interface LatencyProvider {
-  val latencyMs: Float
+@Composable
+fun MessageBodyAudioClip(message: ChatMessageAudioClip, modifier: Modifier = Modifier) {
+  AudioPlaybackPanel(
+    audioData = message.audioData,
+    sampleRate = message.sampleRate,
+    isRecording = false,
+    modifier = Modifier.padding(end = 16.dp),
+    onDarkBg = true,
+  )
 }
-
-data class Classification(val label: String, val score: Float, val color: Color)
-
-data class JsonObjAndTextContent<T>(val jsonObj: T, val textContent: String)
-
-class AudioClip(val audioData: ByteArray, val sampleRate: Int)

@@ -38,6 +38,7 @@ data class AllowedModel(
   val taskTypes: List<String>,
   val disabled: Boolean? = null,
   val llmSupportImage: Boolean? = null,
+  val llmSupportAudio: Boolean? = null,
   val estimatedPeakMemoryInBytes: Long? = null,
 ) {
   fun toModel(): Model {
@@ -96,6 +97,7 @@ data class AllowedModel(
       showRunAgainButton = showRunAgainButton,
       learnMoreUrl = "https://huggingface.co/${modelId}",
       llmSupportImage = llmSupportImage == true,
+      llmSupportAudio = llmSupportAudio == true,
     )
   }
 

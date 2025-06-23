@@ -17,19 +17,22 @@
 package com.google.ai.edge.gallery.data
 
 import androidx.annotation.StringRes
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.Mms
+import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.ui.icon.Forum
-import com.google.ai.edge.gallery.ui.icon.Mms
-import com.google.ai.edge.gallery.ui.icon.Widgets
 
 /** Type of task. */
 enum class TaskType(val label: String, val id: String) {
   LLM_CHAT(label = "AI Chat", id = "llm_chat"),
   LLM_PROMPT_LAB(label = "Prompt Lab", id = "llm_prompt_lab"),
   LLM_ASK_IMAGE(label = "Ask Image", id = "llm_ask_image"),
+  LLM_ASK_AUDIO(label = "Audio Scribe", id = "llm_ask_audio"),
   TEST_TASK_1(label = "Test task 1", id = "test_task_1"),
   TEST_TASK_2(label = "Test task 2", id = "test_task_2"),
 }
@@ -71,7 +74,7 @@ data class Task(
 val TASK_LLM_CHAT =
   Task(
     type = TaskType.LLM_CHAT,
-    icon = Forum,
+    icon = Icons.Outlined.Forum,
     models = mutableListOf(),
     description = "Chat with on-device large language models",
     docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
@@ -83,7 +86,7 @@ val TASK_LLM_CHAT =
 val TASK_LLM_PROMPT_LAB =
   Task(
     type = TaskType.LLM_PROMPT_LAB,
-    icon = Widgets,
+    icon = Icons.Outlined.Widgets,
     models = mutableListOf(),
     description = "Single turn use cases with on-device large language model",
     docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
@@ -95,7 +98,7 @@ val TASK_LLM_PROMPT_LAB =
 val TASK_LLM_ASK_IMAGE =
   Task(
     type = TaskType.LLM_ASK_IMAGE,
-    icon = Mms,
+    icon = Icons.Outlined.Mms,
     models = mutableListOf(),
     description = "Ask questions about images with on-device large language models",
     docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
@@ -104,8 +107,23 @@ val TASK_LLM_ASK_IMAGE =
     textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
   )
 
+val TASK_LLM_ASK_AUDIO =
+  Task(
+    type = TaskType.LLM_ASK_AUDIO,
+    icon = Icons.Outlined.Mic,
+    models = mutableListOf(),
+    // TODO(do not submit)
+    description =
+      "Instantly transcribe and/or translate audio clips using on-device large language models",
+    docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
+    sourceCodeUrl =
+      "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
+    textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
+  )
+
 /** All tasks. */
-val TASKS: List<Task> = listOf(TASK_LLM_ASK_IMAGE, TASK_LLM_PROMPT_LAB, TASK_LLM_CHAT)
+val TASKS: List<Task> =
+  listOf(TASK_LLM_ASK_IMAGE, TASK_LLM_ASK_AUDIO, TASK_LLM_PROMPT_LAB, TASK_LLM_CHAT)
 
 fun getModelByName(name: String): Model? {
   for (task in TASKS) {

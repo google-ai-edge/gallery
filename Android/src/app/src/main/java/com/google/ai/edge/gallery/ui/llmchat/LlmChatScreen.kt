@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.ai.edge.gallery.ui.ViewModelProvider
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
 import com.google.ai.edge.gallery.ui.common.chat.ChatView
@@ -34,6 +35,10 @@ object LlmChatDestination {
 
 object LlmAskImageDestination {
   val route = "LlmAskImageRoute"
+}
+
+object LlmAskAudioDestination {
+  val route = "LlmAskAudioRoute"
 }
 
 @Composable
@@ -67,6 +72,21 @@ fun LlmAskImageScreen(
 }
 
 @Composable
+fun LlmAskAudioScreen(
+  modelManagerViewModel: ModelManagerViewModel,
+  navigateUp: () -> Unit,
+  modifier: Modifier = Modifier,
+  viewModel: LlmAskAudioViewModel = viewModel(factory = ViewModelProvider.Factory),
+) {
+  ChatViewWrapper(
+    viewModel = viewModel,
+    modelManagerViewModel = modelManagerViewModel,
+    navigateUp = navigateUp,
+    modifier = modifier,
+  )
+}
+
+@Composable
 fun ChatViewWrapper(
   viewModel: LlmChatViewModel,
   modelManagerViewModel: ModelManagerViewModel,
@@ -86,6 +106,7 @@ fun ChatViewWrapper(
 
       var text = ""
       val images: MutableList<Bitmap> = mutableListOf()
+      val audioMessages: MutableList<ChatMessageAudioClip> = mutableListOf()
       var chatMessageText: ChatMessageText? = null
       for (message in messages) {
         if (message is ChatMessageText) {
@@ -93,14 +114,17 @@ fun ChatViewWrapper(
           text = message.content
         } else if (message is ChatMessageImage) {
           images.add(message.bitmap)
+        } else if (message is ChatMessageAudioClip) {
+          audioMessages.add(message)
         }
       }
-      if (text.isNotEmpty() && chatMessageText != null) {
+      if ((text.isNotEmpty() && chatMessageText != null) || audioMessages.isNotEmpty()) {
         modelManagerViewModel.addTextInputHistory(text)
         viewModel.generateResponse(
           model = model,
           input = text,
           images = images,
+          audioMessages = audioMessages,
           onError = {
             viewModel.handleError(
               context = context,

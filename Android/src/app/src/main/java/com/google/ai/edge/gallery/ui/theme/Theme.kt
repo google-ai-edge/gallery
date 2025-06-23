@@ -120,6 +120,8 @@ data class CustomColors(
   val agentBubbleBgColor: Color = Color.Transparent,
   val linkColor: Color = Color.Transparent,
   val successColor: Color = Color.Transparent,
+  val recordButtonBgColor: Color = Color.Transparent,
+  val waveFormBgColor: Color = Color.Transparent,
 )
 
 val LocalCustomColors = staticCompositionLocalOf { CustomColors() }
@@ -145,6 +147,8 @@ val lightCustomColors =
     userBubbleBgColor = Color(0xFF32628D),
     linkColor = Color(0xFF32628D),
     successColor = Color(0xff3d860b),
+    recordButtonBgColor = Color(0xFFEE675C),
+    waveFormBgColor = Color(0xFFaaaaaa),
   )
 
 val darkCustomColors =
@@ -168,6 +172,8 @@ val darkCustomColors =
     userBubbleBgColor = Color(0xFF1f3760),
     linkColor = Color(0xFF9DCAFC),
     successColor = Color(0xFFA1CE83),
+    recordButtonBgColor = Color(0xFFEE675C),
+    waveFormBgColor = Color(0xFFaaaaaa),
   )
 
 val MaterialTheme.customColors: CustomColors

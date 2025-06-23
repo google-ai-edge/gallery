@@ -21,6 +21,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.google.ai.edge.gallery.GalleryApplication
+import com.google.ai.edge.gallery.ui.llmchat.LlmAskAudioViewModel
 import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageViewModel
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatViewModel
 import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnViewModel
@@ -49,6 +50,9 @@ object ViewModelProvider {
 
     // Initializer for LlmAskImageViewModel.
     initializer { LlmAskImageViewModel() }
+
+    // Initializer for LlmAskAudioViewModel.
+    initializer { LlmAskAudioViewModel() }
   }
 }
 
