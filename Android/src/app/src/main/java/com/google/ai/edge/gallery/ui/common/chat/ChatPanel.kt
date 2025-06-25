@@ -493,7 +493,7 @@ fun ChatPanel(
           MessageBodyInfo(
             ChatMessageInfo(
               content =
-                "To get started, tap the + icon to add your audio clips. You can add up to 10 clips, each up to 30 seconds long."
+                "To get started, tap the + icon to add your audio clip. Limited to 1 clip up to 30 seconds long."
             ),
             smallFontSize = false,
           )
