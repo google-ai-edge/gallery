@@ -36,6 +36,8 @@ import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.ai.edge.gallery.ui.common.chat.ChatViewModel
 import com.google.ai.edge.gallery.ui.common.chat.Stat
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -49,7 +51,7 @@ private val STATS =
     Stat(id = "latency", label = "Latency", unit = "sec"),
   )
 
-open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task = curTask) {
+open class LlmChatViewModelBase(val curTask: Task) : ChatViewModel(task = curTask) {
   fun generateResponse(
     model: Model,
     input: String,
@@ -75,9 +77,9 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
       val instance = model.instance as LlmModelInstance
       var prefillTokens = instance.session.sizeInTokens(input)
       prefillTokens += images.size * 257
-      for (audioMessages in audioMessages) {
+      for (audioMessage in audioMessages) {
         // 150ms = 1 audio token
-        val duration = audioMessages.getDurationInSeconds()
+        val duration = audioMessage.getDurationInSeconds()
         prefillTokens += (duration * 1000f / 150f).toInt()
       }
 
@@ -259,6 +261,13 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
   }
 }
 
-class LlmAskImageViewModel : LlmChatViewModel(curTask = TASK_LLM_ASK_IMAGE)
+@HiltViewModel
+class LlmChatViewModel @Inject constructor() : LlmChatViewModelBase(curTask = TASK_LLM_CHAT)
 
-class LlmAskAudioViewModel : LlmChatViewModel(curTask = TASK_LLM_ASK_AUDIO)
+@HiltViewModel
+class LlmAskImageViewModel @Inject constructor() :
+  LlmChatViewModelBase(curTask = TASK_LLM_ASK_IMAGE)
+
+@HiltViewModel
+class LlmAskAudioViewModel @Inject constructor() :
+  LlmChatViewModelBase(curTask = TASK_LLM_ASK_AUDIO)

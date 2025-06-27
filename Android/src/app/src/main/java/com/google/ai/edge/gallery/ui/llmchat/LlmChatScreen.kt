@@ -20,8 +20,6 @@ import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.ai.edge.gallery.ui.ViewModelProvider
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
@@ -46,7 +44,7 @@ fun LlmChatScreen(
   modelManagerViewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
-  viewModel: LlmChatViewModel = viewModel(factory = ViewModelProvider.Factory),
+  viewModel: LlmChatViewModel,
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -61,7 +59,7 @@ fun LlmAskImageScreen(
   modelManagerViewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
-  viewModel: LlmAskImageViewModel = viewModel(factory = ViewModelProvider.Factory),
+  viewModel: LlmAskImageViewModel,
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -76,7 +74,7 @@ fun LlmAskAudioScreen(
   modelManagerViewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
-  viewModel: LlmAskAudioViewModel = viewModel(factory = ViewModelProvider.Factory),
+  viewModel: LlmAskAudioViewModel,
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -88,7 +86,7 @@ fun LlmAskAudioScreen(
 
 @Composable
 fun ChatViewWrapper(
-  viewModel: LlmChatViewModel,
+  viewModel: LlmChatViewModelBase,
   modelManagerViewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,

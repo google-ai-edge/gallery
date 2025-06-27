@@ -52,9 +52,12 @@ import com.google.ai.edge.gallery.ui.common.AuthConfig
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -134,11 +137,14 @@ data class PagerScrollState(val page: Int = 0, val offset: Float = 0f)
  * cleaning up models. It also manages the UI state for model management, including the list of
  * tasks, models, download statuses, and initialization statuses.
  */
-open class ModelManagerViewModel(
+@HiltViewModel
+open class ModelManagerViewModel
+@Inject
+constructor(
   private val downloadRepository: DownloadRepository,
   private val dataStoreRepository: DataStoreRepository,
   private val lifecycleProvider: AppLifecycleProvider,
-  context: Context,
+  @ApplicationContext private val context: Context,
 ) : ViewModel() {
   private val externalFilesDir = context.getExternalFilesDir(null)
   private val inProgressWorkInfos: List<AGWorkInfo> =

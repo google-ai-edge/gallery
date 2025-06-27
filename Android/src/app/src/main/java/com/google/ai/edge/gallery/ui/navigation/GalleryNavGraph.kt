@@ -36,10 +36,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -54,16 +54,19 @@ import com.google.ai.edge.gallery.data.TASK_LLM_PROMPT_LAB
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.TaskType
 import com.google.ai.edge.gallery.data.getModelByName
-import com.google.ai.edge.gallery.ui.ViewModelProvider
 import com.google.ai.edge.gallery.ui.home.HomeScreen
 import com.google.ai.edge.gallery.ui.llmchat.LlmAskAudioDestination
 import com.google.ai.edge.gallery.ui.llmchat.LlmAskAudioScreen
+import com.google.ai.edge.gallery.ui.llmchat.LlmAskAudioViewModel
 import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageDestination
 import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageScreen
+import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageViewModel
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatDestination
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatScreen
+import com.google.ai.edge.gallery.ui.llmchat.LlmChatViewModel
 import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnDestination
 import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnScreen
+import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 
@@ -107,7 +110,7 @@ private fun AnimatedContentTransitionScope<*>.slideExit(): ExitTransition {
 fun GalleryNavHost(
   navController: NavHostController,
   modifier: Modifier = Modifier,
-  modelManagerViewModel: ModelManagerViewModel = viewModel(factory = ViewModelProvider.Factory),
+  modelManagerViewModel: ModelManagerViewModel = hiltViewModel(),
 ) {
   val lifecycleOwner = LocalLifecycleOwner.current
   var showModelManager by remember { mutableStateOf(false) }
@@ -184,11 +187,14 @@ fun GalleryNavHost(
       arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
       enterTransition = { slideEnter() },
       exitTransition = { slideExit() },
-    ) {
-      getModelFromNavigationParam(it, TASK_LLM_CHAT)?.let { defaultModel ->
+    ) { backStackEntry ->
+      val viewModel: LlmChatViewModel = hiltViewModel(backStackEntry)
+
+      getModelFromNavigationParam(backStackEntry, TASK_LLM_CHAT)?.let { defaultModel ->
         modelManagerViewModel.selectModel(defaultModel)
 
         LlmChatScreen(
+          viewModel = viewModel,
           modelManagerViewModel = modelManagerViewModel,
           navigateUp = { navController.navigateUp() },
         )
@@ -201,11 +207,14 @@ fun GalleryNavHost(
       arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
       enterTransition = { slideEnter() },
       exitTransition = { slideExit() },
-    ) {
-      getModelFromNavigationParam(it, TASK_LLM_PROMPT_LAB)?.let { defaultModel ->
+    ) { backStackEntry ->
+      val viewModel: LlmSingleTurnViewModel = hiltViewModel(backStackEntry)
+
+      getModelFromNavigationParam(backStackEntry, TASK_LLM_PROMPT_LAB)?.let { defaultModel ->
         modelManagerViewModel.selectModel(defaultModel)
 
         LlmSingleTurnScreen(
+          viewModel = viewModel,
           modelManagerViewModel = modelManagerViewModel,
           navigateUp = { navController.navigateUp() },
         )
@@ -218,11 +227,14 @@ fun GalleryNavHost(
       arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
       enterTransition = { slideEnter() },
       exitTransition = { slideExit() },
-    ) {
-      getModelFromNavigationParam(it, TASK_LLM_ASK_IMAGE)?.let { defaultModel ->
+    ) { backStackEntry ->
+      val viewModel: LlmAskImageViewModel = hiltViewModel()
+
+      getModelFromNavigationParam(backStackEntry, TASK_LLM_ASK_IMAGE)?.let { defaultModel ->
         modelManagerViewModel.selectModel(defaultModel)
 
         LlmAskImageScreen(
+          viewModel = viewModel,
           modelManagerViewModel = modelManagerViewModel,
           navigateUp = { navController.navigateUp() },
         )
@@ -235,11 +247,14 @@ fun GalleryNavHost(
       arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
       enterTransition = { slideEnter() },
       exitTransition = { slideExit() },
-    ) {
-      getModelFromNavigationParam(it, TASK_LLM_ASK_AUDIO)?.let { defaultModel ->
+    ) { backStackEntry ->
+      val viewModel: LlmAskAudioViewModel = hiltViewModel()
+
+      getModelFromNavigationParam(backStackEntry, TASK_LLM_ASK_AUDIO)?.let { defaultModel ->
         modelManagerViewModel.selectModel(defaultModel)
 
         LlmAskAudioScreen(
+          viewModel = viewModel,
           modelManagerViewModel = modelManagerViewModel,
           navigateUp = { navController.navigateUp() },
         )

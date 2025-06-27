@@ -53,7 +53,7 @@ data class ChatUiState(
 )
 
 /** ViewModel responsible for managing the chat UI state and handling chat-related operations. */
-open class ChatViewModel(val task: Task) : ViewModel() {
+abstract class ChatViewModel(val task: Task) : ViewModel() {
   private val _uiState = MutableStateFlow(createUiState(task = task))
   val uiState = _uiState.asStateFlow()
 
