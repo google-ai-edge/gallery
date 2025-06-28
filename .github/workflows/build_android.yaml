@@ -21,5 +21,9 @@ jobs:
     steps:
       - name: Checkout the source code
         uses: actions/checkout@v3
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
       - name: Build
         run: ./gradlew assembleRelease

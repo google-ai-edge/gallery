@@ -173,7 +173,7 @@ fun SettingsDialog(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
               Text(
-                "Expired at: ${dateFormatter.format(Instant.ofEpochMilli(curHfToken.expiresAtMs))}",
+                "Expires at: ${dateFormatter.format(Instant.ofEpochMilli(curHfToken.expiresAtMs))}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
               )

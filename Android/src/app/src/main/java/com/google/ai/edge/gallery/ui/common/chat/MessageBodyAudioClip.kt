@@ -14,8 +14,20 @@
  * limitations under the License.
  */
 
-package com.google.ai.edge.gallery.ui.preview
+package com.google.ai.edge.gallery.ui.common.chat
 
-import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnViewModel
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 
-class PreviewLlmSingleTurnViewModel : LlmSingleTurnViewModel(task = TASK_TEST1)
+@Composable
+fun MessageBodyAudioClip(message: ChatMessageAudioClip, modifier: Modifier = Modifier) {
+  AudioPlaybackPanel(
+    audioData = message.audioData,
+    sampleRate = message.sampleRate,
+    isRecording = false,
+    modifier = Modifier.padding(end = 16.dp),
+    onDarkBg = true,
+  )
+}

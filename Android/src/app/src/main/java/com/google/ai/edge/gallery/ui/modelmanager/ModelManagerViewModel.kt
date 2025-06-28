@@ -36,6 +36,7 @@ import com.google.ai.edge.gallery.data.ModelAllowlist
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.TASKS
+import com.google.ai.edge.gallery.data.TASK_LLM_ASK_AUDIO
 import com.google.ai.edge.gallery.data.TASK_LLM_ASK_IMAGE
 import com.google.ai.edge.gallery.data.TASK_LLM_CHAT
 import com.google.ai.edge.gallery.data.TASK_LLM_PROMPT_LAB
@@ -51,9 +52,12 @@ import com.google.ai.edge.gallery.ui.common.AuthConfig
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -133,11 +137,14 @@ data class PagerScrollState(val page: Int = 0, val offset: Float = 0f)
  * cleaning up models. It also manages the UI state for model management, including the list of
  * tasks, models, download statuses, and initialization statuses.
  */
-open class ModelManagerViewModel(
+@HiltViewModel
+open class ModelManagerViewModel
+@Inject
+constructor(
   private val downloadRepository: DownloadRepository,
   private val dataStoreRepository: DataStoreRepository,
   private val lifecycleProvider: AppLifecycleProvider,
-  context: Context,
+  @ApplicationContext private val context: Context,
 ) : ViewModel() {
   private val externalFilesDir = context.getExternalFilesDir(null)
   private val inProgressWorkInfos: List<AGWorkInfo> =
@@ -281,13 +288,10 @@ open class ModelManagerViewModel(
         }
       }
       when (task.type) {
-        TaskType.LLM_CHAT ->
-          LlmChatModelHelper.initialize(context = context, model = model, onDone = onDone)
-
+        TaskType.LLM_CHAT,
+        TaskType.LLM_ASK_IMAGE,
+        TaskType.LLM_ASK_AUDIO,
         TaskType.LLM_PROMPT_LAB ->
-          LlmChatModelHelper.initialize(context = context, model = model, onDone = onDone)
-
-        TaskType.LLM_ASK_IMAGE ->
           LlmChatModelHelper.initialize(context = context, model = model, onDone = onDone)
 
         TaskType.TEST_TASK_1 -> {}
@@ -301,9 +305,11 @@ open class ModelManagerViewModel(
       model.cleanUpAfterInit = false
       Log.d(TAG, "Cleaning up model '${model.name}'...")
       when (task.type) {
-        TaskType.LLM_CHAT -> LlmChatModelHelper.cleanUp(model = model)
-        TaskType.LLM_PROMPT_LAB -> LlmChatModelHelper.cleanUp(model = model)
-        TaskType.LLM_ASK_IMAGE -> LlmChatModelHelper.cleanUp(model = model)
+        TaskType.LLM_CHAT,
+        TaskType.LLM_PROMPT_LAB,
+        TaskType.LLM_ASK_IMAGE,
+        TaskType.LLM_ASK_AUDIO -> LlmChatModelHelper.cleanUp(model = model)
+
         TaskType.TEST_TASK_1 -> {}
         TaskType.TEST_TASK_2 -> {}
       }
@@ -410,14 +416,19 @@ open class ModelManagerViewModel(
     // Create model.
     val model = createModelFromImportedModelInfo(info = info)
 
-    for (task in listOf(TASK_LLM_ASK_IMAGE, TASK_LLM_PROMPT_LAB, TASK_LLM_CHAT)) {
+    for (task in
+      listOf(TASK_LLM_ASK_IMAGE, TASK_LLM_ASK_AUDIO, TASK_LLM_PROMPT_LAB, TASK_LLM_CHAT)) {
       // Remove duplicated imported model if existed.
       val modelIndex = task.models.indexOfFirst { info.fileName == it.name && it.imported }
       if (modelIndex >= 0) {
         Log.d(TAG, "duplicated imported model found in task. Removing it first")
         task.models.removeAt(modelIndex)
       }
-      if ((task == TASK_LLM_ASK_IMAGE && model.llmSupportImage) || task != TASK_LLM_ASK_IMAGE) {
+      if (
+        (task == TASK_LLM_ASK_IMAGE && model.llmSupportImage) ||
+          (task == TASK_LLM_ASK_AUDIO && model.llmSupportAudio) ||
+          (task != TASK_LLM_ASK_IMAGE && task != TASK_LLM_ASK_AUDIO)
+      ) {
         task.models.add(model)
       }
       task.updateTrigger.value = System.currentTimeMillis()
@@ -657,6 +668,7 @@ open class ModelManagerViewModel(
         TASK_LLM_CHAT.models.clear()
         TASK_LLM_PROMPT_LAB.models.clear()
         TASK_LLM_ASK_IMAGE.models.clear()
+        TASK_LLM_ASK_AUDIO.models.clear()
         for (allowedModel in modelAllowlist.models) {
           if (allowedModel.disabled == true) {
             continue
@@ -671,6 +683,9 @@ open class ModelManagerViewModel(
           }
           if (allowedModel.taskTypes.contains(TASK_LLM_ASK_IMAGE.type.id)) {
             TASK_LLM_ASK_IMAGE.models.add(model)
+          }
+          if (allowedModel.taskTypes.contains(TASK_LLM_ASK_AUDIO.type.id)) {
+            TASK_LLM_ASK_AUDIO.models.add(model)
           }
         }
 
@@ -760,6 +775,9 @@ open class ModelManagerViewModel(
       if (model.llmSupportImage) {
         TASK_LLM_ASK_IMAGE.models.add(model)
       }
+      if (model.llmSupportAudio) {
+        TASK_LLM_ASK_AUDIO.models.add(model)
+      }
 
       // Update status.
       modelDownloadStatus[model.name] =
@@ -800,6 +818,7 @@ open class ModelManagerViewModel(
         accelerators = accelerators,
       )
     val llmSupportImage = info.llmConfig.supportImage
+    val llmSupportAudio = info.llmConfig.supportAudio
     val model =
       Model(
         name = info.fileName,
@@ -811,6 +830,7 @@ open class ModelManagerViewModel(
         showRunAgainButton = false,
         imported = true,
         llmSupportImage = llmSupportImage,
+        llmSupportAudio = llmSupportAudio,
       )
     model.preProcess()
 

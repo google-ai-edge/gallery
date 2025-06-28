@@ -21,6 +21,7 @@ package com.google.ai.edge.gallery.ui.common.chat
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -65,9 +66,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FlipCameraAndroid
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Photo
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PostAdd
@@ -107,9 +110,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.ai.edge.gallery.common.AudioClip
+import com.google.ai.edge.gallery.common.convertWavToMonoWithMaxSeconds
+import com.google.ai.edge.gallery.data.MAX_AUDIO_CLIP_COUNT
 import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT
+import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import java.util.concurrent.Executors
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGMessageInputText"
@@ -128,6 +136,7 @@ fun MessageInputText(
   isResettingSession: Boolean,
   inProgress: Boolean,
   imageMessageCount: Int,
+  audioClipMessageCount: Int,
   modelInitializing: Boolean,
   @StringRes textFieldPlaceHolderRes: Int,
   onValueChanged: (String) -> Unit,
@@ -137,6 +146,7 @@ fun MessageInputText(
   onStopButtonClicked: () -> Unit = {},
   showPromptTemplatesInMenu: Boolean = false,
   showImagePickerInMenu: Boolean = false,
+  showAudioItemsInMenu: Boolean = false,
   showStopButtonWhenInProgress: Boolean = false,
 ) {
   val context = LocalContext.current
@@ -146,7 +156,12 @@ fun MessageInputText(
   var showTextInputHistorySheet by remember { mutableStateOf(false) }
   var showCameraCaptureBottomSheet by remember { mutableStateOf(false) }
   val cameraCaptureSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+  var showAudioRecorderBottomSheet by remember { mutableStateOf(false) }
+  val audioRecorderSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   var pickedImages by remember { mutableStateOf<List<Bitmap>>(listOf()) }
+  var pickedAudioClips by remember { mutableStateOf<List<AudioClip>>(listOf()) }
+  var hasFrontCamera by remember { mutableStateOf(false) }
+
   val updatePickedImages: (List<Bitmap>) -> Unit = { bitmaps ->
     var newPickedImages: MutableList<Bitmap> = mutableListOf()
     newPickedImages.addAll(pickedImages)
@@ -156,7 +171,16 @@ fun MessageInputText(
     }
     pickedImages = newPickedImages.toList()
   }
-  var hasFrontCamera by remember { mutableStateOf(false) }
+
+  val updatePickedAudioClips: (List<AudioClip>) -> Unit = { audioDataList ->
+    var newAudioDataList: MutableList<AudioClip> = mutableListOf()
+    newAudioDataList.addAll(pickedAudioClips)
+    newAudioDataList.addAll(audioDataList)
+    if (newAudioDataList.size > MAX_AUDIO_CLIP_COUNT) {
+      newAudioDataList = newAudioDataList.subList(fromIndex = 0, toIndex = MAX_AUDIO_CLIP_COUNT)
+    }
+    pickedAudioClips = newAudioDataList.toList()
+  }
 
   LaunchedEffect(Unit) { checkFrontCamera(context = context, callback = { hasFrontCamera = it }) }
 
@@ -167,6 +191,16 @@ fun MessageInputText(
       if (permissionGranted) {
         showAddContentMenu = false
         showCameraCaptureBottomSheet = true
+      }
+    }
+
+  // Permission request when recording audio clips.
+  val recordAudioClipsPermissionLauncher =
+    rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+      permissionGranted ->
+      if (permissionGranted) {
+        showAddContentMenu = false
+        showAudioRecorderBottomSheet = true
       }
     }
 
@@ -184,9 +218,31 @@ fun MessageInputText(
       }
     }
 
+  val pickWav =
+    rememberLauncherForActivityResult(
+      contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+      if (result.resultCode == android.app.Activity.RESULT_OK) {
+        result.data?.data?.let { uri ->
+          Log.d(TAG, "Picked wav file: $uri")
+          scope.launch(Dispatchers.IO) {
+            convertWavToMonoWithMaxSeconds(context = context, stereoUri = uri)?.let { audioClip ->
+              updatePickedAudioClips(
+                listOf(
+                  AudioClip(audioData = audioClip.audioData, sampleRate = audioClip.sampleRate)
+                )
+              )
+            }
+          }
+        }
+      } else {
+        Log.d(TAG, "Wav picking cancelled.")
+      }
+    }
+
   Column {
-    // A preview panel for the selected image.
-    if (pickedImages.isNotEmpty()) {
+    // A preview panel for the selected images and audio clips.
+    if (pickedImages.isNotEmpty() || pickedAudioClips.isNotEmpty()) {
       Row(
         modifier =
           Modifier.offset(x = 16.dp).fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -203,19 +259,29 @@ fun MessageInputText(
                   .clip(RoundedCornerShape(8.dp))
                   .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
             )
+            MediaPanelCloseButton { pickedImages = pickedImages.filter { image != it } }
+          }
+        }
+
+        for ((index, audioClip) in pickedAudioClips.withIndex()) {
+          Box(contentAlignment = Alignment.TopEnd) {
             Box(
               modifier =
-                Modifier.offset(x = 10.dp, y = (-10).dp)
-                  .clip(CircleShape)
+                Modifier.shadow(2.dp, shape = RoundedCornerShape(8.dp))
+                  .clip(RoundedCornerShape(8.dp))
                   .background(MaterialTheme.colorScheme.surface)
-                  .border((1.5).dp, MaterialTheme.colorScheme.outline, CircleShape)
-                  .clickable { pickedImages = pickedImages.filter { image != it } }
+                  .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
             ) {
-              Icon(
-                Icons.Rounded.Close,
-                contentDescription = "",
-                modifier = Modifier.padding(3.dp).size(16.dp),
+              AudioPlaybackPanel(
+                audioData = audioClip.audioData,
+                sampleRate = audioClip.sampleRate,
+                isRecording = false,
+                modifier = Modifier.padding(end = 16.dp),
               )
+            }
+            MediaPanelCloseButton {
+              pickedAudioClips =
+                pickedAudioClips.filterIndexed { curIndex, curAudioData -> curIndex != index }
             }
           }
         }
@@ -239,10 +305,13 @@ fun MessageInputText(
         verticalAlignment = Alignment.CenterVertically,
       ) {
         val enableAddImageMenuItems = (imageMessageCount + pickedImages.size) < MAX_IMAGE_COUNT
+        val enableRecordAudioClipMenuItems =
+          (audioClipMessageCount + pickedAudioClips.size) < MAX_AUDIO_CLIP_COUNT
         DropdownMenu(
           expanded = showAddContentMenu,
           onDismissRequest = { showAddContentMenu = false },
         ) {
+          // Image related menu items.
           if (showImagePickerInMenu) {
             // Take a picture.
             DropdownMenuItem(
@@ -291,6 +360,70 @@ fun MessageInputText(
                   PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                 )
                 showAddContentMenu = false
+              },
+            )
+          }
+
+          // Audio related menu items.
+          if (showAudioItemsInMenu) {
+            DropdownMenuItem(
+              text = {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                  Icon(Icons.Rounded.Mic, contentDescription = "")
+                  Text("Record audio clip")
+                }
+              },
+              enabled = enableRecordAudioClipMenuItems,
+              onClick = {
+                // Check permission
+                when (PackageManager.PERMISSION_GRANTED) {
+                  // Already got permission. Call the lambda.
+                  ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) -> {
+                    showAddContentMenu = false
+                    showAudioRecorderBottomSheet = true
+                  }
+
+                  // Otherwise, ask for permission
+                  else -> {
+                    recordAudioClipsPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                  }
+                }
+              },
+            )
+
+            DropdownMenuItem(
+              text = {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                  Icon(Icons.Rounded.AudioFile, contentDescription = "")
+                  Text("Pick wav file")
+                }
+              },
+              enabled = enableRecordAudioClipMenuItems,
+              onClick = {
+                showAddContentMenu = false
+
+                // Show file picker.
+                val intent =
+                  Intent(Intent.ACTION_GET_CONTENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "audio/*"
+
+                    // Provide a list of more specific MIME types to filter for.
+                    val mimeTypes = arrayOf("audio/wav", "audio/x-wav")
+                    putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes)
+
+                    // Single select.
+                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+                      .addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                      .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                  }
+                pickWav.launch(intent)
               },
             )
           }
@@ -369,15 +502,22 @@ fun MessageInputText(
               )
             }
           }
-        } // Send button. Only shown when text is not empty.
-        else if (curMessage.isNotEmpty()) {
+        }
+        // Send button. Only shown when text is not empty, or there is at least one recorded
+        // audio clip.
+        else if (curMessage.isNotEmpty() || pickedAudioClips.isNotEmpty()) {
           IconButton(
             enabled = !inProgress && !isResettingSession,
             onClick = {
               onSendMessage(
-                createMessagesToSend(pickedImages = pickedImages, text = curMessage.trim())
+                createMessagesToSend(
+                  pickedImages = pickedImages,
+                  audioClips = pickedAudioClips,
+                  text = curMessage.trim(),
+                )
               )
               pickedImages = listOf()
+              pickedAudioClips = listOf()
             },
             colors =
               IconButtonDefaults.iconButtonColors(
@@ -403,8 +543,15 @@ fun MessageInputText(
       history = modelManagerUiState.textInputHistory,
       onDismissed = { showTextInputHistorySheet = false },
       onHistoryItemClicked = { item ->
-        onSendMessage(createMessagesToSend(pickedImages = pickedImages, text = item))
+        onSendMessage(
+          createMessagesToSend(
+            pickedImages = pickedImages,
+            audioClips = pickedAudioClips,
+            text = item,
+          )
+        )
         pickedImages = listOf()
+        pickedAudioClips = listOf()
         modelManagerViewModel.promoteTextInputHistoryItem(item)
       },
       onHistoryItemDeleted = { item -> modelManagerViewModel.deleteTextInputHistory(item) },
@@ -582,6 +729,43 @@ fun MessageInputText(
       }
     }
   }
+
+  if (showAudioRecorderBottomSheet) {
+    ModalBottomSheet(
+      sheetState = audioRecorderSheetState,
+      onDismissRequest = { showAudioRecorderBottomSheet = false },
+    ) {
+      AudioRecorderPanel(
+        onSendAudioClip = { audioData ->
+          scope.launch {
+            updatePickedAudioClips(
+              listOf(AudioClip(audioData = audioData, sampleRate = SAMPLE_RATE))
+            )
+            audioRecorderSheetState.hide()
+            showAudioRecorderBottomSheet = false
+          }
+        }
+      )
+    }
+  }
+}
+
+@Composable
+private fun MediaPanelCloseButton(onClicked: () -> Unit) {
+  Box(
+    modifier =
+      Modifier.offset(x = 10.dp, y = (-10).dp)
+        .clip(CircleShape)
+        .background(MaterialTheme.colorScheme.surface)
+        .border((1.5).dp, MaterialTheme.colorScheme.outline, CircleShape)
+        .clickable { onClicked() }
+  ) {
+    Icon(
+      Icons.Rounded.Close,
+      contentDescription = "",
+      modifier = Modifier.padding(3.dp).size(16.dp),
+    )
+  }
 }
 
 private fun handleImagesSelected(
@@ -641,20 +825,50 @@ private fun checkFrontCamera(context: Context, callback: (Boolean) -> Unit) {
   )
 }
 
-private fun createMessagesToSend(pickedImages: List<Bitmap>, text: String): List<ChatMessage> {
+private fun createMessagesToSend(
+  pickedImages: List<Bitmap>,
+  audioClips: List<AudioClip>,
+  text: String,
+): List<ChatMessage> {
   var messages: MutableList<ChatMessage> = mutableListOf()
+
+  // Add image messages.
+  var imageMessages: MutableList<ChatMessageImage> = mutableListOf()
   if (pickedImages.isNotEmpty()) {
     for (image in pickedImages) {
-      messages.add(
+      imageMessages.add(
         ChatMessageImage(bitmap = image, imageBitMap = image.asImageBitmap(), side = ChatSide.USER)
       )
     }
   }
   // Cap the number of image messages.
-  if (messages.size > MAX_IMAGE_COUNT) {
-    messages = messages.subList(fromIndex = 0, toIndex = MAX_IMAGE_COUNT)
+  if (imageMessages.size > MAX_IMAGE_COUNT) {
+    imageMessages = imageMessages.subList(fromIndex = 0, toIndex = MAX_IMAGE_COUNT)
   }
-  messages.add(ChatMessageText(content = text, side = ChatSide.USER))
+  messages.addAll(imageMessages)
+
+  // Add audio messages.
+  var audioMessages: MutableList<ChatMessageAudioClip> = mutableListOf()
+  if (audioClips.isNotEmpty()) {
+    for (audioClip in audioClips) {
+      audioMessages.add(
+        ChatMessageAudioClip(
+          audioData = audioClip.audioData,
+          sampleRate = audioClip.sampleRate,
+          side = ChatSide.USER,
+        )
+      )
+    }
+  }
+  // Cap the number of audio messages.
+  if (audioMessages.size > MAX_AUDIO_CLIP_COUNT) {
+    audioMessages = audioMessages.subList(fromIndex = 0, toIndex = MAX_AUDIO_CLIP_COUNT)
+  }
+  messages.addAll(audioMessages)
+
+  if (text.isNotEmpty()) {
+    messages.add(ChatMessageText(content = text, side = ChatSide.USER))
+  }
 
   return messages
 }

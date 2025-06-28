@@ -44,3 +44,12 @@ val DEFAULT_ACCELERATORS = listOf(Accelerator.GPU)
 
 // Max number of images allowed in a "ask image" session.
 const val MAX_IMAGE_COUNT = 10
+
+// Max number of audio clip in an "ask audio" session.
+const val MAX_AUDIO_CLIP_COUNT = 1
+
+// Max audio clip duration in seconds.
+const val MAX_AUDIO_CLIP_DURATION_SEC = 30
+
+// Audio-recording related consts.
+const val SAMPLE_RATE = 16000

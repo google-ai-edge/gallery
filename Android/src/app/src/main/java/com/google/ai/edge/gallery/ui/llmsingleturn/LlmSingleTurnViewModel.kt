@@ -27,6 +27,8 @@ import com.google.ai.edge.gallery.ui.common.chat.ChatMessageBenchmarkLlmResult
 import com.google.ai.edge.gallery.ui.common.chat.Stat
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.gallery.ui.llmchat.LlmModelInstance
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,8 +65,9 @@ private val STATS =
     Stat(id = "latency", label = "Latency", unit = "sec"),
   )
 
-open class LlmSingleTurnViewModel(val task: Task = TASK_LLM_PROMPT_LAB) : ViewModel() {
-  private val _uiState = MutableStateFlow(createUiState(task = task))
+@HiltViewModel
+class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
+  private val _uiState = MutableStateFlow(createUiState(task = TASK_LLM_PROMPT_LAB))
   val uiState = _uiState.asStateFlow()
 
   fun generateResponse(model: Model, input: String) {

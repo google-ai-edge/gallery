@@ -22,9 +22,11 @@ import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.TASK_LLM_ASK_AUDIO
 import com.google.ai.edge.gallery.data.TASK_LLM_ASK_IMAGE
 import com.google.ai.edge.gallery.data.TASK_LLM_CHAT
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageBenchmarkLlmResult
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageLoading
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
@@ -34,6 +36,8 @@ import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.ai.edge.gallery.ui.common.chat.ChatViewModel
 import com.google.ai.edge.gallery.ui.common.chat.Stat
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -47,11 +51,12 @@ private val STATS =
     Stat(id = "latency", label = "Latency", unit = "sec"),
   )
 
-open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task = curTask) {
+open class LlmChatViewModelBase(val curTask: Task) : ChatViewModel(task = curTask) {
   fun generateResponse(
     model: Model,
     input: String,
     images: List<Bitmap> = listOf(),
+    audioMessages: List<ChatMessageAudioClip> = listOf(),
     onError: () -> Unit,
   ) {
     val accelerator = model.getStringConfigValue(key = ConfigKey.ACCELERATOR, defaultValue = "")
@@ -72,6 +77,11 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
       val instance = model.instance as LlmModelInstance
       var prefillTokens = instance.session.sizeInTokens(input)
       prefillTokens += images.size * 257
+      for (audioMessage in audioMessages) {
+        // 150ms = 1 audio token
+        val duration = audioMessage.getDurationInSeconds()
+        prefillTokens += (duration * 1000f / 150f).toInt()
+      }
 
       var firstRun = true
       var timeToFirstToken = 0f
@@ -86,6 +96,7 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
           model = model,
           input = input,
           images = images,
+          audioClips = audioMessages.map { it.genByteArrayForWav() },
           resultListener = { partialResult, done ->
             val curTs = System.currentTimeMillis()
 
@@ -214,7 +225,7 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
     context: Context,
     model: Model,
     modelManagerViewModel: ModelManagerViewModel,
-    triggeredMessage: ChatMessageText,
+    triggeredMessage: ChatMessageText?,
   ) {
     // Clean up.
     modelManagerViewModel.cleanupModel(task = task, model = model)
@@ -236,14 +247,27 @@ open class LlmChatViewModel(curTask: Task = TASK_LLM_CHAT) : ChatViewModel(task 
     )
 
     // Add the triggered message back.
-    addMessage(model = model, message = triggeredMessage)
+    if (triggeredMessage != null) {
+      addMessage(model = model, message = triggeredMessage)
+    }
 
     // Re-initialize the session/engine.
     modelManagerViewModel.initializeModel(context = context, task = task, model = model)
 
     // Re-generate the response automatically.
-    generateResponse(model = model, input = triggeredMessage.content, onError = {})
+    if (triggeredMessage != null) {
+      generateResponse(model = model, input = triggeredMessage.content, onError = {})
+    }
   }
 }
 
-class LlmAskImageViewModel : LlmChatViewModel(curTask = TASK_LLM_ASK_IMAGE)
+@HiltViewModel
+class LlmChatViewModel @Inject constructor() : LlmChatViewModelBase(curTask = TASK_LLM_CHAT)
+
+@HiltViewModel
+class LlmAskImageViewModel @Inject constructor() :
+  LlmChatViewModelBase(curTask = TASK_LLM_ASK_IMAGE)
+
+@HiltViewModel
+class LlmAskAudioViewModel @Inject constructor() :
+  LlmChatViewModelBase(curTask = TASK_LLM_ASK_AUDIO)

@@ -38,6 +38,7 @@ data class AllowedModel(
   val taskTypes: List<String>,
   val disabled: Boolean? = null,
   val llmSupportImage: Boolean? = null,
+  val llmSupportAudio: Boolean? = null,
   val estimatedPeakMemoryInBytes: Long? = null,
 ) {
   fun toModel(): Model {
@@ -49,10 +50,10 @@ data class AllowedModel(
       taskTypes.contains(TASK_LLM_CHAT.type.id) || taskTypes.contains(TASK_LLM_PROMPT_LAB.type.id)
     var configs: List<Config> = listOf()
     if (isLlmModel) {
-      var defaultTopK: Int = defaultConfig.topK ?: DEFAULT_TOPK
-      var defaultTopP: Float = defaultConfig.topP ?: DEFAULT_TOPP
-      var defaultTemperature: Float = defaultConfig.temperature ?: DEFAULT_TEMPERATURE
-      var defaultMaxToken = defaultConfig.maxTokens ?: 1024
+      val defaultTopK: Int = defaultConfig.topK ?: DEFAULT_TOPK
+      val defaultTopP: Float = defaultConfig.topP ?: DEFAULT_TOPP
+      val defaultTemperature: Float = defaultConfig.temperature ?: DEFAULT_TEMPERATURE
+      val defaultMaxToken = defaultConfig.maxTokens ?: 1024
       var accelerators: List<Accelerator> = DEFAULT_ACCELERATORS
       if (defaultConfig.accelerators != null) {
         val items = defaultConfig.accelerators.split(",")
@@ -96,6 +97,7 @@ data class AllowedModel(
       showRunAgainButton = showRunAgainButton,
       learnMoreUrl = "https://huggingface.co/${modelId}",
       llmSupportImage = llmSupportImage == true,
+      llmSupportAudio = llmSupportAudio == true,
     )
   }
 

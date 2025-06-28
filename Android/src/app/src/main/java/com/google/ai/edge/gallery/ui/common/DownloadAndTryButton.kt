@@ -64,6 +64,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val TAG = "AGDownloadAndTryButton"
+private const val SYSTEM_RESERVED_MEMORY_IN_BYTES = 3 * (1L shl 30)
 
 // TODO:
 // - replace the download button in chat view page with this one, and add a flag to not "onclick"
@@ -290,7 +291,6 @@ fun DownloadAndTryButton(
             val activityManager =
               context.getSystemService(android.app.Activity.ACTIVITY_SERVICE) as? ActivityManager
             val estimatedPeakMemoryInBytes = model.estimatedPeakMemoryInBytes
-
             val isMemoryLow =
               if (activityManager != null && estimatedPeakMemoryInBytes != null) {
                 val memoryInfo = ActivityManager.MemoryInfo()
@@ -302,11 +302,10 @@ fun DownloadAndTryButton(
 
                 // The device should be able to run the model if `availMem` is larger than the
                 // estimated peak memory. Android also has a mechanism to kill background apps to
-                // free up memory for the foreground app. We believe that if half of the total
-                // memory on the device is larger than the estimated peak memory, it can run the
-                // model fine with this mechanism. For example, a phone with 12GB memory can have
-                // very few `availMem` but will have no problem running most models.
-                max(memoryInfo.availMem, memoryInfo.totalMem / 2) < estimatedPeakMemoryInBytes
+                // free up memory for the foreground app. Reserving 3G for system buffer memory to
+                // avoid the app being killed by the system.
+                max(memoryInfo.availMem, memoryInfo.totalMem - SYSTEM_RESERVED_MEMORY_IN_BYTES) <
+                  estimatedPeakMemoryInBytes
               } else {
                 false
               }

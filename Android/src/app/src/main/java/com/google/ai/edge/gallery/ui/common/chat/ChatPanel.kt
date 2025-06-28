@@ -137,6 +137,19 @@ fun ChatPanel(
       }
       imageMessageCount
     }
+  val audioClipMesssageCountToLastconfigChange =
+    remember(messages) {
+      var audioClipMessageCount = 0
+      for (message in messages.reversed()) {
+        if (message is ChatMessageConfigValuesChange) {
+          break
+        }
+        if (message is ChatMessageAudioClip) {
+          audioClipMessageCount++
+        }
+      }
+      audioClipMessageCount
+    }
 
   var curMessage by remember { mutableStateOf("") } // Correct state
   val focusManager = LocalFocusManager.current
@@ -342,6 +355,9 @@ fun ChatPanel(
                         imageHistoryCurIndex = imageHistoryCurIndex,
                       )
 
+                    // Audio clip.
+                    is ChatMessageAudioClip -> MessageBodyAudioClip(message = message)
+
                     // Classification result
                     is ChatMessageClassification ->
                       MessageBodyClassification(
@@ -467,6 +483,22 @@ fun ChatPanel(
           )
         }
       }
+      // Show an info message for ask image task to get users started.
+      else if (task.type == TaskType.LLM_ASK_AUDIO && messages.isEmpty()) {
+        Column(
+          modifier = Modifier.padding(horizontal = 16.dp).fillMaxSize(),
+          horizontalAlignment = Alignment.CenterHorizontally,
+          verticalArrangement = Arrangement.Center,
+        ) {
+          MessageBodyInfo(
+            ChatMessageInfo(
+              content =
+                "To get started, tap the + icon to add your audio clip. Limited to 1 clip up to 30 seconds long."
+            ),
+            smallFontSize = false,
+          )
+        }
+      }
     }
 
     // Chat input
@@ -482,6 +514,7 @@ fun ChatPanel(
           isResettingSession = uiState.isResettingSession,
           modelPreparing = uiState.preparing,
           imageMessageCount = imageMessageCountToLastConfigChange,
+          audioClipMessageCount = audioClipMesssageCountToLastconfigChange,
           modelInitializing =
             modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING,
           textFieldPlaceHolderRes = task.textInputPlaceHolderRes,
@@ -504,7 +537,10 @@ fun ChatPanel(
           onStopButtonClicked = onStopButtonClicked,
           //          showPromptTemplatesInMenu = isLlmTask && notLlmStartScreen,
           showPromptTemplatesInMenu = false,
-          showImagePickerInMenu = selectedModel.llmSupportImage,
+          showImagePickerInMenu =
+            selectedModel.llmSupportImage && task.type === TaskType.LLM_ASK_IMAGE,
+          showAudioItemsInMenu =
+            selectedModel.llmSupportAudio && task.type === TaskType.LLM_ASK_AUDIO,
           showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
         )
       }
