@@ -16,6 +16,11 @@
 
 package com.google.ai.edge.gallery.ui.home
 
+import com.google.android.gms.oss.licenses.OssLicensesMenuActivity
+import android.app.UiModeManager
+import android.content.Context
+import android.content.Intent
+import android.os.Build
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -36,6 +41,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +61,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -73,6 +80,7 @@ import kotlin.math.min
 
 private val THEME_OPTIONS = listOf(Theme.THEME_AUTO, Theme.THEME_LIGHT, Theme.THEME_DARK)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsDialog(
   curThemeOverride: Theme,
@@ -127,6 +135,7 @@ fun SettingsDialog(
           modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
           verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+          val context = LocalContext.current
           // Theme switcher.
           Column(modifier = Modifier.fillMaxWidth()) {
             Text(
@@ -147,6 +156,23 @@ fun SettingsDialog(
 
                     // Save to data store.
                     modelManagerViewModel.saveThemeOverride(theme)
+
+                    // Update ui mode.
+                    //
+                    // This is necessary to make other Activities launched from MainActivity to have
+                    // the correct theme.
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                      val uiModeManager =
+                        context.applicationContext.getSystemService(Context.UI_MODE_SERVICE)
+                          as UiModeManager
+                      if (theme == Theme.THEME_AUTO) {
+                        uiModeManager.setApplicationNightMode(UiModeManager.MODE_NIGHT_AUTO)
+                      } else if (theme == Theme.THEME_LIGHT) {
+                        uiModeManager.setApplicationNightMode(UiModeManager.MODE_NIGHT_NO)
+                      } else {
+                        uiModeManager.setApplicationNightMode(UiModeManager.MODE_NIGHT_YES)
+                      }
+                    }
                   },
                   checked = theme == selectedTheme,
                   label = { Text(themeLabel(theme)) },
@@ -166,7 +192,7 @@ fun SettingsDialog(
             )
             // Show the start of the token.
             val curHfToken = hfToken
-            if (curHfToken != null) {
+            if (curHfToken != null && curHfToken.accessToken.isNotEmpty()) {
               Text(
                 curHfToken.accessToken.substring(0, min(16, curHfToken.accessToken.length)) + "...",
                 style = MaterialTheme.typography.bodyMedium,
@@ -252,6 +278,24 @@ fun SettingsDialog(
                   }
                 }
               }
+            }
+          }
+
+          // Third party licenses.
+          Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+              "Third-party libraries",
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            )
+            OutlinedButton(
+              onClick = {
+                // Create an Intent to launch a license viewer that displays a list of
+                // third-party library names. Clicking a name will show its license content.
+                val intent = Intent(context, OssLicensesMenuActivity::class.java)
+                context.startActivity(intent)
+              }
+            ) {
+              Text("View licenses")
             }
           }
         }

@@ -21,6 +21,7 @@ plugins {
   alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.protobuf)
   alias(libs.plugins.hilt.application)
+  alias(libs.plugins.oss.licenses)
   kotlin("kapt")
 }
 
@@ -95,6 +96,7 @@ dependencies {
   implementation(libs.protobuf.javalite)
   implementation(libs.hilt.android)
   implementation(libs.hilt.navigation.compose)
+  implementation(libs.play.services.oss.licenses)
   kapt(libs.hilt.android.compiler)
   testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.junit)
