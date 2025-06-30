@@ -16,6 +16,11 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+// import com.google.ai.edge.gallery.ui.preview.PreviewChatModel
+// import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
+// import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+import android.content.ClipData
 import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -69,15 +74,13 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
@@ -86,20 +89,15 @@ import com.google.ai.edge.gallery.data.TaskType
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import com.google.ai.edge.gallery.ui.preview.PreviewChatModel
-import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
-import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import com.google.ai.edge.gallery.ui.theme.customColors
 import kotlinx.coroutines.launch
 
 enum class ChatInputType {
-  TEXT, IMAGE,
+  TEXT,
+  IMAGE,
 }
 
-/**
- * Composable function for the main chat panel, displaying messages and handling user input.
- */
+/** Composable function for the main chat panel, displaying messages and handling user input. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatPanel(
@@ -126,18 +124,32 @@ fun ChatPanel(
   val snackbarHostState = remember { SnackbarHostState() }
   val scope = rememberCoroutineScope()
   val haptic = LocalHapticFeedback.current
-  val hasImageMessageToLastConfigChange = remember(messages) {
-    var foundImageMessage = false
-    for (message in messages.reversed()) {
-      if (message is ChatMessageConfigValuesChange) {
-        break
+  val imageMessageCountToLastConfigChange =
+    remember(messages) {
+      var imageMessageCount = 0
+      for (message in messages.reversed()) {
+        if (message is ChatMessageConfigValuesChange) {
+          break
+        }
+        if (message is ChatMessageImage) {
+          imageMessageCount++
+        }
       }
-      if (message is ChatMessageImage) {
-        foundImageMessage = true
-      }
+      imageMessageCount
     }
-    foundImageMessage
-  }
+  val audioClipMesssageCountToLastconfigChange =
+    remember(messages) {
+      var audioClipMessageCount = 0
+      for (message in messages.reversed()) {
+        if (message is ChatMessageConfigValuesChange) {
+          break
+        }
+        if (message is ChatMessageAudioClip) {
+          audioClipMessageCount++
+        }
+      }
+      audioClipMessageCount
+    }
 
   var curMessage by remember { mutableStateOf("") } // Correct state
   val focusManager = LocalFocusManager.current
@@ -163,8 +175,9 @@ fun ChatPanel(
       lastMessageContent.value = tmpLastMessage.content
     }
   }
-  val lastShowingStatsByModel: MutableState<Map<String, MutableSet<ChatMessage>>> =
-    remember { mutableStateOf(mapOf()) }
+  val lastShowingStatsByModel: MutableState<Map<String, MutableSet<ChatMessage>>> = remember {
+    mutableStateOf(mapOf())
+  }
 
   // Scroll the content to the bottom when any of these changes.
   LaunchedEffect(
@@ -217,15 +230,12 @@ fun ChatPanel(
     showErrorDialog = modelInitializationStatus?.status == ModelInitializationStatusType.ERROR
   }
 
-  Column(
-    modifier = modifier.imePadding()
-  ) {
+  Column(modifier = modifier.imePadding()) {
     Box(contentAlignment = Alignment.BottomCenter, modifier = Modifier.weight(1f)) {
       LazyColumn(
-        modifier = Modifier
-          .fillMaxSize()
-          .nestedScroll(nestedScrollConnection),
-        state = listState, verticalArrangement = Arrangement.Top,
+        modifier = Modifier.fillMaxSize().nestedScroll(nestedScrollConnection),
+        state = listState,
+        verticalArrangement = Arrangement.Top,
       ) {
         items(messages) { message ->
           val imageHistoryCurIndex = remember { mutableIntStateOf(0) }
@@ -254,14 +264,14 @@ fun ChatPanel(
           val bubbleBorderRadius = dimensionResource(R.dimen.chat_bubble_corner_radius)
 
           Column(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(
-                start = 12.dp + extraPaddingStart,
-                end = 12.dp + extraPaddingEnd,
-                top = 6.dp,
-                bottom = 6.dp,
-              ),
+            modifier =
+              Modifier.fillMaxWidth()
+                .padding(
+                  start = 12.dp + extraPaddingStart,
+                  end = 12.dp + extraPaddingEnd,
+                  top = 6.dp,
+                  bottom = 6.dp,
+                ),
             horizontalAlignment = hAlign,
           ) messageColumn@{
             // Sender row.
@@ -272,7 +282,7 @@ fun ChatPanel(
             MessageSender(
               message = message,
               agentName = agentName,
-              imageHistoryCurIndex = imageHistoryCurIndex.intValue
+              imageHistoryCurIndex = imageHistoryCurIndex.intValue,
             )
 
             // Message body.
@@ -290,40 +300,42 @@ fun ChatPanel(
               is ChatMessageConfigValuesChange -> MessageBodyConfigUpdate(message = message)
 
               // Prompt templates.
-              is ChatMessagePromptTemplates -> MessageBodyPromptTemplates(message = message,
-                task = task,
-                onPromptClicked = { template ->
-                  onSendMessage(
-                    selectedModel,
-                    listOf(ChatMessageText(content = template.prompt, side = ChatSide.USER))
-                  )
-                })
+              is ChatMessagePromptTemplates ->
+                MessageBodyPromptTemplates(
+                  message = message,
+                  task = task,
+                  onPromptClicked = { template ->
+                    onSendMessage(
+                      selectedModel,
+                      listOf(ChatMessageText(content = template.prompt, side = ChatSide.USER)),
+                    )
+                  },
+                )
 
               // Non-system messages.
               else -> {
                 // The bubble shape around the message body.
-                var messageBubbleModifier = Modifier
-                  .clip(
-                    MessageBubbleShape(
-                      radius = bubbleBorderRadius,
-                      hardCornerAtLeftOrRight = hardCornerAtLeftOrRight
+                var messageBubbleModifier =
+                  Modifier.clip(
+                      MessageBubbleShape(
+                        radius = bubbleBorderRadius,
+                        hardCornerAtLeftOrRight = hardCornerAtLeftOrRight,
+                      )
                     )
-                  )
-                  .background(backgroundColor)
+                    .background(backgroundColor)
                 if (message is ChatMessageText) {
-                  messageBubbleModifier = messageBubbleModifier.pointerInput(Unit) {
-                    detectTapGestures(
-                      onLongPress = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        longPressedMessage.value = message
-                        showMessageLongPressedSheet = true
-                      },
-                    )
-                  }
+                  messageBubbleModifier =
+                    messageBubbleModifier.pointerInput(Unit) {
+                      detectTapGestures(
+                        onLongPress = {
+                          haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                          longPressedMessage.value = message
+                          showMessageLongPressedSheet = true
+                        }
+                      )
+                    }
                 }
-                Box(
-                  modifier = messageBubbleModifier,
-                ) {
+                Box(modifier = messageBubbleModifier) {
                   when (message) {
                     // Text
                     is ChatMessageText -> MessageBodyText(message = message)
@@ -331,32 +343,38 @@ fun ChatPanel(
                     // Image
                     is ChatMessageImage -> {
                       MessageBodyImage(
-                        message = message, modifier = Modifier
-                          .clickable {
-                            onImageSelected(message.bitmap)
-                          }
+                        message = message,
+                        modifier = Modifier.clickable { onImageSelected(message.bitmap) },
                       )
                     }
 
                     // Image with history (for image gen)
-                    is ChatMessageImageWithHistory -> MessageBodyImageWithHistory(
-                      message = message, imageHistoryCurIndex = imageHistoryCurIndex
-                    )
+                    is ChatMessageImageWithHistory ->
+                      MessageBodyImageWithHistory(
+                        message = message,
+                        imageHistoryCurIndex = imageHistoryCurIndex,
+                      )
+
+                    // Audio clip.
+                    is ChatMessageAudioClip -> MessageBodyAudioClip(message = message)
 
                     // Classification result
-                    is ChatMessageClassification -> MessageBodyClassification(
-                      message = message, modifier = Modifier.width(
-                        message.maxBarWidth ?: CLASSIFICATION_BAR_MAX_WIDTH
+                    is ChatMessageClassification ->
+                      MessageBodyClassification(
+                        message = message,
+                        modifier =
+                          Modifier.width(message.maxBarWidth ?: CLASSIFICATION_BAR_MAX_WIDTH),
                       )
-                    )
 
                     // Benchmark result.
                     is ChatMessageBenchmarkResult -> MessageBodyBenchmark(message = message)
 
                     // Benchmark LLM result.
-                    is ChatMessageBenchmarkLlmResult -> MessageBodyBenchmarkLlm(
-                      message = message, modifier = Modifier.wrapContentWidth()
-                    )
+                    is ChatMessageBenchmarkLlmResult ->
+                      MessageBodyBenchmarkLlm(
+                        message = message,
+                        modifier = Modifier.wrapContentWidth(),
+                      )
 
                     else -> {}
                   }
@@ -369,10 +387,14 @@ fun ChatPanel(
                   ) {
                     LatencyText(message = message)
                     // A button to show stats for the LLM message.
-                    if (task.type.id.startsWith("llm_") && message is ChatMessageText
-                      // This means we only want to show the action button when the message is done
-                      // generating, at which point the latency will be set.
-                      && message.latencyMs >= 0
+                    if (
+                      task.type.id.startsWith("llm_") &&
+                        message is ChatMessageText
+                        // This means we only want to show the action button when the message is
+                        // done
+                        // generating, at which point the latency will be set.
+                        &&
+                        message.latencyMs >= 0
                     ) {
                       val showingStats =
                         viewModel.isShowingStats(model = selectedModel, message = message)
@@ -384,10 +406,7 @@ fun ChatPanel(
                           viewModel.toggleShowingStats(selectedModel, message)
 
                           // Add the stats message after the LLM message.
-                          if (viewModel.isShowingStats(
-                              model = selectedModel, message = message
-                            )
-                          ) {
+                          if (viewModel.isShowingStats(model = selectedModel, message = message)) {
                             val llmBenchmarkResult = message.llmBenchmarkResult
                             if (llmBenchmarkResult != null) {
                               viewModel.insertMessageAfter(
@@ -399,32 +418,30 @@ fun ChatPanel(
                           }
                           // Remove the stats message.
                           else {
-                            val curMessageIndex = viewModel.getMessageIndex(
-                              model = selectedModel, message = message
-                            )
+                            val curMessageIndex =
+                              viewModel.getMessageIndex(model = selectedModel, message = message)
                             viewModel.removeMessageAt(
-                              model = selectedModel, index = curMessageIndex + 1
+                              model = selectedModel,
+                              index = curMessageIndex + 1,
                             )
                           }
                         },
-                        enabled = !uiState.inProgress
+                        enabled = !uiState.inProgress,
                       )
                     }
                   }
                 } else if (message.side == ChatSide.USER) {
                   Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                   ) {
                     // Run again button.
                     if (selectedModel.showRunAgainButton) {
                       MessageActionButton(
                         label = stringResource(R.string.run_again),
                         icon = Icons.Rounded.Refresh,
-                        onClick = {
-                          onRunAgainClicked(selectedModel, message)
-                        },
-                        enabled = !uiState.inProgress
+                        onClick = { onRunAgainClicked(selectedModel, message) },
+                        enabled = !uiState.inProgress,
                       )
                     }
 
@@ -437,7 +454,7 @@ fun ChatPanel(
                           showBenchmarkConfigsDialog = true
                           benchmarkMessage.value = message
                         },
-                        enabled = !uiState.inProgress
+                        enabled = !uiState.inProgress,
                       )
                     }
                   }
@@ -453,15 +470,32 @@ fun ChatPanel(
       // Show an info message for ask image task to get users started.
       if (task.type == TaskType.LLM_ASK_IMAGE && messages.isEmpty()) {
         Column(
-          modifier = Modifier
-            .padding(horizontal = 16.dp)
-            .fillMaxSize(),
+          modifier = Modifier.padding(horizontal = 16.dp).fillMaxSize(),
           horizontalAlignment = Alignment.CenterHorizontally,
-          verticalArrangement = Arrangement.Center
+          verticalArrangement = Arrangement.Center,
         ) {
           MessageBodyInfo(
-            ChatMessageInfo(content = "To get started, click + below to add an image and type a prompt to ask a question about it."),
-            smallFontSize = false
+            ChatMessageInfo(
+              content =
+                "To get started, click + below to add images (up to 10 in a single session) and type a prompt to ask a question about it."
+            ),
+            smallFontSize = false,
+          )
+        }
+      }
+      // Show an info message for ask image task to get users started.
+      else if (task.type == TaskType.LLM_ASK_AUDIO && messages.isEmpty()) {
+        Column(
+          modifier = Modifier.padding(horizontal = 16.dp).fillMaxSize(),
+          horizontalAlignment = Alignment.CenterHorizontally,
+          verticalArrangement = Arrangement.Center,
+        ) {
+          MessageBodyInfo(
+            ChatMessageInfo(
+              content =
+                "To get started, tap the + icon to add your audio clip. Limited to 1 clip up to 30 seconds long."
+            ),
+            smallFontSize = false,
           )
         }
       }
@@ -470,16 +504,19 @@ fun ChatPanel(
     // Chat input
     when (chatInputType) {
       ChatInputType.TEXT -> {
-//        val isLlmTask = task.type == TaskType.LLM_CHAT
-//        val notLlmStartScreen = !(messages.size == 1 && messages[0] is ChatMessagePromptTemplates)
+        //        val isLlmTask = task.type == TaskType.LLM_CHAT
+        //        val notLlmStartScreen = !(messages.size == 1 && messages[0] is
+        // ChatMessagePromptTemplates)
         MessageInputText(
           modelManagerViewModel = modelManagerViewModel,
           curMessage = curMessage,
           inProgress = uiState.inProgress,
           isResettingSession = uiState.isResettingSession,
           modelPreparing = uiState.preparing,
-          hasImageMessage = hasImageMessageToLastConfigChange,
-          modelInitializing = modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING,
+          imageMessageCount = imageMessageCountToLastConfigChange,
+          audioClipMessageCount = audioClipMesssageCountToLastconfigChange,
+          modelInitializing =
+            modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING,
           textFieldPlaceHolderRes = task.textInputPlaceHolderRes,
           onValueChanged = { curMessage = it },
           onSendMessage = {
@@ -488,66 +525,81 @@ fun ChatPanel(
           },
           onOpenPromptTemplatesClicked = {
             onSendMessage(
-              selectedModel, listOf(
+              selectedModel,
+              listOf(
                 ChatMessagePromptTemplates(
-                  templates = selectedModel.llmPromptTemplates, showMakeYourOwn = false
+                  templates = selectedModel.llmPromptTemplates,
+                  showMakeYourOwn = false,
                 )
-              )
+              ),
             )
           },
           onStopButtonClicked = onStopButtonClicked,
-//          showPromptTemplatesInMenu = isLlmTask && notLlmStartScreen,
+          //          showPromptTemplatesInMenu = isLlmTask && notLlmStartScreen,
           showPromptTemplatesInMenu = false,
-          showImagePickerInMenu = selectedModel.llmSupportImage,
+          showImagePickerInMenu =
+            selectedModel.llmSupportImage && task.type === TaskType.LLM_ASK_IMAGE,
+          showAudioItemsInMenu =
+            selectedModel.llmSupportAudio && task.type === TaskType.LLM_ASK_AUDIO,
           showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
         )
       }
 
-      ChatInputType.IMAGE -> MessageInputImage(
-        disableButtons = uiState.inProgress,
-        streamingMessage = streamingMessage,
-        onImageSelected = { bitmap ->
-          onSendMessage(
-            selectedModel, listOf(
+      ChatInputType.IMAGE ->
+        MessageInputImage(
+          disableButtons = uiState.inProgress,
+          streamingMessage = streamingMessage,
+          onImageSelected = { bitmap ->
+            onSendMessage(
+              selectedModel,
+              listOf(
+                ChatMessageImage(
+                  bitmap = bitmap,
+                  imageBitMap = bitmap.asImageBitmap(),
+                  side = ChatSide.USER,
+                )
+              ),
+            )
+          },
+          onStreamImage = { bitmap ->
+            onStreamImageMessage(
+              selectedModel,
               ChatMessageImage(
-                bitmap = bitmap, imageBitMap = bitmap.asImageBitmap(), side = ChatSide.USER
-              )
+                bitmap = bitmap,
+                imageBitMap = bitmap.asImageBitmap(),
+                side = ChatSide.USER,
+              ),
             )
-          )
-        },
-        onStreamImage = { bitmap ->
-          onStreamImageMessage(
-            selectedModel, ChatMessageImage(
-              bitmap = bitmap, imageBitMap = bitmap.asImageBitmap(), side = ChatSide.USER
-            )
-          )
-        },
-        onStreamEnd = onStreamEnd,
-      )
+          },
+          onStreamEnd = onStreamEnd,
+        )
     }
   }
 
   // Error dialog.
   if (showErrorDialog) {
-    ErrorDialog(error = modelInitializationStatus?.error ?: "", onDismiss = {
-      showErrorDialog = false
-    })
+    ErrorDialog(
+      error = modelInitializationStatus?.error ?: "",
+      onDismiss = { showErrorDialog = false },
+    )
   }
 
   // Benchmark config dialog.
   if (showBenchmarkConfigsDialog) {
-    BenchmarkConfigDialog(onDismissed = { showBenchmarkConfigsDialog = false },
+    BenchmarkConfigDialog(
+      onDismissed = { showBenchmarkConfigsDialog = false },
       messageToBenchmark = benchmarkMessage.value,
       onBenchmarkClicked = { message, warmUpIterations, benchmarkIterations ->
         onBenchmarkClicked(selectedModel, message, warmUpIterations, benchmarkIterations)
-      })
+      },
+    )
   }
 
   // Sheet to show when a message is long-pressed.
   if (showMessageLongPressedSheet) {
     val message = longPressedMessage.value
     if (message != null && message is ChatMessageText) {
-      val clipboardManager = LocalClipboardManager.current
+      val clipboard = LocalClipboard.current
 
       ModalBottomSheet(
         onDismissRequest = { showMessageLongPressedSheet = false },
@@ -555,28 +607,32 @@ fun ChatPanel(
       ) {
         Column {
           // Copy text.
-          Box(modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-              // Copy text.
-              val clipData = AnnotatedString(message.content)
-              clipboardManager.setText(clipData)
+          Box(
+            modifier =
+              Modifier.fillMaxWidth().clickable {
+                // Copy text.
+                scope.launch {
+                  val clipData = ClipData.newPlainText("message content", message.content)
+                  val clipEntry = ClipEntry(clipData = clipData)
+                  clipboard.setClipEntry(clipEntry = clipEntry)
+                }
 
-              // Hide sheet.
-              showMessageLongPressedSheet = false
+                // Hide sheet.
+                showMessageLongPressedSheet = false
 
-              // Show a snack bar.
-              scope.launch {
-                snackbarHostState.showSnackbar("Text copied to clipboard")
+                // Show a snack bar.
+                scope.launch { snackbarHostState.showSnackbar("Text copied to clipboard") }
               }
-            }) {
+          ) {
             Row(
               verticalAlignment = Alignment.CenterVertically,
               horizontalArrangement = Arrangement.spacedBy(6.dp),
-              modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp)
+              modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp),
             ) {
               Icon(
-                Icons.Rounded.ContentCopy, contentDescription = "", modifier = Modifier.size(18.dp)
+                Icons.Rounded.ContentCopy,
+                contentDescription = "",
+                modifier = Modifier.size(18.dp),
               )
               Text("Copy text")
             }
@@ -584,25 +640,24 @@ fun ChatPanel(
         }
       }
     }
-
   }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun ChatPanelPreview() {
-  GalleryTheme {
-    val context = LocalContext.current
-    val task = TASK_TEST1
-    ChatPanel(
-      modelManagerViewModel = PreviewModelManagerViewModel(context = LocalContext.current),
-      task = task,
-      selectedModel = TASK_TEST1.models[1],
-      viewModel = PreviewChatModel(context = context),
-      navigateUp = {},
-      onSendMessage = { _, _ -> },
-      onRunAgainClicked = { _, _ -> },
-      onBenchmarkClicked = { _, _, _, _ -> },
-    )
-  }
-}
+// @Preview(showBackground = true)
+// @Composable
+// fun ChatPanelPreview() {
+//   GalleryTheme {
+//     val context = LocalContext.current
+//     val task = TASK_TEST1
+//     ChatPanel(
+//       modelManagerViewModel = PreviewModelManagerViewModel(context = LocalContext.current),
+//       task = task,
+//       selectedModel = TASK_TEST1.models[1],
+//       viewModel = PreviewChatModel(context = context),
+//       navigateUp = {},
+//       onSendMessage = { _, _ -> },
+//       onRunAgainClicked = { _, _ -> },
+//       onBenchmarkClicked = { _, _, _, _ -> },
+//     )
+//   }
+// }

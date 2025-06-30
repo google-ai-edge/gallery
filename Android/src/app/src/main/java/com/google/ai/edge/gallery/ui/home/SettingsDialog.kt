@@ -61,10 +61,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.google.ai.edge.gallery.BuildConfig
+import com.google.ai.edge.gallery.proto.Theme
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import com.google.ai.edge.gallery.ui.theme.THEME_AUTO
-import com.google.ai.edge.gallery.ui.theme.THEME_DARK
-import com.google.ai.edge.gallery.ui.theme.THEME_LIGHT
 import com.google.ai.edge.gallery.ui.theme.ThemeSettings
 import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
 import java.time.Instant
@@ -73,18 +71,19 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.min
 
-private val THEME_OPTIONS = listOf(THEME_AUTO, THEME_LIGHT, THEME_DARK)
+private val THEME_OPTIONS = listOf(Theme.THEME_AUTO, Theme.THEME_LIGHT, Theme.THEME_DARK)
 
 @Composable
 fun SettingsDialog(
-  curThemeOverride: String,
+  curThemeOverride: Theme,
   modelManagerViewModel: ModelManagerViewModel,
   onDismissed: () -> Unit,
 ) {
   var selectedTheme by remember { mutableStateOf(curThemeOverride) }
   var hfToken by remember { mutableStateOf(modelManagerViewModel.getTokenStatusAndData().data) }
   val dateFormatter = remember {
-    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
+    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+      .withZone(ZoneId.systemDefault())
       .withLocale(Locale.getDefault())
   }
   var customHfToken by remember { mutableStateOf("") }
@@ -95,72 +94,75 @@ fun SettingsDialog(
   Dialog(onDismissRequest = onDismissed) {
     val focusManager = LocalFocusManager.current
     Card(
-      modifier = Modifier
-        .fillMaxWidth()
-        .clickable(
-          interactionSource = interactionSource, indication = null // Disable the ripple effect
+      modifier =
+        Modifier.fillMaxWidth().clickable(
+          interactionSource = interactionSource,
+          indication = null, // Disable the ripple effect
         ) {
           focusManager.clearFocus()
-        }, shape = RoundedCornerShape(16.dp)
+        },
+      shape = RoundedCornerShape(16.dp),
     ) {
       Column(
-        modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier.padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
       ) {
         // Dialog title and subtitle.
         Column {
           Text(
             "Settings",
             style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 8.dp),
           )
           // Subtitle.
           Text(
             "App version: ${BuildConfig.VERSION_NAME}",
             style = labelSmallNarrow,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.offset(y = (-6).dp)
+            modifier = Modifier.offset(y = (-6).dp),
           )
         }
 
         Column(
-          modifier = Modifier
-            .verticalScroll(rememberScrollState())
-            .weight(1f, fill = false),
-          verticalArrangement = Arrangement.spacedBy(16.dp)
+          modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
+          verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
           // Theme switcher.
-          Column(
-            modifier = Modifier.fillMaxWidth()
-          ) {
+          Column(modifier = Modifier.fillMaxWidth()) {
             Text(
               "Theme",
-              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
             )
             MultiChoiceSegmentedButtonRow {
-              THEME_OPTIONS.forEachIndexed { index, label ->
-                SegmentedButton(shape = SegmentedButtonDefaults.itemShape(
-                  index = index, count = THEME_OPTIONS.size
-                ), onCheckedChange = {
-                  selectedTheme = label
+              THEME_OPTIONS.forEachIndexed { index, theme ->
+                SegmentedButton(
+                  shape =
+                    SegmentedButtonDefaults.itemShape(index = index, count = THEME_OPTIONS.size),
+                  onCheckedChange = {
+                    selectedTheme = theme
 
-                  // Update theme settings.
-                  // This will update app's theme.
-                  ThemeSettings.themeOverride.value = label
+                    // Update theme settings.
+                    // This will update app's theme.
+                    ThemeSettings.themeOverride.value = theme
 
-                  // Save to data store.
-                  modelManagerViewModel.saveThemeOverride(label)
-                }, checked = label == selectedTheme, label = { Text(label) })
+                    // Save to data store.
+                    modelManagerViewModel.saveThemeOverride(theme)
+                  },
+                  checked = theme == selectedTheme,
+                  label = { Text(themeLabel(theme)) },
+                )
               }
             }
           }
 
           // HF Token management.
           Column(
-            modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
           ) {
             Text(
               "HuggingFace access token",
-              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
             )
             // Show the start of the token.
             val curHfToken = hfToken
@@ -168,23 +170,23 @@ fun SettingsDialog(
               Text(
                 curHfToken.accessToken.substring(0, min(16, curHfToken.accessToken.length)) + "...",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
               Text(
-                "Expired at: ${dateFormatter.format(Instant.ofEpochMilli(curHfToken.expiresAtMs))}",
+                "Expires at: ${dateFormatter.format(Instant.ofEpochMilli(curHfToken.expiresAtMs))}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
             } else {
               Text(
                 "Not available",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
               Text(
                 "The token will be automatically retrieved when a gated model is downloaded",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -192,46 +194,42 @@ fun SettingsDialog(
                 onClick = {
                   modelManagerViewModel.clearAccessToken()
                   hfToken = null
-                }, enabled = curHfToken != null
+                },
+                enabled = curHfToken != null,
               ) {
                 Text("Clear")
               }
               BasicTextField(
                 value = customHfToken,
                 singleLine = true,
-                modifier = Modifier
-                  .fillMaxWidth()
-                  .padding(top = 4.dp)
-                  .focusRequester(focusRequester)
-                  .onFocusChanged {
-                    isFocused = it.isFocused
-                  },
-                onValueChange = {
-                  customHfToken = it
-                },
+                modifier =
+                  Modifier.fillMaxWidth()
+                    .padding(top = 4.dp)
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { isFocused = it.isFocused },
+                onValueChange = { customHfToken = it },
                 textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
               ) { innerTextField ->
                 Box(
-                  modifier = Modifier
-                    .border(
-                      width = if (isFocused) 2.dp else 1.dp,
-                      color = if (isFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                      shape = CircleShape,
-                    )
-                    .height(40.dp), contentAlignment = Alignment.CenterStart
+                  modifier =
+                    Modifier.border(
+                        width = if (isFocused) 2.dp else 1.dp,
+                        color =
+                          if (isFocused) MaterialTheme.colorScheme.primary
+                          else MaterialTheme.colorScheme.outline,
+                        shape = CircleShape,
+                      )
+                      .height(40.dp),
+                  contentAlignment = Alignment.CenterStart,
                 ) {
                   Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                      modifier = Modifier
-                        .padding(start = 16.dp)
-                        .weight(1f)
-                    ) {
+                    Box(modifier = Modifier.padding(start = 16.dp).weight(1f)) {
                       if (customHfToken.isEmpty()) {
                         Text(
                           "Enter token manually",
                           color = MaterialTheme.colorScheme.onSurfaceVariant,
-                          style = MaterialTheme.typography.bodySmall
+                          style = MaterialTheme.typography.bodySmall,
                         )
                       }
                       innerTextField()
@@ -246,7 +244,8 @@ fun SettingsDialog(
                             expiresAt = System.currentTimeMillis() + 1000L * 60 * 60 * 24 * 365 * 10,
                           )
                           hfToken = modelManagerViewModel.getTokenStatusAndData().data
-                        }) {
+                        },
+                      ) {
                         Icon(Icons.Rounded.CheckCircle, contentDescription = "")
                       }
                     }
@@ -257,24 +256,24 @@ fun SettingsDialog(
           }
         }
 
-
         // Button row.
         Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp),
+          modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
           horizontalArrangement = Arrangement.End,
         ) {
           // Close button
-          Button(
-            onClick = {
-              onDismissed()
-            },
-          ) {
-            Text("Close")
-          }
+          Button(onClick = { onDismissed() }) { Text("Close") }
         }
       }
     }
+  }
+}
+
+private fun themeLabel(theme: Theme): String {
+  return when (theme) {
+    Theme.THEME_AUTO -> "Auto"
+    Theme.THEME_LIGHT -> "Light"
+    Theme.THEME_DARK -> "Dark"
+    else -> "Unknown"
   }
 }

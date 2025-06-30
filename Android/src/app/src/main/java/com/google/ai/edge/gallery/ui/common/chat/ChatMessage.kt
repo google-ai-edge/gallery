@@ -17,10 +17,14 @@
 package com.google.ai.edge.gallery.ui.common.chat
 
 import android.graphics.Bitmap
-import androidx.compose.ui.graphics.Color
+import android.util.Log
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.Dp
+import com.google.ai.edge.gallery.common.Classification
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.PromptTemplate
+
+private const val TAG = "AGChatMessage"
 
 enum class ChatMessageType {
   INFO,
@@ -28,19 +32,20 @@ enum class ChatMessageType {
   TEXT,
   IMAGE,
   IMAGE_WITH_HISTORY,
+  AUDIO_CLIP,
   LOADING,
   CLASSIFICATION,
   CONFIG_VALUES_CHANGE,
   BENCHMARK_RESULT,
   BENCHMARK_LLM_RESULT,
-  PROMPT_TEMPLATES
+  PROMPT_TEMPLATES,
 }
 
 enum class ChatSide {
-  USER, AGENT, SYSTEM
+  USER,
+  AGENT,
+  SYSTEM,
 }
-
-data class Classification(val label: String, val score: Float, val color: Color)
 
 /** Base class for a chat message. */
 open class ChatMessage(
@@ -70,7 +75,7 @@ class ChatMessageWarning(val content: String) :
 class ChatMessageConfigValuesChange(
   val model: Model,
   val oldValues: Map<String, Any>,
-  val newValues: Map<String, Any>
+  val newValues: Map<String, Any>,
 ) : ChatMessage(type = ChatMessageType.CONFIG_VALUES_CHANGE, side = ChatSide.SYSTEM)
 
 /** Chat message for plain text. */
@@ -84,12 +89,13 @@ open class ChatMessageText(
   // Benchmark result for LLM response.
   var llmBenchmarkResult: ChatMessageBenchmarkLlmResult? = null,
   override val accelerator: String = "",
-) : ChatMessage(
-  type = ChatMessageType.TEXT,
-  side = side,
-  latencyMs = latencyMs,
-  accelerator = accelerator
-) {
+) :
+  ChatMessage(
+    type = ChatMessageType.TEXT,
+    side = side,
+    latencyMs = latencyMs,
+    accelerator = accelerator,
+  ) {
   override fun clone(): ChatMessageText {
     return ChatMessageText(
       content = content,
@@ -107,16 +113,99 @@ class ChatMessageImage(
   val bitmap: Bitmap,
   val imageBitMap: ImageBitmap,
   override val side: ChatSide,
-  override val latencyMs: Float = 0f
-) :
-  ChatMessage(type = ChatMessageType.IMAGE, side = side, latencyMs = latencyMs) {
+  override val latencyMs: Float = 0f,
+) : ChatMessage(type = ChatMessageType.IMAGE, side = side, latencyMs = latencyMs) {
   override fun clone(): ChatMessageImage {
     return ChatMessageImage(
       bitmap = bitmap,
       imageBitMap = imageBitMap,
       side = side,
-      latencyMs = latencyMs
+      latencyMs = latencyMs,
     )
+  }
+}
+
+/** Chat message for audio clip. */
+class ChatMessageAudioClip(
+  val audioData: ByteArray,
+  val sampleRate: Int,
+  override val side: ChatSide,
+  override val latencyMs: Float = 0f,
+) : ChatMessage(type = ChatMessageType.AUDIO_CLIP, side = side, latencyMs = latencyMs) {
+  override fun clone(): ChatMessageAudioClip {
+    return ChatMessageAudioClip(
+      audioData = audioData,
+      sampleRate = sampleRate,
+      side = side,
+      latencyMs = latencyMs,
+    )
+  }
+
+  fun genByteArrayForWav(): ByteArray {
+    val header = ByteArray(44)
+
+    val pcmDataSize = audioData.size
+    val wavFileSize = pcmDataSize + 44 // 44 bytes for the header
+    val channels = 1 // Mono
+    val bitsPerSample: Short = 16
+    val byteRate = sampleRate * channels * bitsPerSample / 8
+    Log.d(TAG, "Wav metadata: sampleRate: $sampleRate")
+
+    // RIFF/WAVE header
+    header[0] = 'R'.code.toByte()
+    header[1] = 'I'.code.toByte()
+    header[2] = 'F'.code.toByte()
+    header[3] = 'F'.code.toByte()
+    header[4] = (wavFileSize and 0xff).toByte()
+    header[5] = (wavFileSize shr 8 and 0xff).toByte()
+    header[6] = (wavFileSize shr 16 and 0xff).toByte()
+    header[7] = (wavFileSize shr 24 and 0xff).toByte()
+    header[8] = 'W'.code.toByte()
+    header[9] = 'A'.code.toByte()
+    header[10] = 'V'.code.toByte()
+    header[11] = 'E'.code.toByte()
+    header[12] = 'f'.code.toByte()
+    header[13] = 'm'.code.toByte()
+    header[14] = 't'.code.toByte()
+    header[15] = ' '.code.toByte()
+    header[16] = 16
+    header[17] = 0
+    header[18] = 0
+    header[19] = 0 // Sub-chunk size (16 for PCM)
+    header[20] = 1
+    header[21] = 0 // Audio format (1 for PCM)
+    header[22] = channels.toByte()
+    header[23] = 0 // Number of channels
+    header[24] = (sampleRate and 0xff).toByte()
+    header[25] = (sampleRate shr 8 and 0xff).toByte()
+    header[26] = (sampleRate shr 16 and 0xff).toByte()
+    header[27] = (sampleRate shr 24 and 0xff).toByte()
+    header[28] = (byteRate and 0xff).toByte()
+    header[29] = (byteRate shr 8 and 0xff).toByte()
+    header[30] = (byteRate shr 16 and 0xff).toByte()
+    header[31] = (byteRate shr 24 and 0xff).toByte()
+    header[32] = (channels * bitsPerSample / 8).toByte()
+    header[33] = 0 // Block align
+    header[34] = bitsPerSample.toByte()
+    header[35] = (bitsPerSample.toInt() shr 8 and 0xff).toByte() // Bits per sample
+    header[36] = 'd'.code.toByte()
+    header[37] = 'a'.code.toByte()
+    header[38] = 't'.code.toByte()
+    header[39] = 'a'.code.toByte()
+    header[40] = (pcmDataSize and 0xff).toByte()
+    header[41] = (pcmDataSize shr 8 and 0xff).toByte()
+    header[42] = (pcmDataSize shr 16 and 0xff).toByte()
+    header[43] = (pcmDataSize shr 24 and 0xff).toByte()
+
+    return header + audioData
+  }
+
+  fun getDurationInSeconds(): Float {
+    // PCM 16-bit
+    val bytesPerSample = 2
+    val bytesPerFrame = bytesPerSample * 1 // mono
+    val totalFrames = audioData.size.toFloat() / bytesPerFrame
+    return totalFrames / sampleRate
   }
 }
 
@@ -128,8 +217,7 @@ class ChatMessageImageWithHistory(
   override val side: ChatSide,
   override val latencyMs: Float = 0f,
   var curIteration: Int = 0, // 0-based
-) :
-  ChatMessage(type = ChatMessageType.IMAGE_WITH_HISTORY, side = side, latencyMs = latencyMs) {
+) : ChatMessage(type = ChatMessageType.IMAGE_WITH_HISTORY, side = side, latencyMs = latencyMs) {
   fun isRunning(): Boolean {
     return curIteration < totalIterations - 1
   }
@@ -141,7 +229,8 @@ class ChatMessageClassification(
   override val latencyMs: Float = 0f,
   // Typical android phone width is > 320dp
   val maxBarWidth: Dp? = null,
-) : ChatMessage(type = ChatMessageType.CLASSIFICATION, side = ChatSide.AGENT, latencyMs = latencyMs)
+) :
+  ChatMessage(type = ChatMessageType.CLASSIFICATION, side = ChatSide.AGENT, latencyMs = latencyMs)
 
 /** A stat used in benchmark result. */
 data class Stat(val id: String, val label: String, val unit: String)
@@ -162,7 +251,7 @@ class ChatMessageBenchmarkResult(
   ChatMessage(
     type = ChatMessageType.BENCHMARK_RESULT,
     side = ChatSide.AGENT,
-    latencyMs = latencyMs
+    latencyMs = latencyMs,
   ) {
   fun isWarmingUp(): Boolean {
     return warmupCurrent < warmupTotal
@@ -180,23 +269,18 @@ class ChatMessageBenchmarkLlmResult(
   val running: Boolean,
   override val latencyMs: Float = 0f,
   override val accelerator: String = "",
-) : ChatMessage(
-  type = ChatMessageType.BENCHMARK_LLM_RESULT,
-  side = ChatSide.AGENT,
-  latencyMs = latencyMs,
-  accelerator = accelerator,
-)
+) :
+  ChatMessage(
+    type = ChatMessageType.BENCHMARK_LLM_RESULT,
+    side = ChatSide.AGENT,
+    latencyMs = latencyMs,
+    accelerator = accelerator,
+  )
 
-data class Histogram(
-  val buckets: List<Int>,
-  val maxCount: Int,
-  val highlightBucketIndex: Int = -1
-)
+data class Histogram(val buckets: List<Int>, val maxCount: Int, val highlightBucketIndex: Int = -1)
 
 /** Chat message for showing prompt templates. */
 class ChatMessagePromptTemplates(
   val templates: List<PromptTemplate>,
   val showMakeYourOwn: Boolean = true,
 ) : ChatMessage(type = ChatMessageType.PROMPT_TEMPLATES, side = ChatSide.SYSTEM)
-
-data class PromptTemplate(val title: String, val description: String, val prompt: String)

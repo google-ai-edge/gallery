@@ -20,23 +20,23 @@ import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.ai.edge.gallery.ui.ViewModelProvider
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
 import com.google.ai.edge.gallery.ui.common.chat.ChatView
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import kotlinx.serialization.Serializable
 
 /** Navigation destination data */
 object LlmChatDestination {
-  @Serializable
   val route = "LlmChatRoute"
 }
 
 object LlmAskImageDestination {
-  @Serializable
   val route = "LlmAskImageRoute"
+}
+
+object LlmAskAudioDestination {
+  val route = "LlmAskAudioRoute"
 }
 
 @Composable
@@ -44,9 +44,7 @@ fun LlmChatScreen(
   modelManagerViewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
-  viewModel: LlmChatViewModel = viewModel(
-    factory = ViewModelProvider.Factory
-  ),
+  viewModel: LlmChatViewModel,
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -61,9 +59,22 @@ fun LlmAskImageScreen(
   modelManagerViewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
-  viewModel: LlmAskImageViewModel = viewModel(
-    factory = ViewModelProvider.Factory
-  ),
+  viewModel: LlmAskImageViewModel,
+) {
+  ChatViewWrapper(
+    viewModel = viewModel,
+    modelManagerViewModel = modelManagerViewModel,
+    navigateUp = navigateUp,
+    modifier = modifier,
+  )
+}
+
+@Composable
+fun LlmAskAudioScreen(
+  modelManagerViewModel: ModelManagerViewModel,
+  navigateUp: () -> Unit,
+  modifier: Modifier = Modifier,
+  viewModel: LlmAskAudioViewModel,
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -75,10 +86,10 @@ fun LlmAskImageScreen(
 
 @Composable
 fun ChatViewWrapper(
-  viewModel: LlmChatViewModel,
+  viewModel: LlmChatViewModelBase,
   modelManagerViewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
-  modifier: Modifier = Modifier
+  modifier: Modifier = Modifier,
 ) {
   val context = LocalContext.current
 
@@ -88,56 +99,61 @@ fun ChatViewWrapper(
     modelManagerViewModel = modelManagerViewModel,
     onSendMessage = { model, messages ->
       for (message in messages) {
-        viewModel.addMessage(
-          model = model,
-          message = message,
-        )
+        viewModel.addMessage(model = model, message = message)
       }
 
       var text = ""
-      var image: Bitmap? = null
+      val images: MutableList<Bitmap> = mutableListOf()
+      val audioMessages: MutableList<ChatMessageAudioClip> = mutableListOf()
       var chatMessageText: ChatMessageText? = null
       for (message in messages) {
         if (message is ChatMessageText) {
           chatMessageText = message
           text = message.content
         } else if (message is ChatMessageImage) {
-          image = message.bitmap
+          images.add(message.bitmap)
+        } else if (message is ChatMessageAudioClip) {
+          audioMessages.add(message)
         }
       }
-      if (text.isNotEmpty() && chatMessageText != null) {
+      if ((text.isNotEmpty() && chatMessageText != null) || audioMessages.isNotEmpty()) {
         modelManagerViewModel.addTextInputHistory(text)
-        viewModel.generateResponse(model = model, input = text, image = image, onError = {
-          viewModel.handleError(
-            context = context,
-            model = model,
-            modelManagerViewModel = modelManagerViewModel,
-            triggeredMessage = chatMessageText,
-          )
-        })
+        viewModel.generateResponse(
+          model = model,
+          input = text,
+          images = images,
+          audioMessages = audioMessages,
+          onError = {
+            viewModel.handleError(
+              context = context,
+              model = model,
+              modelManagerViewModel = modelManagerViewModel,
+              triggeredMessage = chatMessageText,
+            )
+          },
+        )
       }
     },
     onRunAgainClicked = { model, message ->
       if (message is ChatMessageText) {
-        viewModel.runAgain(model = model, message = message, onError = {
-          viewModel.handleError(
-            context = context,
-            model = model,
-            modelManagerViewModel = modelManagerViewModel,
-            triggeredMessage = message,
-          )
-        })
+        viewModel.runAgain(
+          model = model,
+          message = message,
+          onError = {
+            viewModel.handleError(
+              context = context,
+              model = model,
+              modelManagerViewModel = modelManagerViewModel,
+              triggeredMessage = message,
+            )
+          },
+        )
       }
     },
-    onBenchmarkClicked = { _, _, _, _ ->
-    },
-    onResetSessionClicked = { model ->
-      viewModel.resetSession(model = model)
-    },
+    onBenchmarkClicked = { _, _, _, _ -> },
+    onResetSessionClicked = { model -> viewModel.resetSession(model = model) },
     showStopButtonInInputWhenInProgress = true,
-    onStopButtonClicked = { model ->
-      viewModel.stopResponse(model = model)
-    },
+    onStopButtonClicked = { model -> viewModel.stopResponse(model = model) },
     navigateUp = navigateUp,
     modifier = modifier,
   )

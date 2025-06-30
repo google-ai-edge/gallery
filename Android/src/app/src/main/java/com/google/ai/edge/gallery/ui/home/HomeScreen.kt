@@ -16,6 +16,9 @@
 
 package com.google.ai.edge.gallery.ui.home
 
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+// import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -95,20 +98,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.GalleryTopAppBar
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.AppBarAction
 import com.google.ai.edge.gallery.data.AppBarActionType
-import com.google.ai.edge.gallery.data.ImportedModelInfo
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.ui.common.TaskIcon
 import com.google.ai.edge.gallery.ui.common.getTaskBgColor
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import com.google.ai.edge.gallery.ui.theme.customColors
 import com.google.ai.edge.gallery.ui.theme.titleMediumNarrow
 import kotlinx.coroutines.delay
@@ -125,8 +125,7 @@ private const val MIN_TASK_CARD_ICON_SIZE = 50
 
 /** Navigation destination data */
 object HomeScreenDestination {
-  @StringRes
-  val titleRes = R.string.app_name
+  @StringRes val titleRes = R.string.app_name
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -134,7 +133,7 @@ object HomeScreenDestination {
 fun HomeScreen(
   modelManagerViewModel: ModelManagerViewModel,
   navigateToTaskScreen: (Task) -> Unit,
-  modifier: Modifier = Modifier
+  modifier: Modifier = Modifier,
 ) {
   val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
   val uiState by modelManagerViewModel.uiState.collectAsState()
@@ -145,53 +144,56 @@ fun HomeScreen(
   var showImportDialog by remember { mutableStateOf(false) }
   var showImportingDialog by remember { mutableStateOf(false) }
   val selectedLocalModelFileUri = remember { mutableStateOf<Uri?>(null) }
-  val selectedImportedModelInfo = remember { mutableStateOf<ImportedModelInfo?>(null) }
+  val selectedImportedModelInfo = remember { mutableStateOf<ImportedModel?>(null) }
   val coroutineScope = rememberCoroutineScope()
   val snackbarHostState = remember { SnackbarHostState() }
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
 
-  val filePickerLauncher: ActivityResultLauncher<Intent> = rememberLauncherForActivityResult(
-    contract = ActivityResultContracts.StartActivityForResult()
-  ) { result ->
-    if (result.resultCode == android.app.Activity.RESULT_OK) {
-      result.data?.data?.let { uri ->
-        val fileName = getFileName(context = context, uri = uri)
-        Log.d(TAG, "Selected file: $fileName")
-        if (fileName != null && !fileName.endsWith(".task")) {
-          showUnsupportedFileTypeDialog = true
-        } else {
-          selectedLocalModelFileUri.value = uri
-          showImportDialog = true
-        }
-      } ?: run {
-        Log.d(TAG, "No file selected or URI is null.")
+  val filePickerLauncher: ActivityResultLauncher<Intent> =
+    rememberLauncherForActivityResult(
+      contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+      if (result.resultCode == android.app.Activity.RESULT_OK) {
+        result.data?.data?.let { uri ->
+          val fileName = getFileName(context = context, uri = uri)
+          Log.d(TAG, "Selected file: $fileName")
+          if (fileName != null && !fileName.endsWith(".task")) {
+            showUnsupportedFileTypeDialog = true
+          } else {
+            selectedLocalModelFileUri.value = uri
+            showImportDialog = true
+          }
+        } ?: run { Log.d(TAG, "No file selected or URI is null.") }
+      } else {
+        Log.d(TAG, "File picking cancelled.")
       }
-    } else {
-      Log.d(TAG, "File picking cancelled.")
     }
-  }
 
-  Scaffold(modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection), topBar = {
-    GalleryTopAppBar(
-      title = stringResource(HomeScreenDestination.titleRes),
-      rightAction = AppBarAction(actionType = AppBarActionType.APP_SETTING, actionFn = {
-        showSettingsDialog = true
-      }),
-      scrollBehavior = scrollBehavior,
-    )
-  }, floatingActionButton = {
-    // A floating action button to show "import model" bottom sheet.
-    SmallFloatingActionButton(
-      onClick = {
-        showImportModelSheet = true
-      },
-      containerColor = MaterialTheme.colorScheme.secondaryContainer,
-      contentColor = MaterialTheme.colorScheme.secondary,
-    ) {
-      Icon(Icons.Filled.Add, "")
-    }
-  }) { innerPadding ->
+  Scaffold(
+    modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+    topBar = {
+      GalleryTopAppBar(
+        title = stringResource(HomeScreenDestination.titleRes),
+        rightAction =
+          AppBarAction(
+            actionType = AppBarActionType.APP_SETTING,
+            actionFn = { showSettingsDialog = true },
+          ),
+        scrollBehavior = scrollBehavior,
+      )
+    },
+    floatingActionButton = {
+      // A floating action button to show "import model" bottom sheet.
+      SmallFloatingActionButton(
+        onClick = { showImportModelSheet = true },
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.secondary,
+      ) {
+        Icon(Icons.Filled.Add, "")
+      }
+    },
+  ) { innerPadding ->
     Box(contentAlignment = Alignment.BottomCenter, modifier = Modifier.fillMaxSize()) {
       TaskList(
         tasks = uiState.tasks,
@@ -216,37 +218,36 @@ fun HomeScreen(
 
   // Import model bottom sheet.
   if (showImportModelSheet) {
-    ModalBottomSheet(
-      onDismissRequest = { showImportModelSheet = false },
-      sheetState = sheetState,
-    ) {
+    ModalBottomSheet(onDismissRequest = { showImportModelSheet = false }, sheetState = sheetState) {
       Text(
         "Import model",
         style = MaterialTheme.typography.titleLarge,
-        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
+        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
       )
-      Box(modifier = Modifier.clickable {
-        coroutineScope.launch {
-          // Give it sometime to show the click effect.
-          delay(200)
-          showImportModelSheet = false
+      Box(
+        modifier =
+          Modifier.clickable {
+            coroutineScope.launch {
+              // Give it sometime to show the click effect.
+              delay(200)
+              showImportModelSheet = false
 
-          // Show file picker.
-          val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "*/*"
-            // Single select.
-            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+              // Show file picker.
+              val intent =
+                Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                  addCategory(Intent.CATEGORY_OPENABLE)
+                  type = "*/*"
+                  // Single select.
+                  putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+                }
+              filePickerLauncher.launch(intent)
+            }
           }
-          filePickerLauncher.launch(intent)
-        }
-      }) {
+      ) {
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(6.dp),
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
+          modifier = Modifier.fillMaxWidth().padding(16.dp),
         ) {
           Icon(Icons.AutoMirrored.Outlined.NoteAdd, contentDescription = "")
           Text("From local model file")
@@ -258,11 +259,15 @@ fun HomeScreen(
   // Import dialog
   if (showImportDialog) {
     selectedLocalModelFileUri.value?.let { uri ->
-      ModelImportDialog(uri = uri, onDismiss = { showImportDialog = false }, onDone = { info ->
-        selectedImportedModelInfo.value = info
-        showImportDialog = false
-        showImportingDialog = true
-      })
+      ModelImportDialog(
+        uri = uri,
+        onDismiss = { showImportDialog = false },
+        onDone = { info ->
+          selectedImportedModelInfo.value = info
+          showImportDialog = false
+          showImportingDialog = true
+        },
+      )
     }
   }
 
@@ -270,20 +275,18 @@ fun HomeScreen(
   if (showImportingDialog) {
     selectedLocalModelFileUri.value?.let { uri ->
       selectedImportedModelInfo.value?.let { info ->
-        ModelImportingDialog(uri = uri,
+        ModelImportingDialog(
+          uri = uri,
           info = info,
           onDismiss = { showImportingDialog = false },
           onDone = {
-            modelManagerViewModel.addImportedLlmModel(
-              info = it,
-            )
+            modelManagerViewModel.addImportedLlmModel(info = it)
             showImportingDialog = false
 
             // Show a snack bar for successful import.
-            scope.launch {
-              snackbarHostState.showSnackbar("Model imported successfully")
-            }
-          })
+            scope.launch { snackbarHostState.showSnackbar("Model imported successfully") }
+          },
+        )
       }
     }
   }
@@ -293,9 +296,7 @@ fun HomeScreen(
     AlertDialog(
       onDismissRequest = { showUnsupportedFileTypeDialog = false },
       title = { Text("Unsupported file type") },
-      text = {
-        Text("Only \".task\" file type is supported.")
-      },
+      text = { Text("Only \".task\" file type is supported.") },
       confirmButton = {
         Button(onClick = { showUnsupportedFileTypeDialog = false }) {
           Text(stringResource(R.string.ok))
@@ -309,21 +310,11 @@ fun HomeScreen(
       icon = {
         Icon(Icons.Rounded.Error, contentDescription = "", tint = MaterialTheme.colorScheme.error)
       },
-      title = {
-        Text(uiState.loadingModelAllowlistError)
-      },
-      text = {
-        Text("Please check your internet connection and try again later.")
-      },
-      onDismissRequest = {
-        modelManagerViewModel.loadModelAllowlist()
-      },
+      title = { Text(uiState.loadingModelAllowlistError) },
+      text = { Text("Please check your internet connection and try again later.") },
+      onDismissRequest = { modelManagerViewModel.loadModelAllowlist() },
       confirmButton = {
-        TextButton(onClick = {
-          modelManagerViewModel.loadModelAllowlist()
-        }) {
-          Text("Retry")
-        }
+        TextButton(onClick = { modelManagerViewModel.loadModelAllowlist() }) { Text("Retry") }
       },
     )
   }
@@ -339,31 +330,22 @@ private fun TaskList(
 ) {
   val density = LocalDensity.current
   val windowInfo = LocalWindowInfo.current
-  val screenWidthDp = remember {
-    with(density) {
-      windowInfo.containerSize.width.toDp()
-    }
-  }
-  val screenHeightDp = remember {
-    with(density) {
-      windowInfo.containerSize.height.toDp()
-    }
-  }
+  val screenWidthDp = remember { with(density) { windowInfo.containerSize.width.toDp() } }
+  val screenHeightDp = remember { with(density) { windowInfo.containerSize.height.toDp() } }
   val sizeFraction = remember { ((screenWidthDp - 360.dp) / (410.dp - 360.dp)).coerceIn(0f, 1f) }
   val linkColor = MaterialTheme.customColors.linkColor
 
   val introText = buildAnnotatedString {
     append("Welcome to Google AI Edge Gallery! Explore a world of amazing on-device models from ")
     withLink(
-      link = LinkAnnotation.Url(
-        url = "https://huggingface.co/litert-community", // Replace with the actual URL
-        styles = TextLinkStyles(
-          style = SpanStyle(
-            color = linkColor,
-            textDecoration = TextDecoration.Underline,
-          )
+      link =
+        LinkAnnotation.Url(
+          url = "https://huggingface.co/litert-community", // Replace with the actual URL
+          styles =
+            TextLinkStyles(
+              style = SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)
+            ),
         )
-      )
     ) {
       append("LiteRT community")
     }
@@ -378,9 +360,7 @@ private fun TaskList(
       verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       // New rel
-      item(key = "newReleaseNotification", span = { GridItemSpan(2) }) {
-        NewReleaseNotification()
-      }
+      item(key = "newReleaseNotification", span = { GridItemSpan(2) }) { NewReleaseNotification() }
 
       // Headline.
       item(key = "headline", span = { GridItemSpan(2) }) {
@@ -388,7 +368,7 @@ private fun TaskList(
           introText,
           textAlign = TextAlign.Center,
           style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-          modifier = Modifier.padding(bottom = 20.dp).padding(horizontal = 16.dp)
+          modifier = Modifier.padding(bottom = 20.dp).padding(horizontal = 16.dp),
         )
       }
 
@@ -396,16 +376,12 @@ private fun TaskList(
         item(key = "loading", span = { GridItemSpan(2) }) {
           Row(
             horizontalArrangement = Arrangement.Center,
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(top = 32.dp)
+            modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
           ) {
             CircularProgressIndicator(
               trackColor = MaterialTheme.colorScheme.surfaceVariant,
               strokeWidth = 3.dp,
-              modifier = Modifier
-                .padding(end = 8.dp)
-                .size(20.dp)
+              modifier = Modifier.padding(end = 8.dp).size(20.dp),
             )
             Text("Loading model list...", style = MaterialTheme.typography.bodyMedium)
           }
@@ -417,17 +393,16 @@ private fun TaskList(
             "Example LLM Use Cases",
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 4.dp)
+            modifier = Modifier.padding(bottom = 4.dp),
           )
         }
 
         items(tasks) { task ->
           TaskCard(
-            sizeFraction = sizeFraction, task = task, onClick = {
-              navigateToTaskScreen(task)
-            }, modifier = Modifier
-              .fillMaxWidth()
-              .aspectRatio(1f)
+            sizeFraction = sizeFraction,
+            task = task,
+            onClick = { navigateToTaskScreen(task) },
+            modifier = Modifier.fillMaxWidth().aspectRatio(1f),
           )
         }
       }
@@ -440,22 +415,23 @@ private fun TaskList(
 
     // Gradient overlay at the bottom.
     Box(
-      modifier = Modifier
-        .fillMaxWidth()
-        .height(screenHeightDp * 0.25f)
-        .background(
-          Brush.verticalGradient(
-            colors = MaterialTheme.customColors.homeBottomGradient,
+      modifier =
+        Modifier.fillMaxWidth()
+          .height(screenHeightDp * 0.25f)
+          .background(
+            Brush.verticalGradient(colors = MaterialTheme.customColors.homeBottomGradient)
           )
-        )
-        .align(Alignment.BottomCenter)
+          .align(Alignment.BottomCenter)
     )
   }
 }
 
 @Composable
 private fun TaskCard(
-  task: Task, onClick: () -> Unit, sizeFraction: Float, modifier: Modifier = Modifier
+  task: Task,
+  onClick: () -> Unit,
+  sizeFraction: Float,
+  modifier: Modifier = Modifier,
 ) {
   val padding =
     (MAX_TASK_CARD_PADDING - MIN_TASK_CARD_PADDING) * sizeFraction + MIN_TASK_CARD_PADDING
@@ -485,14 +461,16 @@ private fun TaskCard(
   }
   var curModelCountLabel by remember { mutableStateOf("") }
   var modelCountLabelVisible by remember { mutableStateOf(true) }
-  val modelCountAlpha: Float by animateFloatAsState(
-    targetValue = if (modelCountLabelVisible) 1f else 0f,
-    animationSpec = tween(durationMillis = TASK_COUNT_ANIMATION_DURATION)
-  )
-  val modelCountScale: Float by animateFloatAsState(
-    targetValue = if (modelCountLabelVisible) 1f else 0.7f,
-    animationSpec = tween(durationMillis = TASK_COUNT_ANIMATION_DURATION)
-  )
+  val modelCountAlpha: Float by
+    animateFloatAsState(
+      targetValue = if (modelCountLabelVisible) 1f else 0f,
+      animationSpec = tween(durationMillis = TASK_COUNT_ANIMATION_DURATION),
+    )
+  val modelCountScale: Float by
+    animateFloatAsState(
+      targetValue = if (modelCountLabelVisible) 1f else 0.7f,
+      animationSpec = tween(durationMillis = TASK_COUNT_ANIMATION_DURATION),
+    )
 
   LaunchedEffect(modelCountLabel) {
     if (curModelCountLabel.isEmpty()) {
@@ -506,20 +484,10 @@ private fun TaskCard(
   }
 
   Card(
-    modifier = modifier
-      .clip(RoundedCornerShape(radius.dp))
-      .clickable(
-        onClick = onClick,
-      ),
-    colors = CardDefaults.cardColors(
-      containerColor = getTaskBgColor(task = task)
-    ),
+    modifier = modifier.clip(RoundedCornerShape(radius.dp)).clickable(onClick = onClick),
+    colors = CardDefaults.cardColors(containerColor = getTaskBgColor(task = task)),
   ) {
-    Column(
-      modifier = Modifier
-        .fillMaxSize()
-        .padding(padding.dp),
-    ) {
+    Column(modifier = Modifier.fillMaxSize().padding(padding.dp)) {
       // Icon.
       TaskIcon(task = task, width = iconSize.dp)
 
@@ -529,10 +497,7 @@ private fun TaskCard(
       Text(
         task.type.label,
         color = MaterialTheme.colorScheme.primary,
-        style = titleMediumNarrow.copy(
-          fontSize = 20.sp,
-          fontWeight = FontWeight.Bold,
-        ),
+        style = titleMediumNarrow.copy(fontSize = 20.sp, fontWeight = FontWeight.Bold),
       )
 
       Spacer(modifier = Modifier.weight(1f))
@@ -542,9 +507,7 @@ private fun TaskCard(
         curModelCountLabel,
         color = MaterialTheme.colorScheme.secondary,
         style = MaterialTheme.typography.bodyMedium,
-        modifier = Modifier
-          .alpha(modelCountAlpha)
-          .scale(modelCountScale),
+        modifier = Modifier.alpha(modelCountAlpha).scale(modelCountScale),
       )
     }
   }
@@ -567,15 +530,13 @@ fun getFileName(context: Context, uri: Uri): String? {
   return null
 }
 
-@Preview
-@Composable
-fun HomeScreenPreview(
-) {
-  GalleryTheme {
-    HomeScreen(
-      modelManagerViewModel = PreviewModelManagerViewModel(context = LocalContext.current),
-      navigateToTaskScreen = {},
-    )
-  }
-}
-
+// @Preview
+// @Composable
+// fun HomeScreenPreview() {
+//   GalleryTheme {
+//     HomeScreen(
+//       modelManagerViewModel = PreviewModelManagerViewModel(context = LocalContext.current),
+//       navigateToTaskScreen = {},
+//     )
+//   }
+// }

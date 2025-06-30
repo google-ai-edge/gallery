@@ -16,6 +16,10 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+// import com.google.ai.edge.gallery.ui.preview.PreviewChatModel
+// import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
+// import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.activity.compose.BackHandler
@@ -55,7 +59,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
@@ -63,13 +66,9 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.PagerScrollState
-import com.google.ai.edge.gallery.ui.preview.PreviewChatModel
-import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
-import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+import kotlin.math.absoluteValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlin.math.absoluteValue
 
 private const val TAG = "AGChatView"
 
@@ -77,8 +76,8 @@ private const val TAG = "AGChatView"
  * A composable that displays a chat interface, allowing users to interact with different models
  * associated with a given task.
  *
- * This composable provides a horizontal pager for switching between models, a model selector
- * for configuring the selected model, and a chat panel for sending and receiving messages. It also
+ * This composable provides a horizontal pager for switching between models, a model selector for
+ * configuring the selected model, and a chat panel for sending and receiving messages. It also
  * manages model initialization, cleanup, and download status, and handles navigation and system
  * back gestures.
  */
@@ -104,8 +103,11 @@ fun ChatView(
   var selectedImage by remember { mutableStateOf<Bitmap?>(null) }
   var showImageViewer by remember { mutableStateOf(false) }
 
-  val pagerState = rememberPagerState(initialPage = task.models.indexOf(selectedModel),
-    pageCount = { task.models.size })
+  val pagerState =
+    rememberPagerState(
+      initialPage = task.models.indexOf(selectedModel),
+      pageCount = { task.models.size },
+    )
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
   var navigatingUp by remember { mutableStateOf(false) }
@@ -138,7 +140,7 @@ fun ChatView(
     val curSelectedModel = task.models[pagerState.settledPage]
     Log.d(
       TAG,
-      "Pager settled on model '${curSelectedModel.name}' from '${selectedModel.name}'. Updating selected model."
+      "Pager settled on model '${curSelectedModel.name}' from '${selectedModel.name}'. Updating selected model.",
     )
     if (curSelectedModel.name != selectedModel.name) {
       modelManagerViewModel.cleanupModel(task = task, model = selectedModel)
@@ -148,52 +150,49 @@ fun ChatView(
 
   LaunchedEffect(pagerState) {
     // Collect from the a snapshotFlow reading the currentPage
-    snapshotFlow { pagerState.currentPage }.collect { page ->
-      Log.d(TAG, "Page changed to $page")
-    }
+    snapshotFlow { pagerState.currentPage }.collect { page -> Log.d(TAG, "Page changed to $page") }
   }
 
   // Trigger scroll sync.
   LaunchedEffect(pagerState) {
     snapshotFlow {
-      PagerScrollState(
-        page = pagerState.currentPage, offset = pagerState.currentPageOffsetFraction
-      )
-    }.collect { scrollState ->
-      modelManagerViewModel.pagerScrollState.value = scrollState
-    }
+        PagerScrollState(
+          page = pagerState.currentPage,
+          offset = pagerState.currentPageOffsetFraction,
+        )
+      }
+      .collect { scrollState -> modelManagerViewModel.pagerScrollState.value = scrollState }
   }
 
   // Handle system's edge swipe.
-  BackHandler {
-    handleNavigateUp()
-  }
+  BackHandler { handleNavigateUp() }
 
-  Scaffold(modifier = modifier, topBar = {
-    ModelPageAppBar(
-      task = task,
-      model = selectedModel,
-      modelManagerViewModel = modelManagerViewModel,
-      canShowResetSessionButton = true,
-      isResettingSession = uiState.isResettingSession,
-      inProgress = uiState.inProgress,
-      modelPreparing = uiState.preparing,
-      onResetSessionClicked = onResetSessionClicked,
-      onConfigChanged = { old, new ->
-        viewModel.addConfigChangedMessage(
-          oldConfigValues = old, newConfigValues = new, model = selectedModel
-        )
-      },
-      onBackClicked = {
-        handleNavigateUp()
-      },
-      onModelSelected = { model ->
-        scope.launch {
-          pagerState.animateScrollToPage(task.models.indexOf(model))
-        }
-      },
-    )
-  }) { innerPadding ->
+  Scaffold(
+    modifier = modifier,
+    topBar = {
+      ModelPageAppBar(
+        task = task,
+        model = selectedModel,
+        modelManagerViewModel = modelManagerViewModel,
+        canShowResetSessionButton = true,
+        isResettingSession = uiState.isResettingSession,
+        inProgress = uiState.inProgress,
+        modelPreparing = uiState.preparing,
+        onResetSessionClicked = onResetSessionClicked,
+        onConfigChanged = { old, new ->
+          viewModel.addConfigChangedMessage(
+            oldConfigValues = old,
+            newConfigValues = new,
+            model = selectedModel,
+          )
+        },
+        onBackClicked = { handleNavigateUp() },
+        onModelSelected = { model ->
+          scope.launch { pagerState.animateScrollToPage(task.models.indexOf(model)) }
+        },
+      )
+    },
+  ) { innerPadding ->
     Box {
       // A horizontal scrollable pager to switch between models.
       HorizontalPager(state = pagerState) { pageIndex ->
@@ -202,17 +201,20 @@ fun ChatView(
 
         // Calculate the alpha of the current page based on how far they are from the center.
         val pageOffset =
-          ((pagerState.currentPage - pageIndex) + pagerState.currentPageOffsetFraction).absoluteValue
+          ((pagerState.currentPage - pageIndex) + pagerState.currentPageOffsetFraction)
+            .absoluteValue
         val curAlpha = 1f - pageOffset.coerceIn(0f, 1f)
 
         Column(
-          modifier = Modifier
-            .padding(innerPadding)
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+          modifier =
+            Modifier.padding(innerPadding)
+              .fillMaxSize()
+              .background(MaterialTheme.colorScheme.surface)
         ) {
           ModelDownloadStatusInfoPanel(
-            model = curSelectedModel, task = task, modelManagerViewModel = modelManagerViewModel
+            model = curSelectedModel,
+            task = task,
+            modelManagerViewModel = modelManagerViewModel,
           )
 
           // The main messages panel.
@@ -230,19 +232,16 @@ fun ChatView(
               onStreamEnd = { averageFps ->
                 viewModel.addMessage(
                   model = curSelectedModel,
-                  message = ChatMessageInfo(content = "Live camera session ended. Average FPS: $averageFps")
+                  message =
+                    ChatMessageInfo(content = "Live camera session ended. Average FPS: $averageFps"),
                 )
               },
-              onStopButtonClicked = {
-                onStopButtonClicked(curSelectedModel)
-              },
+              onStopButtonClicked = { onStopButtonClicked(curSelectedModel) },
               onImageSelected = { bitmap ->
                 selectedImage = bitmap
                 showImageViewer = true
               },
-              modifier = Modifier
-                .weight(1f)
-                .graphicsLayer { alpha = curAlpha },
+              modifier = Modifier.weight(1f).graphicsLayer { alpha = curAlpha },
               chatInputType = chatInputType,
               showStopButtonInInputWhenInProgress = showStopButtonInInputWhenInProgress,
             )
@@ -254,39 +253,43 @@ fun ChatView(
       AnimatedVisibility(
         visible = showImageViewer,
         enter = slideInVertically(initialOffsetY = { fullHeight -> fullHeight }) + fadeIn(),
-        exit = slideOutVertically(
-          targetOffsetY = { fullHeight -> fullHeight },
-        ) + fadeOut()
+        exit = slideOutVertically(targetOffsetY = { fullHeight -> fullHeight }) + fadeOut(),
       ) {
         selectedImage?.let { image ->
           ZoomableBox(
-            modifier = Modifier
-              .fillMaxSize()
-              .padding(top = innerPadding.calculateTopPadding())
-              .background(Color.Black.copy(alpha = 0.95f)),
+            modifier =
+              Modifier.fillMaxSize()
+                .padding(top = innerPadding.calculateTopPadding())
+                .background(Color.Black.copy(alpha = 0.95f))
           ) {
             Image(
-              bitmap = image.asImageBitmap(), contentDescription = "",
-              modifier = modifier
-                .fillMaxSize()
-                .graphicsLayer(
-                  scaleX = scale, scaleY = scale, translationX = offsetX, translationY = offsetY
-                ),
+              bitmap = image.asImageBitmap(),
+              contentDescription = "",
+              modifier =
+                modifier
+                  .fillMaxSize()
+                  .graphicsLayer(
+                    scaleX = scale,
+                    scaleY = scale,
+                    translationX = offsetX,
+                    translationY = offsetY,
+                  ),
               contentScale = ContentScale.Fit,
             )
 
             // Close button.
             IconButton(
-              onClick = {
-                showImageViewer = false
-              }, colors = IconButtonDefaults.iconButtonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-              ), modifier = Modifier.offset(x = (-8).dp, y = 8.dp)
+              onClick = { showImageViewer = false },
+              colors =
+                IconButtonDefaults.iconButtonColors(
+                  containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+              modifier = Modifier.offset(x = (-8).dp, y = 8.dp),
             ) {
               Icon(
                 Icons.Rounded.Close,
                 contentDescription = "",
-                tint = MaterialTheme.colorScheme.primary
+                tint = MaterialTheme.colorScheme.primary,
               )
             }
           }
@@ -296,20 +299,20 @@ fun ChatView(
   }
 }
 
-@Preview
-@Composable
-fun ChatScreenPreview() {
-  GalleryTheme {
-    val context = LocalContext.current
-    val task = TASK_TEST1
-    ChatView(
-      task = task,
-      viewModel = PreviewChatModel(context = context),
-      modelManagerViewModel = PreviewModelManagerViewModel(context = context),
-      onSendMessage = { _, _ -> },
-      onRunAgainClicked = { _, _ -> },
-      onBenchmarkClicked = { _, _, _, _ -> },
-      navigateUp = {},
-    )
-  }
-}
+// @Preview
+// @Composable
+// fun ChatScreenPreview() {
+//   GalleryTheme {
+//     val context = LocalContext.current
+//     val task = TASK_TEST1
+//     ChatView(
+//       task = task,
+//       viewModel = PreviewChatModel(context = context),
+//       modelManagerViewModel = PreviewModelManagerViewModel(context = context),
+//       onSendMessage = { _, _ -> },
+//       onRunAgainClicked = { _, _ -> },
+//       onBenchmarkClicked = { _, _, _, _ -> },
+//       navigateUp = {},
+//     )
+//   }
+// }

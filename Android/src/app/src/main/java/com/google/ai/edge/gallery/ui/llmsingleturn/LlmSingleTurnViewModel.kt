@@ -19,14 +19,16 @@ package com.google.ai.edge.gallery.ui.llmsingleturn
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.ai.edge.gallery.common.processLlmResponse
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.TASK_LLM_PROMPT_LAB
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageBenchmarkLlmResult
 import com.google.ai.edge.gallery.ui.common.chat.Stat
-import com.google.ai.edge.gallery.ui.common.processLlmResponse
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.gallery.ui.llmchat.LlmModelInstance
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,12 +36,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-private const val TAG = "AGLlmSingleTurnViewModel"
+private const val TAG = "AGLlmSingleTurnVM"
 
 data class LlmSingleTurnUiState(
-  /**
-   * Indicates whether the runtime is currently processing a message.
-   */
+  /** Indicates whether the runtime is currently processing a message. */
   val inProgress: Boolean = false,
 
   /**
@@ -57,15 +57,17 @@ data class LlmSingleTurnUiState(
   val selectedPromptTemplateType: PromptTemplateType = PromptTemplateType.entries[0],
 )
 
-private val STATS = listOf(
-  Stat(id = "time_to_first_token", label = "1st token", unit = "sec"),
-  Stat(id = "prefill_speed", label = "Prefill speed", unit = "tokens/s"),
-  Stat(id = "decode_speed", label = "Decode speed", unit = "tokens/s"),
-  Stat(id = "latency", label = "Latency", unit = "sec")
-)
+private val STATS =
+  listOf(
+    Stat(id = "time_to_first_token", label = "1st token", unit = "sec"),
+    Stat(id = "prefill_speed", label = "Prefill speed", unit = "tokens/s"),
+    Stat(id = "decode_speed", label = "Decode speed", unit = "tokens/s"),
+    Stat(id = "latency", label = "Latency", unit = "sec"),
+  )
 
-open class LlmSingleTurnViewModel(val task: Task = TASK_LLM_PROMPT_LAB) : ViewModel() {
-  private val _uiState = MutableStateFlow(createUiState(task = task))
+@HiltViewModel
+class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
+  private val _uiState = MutableStateFlow(createUiState(task = TASK_LLM_PROMPT_LAB))
   val uiState = _uiState.asStateFlow()
 
   fun generateResponse(model: Model, input: String) {
@@ -94,7 +96,8 @@ open class LlmSingleTurnViewModel(val task: Task = TASK_LLM_PROMPT_LAB) : ViewMo
       val start = System.currentTimeMillis()
       var response = ""
       var lastBenchmarkUpdateTs = 0L
-      LlmChatModelHelper.runInference(model = model,
+      LlmChatModelHelper.runInference(
+        model = model,
         input = input,
         resultListener = { partialResult, done ->
           val curTs = System.currentTimeMillis()
@@ -116,7 +119,7 @@ open class LlmSingleTurnViewModel(val task: Task = TASK_LLM_PROMPT_LAB) : ViewMo
           updateResponse(
             model = model,
             promptTemplateType = uiState.value.selectedPromptTemplateType,
-            response = response
+            response = response,
           )
 
           // Update benchmark (with throttling).
@@ -125,21 +128,23 @@ open class LlmSingleTurnViewModel(val task: Task = TASK_LLM_PROMPT_LAB) : ViewMo
             if (decodeSpeed.isNaN()) {
               decodeSpeed = 0f
             }
-            val benchmark = ChatMessageBenchmarkLlmResult(
-              orderedStats = STATS,
-              statValues = mutableMapOf(
-                "prefill_speed" to prefillSpeed,
-                "decode_speed" to decodeSpeed,
-                "time_to_first_token" to timeToFirstToken,
-                "latency" to (curTs - start).toFloat() / 1000f,
-              ),
-              running = !done,
-              latencyMs = -1f,
-            )
+            val benchmark =
+              ChatMessageBenchmarkLlmResult(
+                orderedStats = STATS,
+                statValues =
+                  mutableMapOf(
+                    "prefill_speed" to prefillSpeed,
+                    "decode_speed" to decodeSpeed,
+                    "time_to_first_token" to timeToFirstToken,
+                    "latency" to (curTs - start).toFloat() / 1000f,
+                  ),
+                running = !done,
+                latencyMs = -1f,
+              )
             updateBenchmark(
               model = model,
               promptTemplateType = uiState.value.selectedPromptTemplateType,
-              benchmark = benchmark
+              benchmark = benchmark,
             )
             lastBenchmarkUpdateTs = curTs
           }
@@ -151,7 +156,8 @@ open class LlmSingleTurnViewModel(val task: Task = TASK_LLM_PROMPT_LAB) : ViewMo
         cleanUpListener = {
           setPreparing(false)
           setInProgress(false)
-        })
+        },
+      )
     }
   }
 
@@ -161,7 +167,9 @@ open class LlmSingleTurnViewModel(val task: Task = TASK_LLM_PROMPT_LAB) : ViewMo
     // Clear response.
     updateResponse(model = model, promptTemplateType = promptTemplateType, response = "")
 
-    this._uiState.update { this.uiState.value.copy(selectedPromptTemplateType = promptTemplateType) }
+    this._uiState.update {
+      this.uiState.value.copy(selectedPromptTemplateType = promptTemplateType)
+    }
   }
 
   fun setInProgress(inProgress: Boolean) {
@@ -184,7 +192,9 @@ open class LlmSingleTurnViewModel(val task: Task = TASK_LLM_PROMPT_LAB) : ViewMo
   }
 
   fun updateBenchmark(
-    model: Model, promptTemplateType: PromptTemplateType, benchmark: ChatMessageBenchmarkLlmResult
+    model: Model,
+    promptTemplateType: PromptTemplateType,
+    benchmark: ChatMessageBenchmarkLlmResult,
   ) {
     _uiState.update { currentState ->
       val currentBenchmark = currentState.benchmarkByModel

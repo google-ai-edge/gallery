@@ -18,9 +18,9 @@ package com.google.ai.edge.gallery.ui.common.chat
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import com.google.ai.edge.gallery.common.processLlmResponse
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.ui.common.processLlmResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -28,14 +28,10 @@ import kotlinx.coroutines.flow.update
 private const val TAG = "AGChatViewModel"
 
 data class ChatUiState(
-  /**
-   * Indicates whether the runtime is currently processing a message.
-   */
+  /** Indicates whether the runtime is currently processing a message. */
   val inProgress: Boolean = false,
 
-  /**
-   * Indicates whether the session is being reset.
-   */
+  /** Indicates whether the session is being reset. */
   val isResettingSession: Boolean = false,
 
   /**
@@ -43,14 +39,10 @@ data class ChatUiState(
    */
   val preparing: Boolean = false,
 
-  /**
-   * A map of model names to lists of chat messages.
-   */
+  /** A map of model names to lists of chat messages. */
   val messagesByModel: Map<String, MutableList<ChatMessage>> = mapOf(),
 
-  /**
-   * A map of model names to the currently streaming chat message.
-   */
+  /** A map of model names to the currently streaming chat message. */
   val streamingMessagesByModel: Map<String, ChatMessage> = mapOf(),
 
   /*
@@ -60,10 +52,8 @@ data class ChatUiState(
   val showingStatsByModel: Map<String, MutableSet<ChatMessage>> = mapOf(),
 )
 
-/**
- * ViewModel responsible for managing the chat UI state and handling chat-related operations.
- */
-open class ChatViewModel(val task: Task) : ViewModel() {
+/** ViewModel responsible for managing the chat UI state and handling chat-related operations. */
+abstract class ChatViewModel(val task: Task) : ViewModel() {
   private val _uiState = MutableStateFlow(createUiState(task = task))
   val uiState = _uiState.asStateFlow()
 
@@ -137,12 +127,13 @@ open class ChatViewModel(val task: Task) : ViewModel() {
       val lastMessage = newMessages.last()
       if (lastMessage is ChatMessageText) {
         val newContent = processLlmResponse(response = "${lastMessage.content}${partialContent}")
-        val newLastMessage = ChatMessageText(
-          content = newContent,
-          side = lastMessage.side,
-          latencyMs = latencyMs,
-          accelerator = lastMessage.accelerator,
-        )
+        val newLastMessage =
+          ChatMessageText(
+            content = newContent,
+            side = lastMessage.side,
+            latencyMs = latencyMs,
+            accelerator = lastMessage.accelerator,
+          )
         newMessages.removeAt(newMessages.size - 1)
         newMessages.add(newLastMessage)
       }
@@ -154,7 +145,7 @@ open class ChatViewModel(val task: Task) : ViewModel() {
 
   fun updateLastTextMessageLlmBenchmarkResult(
     model: Model,
-    llmBenchmarkResult: ChatMessageBenchmarkLlmResult
+    llmBenchmarkResult: ChatMessageBenchmarkLlmResult,
   ) {
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
     val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
@@ -215,12 +206,17 @@ open class ChatViewModel(val task: Task) : ViewModel() {
   }
 
   fun addConfigChangedMessage(
-    oldConfigValues: Map<String, Any>, newConfigValues: Map<String, Any>, model: Model
+    oldConfigValues: Map<String, Any>,
+    newConfigValues: Map<String, Any>,
+    model: Model,
   ) {
     Log.d(TAG, "Adding config changed message. Old: ${oldConfigValues}, new: $newConfigValues")
-    val message = ChatMessageConfigValuesChange(
-      model = model, oldValues = oldConfigValues, newValues = newConfigValues
-    )
+    val message =
+      ChatMessageConfigValuesChange(
+        model = model,
+        oldValues = oldConfigValues,
+        newValues = newConfigValues,
+      )
     addMessage(message = message, model = model)
   }
 
@@ -253,8 +249,6 @@ open class ChatViewModel(val task: Task) : ViewModel() {
       }
       messagesByModel[model.name] = messages
     }
-    return ChatUiState(
-      messagesByModel = messagesByModel
-    )
+    return ChatUiState(messagesByModel = messagesByModel)
   }
 }

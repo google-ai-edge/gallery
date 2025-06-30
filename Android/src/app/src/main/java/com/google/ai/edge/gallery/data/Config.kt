@@ -16,11 +16,13 @@
 
 package com.google.ai.edge.gallery.data
 
+import kotlin.math.abs
+
 /**
  * The types of configuration editors available.
  *
- * This enum defines the different UI components used to edit configuration values.
- * Each type corresponds to a specific editor widget, such as a slider or a switch.
+ * This enum defines the different UI components used to edit configuration values. Each type
+ * corresponds to a specific editor widget, such as a slider or a switch.
  */
 enum class ConfigEditorType {
   LABEL,
@@ -29,15 +31,36 @@ enum class ConfigEditorType {
   DROPDOWN,
 }
 
-/**
- * The data types of configuration values.
- */
+/** The data types of configuration values. */
 enum class ValueType {
   INT,
   FLOAT,
   DOUBLE,
   STRING,
   BOOLEAN,
+}
+
+enum class ConfigKey(val label: String) {
+  MAX_TOKENS("Max tokens"),
+  TOPK("TopK"),
+  TOPP("TopP"),
+  TEMPERATURE("Temperature"),
+  DEFAULT_MAX_TOKENS("Default max tokens"),
+  DEFAULT_TOPK("Default TopK"),
+  DEFAULT_TOPP("Default TopP"),
+  DEFAULT_TEMPERATURE("Default temperature"),
+  SUPPORT_IMAGE("Support image"),
+  SUPPORT_AUDIO("Support audio"),
+  MAX_RESULT_COUNT("Max result count"),
+  USE_GPU("Use GPU"),
+  ACCELERATOR("Choose accelerator"),
+  COMPATIBLE_ACCELERATORS("Compatible accelerators"),
+  WARM_UP_ITERATIONS("Warm up iterations"),
+  BENCHMARK_ITERATIONS("Benchmark iterations"),
+  ITERATIONS("Iterations"),
+  THEME("Theme"),
+  NAME("Name"),
+  MODEL_TYPE("Model type"),
 }
 
 /**
@@ -58,18 +81,14 @@ open class Config(
   open val needReinitialization: Boolean = true,
 )
 
-/**
- * Configuration setting for a label.
- */
-class LabelConfig(
-  override val key: ConfigKey,
-  override val defaultValue: String = "",
-) : Config(
-  type = ConfigEditorType.LABEL,
-  key = key,
-  defaultValue = defaultValue,
-  valueType = ValueType.STRING
-)
+/** Configuration setting for a label. */
+class LabelConfig(override val key: ConfigKey, override val defaultValue: String = "") :
+  Config(
+    type = ConfigEditorType.LABEL,
+    key = key,
+    defaultValue = defaultValue,
+    valueType = ValueType.STRING,
+  )
 
 /**
  * Configuration setting for a number slider.
@@ -92,32 +111,122 @@ class NumberSliderConfig(
     valueType = valueType,
   )
 
-/**
- * Configuration setting for a boolean switch.
- */
+/** Configuration setting for a boolean switch. */
 class BooleanSwitchConfig(
   override val key: ConfigKey,
   override val defaultValue: Boolean,
   override val needReinitialization: Boolean = true,
-) : Config(
-  type = ConfigEditorType.BOOLEAN_SWITCH,
-  key = key,
-  defaultValue = defaultValue,
-  valueType = ValueType.BOOLEAN,
-)
+) :
+  Config(
+    type = ConfigEditorType.BOOLEAN_SWITCH,
+    key = key,
+    defaultValue = defaultValue,
+    valueType = ValueType.BOOLEAN,
+  )
 
-/**
- * Configuration setting for a dropdown.
- */
+/** Configuration setting for a dropdown. */
 class SegmentedButtonConfig(
   override val key: ConfigKey,
   override val defaultValue: String,
   val options: List<String>,
   val allowMultiple: Boolean = false,
-) : Config(
-  type = ConfigEditorType.DROPDOWN,
-  key = key,
-  defaultValue = defaultValue,
-  // The emitted value will be comma-separated labels when allowMultiple=true.
-  valueType = ValueType.STRING,
-)
+) :
+  Config(
+    type = ConfigEditorType.DROPDOWN,
+    key = key,
+    defaultValue = defaultValue,
+    // The emitted value will be comma-separated labels when allowMultiple=true.
+    valueType = ValueType.STRING,
+  )
+
+fun convertValueToTargetType(value: Any, valueType: ValueType): Any {
+  return when (valueType) {
+    ValueType.INT ->
+      when (value) {
+        is Int -> value
+        is Float -> value.toInt()
+        is Double -> value.toInt()
+        is String -> value.toIntOrNull() ?: ""
+        is Boolean -> if (value) 1 else 0
+        else -> ""
+      }
+
+    ValueType.FLOAT ->
+      when (value) {
+        is Int -> value.toFloat()
+        is Float -> value
+        is Double -> value.toFloat()
+        is String -> value.toFloatOrNull() ?: ""
+        is Boolean -> if (value) 1f else 0f
+        else -> ""
+      }
+
+    ValueType.DOUBLE ->
+      when (value) {
+        is Int -> value.toDouble()
+        is Float -> value.toDouble()
+        is Double -> value
+        is String -> value.toDoubleOrNull() ?: ""
+        is Boolean -> if (value) 1.0 else 0.0
+        else -> ""
+      }
+
+    ValueType.BOOLEAN ->
+      when (value) {
+        is Int -> value == 0
+        is Boolean -> value
+        is Float -> abs(value) > 1e-6
+        is Double -> abs(value) > 1e-6
+        is String -> value.isNotEmpty()
+        else -> false
+      }
+
+    ValueType.STRING -> value.toString()
+  }
+}
+
+fun createLlmChatConfigs(
+  defaultMaxToken: Int = DEFAULT_MAX_TOKEN,
+  defaultTopK: Int = DEFAULT_TOPK,
+  defaultTopP: Float = DEFAULT_TOPP,
+  defaultTemperature: Float = DEFAULT_TEMPERATURE,
+  accelerators: List<Accelerator> = DEFAULT_ACCELERATORS,
+): List<Config> {
+  return listOf(
+    LabelConfig(key = ConfigKey.MAX_TOKENS, defaultValue = "$defaultMaxToken"),
+    NumberSliderConfig(
+      key = ConfigKey.TOPK,
+      sliderMin = 5f,
+      sliderMax = 40f,
+      defaultValue = defaultTopK.toFloat(),
+      valueType = ValueType.INT,
+    ),
+    NumberSliderConfig(
+      key = ConfigKey.TOPP,
+      sliderMin = 0.0f,
+      sliderMax = 1.0f,
+      defaultValue = defaultTopP,
+      valueType = ValueType.FLOAT,
+    ),
+    NumberSliderConfig(
+      key = ConfigKey.TEMPERATURE,
+      sliderMin = 0.0f,
+      sliderMax = 2.0f,
+      defaultValue = defaultTemperature,
+      valueType = ValueType.FLOAT,
+    ),
+    SegmentedButtonConfig(
+      key = ConfigKey.ACCELERATOR,
+      defaultValue = accelerators[0].label,
+      options = accelerators.map { it.label },
+    ),
+  )
+}
+
+fun getConfigValueString(value: Any, config: Config): String {
+  var strNewValue = "$value"
+  if (config.valueType == ValueType.FLOAT) {
+    strNewValue = "%.2f".format(value)
+  }
+  return strNewValue
+}

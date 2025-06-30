@@ -16,6 +16,8 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,10 +55,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import com.google.ai.edge.gallery.ui.theme.customColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -68,7 +68,7 @@ fun TextInputHistorySheet(
   onHistoryItemClicked: (String) -> Unit,
   onHistoryItemDeleted: (String) -> Unit,
   onHistoryItemsDeleteAll: () -> Unit,
-  onDismissed: () -> Unit
+  onDismissed: () -> Unit,
 ) {
   val sheetState = rememberModalBottomSheetState()
   val scope = rememberCoroutineScope()
@@ -101,7 +101,7 @@ fun TextInputHistorySheet(
           sheetState.hide()
           onDismissed()
         }
-      }
+      },
     )
   }
 }
@@ -112,7 +112,7 @@ private fun SheetContent(
   onHistoryItemClicked: (String) -> Unit,
   onHistoryItemDeleted: (String) -> Unit,
   onHistoryItemsDeleteAll: () -> Unit,
-  onDismissed: () -> Unit
+  onDismissed: () -> Unit,
 ) {
   val scope = rememberCoroutineScope()
   var showConfirmDeleteDialog by remember { mutableStateOf(false) }
@@ -122,47 +122,44 @@ private fun SheetContent(
       Text(
         "Text input history",
         style = MaterialTheme.typography.titleLarge,
-        modifier = Modifier
-          .fillMaxWidth()
-          .padding(8.dp),
-        textAlign = TextAlign.Center
+        modifier = Modifier.fillMaxWidth().padding(8.dp),
+        textAlign = TextAlign.Center,
       )
-      IconButton(modifier = Modifier.padding(end = 12.dp), onClick = {
-        showConfirmDeleteDialog = true
-      }) {
+      IconButton(
+        modifier = Modifier.padding(end = 12.dp),
+        onClick = { showConfirmDeleteDialog = true },
+      ) {
         Icon(Icons.Rounded.DeleteSweep, contentDescription = "")
       }
     }
     LazyColumn(modifier = Modifier.weight(1f)) {
       items(history, key = { it }) { item ->
         Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(MaterialTheme.customColors.agentBubbleBgColor)
-            .clickable {
-              onHistoryItemClicked(item)
-            },
+          modifier =
+            Modifier.fillMaxWidth()
+              .padding(horizontal = 8.dp, vertical = 2.dp)
+              .clip(RoundedCornerShape(24.dp))
+              .background(MaterialTheme.customColors.agentBubbleBgColor)
+              .clickable { onHistoryItemClicked(item) },
           verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(8.dp)
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           Text(
             item,
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 3,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-              .padding(vertical = 16.dp)
-              .padding(start = 16.dp)
-              .weight(1f)
+            modifier = Modifier.padding(vertical = 16.dp).padding(start = 16.dp).weight(1f),
           )
-          IconButton(modifier = Modifier.padding(end = 8.dp), onClick = {
-            scope.launch {
-              delay(400)
-              onHistoryItemDeleted(item)
-            }
-          }) {
+          IconButton(
+            modifier = Modifier.padding(end = 8.dp),
+            onClick = {
+              scope.launch {
+                delay(400)
+                onHistoryItemDeleted(item)
+              }
+            },
+          ) {
             Icon(Icons.Rounded.Delete, contentDescription = "")
           }
         }
@@ -171,18 +168,17 @@ private fun SheetContent(
   }
 
   if (showConfirmDeleteDialog) {
-    AlertDialog(onDismissRequest = { showConfirmDeleteDialog = false },
+    AlertDialog(
+      onDismissRequest = { showConfirmDeleteDialog = false },
       title = { Text("Clear history?") },
-      text = {
-        Text(
-          "Are you sure you want to clear the history? This action cannot be undone."
-        )
-      },
+      text = { Text("Are you sure you want to clear the history? This action cannot be undone.") },
       confirmButton = {
-        Button(onClick = {
-          showConfirmDeleteDialog = false
-          onHistoryItemsDeleteAll()
-        }) {
+        Button(
+          onClick = {
+            showConfirmDeleteDialog = false
+            onHistoryItemsDeleteAll()
+          }
+        ) {
           Text(stringResource(R.string.ok))
         }
       },
@@ -190,25 +186,29 @@ private fun SheetContent(
         TextButton(onClick = { showConfirmDeleteDialog = false }) {
           Text(stringResource(R.string.cancel))
         }
-      })
-  }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun TextInputHistorySheetContentPreview() {
-  GalleryTheme {
-    SheetContent(
-      history = listOf(
-        "Analyze the sentiment of the following Tweets and classify them as POSITIVE, NEGATIVE, or NEUTRAL. \"It's so beautiful today!\"",
-        "I have the ingredients above. Not sure what to cook for lunch. Show me a list of foods with the recipes.",
-        "You are Santa Claus, write a letter back for this kid.",
-        "Generate a list of cookie recipes. Make the outputs in JSON format."
-      ),
-      onHistoryItemClicked = {},
-      onHistoryItemDeleted = {},
-      onHistoryItemsDeleteAll = {},
-      onDismissed = {},
+      },
     )
   }
 }
+
+// @Preview(showBackground = true)
+// @Composable
+// fun TextInputHistorySheetContentPreview() {
+//   GalleryTheme {
+//     SheetContent(
+//       history =
+//         listOf(
+//           "Analyze the sentiment of the following Tweets and classify them as POSITIVE, NEGATIVE,
+// or NEUTRAL. \"It's so beautiful today!\"",
+//           "I have the ingredients above. Not sure what to cook for lunch. Show me a list of foods
+// with the recipes.",
+//           "You are Santa Claus, write a letter back for this kid.",
+//           "Generate a list of cookie recipes. Make the outputs in JSON format.",
+//         ),
+//       onHistoryItemClicked = {},
+//       onHistoryItemDeleted = {},
+//       onHistoryItemsDeleteAll = {},
+//       onDismissed = {},
+//     )
+//   }
+// }

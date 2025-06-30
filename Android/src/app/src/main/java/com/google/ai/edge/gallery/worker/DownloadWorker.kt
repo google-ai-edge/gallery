@@ -22,11 +22,13 @@ import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import com.google.ai.edge.gallery.common.readLaunchInfo
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_APP_TS
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ERROR_MESSAGE
@@ -44,9 +46,6 @@ import com.google.ai.edge.gallery.data.KEY_MODEL_TOTAL_BYTES
 import com.google.ai.edge.gallery.data.KEY_MODEL_UNZIPPED_DIR
 import com.google.ai.edge.gallery.data.KEY_MODEL_URL
 import com.google.ai.edge.gallery.data.KEY_MODEL_VERSION
-import com.google.ai.edge.gallery.ui.common.readLaunchInfo
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -56,17 +55,17 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private const val TAG = "AGDownloadWorker"
 
-data class UrlAndFileName(
-  val url: String,
-  val fileName: String,
-)
+data class UrlAndFileName(val url: String, val fileName: String)
 
 private const val FOREGROUND_NOTIFICATION_CHANNEL_ID = "model_download_channel_foreground"
 private var channelCreated = false
 
+@RequiresApi(Build.VERSION_CODES.O)
 class DownloadWorker(context: Context, params: WorkerParameters) :
   CoroutineWorker(context, params) {
   private val externalFilesDir = context.getExternalFilesDir(null)
@@ -80,14 +79,14 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
   init {
     if (!channelCreated) {
       // Create a notification channel for showing notifications for model downloading progress.
-      val channel = NotificationChannel(
-        FOREGROUND_NOTIFICATION_CHANNEL_ID,
-        "Model Downloading",
-        // Make it silent.
-        NotificationManager.IMPORTANCE_LOW
-      ).apply {
-        description = "Notifications for model downloading"
-      }
+      val channel =
+        NotificationChannel(
+            FOREGROUND_NOTIFICATION_CHANNEL_ID,
+            "Model Downloading",
+            // Make it silent.
+            NotificationManager.IMPORTANCE_LOW,
+          )
+          .apply { description = "Notifications for model downloading" }
       notificationManager.createNotificationChannel(channel)
       channelCreated = true
     }
@@ -128,9 +127,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           allFiles.add(UrlAndFileName(url = fileUrl, fileName = fileName))
           for (index in extraDataFileUrls.indices) {
             allFiles.add(
-              UrlAndFileName(
-                url = extraDataFileUrls[index], fileName = extraDataFileNames[index]
-              )
+              UrlAndFileName(url = extraDataFileUrls[index], fileName = extraDataFileNames[index])
             )
           }
           Log.d(TAG, "About to download: $allFiles")
@@ -150,33 +147,36 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             }
 
             // Prepare output file's dir.
-            val outputDir = File(
-              applicationContext.getExternalFilesDir(null),
-              listOf(modelDir, version).joinToString(separator = File.separator)
-            )
+            val outputDir =
+              File(
+                applicationContext.getExternalFilesDir(null),
+                listOf(modelDir, version).joinToString(separator = File.separator),
+              )
             if (!outputDir.exists()) {
               outputDir.mkdirs()
             }
 
             // Read the file and see if it is partially downloaded.
-            val outputFile = File(
-              applicationContext.getExternalFilesDir(null),
-              listOf(modelDir, version, file.fileName).joinToString(separator = File.separator)
-            )
+            val outputFile =
+              File(
+                applicationContext.getExternalFilesDir(null),
+                listOf(modelDir, version, file.fileName).joinToString(separator = File.separator),
+              )
             val outputFileBytes = outputFile.length()
             if (outputFileBytes > 0) {
               Log.d(
                 TAG,
-                "File '${file.fileName}' partial size: ${outputFileBytes}. Trying to resume download"
+                "File '${file.fileName}' partial size: ${outputFileBytes}. Trying to resume download",
               )
-              connection.setRequestProperty(
-                "Range", "bytes=${outputFileBytes}-"
-              )
+              connection.setRequestProperty("Range", "bytes=${outputFileBytes}-")
             }
             connection.connect()
             Log.d(TAG, "response code: ${connection.responseCode}")
 
-            if (connection.responseCode == HttpURLConnection.HTTP_OK || connection.responseCode == HttpURLConnection.HTTP_PARTIAL) {
+            if (
+              connection.responseCode == HttpURLConnection.HTTP_OK ||
+                connection.responseCode == HttpURLConnection.HTTP_PARTIAL
+            ) {
               val contentRange = connection.getHeaderField("Content-Range")
 
               if (contentRange != null) {
@@ -188,7 +188,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
                 Log.d(
                   TAG,
-                  "Content-Range: $contentRange. Start bytes: ${startByte}, end bytes: $endByte"
+                  "Content-Range: $contentRange. Start bytes: ${startByte}, end bytes: $endByte",
                 )
 
                 downloadedBytes += startByte
@@ -236,15 +236,16 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 }
 
                 setProgress(
-                  Data.Builder().putLong(
-                    KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, downloadedBytes
-                  ).putLong(KEY_MODEL_DOWNLOAD_RATE, (bytesPerMs * 1000).toLong()).putLong(
-                    KEY_MODEL_DOWNLOAD_REMAINING_MS, remainingMs.toLong()
-                  ).build()
+                  Data.Builder()
+                    .putLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, downloadedBytes)
+                    .putLong(KEY_MODEL_DOWNLOAD_RATE, (bytesPerMs * 1000).toLong())
+                    .putLong(KEY_MODEL_DOWNLOAD_REMAINING_MS, remainingMs.toLong())
+                    .build()
                 )
                 setForeground(
                   createForegroundInfo(
-                    progress = (downloadedBytes * 100 / totalBytes).toInt(), modelName = modelName
+                    progress = (downloadedBytes * 100 / totalBytes).toInt(),
+                    modelName = modelName,
                   )
                 )
                 Log.d(TAG, "downloadedBytes: $downloadedBytes")
@@ -262,10 +263,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               setProgress(Data.Builder().putBoolean(KEY_MODEL_START_UNZIPPING, true).build())
 
               // Prepare target dir.
-              val destDir = File(
-                externalFilesDir,
-                listOf(modelDir, version, unzippedDir).joinToString(File.separator)
-              )
+              val destDir =
+                File(
+                  externalFilesDir,
+                  listOf(modelDir, version, unzippedDir).joinToString(File.separator),
+                )
               if (!destDir.exists()) {
                 destDir.mkdirs()
               }
@@ -323,9 +325,9 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
   }
 
   /**
-   * Creates a [ForegroundInfo] object for the download worker's ongoing notification.
-   * This notification is used to keep the worker running in the foreground, indicating
-   * to the user that an active download is in progress.
+   * Creates a [ForegroundInfo] object for the download worker's ongoing notification. This
+   * notification is used to keep the worker running in the foreground, indicating to the user that
+   * an active download is in progress.
    */
   private fun createForegroundInfo(progress: Int, modelName: String? = null): ForegroundInfo {
     // Create a notification for the foreground service
@@ -337,21 +339,17 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
     val notification =
       NotificationCompat.Builder(applicationContext, FOREGROUND_NOTIFICATION_CHANNEL_ID)
-        .setContentTitle(title).setContentText(content)
+        .setContentTitle(title)
+        .setContentText(content)
         .setSmallIcon(android.R.drawable.ic_dialog_info)
         .setOngoing(true) // Makes the notification non-dismissable
         .setProgress(100, progress, false) // Show progress
         .build()
 
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      ForegroundInfo(
-        notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-      )
+      ForegroundInfo(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
     } else {
-      ForegroundInfo(
-        notificationId,
-        notification,
-      )
+      ForegroundInfo(notificationId, notification)
     }
   }
 }

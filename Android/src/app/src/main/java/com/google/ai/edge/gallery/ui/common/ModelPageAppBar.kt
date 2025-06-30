@@ -53,7 +53,7 @@ import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.ui.common.chat.ConfigDialog
+import com.google.ai.edge.gallery.data.convertValueToTargetType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 
@@ -71,54 +71,54 @@ fun ModelPageAppBar(
   isResettingSession: Boolean = false,
   onResetSessionClicked: (Model) -> Unit = {},
   canShowResetSessionButton: Boolean = false,
-  onConfigChanged: (oldConfigValues: Map<String, Any>, newConfigValues: Map<String, Any>) -> Unit = { _, _ -> },
+  onConfigChanged: (oldConfigValues: Map<String, Any>, newConfigValues: Map<String, Any>) -> Unit =
+    { _, _ ->
+    },
 ) {
   var showConfigDialog by remember { mutableStateOf(false) }
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val context = LocalContext.current
   val curDownloadStatus = modelManagerUiState.modelDownloadStatus[model.name]
-  val modelInitializationStatus =
-    modelManagerUiState.modelInitializationStatus[model.name]
+  val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[model.name]
 
-  CenterAlignedTopAppBar(title = {
-    Column(
-      horizontalAlignment = Alignment.CenterHorizontally,
-      verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-      // Task type.
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+  CenterAlignedTopAppBar(
+    title = {
+      Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
       ) {
-        Icon(
-          task.icon ?: ImageVector.vectorResource(task.iconVectorResourceId!!),
-          tint = getTaskIconColor(task = task),
-          modifier = Modifier.size(16.dp),
-          contentDescription = "",
-        )
-        Text(
-          task.type.label,
-          style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-          color = getTaskIconColor(task = task)
+        // Task type.
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+          Icon(
+            task.icon ?: ImageVector.vectorResource(task.iconVectorResourceId!!),
+            tint = getTaskIconColor(task = task),
+            modifier = Modifier.size(16.dp),
+            contentDescription = "",
+          )
+          Text(
+            task.type.label,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = getTaskIconColor(task = task),
+          )
+        }
+
+        // Model chips pager.
+        ModelPickerChipsPager(
+          task = task,
+          initialModel = model,
+          modelManagerViewModel = modelManagerViewModel,
+          onModelSelected = onModelSelected,
         )
       }
-
-      // Model chips pager.
-      ModelPickerChipsPager(
-        task = task,
-        initialModel = model,
-        modelManagerViewModel = modelManagerViewModel,
-        onModelSelected = onModelSelected,
-      )
-    }
-  }, modifier = modifier,
+    },
+    modifier = modifier,
     // The back button.
     navigationIcon = {
       IconButton(onClick = onBackClicked) {
-        Icon(
-          imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-          contentDescription = "",
-        )
+        Icon(imageVector = Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "")
       }
     },
     // The config button for the model (if existed).
@@ -136,19 +136,16 @@ fun ModelPageAppBar(
         if (showConfigButton) {
           val enableConfigButton = !isModelInitializing && !inProgress
           IconButton(
-            onClick = {
-              showConfigDialog = true
-            },
+            onClick = { showConfigDialog = true },
             enabled = enableConfigButton,
-            modifier = Modifier
-              .offset(x = configButtonOffset)
-              .alpha(if (!enableConfigButton) 0.5f else 1f)
+            modifier =
+              Modifier.offset(x = configButtonOffset).alpha(if (!enableConfigButton) 0.5f else 1f),
           ) {
             Icon(
               imageVector = Icons.Rounded.Tune,
               contentDescription = "",
               tint = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.size(20.dp)
+              modifier = Modifier.size(20.dp),
             )
           }
         }
@@ -157,39 +154,35 @@ fun ModelPageAppBar(
             CircularProgressIndicator(
               trackColor = MaterialTheme.colorScheme.surfaceVariant,
               strokeWidth = 2.dp,
-              modifier = Modifier.size(16.dp)
+              modifier = Modifier.size(16.dp),
             )
           } else {
             val enableResetButton = !isModelInitializing && !modelPreparing
             IconButton(
-              onClick = {
-                onResetSessionClicked(model)
-              },
+              onClick = { onResetSessionClicked(model) },
               enabled = enableResetButton,
-              modifier = Modifier
-                .alpha(if (!enableResetButton) 0.5f else 1f)
+              modifier = Modifier.alpha(if (!enableResetButton) 0.5f else 1f),
             ) {
               Box(
-                modifier = Modifier
-                  .size(32.dp)
-                  .clip(CircleShape)
-                  .background(MaterialTheme.colorScheme.surfaceContainer),
-                contentAlignment = Alignment.Center
+                modifier =
+                  Modifier.size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainer),
+                contentAlignment = Alignment.Center,
               ) {
                 Icon(
                   imageVector = Icons.Rounded.MapsUgc,
                   contentDescription = "",
                   tint = MaterialTheme.colorScheme.primary,
-                  modifier = Modifier
-                    .size(20.dp)
+                  modifier = Modifier.size(20.dp),
                 )
               }
             }
           }
         }
       }
-
-    })
+    },
+  )
 
   // Config dialog.
   if (showConfigDialog) {
@@ -208,12 +201,16 @@ fun ModelPageAppBar(
         var needReinitialization = false
         for (config in model.configs) {
           val key = config.key.label
-          val oldValue = convertValueToTargetType(
-            value = model.configValues.getValue(key), valueType = config.valueType
-          )
-          val newValue = convertValueToTargetType(
-            value = curConfigValues.getValue(key), valueType = config.valueType
-          )
+          val oldValue =
+            convertValueToTargetType(
+              value = model.configValues.getValue(key),
+              valueType = config.valueType,
+            )
+          val newValue =
+            convertValueToTargetType(
+              value = curConfigValues.getValue(key),
+              valueType = config.valueType,
+            )
           if (oldValue != newValue) {
             same = false
             if (config.needReinitialization) {
@@ -233,7 +230,10 @@ fun ModelPageAppBar(
         // Force to re-initialize the model with the new configs.
         if (needReinitialization) {
           modelManagerViewModel.initializeModel(
-            context = context, task = task, model = model, force = true
+            context = context,
+            task = task,
+            model = model,
+            force = true,
           )
         }
 

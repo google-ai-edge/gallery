@@ -16,6 +16,11 @@
 
 package com.google.ai.edge.gallery.ui.common
 
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
+// import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,7 +33,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -39,34 +43,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.modelitem.StatusIcon
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
-import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
 
 @Composable
 fun ModelPicker(
   task: Task,
   modelManagerViewModel: ModelManagerViewModel,
-  onModelSelected: (Model) -> Unit
+  onModelSelected: (Model) -> Unit,
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
 
   Column(modifier = Modifier.padding(bottom = 8.dp)) {
     // Title
     Row(
-      modifier = Modifier
-        .padding(horizontal = 16.dp)
-        .padding(top = 4.dp, bottom = 4.dp),
+      modifier = Modifier.padding(horizontal = 16.dp).padding(top = 4.dp, bottom = 4.dp),
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -90,51 +87,47 @@ fun ModelPicker(
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
-        modifier = Modifier
-          .fillMaxWidth()
-          .clickable {
-            onModelSelected(model)
-          }
-          .background(if (selected) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent)
-          .padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier =
+          Modifier.fillMaxWidth()
+            .clickable { onModelSelected(model) }
+            .background(
+              if (selected) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent
+            )
+            .padding(horizontal = 16.dp, vertical = 8.dp),
       ) {
         Spacer(modifier = Modifier.width(24.dp))
         Column(modifier = Modifier.weight(1f)) {
           Text(model.name, style = MaterialTheme.typography.bodyMedium)
           Row(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
           ) {
             StatusIcon(downloadStatus = modelManagerUiState.modelDownloadStatus[model.name])
             Text(
               model.sizeInBytes.humanReadableSize(),
               color = MaterialTheme.colorScheme.secondary,
-              style = labelSmallNarrow.copy(lineHeight = 10.sp)
+              style = labelSmallNarrow.copy(lineHeight = 10.sp),
             )
           }
         }
         if (selected) {
-          Icon(
-            Icons.Filled.CheckCircle,
-            modifier = Modifier.size(16.dp),
-            contentDescription = ""
-          )
+          Icon(Icons.Filled.CheckCircle, modifier = Modifier.size(16.dp), contentDescription = "")
         }
       }
     }
   }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun ModelPickerPreview() {
-  val context = LocalContext.current
+// @Preview(showBackground = true)
+// @Composable
+// fun ModelPickerPreview() {
+//   val context = LocalContext.current
 
-  GalleryTheme {
-    ModelPicker(
-      task = TASK_TEST1,
-      modelManagerViewModel = PreviewModelManagerViewModel(context = context),
-      onModelSelected = {},
-    )
-  }
-}
+//   GalleryTheme {
+//     ModelPicker(
+//       task = TASK_TEST1,
+//       modelManagerViewModel = PreviewModelManagerViewModel(context = context),
+//       onModelSelected = {},
+//     )
+//   }
+// }

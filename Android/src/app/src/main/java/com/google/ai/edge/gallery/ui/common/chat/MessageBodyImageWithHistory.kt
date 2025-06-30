@@ -43,7 +43,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun MessageBodyImageWithHistory(
   message: ChatMessageImageWithHistory,
-  imageHistoryCurIndex: MutableIntState
+  imageHistoryCurIndex: MutableIntState,
 ) {
   val prevMessage: MutableState<ChatMessageImageWithHistory?> = remember { mutableStateOf(null) }
 
@@ -68,15 +68,15 @@ fun MessageBodyImageWithHistory(
     Image(
       bitmap = curImageBitmap,
       contentDescription = "",
-      modifier = Modifier
-        .height(imageHeight.dp)
-        .width(imageWidth.dp)
-        .pointerInput(Unit) {
-          detectHorizontalDragGestures(onDragStart = {
-            value = 0f
-            savedIndex = imageHistoryCurIndex.intValue
-          }) { _, dragAmount ->
-            value += (dragAmount / 20f)// Adjust sensitivity here
+      modifier =
+        Modifier.height(imageHeight.dp).width(imageWidth.dp).pointerInput(Unit) {
+          detectHorizontalDragGestures(
+            onDragStart = {
+              value = 0f
+              savedIndex = imageHistoryCurIndex.intValue
+            }
+          ) { _, dragAmount ->
+            value += (dragAmount / 20f) // Adjust sensitivity here
             imageHistoryCurIndex.intValue = (savedIndex + value).toInt()
             if (imageHistoryCurIndex.intValue < 0) {
               imageHistoryCurIndex.intValue = 0

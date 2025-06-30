@@ -17,42 +17,47 @@
 package com.google.ai.edge.gallery.ui.modelmanager
 
 import android.content.Context
-import android.net.Uri
 import android.util.Log
 import androidx.activity.result.ActivityResult
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.ai.edge.gallery.AppLifecycleProvider
+import com.google.ai.edge.gallery.common.getJsonResponse
 import com.google.ai.edge.gallery.data.AGWorkInfo
 import com.google.ai.edge.gallery.data.Accelerator
-import com.google.ai.edge.gallery.data.AccessTokenData
 import com.google.ai.edge.gallery.data.Config
-import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.DownloadRepository
 import com.google.ai.edge.gallery.data.EMPTY_MODEL
 import com.google.ai.edge.gallery.data.IMPORTS_DIR
-import com.google.ai.edge.gallery.data.ImportedModelInfo
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelAllowlist
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.TASKS
+import com.google.ai.edge.gallery.data.TASK_LLM_ASK_AUDIO
 import com.google.ai.edge.gallery.data.TASK_LLM_ASK_IMAGE
 import com.google.ai.edge.gallery.data.TASK_LLM_CHAT
 import com.google.ai.edge.gallery.data.TASK_LLM_PROMPT_LAB
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.TaskType
-import com.google.ai.edge.gallery.data.ValueType
+import com.google.ai.edge.gallery.data.createLlmChatConfigs
 import com.google.ai.edge.gallery.data.getModelByName
+import com.google.ai.edge.gallery.data.processTasks
+import com.google.ai.edge.gallery.proto.AccessTokenData
+import com.google.ai.edge.gallery.proto.ImportedModel
+import com.google.ai.edge.gallery.proto.Theme
 import com.google.ai.edge.gallery.ui.common.AuthConfig
-import com.google.ai.edge.gallery.ui.common.convertValueToTargetType
-import com.google.ai.edge.gallery.ui.common.getJsonResponse
-import com.google.ai.edge.gallery.ui.common.processTasks
-import com.google.ai.edge.gallery.ui.imageclassification.ImageClassificationModelHelper
-import com.google.ai.edge.gallery.ui.imagegeneration.ImageGenerationModelHelper
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
-import com.google.ai.edge.gallery.ui.llmchat.createLlmChatConfigs
-import com.google.ai.edge.gallery.ui.textclassification.TextClassificationModelHelper
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,16 +65,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.json.Json
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationRequest
 import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
 import net.openid.appauth.ResponseTypeValues
-import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 
 private const val TAG = "AGModelManagerViewModel"
 private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
@@ -78,82 +78,73 @@ private const val MODEL_ALLOWLIST_URL =
 private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
 
 data class ModelInitializationStatus(
-  val status: ModelInitializationStatusType, var error: String = ""
+  val status: ModelInitializationStatusType,
+  var error: String = "",
 )
 
 enum class ModelInitializationStatusType {
-  NOT_INITIALIZED, INITIALIZING, INITIALIZED, ERROR
+  NOT_INITIALIZED,
+  INITIALIZING,
+  INITIALIZED,
+  ERROR,
 }
 
 enum class TokenStatus {
-  NOT_STORED, EXPIRED, NOT_EXPIRED,
+  NOT_STORED,
+  EXPIRED,
+  NOT_EXPIRED,
 }
 
 enum class TokenRequestResultType {
-  FAILED, SUCCEEDED, USER_CANCELLED
+  FAILED,
+  SUCCEEDED,
+  USER_CANCELLED,
 }
 
-data class TokenStatusAndData(
-  val status: TokenStatus,
-  val data: AccessTokenData?,
-)
+data class TokenStatusAndData(val status: TokenStatus, val data: AccessTokenData?)
 
-data class TokenRequestResult(
-  val status: TokenRequestResultType, val errorMessage: String? = null
-)
+data class TokenRequestResult(val status: TokenRequestResultType, val errorMessage: String? = null)
 
 data class ModelManagerUiState(
-  /**
-   * A list of tasks available in the application.
-   */
+  /** A list of tasks available in the application. */
   val tasks: List<Task>,
 
-  /**
-   * A map that tracks the download status of each model, indexed by model name.
-   */
+  /** A map that tracks the download status of each model, indexed by model name. */
   val modelDownloadStatus: Map<String, ModelDownloadStatus>,
 
-  /**
-   * A map that tracks the initialization status of each model, indexed by model name.
-   */
+  /** A map that tracks the initialization status of each model, indexed by model name. */
   val modelInitializationStatus: Map<String, ModelInitializationStatus>,
 
-  /**
-   * Whether the app is loading and processing the model allowlist.
-   */
+  /** Whether the app is loading and processing the model allowlist. */
   val loadingModelAllowlist: Boolean = true,
 
   /** The error message when loading the model allowlist. */
   val loadingModelAllowlistError: String = "",
 
-  /**
-   * The currently selected model.
-   */
+  /** The currently selected model. */
   val selectedModel: Model = EMPTY_MODEL,
 
-  /**
-   * The history of text inputs entered by the user.
-   */
+  /** The history of text inputs entered by the user. */
   val textInputHistory: List<String> = listOf(),
 )
 
-data class PagerScrollState(
-  val page: Int = 0,
-  val offset: Float = 0f,
-)
+data class PagerScrollState(val page: Int = 0, val offset: Float = 0f)
 
 /**
  * ViewModel responsible for managing models, their download status, and initialization.
  *
- * This ViewModel handles model-related operations such as downloading, deleting, initializing,
- * and cleaning up models. It also manages the UI state for model management, including the
- * list of tasks, models, download statuses, and initialization statuses.
+ * This ViewModel handles model-related operations such as downloading, deleting, initializing, and
+ * cleaning up models. It also manages the UI state for model management, including the list of
+ * tasks, models, download statuses, and initialization statuses.
  */
-@OptIn(ExperimentalSerializationApi::class)
-open class ModelManagerViewModel(
+@HiltViewModel
+open class ModelManagerViewModel
+@Inject
+constructor(
   private val downloadRepository: DownloadRepository,
   private val dataStoreRepository: DataStoreRepository,
-  context: Context,
+  private val lifecycleProvider: AppLifecycleProvider,
+  @ApplicationContext private val context: Context,
 ) : ViewModel() {
   private val externalFilesDir = context.getExternalFilesDir(null)
   private val inProgressWorkInfos: List<AGWorkInfo> =
@@ -182,16 +173,15 @@ open class ModelManagerViewModel(
   fun downloadModel(task: Task, model: Model) {
     // Update status.
     setDownloadStatus(
-      curModel = model, status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS)
+      curModel = model,
+      status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
     )
 
     // Delete the model files first.
     deleteModel(task = task, model = model)
 
     // Start to send download request.
-    downloadRepository.downloadModel(
-      model, onStatusUpdated = this::setDownloadStatus
-    )
+    downloadRepository.downloadModel(model, onStatusUpdated = this::setDownloadStatus)
   }
 
   fun cancelDownloadModel(task: Task, model: Model) {
@@ -222,7 +212,7 @@ open class ModelManagerViewModel(
       }
       curModelDownloadStatus.remove(model.name)
 
-      // Update preference.
+      // Update data store.
       val importedModels = dataStoreRepository.readImportedModels().toMutableList()
       val importedModelIndex = importedModels.indexOfFirst { it.fileName == model.name }
       if (importedModelIndex >= 0) {
@@ -230,16 +220,22 @@ open class ModelManagerViewModel(
       }
       dataStoreRepository.saveImportedModels(importedModels = importedModels)
     }
-    val newUiState = uiState.value.copy(
-      modelDownloadStatus = curModelDownloadStatus, tasks = uiState.value.tasks.toList()
-    )
+    val newUiState =
+      uiState.value.copy(
+        modelDownloadStatus = curModelDownloadStatus,
+        tasks = uiState.value.tasks.toList(),
+      )
     _uiState.update { newUiState }
   }
 
   fun initializeModel(context: Context, task: Task, model: Model, force: Boolean = false) {
     viewModelScope.launch(Dispatchers.Default) {
       // Skip if initialized already.
-      if (!force && uiState.value.modelInitializationStatus[model.name]?.status == ModelInitializationStatusType.INITIALIZED) {
+      if (
+        !force &&
+          uiState.value.modelInitializationStatus[model.name]?.status ==
+            ModelInitializationStatusType.INITIALIZED
+      ) {
         Log.d(TAG, "Model '${model.name}' has been initialized. Skipping.")
         return@launch
       }
@@ -264,7 +260,8 @@ open class ModelManagerViewModel(
         delay(500)
         if (model.instance == null && model.initializing) {
           updateModelInitializationStatus(
-            model = model, status = ModelInitializationStatusType.INITIALIZING
+            model = model,
+            status = ModelInitializationStatusType.INITIALIZING,
           )
         }
       }
@@ -291,39 +288,11 @@ open class ModelManagerViewModel(
         }
       }
       when (task.type) {
-        TaskType.TEXT_CLASSIFICATION -> TextClassificationModelHelper.initialize(
-          context = context,
-          model = model,
-          onDone = onDone,
-        )
-
-        TaskType.IMAGE_CLASSIFICATION -> ImageClassificationModelHelper.initialize(
-          context = context,
-          model = model,
-          onDone = onDone,
-        )
-
-        TaskType.LLM_CHAT -> LlmChatModelHelper.initialize(
-          context = context,
-          model = model,
-          onDone = onDone,
-        )
-
-        TaskType.LLM_PROMPT_LAB -> LlmChatModelHelper.initialize(
-          context = context,
-          model = model,
-          onDone = onDone,
-        )
-
-        TaskType.LLM_ASK_IMAGE -> LlmChatModelHelper.initialize(
-          context = context,
-          model = model,
-          onDone = onDone,
-        )
-
-        TaskType.IMAGE_GENERATION -> ImageGenerationModelHelper.initialize(
-          context = context, model = model, onDone = onDone
-        )
+        TaskType.LLM_CHAT,
+        TaskType.LLM_ASK_IMAGE,
+        TaskType.LLM_ASK_AUDIO,
+        TaskType.LLM_PROMPT_LAB ->
+          LlmChatModelHelper.initialize(context = context, model = model, onDone = onDone)
 
         TaskType.TEST_TASK_1 -> {}
         TaskType.TEST_TASK_2 -> {}
@@ -336,19 +305,19 @@ open class ModelManagerViewModel(
       model.cleanUpAfterInit = false
       Log.d(TAG, "Cleaning up model '${model.name}'...")
       when (task.type) {
-        TaskType.TEXT_CLASSIFICATION -> TextClassificationModelHelper.cleanUp(model = model)
-        TaskType.IMAGE_CLASSIFICATION -> ImageClassificationModelHelper.cleanUp(model = model)
-        TaskType.LLM_CHAT -> LlmChatModelHelper.cleanUp(model = model)
-        TaskType.LLM_PROMPT_LAB -> LlmChatModelHelper.cleanUp(model = model)
-        TaskType.LLM_ASK_IMAGE -> LlmChatModelHelper.cleanUp(model = model)
-        TaskType.IMAGE_GENERATION -> ImageGenerationModelHelper.cleanUp(model = model)
+        TaskType.LLM_CHAT,
+        TaskType.LLM_PROMPT_LAB,
+        TaskType.LLM_ASK_IMAGE,
+        TaskType.LLM_ASK_AUDIO -> LlmChatModelHelper.cleanUp(model = model)
+
         TaskType.TEST_TASK_1 -> {}
         TaskType.TEST_TASK_2 -> {}
       }
       model.instance = null
       model.initializing = false
       updateModelInitializationStatus(
-        model = model, status = ModelInitializationStatusType.NOT_INITIALIZED
+        model = model,
+        status = ModelInitializationStatusType.NOT_INITIALIZED,
       )
     } else {
       // When model is being initialized and we are trying to clean it up at same time, we mark it
@@ -366,7 +335,10 @@ open class ModelManagerViewModel(
     val newUiState = uiState.value.copy(modelDownloadStatus = curModelDownloadStatus)
 
     // Delete downloaded file if status is failed or not_downloaded.
-    if (status.status == ModelDownloadStatusType.FAILED || status.status == ModelDownloadStatusType.NOT_DOWNLOADED) {
+    if (
+      status.status == ModelDownloadStatusType.FAILED ||
+        status.status == ModelDownloadStatusType.NOT_DOWNLOADED
+    ) {
       deleteFileFromExternalFilesDir(curModel.downloadFileName)
     }
 
@@ -413,12 +385,12 @@ open class ModelManagerViewModel(
     dataStoreRepository.saveTextInputHistory(_uiState.value.textInputHistory)
   }
 
-  fun readThemeOverride(): String {
-    return dataStoreRepository.readThemeOverride()
+  fun readThemeOverride(): Theme {
+    return dataStoreRepository.readTheme()
   }
 
-  fun saveThemeOverride(theme: String) {
-    dataStoreRepository.saveThemeOverride(theme = theme)
+  fun saveThemeOverride(theme: Theme) {
+    dataStoreRepository.saveTheme(theme = theme)
   }
 
   fun getModelUrlResponse(model: Model, accessToken: String? = null): Int {
@@ -426,9 +398,7 @@ open class ModelManagerViewModel(
       val url = URL(model.url)
       val connection = url.openConnection() as HttpURLConnection
       if (accessToken != null) {
-        connection.setRequestProperty(
-          "Authorization", "Bearer $accessToken"
-        )
+        connection.setRequestProperty("Authorization", "Bearer $accessToken")
       }
       connection.connect()
 
@@ -440,20 +410,25 @@ open class ModelManagerViewModel(
     }
   }
 
-  fun addImportedLlmModel(info: ImportedModelInfo) {
+  fun addImportedLlmModel(info: ImportedModel) {
     Log.d(TAG, "adding imported llm model: $info")
 
     // Create model.
     val model = createModelFromImportedModelInfo(info = info)
 
-    for (task in listOf(TASK_LLM_ASK_IMAGE, TASK_LLM_PROMPT_LAB, TASK_LLM_CHAT)) {
+    for (task in
+      listOf(TASK_LLM_ASK_IMAGE, TASK_LLM_ASK_AUDIO, TASK_LLM_PROMPT_LAB, TASK_LLM_CHAT)) {
       // Remove duplicated imported model if existed.
       val modelIndex = task.models.indexOfFirst { info.fileName == it.name && it.imported }
       if (modelIndex >= 0) {
         Log.d(TAG, "duplicated imported model found in task. Removing it first")
         task.models.removeAt(modelIndex)
       }
-      if (task == TASK_LLM_ASK_IMAGE && model.llmSupportImage || task != TASK_LLM_ASK_IMAGE) {
+      if (
+        (task == TASK_LLM_ASK_IMAGE && model.llmSupportImage) ||
+          (task == TASK_LLM_ASK_AUDIO && model.llmSupportAudio) ||
+          (task != TASK_LLM_ASK_IMAGE && task != TASK_LLM_ASK_AUDIO)
+      ) {
         task.models.add(model)
       }
       task.updateTrigger.value = System.currentTimeMillis()
@@ -462,11 +437,12 @@ open class ModelManagerViewModel(
     // Add initial status and states.
     val modelDownloadStatus = uiState.value.modelDownloadStatus.toMutableMap()
     val modelInstances = uiState.value.modelInitializationStatus.toMutableMap()
-    modelDownloadStatus[model.name] = ModelDownloadStatus(
-      status = ModelDownloadStatusType.SUCCEEDED,
-      receivedBytes = info.fileSize,
-      totalBytes = info.fileSize
-    )
+    modelDownloadStatus[model.name] =
+      ModelDownloadStatus(
+        status = ModelDownloadStatusType.SUCCEEDED,
+        receivedBytes = info.fileSize,
+        totalBytes = info.fileSize,
+      )
     modelInstances[model.name] =
       ModelInitializationStatus(status = ModelInitializationStatusType.NOT_INITIALIZED)
 
@@ -475,15 +451,15 @@ open class ModelManagerViewModel(
       uiState.value.copy(
         tasks = uiState.value.tasks.toList(),
         modelDownloadStatus = modelDownloadStatus,
-        modelInitializationStatus = modelInstances
+        modelInitializationStatus = modelInstances,
       )
     }
 
-    // Add to preference storage.
+    // Add to data store.
     val importedModels = dataStoreRepository.readImportedModels().toMutableList()
     val importedModelIndex = importedModels.indexOfFirst { info.fileName == it.fileName }
     if (importedModelIndex >= 0) {
-      Log.d(TAG, "duplicated imported model found in preference storage. Removing it first")
+      Log.d(TAG, "duplicated imported model found in data store. Removing it first")
       importedModels.removeAt(importedModelIndex)
     }
     importedModels.add(info)
@@ -505,7 +481,7 @@ open class ModelManagerViewModel(
       val expirationTs = tokenData.expiresAtMs - 5 * 60
       Log.d(
         TAG,
-        "Checking whether token has expired or not. Current ts: $curTs, expires at: $expirationTs"
+        "Checking whether token has expired or not. Current ts: $curTs, expires at: $expirationTs",
       )
       if (curTs >= expirationTs) {
         Log.d(TAG, "Token expired!")
@@ -524,11 +500,13 @@ open class ModelManagerViewModel(
 
   fun getAuthorizationRequest(): AuthorizationRequest {
     return AuthorizationRequest.Builder(
-      AuthConfig.authServiceConfig,
-      AuthConfig.clientId,
-      ResponseTypeValues.CODE,
-      Uri.parse(AuthConfig.redirectUri)
-    ).setScope("read-repos").build()
+        AuthConfig.authServiceConfig,
+        AuthConfig.clientId,
+        ResponseTypeValues.CODE,
+        AuthConfig.redirectUri.toUri(),
+      )
+      .setScope("read-repos")
+      .build()
   }
 
   fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit) {
@@ -536,7 +514,8 @@ open class ModelManagerViewModel(
     if (dataIntent == null) {
       onTokenRequested(
         TokenRequestResult(
-          status = TokenRequestResultType.FAILED, errorMessage = "Empty auth result"
+          status = TokenRequestResultType.FAILED,
+          errorMessage = "Empty auth result",
         )
       )
       return
@@ -549,9 +528,9 @@ open class ModelManagerViewModel(
       response?.authorizationCode != null -> {
         // Authorization successful, exchange the code for tokens
         var errorMessage: String? = null
-        authService.performTokenRequest(
-          response.createTokenExchangeRequest()
-        ) { tokenResponse, tokenEx ->
+        authService.performTokenRequest(response.createTokenExchangeRequest()) {
+          tokenResponse,
+          tokenEx ->
           if (tokenResponse != null) {
             if (tokenResponse.accessToken == null) {
               errorMessage = "Empty access token"
@@ -565,7 +544,7 @@ open class ModelManagerViewModel(
               saveAccessToken(
                 accessToken = tokenResponse.accessToken!!,
                 refreshToken = tokenResponse.refreshToken!!,
-                expiresAt = tokenResponse.accessTokenExpirationTime!!
+                expiresAt = tokenResponse.accessTokenExpirationTime!!,
               )
               curAccessToken = tokenResponse.accessToken!!
               Log.d(TAG, "Token successfully saved.")
@@ -580,7 +559,8 @@ open class ModelManagerViewModel(
           } else {
             onTokenRequested(
               TokenRequestResult(
-                status = TokenRequestResultType.FAILED, errorMessage = errorMessage
+                status = TokenRequestResultType.FAILED,
+                errorMessage = errorMessage,
               )
             )
           }
@@ -590,18 +570,16 @@ open class ModelManagerViewModel(
       exception != null -> {
         onTokenRequested(
           TokenRequestResult(
-            status = if (exception.message == "User cancelled flow") TokenRequestResultType.USER_CANCELLED else TokenRequestResultType.FAILED,
-            errorMessage = "${exception.message}"
+            status =
+              if (exception.message == "User cancelled flow") TokenRequestResultType.USER_CANCELLED
+              else TokenRequestResultType.FAILED,
+            errorMessage = exception.message,
           )
         )
       }
 
       else -> {
-        onTokenRequested(
-          TokenRequestResult(
-            status = TokenRequestResultType.USER_CANCELLED,
-          )
-        )
+        onTokenRequested(TokenRequestResult(status = TokenRequestResultType.USER_CANCELLED))
       }
     }
   }
@@ -625,9 +603,7 @@ open class ModelManagerViewModel(
     // Those models are the ones that have not finished downloading.
     val models: MutableList<Model> = mutableListOf()
     for (info in inProgressWorkInfos) {
-      getModelByName(info.modelName)?.let { model ->
-        models.add(model)
-      }
+      getModelByName(info.modelName)?.let { model -> models.add(model) }
     }
 
     // Cancel all pending downloads for the retrieved models.
@@ -641,12 +617,16 @@ open class ModelManagerViewModel(
           for (info in inProgressWorkInfos) {
             val model: Model? = getModelByName(info.modelName)
             if (model != null) {
-              if (tokenStatusAndData.status == TokenStatus.NOT_EXPIRED && tokenStatusAndData.data != null) {
+              if (
+                tokenStatusAndData.status == TokenStatus.NOT_EXPIRED &&
+                  tokenStatusAndData.data != null
+              ) {
                 model.accessToken = tokenStatusAndData.data.accessToken
               }
               Log.d(TAG, "Sending a new download request for '${model.name}'")
               downloadRepository.downloadModel(
-                model, onStatusUpdated = this@ModelManagerViewModel::setDownloadStatus
+                model,
+                onStatusUpdated = this@ModelManagerViewModel::setDownloadStatus,
               )
             }
           }
@@ -657,9 +637,7 @@ open class ModelManagerViewModel(
 
   fun loadModelAllowlist() {
     _uiState.update {
-      uiState.value.copy(
-        loadingModelAllowlist = true, loadingModelAllowlistError = ""
-      )
+      uiState.value.copy(loadingModelAllowlist = true, loadingModelAllowlistError = "")
     }
 
     viewModelScope.launch(Dispatchers.IO) {
@@ -678,7 +656,9 @@ open class ModelManagerViewModel(
         }
 
         if (modelAllowlist == null) {
-          _uiState.update { uiState.value.copy(loadingModelAllowlistError = "Failed to load model list") }
+          _uiState.update {
+            uiState.value.copy(loadingModelAllowlistError = "Failed to load model list")
+          }
           return@launch
         }
 
@@ -688,6 +668,7 @@ open class ModelManagerViewModel(
         TASK_LLM_CHAT.models.clear()
         TASK_LLM_PROMPT_LAB.models.clear()
         TASK_LLM_ASK_IMAGE.models.clear()
+        TASK_LLM_ASK_AUDIO.models.clear()
         for (allowedModel in modelAllowlist.models) {
           if (allowedModel.disabled == true) {
             continue
@@ -703,6 +684,9 @@ open class ModelManagerViewModel(
           if (allowedModel.taskTypes.contains(TASK_LLM_ASK_IMAGE.type.id)) {
             TASK_LLM_ASK_IMAGE.models.add(model)
           }
+          if (allowedModel.taskTypes.contains(TASK_LLM_ASK_AUDIO.type.id)) {
+            TASK_LLM_ASK_AUDIO.models.add(model)
+          }
         }
 
         // Pre-process all tasks.
@@ -710,11 +694,7 @@ open class ModelManagerViewModel(
 
         // Update UI state.
         val newUiState = createUiState()
-        _uiState.update {
-          newUiState.copy(
-            loadingModelAllowlist = false,
-          )
-        }
+        _uiState.update { newUiState.copy(loadingModelAllowlist = false) }
 
         // Process pending downloads.
         processPendingDownloads()
@@ -722,6 +702,10 @@ open class ModelManagerViewModel(
         e.printStackTrace()
       }
     }
+  }
+
+  fun setAppInForeground(foreground: Boolean) {
+    lifecycleProvider.isAppInForeground = foreground
   }
 
   private fun saveModelAllowlistToDisk(modelAllowlistContent: String) {
@@ -742,13 +726,10 @@ open class ModelManagerViewModel(
       if (file.exists()) {
         val content = file.readText()
         Log.d(TAG, "Model allowlist content from local file: $content")
-        val json = Json {
-          // Handle potential extra fields
-          ignoreUnknownKeys = true
-          allowComments = true
-          allowTrailingComma = true
-        }
-        return json.decodeFromString<ModelAllowlist>(content)
+
+        val gson = Gson()
+        val type = object : TypeToken<ModelAllowlist>() {}.type
+        return gson.fromJson<ModelAllowlist>(content, type)
       }
     } catch (e: Exception) {
       Log.e(TAG, "failed to read model allowlist from disk", e)
@@ -794,13 +775,17 @@ open class ModelManagerViewModel(
       if (model.llmSupportImage) {
         TASK_LLM_ASK_IMAGE.models.add(model)
       }
+      if (model.llmSupportAudio) {
+        TASK_LLM_ASK_AUDIO.models.add(model)
+      }
 
       // Update status.
-      modelDownloadStatus[model.name] = ModelDownloadStatus(
-        status = ModelDownloadStatusType.SUCCEEDED,
-        receivedBytes = importedModel.fileSize,
-        totalBytes = importedModel.fileSize
-      )
+      modelDownloadStatus[model.name] =
+        ModelDownloadStatus(
+          status = ModelDownloadStatusType.SUCCEEDED,
+          receivedBytes = importedModel.fileSize,
+          totalBytes = importedModel.fileSize,
+        )
     }
 
     val textInputHistory = dataStoreRepository.readTextInputHistory()
@@ -815,45 +800,38 @@ open class ModelManagerViewModel(
     )
   }
 
-  private fun createModelFromImportedModelInfo(info: ImportedModelInfo): Model {
-    val accelerators: List<Accelerator> = (convertValueToTargetType(
-      info.defaultValues[ConfigKey.COMPATIBLE_ACCELERATORS.label]!!, ValueType.STRING
-    ) as String).split(",").mapNotNull { acceleratorLabel ->
-      when (acceleratorLabel.trim()) {
-        Accelerator.GPU.label -> Accelerator.GPU
-        Accelerator.CPU.label -> Accelerator.CPU
-        else -> null // Ignore unknown accelerator labels
+  private fun createModelFromImportedModelInfo(info: ImportedModel): Model {
+    val accelerators: List<Accelerator> =
+      info.llmConfig.compatibleAcceleratorsList.mapNotNull { acceleratorLabel ->
+        when (acceleratorLabel.trim()) {
+          Accelerator.GPU.label -> Accelerator.GPU
+          Accelerator.CPU.label -> Accelerator.CPU
+          else -> null // Ignore unknown accelerator labels
+        }
       }
-    }
-    val configs: List<Config> = createLlmChatConfigs(
-      defaultMaxToken = convertValueToTargetType(
-        info.defaultValues[ConfigKey.DEFAULT_MAX_TOKENS.label]!!, ValueType.INT
-      ) as Int,
-      defaultTopK = convertValueToTargetType(
-        info.defaultValues[ConfigKey.DEFAULT_TOPK.label]!!, ValueType.INT
-      ) as Int,
-      defaultTopP = convertValueToTargetType(
-        info.defaultValues[ConfigKey.DEFAULT_TOPP.label]!!, ValueType.FLOAT
-      ) as Float,
-      defaultTemperature = convertValueToTargetType(
-        info.defaultValues[ConfigKey.DEFAULT_TEMPERATURE.label]!!, ValueType.FLOAT
-      ) as Float,
-      accelerators = accelerators,
-    )
-    val llmSupportImage = convertValueToTargetType(
-      info.defaultValues[ConfigKey.SUPPORT_IMAGE.label] ?: false, ValueType.BOOLEAN
-    ) as Boolean
-    val model = Model(
-      name = info.fileName,
-      url = "",
-      configs = configs,
-      sizeInBytes = info.fileSize,
-      downloadFileName = "$IMPORTS_DIR/${info.fileName}",
-      showBenchmarkButton = false,
-      showRunAgainButton = false,
-      imported = true,
-      llmSupportImage = llmSupportImage,
-    )
+    val configs: List<Config> =
+      createLlmChatConfigs(
+        defaultMaxToken = info.llmConfig.defaultMaxTokens,
+        defaultTopK = info.llmConfig.defaultTopk,
+        defaultTopP = info.llmConfig.defaultTopp,
+        defaultTemperature = info.llmConfig.defaultTemperature,
+        accelerators = accelerators,
+      )
+    val llmSupportImage = info.llmConfig.supportImage
+    val llmSupportAudio = info.llmConfig.supportAudio
+    val model =
+      Model(
+        name = info.fileName,
+        url = "",
+        configs = configs,
+        sizeInBytes = info.fileSize,
+        downloadFileName = "$IMPORTS_DIR/${info.fileName}",
+        showBenchmarkButton = false,
+        showRunAgainButton = false,
+        imported = true,
+        llmSupportImage = llmSupportImage,
+        llmSupportAudio = llmSupportAudio,
+      )
     model.preProcess()
 
     return model
@@ -881,7 +859,9 @@ open class ModelManagerViewModel(
       }
     }
     return ModelDownloadStatus(
-      status = status, receivedBytes = receivedBytes, totalBytes = totalBytes
+      status = status,
+      receivedBytes = receivedBytes,
+      totalBytes = totalBytes,
     )
   }
 
@@ -909,7 +889,9 @@ open class ModelManagerViewModel(
   }
 
   private fun updateModelInitializationStatus(
-    model: Model, status: ModelInitializationStatusType, error: String = ""
+    model: Model,
+    status: ModelInitializationStatusType,
+    error: String = "",
   ) {
     val curModelInstance = uiState.value.modelInitializationStatus.toMutableMap()
     curModelInstance[model.name] = ModelInitializationStatus(status = status, error = error)
@@ -918,18 +900,19 @@ open class ModelManagerViewModel(
   }
 
   private fun isModelDownloaded(model: Model): Boolean {
-    val downloadedFileExists = model.downloadFileName.isNotEmpty() && isFileInExternalFilesDir(
-      listOf(
-        model.normalizedName, model.version, model.downloadFileName
-      ).joinToString(File.separator)
-    )
+    val downloadedFileExists =
+      model.downloadFileName.isNotEmpty() &&
+        isFileInExternalFilesDir(
+          listOf(model.normalizedName, model.version, model.downloadFileName)
+            .joinToString(File.separator)
+        )
 
     val unzippedDirectoryExists =
-      model.isZip && model.unzipDir.isNotEmpty() && isFileInExternalFilesDir(
-        listOf(
-          model.normalizedName, model.version, model.unzipDir
-        ).joinToString(File.separator)
-      )
+      model.isZip &&
+        model.unzipDir.isNotEmpty() &&
+        isFileInExternalFilesDir(
+          listOf(model.normalizedName, model.version, model.unzipDir).joinToString(File.separator)
+        )
 
     // Will also return true if model is partially downloaded.
     return downloadedFileExists || unzippedDirectoryExists

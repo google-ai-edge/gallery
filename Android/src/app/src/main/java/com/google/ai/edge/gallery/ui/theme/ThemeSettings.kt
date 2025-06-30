@@ -17,11 +17,8 @@
 package com.google.ai.edge.gallery.ui.theme
 
 import androidx.compose.runtime.mutableStateOf
-
-const val THEME_AUTO = "Auto"
-const val THEME_LIGHT = "Light"
-const val THEME_DARK = "Dark"
+import com.google.ai.edge.gallery.proto.Theme
 
 object ThemeSettings {
-  val themeOverride = mutableStateOf("")
+  val themeOverride = mutableStateOf<Theme>(Theme.THEME_AUTO)
 }

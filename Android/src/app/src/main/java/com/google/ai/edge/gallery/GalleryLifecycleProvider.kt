@@ -16,29 +16,16 @@
 
 package com.google.ai.edge.gallery
 
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ProcessLifecycleOwner
-
 interface AppLifecycleProvider {
-  val isAppInForeground: Boolean
+  var isAppInForeground: Boolean
 }
 
-class GalleryLifecycleProvider : AppLifecycleProvider, DefaultLifecycleObserver {
+class GalleryLifecycleProvider : AppLifecycleProvider {
   private var _isAppInForeground = false
 
-  init {
-    ProcessLifecycleOwner.get().lifecycle.addObserver(this)
-  }
-
-  override val isAppInForeground: Boolean
+  override var isAppInForeground: Boolean
     get() = _isAppInForeground
-
-  override fun onResume(owner: LifecycleOwner) {
-    _isAppInForeground = true
-  }
-
-  override fun onPause(owner: LifecycleOwner) {
-    _isAppInForeground = false
-  }
+    set(value) {
+      _isAppInForeground = value
+    }
 }

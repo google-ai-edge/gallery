@@ -33,18 +33,17 @@ import androidx.compose.ui.window.Dialog
 
 @Composable
 fun ErrorDialog(error: String, onDismiss: () -> Unit) {
-  Dialog(
-    onDismissRequest = onDismiss
-  ) {
+  Dialog(onDismissRequest = onDismiss) {
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
       Column(
-        modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier.padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
       ) {
         // Title
         Text(
           "Error",
           style = MaterialTheme.typography.titleLarge,
-          modifier = Modifier.padding(bottom = 8.dp)
+          modifier = Modifier.padding(bottom = 8.dp),
         )
 
         // Error
@@ -55,11 +54,7 @@ fun ErrorDialog(error: String, onDismiss: () -> Unit) {
         )
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-          Button(
-            onClick = onDismiss
-          ) {
-            Text("Close")
-          }
+          Button(onClick = onDismiss) { Text("Close") }
         }
       }
     }

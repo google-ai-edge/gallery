@@ -45,7 +45,7 @@ import kotlinx.coroutines.delay
 fun ModelDownloadStatusInfoPanel(
   model: Model,
   task: Task,
-  modelManagerViewModel: ModelManagerViewModel
+  modelManagerViewModel: ModelManagerViewModel,
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
 
@@ -62,9 +62,12 @@ fun ModelDownloadStatusInfoPanel(
   var downloadModelButtonConditionMet by remember { mutableStateOf(false) }
 
   downloadingAnimationConditionMet =
-    curStatus?.status == ModelDownloadStatusType.IN_PROGRESS || curStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED || curStatus?.status == ModelDownloadStatusType.UNZIPPING
+    curStatus?.status == ModelDownloadStatusType.IN_PROGRESS ||
+      curStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED ||
+      curStatus?.status == ModelDownloadStatusType.UNZIPPING
   downloadModelButtonConditionMet =
-    curStatus?.status == ModelDownloadStatusType.FAILED || curStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED
+    curStatus?.status == ModelDownloadStatusType.FAILED ||
+      curStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED
 
   LaunchedEffect(downloadingAnimationConditionMet) {
     if (downloadingAnimationConditionMet) {
@@ -87,24 +90,22 @@ fun ModelDownloadStatusInfoPanel(
   AnimatedVisibility(
     visible = shouldShowDownloadingAnimation,
     enter = scaleIn(initialScale = 0.9f) + fadeIn(),
-    exit = scaleOut(targetScale = 0.9f) + fadeOut()
+    exit = scaleOut(targetScale = 0.9f) + fadeOut(),
   ) {
-    Box(
-      modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
-    ) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
       ModelDownloadingAnimation(
-        model = model, task = task, modelManagerViewModel = modelManagerViewModel
+        model = model,
+        task = task,
+        modelManagerViewModel = modelManagerViewModel,
       )
     }
   }
 
-  AnimatedVisibility(
-    visible = shouldShowDownloadModelButton, enter = fadeIn(), exit = fadeOut()
-  ) {
+  AnimatedVisibility(visible = shouldShowDownloadModelButton, enter = fadeIn(), exit = fadeOut()) {
     Column(
       modifier = Modifier.fillMaxSize(),
       verticalArrangement = Arrangement.Center,
-      horizontalAlignment = Alignment.CenterHorizontally
+      horizontalAlignment = Alignment.CenterHorizontally,
     ) {
       DownloadAndTryButton(
         task = task,
@@ -112,7 +113,7 @@ fun ModelDownloadStatusInfoPanel(
         enabled = true,
         needToDownloadFirst = true,
         modelManagerViewModel = modelManagerViewModel,
-        onClicked = {}
+        onClicked = {},
       )
     }
   }

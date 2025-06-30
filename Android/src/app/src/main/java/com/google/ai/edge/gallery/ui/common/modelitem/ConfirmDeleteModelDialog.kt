@@ -25,28 +25,16 @@ import androidx.compose.ui.res.stringResource
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 
-/**
- * Composable function to display a confirmation dialog for deleting a model.
- */
+/** Composable function to display a confirmation dialog for deleting a model. */
 @Composable
 fun ConfirmDeleteModelDialog(model: Model, onConfirm: () -> Unit, onDismiss: () -> Unit) {
-  AlertDialog(onDismissRequest = onDismiss,
+  AlertDialog(
+    onDismissRequest = onDismiss,
     title = { Text(stringResource(R.string.confirm_delete_model_dialog_title)) },
     text = {
-      Text(
-        stringResource(R.string.confirm_delete_model_dialog_content).format(
-          model.name
-        )
-      )
+      Text(stringResource(R.string.confirm_delete_model_dialog_content).format(model.name))
     },
-    confirmButton = {
-      Button(onClick = onConfirm) {
-        Text(stringResource(R.string.ok))
-      }
-    },
-    dismissButton = {
-      TextButton(onClick = onDismiss) {
-        Text(stringResource(R.string.cancel))
-      }
-    })
+    confirmButton = { Button(onClick = onConfirm) { Text(stringResource(R.string.ok)) } },
+    dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+  )
 }

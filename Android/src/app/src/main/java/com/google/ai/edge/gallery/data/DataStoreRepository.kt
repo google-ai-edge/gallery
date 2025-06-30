@@ -16,231 +16,109 @@
 
 package com.google.ai.edge.gallery.data
 
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
-import android.util.Base64
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.longPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
-import com.google.ai.edge.gallery.ui.theme.THEME_AUTO
+import com.google.ai.edge.gallery.proto.AccessTokenData
+import com.google.ai.edge.gallery.proto.ImportedModel
+import com.google.ai.edge.gallery.proto.Settings
+import com.google.ai.edge.gallery.proto.Theme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import java.security.KeyStore
-import javax.crypto.Cipher
-import javax.crypto.KeyGenerator
-import javax.crypto.SecretKey
 
-data class AccessTokenData(
-  val accessToken: String,
-  val refreshToken: String,
-  val expiresAtMs: Long
-)
-
+// TODO(b/423700720): Change to async (suspend) functions
 interface DataStoreRepository {
   fun saveTextInputHistory(history: List<String>)
+
   fun readTextInputHistory(): List<String>
-  fun saveThemeOverride(theme: String)
-  fun readThemeOverride(): String
+
+  fun saveTheme(theme: Theme)
+
+  fun readTheme(): Theme
+
   fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long)
+
   fun clearAccessTokenData()
+
   fun readAccessTokenData(): AccessTokenData?
-  fun saveImportedModels(importedModels: List<ImportedModelInfo>)
-  fun readImportedModels(): List<ImportedModelInfo>
+
+  fun saveImportedModels(importedModels: List<ImportedModel>)
+
+  fun readImportedModels(): List<ImportedModel>
 }
 
-/**
- * Repository for managing data using DataStore, with JSON serialization.
- *
- * This class provides methods to read, add, remove, and clear data stored in DataStore,
- * using JSON serialization for complex objects. It uses Gson for serializing and deserializing
- * lists of objects to/from JSON strings.
- *
- * DataStore is used to persist data as JSON strings under specified keys.
- */
-class DefaultDataStoreRepository(
-  private val dataStore: DataStore<Preferences>
-) :
-  DataStoreRepository {
-
-  private object PreferencesKeys {
-    val TEXT_INPUT_HISTORY = stringPreferencesKey("text_input_history")
-
-    val THEME_OVERRIDE = stringPreferencesKey("theme_override")
-
-    val ENCRYPTED_ACCESS_TOKEN = stringPreferencesKey("encrypted_access_token")
-
-    // Store Initialization Vector
-    val ACCESS_TOKEN_IV = stringPreferencesKey("access_token_iv")
-
-    val ENCRYPTED_REFRESH_TOKEN = stringPreferencesKey("encrypted_refresh_token")
-
-    // Store Initialization Vector
-    val REFRESH_TOKEN_IV = stringPreferencesKey("refresh_token_iv")
-
-    val ACCESS_TOKEN_EXPIRES_AT = longPreferencesKey("access_token_expires_at")
-
-    // Data for all imported models.
-    val IMPORTED_MODELS = stringPreferencesKey("imported_models")
-  }
-
-  private val keystoreAlias: String = "com_google_aiedge_gallery_access_token_key"
-  private val keyStore: KeyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-
+/** Repository for managing data using Proto DataStore. */
+class DefaultDataStoreRepository(private val dataStore: DataStore<Settings>) : DataStoreRepository {
   override fun saveTextInputHistory(history: List<String>) {
     runBlocking {
-      dataStore.edit { preferences ->
-        val gson = Gson()
-        val jsonString = gson.toJson(history)
-        preferences[PreferencesKeys.TEXT_INPUT_HISTORY] = jsonString
+      dataStore.updateData { settings ->
+        settings.toBuilder().clearTextInputHistory().addAllTextInputHistory(history).build()
       }
     }
   }
 
   override fun readTextInputHistory(): List<String> {
     return runBlocking {
-      val preferences = dataStore.data.first()
-      getTextInputHistory(preferences)
+      val settings = dataStore.data.first()
+      settings.textInputHistoryList
     }
   }
 
-  override fun saveThemeOverride(theme: String) {
+  override fun saveTheme(theme: Theme) {
     runBlocking {
-      dataStore.edit { preferences ->
-        preferences[PreferencesKeys.THEME_OVERRIDE] = theme
-      }
+      dataStore.updateData { settings -> settings.toBuilder().setTheme(theme).build() }
     }
   }
 
-  override fun readThemeOverride(): String {
+  override fun readTheme(): Theme {
     return runBlocking {
-      val preferences = dataStore.data.first()
-      preferences[PreferencesKeys.THEME_OVERRIDE] ?: THEME_AUTO
+      val settings = dataStore.data.first()
+      val curTheme = settings.theme
+      // Use "auto" as the default theme.
+      if (curTheme == Theme.THEME_UNSPECIFIED) Theme.THEME_AUTO else curTheme
     }
   }
 
   override fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long) {
     runBlocking {
-      val (encryptedAccessToken, accessTokenIv) = encrypt(accessToken)
-      val (encryptedRefreshToken, refreshTokenIv) = encrypt(refreshToken)
-      dataStore.edit { preferences ->
-        preferences[PreferencesKeys.ENCRYPTED_ACCESS_TOKEN] = encryptedAccessToken
-        preferences[PreferencesKeys.ACCESS_TOKEN_IV] = accessTokenIv
-        preferences[PreferencesKeys.ENCRYPTED_REFRESH_TOKEN] = encryptedRefreshToken
-        preferences[PreferencesKeys.REFRESH_TOKEN_IV] = refreshTokenIv
-        preferences[PreferencesKeys.ACCESS_TOKEN_EXPIRES_AT] = expiresAt
+      dataStore.updateData { settings ->
+        settings
+          .toBuilder()
+          .setAccessTokenData(
+            AccessTokenData.newBuilder()
+              .setAccessToken(accessToken)
+              .setRefreshToken(refreshToken)
+              .setExpiresAtMs(expiresAt)
+              .build()
+          )
+          .build()
       }
     }
   }
 
   override fun clearAccessTokenData() {
-    return runBlocking {
-      dataStore.edit { preferences ->
-        preferences.remove(PreferencesKeys.ENCRYPTED_ACCESS_TOKEN)
-        preferences.remove(PreferencesKeys.ACCESS_TOKEN_IV)
-        preferences.remove(PreferencesKeys.ENCRYPTED_REFRESH_TOKEN)
-        preferences.remove(PreferencesKeys.REFRESH_TOKEN_IV)
-        preferences.remove(PreferencesKeys.ACCESS_TOKEN_EXPIRES_AT)
-      }
+    runBlocking {
+      dataStore.updateData { settings -> settings.toBuilder().clearAccessTokenData().build() }
     }
   }
 
   override fun readAccessTokenData(): AccessTokenData? {
     return runBlocking {
-      val preferences = dataStore.data.first()
-      val encryptedAccessToken = preferences[PreferencesKeys.ENCRYPTED_ACCESS_TOKEN]
-      val encryptedRefreshToken = preferences[PreferencesKeys.ENCRYPTED_REFRESH_TOKEN]
-      val accessTokenIv = preferences[PreferencesKeys.ACCESS_TOKEN_IV]
-      val refreshTokenIv = preferences[PreferencesKeys.REFRESH_TOKEN_IV]
-      val expiresAt = preferences[PreferencesKeys.ACCESS_TOKEN_EXPIRES_AT]
-
-      var decryptedAccessToken: String? = null
-      var decryptedRefreshToken: String? = null
-      if (encryptedAccessToken != null && accessTokenIv != null) {
-        decryptedAccessToken = decrypt(encryptedAccessToken, accessTokenIv)
-      }
-      if (encryptedRefreshToken != null && refreshTokenIv != null) {
-        decryptedRefreshToken = decrypt(encryptedRefreshToken, refreshTokenIv)
-      }
-      if (decryptedAccessToken != null && decryptedRefreshToken != null && expiresAt != null) {
-        AccessTokenData(decryptedAccessToken, decryptedRefreshToken, expiresAt)
-      } else {
-        null
-      }
+      val settings = dataStore.data.first()
+      settings.accessTokenData
     }
   }
 
-  override fun saveImportedModels(importedModels: List<ImportedModelInfo>) {
+  override fun saveImportedModels(importedModels: List<ImportedModel>) {
     runBlocking {
-      dataStore.edit { preferences ->
-        val gson = Gson()
-        val jsonString = gson.toJson(importedModels)
-        preferences[PreferencesKeys.IMPORTED_MODELS] = jsonString
+      dataStore.updateData { settings ->
+        settings.toBuilder().clearImportedModel().addAllImportedModel(importedModels).build()
       }
     }
   }
 
-  override fun readImportedModels(): List<ImportedModelInfo> {
+  override fun readImportedModels(): List<ImportedModel> {
     return runBlocking {
-      val preferences = dataStore.data.first()
-      val infosStr = preferences[PreferencesKeys.IMPORTED_MODELS] ?: "[]"
-      val gson = Gson()
-      val listType = object : TypeToken<List<ImportedModelInfo>>() {}.type
-      gson.fromJson(infosStr, listType)
-    }
-  }
-
-  private fun getTextInputHistory(preferences: Preferences): List<String> {
-    val infosStr = preferences[PreferencesKeys.TEXT_INPUT_HISTORY] ?: "[]"
-    val gson = Gson()
-    val listType = object : TypeToken<List<String>>() {}.type
-    return gson.fromJson(infosStr, listType)
-  }
-
-  private fun getOrCreateSecretKey(): SecretKey {
-    return (keyStore.getKey(keystoreAlias, null) as? SecretKey) ?: run {
-      val keyGenerator =
-        KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-      val keyGenParameterSpec = KeyGenParameterSpec.Builder(
-        keystoreAlias,
-        KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
-      )
-        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-        .setUserAuthenticationRequired(false) // Consider setting to true for added security
-        .build()
-      keyGenerator.init(keyGenParameterSpec)
-      keyGenerator.generateKey()
-    }
-  }
-
-  private fun encrypt(plainText: String): Pair<String, String> {
-    val secretKey = getOrCreateSecretKey()
-    val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-    cipher.init(Cipher.ENCRYPT_MODE, secretKey)
-    val iv = cipher.iv
-    val encryptedBytes = cipher.doFinal(plainText.toByteArray(Charsets.UTF_8))
-    return Base64.encodeToString(encryptedBytes, Base64.DEFAULT) to Base64.encodeToString(
-      iv,
-      Base64.DEFAULT
-    )
-  }
-
-  private fun decrypt(encryptedText: String, ivText: String): String? {
-    val secretKey = getOrCreateSecretKey()
-    val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-    val ivBytes = Base64.decode(ivText, Base64.DEFAULT)
-    val spec = javax.crypto.spec.GCMParameterSpec(128, ivBytes) // 128 bit tag length
-    cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
-    val encryptedBytes = Base64.decode(encryptedText, Base64.DEFAULT)
-    return try {
-      String(cipher.doFinal(encryptedBytes), Charsets.UTF_8)
-    } catch (e: Exception) {
-      // Handle decryption errors (e.g., key not found)
-      null
+      val settings = dataStore.data.first()
+      settings.importedModelList
     }
   }
 }

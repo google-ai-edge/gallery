@@ -14,8 +14,16 @@
  * limitations under the License.
  */
 
-package com.google.ai.edge.gallery.ui.preview
+package com.google.ai.edge.gallery.common
 
-import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnViewModel
+import androidx.compose.ui.graphics.Color
 
-class PreviewLlmSingleTurnViewModel : LlmSingleTurnViewModel(task = TASK_TEST1)
+interface LatencyProvider {
+  val latencyMs: Float
+}
+
+data class Classification(val label: String, val score: Float, val color: Color)
+
+data class JsonObjAndTextContent<T>(val jsonObj: T, val textContent: String)
+
+class AudioClip(val audioData: ByteArray, val sampleRate: Int)

@@ -44,36 +44,29 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SingleSelectButton(
   config: PromptTemplateSingleSelectInputEditor,
-  onSelected: (String) -> Unit
+  onSelected: (String) -> Unit,
 ) {
   var showMenu by remember { mutableStateOf(false) }
   var selectedOption by remember { mutableStateOf(config.defaultOption) }
 
-  LaunchedEffect(config) {
-    selectedOption = config.defaultOption
-  }
+  LaunchedEffect(config) { selectedOption = config.defaultOption }
 
   Box {
     Row(
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(2.dp),
-      modifier = Modifier
-        .clip(RoundedCornerShape(8.dp))
-        .background(MaterialTheme.colorScheme.secondaryContainer)
-        .clickable {
-          showMenu = true
-        }
-        .padding(vertical = 4.dp, horizontal = 6.dp)
-        .padding(start = 8.dp)
+      modifier =
+        Modifier.clip(RoundedCornerShape(8.dp))
+          .background(MaterialTheme.colorScheme.secondaryContainer)
+          .clickable { showMenu = true }
+          .padding(vertical = 4.dp, horizontal = 6.dp)
+          .padding(start = 8.dp),
     ) {
       Text("${config.label}: $selectedOption", style = MaterialTheme.typography.labelLarge)
       Icon(Icons.Rounded.ArrowDropDown, contentDescription = "")
     }
 
-    DropdownMenu(
-      expanded = showMenu,
-      onDismissRequest = { showMenu = false }
-    ) {
+    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
       // Options
       for (option in config.options) {
         DropdownMenuItem(
@@ -82,7 +75,7 @@ fun SingleSelectButton(
             selectedOption = option
             showMenu = false
             onSelected(option)
-          }
+          },
         )
       }
     }

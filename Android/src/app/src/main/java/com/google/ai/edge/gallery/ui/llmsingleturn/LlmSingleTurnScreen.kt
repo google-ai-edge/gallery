@@ -16,6 +16,10 @@
 
 package com.google.ai.edge.gallery.ui.llmsingleturn
 
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.preview.PreviewLlmSingleTurnViewModel
+// import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -39,26 +43,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
-import com.google.ai.edge.gallery.ui.ViewModelProvider
+import com.google.ai.edge.gallery.data.TASK_LLM_PROMPT_LAB
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
 import com.google.ai.edge.gallery.ui.common.chat.ModelDownloadStatusInfoPanel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import com.google.ai.edge.gallery.ui.preview.PreviewLlmSingleTurnViewModel
-import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import com.google.ai.edge.gallery.ui.theme.customColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.serialization.Serializable
 
 /** Navigation destination data */
 object LlmSingleTurnDestination {
-  @Serializable
   val route = "LlmSingleTurnRoute"
 }
 
@@ -69,11 +66,9 @@ fun LlmSingleTurnScreen(
   modelManagerViewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
-  viewModel: LlmSingleTurnViewModel = viewModel(
-    factory = ViewModelProvider.Factory
-  ),
+  viewModel: LlmSingleTurnViewModel,
 ) {
-  val task = viewModel.task
+  val task = TASK_LLM_PROMPT_LAB
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val uiState by viewModel.uiState.collectAsState()
   val selectedModel = modelManagerUiState.selectedModel
@@ -95,9 +90,7 @@ fun LlmSingleTurnScreen(
   }
 
   // Handle system's edge swipe.
-  BackHandler {
-    handleNavigateUp()
-  }
+  BackHandler { handleNavigateUp() }
 
   // Initialize model when model/download state changes.
   val curDownloadStatus = modelManagerUiState.modelDownloadStatus[selectedModel.name]
@@ -106,7 +99,7 @@ fun LlmSingleTurnScreen(
       if (curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED) {
         Log.d(
           TAG,
-          "Initializing model '${selectedModel.name}' from LlmsingleTurnScreen launched effect"
+          "Initializing model '${selectedModel.name}' from LlmsingleTurnScreen launched effect",
         )
         modelManagerViewModel.initializeModel(context, task = task, model = selectedModel)
       }
@@ -118,50 +111,55 @@ fun LlmSingleTurnScreen(
     showErrorDialog = modelInitializationStatus?.status == ModelInitializationStatusType.ERROR
   }
 
-  Scaffold(modifier = modifier, topBar = {
-    ModelPageAppBar(
-      task = task,
-      model = selectedModel,
-      modelManagerViewModel = modelManagerViewModel,
-      inProgress = uiState.inProgress,
-      modelPreparing = uiState.preparing,
-      onConfigChanged = { _, _ -> },
-      onBackClicked = { handleNavigateUp() },
-      onModelSelected = { newSelectedModel ->
-        scope.launch(Dispatchers.Default) {
-          // Clean up current model.
-          modelManagerViewModel.cleanupModel(task = task, model = selectedModel)
+  Scaffold(
+    modifier = modifier,
+    topBar = {
+      ModelPageAppBar(
+        task = task,
+        model = selectedModel,
+        modelManagerViewModel = modelManagerViewModel,
+        inProgress = uiState.inProgress,
+        modelPreparing = uiState.preparing,
+        onConfigChanged = { _, _ -> },
+        onBackClicked = { handleNavigateUp() },
+        onModelSelected = { newSelectedModel ->
+          scope.launch(Dispatchers.Default) {
+            // Clean up current model.
+            modelManagerViewModel.cleanupModel(task = task, model = selectedModel)
 
-          // Update selected model.
-          modelManagerViewModel.selectModel(model = newSelectedModel)
-        }
-      }
-    )
-  }) { innerPadding ->
-    Column(
-      modifier = Modifier.padding(
-        top = innerPadding.calculateTopPadding(),
-        start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
-        end = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
+            // Update selected model.
+            modelManagerViewModel.selectModel(model = newSelectedModel)
+          }
+        },
       )
+    },
+  ) { innerPadding ->
+    Column(
+      modifier =
+        Modifier.padding(
+          top = innerPadding.calculateTopPadding(),
+          start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
+          end = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
+        )
     ) {
       ModelDownloadStatusInfoPanel(
         model = selectedModel,
         task = task,
-        modelManagerViewModel = modelManagerViewModel
+        modelManagerViewModel = modelManagerViewModel,
       )
 
       // Main UI after model is downloaded.
       val modelDownloaded = curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
       Box(
         contentAlignment = Alignment.BottomCenter,
-        modifier = Modifier
-          .weight(1f)
-          // Just hide the UI without removing it from the screen so that the scroll syncing
-          // from ResponsePanel still works.
-          .alpha(if (modelDownloaded) 1.0f else 0.0f)
+        modifier =
+          Modifier.weight(1f)
+            // Just hide the UI without removing it from the screen so that the scroll syncing
+            // from ResponsePanel still works.
+            .alpha(if (modelDownloaded) 1.0f else 0.0f),
       ) {
-        VerticalSplitView(modifier = Modifier.fillMaxSize(),
+        VerticalSplitView(
+          modifier = Modifier.fillMaxSize(),
           topView = {
             PromptTemplatesPanel(
               model = selectedModel,
@@ -170,49 +168,47 @@ fun LlmSingleTurnScreen(
               onSend = { fullPrompt ->
                 viewModel.generateResponse(model = selectedModel, input = fullPrompt)
               },
-              onStopButtonClicked = { model ->
-                viewModel.stopResponse(model = model)
-              },
-              modifier = Modifier.fillMaxSize()
+              onStopButtonClicked = { model -> viewModel.stopResponse(model = model) },
+              modifier = Modifier.fillMaxSize(),
             )
           },
           bottomView = {
             Box(
               contentAlignment = Alignment.BottomCenter,
-              modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.customColors.agentBubbleBgColor)
+              modifier =
+                Modifier.fillMaxSize().background(MaterialTheme.customColors.agentBubbleBgColor),
             ) {
               ResponsePanel(
                 model = selectedModel,
                 viewModel = viewModel,
                 modelManagerViewModel = modelManagerViewModel,
-                modifier = Modifier
-                  .fillMaxSize()
-                  .padding(bottom = innerPadding.calculateBottomPadding())
+                modifier =
+                  Modifier.fillMaxSize().padding(bottom = innerPadding.calculateBottomPadding()),
               )
             }
-          })
+          },
+        )
       }
 
       if (showErrorDialog) {
-        ErrorDialog(error = modelInitializationStatus?.error ?: "", onDismiss = {
-          showErrorDialog = false
-        })
+        ErrorDialog(
+          error = modelInitializationStatus?.error ?: "",
+          onDismiss = { showErrorDialog = false },
+        )
       }
     }
   }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun LlmSingleTurnScreenPreview() {
-  val context = LocalContext.current
-  GalleryTheme {
-    LlmSingleTurnScreen(
-      modelManagerViewModel = PreviewModelManagerViewModel(context = context),
-      viewModel = PreviewLlmSingleTurnViewModel(),
-      navigateUp = {},
-    )
-  }
-}
+// @Preview(showBackground = true)
+// @Composable
+// fun LlmSingleTurnScreenPreview() {
+//   val context = LocalContext.current
+//   GalleryTheme {
+//     LlmSingleTurnScreen(
+//       modelManagerViewModel = PreviewModelManagerViewModel(context = context),
+//       viewModel = PreviewLlmSingleTurnViewModel(),
+//       navigateUp = {},
+//     )
+//   }
+// }

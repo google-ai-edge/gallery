@@ -16,16 +16,15 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+// import androidx.compose.ui.tooling.preview.Preview
+// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,62 +34,56 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import com.google.ai.edge.gallery.ui.theme.bodySmallNarrow
 
-/**
- * Composable function to display an action button below a chat message.
- */
+/** Composable function to display an action button below a chat message. */
 @Composable
 fun MessageActionButton(
   label: String,
   icon: ImageVector,
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
-  enabled: Boolean = true
+  enabled: Boolean = true,
 ) {
-  val curModifier = modifier
-    .padding(top = 4.dp)
-    .clip(CircleShape)
-    .background(if (enabled) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh)
+  val curModifier =
+    modifier
+      .padding(top = 4.dp)
+      .clip(CircleShape)
+      .background(
+        if (enabled) MaterialTheme.colorScheme.secondaryContainer
+        else MaterialTheme.colorScheme.surfaceContainerHigh
+      )
   val alpha: Float = if (enabled) 1.0f else 0.3f
   Row(
     modifier = if (enabled) curModifier.clickable { onClick() } else modifier,
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Icon(
-      icon, contentDescription = "", modifier = Modifier
-        .size(16.dp)
-        .offset(x = 6.dp)
-        .alpha(alpha)
+      icon,
+      contentDescription = "",
+      modifier = Modifier.size(16.dp).offset(x = 6.dp).alpha(alpha),
     )
     Text(
       label,
       color = MaterialTheme.colorScheme.onSecondaryContainer,
       style = bodySmallNarrow,
-      modifier = Modifier
-        .padding(
-          start = 10.dp, end = 8.dp, top = 4.dp, bottom = 4.dp
-        )
-        .alpha(alpha)
+      modifier = Modifier.padding(start = 10.dp, end = 8.dp, top = 4.dp, bottom = 4.dp).alpha(alpha),
     )
   }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun MessageActionButtonPreview() {
-  GalleryTheme {
-    Column {
-      MessageActionButton(label = "run", icon = Icons.Default.PlayArrow, onClick = {})
-      MessageActionButton(
-        label = "run",
-        icon = Icons.Default.PlayArrow,
-        enabled = false,
-        onClick = {})
-    }
-  }
-}
-
+// @Preview(showBackground = true)
+// @Composable
+// fun MessageActionButtonPreview() {
+//   GalleryTheme {
+//     Column {
+//       MessageActionButton(label = "run", icon = Icons.Default.PlayArrow, onClick = {})
+//       MessageActionButton(
+//         label = "run",
+//         icon = Icons.Default.PlayArrow,
+//         enabled = false,
+//         onClick = {})
+//     }
+//   }
+// }

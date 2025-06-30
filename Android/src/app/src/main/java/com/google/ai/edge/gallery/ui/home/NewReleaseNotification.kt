@@ -1,3 +1,19 @@
+/*
+ * Copyright 2025 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.google.ai.edge.gallery.ui.home
 
 import android.util.Log
@@ -29,22 +45,17 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.ai.edge.gallery.BuildConfig
-import com.google.ai.edge.gallery.ui.common.getJsonResponse
-import com.google.ai.edge.gallery.ui.modelmanager.ClickableLink
+import com.google.ai.edge.gallery.common.getJsonResponse
+import com.google.ai.edge.gallery.ui.common.ClickableLink
+import kotlin.math.max
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
-import kotlin.math.max
 
-private const val TAG = "AGNewReleaseNotification"
+private const val TAG = "AGNewReleaseNotifi"
 private const val REPO = "google-ai-edge/gallery"
 
-@Serializable
-data class ReleaseInfo(
-  val html_url: String,
-  val tag_name: String,
-)
+data class ReleaseInfo(val html_url: String, val tag_name: String)
 
 @Composable
 fun NewReleaseNotification() {
@@ -84,35 +95,31 @@ fun NewReleaseNotification() {
 
     lifecycleOwner.lifecycle.addObserver(observer)
 
-    onDispose {
-      lifecycleOwner.lifecycle.removeObserver(observer)
-    }
+    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
   }
 
   AnimatedVisibility(
     visible = newReleaseVersion.isNotEmpty(),
-    enter = fadeIn() + expandVertically()
+    enter = fadeIn() + expandVertically(),
   ) {
     Row(
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.SpaceBetween,
-      modifier = Modifier
-        .padding(horizontal = 16.dp)
-        .padding(bottom = 12.dp)
-        .clip(
-          CircleShape
-        )
-        .background(MaterialTheme.colorScheme.tertiaryContainer)
-        .padding(4.dp)
+      modifier =
+        Modifier.padding(horizontal = 16.dp)
+          .padding(bottom = 12.dp)
+          .clip(CircleShape)
+          .background(MaterialTheme.colorScheme.tertiaryContainer)
+          .padding(4.dp),
     ) {
       Text(
         "New release $newReleaseVersion available",
         style = MaterialTheme.typography.bodyMedium,
-        modifier = Modifier.padding(start = 12.dp)
+        modifier = Modifier.padding(start = 12.dp),
       )
       Row(
         modifier = Modifier.padding(end = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
       ) {
         ClickableLink(
           url = newReleaseUrl,
