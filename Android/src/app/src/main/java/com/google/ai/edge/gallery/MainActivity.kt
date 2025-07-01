@@ -62,6 +62,19 @@ class MainActivity : ComponentActivity() {
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
   }
 
+  override fun onResume() {
+    super.onResume()
+
+    firebaseAnalytics?.logEvent(
+      "app_open",
+      Bundle().apply {
+        putString("app_version", BuildConfig.VERSION_NAME)
+        putString("os_version", Build.VERSION.SDK_INT.toString())
+        putString("device_model", Build.MODEL)
+      },
+    )
+  }
+
   companion object {
     private const val TAG = "AGMainActivity"
   }
