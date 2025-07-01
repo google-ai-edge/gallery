@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery
 
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -27,12 +28,26 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.ktx.analytics
+import com.google.firebase.ktx.Firebase
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+  private var firebaseAnalytics: FirebaseAnalytics? = null
+
   override fun onCreate(savedInstanceState: Bundle?) {
+    firebaseAnalytics =
+      runCatching { Firebase.analytics }
+        .onFailure { exception ->
+          // Firebase.analytics can throw an exception if goolgle-services is not set up, e.g.,
+          // missing google-services.json.
+          Log.w(TAG, "Firebase Analytics is not available", exception)
+        }
+        .getOrNull()
+
     installSplashScreen()
 
     super.onCreate(savedInstanceState)
@@ -45,5 +60,9 @@ class MainActivity : ComponentActivity() {
     setContent { GalleryTheme { Surface(modifier = Modifier.fillMaxSize()) { GalleryApp() } } }
     // Keep the screen on while the app is running for better demo experience.
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+  }
+
+  companion object {
+    private const val TAG = "AGMainActivity"
   }
 }
