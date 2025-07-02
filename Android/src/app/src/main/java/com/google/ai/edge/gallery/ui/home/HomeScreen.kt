@@ -88,6 +88,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.LinkAnnotation
@@ -100,11 +101,13 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.os.bundleOf
 import com.google.ai.edge.gallery.GalleryTopAppBar
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.AppBarAction
 import com.google.ai.edge.gallery.data.AppBarActionType
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.ui.common.TaskIcon
 import com.google.ai.edge.gallery.ui.common.getTaskBgColor
@@ -334,17 +337,24 @@ private fun TaskList(
   val screenHeightDp = remember { with(density) { windowInfo.containerSize.height.toDp() } }
   val sizeFraction = remember { ((screenWidthDp - 360.dp) / (410.dp - 360.dp)).coerceIn(0f, 1f) }
   val linkColor = MaterialTheme.customColors.linkColor
+  val url = "https://huggingface.co/litert-community"
+  val uriHandler = LocalUriHandler.current
 
   val introText = buildAnnotatedString {
     append("Welcome to Google AI Edge Gallery! Explore a world of amazing on-device models from ")
+    // TODO: Consolidate the link clicking logic into ui/common/ClickableLink.kt.
     withLink(
       link =
         LinkAnnotation.Url(
-          url = "https://huggingface.co/litert-community", // Replace with the actual URL
+          url = url,
           styles =
             TextLinkStyles(
               style = SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)
             ),
+          linkInteractionListener = { _ ->
+            firebaseAnalytics?.logEvent("resource_link_click", bundleOf("link_destination" to url))
+            uriHandler.openUri(url)
+          },
         )
     ) {
       append("LiteRT community")
