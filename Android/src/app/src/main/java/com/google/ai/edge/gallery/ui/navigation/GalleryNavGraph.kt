@@ -69,6 +69,8 @@ import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnScreen
 import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import com.google.ai.edge.gallery.ui.toggleserver.ToggleServerDestination
+import com.google.ai.edge.gallery.ui.toggleserver.ToggleServerScreen
 
 private const val TAG = "AGGalleryNavGraph"
 private const val ROUTE_PLACEHOLDER = "placeholder"
@@ -143,7 +145,14 @@ fun GalleryNavHost(
     modelManagerViewModel = modelManagerViewModel,
     navigateToTaskScreen = { task ->
       pickedTask = task
-      showModelManager = true
+      if (task.type == TaskType.TOGGLE_SERVER) {
+        navigateToTaskScreen(
+          navController = navController,
+          taskType = task.type,
+        )
+      } else {
+        showModelManager = true
+      }
     },
   )
 
@@ -260,6 +269,14 @@ fun GalleryNavHost(
         )
       }
     }
+    
+    composable(
+      route = ToggleServerDestination.route,
+      enterTransition = { slideEnter() },
+      exitTransition = { slideExit() },
+    ) {
+      ToggleServerScreen()
+    }
   }
 
   // Handle incoming intents for deep links
@@ -294,6 +311,7 @@ fun navigateToTaskScreen(
     TaskType.LLM_ASK_AUDIO -> navController.navigate("${LlmAskAudioDestination.route}/${modelName}")
     TaskType.LLM_PROMPT_LAB ->
       navController.navigate("${LlmSingleTurnDestination.route}/${modelName}")
+    TaskType.TOGGLE_SERVER -> navController.navigate(ToggleServerDestination.route)
     TaskType.TEST_TASK_1 -> {}
     TaskType.TEST_TASK_2 -> {}
   }

@@ -144,6 +144,7 @@ constructor(
   private val downloadRepository: DownloadRepository,
   private val dataStoreRepository: DataStoreRepository,
   private val lifecycleProvider: AppLifecycleProvider,
+  private val llmChatModelHelper: LlmChatModelHelper,
   @ApplicationContext private val context: Context,
 ) : ViewModel() {
   private val externalFilesDir = context.getExternalFilesDir(null)
@@ -292,8 +293,8 @@ constructor(
         TaskType.LLM_ASK_IMAGE,
         TaskType.LLM_ASK_AUDIO,
         TaskType.LLM_PROMPT_LAB ->
-          LlmChatModelHelper.initialize(context = context, model = model, onDone = onDone)
-
+          llmChatModelHelper.initialize(context = context, model = model, onDone = onDone)
+        TaskType.TOGGLE_SERVER -> {}
         TaskType.TEST_TASK_1 -> {}
         TaskType.TEST_TASK_2 -> {}
       }
@@ -308,8 +309,8 @@ constructor(
         TaskType.LLM_CHAT,
         TaskType.LLM_PROMPT_LAB,
         TaskType.LLM_ASK_IMAGE,
-        TaskType.LLM_ASK_AUDIO -> LlmChatModelHelper.cleanUp(model = model)
-
+        TaskType.LLM_ASK_AUDIO -> llmChatModelHelper.cleanUp(model = model)
+        TaskType.TOGGLE_SERVER -> {}
         TaskType.TEST_TASK_1 -> {}
         TaskType.TEST_TASK_2 -> {}
       }

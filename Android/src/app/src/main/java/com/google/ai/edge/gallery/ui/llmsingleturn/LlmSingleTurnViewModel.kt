@@ -66,7 +66,9 @@ private val STATS =
   )
 
 @HiltViewModel
-class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
+class LlmSingleTurnViewModel @Inject constructor(
+    private val llmChatModelHelper: LlmChatModelHelper
+) : ViewModel() {
   private val _uiState = MutableStateFlow(createUiState(task = TASK_LLM_PROMPT_LAB))
   val uiState = _uiState.asStateFlow()
 
@@ -80,7 +82,7 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
         delay(100)
       }
 
-      LlmChatModelHelper.resetSession(model = model)
+      llmChatModelHelper.resetSession(model = model)
       delay(500)
 
       // Run inference.
@@ -96,7 +98,7 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
       val start = System.currentTimeMillis()
       var response = ""
       var lastBenchmarkUpdateTs = 0L
-      LlmChatModelHelper.runInference(
+      llmChatModelHelper.runInference(
         model = model,
         input = input,
         resultListener = { partialResult, done ->

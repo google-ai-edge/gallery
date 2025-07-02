@@ -99,6 +99,7 @@ dependencies {
   implementation(libs.hilt.navigation.compose)
   implementation(platform(libs.firebase.bom))
   implementation(libs.firebase.analytics)
+  implementation("commons-fileupload:commons-fileupload:1.4")
   kapt(libs.hilt.android.compiler)
   testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.junit)
