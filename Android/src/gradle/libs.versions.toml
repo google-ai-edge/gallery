@@ -1,21 +1,22 @@
 [versions]
-agp = "8.8.2"
-kotlin = "2.1.0"
-coreKtx = "1.15.0"
+agp = "8.10.0"
+kotlin = "2.1.21"
+coreKtx = "1.16.0"
 junit = "4.13.2"
 junitVersion = "1.2.1"
 espressoCore = "3.6.1"
-lifecycleRuntimeKtx = "2.8.7"
+lifecycleRuntimeKtx = "2.9.0"
 activityCompose = "1.10.1"
-composeBom = "2025.05.00"
-navigation = "2.8.9"
-serializationPlugin = "2.0.21"
-serializationJson = "1.7.3"
+composeBom = "2025.05.01"
+material = "1.14.0-alpha01"
+navigation = "2.9.0"
+serializationPlugin = "2.1.21"
+serializationJson = "1.8.1"
 materialIconExtended = "1.7.8"
-workRuntime = "2.10.0"
+workRuntime = "2.10.1"
 dataStore = "1.1.7"
-gson = "2.12.1"
-lifecycleProcess = "2.8.7"
+gson = "2.13.1"
+lifecycleProcess = "2.9.0"
 protobuf = "0.9.5"
 protobufJavaLite = "4.26.1"
 #noinspection GradleDependency
@@ -28,7 +29,7 @@ playServicesTfliteJava = "16.4.0"
 playServicesTfliteGpu= "16.4.0"
 cameraX = "1.4.2"
 netOpenidAppauth = "0.11.1"
-splashscreen = "1.2.0-beta01"
+splashscreen = "1.2.0-beta02"
 hilt = "2.56.2"
 hiltNavigation = "1.2.0"
 googleService = "4.4.3"
@@ -51,6 +52,7 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-compose-navigation = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serializationJson" }
+material = { module = "com.google.android.material:material", version.ref = "material" }
 material-icon-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIconExtended" }
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntime" }
 androidx-datastore = { group = "androidx.datastore", name = "datastore", version.ref = "dataStore" }
