@@ -34,6 +34,8 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.core.os.bundleOf
+import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.theme.customColors
 
 @Composable
@@ -62,7 +64,11 @@ fun ClickableLink(url: String, linkText: String, icon: ImageVector) {
       text = annotatedText,
       textAlign = TextAlign.Center,
       style = MaterialTheme.typography.bodyLarge,
-      modifier = Modifier.padding(start = 6.dp).clickable { uriHandler.openUri(url) },
+      modifier =
+        Modifier.padding(start = 6.dp).clickable {
+          uriHandler.openUri(url)
+          firebaseAnalytics?.logEvent("resource_link_click", bundleOf("link_destination" to url))
+        },
     )
   }
 }

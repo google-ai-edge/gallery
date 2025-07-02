@@ -20,6 +20,8 @@ import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.os.bundleOf
+import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
@@ -131,6 +133,11 @@ fun ChatViewWrapper(
               triggeredMessage = chatMessageText,
             )
           },
+        )
+
+        firebaseAnalytics?.logEvent(
+          "generate_action",
+          bundleOf("capability_name" to viewModel.task.type.toString(), "model_id" to model.name),
         )
       }
     },
