@@ -48,12 +48,18 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Gallery"
         tools:targetApi="31">
+        <!--
+          android:configChanges="uiMode" tells the system don't destroy and
+          recreate the activity when UI mode changes (e.g. setting dark mode).
+          Instead, just recompose the view.
+         -->
         <activity
             android:name="com.google.ai.edge.gallery.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Gallery.SplashScreen"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize"
+            android:configChanges="uiMode"
             tools:ignore="DiscouragedApi,LockedOrientationActivity">
             <!-- This is for putting the app into launcher -->
             <intent-filter>
@@ -71,6 +77,16 @@
                 <data android:scheme="com.google.ai.edge.gallery" />
             </intent-filter>
         </activity>
+
+        <!-- Set themes for activities that are used for viewing open source licenses -->
+        <activity
+            android:name="com.google.android.gms.oss.licenses.OssLicensesMenuActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Gallery.OssLicenses" />
+        <activity
+            android:name="com.google.android.gms.oss.licenses.OssLicensesActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Gallery.OssLicenses" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
