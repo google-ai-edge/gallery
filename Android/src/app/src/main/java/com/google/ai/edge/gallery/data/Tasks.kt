@@ -33,6 +33,7 @@ enum class TaskType(val label: String, val id: String) {
   LLM_PROMPT_LAB(label = "Prompt Lab", id = "llm_prompt_lab"),
   LLM_ASK_IMAGE(label = "Ask Image", id = "llm_ask_image"),
   LLM_ASK_AUDIO(label = "Audio Scribe", id = "llm_ask_audio"),
+  TOGGLE_SERVER(label = "Toggle Server", id = "toggle_server"),
   TEST_TASK_1(label = "Test task 1", id = "test_task_1"),
   TEST_TASK_2(label = "Test task 2", id = "test_task_2"),
 }
@@ -121,9 +122,20 @@ val TASK_LLM_ASK_AUDIO =
     textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
   )
 
+val TASK_TOGGLE_SERVER =
+  Task(
+    type = TaskType.TOGGLE_SERVER,
+    icon = Icons.Outlined.Forum,
+    models = mutableListOf(),
+    description = "Toggle an LLM endpoint server running on-device (Placeholder).",
+    docUrl = "",
+    sourceCodeUrl = "",
+    textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
+  )
+
 /** All tasks. */
 val TASKS: List<Task> =
-  listOf(TASK_LLM_ASK_IMAGE, TASK_LLM_ASK_AUDIO, TASK_LLM_PROMPT_LAB, TASK_LLM_CHAT)
+  listOf(TASK_LLM_ASK_IMAGE, TASK_LLM_ASK_AUDIO, TASK_LLM_PROMPT_LAB, TASK_LLM_CHAT, TASK_TOGGLE_SERVER)
 
 fun getModelByName(name: String): Model? {
   for (task in TASKS) {

@@ -51,7 +51,10 @@ private val STATS =
     Stat(id = "latency", label = "Latency", unit = "sec"),
   )
 
-open class LlmChatViewModelBase(val curTask: Task) : ChatViewModel(task = curTask) {
+open class LlmChatViewModelBase(
+    val curTask: Task,
+    private val llmChatModelHelper: LlmChatModelHelper
+) : ChatViewModel(task = curTask) {
   fun generateResponse(
     model: Model,
     input: String,
@@ -92,7 +95,7 @@ open class LlmChatViewModelBase(val curTask: Task) : ChatViewModel(task = curTas
       val start = System.currentTimeMillis()
 
       try {
-        LlmChatModelHelper.runInference(
+        llmChatModelHelper.runInference(
           model = model,
           input = input,
           images = images,
@@ -195,7 +198,7 @@ open class LlmChatViewModelBase(val curTask: Task) : ChatViewModel(task = curTas
 
       while (true) {
         try {
-          LlmChatModelHelper.resetSession(model = model)
+          llmChatModelHelper.resetSession(model = model)
           break
         } catch (e: Exception) {
           Log.d(TAG, "Failed to reset session. Trying again")
@@ -262,12 +265,16 @@ open class LlmChatViewModelBase(val curTask: Task) : ChatViewModel(task = curTas
 }
 
 @HiltViewModel
-class LlmChatViewModel @Inject constructor() : LlmChatViewModelBase(curTask = TASK_LLM_CHAT)
+class LlmChatViewModel @Inject constructor(
+    llmChatModelHelper: LlmChatModelHelper
+) : LlmChatViewModelBase(curTask = TASK_LLM_CHAT, llmChatModelHelper = llmChatModelHelper)
 
 @HiltViewModel
-class LlmAskImageViewModel @Inject constructor() :
-  LlmChatViewModelBase(curTask = TASK_LLM_ASK_IMAGE)
+class LlmAskImageViewModel @Inject constructor(
+    llmChatModelHelper: LlmChatModelHelper
+) : LlmChatViewModelBase(curTask = TASK_LLM_ASK_IMAGE, llmChatModelHelper = llmChatModelHelper)
 
 @HiltViewModel
-class LlmAskAudioViewModel @Inject constructor() :
-  LlmChatViewModelBase(curTask = TASK_LLM_ASK_AUDIO)
+class LlmAskAudioViewModel @Inject constructor(
+    llmChatModelHelper: LlmChatModelHelper
+) : LlmChatViewModelBase(curTask = TASK_LLM_ASK_AUDIO, llmChatModelHelper = llmChatModelHelper)

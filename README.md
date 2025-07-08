@@ -19,6 +19,34 @@ The Google AI Edge Gallery is an experimental app that puts the power of cutting
 **AI Chat**
 <img width="1532" alt="AI Chat" src="https://github.com/user-attachments/assets/edaa4f89-237a-4b84-b647-b3c4631f09dc" />
 
+## 🔌 Toggle Server
+
+The "Toggle Server" feature runs a local HTTP server on your mobile device that allows you to interact with the on-device AI models from your laptop using `curl`, with all communication tunneled exclusively over a USB cable connection.
+
+### Usage
+
+1.  **Enable USB Debugging**:
+    *  Follow these [steps](https://developer.android.com/studio/debug/dev-options) to enable ADB port forwarding between your device and computer.
+
+2.  **Connect Device to Computer & Enable Port Forwarding**:
+    ```bash
+    adb -d forward tcp:8080 tcp:8080
+    ```
+
+3.  **Start the Server in the App**:
+    *   Navigate to the "Toggle Server" screen.
+    *   Tap the "Start In-App Server" button.
+
+4.  **Send Requests with `curl`**:
+    *   **Prompt only**:
+        ```bash
+        curl -X POST -F "prompt=Hello, world!" http://localhost:8080
+        ```
+    *   **Image and prompt**:
+        ```bash
+        curl -X POST -F "prompt=What is in this image?" -F "image=@/path/to/your/image.jpg" http://localhost:8080
+        ```
+
 ## ✨ Core Features
 
 *   **📱 Run Locally, Fully Offline:** Experience the magic of GenAI without an internet connection. All processing happens directly on your device.

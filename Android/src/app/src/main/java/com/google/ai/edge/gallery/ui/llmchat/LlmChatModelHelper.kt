@@ -32,6 +32,8 @@ import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.genai.llminference.GraphOptions
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
+import javax.inject.Inject
+import javax.inject.Singleton
 
 private const val TAG = "AGLlmChatModelHelper"
 
@@ -41,7 +43,8 @@ typealias CleanUpListener = () -> Unit
 
 data class LlmModelInstance(val engine: LlmInference, var session: LlmInferenceSession)
 
-object LlmChatModelHelper {
+@Singleton
+class LlmChatModelHelper @Inject constructor() {
   // Indexed by model name.
   private val cleanUpListeners: MutableMap<String, CleanUpListener> = mutableMapOf()
 
