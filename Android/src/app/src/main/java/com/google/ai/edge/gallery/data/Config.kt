@@ -197,7 +197,7 @@ fun createLlmChatConfigs(
     NumberSliderConfig(
       key = ConfigKey.TOPK,
       sliderMin = 5f,
-      sliderMax = 40f,
+      sliderMax = 100f,
       defaultValue = defaultTopK.toFloat(),
       valueType = ValueType.INT,
     ),
