@@ -27,7 +27,9 @@ import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.edit
 import androidx.core.net.toUri
+import androidx.core.os.bundleOf
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -39,6 +41,7 @@ import androidx.work.WorkQuery
 import com.google.ai.edge.gallery.AppLifecycleProvider
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.readLaunchInfo
+import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.worker.DownloadWorker
 import com.google.common.util.concurrent.FutureCallback
 import com.google.common.util.concurrent.Futures
@@ -82,6 +85,15 @@ class DefaultDownloadRepository(
   private val lifecycleProvider: AppLifecycleProvider,
 ) : DownloadRepository {
   private val workManager = WorkManager.getInstance(context)
+  /**
+   * Stores the start time of a model download.
+   *
+   * We use SharedPreferences to persist the download start times. This ensures that the data is
+   * still available after the app restarts. The key is the model name and the value is the download
+   * start time in milliseconds.
+   */
+  private val downloadStartTimeSharedPreferences =
+    context.getSharedPreferences("download_start_time_ms", Context.MODE_PRIVATE)
 
   override fun downloadModel(
     model: Model,
@@ -175,6 +187,16 @@ class DefaultDownloadRepository(
     workManager.getWorkInfoByIdLiveData(workerId).observeForever { workInfo ->
       if (workInfo != null) {
         when (workInfo.state) {
+          WorkInfo.State.ENQUEUED -> {
+            downloadStartTimeSharedPreferences.edit {
+              putLong(model.name, System.currentTimeMillis())
+            }
+            firebaseAnalytics?.logEvent(
+              "model_download",
+              bundleOf("event_type" to "start", "model_id" to model.name),
+            )
+          }
+
           WorkInfo.State.RUNNING -> {
             val receivedBytes = workInfo.progress.getLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, 0L)
             val downloadRate = workInfo.progress.getLong(KEY_MODEL_DOWNLOAD_RATE, 0L)
@@ -210,6 +232,18 @@ class DefaultDownloadRepository(
               text = context.getString(R.string.notification_content_success).format(model.name),
               modelName = model.name,
             )
+
+            val startTime = downloadStartTimeSharedPreferences.getLong(model.name, 0L)
+            val duration = System.currentTimeMillis() - startTime
+            firebaseAnalytics?.logEvent(
+              "model_download",
+              bundleOf(
+                "event_type" to "success",
+                "model_id" to model.name,
+                "duration_ms" to duration,
+              ),
+            )
+            downloadStartTimeSharedPreferences.edit { remove(model.name) }
           }
 
           WorkInfo.State.FAILED,
@@ -233,6 +267,19 @@ class DefaultDownloadRepository(
               model,
               ModelDownloadStatus(status = status, errorMessage = errorMessage),
             )
+
+            val startTime = downloadStartTimeSharedPreferences.getLong(model.name, 0L)
+            val duration = System.currentTimeMillis() - startTime
+            // TODO: Add failure reasons
+            firebaseAnalytics?.logEvent(
+              "model_download",
+              bundleOf(
+                "event_type" to "failure",
+                "model_id" to model.name,
+                "duration_ms" to duration,
+              ),
+            )
+            downloadStartTimeSharedPreferences.edit { remove(model.name) }
           }
 
           else -> {}
