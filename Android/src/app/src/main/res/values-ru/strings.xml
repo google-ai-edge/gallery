@@ -1,0 +1,43 @@
+<!--
+ Copyright 2025 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<resources>
+    <string name="app_name">Google AI Edge Gallery</string>
+    <string name="model_manager">Менеджер моделей</string>
+    <string name="downloaded_size">Загружено: %1$s</string>
+    <string name="cancel">Отмена</string>
+    <string name="ok">OK</string>
+    <string name="confirm_delete_model_dialog_title">Удаление загрузки</string>
+    <string name="confirm_delete_model_dialog_content">Вы уверены, что хотите удалить загруженную модель \"%s\"?</string>
+    <string name="notification_title_success">Модель успешно загружена</string>
+    <string name="notification_content_success">Модель \"%s\" загружена</string>
+    <string name="notification_title_fail">Ошибка загрузки модели</string>
+    <string name="notification_content_fail">Не удалось загрузить модель \"%s\"</string>
+    <string name="chat_textinput_placeholder">Введите сообщение…</string>
+    <string name="chat_you">Вы</string>
+    <string name="chat_llm_agent_name">LLM</string>
+    <string name="chat_generic_agent_name">Модель</string>
+    <string name="chat_generic_result_name">Результат</string>
+    <string name="model_not_downloaded_msg">Модель ещё не загружена</string>
+    <string name="model_is_initializing_msg">Инициализация модели…</string>
+    <string name="text_input_placeholder_text_classification">Введите текст для анализа…</string>
+    <string name="text_image_generation_text_field_placeholder">Введите промт…</string>
+    <string name="text_input_placeholder_llm_chat">Введите запрос…</string>
+    <string name="run_again">Повторить</string>
+    <string name="benchmark">Тестирование</string>
+    <string name="warming_up">Подготовка…</string>
+    <string name="running">Выполняется</string>
+</resources>
