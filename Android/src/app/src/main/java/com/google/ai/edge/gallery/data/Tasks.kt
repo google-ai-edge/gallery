@@ -88,7 +88,7 @@ val TASK_LLM_PROMPT_LAB =
     type = TaskType.LLM_PROMPT_LAB,
     icon = Icons.Outlined.Widgets,
     models = mutableListOf(),
-    description = "Single turn use cases with on-device large language model",
+    description = "Single turn use cases with on-device large language models",
     docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
     sourceCodeUrl =
       "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
