@@ -15,29 +15,36 @@
 -->
 
 <resources>
-    <string name="app_name">Google AI Edge Gallery</string>
-    <string name="model_manager">Model Manager</string>
-    <string name="downloaded_size">%1$s downloaded</string>
-    <string name="cancel">Cancel</string>
-    <string name="ok">OK</string>
-    <string name="confirm_delete_model_dialog_title">Delete download</string>
-    <string name="confirm_delete_model_dialog_content">Are you sure you want to delete the downloaded model \"%s\"?</string>
-    <string name="notification_title_success">Model download succeeded</string>
-    <string name="notification_content_success">Model \"%s\" has been downloaded</string>
-    <string name="notification_title_fail">Model download failed</string>
-    <string name="notification_content_fail">Failed to download model \"%s\"</string>
-    <string name="chat_textinput_placeholder">Type message…</string>
-    <string name="chat_you">You</string>
-    <string name="chat_llm_agent_name">LLM</string>
-    <string name="chat_generic_agent_name">Model</string>
-    <string name="chat_generic_result_name">Result</string>
-    <string name="model_not_downloaded_msg">Model not downloaded yet</string>
-    <string name="model_is_initializing_msg">Initializing model…</string>
-    <string name="text_input_placeholder_text_classification">Type movie review to classify…</string>
-    <string name="text_image_generation_text_field_placeholder">Type prompt…</string>
-    <string name="text_input_placeholder_llm_chat">Type prompt…</string>
-    <string name="run_again">Run again</string>
-    <string name="benchmark">Run benchmark</string>
-    <string name="warming_up">warming up…</string>
-    <string name="running">running</string>
+    <!-- TODO(jingjin): Add translation support when i18n is ready. -->
+    <string name="app_name" translatable="false">Google AI Edge Gallery</string>
+    <string name="model_manager" translatable="false">Model Manager</string>
+    <string name="downloaded_size" translatable="false">%1$s downloaded</string>
+    <string name="cancel" translatable="false">Cancel</string>
+    <string name="ok" translatable="false">OK</string>
+    <string name="close" translatable="false">Close</string>
+    <string name="confirm_delete_model_dialog_title" translatable="false">Delete download</string>
+    <string name="confirm_delete_model_dialog_content" translatable="false">Are you sure you want to delete the downloaded model \"%s\"?</string>
+    <string name="notification_title_success" translatable="false">Model download succeeded</string>
+    <string name="notification_content_success" translatable="false">Model \"%s\" has been downloaded</string>
+    <string name="notification_title_fail" translatable="false">Model download failed</string>
+    <string name="notification_content_fail" translatable="false">Failed to download model \"%s\"</string>
+    <string name="chat_textinput_placeholder" translatable="false">Type message…</string>
+    <string name="chat_you" translatable="false">You</string>
+    <string name="chat_llm_agent_name" translatable="false">LLM</string>
+    <string name="chat_generic_agent_name" translatable="false">Model</string>
+    <string name="chat_generic_result_name" translatable="false">Result</string>
+    <string name="model_not_downloaded_msg" translatable="false">Model not downloaded yet</string>
+    <string name="model_is_initializing_msg" translatable="false">Initializing model…</string>
+    <string name="settings_dialog_tos_title" translatable="false">Terms of services</string>
+    <string name="text_input_placeholder_text_classification" translatable="false">Type movie review to classify…</string>
+    <string name="text_image_generation_text_field_placeholder" translatable="false">Type prompt…</string>
+    <string name="text_input_placeholder_llm_chat" translatable="false">Type prompt…</string>
+    <string name="tos_sheet_title_app_name" translatable="false">Google AI Edge Gallery App</string>
+    <string name="tos_sheet_title_tos" translatable="false">Terms of Service</string>
+    <string name="tos_sheet_view_full_tos" translatable="false">View the full Terms of Service</string>
+    <string name="tos_sheet_view_accept_button_label" translatable="false">Accept and Continue</string>
+    <string name="run_again" translatable="false">Run again</string>
+    <string name="benchmark" translatable="false">Run benchmark</string>
+    <string name="warming_up" translatable="false">warming up…</string>
+    <string name="running" translatable="false">running</string>
 </resources>

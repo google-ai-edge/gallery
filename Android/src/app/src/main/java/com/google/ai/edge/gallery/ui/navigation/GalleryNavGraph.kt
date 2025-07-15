@@ -146,7 +146,6 @@ fun GalleryNavHost(
     navigateToTaskScreen = { task ->
       pickedTask = task
       showModelManager = true
-
       firebaseAnalytics?.logEvent(
         "capability_select",
         bundleOf("capability_name" to task.type.toString()),

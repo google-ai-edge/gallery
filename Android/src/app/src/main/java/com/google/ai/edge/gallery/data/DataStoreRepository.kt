@@ -43,6 +43,10 @@ interface DataStoreRepository {
   fun saveImportedModels(importedModels: List<ImportedModel>)
 
   fun readImportedModels(): List<ImportedModel>
+
+  fun isTosAccepted(): Boolean
+
+  fun acceptTos()
 }
 
 /** Repository for managing data using Proto DataStore. */
@@ -119,6 +123,19 @@ class DefaultDataStoreRepository(private val dataStore: DataStore<Settings>) : D
     return runBlocking {
       val settings = dataStore.data.first()
       settings.importedModelList
+    }
+  }
+
+  override fun isTosAccepted(): Boolean {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      settings.isTosAccepted
+    }
+  }
+
+  override fun acceptTos() {
+    runBlocking {
+      dataStore.updateData { settings -> settings.toBuilder().setIsTosAccepted(true).build() }
     }
   }
 }

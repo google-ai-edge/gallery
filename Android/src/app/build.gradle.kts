@@ -33,13 +33,15 @@ android {
 
   defaultConfig {
     applicationId = "com.google.aiedge.gallery"
-    minSdk = 26
+    minSdk = 31
     targetSdk = 35
     versionCode = 1
     versionName = "1.0.4"
 
     // Needed for HuggingFace auth workflows.
-    manifestPlaceholders["appAuthRedirectScheme"] = "com.google.ai.edge.gallery.oauth"
+    // Use the scheme of the "Redirect URLs" in HuggingFace app.
+    manifestPlaceholders["appAuthRedirectScheme"] =
+        "REPLACE_WITH_YOUR_REDIRECT_SCHEME_IN_HUGGINGFACE_APP"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

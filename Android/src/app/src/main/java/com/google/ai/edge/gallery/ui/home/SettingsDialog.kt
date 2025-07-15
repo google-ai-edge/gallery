@@ -20,7 +20,6 @@ import com.google.android.gms.oss.licenses.OssLicensesMenuActivity
 import android.app.UiModeManager
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -63,12 +62,15 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.google.ai.edge.gallery.BuildConfig
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.proto.Theme
+import com.google.ai.edge.gallery.ui.common.TosSheet
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.ThemeSettings
 import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
@@ -98,6 +100,7 @@ fun SettingsDialog(
   var isFocused by remember { mutableStateOf(false) }
   val focusRequester = remember { FocusRequester() }
   val interactionSource = remember { MutableInteractionSource() }
+  var showTos by remember { mutableStateOf(false) }
 
   Dialog(onDismissRequest = onDismissed) {
     val focusManager = LocalFocusManager.current
@@ -161,17 +164,15 @@ fun SettingsDialog(
                     //
                     // This is necessary to make other Activities launched from MainActivity to have
                     // the correct theme.
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                      val uiModeManager =
-                        context.applicationContext.getSystemService(Context.UI_MODE_SERVICE)
-                          as UiModeManager
-                      if (theme == Theme.THEME_AUTO) {
-                        uiModeManager.setApplicationNightMode(UiModeManager.MODE_NIGHT_AUTO)
-                      } else if (theme == Theme.THEME_LIGHT) {
-                        uiModeManager.setApplicationNightMode(UiModeManager.MODE_NIGHT_NO)
-                      } else {
-                        uiModeManager.setApplicationNightMode(UiModeManager.MODE_NIGHT_YES)
-                      }
+                    val uiModeManager =
+                      context.applicationContext.getSystemService(Context.UI_MODE_SERVICE)
+                        as UiModeManager
+                    if (theme == Theme.THEME_AUTO) {
+                      uiModeManager.setApplicationNightMode(UiModeManager.MODE_NIGHT_AUTO)
+                    } else if (theme == Theme.THEME_LIGHT) {
+                      uiModeManager.setApplicationNightMode(UiModeManager.MODE_NIGHT_NO)
+                    } else {
+                      uiModeManager.setApplicationNightMode(UiModeManager.MODE_NIGHT_YES)
                     }
                   },
                   checked = theme == selectedTheme,
@@ -298,6 +299,15 @@ fun SettingsDialog(
               Text("View licenses")
             }
           }
+
+          // Tos
+          Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+              stringResource(R.string.settings_dialog_tos_title),
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            )
+            OutlinedButton(onClick = { showTos = true }) { Text("View Terms of Services") }
+          }
         }
 
         // Button row.
@@ -310,6 +320,10 @@ fun SettingsDialog(
         }
       }
     }
+  }
+
+  if (showTos) {
+    TosSheet(onTosAccepted = { showTos = false }, viewingMode = true)
   }
 }
 

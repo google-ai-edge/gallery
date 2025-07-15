@@ -28,8 +28,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -110,6 +112,7 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.ui.common.TaskIcon
+import com.google.ai.edge.gallery.ui.common.TosSheet
 import com.google.ai.edge.gallery.ui.common.getTaskBgColor
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
@@ -146,6 +149,7 @@ fun HomeScreen(
   val sheetState = rememberModalBottomSheetState()
   var showImportDialog by remember { mutableStateOf(false) }
   var showImportingDialog by remember { mutableStateOf(false) }
+  var showTosSheet by remember { mutableStateOf(!modelManagerViewModel.getIsTosAccepted()) }
   val selectedLocalModelFileUri = remember { mutableStateOf<Uri?>(null) }
   val selectedImportedModelInfo = remember { mutableStateOf<ImportedModel?>(null) }
   val coroutineScope = rememberCoroutineScope()
@@ -173,41 +177,54 @@ fun HomeScreen(
       }
     }
 
-  Scaffold(
-    modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-    topBar = {
-      GalleryTopAppBar(
-        title = stringResource(HomeScreenDestination.titleRes),
-        rightAction =
-          AppBarAction(
-            actionType = AppBarActionType.APP_SETTING,
-            actionFn = { showSettingsDialog = true },
-          ),
-        scrollBehavior = scrollBehavior,
-      )
-    },
-    floatingActionButton = {
-      // A floating action button to show "import model" bottom sheet.
-      SmallFloatingActionButton(
-        onClick = { showImportModelSheet = true },
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.secondary,
-      ) {
-        Icon(Icons.Filled.Add, "")
-      }
-    },
-  ) { innerPadding ->
-    Box(contentAlignment = Alignment.BottomCenter, modifier = Modifier.fillMaxSize()) {
-      TaskList(
-        tasks = uiState.tasks,
-        navigateToTaskScreen = navigateToTaskScreen,
-        loadingModelAllowlist = uiState.loadingModelAllowlist,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = innerPadding,
-      )
+  // Show home screen content when TOS has been accepted.
+  AnimatedVisibility(visible = !showTosSheet, enter = fadeIn()) {
+    Scaffold(
+      modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+      topBar = {
+        GalleryTopAppBar(
+          title = stringResource(HomeScreenDestination.titleRes),
+          rightAction =
+            AppBarAction(
+              actionType = AppBarActionType.APP_SETTING,
+              actionFn = { showSettingsDialog = true },
+            ),
+          scrollBehavior = scrollBehavior,
+        )
+      },
+      floatingActionButton = {
+        // A floating action button to show "import model" bottom sheet.
+        SmallFloatingActionButton(
+          onClick = { showImportModelSheet = true },
+          containerColor = MaterialTheme.colorScheme.secondaryContainer,
+          contentColor = MaterialTheme.colorScheme.secondary,
+        ) {
+          Icon(Icons.Filled.Add, "")
+        }
+      },
+    ) { innerPadding ->
+      Box(contentAlignment = Alignment.BottomCenter, modifier = Modifier.fillMaxSize()) {
+        TaskList(
+          tasks = uiState.tasks,
+          navigateToTaskScreen = navigateToTaskScreen,
+          loadingModelAllowlist = uiState.loadingModelAllowlist,
+          modifier = Modifier.fillMaxSize(),
+          contentPadding = innerPadding,
+        )
 
-      SnackbarHost(hostState = snackbarHostState, modifier = Modifier.padding(bottom = 32.dp))
+        SnackbarHost(hostState = snackbarHostState, modifier = Modifier.padding(bottom = 32.dp))
+      }
     }
+  }
+
+  // Show TOS sheet for users to accept.
+  if (showTosSheet) {
+    TosSheet(
+      onTosAccepted = {
+        showTosSheet = false
+        modelManagerViewModel.acceptTos()
+      }
+    )
   }
 
   // Settings dialog.
