@@ -25,14 +25,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -46,10 +47,18 @@ import com.google.ai.edge.gallery.data.TASKS
 import com.google.ai.edge.gallery.data.TASK_LLM_CHAT
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.theme.GalleryTheme
-import com.google.ai.edge.gallery.ui.theme.customColors
 
 private val SHAPES: List<Int> =
-  listOf(R.drawable.pantegon, R.drawable.double_circle, R.drawable.circle, R.drawable.four_circle)
+  listOf(
+    // Ask image.
+    R.drawable.circle,
+    // Audio scribe
+    R.drawable.double_circle,
+    // Prompt lab
+    R.drawable.pantegon,
+    // AI chat,
+    R.drawable.four_circle,
+  )
 
 /**
  * Composable that displays an icon representing a task. It consists of a background image and a
@@ -58,21 +67,27 @@ private val SHAPES: List<Int> =
 @Composable
 fun TaskIcon(task: Task, modifier: Modifier = Modifier, width: Dp = 56.dp) {
   Box(modifier = modifier.width(width).aspectRatio(1f), contentAlignment = Alignment.Center) {
+    val brush = Brush.linearGradient(colors = getTaskBgGradientColors(task = task))
     Image(
       painter = getTaskIconBgShape(task = task),
       contentDescription = "",
-      modifier = Modifier.fillMaxSize().alpha(0.6f),
-      contentScale = ContentScale.Fit,
-      colorFilter =
-        ColorFilter.tint(
-          MaterialTheme.customColors.taskIconShapeBgColor,
-          blendMode = BlendMode.SrcIn,
-        ),
+      modifier =
+        Modifier.fillMaxSize()
+          .graphicsLayer(
+            // This is important to make blending mode work.
+            alpha = 0.99f,
+            compositingStrategy = CompositingStrategy.Offscreen,
+          )
+          .drawWithContent {
+            drawContent()
+            drawRect(brush = brush, blendMode = BlendMode.SrcIn)
+          },
+      contentScale = ContentScale.FillHeight,
     )
     Icon(
       task.icon ?: ImageVector.vectorResource(task.iconVectorResourceId!!),
-      tint = getTaskIconColor(task = task),
-      modifier = Modifier.size(width * 0.6f),
+      tint = Color.White,
+      modifier = Modifier.size(width * 0.55f),
       contentDescription = "",
     )
   }

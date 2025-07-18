@@ -136,6 +136,7 @@ fun ModelItem(
           @Composable {
             TaskIcon(
               task = task,
+              width = 40.dp,
               modifier =
                 Modifier.sharedElement(
                   sharedContentState = rememberSharedContentState(key = "task_icon"),
@@ -206,6 +207,7 @@ fun ModelItem(
             if (model.info.isNotEmpty()) {
               MarkdownText(
                 model.info,
+                smallFontSize = true,
                 modifier =
                   Modifier.sharedElement(
                       sharedContentState = rememberSharedContentState(key = "description"),

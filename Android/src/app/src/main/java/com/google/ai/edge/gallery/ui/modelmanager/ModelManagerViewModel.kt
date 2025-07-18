@@ -708,14 +708,6 @@ constructor(
     lifecycleProvider.isAppInForeground = foreground
   }
 
-  fun getIsTosAccepted(): Boolean {
-    return dataStoreRepository.isTosAccepted()
-  }
-
-  fun acceptTos() {
-    dataStoreRepository.acceptTos()
-  }
-
   private fun saveModelAllowlistToDisk(modelAllowlistContent: String) {
     try {
       Log.d(TAG, "Saving model allowlist to disk...")

@@ -63,7 +63,7 @@ fun ClickableLink(url: String, linkText: String, icon: ImageVector) {
     Text(
       text = annotatedText,
       textAlign = TextAlign.Center,
-      style = MaterialTheme.typography.bodyLarge,
+      style = MaterialTheme.typography.bodyMedium,
       modifier =
         Modifier.padding(start = 6.dp).clickable {
           uriHandler.openUri(url)

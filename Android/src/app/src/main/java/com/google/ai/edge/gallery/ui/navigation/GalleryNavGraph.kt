@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.ui.navigation
 
+import androidx.hilt.navigation.compose.hiltViewModel
 import android.util.Log
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
@@ -37,7 +38,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
 import androidx.core.os.bundleOf
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -143,6 +143,7 @@ fun GalleryNavHost(
 
   HomeScreen(
     modelManagerViewModel = modelManagerViewModel,
+    tosViewModel = hiltViewModel(),
     navigateToTaskScreen = { task ->
       pickedTask = task
       showModelManager = true

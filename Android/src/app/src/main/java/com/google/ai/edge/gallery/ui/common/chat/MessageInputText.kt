@@ -528,7 +528,7 @@ fun MessageInputText(
               Icons.AutoMirrored.Rounded.Send,
               contentDescription = "",
               modifier = Modifier.offset(x = 2.dp),
-              tint = MaterialTheme.colorScheme.primary,
+              tint = MaterialTheme.colorScheme.onSurface,
             )
           }
         }

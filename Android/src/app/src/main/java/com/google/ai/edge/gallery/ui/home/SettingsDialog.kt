@@ -70,7 +70,7 @@ import androidx.compose.ui.window.Dialog
 import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.proto.Theme
-import com.google.ai.edge.gallery.ui.common.TosSheet
+import com.google.ai.edge.gallery.ui.common.tos.TosDialog
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.ThemeSettings
 import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
@@ -143,7 +143,7 @@ fun SettingsDialog(
           Column(modifier = Modifier.fillMaxWidth()) {
             Text(
               "Theme",
-              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
             )
             MultiChoiceSegmentedButtonRow {
               THEME_OPTIONS.forEachIndexed { index, theme ->
@@ -189,7 +189,7 @@ fun SettingsDialog(
           ) {
             Text(
               "HuggingFace access token",
-              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
             )
             // Show the start of the token.
             val curHfToken = hfToken
@@ -286,7 +286,7 @@ fun SettingsDialog(
           Column(modifier = Modifier.fillMaxWidth()) {
             Text(
               "Third-party libraries",
-              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
             )
             OutlinedButton(
               onClick = {
@@ -304,7 +304,7 @@ fun SettingsDialog(
           Column(modifier = Modifier.fillMaxWidth()) {
             Text(
               stringResource(R.string.settings_dialog_tos_title),
-              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
             )
             OutlinedButton(onClick = { showTos = true }) { Text("View Terms of Services") }
           }
@@ -323,7 +323,7 @@ fun SettingsDialog(
   }
 
   if (showTos) {
-    TosSheet(onTosAccepted = { showTos = false }, viewingMode = true)
+    TosDialog(onTosAccepted = { showTos = false }, viewingMode = true)
   }
 }
 

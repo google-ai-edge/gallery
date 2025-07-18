@@ -219,7 +219,7 @@ fun ModelDownloadingAnimation(
         }
         Text(
           sizeLabel,
-          color = MaterialTheme.colorScheme.secondary,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
           style = MaterialTheme.typography.labelMedium,
           textAlign = TextAlign.Center,
           overflow = TextOverflow.Visible,

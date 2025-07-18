@@ -48,7 +48,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
@@ -100,7 +99,7 @@ fun ModelPageAppBar(
           )
           Text(
             task.type.label,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+            style = MaterialTheme.typography.titleMedium,
             color = getTaskIconColor(task = task),
           )
         }
@@ -144,7 +143,7 @@ fun ModelPageAppBar(
             Icon(
               imageVector = Icons.Rounded.Tune,
               contentDescription = "",
-              tint = MaterialTheme.colorScheme.primary,
+              tint = MaterialTheme.colorScheme.onSurface,
               modifier = Modifier.size(20.dp),
             )
           }
@@ -173,7 +172,7 @@ fun ModelPageAppBar(
                 Icon(
                   imageVector = Icons.Rounded.MapsUgc,
                   contentDescription = "",
-                  tint = MaterialTheme.colorScheme.primary,
+                  tint = MaterialTheme.colorScheme.onSurface,
                   modifier = Modifier.size(20.dp),
                 )
               }

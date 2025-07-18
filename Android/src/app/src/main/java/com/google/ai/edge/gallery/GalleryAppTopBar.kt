@@ -44,7 +44,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.data.AppBarAction
@@ -61,7 +60,7 @@ fun GalleryTopAppBar(
   scrollBehavior: TopAppBarScrollBehavior? = null,
   subtitle: String = "",
 ) {
-  val titleColor = MaterialTheme.colorScheme.primary
+  val titleColor = MaterialTheme.colorScheme.onSurface
   CenterAlignedTopAppBar(
     title = {
       Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -81,9 +80,9 @@ fun GalleryTopAppBar(
             text = title,
             maxLines = 1,
             color = { titleColor },
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+            style = MaterialTheme.typography.titleMedium,
             autoSize =
-              TextAutoSize.StepBased(minFontSize = 14.sp, maxFontSize = 22.sp, stepSize = 1.sp),
+              TextAutoSize.StepBased(minFontSize = 14.sp, maxFontSize = 16.sp, stepSize = 1.sp),
           )
         }
         if (subtitle.isNotEmpty()) {
@@ -136,7 +135,7 @@ fun GalleryTopAppBar(
             Icon(
               imageVector = Icons.Rounded.Settings,
               contentDescription = "",
-              tint = MaterialTheme.colorScheme.primary,
+              tint = MaterialTheme.colorScheme.onSurface,
             )
           }
         }

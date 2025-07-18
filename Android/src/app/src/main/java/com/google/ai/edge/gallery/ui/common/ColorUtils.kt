@@ -29,6 +29,12 @@ fun getTaskBgColor(task: Task): Color {
 }
 
 @Composable
+fun getTaskBgGradientColors(task: Task): List<Color> {
+  val colorIndex: Int = task.index % MaterialTheme.customColors.taskBgColors.size
+  return MaterialTheme.customColors.taskBgGradientColors[colorIndex]
+}
+
+@Composable
 fun getTaskIconColor(task: Task): Color {
   val colorIndex: Int = task.index % MaterialTheme.customColors.taskIconColors.size
   return MaterialTheme.customColors.taskIconColors[colorIndex]

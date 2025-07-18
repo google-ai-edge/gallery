@@ -21,6 +21,7 @@ import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
@@ -34,12 +35,19 @@ import com.halilibo.richtext.ui.string.RichTextStringStyle
 
 /** Composable function to display Markdown-formatted text. */
 @Composable
-fun MarkdownText(text: String, modifier: Modifier = Modifier, smallFontSize: Boolean = false) {
+fun MarkdownText(
+  text: String,
+  modifier: Modifier = Modifier,
+  smallFontSize: Boolean = false,
+  textColor: Color = MaterialTheme.colorScheme.onSurface,
+) {
   val fontSize =
     if (smallFontSize) MaterialTheme.typography.bodyMedium.fontSize
     else MaterialTheme.typography.bodyLarge.fontSize
   CompositionLocalProvider {
-    ProvideTextStyle(value = TextStyle(fontSize = fontSize, lineHeight = fontSize * 1.3)) {
+    ProvideTextStyle(
+      value = TextStyle(fontSize = fontSize, lineHeight = fontSize * 1.3, color = textColor)
+    ) {
       RichText(
         modifier = modifier,
         style =

@@ -100,7 +100,7 @@ fun ModelList(
         Text(
           task.description,
           textAlign = TextAlign.Center,
-          style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+          style = MaterialTheme.typography.bodyLarge,
           modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         )
       }
@@ -151,7 +151,8 @@ fun ModelList(
         item(key = "importedModelsTitle") {
           Text(
             "Imported models",
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
             modifier = Modifier.padding(horizontal = 16.dp).padding(top = 24.dp),
           )
         }

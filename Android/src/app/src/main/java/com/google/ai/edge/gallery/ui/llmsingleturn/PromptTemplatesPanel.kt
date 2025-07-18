@@ -165,7 +165,15 @@ fun PromptTemplatesPanel(
               promptTemplateType = promptTemplateTypes[index],
             )
           },
-          text = { Text(text = title, modifier = Modifier.alpha(if (inProgress) 0.5f else 1f)) },
+          text = {
+            Text(
+              text = title,
+              modifier = Modifier.alpha(if (inProgress) 0.5f else 1f),
+              color =
+                if (selectedTabIndex == index) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          },
         )
       }
     }
@@ -307,8 +315,8 @@ fun PromptTemplatesPanel(
                   containerColor = MaterialTheme.customColors.agentBubbleBgColor,
                   disabledContainerColor =
                     MaterialTheme.customColors.agentBubbleBgColor.copy(alpha = 0.4f),
-                  contentColor = MaterialTheme.colorScheme.primary,
-                  disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                  contentColor = MaterialTheme.colorScheme.onSurface,
+                  disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
                 ),
               border = BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.surface),
               modifier = Modifier.size(ICON_BUTTON_SIZE),
@@ -330,8 +338,8 @@ fun PromptTemplatesPanel(
                 containerColor = MaterialTheme.customColors.agentBubbleBgColor,
                 disabledContainerColor =
                   MaterialTheme.customColors.agentBubbleBgColor.copy(alpha = 0.4f),
-                contentColor = MaterialTheme.colorScheme.primary,
-                disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
               ),
             border = BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.surface),
             modifier = Modifier.size(ICON_BUTTON_SIZE),
@@ -369,8 +377,8 @@ fun PromptTemplatesPanel(
                   containerColor = MaterialTheme.colorScheme.secondaryContainer,
                   disabledContainerColor =
                     MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
-                  contentColor = MaterialTheme.colorScheme.primary,
-                  disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                  contentColor = MaterialTheme.colorScheme.onSurface,
+                  disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
                 ),
               border = BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.surface),
               modifier = Modifier.size(ICON_BUTTON_SIZE),

@@ -25,7 +25,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.ui.common.MarkdownText
 
@@ -35,7 +34,7 @@ fun MessageBodyText(message: ChatMessageText) {
   if (message.side == ChatSide.USER) {
     Text(
       message.content,
-      style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+      style = MaterialTheme.typography.bodyLarge,
       color = Color.White,
       modifier = Modifier.padding(12.dp),
     )
@@ -45,7 +44,7 @@ fun MessageBodyText(message: ChatMessageText) {
     } else {
       Text(
         message.content,
-        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+        style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.padding(12.dp),
       )

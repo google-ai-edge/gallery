@@ -167,7 +167,7 @@ fun ModelNameAndStatus(
             for ((index, line) in sizeLabel.split("\n").withIndex()) {
               Text(
                 line,
-                color = MaterialTheme.colorScheme.secondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 style = labelSmallNarrow.copy(fontSize = fontSize, lineHeight = 10.sp),
                 textAlign = if (isExpanded) TextAlign.Center else TextAlign.Start,

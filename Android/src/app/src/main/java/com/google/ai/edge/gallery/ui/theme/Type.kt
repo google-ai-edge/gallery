@@ -16,14 +16,14 @@
 
 package com.google.ai.edge.gallery.ui.theme
 
-import androidx.compose.material3.Typography
 import androidx.compose.ui.text.font.Font
+import androidx.compose.material3.Typography
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
 
-val nunitoFontFamily =
+val appFontFamily =
   FontFamily(
     Font(R.font.nunito_regular, FontWeight.Normal),
     Font(R.font.nunito_extralight, FontWeight.ExtraLight),
@@ -39,57 +39,50 @@ val baseline = Typography()
 
 val AppTypography =
   Typography(
-    displayLarge = baseline.displayLarge.copy(fontFamily = nunitoFontFamily),
-    displayMedium = baseline.displayMedium.copy(fontFamily = nunitoFontFamily),
-    displaySmall = baseline.displaySmall.copy(fontFamily = nunitoFontFamily),
-    headlineLarge = baseline.headlineLarge.copy(fontFamily = nunitoFontFamily),
-    headlineMedium = baseline.headlineMedium.copy(fontFamily = nunitoFontFamily),
-    headlineSmall = baseline.headlineSmall.copy(fontFamily = nunitoFontFamily),
-    titleLarge = baseline.titleLarge.copy(fontFamily = nunitoFontFamily),
-    titleMedium = baseline.titleMedium.copy(fontFamily = nunitoFontFamily),
-    titleSmall = baseline.titleSmall.copy(fontFamily = nunitoFontFamily),
-    bodyLarge = baseline.bodyLarge.copy(fontFamily = nunitoFontFamily),
-    bodyMedium = baseline.bodyMedium.copy(fontFamily = nunitoFontFamily),
-    bodySmall = baseline.bodySmall.copy(fontFamily = nunitoFontFamily),
-    labelLarge = baseline.labelLarge.copy(fontFamily = nunitoFontFamily),
-    labelMedium = baseline.labelMedium.copy(fontFamily = nunitoFontFamily),
-    labelSmall = baseline.labelSmall.copy(fontFamily = nunitoFontFamily),
+    displayLarge = baseline.displayLarge.copy(fontFamily = appFontFamily),
+    displayMedium = baseline.displayMedium.copy(fontFamily = appFontFamily),
+    displaySmall = baseline.displaySmall.copy(fontFamily = appFontFamily),
+    headlineLarge = baseline.headlineLarge.copy(fontFamily = appFontFamily),
+    headlineMedium = baseline.headlineMedium.copy(fontFamily = appFontFamily),
+    headlineSmall = baseline.headlineSmall.copy(fontFamily = appFontFamily),
+    titleLarge = baseline.titleLarge.copy(fontFamily = appFontFamily),
+    titleMedium = baseline.titleMedium.copy(fontFamily = appFontFamily),
+    titleSmall = baseline.titleSmall.copy(fontFamily = appFontFamily),
+    bodyLarge = baseline.bodyLarge.copy(fontFamily = appFontFamily),
+    bodyMedium = baseline.bodyMedium.copy(fontFamily = appFontFamily),
+    bodySmall = baseline.bodySmall.copy(fontFamily = appFontFamily),
+    labelLarge = baseline.labelLarge.copy(fontFamily = appFontFamily),
+    labelMedium = baseline.labelMedium.copy(fontFamily = appFontFamily),
+    labelSmall = baseline.labelSmall.copy(fontFamily = appFontFamily),
   )
 
 val titleMediumNarrow =
-  baseline.titleMedium.copy(fontFamily = nunitoFontFamily, letterSpacing = 0.0.sp)
+  baseline.titleMedium.copy(fontFamily = appFontFamily, letterSpacing = 0.0.sp)
 
 val titleSmaller =
   baseline.titleSmall.copy(
-    fontFamily = nunitoFontFamily,
+    fontFamily = appFontFamily,
     fontSize = 12.sp,
     fontWeight = FontWeight.Bold,
   )
 
-val labelSmallNarrow =
-  baseline.labelSmall.copy(fontFamily = nunitoFontFamily, letterSpacing = 0.0.sp)
+val labelSmallNarrow = baseline.labelSmall.copy(fontFamily = appFontFamily, letterSpacing = 0.0.sp)
 
 val labelSmallNarrowMedium =
   baseline.labelSmall.copy(
-    fontFamily = nunitoFontFamily,
+    fontFamily = appFontFamily,
     fontWeight = FontWeight.Medium,
     letterSpacing = 0.0.sp,
   )
 
-val bodySmallNarrow = baseline.bodySmall.copy(fontFamily = nunitoFontFamily, letterSpacing = 0.0.sp)
-
-val bodySmallSemiBold =
-  baseline.bodySmall.copy(fontFamily = nunitoFontFamily, fontWeight = FontWeight.SemiBold)
-
-val bodyMediumSemiBold =
-  baseline.bodyMedium.copy(fontFamily = nunitoFontFamily, fontWeight = FontWeight.SemiBold)
+val bodySmallNarrow = baseline.bodySmall.copy(fontFamily = appFontFamily, letterSpacing = 0.0.sp)
 
 val bodySmallMediumNarrow =
-  baseline.bodySmall.copy(fontFamily = nunitoFontFamily, letterSpacing = 0.0.sp, fontSize = 14.sp)
+  baseline.bodySmall.copy(fontFamily = appFontFamily, letterSpacing = 0.0.sp, fontSize = 14.sp)
 
 val bodySmallMediumNarrowBold =
   baseline.bodySmall.copy(
-    fontFamily = nunitoFontFamily,
+    fontFamily = appFontFamily,
     letterSpacing = 0.0.sp,
     fontSize = 14.sp,
     fontWeight = FontWeight.Bold,
