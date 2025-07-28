@@ -108,7 +108,7 @@ class DefaultDownloadRepository(
       builder
         .putString(KEY_MODEL_NAME, model.name)
         .putString(KEY_MODEL_URL, model.url)
-        .putString(KEY_MODEL_VERSION, model.version)
+        .putString(KEY_MODEL_COMMIT_HASH, model.commitHash)
         .putString(KEY_MODEL_DOWNLOAD_MODEL_DIR, model.normalizedName)
         .putString(KEY_MODEL_DOWNLOAD_FILE_NAME, model.downloadFileName)
         .putBoolean(KEY_MODEL_IS_ZIP, model.isZip)

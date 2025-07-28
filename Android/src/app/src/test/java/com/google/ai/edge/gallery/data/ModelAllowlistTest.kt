@@ -32,7 +32,7 @@ class ModelAllowlistTest {
     val modelFile = "test_model_file"
     val description = "test description"
     val sizeInBytes = 100L
-    val version = "20250623"
+    val commitHash = "abcdedg"
     val topK = 10
     val topP = 0.5f
     val temperature = 0.1f
@@ -48,7 +48,7 @@ class ModelAllowlistTest {
         modelFile = modelFile,
         description = description,
         sizeInBytes = sizeInBytes,
-        version = version,
+        commitHash = commitHash,
         defaultConfig =
           DefaultConfig(
             topK = topK,
@@ -66,7 +66,7 @@ class ModelAllowlistTest {
 
     // Check that basic fields are set correctly.
     assertEquals(model.name, modelName)
-    assertEquals(model.version, version)
+    assertEquals(model.commitHash, commitHash)
     assertEquals(model.info, description)
     assertEquals(
       model.url,

@@ -36,8 +36,8 @@ data class Model(
   /** The name (for display purpose) of the model. */
   val name: String,
 
-  /** The version of the model. */
-  val version: String = "_",
+  /** The commit hash of the model on HF. */
+  val commitHash: String = "_",
 
   /**
    * The name of the downloaded model file.
@@ -126,7 +126,7 @@ data class Model(
     }
 
     val baseDir =
-      listOf(context.getExternalFilesDir(null)?.absolutePath ?: "", normalizedName, version)
+      listOf(context.getExternalFilesDir(null)?.absolutePath ?: "", normalizedName, commitHash)
         .joinToString(File.separator)
     return if (this.isZip && this.unzipDir.isNotEmpty()) {
       "$baseDir/${this.unzipDir}"

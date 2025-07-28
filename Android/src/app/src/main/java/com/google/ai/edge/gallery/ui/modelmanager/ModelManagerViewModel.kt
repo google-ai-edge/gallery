@@ -23,6 +23,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.AppLifecycleProvider
+import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.common.getJsonResponse
 import com.google.ai.edge.gallery.data.AGWorkInfo
 import com.google.ai.edge.gallery.data.Accelerator
@@ -73,8 +74,6 @@ import net.openid.appauth.ResponseTypeValues
 
 private const val TAG = "AGModelManagerViewModel"
 private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
-private const val MODEL_ALLOWLIST_URL =
-  "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlist.json"
 private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
 
 data class ModelInitializationStatus(
@@ -643,8 +642,10 @@ constructor(
     viewModelScope.launch(Dispatchers.IO) {
       try {
         // Load model allowlist json.
-        Log.d(TAG, "Loading model allowlist from internet...")
-        val data = getJsonResponse<ModelAllowlist>(url = MODEL_ALLOWLIST_URL)
+        val url =
+          "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlists/${BuildConfig.VERSION_NAME.replace(".", "_")}.json"
+        Log.d(TAG, "Loading model allowlist from internet. Url: $url")
+        val data = getJsonResponse<ModelAllowlist>(url = url)
         var modelAllowlist: ModelAllowlist? = data?.jsonObj
 
         if (modelAllowlist == null) {
@@ -903,7 +904,7 @@ constructor(
     val downloadedFileExists =
       model.downloadFileName.isNotEmpty() &&
         isFileInExternalFilesDir(
-          listOf(model.normalizedName, model.version, model.downloadFileName)
+          listOf(model.normalizedName, model.commitHash, model.downloadFileName)
             .joinToString(File.separator)
         )
 
@@ -911,7 +912,8 @@ constructor(
       model.isZip &&
         model.unzipDir.isNotEmpty() &&
         isFileInExternalFilesDir(
-          listOf(model.normalizedName, model.version, model.unzipDir).joinToString(File.separator)
+          listOf(model.normalizedName, model.commitHash, model.unzipDir)
+            .joinToString(File.separator)
         )
 
     // Will also return true if model is partially downloaded.

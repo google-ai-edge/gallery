@@ -33,7 +33,7 @@ data class AllowedModel(
   val modelFile: String,
   val description: String,
   val sizeInBytes: Long,
-  val version: String,
+  val commitHash: String,
   val defaultConfig: DefaultConfig,
   val taskTypes: List<String>,
   val disabled: Boolean? = null,
@@ -86,7 +86,7 @@ data class AllowedModel(
 
     return Model(
       name = name,
-      version = version,
+      commitHash = commitHash,
       info = description,
       url = downloadUrl,
       sizeInBytes = sizeInBytes,
