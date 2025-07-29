@@ -104,7 +104,6 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.AppBarAction
 import com.google.ai.edge.gallery.data.AppBarActionType
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.data.TaskType
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.ui.common.TaskIcon
@@ -168,7 +167,7 @@ fun HomeScreen(
         result.data?.data?.let { uri ->
           val fileName = getFileName(context = context, uri = uri)
           Log.d(TAG, "Selected file: $fileName")
-          if (fileName != null && !fileName.endsWith(".task")) {
+          if (fileName != null && !fileName.endsWith(".task") && !fileName.endsWith(".litertlm")) {
             showUnsupportedFileTypeDialog = true
           } else {
             selectedLocalModelFileUri.value = uri
@@ -399,7 +398,7 @@ fun HomeScreen(
     AlertDialog(
       onDismissRequest = { showUnsupportedFileTypeDialog = false },
       title = { Text("Unsupported file type") },
-      text = { Text("Only \".task\" file type is supported.") },
+      text = { Text("Only \".task\" or \".litertlm\" file type is supported.") },
       confirmButton = {
         Button(onClick = { showUnsupportedFileTypeDialog = false }) {
           Text(stringResource(R.string.ok))
@@ -652,16 +651,13 @@ private fun TaskList(tasks: List<Task>, navigateToTaskScreen: (Task) -> Unit) {
   ) {
     var index = 0
     for (task in tasks) {
-      // Skip audio task for now.
-      if (task.type != TaskType.LLM_ASK_AUDIO) {
-        TaskCard(
-          task = task,
-          index = index,
-          onClick = { navigateToTaskScreen(task) },
-          modifier = Modifier.fillMaxWidth(),
-        )
-        index++
-      }
+      TaskCard(
+        task = task,
+        index = index,
+        onClick = { navigateToTaskScreen(task) },
+        modifier = Modifier.fillMaxWidth(),
+      )
+      index++
     }
   }
 }

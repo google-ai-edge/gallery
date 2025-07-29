@@ -121,7 +121,7 @@ private val IMPORT_CONFIGS_LLM: List<Config> =
       valueType = ValueType.FLOAT,
     ),
     BooleanSwitchConfig(key = ConfigKey.SUPPORT_IMAGE, defaultValue = false),
-    // BooleanSwitchConfig(key = ConfigKey.SUPPORT_AUDIO, defaultValue = false),
+    BooleanSwitchConfig(key = ConfigKey.SUPPORT_AUDIO, defaultValue = false),
     SegmentedButtonConfig(
       key = ConfigKey.COMPATIBLE_ACCELERATORS,
       defaultValue = Accelerator.CPU.label,
@@ -231,14 +231,12 @@ fun ModelImportDialog(uri: Uri, onDismiss: () -> Unit, onDone: (ImportedModel) -
                   valueType = ValueType.BOOLEAN,
                 )
                   as Boolean
-              // TODO(jingjin): re-enable when audio is supported.
-              // val supportAudio =
-              //   convertValueToTargetType(
-              //     value = values.get(ConfigKey.SUPPORT_AUDIO.label)!!,
-              //     valueType = ValueType.BOOLEAN,
-              //   )
-              //     as Boolean
-              val supportAudio = false
+              val supportAudio =
+                convertValueToTargetType(
+                  value = values.get(ConfigKey.SUPPORT_AUDIO.label)!!,
+                  valueType = ValueType.BOOLEAN,
+                )
+                  as Boolean
               val importedModel: ImportedModel =
                 ImportedModel.newBuilder()
                   .setFileName(fileName)
