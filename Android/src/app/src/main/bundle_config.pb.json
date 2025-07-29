@@ -1,0 +1,5 @@
+// The default Camera Wear AAB config
+// See: https://developer.android.com/studio/build/building-cmdline#bundleconfig
+
+// No specific bundle config for now.
+{}
