@@ -184,16 +184,19 @@ fun ResponsePanel(
                       verticalAlignment = Alignment.CenterVertically,
                       horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
+                      val titleColor =
+                        if (selectedOptionIndex == index) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
                       Icon(
                         ICONS[index],
                         contentDescription = "",
                         modifier = Modifier.size(16.dp).alpha(0.7f),
+                        tint = titleColor,
                       )
                       var curTitle = title
                       if (accelerator.isNotEmpty()) {
                         curTitle = "$curTitle on $accelerator"
                       }
-                      val titleColor = MaterialTheme.colorScheme.primary
                       BasicText(
                         text = curTitle,
                         maxLines = 1,

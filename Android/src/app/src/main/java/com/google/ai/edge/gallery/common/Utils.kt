@@ -21,7 +21,6 @@ import android.net.Uri
 import android.util.Log
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -39,10 +38,9 @@ private const val DONE_THINKING = "***Done thinking***"
 fun readLaunchInfo(context: Context): LaunchInfo? {
   try {
     val gson = Gson()
-    val type = object : TypeToken<LaunchInfo>() {}.type
     val file = File(context.getExternalFilesDir(null), LAUNCH_INFO_FILE_NAME)
     val content = file.readText()
-    return gson.fromJson(content, type)
+    return gson.fromJson(content, LaunchInfo::class.java)
   } catch (e: Exception) {
     Log.e(TAG, "Failed to read launch info", e)
     return null
@@ -104,8 +102,7 @@ inline fun <reified T> getJsonResponse(url: String): JsonObjAndTextContent<T>? {
       val response = inputStream.bufferedReader().use { it.readText() }
 
       val gson = Gson()
-      val type = object : TypeToken<T>() {}.type
-      val jsonObj = gson.fromJson<T>(response, type)
+      val jsonObj = gson.fromJson(response, T::class.java)
       return JsonObjAndTextContent(jsonObj = jsonObj, textContent = response)
     } else {
       Log.e("AGUtils", "HTTP error: $responseCode")

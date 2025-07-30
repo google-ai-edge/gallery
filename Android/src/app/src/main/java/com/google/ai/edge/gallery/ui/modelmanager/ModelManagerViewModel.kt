@@ -52,7 +52,6 @@ import com.google.ai.edge.gallery.proto.Theme
 import com.google.ai.edge.gallery.ui.common.AuthConfig
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -75,6 +74,7 @@ import net.openid.appauth.ResponseTypeValues
 private const val TAG = "AGModelManagerViewModel"
 private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
 private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
+private const val MODEL_ALLOWLIST_TEST_FILENAME = "model_allowlist_test.json"
 
 data class ModelInitializationStatus(
   val status: ModelInitializationStatusType,
@@ -642,18 +642,26 @@ constructor(
     viewModelScope.launch(Dispatchers.IO) {
       try {
         // Load model allowlist json.
-        val url =
-          "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlists/${BuildConfig.VERSION_NAME.replace(".", "_")}.json"
-        Log.d(TAG, "Loading model allowlist from internet. Url: $url")
-        val data = getJsonResponse<ModelAllowlist>(url = url)
-        var modelAllowlist: ModelAllowlist? = data?.jsonObj
+        var modelAllowlist: ModelAllowlist? = null
 
+        // Try to read the test allowlist first.
+        Log.d(TAG, "Loading test model allowlist.")
+        modelAllowlist = readModelAllowlistFromDisk(fileName = MODEL_ALLOWLIST_TEST_FILENAME)
         if (modelAllowlist == null) {
-          Log.d(TAG, "Failed to load model allowlist from internet. Trying to load it from disk")
-          modelAllowlist = readModelAllowlistFromDisk()
-        } else {
-          Log.d(TAG, "Done: loading model allowlist from internet")
-          saveModelAllowlistToDisk(modelAllowlistContent = data?.textContent ?: "{}")
+          // Load from github.
+          val url =
+            "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlists/${BuildConfig.VERSION_NAME.replace(".", "_")}.json"
+          Log.d(TAG, "Loading model allowlist from internet. Url: $url")
+          val data = getJsonResponse<ModelAllowlist>(url = url)
+          modelAllowlist = data?.jsonObj
+
+          if (modelAllowlist == null) {
+            Log.w(TAG, "Failed to load model allowlist from internet. Trying to load it from disk")
+            modelAllowlist = readModelAllowlistFromDisk()
+          } else {
+            Log.d(TAG, "Done: loading model allowlist from internet")
+            saveModelAllowlistToDisk(modelAllowlistContent = data?.textContent ?: "{}")
+          }
         }
 
         if (modelAllowlist == null) {
@@ -720,17 +728,18 @@ constructor(
     }
   }
 
-  private fun readModelAllowlistFromDisk(): ModelAllowlist? {
+  private fun readModelAllowlistFromDisk(
+    fileName: String = MODEL_ALLOWLIST_FILENAME
+  ): ModelAllowlist? {
     try {
-      Log.d(TAG, "Reading model allowlist from disk...")
-      val file = File(externalFilesDir, MODEL_ALLOWLIST_FILENAME)
+      Log.d(TAG, "Reading model allowlist from disk: $fileName")
+      val file = File(externalFilesDir, fileName)
       if (file.exists()) {
         val content = file.readText()
         Log.d(TAG, "Model allowlist content from local file: $content")
 
         val gson = Gson()
-        val type = object : TypeToken<ModelAllowlist>() {}.type
-        return gson.fromJson<ModelAllowlist>(content, type)
+        return gson.fromJson(content, ModelAllowlist::class.java)
       }
     } catch (e: Exception) {
       Log.e(TAG, "failed to read model allowlist from disk", e)

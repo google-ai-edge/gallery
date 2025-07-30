@@ -163,7 +163,7 @@ fun AudioPlaybackPanel(
     Text(
       "${"%.1f".format(durationInSeconds)}s",
       style = MaterialTheme.typography.labelLarge,
-      color = if (onDarkBg) Color.White else MaterialTheme.colorScheme.primary,
+      color = if (onDarkBg) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
       modifier = Modifier.padding(start = 12.dp),
     )
   }

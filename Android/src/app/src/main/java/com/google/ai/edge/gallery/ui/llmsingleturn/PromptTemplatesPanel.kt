@@ -87,6 +87,7 @@ import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.ui.common.chat.MessageBubbleShape
@@ -241,7 +242,7 @@ fun PromptTemplatesPanel(
                   disabledIndicatorColor = Color.Transparent,
                   disabledContainerColor = Color.Transparent,
                 ),
-              textStyle = MaterialTheme.typography.bodyLarge,
+              textStyle = MaterialTheme.typography.bodyLarge.copy(letterSpacing = 0.sp),
               placeholder = { Text("Enter content") },
               modifier = Modifier.padding(bottom = 40.dp).focusRequester(focusRequester),
             )
