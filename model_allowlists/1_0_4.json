@@ -16,7 +16,8 @@
         "maxTokens": 4096,
         "accelerators": "cpu,gpu"
       },
-      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_ask_image"]
+      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_ask_image"],
+      "bestForTaskTypes": ["llm_ask_image", "llm_ask_audio"]
     },
     {
       "name": "Gemma-3n-E4B-it-int4",
@@ -52,23 +53,7 @@
         "accelerators": "gpu,cpu"
       },
       "taskTypes": ["llm_chat", "llm_prompt_lab"]
-    },
-    {
-      "name": "Qwen2.5-1.5B-Instruct q8",
-      "modelId": "litert-community/Qwen2.5-1.5B-Instruct",
-      "modelFile": "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task",
-      "description": "A variant of [Qwen/Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct) with 8-bit quantization ready for deployment on Android using the [MediaPipe LLM Inference API](https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference)",
-      "sizeInBytes": 1625493432,
-      "estimatedPeakMemoryInBytes": 2684354560,
-      "commitHash": "0a7b470cdf921f42a706a69ea16f63fb81bbe37b",
-      "defaultConfig": {
-        "topK": 40,
-        "topP": 0.95,
-        "temperature": 1.0,
-        "maxTokens": 1024,
-        "accelerators": "cpu"
-      },
-      "taskTypes": ["llm_chat", "llm_prompt_lab"]
+      "bestForTaskTypes": ["llm_chat", "llm_prompt_lab"]
     }
   ]
 }
