@@ -39,7 +39,7 @@ import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.theme.customColors
 
 @Composable
-fun ClickableLink(url: String, linkText: String, icon: ImageVector) {
+fun ClickableLink(url: String, linkText: String, icon: ImageVector? = null) {
   val uriHandler = LocalUriHandler.current
   val annotatedText =
     AnnotatedString(
@@ -59,7 +59,9 @@ fun ClickableLink(url: String, linkText: String, icon: ImageVector) {
     )
 
   Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-    Icon(icon, contentDescription = "", modifier = Modifier.size(16.dp))
+    if (icon != null) {
+      Icon(icon, contentDescription = "", modifier = Modifier.size(16.dp))
+    }
     Text(
       text = annotatedText,
       textAlign = TextAlign.Center,

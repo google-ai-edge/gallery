@@ -20,9 +20,18 @@
     <string name="app_name_first_part" translatable="false">Google AI</string>
     <string name="app_name_second_part" translatable="false">Edge Gallery</string>
     <string name="app_intro" translatable="false">Explore a world of amazing on-device models from</string>
+    <string name="best_overall" translatable="false">Best overall</string>
+    <plurals name="model_list_number_of_models_available" translatable="false">
+        <item quantity="one">%d model available</item>
+        <item quantity="other">%d models available</item>
+    </plurals>
+    <string name="model_list_recommended_models_title" translatable="false">Recommended models</string>
+    <string name="model_list_imported_models_title" translatable="false">Imported models</string>
     <string name="model_manager" translatable="false">Model Manager</string>
+    <string name="download" translatable="false">Download</string>
     <string name="downloaded_size" translatable="false">%1$s downloaded</string>
     <string name="cancel" translatable="false">Cancel</string>
+    <string name="checking_access" translatable="false">Checking access...</string>
     <string name="ok" translatable="false">OK</string>
     <string name="close" translatable="false">Close</string>
     <string name="confirm_delete_model_dialog_title" translatable="false">Delete download</string>
@@ -36,6 +45,7 @@
     <string name="chat_llm_agent_name" translatable="false">LLM</string>
     <string name="chat_generic_agent_name" translatable="false">Model</string>
     <string name="chat_generic_result_name" translatable="false">Result</string>
+    <string name="learn_more" translatable="false">Learn more</string>
     <string name="litert_community_label" translatable="false">LiteRT community</string>
     <string name="loading_model_list" translatable="false">Loading model list...</string>
     <string name="model_not_downloaded_msg" translatable="false">Model not downloaded yet</string>
@@ -48,6 +58,7 @@
     <string name="tos_dialog_title_tos" translatable="false">Terms of Service</string>
     <string name="tos_dialog_view_full_tos" translatable="false">View this app\'s Terms of Service</string>
     <string name="tos_dialog_view_accept_button_label" translatable="false">Accept and Continue</string>
+    <string name="try_it" translatable="false">Try it</string>
     <string name="run_again" translatable="false">Run again</string>
     <string name="benchmark" translatable="false">Run benchmark</string>
     <string name="warming_up" translatable="false">warming up…</string>

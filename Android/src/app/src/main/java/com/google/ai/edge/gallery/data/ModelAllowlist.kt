@@ -40,6 +40,7 @@ data class AllowedModel(
   val llmSupportImage: Boolean? = null,
   val llmSupportAudio: Boolean? = null,
   val estimatedPeakMemoryInBytes: Long? = null,
+  val bestForTaskTypes: List<String>? = null,
 ) {
   fun toModel(): Model {
     // Construct HF download url.
@@ -98,6 +99,7 @@ data class AllowedModel(
       learnMoreUrl = "https://huggingface.co/${modelId}",
       llmSupportImage = llmSupportImage == true,
       llmSupportAudio = llmSupportAudio == true,
+      bestForTaskTypes = bestForTaskTypes ?: listOf(),
     )
   }
 

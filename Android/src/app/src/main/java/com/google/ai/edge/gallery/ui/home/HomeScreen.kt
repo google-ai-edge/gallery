@@ -28,11 +28,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.compose.animation.core.Easing
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -80,11 +75,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush.Companion.linearGradient
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -93,7 +84,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
@@ -106,7 +96,10 @@ import com.google.ai.edge.gallery.data.AppBarActionType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.ImportedModel
+import com.google.ai.edge.gallery.ui.common.RevealingText
+import com.google.ai.edge.gallery.ui.common.SwipingText
 import com.google.ai.edge.gallery.ui.common.TaskIcon
+import com.google.ai.edge.gallery.ui.common.rememberDelayedAnimationProgress
 import com.google.ai.edge.gallery.ui.common.tos.TosDialog
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
@@ -484,103 +477,11 @@ private fun AppTitle() {
         homePageTitleStyle.copy(
           brush = linearGradient(colors = MaterialTheme.customColors.appTitleGradientColors)
         ),
-      modifier = Modifier.offset(y = (-16).dp),
+      modifier = Modifier.offset(y = (-8).dp, x = (-8).dp),
       animationDelay = delay,
       animationDurationMs = TITLE_SECOND_LINE_ANIMATION_DURATION2,
     )
   }
-}
-
-/**
- * A composable that animates text appearing to "swipe" into view from left to right.
- *
- * This effect is created by animating a linear gradient brush that colors the text, combined with
- * an alpha animation for fading. The text gradually becomes visible as the gradient moves across
- * it, revealing the full text by the end of the animation.
- */
-@Composable
-private fun SwipingText(
-  text: String,
-  style: TextStyle,
-  color: Color,
-  modifier: Modifier = Modifier,
-  animationDelay: Long = 0,
-  animationDurationMs: Int = 300,
-  edgeGradientRelativeSize: Float = 1.0f,
-) {
-  val progress =
-    rememberDelayedAnimationProgress(
-      initialDelay = animationDelay,
-      animationDurationMs = animationDurationMs,
-      animationLabel = "swiping text",
-      easing = LinearEasing,
-    )
-  Text(
-    text,
-    style =
-      style.copy(
-        brush =
-          linearGradient(
-            colorStops =
-              arrayOf(
-                (1f + edgeGradientRelativeSize) * progress - edgeGradientRelativeSize to color,
-                (1f + edgeGradientRelativeSize) * progress to Color.Transparent,
-              )
-          )
-      ),
-    modifier = modifier.graphicsLayer { alpha = progress },
-  )
-}
-
-/**
- * A composable that animates the revelation of text using a linear gradient mask.
- *
- * The text appears to "wipe" into view from left to right, controlled by an animation progress.
- * This is achieved by drawing a gradient mask over the text that moves horizontally, revealing the
- * content as the animation progresses.
- *
- * The core of the revelation effect relies on `BlendMode.DstOut`. First, the text content
- * (`drawContent()`) is rendered as the "destination." Then, a rectangle filled with a `maskBrush`
- * (our linear gradient) is drawn as the "source." `DstOut` works by taking the destination (the
- * text) and making transparent any parts that overlap with the opaque (non-transparent) regions of
- * the source (the red part of our mask). As the `maskBrush` animates and slides across the text,
- * the transparent portion of the mask "reveals" the text, creating the wipe-in effect.
- */
-@Composable
-private fun RevealingText(
-  text: String,
-  style: TextStyle,
-  modifier: Modifier = Modifier,
-  animationDelay: Long = 0,
-  animationDurationMs: Int = 300,
-  edgeGradientRelativeSize: Float = 0.5f,
-) {
-  val progress =
-    rememberDelayedAnimationProgress(
-      initialDelay = animationDelay,
-      animationDurationMs = animationDurationMs,
-      animationLabel = "revealing text",
-    )
-  val maskBrush =
-    linearGradient(
-      colorStops =
-        arrayOf(
-          (1f + edgeGradientRelativeSize) * progress - edgeGradientRelativeSize to
-            Color.Transparent,
-          (1f + edgeGradientRelativeSize) * progress to Color.Red,
-        )
-    )
-  Text(
-    text,
-    style = style,
-    modifier =
-      modifier
-        .graphicsLayer(alpha = 0.99f, compositingStrategy = CompositingStrategy.Offscreen)
-        .drawWithContent {
-          drawContent()
-          drawRect(brush = maskBrush, blendMode = BlendMode.DstOut)
-        },
-  )
 }
 
 @Composable
@@ -740,35 +641,6 @@ private fun TaskCard(task: Task, index: Int, onClick: () -> Unit, modifier: Modi
       TaskIcon(task = task, width = 40.dp)
     }
   }
-}
-
-/**
- * A reusable Composable function that provides an animated float progress value after an initial
- * delay.
- *
- * This function is ideal for creating "enter" animations that start after a specified pause,
- * allowing for staggered or timed visual effects. It uses `animateFloatAsState` to smoothly
- * transition the progress from 0f to 1f.
- */
-@Composable
-private fun rememberDelayedAnimationProgress(
-  initialDelay: Long = 0,
-  animationDurationMs: Int,
-  animationLabel: String,
-  easing: Easing = FastOutSlowInEasing,
-): Float {
-  var startAnimation by remember { mutableStateOf(false) }
-  val progress: Float by
-    animateFloatAsState(
-      if (startAnimation) 1f else 0f,
-      label = animationLabel,
-      animationSpec = tween(durationMillis = animationDurationMs, easing = easing),
-    )
-  LaunchedEffect(Unit) {
-    delay(initialDelay)
-    startAnimation = true
-  }
-  return progress
 }
 
 // Helper function to get the file name from a URI

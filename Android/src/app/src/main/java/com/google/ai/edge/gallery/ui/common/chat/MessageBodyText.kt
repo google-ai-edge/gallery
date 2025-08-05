@@ -26,8 +26,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.ui.common.MarkdownText
+import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
 
 /** Composable function to display the text content of a ChatMessageText. */
 @Composable
@@ -35,7 +35,7 @@ fun MessageBodyText(message: ChatMessageText) {
   if (message.side == ChatSide.USER) {
     Text(
       message.content,
-      style = MaterialTheme.typography.bodyLarge.copy(letterSpacing = 0.sp),
+      style = bodyLargeNarrow,
       color = Color.White,
       modifier = Modifier.padding(12.dp),
     )

@@ -42,6 +42,7 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -113,7 +114,7 @@ fun ChatPanel(
   onStreamImageMessage: (Model, ChatMessageImage) -> Unit = { _, _ -> },
   onStreamEnd: (Int) -> Unit = {},
   onStopButtonClicked: () -> Unit = {},
-  onImageSelected: (Bitmap) -> Unit = {},
+  onImageSelected: (bitmaps: List<Bitmap>, selectedBitmapIndex: Int) -> Unit = { _, _ -> },
   chatInputType: ChatInputType = ChatInputType.TEXT,
   showStopButtonInInputWhenInProgress: Boolean = false,
 ) {
@@ -124,18 +125,18 @@ fun ChatPanel(
   val snackbarHostState = remember { SnackbarHostState() }
   val scope = rememberCoroutineScope()
   val haptic = LocalHapticFeedback.current
-  val imageMessageCountToLastConfigChange =
+  val imageCountToLastConfigChange =
     remember(messages) {
-      var imageMessageCount = 0
+      var imageCount = 0
       for (message in messages.reversed()) {
         if (message is ChatMessageConfigValuesChange) {
           break
         }
         if (message is ChatMessageImage) {
-          imageMessageCount++
+          imageCount += message.bitmaps.size
         }
       }
-      imageMessageCount
+      imageCount
     }
   val audioClipMesssageCountToLastconfigChange =
     remember(messages) {
@@ -315,14 +316,22 @@ fun ChatPanel(
               // Non-system messages.
               else -> {
                 // The bubble shape around the message body.
-                var messageBubbleModifier =
-                  Modifier.clip(
+                var messageBubbleModifier: Modifier = Modifier
+                // Use a rounded rectangle clip for multi-image image message.
+                if (message is ChatMessageImage && message.bitmaps.size > 1) {
+                  messageBubbleModifier = messageBubbleModifier.clip(RoundedCornerShape(6.dp))
+                }
+                // For other messages, use a bubble shape to clip.
+                else {
+                  messageBubbleModifier =
+                    messageBubbleModifier.clip(
                       MessageBubbleShape(
                         radius = bubbleBorderRadius,
                         hardCornerAtLeftOrRight = hardCornerAtLeftOrRight,
                       )
                     )
-                    .background(backgroundColor)
+                }
+                messageBubbleModifier = messageBubbleModifier.background(backgroundColor)
                 if (message is ChatMessageText) {
                   messageBubbleModifier =
                     messageBubbleModifier.pointerInput(Unit) {
@@ -342,10 +351,7 @@ fun ChatPanel(
 
                     // Image
                     is ChatMessageImage -> {
-                      MessageBodyImage(
-                        message = message,
-                        modifier = Modifier.clickable { onImageSelected(message.bitmap) },
-                      )
+                      MessageBodyImage(message = message, onImageClicked = onImageSelected)
                     }
 
                     // Image with history (for image gen)
@@ -513,7 +519,7 @@ fun ChatPanel(
           inProgress = uiState.inProgress,
           isResettingSession = uiState.isResettingSession,
           modelPreparing = uiState.preparing,
-          imageMessageCount = imageMessageCountToLastConfigChange,
+          imageCount = imageCountToLastConfigChange,
           audioClipMessageCount = audioClipMesssageCountToLastconfigChange,
           modelInitializing =
             modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING,
@@ -554,8 +560,8 @@ fun ChatPanel(
               selectedModel,
               listOf(
                 ChatMessageImage(
-                  bitmap = bitmap,
-                  imageBitMap = bitmap.asImageBitmap(),
+                  bitmaps = listOf(bitmap),
+                  imageBitMaps = listOf(bitmap.asImageBitmap()),
                   side = ChatSide.USER,
                 )
               ),
@@ -565,8 +571,8 @@ fun ChatPanel(
             onStreamImageMessage(
               selectedModel,
               ChatMessageImage(
-                bitmap = bitmap,
-                imageBitMap = bitmap.asImageBitmap(),
+                bitmaps = listOf(bitmap),
+                imageBitMaps = listOf(bitmap.asImageBitmap()),
                 side = ChatSide.USER,
               ),
             )

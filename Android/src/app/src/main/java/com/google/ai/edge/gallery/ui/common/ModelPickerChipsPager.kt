@@ -130,7 +130,10 @@ fun ModelPickerChipsPager(
               .padding(vertical = 4.dp),
         ) Inner@{
           Box(contentAlignment = Alignment.Center, modifier = Modifier.size(21.dp)) {
-            StatusIcon(downloadStatus = modelManagerUiState.modelDownloadStatus[model.name])
+            StatusIcon(
+              task = task,
+              downloadStatus = modelManagerUiState.modelDownloadStatus[model.name],
+            )
             this@Inner.AnimatedVisibility(
               visible =
                 modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING,

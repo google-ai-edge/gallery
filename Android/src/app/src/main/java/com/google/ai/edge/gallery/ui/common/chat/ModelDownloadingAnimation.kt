@@ -29,16 +29,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -135,10 +132,7 @@ fun ModelDownloadingAnimation(
   }
   // No failure
   else {
-    Column(
-      horizontalAlignment = Alignment.CenterHorizontally,
-      modifier = Modifier.offset(y = -GRID_SIZE / 8),
-    ) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
       LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         horizontalArrangement = Arrangement.spacedBy(GRID_SPACING),
@@ -226,36 +220,6 @@ fun ModelDownloadingAnimation(
           modifier = Modifier.padding(bottom = 4.dp),
         )
       }
-
-      // Download progress.
-      if (inProgress || isPartiallyDownloaded) {
-        val animatedProgress = remember { Animatable(0f) }
-        LinearProgressIndicator(
-          progress = { animatedProgress.value },
-          color = getTaskIconColor(task = task),
-          trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-          modifier = Modifier.fillMaxWidth().padding(bottom = 36.dp).padding(horizontal = 36.dp),
-        )
-        LaunchedEffect(curDownloadProgress) {
-          animatedProgress.animateTo(curDownloadProgress, animationSpec = tween(150))
-        }
-      }
-      // Unzipping progress.
-      else if (downloadStatus?.status == ModelDownloadStatusType.UNZIPPING) {
-        LinearProgressIndicator(
-          color = getTaskIconColor(task = task),
-          trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-          modifier = Modifier.fillMaxWidth().padding(bottom = 36.dp).padding(horizontal = 36.dp),
-        )
-      }
-
-      Text(
-        "Feel free to switch apps or lock your device.\n" +
-          "The download will continue in the background.\n" +
-          "We'll send a notification when it's done.",
-        style = MaterialTheme.typography.bodyLarge,
-        textAlign = TextAlign.Center,
-      )
     }
   }
 }

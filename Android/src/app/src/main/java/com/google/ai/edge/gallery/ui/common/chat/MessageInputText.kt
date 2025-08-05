@@ -135,7 +135,7 @@ fun MessageInputText(
   curMessage: String,
   isResettingSession: Boolean,
   inProgress: Boolean,
-  imageMessageCount: Int,
+  imageCount: Int,
   audioClipMessageCount: Int,
   modelInitializing: Boolean,
   @StringRes textFieldPlaceHolderRes: Int,
@@ -244,10 +244,11 @@ fun MessageInputText(
     // A preview panel for the selected images and audio clips.
     if (pickedImages.isNotEmpty() || pickedAudioClips.isNotEmpty()) {
       Row(
-        modifier =
-          Modifier.offset(x = 16.dp).fillMaxWidth().horizontalScroll(rememberScrollState()),
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
       ) {
+        Spacer(modifier = Modifier.width(16.dp))
+
         for (image in pickedImages) {
           Box(contentAlignment = Alignment.TopEnd) {
             Image(
@@ -285,6 +286,8 @@ fun MessageInputText(
             }
           }
         }
+
+        Spacer(modifier = Modifier.width(16.dp))
       }
     }
 
@@ -304,7 +307,7 @@ fun MessageInputText(
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)),
         verticalAlignment = Alignment.CenterVertically,
       ) {
-        val enableAddImageMenuItems = (imageMessageCount + pickedImages.size) < MAX_IMAGE_COUNT
+        val enableAddImageMenuItems = (imageCount + pickedImages.size) < MAX_IMAGE_COUNT
         val enableRecordAudioClipMenuItems =
           (audioClipMessageCount + pickedAudioClips.size) < MAX_AUDIO_CLIP_COUNT
         DropdownMenu(
@@ -830,22 +833,23 @@ private fun createMessagesToSend(
   audioClips: List<AudioClip>,
   text: String,
 ): List<ChatMessage> {
-  var messages: MutableList<ChatMessage> = mutableListOf()
+  val messages: MutableList<ChatMessage> = mutableListOf()
 
-  // Add image messages.
-  var imageMessages: MutableList<ChatMessageImage> = mutableListOf()
+  // Add image message.
   if (pickedImages.isNotEmpty()) {
-    for (image in pickedImages) {
-      imageMessages.add(
-        ChatMessageImage(bitmap = image, imageBitMap = image.asImageBitmap(), side = ChatSide.USER)
-      )
+    // Cap the number of image messages.
+    var curPickedImages = pickedImages.toList()
+    if (curPickedImages.size > MAX_IMAGE_COUNT) {
+      curPickedImages = curPickedImages.subList(fromIndex = 0, toIndex = MAX_IMAGE_COUNT)
     }
+    messages.add(
+      ChatMessageImage(
+        bitmaps = curPickedImages,
+        imageBitMaps = curPickedImages.map { it.asImageBitmap() },
+        side = ChatSide.USER,
+      )
+    )
   }
-  // Cap the number of image messages.
-  if (imageMessages.size > MAX_IMAGE_COUNT) {
-    imageMessages = imageMessages.subList(fromIndex = 0, toIndex = MAX_IMAGE_COUNT)
-  }
-  messages.addAll(imageMessages)
 
   // Add audio messages.
   var audioMessages: MutableList<ChatMessageAudioClip> = mutableListOf()

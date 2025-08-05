@@ -93,6 +93,9 @@ data class Model(
   /** Whether the model is imported or not. */
   val imported: Boolean = false,
 
+  /* The task type ids that this model is best for. */
+  val bestForTaskTypes: List<String> = listOf(),
+
   // The following fields are managed by the app. Don't need to set manually.
   var normalizedName: String = "",
   var instance: Any? = null,

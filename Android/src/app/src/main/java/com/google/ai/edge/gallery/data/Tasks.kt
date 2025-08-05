@@ -112,7 +112,6 @@ val TASK_LLM_ASK_AUDIO =
     type = TaskType.LLM_ASK_AUDIO,
     icon = Icons.Outlined.Mic,
     models = mutableListOf(),
-    // TODO(do not submit)
     description =
       "Instantly transcribe and/or translate audio clips using on-device large language models",
     docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
@@ -141,6 +140,12 @@ fun processTasks() {
     task.index = index
     for (model in task.models) {
       model.preProcess()
+    }
+    // Move the model that is best for this task to the front.
+    val bestModel = task.models.find { it.bestForTaskTypes.contains(task.type.id) }
+    if (bestModel != null) {
+      task.models.remove(bestModel)
+      task.models.add(0, bestModel)
     }
   }
 }

@@ -113,7 +113,7 @@ fun ChatViewWrapper(
           chatMessageText = message
           text = message.content
         } else if (message is ChatMessageImage) {
-          images.add(message.bitmap)
+          images.addAll(message.bitmaps)
         } else if (message is ChatMessageAudioClip) {
           audioMessages.add(message)
         }

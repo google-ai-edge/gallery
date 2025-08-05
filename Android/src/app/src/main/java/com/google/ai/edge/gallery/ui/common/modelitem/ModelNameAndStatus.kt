@@ -19,31 +19,35 @@ package com.google.ai.edge.gallery.ui.common.modelitem
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.data.MODEL_INFO_ICON_SIZE
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.ui.common.formatToHourMinSecond
-import com.google.ai.edge.gallery.ui.common.getTaskIconColor
+import com.google.ai.edge.gallery.ui.common.ClickableLink
 import com.google.ai.edge.gallery.ui.common.humanReadableSize
+import com.google.ai.edge.gallery.ui.theme.customColors
 import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
 
 /**
@@ -52,8 +56,6 @@ import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
  * This function renders the model's name and its current download status, including:
  * - Model name.
  * - Failure message (if download failed).
- * - Download progress (received size, total size, download rate, remaining time) for in-progress
- *   downloads.
  * - "Unzipping..." status for unzipping processes.
  * - Model size for successful downloads.
  */
@@ -73,38 +75,60 @@ fun ModelNameAndStatus(
   var curDownloadProgress = 0f
 
   with(sharedTransitionScope) {
-    Column(
-      horizontalAlignment = if (isExpanded) Alignment.CenterHorizontally else Alignment.Start
-    ) {
-      // Model name.
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-          model.name,
-          maxLines = 1,
-          overflow = TextOverflow.MiddleEllipsis,
-          style = MaterialTheme.typography.titleMedium,
+    Column(modifier = modifier) {
+      // Show "best overall" only for the first model if it is indeed the best for this task.
+      if (model.bestForTaskTypes.contains(task.type.id) && task.models[0] == model) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
           modifier =
-            Modifier.sharedElement(
-              rememberSharedContentState(key = "model_name"),
-              animatedVisibilityScope = animatedVisibilityScope,
-            ),
-        )
-      }
-
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        // Status icon.
-        if (!inProgress && !isPartiallyDownloaded) {
-          StatusIcon(
-            downloadStatus = downloadStatus,
-            modifier =
-              modifier
-                .padding(end = 4.dp)
-                .sharedElement(
-                  rememberSharedContentState(key = "download_status_icon"),
-                  animatedVisibilityScope = animatedVisibilityScope,
-                ),
+            Modifier.padding(bottom = 6.dp)
+              .sharedElement(
+                rememberSharedContentState(key = "best_overall"),
+                animatedVisibilityScope = animatedVisibilityScope,
+              ),
+        ) {
+          Icon(
+            Icons.Filled.Star,
+            tint = Color(0xFFFCC934),
+            contentDescription = "",
+            modifier = Modifier.size(18.dp),
+          )
+          Text(
+            stringResource(R.string.best_overall),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.alpha(0.6f),
           )
         }
+      }
+
+      // Model name and action buttons.
+      Text(
+        model.name,
+        maxLines = 1,
+        overflow = TextOverflow.MiddleEllipsis,
+        style = MaterialTheme.typography.titleMedium,
+        modifier =
+          Modifier.sharedElement(
+            rememberSharedContentState(key = "model_name"),
+            animatedVisibilityScope = animatedVisibilityScope,
+          ),
+      )
+
+      // Status icon + size + download progress details.
+      Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+        // Status icon.
+        StatusIcon(
+          task = task,
+          downloadStatus = downloadStatus,
+          modifier =
+            Modifier.padding(end = 4.dp)
+              .sharedElement(
+                rememberSharedContentState(key = "download_status_icon"),
+                animatedVisibilityScope = animatedVisibilityScope,
+              ),
+        )
 
         // Failure message.
         if (downloadStatus != null && downloadStatus.status == ModelDownloadStatusType.FAILED) {
@@ -126,7 +150,6 @@ fun ModelNameAndStatus(
         // Status label
         else {
           var sizeLabel = model.totalBytes.humanReadableSize()
-          var fontSize = 11.sp
 
           // Populate the status label.
           if (downloadStatus != null) {
@@ -140,10 +163,10 @@ fun ModelNameAndStatus(
                 "${downloadStatus.receivedBytes.humanReadableSize(extraDecimalForGbAndAbove = true)} of ${totalSize.humanReadableSize()}"
               if (downloadStatus.bytesPerSecond > 0) {
                 sizeLabel = "$sizeLabel · ${downloadStatus.bytesPerSecond.humanReadableSize()} / s"
-                if (downloadStatus.remainingMs >= 0) {
-                  sizeLabel =
-                    "$sizeLabel\n${downloadStatus.remainingMs.formatToHourMinSecond()} left"
-                }
+                // if (downloadStatus.remainingMs >= 0) {
+                //   sizeLabel =
+                //     "$sizeLabel\n${downloadStatus.remainingMs.formatToHourMinSecond()} left"
+                // }
               }
               if (isPartiallyDownloaded) {
                 sizeLabel = "$sizeLabel (resuming...)"
@@ -153,7 +176,6 @@ fun ModelNameAndStatus(
               if (curDownloadProgress.isNaN()) {
                 curDownloadProgress = 0f
               }
-              fontSize = 9.sp
             }
             // Status for unzipping.
             else if (downloadStatus.status == ModelDownloadStatusType.UNZIPPING) {
@@ -169,8 +191,7 @@ fun ModelNameAndStatus(
                 line,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                style = labelSmallNarrow.copy(fontSize = fontSize, lineHeight = 10.sp),
-                textAlign = if (isExpanded) TextAlign.Center else TextAlign.Start,
+                style = MaterialTheme.typography.bodyMedium,
                 overflow = TextOverflow.Visible,
                 modifier =
                   Modifier.offset(y = if (index == 0) 0.dp else (-1).dp)
@@ -184,36 +205,24 @@ fun ModelNameAndStatus(
         }
       }
 
-      // Download progress bar.
-      if (inProgress || isPartiallyDownloaded) {
-        val animatedProgress = remember { Animatable(0f) }
-        LinearProgressIndicator(
-          progress = { animatedProgress.value },
-          color = getTaskIconColor(task = task),
-          trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+      // Learn more url.
+      if (!model.imported) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
           modifier =
-            Modifier.padding(top = 2.dp)
-              .sharedElement(
-                rememberSharedContentState(key = "download_progress_bar"),
-                animatedVisibilityScope = animatedVisibilityScope,
-              ),
-        )
-        LaunchedEffect(curDownloadProgress) {
-          animatedProgress.animateTo(curDownloadProgress, animationSpec = tween(150))
+            Modifier.sharedElement(
+              rememberSharedContentState(key = "learn_more"),
+              animatedVisibilityScope = animatedVisibilityScope,
+            ),
+        ) {
+          Icon(
+            Icons.AutoMirrored.Outlined.OpenInNew,
+            tint = MaterialTheme.customColors.modelInfoIconColor,
+            contentDescription = "",
+            modifier = Modifier.size(MODEL_INFO_ICON_SIZE).offset(y = 1.dp),
+          )
+          ClickableLink(model.learnMoreUrl, linkText = stringResource(R.string.learn_more))
         }
-      }
-      // Unzipping progress.
-      else if (downloadStatus?.status == ModelDownloadStatusType.UNZIPPING) {
-        LinearProgressIndicator(
-          color = getTaskIconColor(task = task),
-          trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-          modifier =
-            Modifier.padding(top = 2.dp)
-              .sharedElement(
-                rememberSharedContentState(key = "unzip_progress_bar"),
-                animatedVisibilityScope = animatedVisibilityScope,
-              ),
-        )
       }
     }
   }

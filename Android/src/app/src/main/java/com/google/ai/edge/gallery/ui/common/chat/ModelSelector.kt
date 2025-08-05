@@ -76,11 +76,8 @@ fun ModelSelector(
           task = task,
           modelManagerViewModel = modelManagerViewModel,
           onModelClicked = {},
-          onConfigClicked = { showConfigDialog = true },
-          verticalSpacing = 10.dp,
           modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
           showDeleteButton = false,
-          showConfigButtonIfExisted = true,
           canExpand = false,
         )
       }

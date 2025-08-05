@@ -22,9 +22,14 @@ package com.google.ai.edge.gallery.ui.llmsingleturn
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -40,7 +45,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.core.os.bundleOf
@@ -136,7 +141,7 @@ fun LlmSingleTurnScreen(
       )
     },
   ) { innerPadding ->
-    Column(
+    Box(
       modifier =
         Modifier.padding(
           top = innerPadding.calculateTopPadding(),
@@ -144,21 +149,30 @@ fun LlmSingleTurnScreen(
           end = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
         )
     ) {
-      ModelDownloadStatusInfoPanel(
-        model = selectedModel,
-        task = task,
-        modelManagerViewModel = modelManagerViewModel,
-      )
+      val modelDownloaded = curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+      AnimatedVisibility(
+        visible = !modelDownloaded,
+        enter = scaleIn(initialScale = 0.9f) + fadeIn(),
+        exit = scaleOut(targetScale = 0.9f) + fadeOut(),
+      ) {
+        ModelDownloadStatusInfoPanel(
+          model = selectedModel,
+          task = task,
+          modelManagerViewModel = modelManagerViewModel,
+        )
+      }
 
       // Main UI after model is downloaded.
-      val modelDownloaded = curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+      var mainUiVisible by remember { mutableStateOf(modelDownloaded) }
+      LaunchedEffect(modelDownloaded) { mainUiVisible = modelDownloaded }
+      val animatedAlpha by animateFloatAsState(targetValue = if (mainUiVisible) 1.0f else 0f)
       Box(
         contentAlignment = Alignment.BottomCenter,
         modifier =
-          Modifier.weight(1f)
+          Modifier.fillMaxSize()
             // Just hide the UI without removing it from the screen so that the scroll syncing
             // from ResponsePanel still works.
-            .alpha(if (modelDownloaded) 1.0f else 0.0f),
+            .graphicsLayer { alpha = animatedAlpha },
       ) {
         VerticalSplitView(
           modifier = Modifier.fillMaxSize(),

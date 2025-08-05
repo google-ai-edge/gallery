@@ -23,12 +23,12 @@ package com.google.ai.edge.gallery.ui.common.chat
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,11 +53,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.data.Model
@@ -100,7 +100,10 @@ fun ChatView(
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val selectedModel = modelManagerUiState.selectedModel
-  var selectedImage by remember { mutableStateOf<Bitmap?>(null) }
+
+  // Image viewer related.
+  var selectedImageIndex by remember { mutableStateOf<Int>(-1) }
+  var allImageViewerImages by remember { mutableStateOf<List<Bitmap>>(listOf()) }
   var showImageViewer by remember { mutableStateOf(false) }
 
   val pagerState =
@@ -195,7 +198,7 @@ fun ChatView(
   ) { innerPadding ->
     Box {
       // A horizontal scrollable pager to switch between models.
-      HorizontalPager(state = pagerState) { pageIndex ->
+      HorizontalPager(state = pagerState, userScrollEnabled = false) { pageIndex ->
         val curSelectedModel = task.models[pageIndex]
         val curModelDownloadStatus = modelManagerUiState.modelDownloadStatus[curSelectedModel.name]
 
@@ -211,40 +214,49 @@ fun ChatView(
               .fillMaxSize()
               .background(MaterialTheme.colorScheme.surface)
         ) {
-          ModelDownloadStatusInfoPanel(
-            model = curSelectedModel,
-            task = task,
-            modelManagerViewModel = modelManagerViewModel,
-          )
-
-          // The main messages panel.
-          if (curModelDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED) {
-            ChatPanel(
-              modelManagerViewModel = modelManagerViewModel,
-              task = task,
-              selectedModel = curSelectedModel,
-              viewModel = viewModel,
-              navigateUp = navigateUp,
-              onSendMessage = onSendMessage,
-              onRunAgainClicked = onRunAgainClicked,
-              onBenchmarkClicked = onBenchmarkClicked,
-              onStreamImageMessage = onStreamImageMessage,
-              onStreamEnd = { averageFps ->
-                viewModel.addMessage(
-                  model = curSelectedModel,
-                  message =
-                    ChatMessageInfo(content = "Live camera session ended. Average FPS: $averageFps"),
+          AnimatedContent(
+            targetState = curModelDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+          ) { targetState ->
+            when (targetState) {
+              // Main UI when model is downloaded.
+              true ->
+                ChatPanel(
+                  modelManagerViewModel = modelManagerViewModel,
+                  task = task,
+                  selectedModel = curSelectedModel,
+                  viewModel = viewModel,
+                  navigateUp = navigateUp,
+                  onSendMessage = onSendMessage,
+                  onRunAgainClicked = onRunAgainClicked,
+                  onBenchmarkClicked = onBenchmarkClicked,
+                  onStreamImageMessage = onStreamImageMessage,
+                  onStreamEnd = { averageFps ->
+                    viewModel.addMessage(
+                      model = curSelectedModel,
+                      message =
+                        ChatMessageInfo(
+                          content = "Live camera session ended. Average FPS: $averageFps"
+                        ),
+                    )
+                  },
+                  onStopButtonClicked = { onStopButtonClicked(curSelectedModel) },
+                  onImageSelected = { bitmaps, selectedBitmapIndex ->
+                    selectedImageIndex = selectedBitmapIndex
+                    allImageViewerImages = bitmaps
+                    showImageViewer = true
+                  },
+                  modifier = Modifier.weight(1f).graphicsLayer { alpha = curAlpha },
+                  chatInputType = chatInputType,
+                  showStopButtonInInputWhenInProgress = showStopButtonInInputWhenInProgress,
                 )
-              },
-              onStopButtonClicked = { onStopButtonClicked(curSelectedModel) },
-              onImageSelected = { bitmap ->
-                selectedImage = bitmap
-                showImageViewer = true
-              },
-              modifier = Modifier.weight(1f).graphicsLayer { alpha = curAlpha },
-              chatInputType = chatInputType,
-              showStopButtonInInputWhenInProgress = showStopButtonInInputWhenInProgress,
-            )
+              // Model download
+              false ->
+                ModelDownloadStatusInfoPanel(
+                  model = curSelectedModel,
+                  task = task,
+                  modelManagerViewModel = modelManagerViewModel,
+                )
+            }
           }
         }
       }
@@ -255,43 +267,37 @@ fun ChatView(
         enter = slideInVertically(initialOffsetY = { fullHeight -> fullHeight }) + fadeIn(),
         exit = slideOutVertically(targetOffsetY = { fullHeight -> fullHeight }) + fadeOut(),
       ) {
-        selectedImage?.let { image ->
-          ZoomableBox(
-            modifier =
-              Modifier.fillMaxSize()
-                .padding(top = innerPadding.calculateTopPadding())
-                .background(Color.Black.copy(alpha = 0.95f))
-          ) {
-            Image(
-              bitmap = image.asImageBitmap(),
-              contentDescription = "",
-              modifier =
-                modifier
-                  .fillMaxSize()
-                  .graphicsLayer(
-                    scaleX = scale,
-                    scaleY = scale,
-                    translationX = offsetX,
-                    translationY = offsetY,
-                  ),
-              contentScale = ContentScale.Fit,
-            )
-
-            // Close button.
-            IconButton(
-              onClick = { showImageViewer = false },
-              colors =
-                IconButtonDefaults.iconButtonColors(
-                  containerColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
-              modifier = Modifier.offset(x = (-8).dp, y = 8.dp),
-            ) {
-              Icon(
-                Icons.Rounded.Close,
-                contentDescription = "",
-                tint = MaterialTheme.colorScheme.primary,
-              )
+        val pagerState =
+          rememberPagerState(
+            pageCount = { allImageViewerImages.size },
+            initialPage = selectedImageIndex,
+          )
+        val scrollEnabled = remember { mutableStateOf(true) }
+        Box(modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding())) {
+          HorizontalPager(
+            state = pagerState,
+            userScrollEnabled = scrollEnabled.value,
+            modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.95f)),
+          ) { page ->
+            allImageViewerImages[page].let { image ->
+              ZoomableImage(bitmap = image.asImageBitmap(), pagerState = pagerState)
             }
+          }
+
+          // Close button.
+          IconButton(
+            onClick = { showImageViewer = false },
+            colors =
+              IconButtonDefaults.iconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+              ),
+            modifier = Modifier.offset(x = (-8).dp, y = 8.dp).align(Alignment.TopEnd),
+          ) {
+            Icon(
+              Icons.Rounded.Close,
+              contentDescription = "",
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
           }
         }
       }

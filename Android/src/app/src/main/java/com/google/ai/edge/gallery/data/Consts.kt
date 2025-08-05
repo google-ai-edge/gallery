@@ -16,6 +16,8 @@
 
 package com.google.ai.edge.gallery.data
 
+import androidx.compose.ui.unit.dp
+
 // Keys used to send/receive data to Work.
 const val KEY_MODEL_URL = "KEY_MODEL_URL"
 const val KEY_MODEL_NAME = "KEY_MODEL_NAME"
@@ -53,3 +55,6 @@ const val MAX_AUDIO_CLIP_DURATION_SEC = 30
 
 // Audio-recording related consts.
 const val SAMPLE_RATE = 16000
+
+// The size the icon shown under each of the model names in the model list screen.
+val MODEL_INFO_ICON_SIZE = 18.dp

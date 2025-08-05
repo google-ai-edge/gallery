@@ -129,7 +129,7 @@ fun ResponsePanel(
     pagerState.animateScrollToPage(task.models.indexOf(model))
   }
 
-  HorizontalPager(state = pagerState) { pageIndex ->
+  HorizontalPager(state = pagerState, userScrollEnabled = false) { pageIndex ->
     val curPageModel = task.models[pageIndex]
 
     val response =

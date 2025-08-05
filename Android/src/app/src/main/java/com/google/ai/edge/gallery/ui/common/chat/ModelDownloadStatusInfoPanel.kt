@@ -22,24 +22,24 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.DownloadAndTryButton
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import kotlinx.coroutines.delay
 
 @Composable
 fun ModelDownloadStatusInfoPanel(
@@ -56,65 +56,59 @@ fun ModelDownloadStatusInfoPanel(
   // respective conditions remain true. This prevents UI flickering and provides a smoother
   // user experience.
   val curStatus = modelManagerUiState.modelDownloadStatus[model.name]
-  var shouldShowDownloadingAnimation by remember { mutableStateOf(false) }
-  var downloadingAnimationConditionMet by remember { mutableStateOf(false) }
-  var shouldShowDownloadModelButton by remember { mutableStateOf(false) }
-  var downloadModelButtonConditionMet by remember { mutableStateOf(false) }
-
-  downloadingAnimationConditionMet =
+  val downloading =
     curStatus?.status == ModelDownloadStatusType.IN_PROGRESS ||
       curStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED ||
       curStatus?.status == ModelDownloadStatusType.UNZIPPING
-  downloadModelButtonConditionMet =
-    curStatus?.status == ModelDownloadStatusType.FAILED ||
-      curStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED
 
-  LaunchedEffect(downloadingAnimationConditionMet) {
-    if (downloadingAnimationConditionMet) {
-      delay(100)
-      shouldShowDownloadingAnimation = true
-    } else {
-      shouldShowDownloadingAnimation = false
-    }
-  }
-
-  LaunchedEffect(downloadModelButtonConditionMet) {
-    if (downloadModelButtonConditionMet) {
-      delay(700)
-      shouldShowDownloadModelButton = true
-    } else {
-      shouldShowDownloadModelButton = false
-    }
-  }
-
-  AnimatedVisibility(
-    visible = shouldShowDownloadingAnimation,
-    enter = scaleIn(initialScale = 0.9f) + fadeIn(),
-    exit = scaleOut(targetScale = 0.9f) + fadeOut(),
+  Column(
+    modifier = Modifier.fillMaxSize(),
+    horizontalAlignment = Alignment.CenterHorizontally,
+    verticalArrangement = Arrangement.Center,
   ) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-      ModelDownloadingAnimation(
-        model = model,
-        task = task,
-        modelManagerViewModel = modelManagerViewModel,
-      )
+    // Animation.
+    Column(verticalArrangement = Arrangement.Bottom, modifier = Modifier.weight(1f)) {
+      AnimatedVisibility(
+        visible = downloading,
+        enter = scaleIn(initialScale = 0.9f) + fadeIn(),
+        exit = scaleOut(targetScale = 0.9f) + fadeOut(),
+      ) {
+        ModelDownloadingAnimation(
+          model = model,
+          task = task,
+          modelManagerViewModel = modelManagerViewModel,
+        )
+      }
     }
-  }
 
-  AnimatedVisibility(visible = shouldShowDownloadModelButton, enter = fadeIn(), exit = fadeOut()) {
-    Column(
-      modifier = Modifier.fillMaxSize(),
-      verticalArrangement = Arrangement.Center,
-      horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-      DownloadAndTryButton(
-        task = task,
-        model = model,
-        enabled = true,
-        needToDownloadFirst = true,
-        modelManagerViewModel = modelManagerViewModel,
-        onClicked = {},
-      )
+    // Download button and progress.
+    DownloadAndTryButton(
+      task = task,
+      model = model,
+      enabled = true,
+      downloadStatus = curStatus,
+      modelManagerViewModel = modelManagerViewModel,
+      modifier = Modifier.padding(horizontal = 32.dp).padding(top = 4.dp, bottom = 16.dp),
+      onClicked = {},
+      canShowTryIt = false,
+    )
+
+    // Info text.
+    Column(verticalArrangement = Arrangement.Top, modifier = Modifier.weight(1f)) {
+      AnimatedVisibility(
+        visible = downloading,
+        enter = scaleIn(initialScale = 0.9f) + fadeIn(),
+        exit = scaleOut(targetScale = 0.9f) + fadeOut(),
+      ) {
+        Text(
+          "Feel free to switch apps or lock your device.\n" +
+            "The download will continue in the background.\n" +
+            "We'll send a notification when it's done.",
+          style = MaterialTheme.typography.bodyLarge,
+          textAlign = TextAlign.Center,
+          modifier = Modifier.fillMaxWidth(),
+        )
+      }
     }
   }
 }

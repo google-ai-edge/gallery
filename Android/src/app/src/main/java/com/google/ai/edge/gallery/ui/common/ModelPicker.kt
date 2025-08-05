@@ -102,10 +102,13 @@ fun ModelPicker(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
           ) {
-            StatusIcon(downloadStatus = modelManagerUiState.modelDownloadStatus[model.name])
+            StatusIcon(
+              task = task,
+              downloadStatus = modelManagerUiState.modelDownloadStatus[model.name],
+            )
             Text(
               model.sizeInBytes.humanReadableSize(),
-              color = MaterialTheme.colorScheme.secondary,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
               style = labelSmallNarrow.copy(lineHeight = 10.sp),
             )
           }

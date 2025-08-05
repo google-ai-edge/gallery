@@ -125,6 +125,7 @@ data class CustomColors(
   val successColor: Color = Color.Transparent,
   val recordButtonBgColor: Color = Color.Transparent,
   val waveFormBgColor: Color = Color.Transparent,
+  val modelInfoIconColor: Color = Color.Transparent,
 )
 
 val LocalCustomColors = staticCompositionLocalOf { CustomColors() }
@@ -136,13 +137,13 @@ val lightCustomColors =
     taskBgColors =
       listOf(
         // red
-        Color(0xFFFFEDE6),
+        Color(0xFFFFF5F5),
         // green
-        Color(0xFFE1F6DE),
+        Color(0xFFF4FBF6),
         // blue
-        Color(0xFFEDF0FF),
+        Color(0xFFF1F6FE),
         // yellow
-        Color(0xFFFFEFC9),
+        Color(0xFFFFFBF0),
       ),
     taskBgGradientColors =
       listOf(
@@ -174,6 +175,7 @@ val lightCustomColors =
     successColor = Color(0xff3d860b),
     recordButtonBgColor = Color(0xFFEE675C),
     waveFormBgColor = Color(0xFFaaaaaa),
+    modelInfoIconColor = Color(0xFFCCCCCC),
   )
 
 val darkCustomColors =
@@ -183,13 +185,13 @@ val darkCustomColors =
     taskBgColors =
       listOf(
         // red
-        Color(0xFF362F2D),
+        Color(0xFF181210),
         // green
-        Color(0xFF2E312D),
+        Color(0xFF131711),
         // blue
-        Color(0xFF303033),
+        Color(0xFF191924),
         // yellow
-        Color(0xFF33302A),
+        Color(0xFF1A1813),
       ),
     taskBgGradientColors =
       listOf(
@@ -221,6 +223,7 @@ val darkCustomColors =
     successColor = Color(0xFFA1CE83),
     recordButtonBgColor = Color(0xFFEE675C),
     waveFormBgColor = Color(0xFFaaaaaa),
+    modelInfoIconColor = Color(0xFFCCCCCC),
   )
 
 val MaterialTheme.customColors: CustomColors

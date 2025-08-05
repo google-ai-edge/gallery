@@ -48,10 +48,7 @@ fun ModelManager(
   modifier: Modifier = Modifier,
 ) {
   // Set title based on the task.
-  var title = "${task.type.label} model"
-  if (task.models.size != 1) {
-    title += "s"
-  }
+  val title = task.type.label
   // Model count.
   val modelCount by remember {
     derivedStateOf {

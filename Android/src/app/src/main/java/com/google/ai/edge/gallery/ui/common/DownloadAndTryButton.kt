@@ -23,24 +23,39 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,11 +63,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.ModelDownloadStatus
+import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.TokenRequestResultType
@@ -65,10 +86,6 @@ import kotlinx.coroutines.withContext
 
 private const val TAG = "AGDownloadAndTryButton"
 private const val SYSTEM_RESERVED_MEMORY_IN_BYTES = 3 * (1L shl 30)
-
-// TODO:
-// - replace the download button in chat view page with this one, and add a flag to not "onclick"
-//   just download
 
 /**
  * Handles the "Download & Try it" button click, managing the model download process based on
@@ -102,9 +119,12 @@ fun DownloadAndTryButton(
   task: Task,
   model: Model,
   enabled: Boolean,
-  needToDownloadFirst: Boolean,
+  downloadStatus: ModelDownloadStatus?,
   modelManagerViewModel: ModelManagerViewModel,
   onClicked: () -> Unit,
+  modifier: Modifier = Modifier,
+  compact: Boolean = false,
+  canShowTryIt: Boolean = true,
 ) {
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
@@ -112,7 +132,18 @@ fun DownloadAndTryButton(
   var showAgreementAckSheet by remember { mutableStateOf(false) }
   var showErrorDialog by remember { mutableStateOf(false) }
   var showMemoryWarning by remember { mutableStateOf(false) }
+  var downloadStarted by remember { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
+
+  val needToDownloadFirst =
+    downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED ||
+      downloadStatus?.status == ModelDownloadStatusType.FAILED
+  val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
+  val downloadSucceeded = downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+  val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
+  val showDownloadProgress =
+    !downloadSucceeded && (downloadStarted || checkingToken || inProgress || isPartiallyDownloaded)
+  var curDownloadProgress: Float
 
   // A launcher for requesting notification permission.
   val permissionLauncher =
@@ -123,7 +154,6 @@ fun DownloadAndTryButton(
   // Function to kick off download.
   val startDownload: (accessToken: String?) -> Unit = { accessToken ->
     model.accessToken = accessToken
-    onClicked()
     checkNotificationPermissionAndStartDownload(
       context = context,
       launcher = permissionLauncher,
@@ -186,11 +216,13 @@ fun DownloadAndTryButton(
                 "Token request done. Error message: ${tokenRequestResult.errorMessage ?: ""}",
               )
               checkingToken = false
+              downloadStarted = false
             }
 
             TokenRequestResultType.USER_CANCELLED -> {
               Log.d(TAG, "User cancelled. Do nothing")
               checkingToken = false
+              downloadStarted = false
             }
           }
         },
@@ -204,150 +236,233 @@ fun DownloadAndTryButton(
     authResultLauncher.launch(authIntent)
   }
 
-  Button(
-    onClick = {
-      if (!enabled || checkingToken) {
-        return@Button
-      }
+  if (!showDownloadProgress) {
+    var buttonModifier: Modifier = modifier.height(42.dp)
+    if (!compact) {
+      buttonModifier = buttonModifier.fillMaxWidth()
+    }
+    Button(
+      modifier = buttonModifier,
+      colors =
+        ButtonDefaults.buttonColors(
+          containerColor =
+            if (!downloadSucceeded || !canShowTryIt) MaterialTheme.colorScheme.surfaceContainer
+            else getTaskBgGradientColors(task = task)[1]
+        ),
+      contentPadding = PaddingValues(horizontal = 12.dp),
+      onClick = {
+        if (!enabled || checkingToken) {
+          return@Button
+        }
 
-      // Launches a coroutine to handle the initial check and potential authentication flow
-      // before downloading the model. It checks if the model needs to be downloaded first,
-      // handles HuggingFace URLs by verifying the need for authentication, and initiates
-      // the token exchange process if required or proceeds with the download if no auth is needed
-      // or a valid token is available.
-      scope.launch(Dispatchers.IO) {
-        if (needToDownloadFirst) {
-          // For HuggingFace urls
-          if (model.url.startsWith("https://huggingface.co")) {
-            checkingToken = true
+        // Launches a coroutine to handle the initial check and potential authentication flow
+        // before downloading the model. It checks if the model needs to be downloaded first,
+        // handles HuggingFace URLs by verifying the need for authentication, and initiates
+        // the token exchange process if required or proceeds with the download if no auth is needed
+        // or a valid token is available.
+        scope.launch(Dispatchers.IO) {
+          if (needToDownloadFirst) {
+            downloadStarted = true
+            // For HuggingFace urls
+            if (model.url.startsWith("https://huggingface.co")) {
+              checkingToken = true
 
-            // Check if the url needs auth.
-            Log.d(
-              TAG,
-              "Model '${model.name}' is from HuggingFace. Checking if the url needs auth to download",
-            )
-            val firstResponseCode = modelManagerViewModel.getModelUrlResponse(model = model)
-            if (firstResponseCode == HttpURLConnection.HTTP_OK) {
-              Log.d(TAG, "Model '${model.name}' doesn't need auth. Start downloading the model...")
-              withContext(Dispatchers.Main) { startDownload(null) }
-              return@launch
-            } else if (firstResponseCode < 0) {
-              checkingToken = false
-              Log.e(TAG, "Unknown network error")
-              showErrorDialog = true
-              return@launch
-            }
-            Log.d(TAG, "Model '${model.name}' needs auth. Start token exchange process...")
-
-            // Get current token status
-            val tokenStatusAndData = modelManagerViewModel.getTokenStatusAndData()
-
-            when (tokenStatusAndData.status) {
-              // If token is not stored or expired, log in and request a new token.
-              TokenStatus.NOT_STORED,
-              TokenStatus.EXPIRED -> {
-                withContext(Dispatchers.Main) { startTokenExchange() }
-              }
-
-              // If token is still valid...
-              TokenStatus.NOT_EXPIRED -> {
-                // Use the current token to check the download url.
-                Log.d(TAG, "Checking the download url '${model.url}' with the current token...")
-                val responseCode =
-                  modelManagerViewModel.getModelUrlResponse(
-                    model = model,
-                    accessToken = tokenStatusAndData.data!!.accessToken,
-                  )
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                  // Download url is accessible. Download the model.
-                  Log.d(TAG, "Download url is accessible with the current token.")
-
-                  withContext(Dispatchers.Main) {
-                    startDownload(tokenStatusAndData.data!!.accessToken)
-                  }
-                }
-                // Download url is NOT accessible. Request a new token.
-                else {
-                  Log.d(
-                    TAG,
-                    "Download url is NOT accessible. Response code: ${responseCode}. Trying to request a new token.",
-                  )
-
-                  withContext(Dispatchers.Main) { startTokenExchange() }
-                }
-              }
-            }
-          }
-          // For other urls, just download the model.
-          else {
-            Log.d(
-              TAG,
-              "Model '${model.name}' is not from huggingface. Start downloading the model...",
-            )
-            withContext(Dispatchers.Main) { startDownload(null) }
-          }
-        } else {
-          withContext(Dispatchers.Main) {
-            val activityManager =
-              context.getSystemService(android.app.Activity.ACTIVITY_SERVICE) as? ActivityManager
-            val estimatedPeakMemoryInBytes = model.estimatedPeakMemoryInBytes
-            val isMemoryLow =
-              if (activityManager != null && estimatedPeakMemoryInBytes != null) {
-                val memoryInfo = ActivityManager.MemoryInfo()
-                activityManager.getMemoryInfo(memoryInfo)
+              // Check if the url needs auth.
+              Log.d(
+                TAG,
+                "Model '${model.name}' is from HuggingFace. Checking if the url needs auth to download",
+              )
+              val firstResponseCode = modelManagerViewModel.getModelUrlResponse(model = model)
+              if (firstResponseCode == HttpURLConnection.HTTP_OK) {
                 Log.d(
                   TAG,
-                  "AvailMem: ${memoryInfo.availMem}. TotalMem: ${memoryInfo.totalMem}. Estimated peak memory: ${estimatedPeakMemoryInBytes}.",
+                  "Model '${model.name}' doesn't need auth. Start downloading the model...",
                 )
-
-                // The device should be able to run the model if `availMem` is larger than the
-                // estimated peak memory. Android also has a mechanism to kill background apps to
-                // free up memory for the foreground app. Reserving 3G for system buffer memory to
-                // avoid the app being killed by the system.
-                max(memoryInfo.availMem, memoryInfo.totalMem - SYSTEM_RESERVED_MEMORY_IN_BYTES) <
-                  estimatedPeakMemoryInBytes
-              } else {
-                false
+                withContext(Dispatchers.Main) { startDownload(null) }
+                return@launch
+              } else if (firstResponseCode < 0) {
+                checkingToken = false
+                downloadStarted = false
+                Log.e(TAG, "Unknown network error")
+                showErrorDialog = true
+                return@launch
               }
+              Log.d(TAG, "Model '${model.name}' needs auth. Start token exchange process...")
 
-            if (isMemoryLow) {
-              showMemoryWarning = true
-            } else {
-              onClicked()
+              // Get current token status
+              val tokenStatusAndData = modelManagerViewModel.getTokenStatusAndData()
+
+              when (tokenStatusAndData.status) {
+                // If token is not stored or expired, log in and request a new token.
+                TokenStatus.NOT_STORED,
+                TokenStatus.EXPIRED -> {
+                  withContext(Dispatchers.Main) { startTokenExchange() }
+                }
+
+                // If token is still valid...
+                TokenStatus.NOT_EXPIRED -> {
+                  // Use the current token to check the download url.
+                  Log.d(TAG, "Checking the download url '${model.url}' with the current token...")
+                  val responseCode =
+                    modelManagerViewModel.getModelUrlResponse(
+                      model = model,
+                      accessToken = tokenStatusAndData.data!!.accessToken,
+                    )
+                  if (responseCode == HttpURLConnection.HTTP_OK) {
+                    // Download url is accessible. Download the model.
+                    Log.d(TAG, "Download url is accessible with the current token.")
+
+                    withContext(Dispatchers.Main) {
+                      startDownload(tokenStatusAndData.data!!.accessToken)
+                    }
+                  }
+                  // Download url is NOT accessible. Request a new token.
+                  else {
+                    Log.d(
+                      TAG,
+                      "Download url is NOT accessible. Response code: ${responseCode}. Trying to request a new token.",
+                    )
+
+                    withContext(Dispatchers.Main) { startTokenExchange() }
+                  }
+                }
+              }
             }
+            // For other urls, just download the model.
+            else {
+              Log.d(
+                TAG,
+                "Model '${model.name}' is not from huggingface. Start downloading the model...",
+              )
+              withContext(Dispatchers.Main) { startDownload(null) }
+            }
+          } else {
+            withContext(Dispatchers.Main) {
+              val activityManager =
+                context.getSystemService(android.app.Activity.ACTIVITY_SERVICE) as? ActivityManager
+              val estimatedPeakMemoryInBytes = model.estimatedPeakMemoryInBytes
+              val isMemoryLow =
+                if (activityManager != null && estimatedPeakMemoryInBytes != null) {
+                  val memoryInfo = ActivityManager.MemoryInfo()
+                  activityManager.getMemoryInfo(memoryInfo)
+                  Log.d(
+                    TAG,
+                    "AvailMem: ${memoryInfo.availMem}. TotalMem: ${memoryInfo.totalMem}. Estimated peak memory: ${estimatedPeakMemoryInBytes}.",
+                  )
+
+                  // The device should be able to run the model if `availMem` is larger than the
+                  // estimated peak memory. Android also has a mechanism to kill background apps to
+                  // free up memory for the foreground app. Reserving 3G for system buffer memory to
+                  // avoid the app being killed by the system.
+                  max(memoryInfo.availMem, memoryInfo.totalMem - SYSTEM_RESERVED_MEMORY_IN_BYTES) <
+                    estimatedPeakMemoryInBytes
+                } else {
+                  false
+                }
+
+              if (isMemoryLow) {
+                showMemoryWarning = true
+              } else {
+                onClicked()
+              }
+            }
+          }
+        }
+      },
+    ) {
+      val textColor = if (!downloadSucceeded) MaterialTheme.colorScheme.onSurface else Color.White
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        Icon(
+          if (needToDownloadFirst) Icons.Outlined.FileDownload
+          else Icons.AutoMirrored.Rounded.ArrowForward,
+          contentDescription = "",
+          tint = textColor,
+        )
+
+        if (!compact) {
+          if (needToDownloadFirst) {
+            Text(
+              stringResource(R.string.download),
+              color = textColor,
+              style = MaterialTheme.typography.titleMedium,
+            )
+          } else if (canShowTryIt) {
+            Text(
+              stringResource(R.string.try_it),
+              color = textColor,
+              style = MaterialTheme.typography.titleMedium,
+            )
           }
         }
       }
     }
-  ) {
-    Icon(
-      Icons.AutoMirrored.Rounded.ArrowForward,
-      contentDescription = "",
-      modifier = Modifier.padding(end = 4.dp),
-    )
+  }
+  // Download progress.
+  else {
+    curDownloadProgress =
+      downloadStatus!!.receivedBytes.toFloat() / downloadStatus.totalBytes.toFloat()
+    if (curDownloadProgress.isNaN()) {
+      curDownloadProgress = 0f
+    }
+    val animatedProgress = remember { Animatable(0f) }
 
-    val textColor = MaterialTheme.colorScheme.onPrimary
-    if (checkingToken) {
-      BasicText(
-        text = "Checking access...",
-        maxLines = 1,
-        color = { textColor },
-        style = MaterialTheme.typography.bodyMedium,
-        autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 14.sp, stepSize = 1.sp),
-      )
-    } else {
-      if (needToDownloadFirst) {
-        BasicText(
-          text = "Download & Try",
-          maxLines = 1,
-          color = { textColor },
+    var downloadProgressModifier: Modifier = modifier
+    if (!compact) {
+      downloadProgressModifier = downloadProgressModifier.fillMaxWidth()
+    }
+    downloadProgressModifier =
+      downloadProgressModifier
+        .clip(CircleShape)
+        .background(MaterialTheme.colorScheme.surfaceContainer)
+        .padding(horizontal = 8.dp)
+        .height(42.dp)
+    Row(modifier = downloadProgressModifier, verticalAlignment = Alignment.CenterVertically) {
+      if (checkingToken) {
+        Text(
+          stringResource(R.string.checking_access),
           style = MaterialTheme.typography.bodyMedium,
-          autoSize =
-            TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 14.sp, stepSize = 1.sp),
+          color = MaterialTheme.colorScheme.onSurface,
+          textAlign = TextAlign.Center,
+          modifier = if (!compact) Modifier.fillMaxWidth() else Modifier.padding(horizontal = 4.dp),
         )
       } else {
-        Text("Try it", maxLines = 1)
+        Text(
+          "${(curDownloadProgress * 100).toInt()}%",
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurface,
+          modifier = Modifier.padding(start = 12.dp).width(if (compact) 32.dp else 44.dp),
+        )
+        if (!compact) {
+          LinearProgressIndicator(
+            modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+            progress = { animatedProgress.value },
+            color = getTaskBgGradientColors(task = task)[1],
+            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+          )
+        }
+        IconButton(
+          onClick = {
+            downloadStarted = false
+            modelManagerViewModel.cancelDownloadModel(task = task, model = model)
+          },
+          colors =
+            IconButtonDefaults.iconButtonColors(
+              containerColor = MaterialTheme.colorScheme.surfaceContainer
+            ),
+        ) {
+          Icon(
+            Icons.Outlined.Close,
+            contentDescription = "",
+            tint = MaterialTheme.colorScheme.onSurface,
+          )
+        }
       }
+    }
+    LaunchedEffect(curDownloadProgress) {
+      animatedProgress.animateTo(curDownloadProgress, animationSpec = tween(150))
     }
   }
 

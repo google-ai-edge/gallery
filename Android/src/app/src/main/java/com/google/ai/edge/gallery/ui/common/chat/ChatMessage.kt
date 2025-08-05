@@ -110,15 +110,15 @@ open class ChatMessageText(
 
 /** Chat message for images. */
 class ChatMessageImage(
-  val bitmap: Bitmap,
-  val imageBitMap: ImageBitmap,
+  val bitmaps: List<Bitmap>,
+  val imageBitMaps: List<ImageBitmap>,
   override val side: ChatSide,
   override val latencyMs: Float = 0f,
 ) : ChatMessage(type = ChatMessageType.IMAGE, side = side, latencyMs = latencyMs) {
   override fun clone(): ChatMessageImage {
     return ChatMessageImage(
-      bitmap = bitmap,
-      imageBitMap = imageBitMap,
+      bitmaps = bitmaps.toList(),
+      imageBitMaps = imageBitMaps.toList(),
       side = side,
       latencyMs = latencyMs,
     )
