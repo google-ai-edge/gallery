@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -247,6 +248,7 @@ fun RevealingText(
   animationDelay: Long = 0,
   animationDurationMs: Int = 300,
   edgeGradientRelativeSize: Float = 0.5f,
+  extraTextPadding: Dp = 16.dp,
 ) {
   val progress =
     rememberDelayedAnimationProgress(
@@ -273,7 +275,7 @@ fun RevealingText(
         },
     contentAlignment = Alignment.Center,
   ) {
-    Text(text, style = style, modifier = modifier.padding(horizontal = 16.dp))
+    Text(text, style = style, modifier = Modifier.padding(horizontal = extraTextPadding))
   }
 }
 

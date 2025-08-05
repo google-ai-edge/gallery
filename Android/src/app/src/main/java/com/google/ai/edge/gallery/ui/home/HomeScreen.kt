@@ -78,7 +78,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush.Companion.linearGradient
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.LinkAnnotation
@@ -420,6 +422,9 @@ private fun AppTitle() {
   val firstLineText = stringResource(R.string.app_name_first_part)
   val secondLineText = stringResource(R.string.app_name_second_part)
   val titleColor = MaterialTheme.customColors.appTitleGradientColors[1]
+  val screenWidthInDp = LocalConfiguration.current.screenWidthDp.dp
+  val fontSize = with(LocalDensity.current) { (screenWidthInDp.toPx() * 0.12f).toSp() }
+  val titleStyle = homePageTitleStyle.copy(fontSize = fontSize, lineHeight = fontSize)
 
   // First line text "Google AI" and its animation.
   //
@@ -433,7 +438,7 @@ private fun AppTitle() {
     var delay = ANIMATION_INIT_DELAY
     SwipingText(
       text = firstLineText,
-      style = homePageTitleStyle,
+      style = titleStyle,
       color = titleColor,
       animationDelay = delay,
       animationDurationMs = TITLE_FIRST_LINE_ANIMATION_DURATION,
@@ -441,7 +446,7 @@ private fun AppTitle() {
     delay += (TITLE_FIRST_LINE_ANIMATION_DURATION * 0.3).toLong()
     SwipingText(
       text = firstLineText,
-      style = homePageTitleStyle,
+      style = titleStyle,
       color = MaterialTheme.colorScheme.onSurface,
       animationDelay = delay,
       animationDurationMs = TITLE_FIRST_LINE_ANIMATION_DURATION,
@@ -455,7 +460,7 @@ private fun AppTitle() {
     var delay = TITLE_SECOND_LINE_ANIMATION_START
     SwipingText(
       text = secondLineText,
-      style = homePageTitleStyle,
+      style = titleStyle,
       color = titleColor,
       modifier = Modifier.offset(y = (-16).dp),
       animationDelay = delay,
@@ -464,7 +469,7 @@ private fun AppTitle() {
     delay += (TITLE_SECOND_LINE_ANIMATION_DURATION * 0.3).toInt()
     SwipingText(
       text = secondLineText,
-      style = homePageTitleStyle,
+      style = titleStyle,
       color = MaterialTheme.colorScheme.onSurface,
       modifier = Modifier.offset(y = (-16).dp),
       animationDelay = delay,
@@ -474,10 +479,10 @@ private fun AppTitle() {
     RevealingText(
       text = secondLineText,
       style =
-        homePageTitleStyle.copy(
+        titleStyle.copy(
           brush = linearGradient(colors = MaterialTheme.customColors.appTitleGradientColors)
         ),
-      modifier = Modifier.offset(y = (-8).dp, x = (-8).dp),
+      modifier = Modifier.offset(x = (-16).dp, y = (-16).dp),
       animationDelay = delay,
       animationDurationMs = TITLE_SECOND_LINE_ANIMATION_DURATION2,
     )
