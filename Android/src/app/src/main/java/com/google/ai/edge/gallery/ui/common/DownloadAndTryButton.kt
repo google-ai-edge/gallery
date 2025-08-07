@@ -316,7 +316,7 @@ fun DownloadAndTryButton(
       }
       // No need to download. Directly open the model.
       else {
-        onClicked()
+        withContext(Dispatchers.Main) { onClicked() }
       }
     }
   }
