@@ -16,7 +16,6 @@
 
 package com.google.ai.edge.gallery.ui.common
 
-import android.app.ActivityManager
 import android.content.Intent
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -79,7 +78,6 @@ import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.TokenRequestResultType
 import com.google.ai.edge.gallery.ui.modelmanager.TokenStatus
 import java.net.HttpURLConnection
-import kotlin.math.max
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -236,6 +234,93 @@ fun DownloadAndTryButton(
     authResultLauncher.launch(authIntent)
   }
 
+  // Launches a coroutine to handle the initial check and potential authentication flow
+  // before downloading the model. It checks if the model needs to be downloaded first,
+  // handles HuggingFace URLs by verifying the need for authentication, and initiates
+  // the token exchange process if required or proceeds with the download if no auth is needed
+  // or a valid token is available.
+  val handleClickButton = {
+    scope.launch(Dispatchers.IO) {
+      if (needToDownloadFirst) {
+        downloadStarted = true
+        // For HuggingFace urls
+        if (model.url.startsWith("https://huggingface.co")) {
+          checkingToken = true
+
+          // Check if the url needs auth.
+          Log.d(
+            TAG,
+            "Model '${model.name}' is from HuggingFace. Checking if the url needs auth to download",
+          )
+          val firstResponseCode = modelManagerViewModel.getModelUrlResponse(model = model)
+          if (firstResponseCode == HttpURLConnection.HTTP_OK) {
+            Log.d(TAG, "Model '${model.name}' doesn't need auth. Start downloading the model...")
+            withContext(Dispatchers.Main) { startDownload(null) }
+            return@launch
+          } else if (firstResponseCode < 0) {
+            checkingToken = false
+            downloadStarted = false
+            Log.e(TAG, "Unknown network error")
+            showErrorDialog = true
+            return@launch
+          }
+          Log.d(TAG, "Model '${model.name}' needs auth. Start token exchange process...")
+
+          // Get current token status
+          val tokenStatusAndData = modelManagerViewModel.getTokenStatusAndData()
+
+          when (tokenStatusAndData.status) {
+            // If token is not stored or expired, log in and request a new token.
+            TokenStatus.NOT_STORED,
+            TokenStatus.EXPIRED -> {
+              withContext(Dispatchers.Main) { startTokenExchange() }
+            }
+
+            // If token is still valid...
+            TokenStatus.NOT_EXPIRED -> {
+              // Use the current token to check the download url.
+              Log.d(TAG, "Checking the download url '${model.url}' with the current token...")
+              val responseCode =
+                modelManagerViewModel.getModelUrlResponse(
+                  model = model,
+                  accessToken = tokenStatusAndData.data!!.accessToken,
+                )
+              if (responseCode == HttpURLConnection.HTTP_OK) {
+                // Download url is accessible. Download the model.
+                Log.d(TAG, "Download url is accessible with the current token.")
+
+                withContext(Dispatchers.Main) {
+                  startDownload(tokenStatusAndData.data!!.accessToken)
+                }
+              }
+              // Download url is NOT accessible. Request a new token.
+              else {
+                Log.d(
+                  TAG,
+                  "Download url is NOT accessible. Response code: ${responseCode}. Trying to request a new token.",
+                )
+
+                withContext(Dispatchers.Main) { startTokenExchange() }
+              }
+            }
+          }
+        }
+        // For other urls, just download the model.
+        else {
+          Log.d(
+            TAG,
+            "Model '${model.name}' is not from huggingface. Start downloading the model...",
+          )
+          withContext(Dispatchers.Main) { startDownload(null) }
+        }
+      }
+      // No need to download. Directly open the model.
+      else {
+        onClicked()
+      }
+    }
+  }
+
   if (!showDownloadProgress) {
     var buttonModifier: Modifier = modifier.height(42.dp)
     if (!compact) {
@@ -255,118 +340,10 @@ fun DownloadAndTryButton(
           return@Button
         }
 
-        // Launches a coroutine to handle the initial check and potential authentication flow
-        // before downloading the model. It checks if the model needs to be downloaded first,
-        // handles HuggingFace URLs by verifying the need for authentication, and initiates
-        // the token exchange process if required or proceeds with the download if no auth is needed
-        // or a valid token is available.
-        scope.launch(Dispatchers.IO) {
-          if (needToDownloadFirst) {
-            downloadStarted = true
-            // For HuggingFace urls
-            if (model.url.startsWith("https://huggingface.co")) {
-              checkingToken = true
-
-              // Check if the url needs auth.
-              Log.d(
-                TAG,
-                "Model '${model.name}' is from HuggingFace. Checking if the url needs auth to download",
-              )
-              val firstResponseCode = modelManagerViewModel.getModelUrlResponse(model = model)
-              if (firstResponseCode == HttpURLConnection.HTTP_OK) {
-                Log.d(
-                  TAG,
-                  "Model '${model.name}' doesn't need auth. Start downloading the model...",
-                )
-                withContext(Dispatchers.Main) { startDownload(null) }
-                return@launch
-              } else if (firstResponseCode < 0) {
-                checkingToken = false
-                downloadStarted = false
-                Log.e(TAG, "Unknown network error")
-                showErrorDialog = true
-                return@launch
-              }
-              Log.d(TAG, "Model '${model.name}' needs auth. Start token exchange process...")
-
-              // Get current token status
-              val tokenStatusAndData = modelManagerViewModel.getTokenStatusAndData()
-
-              when (tokenStatusAndData.status) {
-                // If token is not stored or expired, log in and request a new token.
-                TokenStatus.NOT_STORED,
-                TokenStatus.EXPIRED -> {
-                  withContext(Dispatchers.Main) { startTokenExchange() }
-                }
-
-                // If token is still valid...
-                TokenStatus.NOT_EXPIRED -> {
-                  // Use the current token to check the download url.
-                  Log.d(TAG, "Checking the download url '${model.url}' with the current token...")
-                  val responseCode =
-                    modelManagerViewModel.getModelUrlResponse(
-                      model = model,
-                      accessToken = tokenStatusAndData.data!!.accessToken,
-                    )
-                  if (responseCode == HttpURLConnection.HTTP_OK) {
-                    // Download url is accessible. Download the model.
-                    Log.d(TAG, "Download url is accessible with the current token.")
-
-                    withContext(Dispatchers.Main) {
-                      startDownload(tokenStatusAndData.data!!.accessToken)
-                    }
-                  }
-                  // Download url is NOT accessible. Request a new token.
-                  else {
-                    Log.d(
-                      TAG,
-                      "Download url is NOT accessible. Response code: ${responseCode}. Trying to request a new token.",
-                    )
-
-                    withContext(Dispatchers.Main) { startTokenExchange() }
-                  }
-                }
-              }
-            }
-            // For other urls, just download the model.
-            else {
-              Log.d(
-                TAG,
-                "Model '${model.name}' is not from huggingface. Start downloading the model...",
-              )
-              withContext(Dispatchers.Main) { startDownload(null) }
-            }
-          } else {
-            withContext(Dispatchers.Main) {
-              val activityManager =
-                context.getSystemService(android.app.Activity.ACTIVITY_SERVICE) as? ActivityManager
-              val estimatedPeakMemoryInBytes = model.estimatedPeakMemoryInBytes
-              val isMemoryLow =
-                if (activityManager != null && estimatedPeakMemoryInBytes != null) {
-                  val memoryInfo = ActivityManager.MemoryInfo()
-                  activityManager.getMemoryInfo(memoryInfo)
-                  Log.d(
-                    TAG,
-                    "AvailMem: ${memoryInfo.availMem}. TotalMem: ${memoryInfo.totalMem}. Estimated peak memory: ${estimatedPeakMemoryInBytes}.",
-                  )
-
-                  // The device should be able to run the model if `availMem` is larger than the
-                  // estimated peak memory. Android also has a mechanism to kill background apps to
-                  // free up memory for the foreground app. Reserving 3G for system buffer memory to
-                  // avoid the app being killed by the system.
-                  max(memoryInfo.availMem, memoryInfo.totalMem - SYSTEM_RESERVED_MEMORY_IN_BYTES) <
-                    estimatedPeakMemoryInBytes
-                } else {
-                  false
-                }
-
-              if (isMemoryLow) {
-                showMemoryWarning = true
-              } else {
-                onClicked()
-              }
-            }
-          }
+        if (isMemoryLow(context = context, model = model)) {
+          showMemoryWarning = true
+        } else {
+          handleClickButton()
         }
       },
     ) {
@@ -524,26 +501,12 @@ fun DownloadAndTryButton(
   }
 
   if (showMemoryWarning) {
-    AlertDialog(
-      title = { Text("Memory Warning") },
-      text = {
-        Text(
-          "This model might need more memory than your device has available. " +
-            "Running it could cause the app to crash."
-        )
+    MemoryWarningAlert(
+      onProceeded = {
+        handleClickButton()
+        showMemoryWarning = false
       },
-      onDismissRequest = { showMemoryWarning = false },
-      confirmButton = {
-        TextButton(
-          onClick = {
-            onClicked()
-            showMemoryWarning = false
-          }
-        ) {
-          Text("Continue")
-        }
-      },
-      dismissButton = { TextButton(onClick = { showMemoryWarning = false }) { Text("Cancel") } },
+      onDismissed = { showMemoryWarning = false },
     )
   }
 }

@@ -39,10 +39,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,6 +63,9 @@ fun ModelPicker(
   onModelSelected: (Model) -> Unit,
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+  var showMemoryWarning by remember { mutableStateOf(false) }
+  var modelToPick by remember { mutableStateOf<Model?>(null) }
+  val context = LocalContext.current
 
   Column(modifier = Modifier.padding(bottom = 8.dp)) {
     // Title
@@ -89,7 +96,15 @@ fun ModelPicker(
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier =
           Modifier.fillMaxWidth()
-            .clickable { onModelSelected(model) }
+            .clickable {
+              // Show memory warning before proceeding.
+              if (isMemoryLow(context = context, model = model)) {
+                modelToPick = model
+                showMemoryWarning = true
+              } else {
+                onModelSelected(model)
+              }
+            }
             .background(
               if (selected) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent
             )
@@ -118,6 +133,19 @@ fun ModelPicker(
         }
       }
     }
+  }
+
+  if (showMemoryWarning) {
+    MemoryWarningAlert(
+      onProceeded = {
+        val curModelToPick = modelToPick
+        if (curModelToPick != null) {
+          onModelSelected(curModelToPick)
+        }
+        showMemoryWarning = false
+      },
+      onDismissed = { showMemoryWarning = false },
+    )
   }
 }
 

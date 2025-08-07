@@ -96,6 +96,9 @@ data class Model(
   /* The task type ids that this model is best for. */
   val bestForTaskTypes: List<String> = listOf(),
 
+  /** The minimum device memory in GB to run the model. */
+  val minDeviceMemoryInGb: Int? = null,
+
   // The following fields are managed by the app. Don't need to set manually.
   var normalizedName: String = "",
   var instance: Any? = null,
@@ -105,9 +108,6 @@ data class Model(
   var configValues: Map<String, Any> = mapOf(),
   var totalBytes: Long = 0L,
   var accessToken: String? = null,
-
-  /** The estimated peak memory in byte to run the model. */
-  val estimatedPeakMemoryInBytes: Long? = null,
 ) {
   init {
     normalizedName = NORMALIZE_NAME_REGEX.replace(name, "_")

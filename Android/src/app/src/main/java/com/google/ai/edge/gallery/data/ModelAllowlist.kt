@@ -39,7 +39,7 @@ data class AllowedModel(
   val disabled: Boolean? = null,
   val llmSupportImage: Boolean? = null,
   val llmSupportAudio: Boolean? = null,
-  val estimatedPeakMemoryInBytes: Long? = null,
+  val minDeviceMemoryInGb: Int? = null,
   val bestForTaskTypes: List<String>? = null,
 ) {
   fun toModel(): Model {
@@ -91,7 +91,7 @@ data class AllowedModel(
       info = description,
       url = downloadUrl,
       sizeInBytes = sizeInBytes,
-      estimatedPeakMemoryInBytes = estimatedPeakMemoryInBytes,
+      minDeviceMemoryInGb = minDeviceMemoryInGb,
       configs = configs,
       downloadFileName = modelFile,
       showBenchmarkButton = showBenchmarkButton,
