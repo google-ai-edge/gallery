@@ -17,7 +17,10 @@
 package com.google.ai.edge.gallery.ui.navigation
 
 import androidx.hilt.navigation.compose.hiltViewModel
+
 import android.util.Log
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
@@ -27,53 +30,54 @@ import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
 import androidx.core.os.bundleOf
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.TASK_LLM_ASK_AUDIO
-import com.google.ai.edge.gallery.data.TASK_LLM_ASK_IMAGE
-import com.google.ai.edge.gallery.data.TASK_LLM_CHAT
-import com.google.ai.edge.gallery.data.TASK_LLM_PROMPT_LAB
+import com.google.ai.edge.gallery.customtasks.common.CustomTaskData
+import com.google.ai.edge.gallery.customtasks.common.CustomTaskDataForBuiltinTask
+import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.data.TaskType
-import com.google.ai.edge.gallery.data.getModelByName
+import com.google.ai.edge.gallery.data.isBuiltInTask
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.ui.common.ErrorDialog
+import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
+import com.google.ai.edge.gallery.ui.common.chat.ModelDownloadStatusInfoPanel
 import com.google.ai.edge.gallery.ui.home.HomeScreen
-import com.google.ai.edge.gallery.ui.llmchat.LlmAskAudioDestination
-import com.google.ai.edge.gallery.ui.llmchat.LlmAskAudioScreen
-import com.google.ai.edge.gallery.ui.llmchat.LlmAskAudioViewModel
-import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageDestination
-import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageScreen
-import com.google.ai.edge.gallery.ui.llmchat.LlmAskImageViewModel
-import com.google.ai.edge.gallery.ui.llmchat.LlmChatDestination
-import com.google.ai.edge.gallery.ui.llmchat.LlmChatScreen
-import com.google.ai.edge.gallery.ui.llmchat.LlmChatViewModel
-import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnDestination
-import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnScreen
-import com.google.ai.edge.gallery.ui.llmsingleturn.LlmSingleTurnViewModel
+import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 private const val TAG = "AGGalleryNavGraph"
 private const val ROUTE_PLACEHOLDER = "placeholder"
+private const val ROUTE_MODEL = "route_model"
 private const val ENTER_ANIMATION_DURATION_MS = 500
 private val ENTER_ANIMATION_EASING = EaseOutExpo
 private const val ENTER_ANIMATION_DELAY_MS = 100
@@ -147,10 +151,7 @@ fun GalleryNavHost(
     navigateToTaskScreen = { task ->
       pickedTask = task
       showModelManager = true
-      firebaseAnalytics?.logEvent(
-        "capability_select",
-        bundleOf("capability_name" to task.type.toString()),
-      )
+      firebaseAnalytics?.logEvent("capability_select", bundleOf("capability_name" to task.id))
     },
   )
 
@@ -166,11 +167,7 @@ fun GalleryNavHost(
         viewModel = modelManagerViewModel,
         task = curPickedTask,
         onModelClicked = { model ->
-          navigateToTaskScreen(
-            navController = navController,
-            taskType = curPickedTask.type,
-            model = model,
-          )
+          navController.navigate("$ROUTE_MODEL/${curPickedTask.id}/${model.name}")
         },
         navigateUp = { showModelManager = false },
       )
@@ -188,83 +185,47 @@ fun GalleryNavHost(
     // Placeholder root screen
     composable(route = ROUTE_PLACEHOLDER) { Text("") }
 
-    // LLM chat demos.
     composable(
-      route = "${LlmChatDestination.route}/{modelName}",
-      arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
+      route = "$ROUTE_MODEL/{taskId}/{modelName}",
+      arguments =
+        listOf(
+          navArgument("taskId") { type = NavType.StringType },
+          navArgument("modelName") { type = NavType.StringType },
+        ),
       enterTransition = { slideEnter() },
       exitTransition = { slideExit() },
     ) { backStackEntry ->
-      val viewModel: LlmChatViewModel = hiltViewModel(backStackEntry)
+      val modelName = backStackEntry.arguments?.getString("modelName") ?: ""
+      val taskId = backStackEntry.arguments?.getString("taskId") ?: ""
+      modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
+        modelManagerViewModel.selectModel(model)
 
-      getModelFromNavigationParam(backStackEntry, TASK_LLM_CHAT)?.let { defaultModel ->
-        modelManagerViewModel.selectModel(defaultModel)
-
-        LlmChatScreen(
-          viewModel = viewModel,
-          modelManagerViewModel = modelManagerViewModel,
-          navigateUp = { navController.navigateUp() },
-        )
-      }
-    }
-
-    // LLM single turn.
-    composable(
-      route = "${LlmSingleTurnDestination.route}/{modelName}",
-      arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
-      enterTransition = { slideEnter() },
-      exitTransition = { slideExit() },
-    ) { backStackEntry ->
-      val viewModel: LlmSingleTurnViewModel = hiltViewModel(backStackEntry)
-
-      getModelFromNavigationParam(backStackEntry, TASK_LLM_PROMPT_LAB)?.let { defaultModel ->
-        modelManagerViewModel.selectModel(defaultModel)
-
-        LlmSingleTurnScreen(
-          viewModel = viewModel,
-          modelManagerViewModel = modelManagerViewModel,
-          navigateUp = { navController.navigateUp() },
-        )
-      }
-    }
-
-    // Ask image.
-    composable(
-      route = "${LlmAskImageDestination.route}/{modelName}",
-      arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
-      enterTransition = { slideEnter() },
-      exitTransition = { slideExit() },
-    ) { backStackEntry ->
-      val viewModel: LlmAskImageViewModel = hiltViewModel()
-
-      getModelFromNavigationParam(backStackEntry, TASK_LLM_ASK_IMAGE)?.let { defaultModel ->
-        modelManagerViewModel.selectModel(defaultModel)
-
-        LlmAskImageScreen(
-          viewModel = viewModel,
-          modelManagerViewModel = modelManagerViewModel,
-          navigateUp = { navController.navigateUp() },
-        )
-      }
-    }
-
-    // Ask audio.
-    composable(
-      route = "${LlmAskAudioDestination.route}/{modelName}",
-      arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
-      enterTransition = { slideEnter() },
-      exitTransition = { slideExit() },
-    ) { backStackEntry ->
-      val viewModel: LlmAskAudioViewModel = hiltViewModel()
-
-      getModelFromNavigationParam(backStackEntry, TASK_LLM_ASK_AUDIO)?.let { defaultModel ->
-        modelManagerViewModel.selectModel(defaultModel)
-
-        LlmAskAudioScreen(
-          viewModel = viewModel,
-          modelManagerViewModel = modelManagerViewModel,
-          navigateUp = { navController.navigateUp() },
-        )
+        val customTask = modelManagerViewModel.getCustomTaskByTaskId(id = taskId)
+        if (customTask != null) {
+          if (isBuiltInTask(customTask.task.id)) {
+            customTask.MainScreen(
+              data =
+                CustomTaskDataForBuiltinTask(
+                  modelManagerViewModel = modelManagerViewModel,
+                  onNavUp = { navController.navigateUp() },
+                )
+            )
+          } else {
+            CustomTaskScreen(
+              task = customTask.task,
+              modelManagerViewModel = modelManagerViewModel,
+              onNavigateUp = { navController.navigateUp() },
+            ) { bottomPadding ->
+              customTask.MainScreen(
+                data =
+                  CustomTaskData(
+                    modelManagerViewModel = modelManagerViewModel,
+                    bottomPadding = bottomPadding,
+                  )
+              )
+            }
+          }
+        }
       }
     }
   }
@@ -276,41 +237,119 @@ fun GalleryNavHost(
     intent.data = null
     Log.d(TAG, "navigation link clicked: $data")
     if (data.toString().startsWith("com.google.ai.edge.gallery://model/")) {
+      val taskId = data.pathSegments.get(data.pathSegments.size - 2)
       val modelName = data.pathSegments.last()
-      getModelByName(modelName)?.let { model ->
-        // TODO(jingjin): need to show a list of possible tasks for this model.
-        navigateToTaskScreen(
-          navController = navController,
-          taskType = TaskType.LLM_CHAT,
-          model = model,
-        )
+      modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
+        navController.navigate("$ROUTE_MODEL/${taskId}/${model.name}")
       }
     }
   }
 }
 
-fun navigateToTaskScreen(
-  navController: NavHostController,
-  taskType: TaskType,
-  model: Model? = null,
+@Composable
+private fun CustomTaskScreen(
+  task: Task,
+  modelManagerViewModel: ModelManagerViewModel,
+  onNavigateUp: () -> Unit,
+  content: @Composable (bottomPadding: Dp) -> Unit,
 ) {
-  val modelName = model?.name ?: ""
-  when (taskType) {
-    TaskType.LLM_CHAT -> navController.navigate("${LlmChatDestination.route}/${modelName}")
-    TaskType.LLM_ASK_IMAGE -> navController.navigate("${LlmAskImageDestination.route}/${modelName}")
-    TaskType.LLM_ASK_AUDIO -> navController.navigate("${LlmAskAudioDestination.route}/${modelName}")
-    TaskType.LLM_PROMPT_LAB ->
-      navController.navigate("${LlmSingleTurnDestination.route}/${modelName}")
-    TaskType.TEST_TASK_1 -> {}
-    TaskType.TEST_TASK_2 -> {}
-  }
-}
+  val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+  val selectedModel = modelManagerUiState.selectedModel
+  val scope = rememberCoroutineScope()
+  val context = LocalContext.current
+  var navigatingUp by remember { mutableStateOf(false) }
+  var showErrorDialog by remember { mutableStateOf(false) }
 
-fun getModelFromNavigationParam(entry: NavBackStackEntry, task: Task): Model? {
-  var modelName = entry.arguments?.getString("modelName") ?: ""
-  if (modelName.isEmpty()) {
-    modelName = task.models[0].name
+  val handleNavigateUp = {
+    navigatingUp = true
+    onNavigateUp()
+
+    // clean up all models.
+    scope.launch(Dispatchers.Default) {
+      for (model in task.models) {
+        modelManagerViewModel.cleanupModel(context = context, task = task, model = model)
+      }
+    }
   }
-  val model = getModelByName(modelName)
-  return model
+
+  // Handle system's edge swipe.
+  BackHandler { handleNavigateUp() }
+
+  // Initialize model when model/download state changes.
+  val curDownloadStatus = modelManagerUiState.modelDownloadStatus[selectedModel.name]
+  LaunchedEffect(curDownloadStatus, selectedModel.name) {
+    if (!navigatingUp) {
+      if (curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED) {
+        Log.d(
+          TAG,
+          "Initializing model '${selectedModel.name}' from CustomTaskScreen launched effect",
+        )
+        modelManagerViewModel.initializeModel(context, task = task, model = selectedModel)
+      }
+    }
+  }
+
+  val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
+  LaunchedEffect(modelInitializationStatus) {
+    showErrorDialog = modelInitializationStatus?.status == ModelInitializationStatusType.ERROR
+  }
+
+  Scaffold(
+    topBar = {
+      ModelPageAppBar(
+        task = task,
+        model = selectedModel,
+        modelManagerViewModel = modelManagerViewModel,
+        inProgress = false,
+        modelPreparing = false,
+        canShowResetSessionButton = false,
+        onConfigChanged = { _, _ -> },
+        onBackClicked = { handleNavigateUp() },
+        onModelSelected = { prevModel, newSelectedModel ->
+          scope.launch(Dispatchers.Default) {
+            // Clean up prev model.
+            if (prevModel.name != newSelectedModel.name) {
+              modelManagerViewModel.cleanupModel(context = context, task = task, model = prevModel)
+            }
+
+            // Update selected model.
+            modelManagerViewModel.selectModel(model = newSelectedModel)
+          }
+        },
+      )
+    }
+  ) { innerPadding ->
+    Box(
+      modifier =
+        Modifier.padding(
+          top = innerPadding.calculateTopPadding(),
+          start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
+          end = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
+        )
+    ) {
+      val curModelDownloadStatus = modelManagerUiState.modelDownloadStatus[selectedModel.name]
+      AnimatedContent(
+        targetState = curModelDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+      ) { targetState ->
+        when (targetState) {
+          // Main UI when model is downloaded.
+          true -> content(innerPadding.calculateBottomPadding())
+          // Model download
+          false ->
+            ModelDownloadStatusInfoPanel(
+              model = selectedModel,
+              task = task,
+              modelManagerViewModel = modelManagerViewModel,
+            )
+        }
+      }
+    }
+  }
+
+  if (showErrorDialog) {
+    ErrorDialog(
+      error = modelInitializationStatus?.error ?: "",
+      onDismiss = { showErrorDialog = false },
+    )
+  }
 }

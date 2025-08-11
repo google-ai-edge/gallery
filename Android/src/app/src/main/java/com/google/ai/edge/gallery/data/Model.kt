@@ -31,43 +31,149 @@ private val NORMALIZE_NAME_REGEX = Regex("[^a-zA-Z0-9]")
 
 data class PromptTemplate(val title: String, val description: String, val prompt: String)
 
-/** A model for a task */
+/**
+ * A model for a task (see [Task]).
+ *
+ * A task can have multiple models. For example, a task might be "LLM Chat", and it might have
+ * models such as Gemma2, Gemma3, etc.
+ */
 data class Model(
-  /** The name (for display purpose) of the model. */
+  /**
+   * The name of the model for display purpose.
+   *
+   * This name is also used to uniquely identify this model among all the tasks.
+   *
+   * IMPORTANT: it shouldn't contain "/" character.
+   */
   val name: String,
 
-  /** The commit hash of the model on HF. */
-  val commitHash: String = "_",
+  /**
+   * (optional)
+   *
+   * A description or information about the model (Markdown supported).
+   *
+   * Displayed in the expanded model info card.
+   */
+  val info: String = "",
+
+  /**
+   * (optional)
+   *
+   * A list of configurable parameters for the model.
+   *
+   * If set, a gear icon appears on the right side of the model main screen's app bar. When
+   * selected, a dialog pops up, allowing users to update the model's configurations.
+   *
+   * See [Config] for more details
+   */
+  val configs: List<Config> = listOf(),
+
+  /**
+   * (optional)
+   *
+   * The url to jump to when clicking "learn more" in model's info card.
+   */
+  val learnMoreUrl: String = "",
+
+  /**
+   * (optional)
+   *
+   * The task type ids that this model is best for.
+   *
+   * When set, the model's info card is pinned to the top of the model list when the corresponding
+   * task is selected, expanded by default, and displays a "best overall" banner.
+   *
+   * Each task should only have one such model.
+   */
+  val bestForTaskIds: List<String> = listOf(),
+
+  /**
+   * (optional)
+   *
+   * The minimum device memory in GB to run the model.
+   *
+   * If set, a warning dialog will be shown when user trying to download the model or enter the
+   * model screen.
+   */
+  val minDeviceMemoryInGb: Int? = null,
+
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+  // Fill in the following fields if the model file needs to be downloaded from internet.
+  //
+  // If you want to manually manage model files without downloading them from internet, set the
+  // `localFilePathOverride` field below.
+
+  /**
+   * The URL to download the model from.
+   *
+   * If the url is from HuggingFace, we will automatically prompt users to fetch access token if the
+   * model is gated.
+   */
+  val url: String = "",
+
+  /**
+   * The size of the model file in bytes.
+   *
+   * This will be used to calculate download progress.
+   */
+  val sizeInBytes: Long = 0L,
 
   /**
    * The name of the downloaded model file.
    *
-   * The final file path of the downloaded model will be:
+   * It will be used to define the file path on local device to store the downloaded model.
    * {context.getExternalFilesDir}/{normalizedName}/{version}/{downloadFileName}
    */
-  val downloadFileName: String,
-
-  /** The URL to download the model from. */
-  val url: String,
-
-  /** The size of the model file in bytes. */
-  val sizeInBytes: Long,
-
-  /** A list of additional data files required by the model. */
-  val extraDataFiles: List<ModelDataFile> = listOf(),
+  val downloadFileName: String = "_",
 
   /**
-   * A description or information about the model.
+   * (optional)
    *
-   * Will be shown at the start of the chat session and in the expanded model item.
+   * The version of the model.
+   *
+   * It will be used to define the file path on local device to store the downloaded model.
+   * {context.getExternalFilesDir}/{normalizedName}/{version}/{downloadFileName}
    */
-  val info: String = "",
+  val version: String = "_",
 
-  /** The url to jump to when clicking "learn more" in expanded model item. */
-  val learnMoreUrl: String = "",
+  /**
+   * (optional, experimental)
+   *
+   * A list of additional data files required by the model.
+   */
+  val extraDataFiles: List<ModelDataFile> = listOf(),
 
-  /** A list of configurable parameters for the model. */
-  val configs: List<Config> = listOf(),
+  // End of model download related fields.
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Set this to a relative path pointing to a dir (e.g., my_model/local_dir/) if you want to
+   * manually manage model files instead of downloading them. This dir is relative to the app's
+   * "External Files Directory", which is: /storage/emulated/0/Android/data/<app_id>/files/.
+   *
+   * The <app_id> depends on how the app was built:
+   * - `com.google.aiedge.gallery` for builds from the GitHub source.
+   * - `com.google.ai.edge.gallery` for other builds (Play store, internal, etc).
+   *
+   * For example, if this field is set to "my_model/local_dir/", then the location you should push
+   * files to is (assuming non-github builds):
+   *
+   * /storage/emulated/0/Android/data/com.google.ai.edge.gallery/files/my_model/local_dir/
+   *
+   * You can get the full path to a specific file within your code using `Model.getPath(Context,
+   * fileNameToGet)`.
+   *
+   * Using this field is recommended when:
+   * - Your model files are not publicly accessible on the internet (e.g. private models).
+   * - Your "model" or experience requires multiple files. Manually pushing these files to the
+   *   device and using Model.getPath() for each one is often simpler than downloading them,
+   *   especially for demos.
+   */
+  val localFileRelativeDirPathOverride: String = "",
+
+  // The following fields are only used for built-in tasks. Can ignore if you are creating your own
+  // custom tasks.
+  //
 
   /** Whether to show the "run again" button in the UI. */
   val showRunAgainButton: Boolean = true,
@@ -93,13 +199,8 @@ data class Model(
   /** Whether the model is imported or not. */
   val imported: Boolean = false,
 
-  /* The task type ids that this model is best for. */
-  val bestForTaskTypes: List<String> = listOf(),
-
-  /** The minimum device memory in GB to run the model. */
-  val minDeviceMemoryInGb: Int? = null,
-
   // The following fields are managed by the app. Don't need to set manually.
+  //
   var normalizedName: String = "",
   var instance: Any? = null,
   var initializing: Boolean = false,
@@ -128,8 +229,17 @@ data class Model(
         .joinToString(File.separator)
     }
 
+    if (localFileRelativeDirPathOverride.isNotEmpty()) {
+      return listOf(
+          context.getExternalFilesDir(null)?.absolutePath ?: "",
+          localFileRelativeDirPathOverride,
+          fileName,
+        )
+        .joinToString(File.separator)
+    }
+
     val baseDir =
-      listOf(context.getExternalFilesDir(null)?.absolutePath ?: "", normalizedName, commitHash)
+      listOf(context.getExternalFilesDir(null)?.absolutePath ?: "", normalizedName, version)
         .joinToString(File.separator)
     return if (this.isZip && this.unzipDir.isNotEmpty()) {
       "$baseDir/${this.unzipDir}"
@@ -198,19 +308,19 @@ data class ModelDownloadStatus(
 val MOBILENET_CONFIGS: List<Config> =
   listOf(
     NumberSliderConfig(
-      key = ConfigKey.MAX_RESULT_COUNT,
+      key = ConfigKeys.MAX_RESULT_COUNT,
       sliderMin = 1f,
       sliderMax = 5f,
       defaultValue = 3f,
       valueType = ValueType.INT,
     ),
-    BooleanSwitchConfig(key = ConfigKey.USE_GPU, defaultValue = false),
+    BooleanSwitchConfig(key = ConfigKeys.USE_GPU, defaultValue = false),
   )
 
 val IMAGE_GENERATION_CONFIGS: List<Config> =
   listOf(
     NumberSliderConfig(
-      key = ConfigKey.ITERATIONS,
+      key = ConfigKeys.ITERATIONS,
       sliderMin = 5f,
       sliderMax = 50f,
       defaultValue = 10f,

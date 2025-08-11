@@ -17,9 +17,7 @@
 package com.google.ai.edge.gallery.ui.common
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -40,14 +38,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.data.TASKS
-import com.google.ai.edge.gallery.data.TASK_LLM_CHAT
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 
 private val SHAPES: List<Int> =
   listOf(
@@ -123,16 +117,16 @@ private fun getTaskIconBgShape(task: Task): Painter {
   return painterResource(SHAPES[colorIndex])
 }
 
-@Preview(showBackground = true)
-@Composable
-fun TaskIconPreview() {
-  for ((index, task) in TASKS.withIndex()) {
-    task.index = index
-  }
-
-  GalleryTheme {
-    Column(modifier = Modifier.background(Color.Gray)) {
-      TaskIcon(task = TASK_LLM_CHAT, width = 80.dp)
-    }
-  }
-}
+// @Preview(showBackground = true)
+// @Composable
+// fun TaskIconPreview() {
+//   for ((index, task) in TASKS.withIndex()) {
+//     task.index = index
+//   }
+//
+//   GalleryTheme {
+//     Column(modifier = Modifier.background(Color.Gray)) {
+//       TaskIcon(task = TASK_LLM_CHAT, width = 80.dp)
+//     }
+//   }
+// }

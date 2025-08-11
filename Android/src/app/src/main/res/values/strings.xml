@@ -31,6 +31,10 @@
   <string name="download" translatable="false">Download</string>
   <string name="downloaded_size" translatable="false">%1$s downloaded</string>
   <string name="cancel" translatable="false">Cancel</string>
+  <string name="category_unlabeled" translatable="false">Unlabeled</string>
+  <string name="category_llm" translatable="false">LLM</string>
+  <string name="category_classical_ml" translatable="false">Classical ML</string>
+  <string name="category_experimental" translatable="false">Experimental</string>
   <string name="checking_access" translatable="false">Checking access...</string>
   <string name="ok" translatable="false">OK</string>
   <string name="close" translatable="false">Close</string>

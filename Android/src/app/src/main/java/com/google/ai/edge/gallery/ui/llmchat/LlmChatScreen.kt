@@ -16,11 +16,14 @@
 
 package com.google.ai.edge.gallery.ui.llmchat
 
+import androidx.hilt.navigation.compose.hiltViewModel
+
 import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.os.bundleOf
+import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
@@ -28,29 +31,17 @@ import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
 import com.google.ai.edge.gallery.ui.common.chat.ChatView
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 
-/** Navigation destination data */
-object LlmChatDestination {
-  val route = "LlmChatRoute"
-}
-
-object LlmAskImageDestination {
-  val route = "LlmAskImageRoute"
-}
-
-object LlmAskAudioDestination {
-  val route = "LlmAskAudioRoute"
-}
-
 @Composable
 fun LlmChatScreen(
   modelManagerViewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
-  viewModel: LlmChatViewModel,
+  viewModel: LlmChatViewModel = hiltViewModel(),
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
     modelManagerViewModel = modelManagerViewModel,
+    taskId = BuiltInTaskId.LLM_CHAT,
     navigateUp = navigateUp,
     modifier = modifier,
   )
@@ -61,11 +52,12 @@ fun LlmAskImageScreen(
   modelManagerViewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
-  viewModel: LlmAskImageViewModel,
+  viewModel: LlmAskImageViewModel = hiltViewModel(),
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
     modelManagerViewModel = modelManagerViewModel,
+    taskId = BuiltInTaskId.LLM_ASK_IMAGE,
     navigateUp = navigateUp,
     modifier = modifier,
   )
@@ -76,11 +68,12 @@ fun LlmAskAudioScreen(
   modelManagerViewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
-  viewModel: LlmAskAudioViewModel,
+  viewModel: LlmAskAudioViewModel = hiltViewModel(),
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
     modelManagerViewModel = modelManagerViewModel,
+    taskId = BuiltInTaskId.LLM_ASK_AUDIO,
     navigateUp = navigateUp,
     modifier = modifier,
   )
@@ -90,13 +83,15 @@ fun LlmAskAudioScreen(
 fun ChatViewWrapper(
   viewModel: LlmChatViewModelBase,
   modelManagerViewModel: ModelManagerViewModel,
+  taskId: String,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val context = LocalContext.current
+  val task = modelManagerViewModel.getTaskById(id = taskId)!!
 
   ChatView(
-    task = viewModel.task,
+    task = task,
     viewModel = viewModel,
     modelManagerViewModel = modelManagerViewModel,
     onSendMessage = { model, messages ->
@@ -128,6 +123,7 @@ fun ChatViewWrapper(
           onError = {
             viewModel.handleError(
               context = context,
+              task = task,
               model = model,
               modelManagerViewModel = modelManagerViewModel,
               triggeredMessage = chatMessageText,
@@ -137,7 +133,7 @@ fun ChatViewWrapper(
 
         firebaseAnalytics?.logEvent(
           "generate_action",
-          bundleOf("capability_name" to viewModel.task.type.toString(), "model_id" to model.name),
+          bundleOf("capability_name" to task.id, "model_id" to model.name),
         )
       }
     },
@@ -149,6 +145,7 @@ fun ChatViewWrapper(
           onError = {
             viewModel.handleError(
               context = context,
+              task = task,
               model = model,
               modelManagerViewModel = modelManagerViewModel,
               triggeredMessage = message,

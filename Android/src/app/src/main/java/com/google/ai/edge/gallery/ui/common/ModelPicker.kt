@@ -81,7 +81,7 @@ fun ModelPicker(
         contentDescription = "",
       )
       Text(
-        "${task.type.label} models",
+        "${task.label} models",
         modifier = Modifier.fillMaxWidth(),
         style = MaterialTheme.typography.titleMedium,
         color = getTaskIconColor(task = task),
@@ -119,10 +119,13 @@ fun ModelPicker(
           ) {
             StatusIcon(
               task = task,
+              model = model,
               downloadStatus = modelManagerUiState.modelDownloadStatus[model.name],
             )
             Text(
-              model.sizeInBytes.humanReadableSize(),
+              if (model.localFileRelativeDirPathOverride.isEmpty())
+                model.sizeInBytes.humanReadableSize()
+              else "{ext_file_dir}/${model.localFileRelativeDirPathOverride}",
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               style = labelSmallNarrow.copy(lineHeight = 10.sp),
             )

@@ -20,11 +20,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.lifecycle.viewModelScope
-import com.google.ai.edge.gallery.data.ConfigKey
+import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.TASK_LLM_ASK_AUDIO
-import com.google.ai.edge.gallery.data.TASK_LLM_ASK_IMAGE
-import com.google.ai.edge.gallery.data.TASK_LLM_CHAT
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageBenchmarkLlmResult
@@ -51,7 +48,7 @@ private val STATS =
     Stat(id = "latency", label = "Latency", unit = "sec"),
   )
 
-open class LlmChatViewModelBase(val curTask: Task) : ChatViewModel(task = curTask) {
+open class LlmChatViewModelBase() : ChatViewModel() {
   fun generateResponse(
     model: Model,
     input: String,
@@ -59,7 +56,7 @@ open class LlmChatViewModelBase(val curTask: Task) : ChatViewModel(task = curTas
     audioMessages: List<ChatMessageAudioClip> = listOf(),
     onError: () -> Unit,
   ) {
-    val accelerator = model.getStringConfigValue(key = ConfigKey.ACCELERATOR, defaultValue = "")
+    val accelerator = model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = "")
     viewModelScope.launch(Dispatchers.Default) {
       setInProgress(true)
       setPreparing(true)
@@ -223,12 +220,13 @@ open class LlmChatViewModelBase(val curTask: Task) : ChatViewModel(task = curTas
 
   fun handleError(
     context: Context,
+    task: Task,
     model: Model,
     modelManagerViewModel: ModelManagerViewModel,
     triggeredMessage: ChatMessageText?,
   ) {
     // Clean up.
-    modelManagerViewModel.cleanupModel(task = task, model = model)
+    modelManagerViewModel.cleanupModel(context = context, task = task, model = model)
 
     // Remove the "loading" message.
     if (getLastMessage(model = model) is ChatMessageLoading) {
@@ -261,13 +259,8 @@ open class LlmChatViewModelBase(val curTask: Task) : ChatViewModel(task = curTas
   }
 }
 
-@HiltViewModel
-class LlmChatViewModel @Inject constructor() : LlmChatViewModelBase(curTask = TASK_LLM_CHAT)
+@HiltViewModel class LlmChatViewModel @Inject constructor() : LlmChatViewModelBase()
 
-@HiltViewModel
-class LlmAskImageViewModel @Inject constructor() :
-  LlmChatViewModelBase(curTask = TASK_LLM_ASK_IMAGE)
+@HiltViewModel class LlmAskImageViewModel @Inject constructor() : LlmChatViewModelBase()
 
-@HiltViewModel
-class LlmAskAudioViewModel @Inject constructor() :
-  LlmChatViewModelBase(curTask = TASK_LLM_ASK_AUDIO)
+@HiltViewModel class LlmAskAudioViewModel @Inject constructor() : LlmChatViewModelBase()

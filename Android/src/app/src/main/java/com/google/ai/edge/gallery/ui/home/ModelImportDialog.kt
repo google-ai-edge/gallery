@@ -62,7 +62,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.BooleanSwitchConfig
 import com.google.ai.edge.gallery.data.Config
-import com.google.ai.edge.gallery.data.ConfigKey
+import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
 import com.google.ai.edge.gallery.data.DEFAULT_TOPK
@@ -90,40 +90,40 @@ private const val TAG = "AGModelImportDialog"
 
 private val IMPORT_CONFIGS_LLM: List<Config> =
   listOf(
-    LabelConfig(key = ConfigKey.NAME),
-    LabelConfig(key = ConfigKey.MODEL_TYPE),
+    LabelConfig(key = ConfigKeys.NAME),
+    LabelConfig(key = ConfigKeys.MODEL_TYPE),
     NumberSliderConfig(
-      key = ConfigKey.DEFAULT_MAX_TOKENS,
+      key = ConfigKeys.DEFAULT_MAX_TOKENS,
       sliderMin = 100f,
       sliderMax = 1024f,
       defaultValue = DEFAULT_MAX_TOKEN.toFloat(),
       valueType = ValueType.INT,
     ),
     NumberSliderConfig(
-      key = ConfigKey.DEFAULT_TOPK,
+      key = ConfigKeys.DEFAULT_TOPK,
       sliderMin = 5f,
       sliderMax = 40f,
       defaultValue = DEFAULT_TOPK.toFloat(),
       valueType = ValueType.INT,
     ),
     NumberSliderConfig(
-      key = ConfigKey.DEFAULT_TOPP,
+      key = ConfigKeys.DEFAULT_TOPP,
       sliderMin = 0.0f,
       sliderMax = 1.0f,
       defaultValue = DEFAULT_TOPP,
       valueType = ValueType.FLOAT,
     ),
     NumberSliderConfig(
-      key = ConfigKey.DEFAULT_TEMPERATURE,
+      key = ConfigKeys.DEFAULT_TEMPERATURE,
       sliderMin = 0.0f,
       sliderMax = 2.0f,
       defaultValue = DEFAULT_TEMPERATURE,
       valueType = ValueType.FLOAT,
     ),
-    BooleanSwitchConfig(key = ConfigKey.SUPPORT_IMAGE, defaultValue = false),
-    BooleanSwitchConfig(key = ConfigKey.SUPPORT_AUDIO, defaultValue = false),
+    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_IMAGE, defaultValue = false),
+    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_AUDIO, defaultValue = false),
     SegmentedButtonConfig(
-      key = ConfigKey.COMPATIBLE_ACCELERATORS,
+      key = ConfigKeys.COMPATIBLE_ACCELERATORS,
       defaultValue = Accelerator.CPU.label,
       options = listOf(Accelerator.CPU.label, Accelerator.GPU.label),
       allowMultiple = true,
@@ -142,9 +142,9 @@ fun ModelImportDialog(uri: Uri, onDismiss: () -> Unit, onDone: (ImportedModel) -
       for (config in IMPORT_CONFIGS_LLM) {
         put(config.key.label, config.defaultValue)
       }
-      put(ConfigKey.NAME.label, fileName)
+      put(ConfigKeys.NAME.label, fileName)
       // TODO: support other types.
-      put(ConfigKey.MODEL_TYPE.label, "LLM")
+      put(ConfigKeys.MODEL_TYPE.label, "LLM")
     }
   }
   val values: SnapshotStateMap<String, Any> = remember {
@@ -196,44 +196,44 @@ fun ModelImportDialog(uri: Uri, onDismiss: () -> Unit, onDone: (ImportedModel) -
             onClick = {
               val supportedAccelerators =
                 (convertValueToTargetType(
-                    value = values.get(ConfigKey.COMPATIBLE_ACCELERATORS.label)!!,
+                    value = values.get(ConfigKeys.COMPATIBLE_ACCELERATORS.label)!!,
                     valueType = ValueType.STRING,
                   )
                     as String)
                   .split(",")
               val defaultMaxTokens =
                 convertValueToTargetType(
-                  value = values.get(ConfigKey.DEFAULT_MAX_TOKENS.label)!!,
+                  value = values.get(ConfigKeys.DEFAULT_MAX_TOKENS.label)!!,
                   valueType = ValueType.INT,
                 )
                   as Int
               val defaultTopk =
                 convertValueToTargetType(
-                  value = values.get(ConfigKey.DEFAULT_TOPK.label)!!,
+                  value = values.get(ConfigKeys.DEFAULT_TOPK.label)!!,
                   valueType = ValueType.INT,
                 )
                   as Int
               val defaultTopp =
                 convertValueToTargetType(
-                  value = values.get(ConfigKey.DEFAULT_TOPP.label)!!,
+                  value = values.get(ConfigKeys.DEFAULT_TOPP.label)!!,
                   valueType = ValueType.FLOAT,
                 )
                   as Float
               val defaultTemperature =
                 convertValueToTargetType(
-                  value = values.get(ConfigKey.DEFAULT_TEMPERATURE.label)!!,
+                  value = values.get(ConfigKeys.DEFAULT_TEMPERATURE.label)!!,
                   valueType = ValueType.FLOAT,
                 )
                   as Float
               val supportImage =
                 convertValueToTargetType(
-                  value = values.get(ConfigKey.SUPPORT_IMAGE.label)!!,
+                  value = values.get(ConfigKeys.SUPPORT_IMAGE.label)!!,
                   valueType = ValueType.BOOLEAN,
                 )
                   as Boolean
               val supportAudio =
                 convertValueToTargetType(
-                  value = values.get(ConfigKey.SUPPORT_AUDIO.label)!!,
+                  value = values.get(ConfigKeys.SUPPORT_AUDIO.label)!!,
                   valueType = ValueType.BOOLEAN,
                 )
                   as Boolean

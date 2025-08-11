@@ -161,16 +161,18 @@ fun ModelList(
           // Task name.
           Box(modifier = Modifier.offset(x = (20f * (1f - taskIconProgress)).dp)) {
             RevealingText(
-              text = task.type.label,
+              text = task.label,
               style =
                 headlineLargeMedium.copy(
                   brush = Brush.linearGradient(getTaskBgGradientColors(task = task))
                 ),
+              textAlign = TextAlign.Center,
               animationProgress = taskIconProgress,
             )
             RevealingText(
-              text = task.type.label,
+              text = task.label,
               style = headlineLargeMedium,
+              textAlign = TextAlign.Center,
               animationProgress = taskLabelProgress,
             )
           }

@@ -113,6 +113,7 @@ private val darkScheme =
 @Immutable
 data class CustomColors(
   val appTitleGradientColors: List<Color> = listOf(),
+  val tabHeaderBgColor: Color = Color.Transparent,
   val taskCardBgColor: Color = Color.Transparent,
   val taskBgColors: List<Color> = listOf(),
   val taskBgGradientColors: List<List<Color>> = listOf(),
@@ -133,6 +134,7 @@ val LocalCustomColors = staticCompositionLocalOf { CustomColors() }
 val lightCustomColors =
   CustomColors(
     appTitleGradientColors = listOf(Color(0xFF85B1F8), Color(0xFF3174F1)),
+    tabHeaderBgColor = Color(0xFF3174F1),
     taskCardBgColor = surfaceContainerLowestLight,
     taskBgColors =
       listOf(
@@ -181,6 +183,7 @@ val lightCustomColors =
 val darkCustomColors =
   CustomColors(
     appTitleGradientColors = listOf(Color(0xFF85B1F8), Color(0xFF3174F1)),
+    tabHeaderBgColor = Color(0xFF3174F1),
     taskCardBgColor = surfaceContainerHighDark,
     taskBgColors =
       listOf(

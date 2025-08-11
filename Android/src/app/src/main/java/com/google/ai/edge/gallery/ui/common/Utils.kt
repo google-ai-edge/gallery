@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -286,6 +287,7 @@ fun RevealingText(
   style: TextStyle,
   animationProgress: Float,
   modifier: Modifier = Modifier,
+  textAlign: TextAlign? = null,
   edgeGradientRelativeSize: Float = 0.5f,
 ) {
   val maskBrush =
@@ -307,7 +309,12 @@ fun RevealingText(
         },
     contentAlignment = Alignment.Center,
   ) {
-    Text(text, style = style, modifier = modifier.padding(horizontal = 16.dp))
+    Text(
+      text,
+      style = style,
+      modifier = modifier.padding(horizontal = 16.dp),
+      textAlign = textAlign,
+    )
   }
 }
 

@@ -30,8 +30,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
@@ -43,18 +41,15 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,103 +59,71 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.modelitem.StatusIcon
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import kotlin.math.absoluteValue
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ModelPickerChipsPager(
+fun ModelPickerChip(
   task: Task,
   initialModel: Model,
   modelManagerViewModel: ModelManagerViewModel,
-  onModelSelected: (Model) -> Unit,
+  onModelSelected: (prev: Model, cur: Model) -> Unit,
 ) {
   var showModelPicker by remember { mutableStateOf(false) }
   var modelPickerModel by remember { mutableStateOf<Model?>(null) }
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-  val scope = rememberCoroutineScope()
   val density = LocalDensity.current
   val windowInfo = LocalWindowInfo.current
   val screenWidthDp = remember { with(density) { windowInfo.containerSize.width.toDp() } }
 
-  val pagerState =
-    rememberPagerState(
-      initialPage = task.models.indexOf(initialModel),
-      pageCount = { task.models.size },
-    )
+  val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[initialModel.name]
 
-  // Sync scrolling.
-  LaunchedEffect(modelManagerViewModel.pagerScrollState) {
-    modelManagerViewModel.pagerScrollState.collect { state ->
-      pagerState.scrollToPage(state.page, state.offset)
-    }
-  }
-
-  HorizontalPager(state = pagerState, userScrollEnabled = false) { pageIndex ->
-    val model = task.models[pageIndex]
-
-    // Calculate the alpha of the current page based on how far they are from the center.
-    val pageOffset =
-      ((pagerState.currentPage - pageIndex) + pagerState.currentPageOffsetFraction).absoluteValue
-    val curAlpha = 1f - (pageOffset * 1.5f).coerceIn(0f, 1f)
-
-    val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[model.name]
-
-    Box(
-      modifier = Modifier.fillMaxWidth().graphicsLayer { alpha = curAlpha },
-      contentAlignment = Alignment.Center,
+  Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+    Row(
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
-      ) {
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(2.dp),
-          modifier =
-            Modifier.clip(CircleShape)
-              .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-              .clickable {
-                modelPickerModel = model
-                showModelPicker = true
-              }
-              .padding(start = 8.dp, end = 2.dp)
-              .padding(vertical = 4.dp),
-        ) Inner@{
-          Box(contentAlignment = Alignment.Center, modifier = Modifier.size(21.dp)) {
-            StatusIcon(
-              task = task,
-              downloadStatus = modelManagerUiState.modelDownloadStatus[model.name],
-            )
-            this@Inner.AnimatedVisibility(
-              visible =
-                modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING,
-              enter = scaleIn() + fadeIn(),
-              exit = scaleOut() + fadeOut(),
-            ) {
-              // Circular progress indicator.
-              CircularProgressIndicator(
-                modifier = Modifier.size(24.dp).alpha(0.5f),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
+        modifier =
+          Modifier.clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable {
+              modelPickerModel = initialModel
+              showModelPicker = true
             }
+            .padding(start = 8.dp, end = 2.dp)
+            .padding(vertical = 4.dp),
+      ) Inner@{
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(21.dp)) {
+          StatusIcon(
+            task = task,
+            model = initialModel,
+            downloadStatus = modelManagerUiState.modelDownloadStatus[initialModel.name],
+          )
+          this@Inner.AnimatedVisibility(
+            visible =
+              modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING,
+            enter = scaleIn() + fadeIn(),
+            exit = scaleOut() + fadeOut(),
+          ) {
+            // Circular progress indicator.
+            CircularProgressIndicator(
+              modifier = Modifier.size(24.dp).alpha(0.5f),
+              strokeWidth = 2.dp,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
           }
-          Text(
-            model.name,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(start = 4.dp).widthIn(0.dp, screenWidthDp - 250.dp),
-            maxLines = 1,
-            overflow = TextOverflow.MiddleEllipsis,
-          )
-          Icon(
-            Icons.Rounded.ArrowDropDown,
-            modifier = Modifier.size(20.dp),
-            contentDescription = "",
-          )
         }
+        Text(
+          initialModel.name,
+          style = MaterialTheme.typography.labelLarge,
+          modifier = Modifier.padding(start = 4.dp).widthIn(0.dp, screenWidthDp - 250.dp),
+          maxLines = 1,
+          overflow = TextOverflow.MiddleEllipsis,
+        )
+        Icon(Icons.Rounded.ArrowDropDown, modifier = Modifier.size(20.dp), contentDescription = "")
       }
     }
   }
@@ -174,13 +137,8 @@ fun ModelPickerChipsPager(
         modelManagerViewModel = modelManagerViewModel,
         onModelSelected = { selectedModel ->
           showModelPicker = false
-
-          scope.launch(Dispatchers.Default) {
-            // Scroll to the selected model.
-            pagerState.animateScrollToPage(task.models.indexOf(selectedModel))
-          }
-
-          onModelSelected(selectedModel)
+          val prevSelectedModel = modelManagerUiState.selectedModel
+          onModelSelected(prevSelectedModel, selectedModel)
         },
       )
     }

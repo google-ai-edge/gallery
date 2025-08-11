@@ -51,11 +51,13 @@ import java.util.UUID
 
 private const val TAG = "AGDownloadRepository"
 private const val MODEL_NAME_TAG = "modelName"
+private const val TASK_ID_TAG = "taskId"
 
-data class AGWorkInfo(val modelName: String, val workId: String)
+data class AGWorkInfo(val taskId: String, val modelName: String, val workId: String)
 
 interface DownloadRepository {
   fun downloadModel(
+    task: Task,
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   )
@@ -66,6 +68,7 @@ interface DownloadRepository {
 
   fun observerWorkerProgress(
     workerId: UUID,
+    task: Task,
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   )
@@ -96,6 +99,7 @@ class DefaultDownloadRepository(
     context.getSharedPreferences("download_start_time_ms", Context.MODE_PRIVATE)
 
   override fun downloadModel(
+    task: Task,
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
@@ -108,7 +112,7 @@ class DefaultDownloadRepository(
       builder
         .putString(KEY_MODEL_NAME, model.name)
         .putString(KEY_MODEL_URL, model.url)
-        .putString(KEY_MODEL_COMMIT_HASH, model.commitHash)
+        .putString(KEY_MODEL_COMMIT_HASH, model.version)
         .putString(KEY_MODEL_DOWNLOAD_MODEL_DIR, model.normalizedName)
         .putString(KEY_MODEL_DOWNLOAD_FILE_NAME, model.downloadFileName)
         .putBoolean(KEY_MODEL_IS_ZIP, model.isZip)
@@ -135,6 +139,7 @@ class DefaultDownloadRepository(
         .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
         .setInputData(inputData)
         .addTag("$MODEL_NAME_TAG:${model.name}")
+        .addTag("$TASK_ID_TAG:${task.id}")
         .build()
 
     val workerId = downloadWorkRequest.id
@@ -143,7 +148,12 @@ class DefaultDownloadRepository(
     workManager.enqueueUniqueWork(model.name, ExistingWorkPolicy.REPLACE, downloadWorkRequest)
 
     // Observe progress.
-    observerWorkerProgress(workerId = workerId, model = model, onStatusUpdated = onStatusUpdated)
+    observerWorkerProgress(
+      workerId = workerId,
+      task = task,
+      model = model,
+      onStatusUpdated = onStatusUpdated,
+    )
   }
 
   override fun cancelDownloadModel(model: Model) {
@@ -181,6 +191,7 @@ class DefaultDownloadRepository(
 
   override fun observerWorkerProgress(
     workerId: UUID,
+    task: Task,
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
@@ -230,6 +241,7 @@ class DefaultDownloadRepository(
             sendNotification(
               title = context.getString(R.string.notification_title_success),
               text = context.getString(R.string.notification_content_success).format(model.name),
+              taskId = task.id,
               modelName = model.name,
             )
 
@@ -260,6 +272,7 @@ class DefaultDownloadRepository(
               sendNotification(
                 title = context.getString(R.string.notification_title_fail),
                 text = context.getString(R.string.notification_content_success).format(model.name),
+                taskId = "",
                 modelName = "",
               )
             }
@@ -298,6 +311,7 @@ class DefaultDownloadRepository(
 
     return workManager.getWorkInfos(workQuery).get().map { info ->
       val tags = info.tags
+      var taskId = ""
       var modelName = ""
       Log.d(TAG, "work: ${info.id}, tags: $tags")
       for (tag in tags) {
@@ -305,15 +319,20 @@ class DefaultDownloadRepository(
           val index = tag.indexOf(':')
           if (index >= 0) {
             modelName = tag.substring(index + 1)
-            break
+          }
+        }
+        if (tag.startsWith("$TASK_ID_TAG:")) {
+          val index = tag.indexOf(':')
+          if (index >= 0) {
+            taskId = tag.substring(index + 1)
           }
         }
       }
-      return@map AGWorkInfo(modelName = modelName, workId = info.id.toString())
+      return@map AGWorkInfo(taskId = taskId, modelName = modelName, workId = info.id.toString())
     }
   }
 
-  private fun sendNotification(title: String, text: String, modelName: String) {
+  private fun sendNotification(title: String, text: String, taskId: String, modelName: String) {
     // Don't send notification if app is in foreground.
     if (lifecycleProvider.isAppInForeground) {
       return
@@ -332,9 +351,8 @@ class DefaultDownloadRepository(
 
     // Create an Intent to open your app with a deep link.
     val intent =
-      Intent(Intent.ACTION_VIEW, "com.google.ai.edge.gallery://model/${modelName}".toUri()).apply {
-        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-      }
+      Intent(Intent.ACTION_VIEW, "com.google.ai.edge.gallery://model/$taskId/${modelName}".toUri())
+        .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
 
     // Create a PendingIntent
     val pendingIntent: PendingIntent =

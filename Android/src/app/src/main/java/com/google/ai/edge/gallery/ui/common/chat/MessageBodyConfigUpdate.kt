@@ -124,12 +124,12 @@ fun MessageBodyConfigUpdate(message: ChatMessageConfigValuesChange) {
 //         message = ChatMessageConfigValuesChange(
 //           model = MODEL_TEST1,
 //           oldValues = mapOf(
-//             ConfigKey.MAX_RESULT_COUNT.label to 100,
-//             ConfigKey.USE_GPU.label to false
+//             ConfigKeys.MAX_RESULT_COUNT.label to 100,
+//             ConfigKeys.USE_GPU.label to false
 //           ),
 //           newValues = mapOf(
-//             ConfigKey.MAX_RESULT_COUNT.label to 200,
-//             ConfigKey.USE_GPU.label to true
+//             ConfigKeys.MAX_RESULT_COUNT.label to 200,
+//             ConfigKeys.USE_GPU.label to true
 //           )
 //         )
 //       )

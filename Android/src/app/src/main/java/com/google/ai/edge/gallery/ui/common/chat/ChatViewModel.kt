@@ -20,7 +20,6 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.google.ai.edge.gallery.common.processLlmResponse
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.Task
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -53,35 +52,31 @@ data class ChatUiState(
 )
 
 /** ViewModel responsible for managing the chat UI state and handling chat-related operations. */
-abstract class ChatViewModel(val task: Task) : ViewModel() {
-  private val _uiState = MutableStateFlow(createUiState(task = task))
+abstract class ChatViewModel() : ViewModel() {
+  private val _uiState = MutableStateFlow(createUiState())
   val uiState = _uiState.asStateFlow()
 
   fun addMessage(model: Model, message: ChatMessage) {
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
-    val newMessages = newMessagesByModel[model.name]?.toMutableList()
-    if (newMessages != null) {
-      newMessagesByModel[model.name] = newMessages
-      // Remove prompt template message if it is the current last message.
-      if (newMessages.size > 0 && newMessages.last().type == ChatMessageType.PROMPT_TEMPLATES) {
-        newMessages.removeAt(newMessages.size - 1)
-      }
-      newMessages.add(message)
+    val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
+    newMessagesByModel[model.name] = newMessages
+    // Remove prompt template message if it is the current last message.
+    if (newMessages.size > 0 && newMessages.last().type == ChatMessageType.PROMPT_TEMPLATES) {
+      newMessages.removeAt(newMessages.size - 1)
     }
+    newMessages.add(message)
     _uiState.update { _uiState.value.copy(messagesByModel = newMessagesByModel) }
   }
 
   fun insertMessageAfter(model: Model, anchorMessage: ChatMessage, messageToAdd: ChatMessage) {
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
-    val newMessages = newMessagesByModel[model.name]?.toMutableList()
-    if (newMessages != null) {
-      newMessagesByModel[model.name] = newMessages
-      // Find the index of the anchor message
-      val anchorIndex = newMessages.indexOf(anchorMessage)
-      if (anchorIndex != -1) {
-        // Insert the new message after the anchor message
-        newMessages.add(anchorIndex + 1, messageToAdd)
-      }
+    val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
+    newMessagesByModel[model.name] = newMessages
+    // Find the index of the anchor message
+    val anchorIndex = newMessages.indexOf(anchorMessage)
+    if (anchorIndex != -1) {
+      // Insert the new message after the anchor message
+      newMessages.add(anchorIndex + 1, messageToAdd)
     }
     _uiState.update { _uiState.value.copy(messagesByModel = newMessagesByModel) }
   }
@@ -240,15 +235,7 @@ abstract class ChatViewModel(val task: Task) : ViewModel() {
     _uiState.update { _uiState.value.copy(showingStatsByModel = newShowingStatsByModel) }
   }
 
-  private fun createUiState(task: Task): ChatUiState {
-    val messagesByModel: MutableMap<String, MutableList<ChatMessage>> = mutableMapOf()
-    for (model in task.models) {
-      val messages: MutableList<ChatMessage> = mutableListOf()
-      if (model.llmPromptTemplates.isNotEmpty()) {
-        messages.add(ChatMessagePromptTemplates(templates = model.llmPromptTemplates))
-      }
-      messagesByModel[model.name] = messages
-    }
-    return ChatUiState(messagesByModel = messagesByModel)
+  private fun createUiState(): ChatUiState {
+    return ChatUiState()
   }
 }

@@ -52,12 +52,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.data.Model
@@ -65,8 +63,6 @@ import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import com.google.ai.edge.gallery.ui.modelmanager.PagerScrollState
-import kotlin.math.absoluteValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -106,11 +102,6 @@ fun ChatView(
   var allImageViewerImages by remember { mutableStateOf<List<Bitmap>>(listOf()) }
   var showImageViewer by remember { mutableStateOf(false) }
 
-  val pagerState =
-    rememberPagerState(
-      initialPage = task.models.indexOf(selectedModel),
-      pageCount = { task.models.size },
-    )
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
   var navigatingUp by remember { mutableStateOf(false) }
@@ -122,7 +113,7 @@ fun ChatView(
     // clean up all models.
     scope.launch(Dispatchers.Default) {
       for (model in task.models) {
-        modelManagerViewModel.cleanupModel(task = task, model = model)
+        modelManagerViewModel.cleanupModel(context = context, task = task, model = model)
       }
     }
   }
@@ -136,35 +127,6 @@ fun ChatView(
         modelManagerViewModel.initializeModel(context, task = task, model = selectedModel)
       }
     }
-  }
-
-  // Update selected model and clean up previous model when page is settled on a model page.
-  LaunchedEffect(pagerState.settledPage) {
-    val curSelectedModel = task.models[pagerState.settledPage]
-    Log.d(
-      TAG,
-      "Pager settled on model '${curSelectedModel.name}' from '${selectedModel.name}'. Updating selected model.",
-    )
-    if (curSelectedModel.name != selectedModel.name) {
-      modelManagerViewModel.cleanupModel(task = task, model = selectedModel)
-    }
-    modelManagerViewModel.selectModel(curSelectedModel)
-  }
-
-  LaunchedEffect(pagerState) {
-    // Collect from the a snapshotFlow reading the currentPage
-    snapshotFlow { pagerState.currentPage }.collect { page -> Log.d(TAG, "Page changed to $page") }
-  }
-
-  // Trigger scroll sync.
-  LaunchedEffect(pagerState) {
-    snapshotFlow {
-        PagerScrollState(
-          page = pagerState.currentPage,
-          offset = pagerState.currentPageOffsetFraction,
-        )
-      }
-      .collect { scrollState -> modelManagerViewModel.pagerScrollState.value = scrollState }
   }
 
   // Handle system's edge swipe.
@@ -190,73 +152,65 @@ fun ChatView(
           )
         },
         onBackClicked = { handleNavigateUp() },
-        onModelSelected = { model ->
-          scope.launch { pagerState.animateScrollToPage(task.models.indexOf(model)) }
+        onModelSelected = { prevModel, curModel ->
+          if (prevModel.name != curModel.name) {
+            modelManagerViewModel.cleanupModel(context = context, task = task, model = prevModel)
+          }
+          modelManagerViewModel.selectModel(model = curModel)
         },
       )
     },
   ) { innerPadding ->
     Box {
-      // A horizontal scrollable pager to switch between models.
-      HorizontalPager(state = pagerState, userScrollEnabled = false) { pageIndex ->
-        val curSelectedModel = task.models[pageIndex]
-        val curModelDownloadStatus = modelManagerUiState.modelDownloadStatus[curSelectedModel.name]
+      // val curSelectedModel = task.models[pageIndex]
+      val curModelDownloadStatus = modelManagerUiState.modelDownloadStatus[selectedModel.name]
 
-        // Calculate the alpha of the current page based on how far they are from the center.
-        val pageOffset =
-          ((pagerState.currentPage - pageIndex) + pagerState.currentPageOffsetFraction)
-            .absoluteValue
-        val curAlpha = 1f - pageOffset.coerceIn(0f, 1f)
-
-        Column(
-          modifier =
-            Modifier.padding(innerPadding)
-              .fillMaxSize()
-              .background(MaterialTheme.colorScheme.surface)
-        ) {
-          AnimatedContent(
-            targetState = curModelDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
-          ) { targetState ->
-            when (targetState) {
-              // Main UI when model is downloaded.
-              true ->
-                ChatPanel(
-                  modelManagerViewModel = modelManagerViewModel,
-                  task = task,
-                  selectedModel = curSelectedModel,
-                  viewModel = viewModel,
-                  navigateUp = navigateUp,
-                  onSendMessage = onSendMessage,
-                  onRunAgainClicked = onRunAgainClicked,
-                  onBenchmarkClicked = onBenchmarkClicked,
-                  onStreamImageMessage = onStreamImageMessage,
-                  onStreamEnd = { averageFps ->
-                    viewModel.addMessage(
-                      model = curSelectedModel,
-                      message =
-                        ChatMessageInfo(
-                          content = "Live camera session ended. Average FPS: $averageFps"
-                        ),
-                    )
-                  },
-                  onStopButtonClicked = { onStopButtonClicked(curSelectedModel) },
-                  onImageSelected = { bitmaps, selectedBitmapIndex ->
-                    selectedImageIndex = selectedBitmapIndex
-                    allImageViewerImages = bitmaps
-                    showImageViewer = true
-                  },
-                  modifier = Modifier.weight(1f).graphicsLayer { alpha = curAlpha },
-                  chatInputType = chatInputType,
-                  showStopButtonInInputWhenInProgress = showStopButtonInInputWhenInProgress,
-                )
-              // Model download
-              false ->
-                ModelDownloadStatusInfoPanel(
-                  model = curSelectedModel,
-                  task = task,
-                  modelManagerViewModel = modelManagerViewModel,
-                )
-            }
+      Column(
+        modifier =
+          Modifier.padding(innerPadding).fillMaxSize().background(MaterialTheme.colorScheme.surface)
+      ) {
+        AnimatedContent(
+          targetState = curModelDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+        ) { targetState ->
+          when (targetState) {
+            // Main UI when model is downloaded.
+            true ->
+              ChatPanel(
+                modelManagerViewModel = modelManagerViewModel,
+                task = task,
+                selectedModel = selectedModel,
+                viewModel = viewModel,
+                navigateUp = navigateUp,
+                onSendMessage = onSendMessage,
+                onRunAgainClicked = onRunAgainClicked,
+                onBenchmarkClicked = onBenchmarkClicked,
+                onStreamImageMessage = onStreamImageMessage,
+                onStreamEnd = { averageFps ->
+                  viewModel.addMessage(
+                    model = selectedModel,
+                    message =
+                      ChatMessageInfo(
+                        content = "Live camera session ended. Average FPS: $averageFps"
+                      ),
+                  )
+                },
+                onStopButtonClicked = { onStopButtonClicked(selectedModel) },
+                onImageSelected = { bitmaps, selectedBitmapIndex ->
+                  selectedImageIndex = selectedBitmapIndex
+                  allImageViewerImages = bitmaps
+                  showImageViewer = true
+                },
+                modifier = Modifier.weight(1f),
+                chatInputType = chatInputType,
+                showStopButtonInInputWhenInProgress = showStopButtonInInputWhenInProgress,
+              )
+            // Model download
+            false ->
+              ModelDownloadStatusInfoPanel(
+                model = selectedModel,
+                task = task,
+                modelManagerViewModel = modelManagerViewModel,
+              )
           }
         }
       }

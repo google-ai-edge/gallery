@@ -48,7 +48,10 @@ data class AllowedModel(
 
     // Config.
     val isLlmModel =
-      taskTypes.contains(TASK_LLM_CHAT.type.id) || taskTypes.contains(TASK_LLM_PROMPT_LAB.type.id)
+      taskTypes.contains(BuiltInTaskId.LLM_CHAT) ||
+        taskTypes.contains(BuiltInTaskId.LLM_PROMPT_LAB) ||
+        taskTypes.contains(BuiltInTaskId.LLM_ASK_AUDIO) ||
+        taskTypes.contains(BuiltInTaskId.LLM_ASK_IMAGE)
     var configs: List<Config> = listOf()
     if (isLlmModel) {
       val defaultTopK: Int = defaultConfig.topK ?: DEFAULT_TOPK
@@ -87,7 +90,7 @@ data class AllowedModel(
 
     return Model(
       name = name,
-      commitHash = commitHash,
+      version = commitHash,
       info = description,
       url = downloadUrl,
       sizeInBytes = sizeInBytes,
@@ -99,7 +102,7 @@ data class AllowedModel(
       learnMoreUrl = "https://huggingface.co/${modelId}",
       llmSupportImage = llmSupportImage == true,
       llmSupportAudio = llmSupportAudio == true,
-      bestForTaskTypes = bestForTaskTypes ?: listOf(),
+      bestForTaskIds = bestForTaskTypes ?: listOf(),
     )
   }
 

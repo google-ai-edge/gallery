@@ -20,7 +20,7 @@ package com.google.ai.edge.gallery.ui.common.chat
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import androidx.compose.runtime.Composable
 import com.google.ai.edge.gallery.data.Config
-import com.google.ai.edge.gallery.data.ConfigKey
+import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.data.convertValueToTargetType
@@ -32,14 +32,14 @@ private const val DEFAULT_BENCHMARK_ITERATIONS = 200f
 private val BENCHMARK_CONFIGS: List<Config> =
   listOf(
     NumberSliderConfig(
-      key = ConfigKey.WARM_UP_ITERATIONS,
+      key = ConfigKeys.WARM_UP_ITERATIONS,
       sliderMin = 10f,
       sliderMax = 200f,
       defaultValue = DEFAULT_BENCHMARK_WARM_UP_ITERATIONS,
       valueType = ValueType.INT,
     ),
     NumberSliderConfig(
-      key = ConfigKey.BENCHMARK_ITERATIONS,
+      key = ConfigKeys.BENCHMARK_ITERATIONS,
       sliderMin = 50f,
       sliderMax = 500f,
       defaultValue = DEFAULT_BENCHMARK_ITERATIONS,
@@ -49,8 +49,8 @@ private val BENCHMARK_CONFIGS: List<Config> =
 
 private val BENCHMARK_CONFIGS_INITIAL_VALUES =
   mapOf(
-    ConfigKey.WARM_UP_ITERATIONS.label to DEFAULT_BENCHMARK_WARM_UP_ITERATIONS,
-    ConfigKey.BENCHMARK_ITERATIONS.label to DEFAULT_BENCHMARK_ITERATIONS,
+    ConfigKeys.WARM_UP_ITERATIONS.label to DEFAULT_BENCHMARK_WARM_UP_ITERATIONS,
+    ConfigKeys.BENCHMARK_ITERATIONS.label to DEFAULT_BENCHMARK_ITERATIONS,
   )
 
 /**
@@ -80,13 +80,13 @@ fun BenchmarkConfigDialog(
       messageToBenchmark?.let { message ->
         val warmUpIterations =
           convertValueToTargetType(
-            value = curConfigValues.getValue(ConfigKey.WARM_UP_ITERATIONS.label),
+            value = curConfigValues.getValue(ConfigKeys.WARM_UP_ITERATIONS.label),
             valueType = ValueType.INT,
           )
             as Int
         val benchmarkIterations =
           convertValueToTargetType(
-            value = curConfigValues.getValue(ConfigKey.BENCHMARK_ITERATIONS.label),
+            value = curConfigValues.getValue(ConfigKeys.BENCHMARK_ITERATIONS.label),
             valueType = ValueType.INT,
           )
             as Int

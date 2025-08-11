@@ -17,30 +17,37 @@
 package com.google.ai.edge.gallery.data
 
 import androidx.annotation.StringRes
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Forum
-import androidx.compose.material.icons.outlined.Mic
-import androidx.compose.material.icons.outlined.Mms
-import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.google.ai.edge.gallery.R
 
-/** Type of task. */
-enum class TaskType(val label: String, val id: String) {
-  LLM_CHAT(label = "AI Chat", id = "llm_chat"),
-  LLM_PROMPT_LAB(label = "Prompt Lab", id = "llm_prompt_lab"),
-  LLM_ASK_IMAGE(label = "Ask Image", id = "llm_ask_image"),
-  LLM_ASK_AUDIO(label = "Audio Scribe", id = "llm_ask_audio"),
-  TEST_TASK_1(label = "Test task 1", id = "test_task_1"),
-  TEST_TASK_2(label = "Test task 2", id = "test_task_2"),
-}
-
-/** Data class for a task listed in home screen. */
+/**
+ * Data class for a task displayed on the home screen
+ *
+ * Tasks are grouped into categories (see [category] field), which correspond to the tabs on the
+ * home screen. The tab bar is hidden if only one category exists. Each task can have a list of
+ * associated models (see [Model]], which are shown when the task is selected.
+ *
+ * To register a custom task, see [com.google.ai.edge.gallery.customtasks.common.CustomTask].
+ */
 data class Task(
-  /** Type of the task. */
-  val type: TaskType,
+  /**
+   * The id of the task.
+   *
+   * The ids in [BuiltInTaskId] are reserved for built-in tasks.
+   */
+  val id: String,
+
+  /** The label of the task, for display purpose. */
+  val label: String,
+
+  /**
+   * The category of the task.
+   *
+   * We've pre-defined several categories in [Category]. Feel free to create your own category.
+   */
+  val category: CategoryInfo,
 
   /** Icon to be shown in the task tile. */
   val icon: ImageVector? = null,
@@ -48,17 +55,37 @@ data class Task(
   /** Vector resource id for the icon. This precedes the icon if both are set. */
   val iconVectorResourceId: Int? = null,
 
+  /**
+   * Description of the task.
+   *
+   * Will be shown at the top of the task screen.
+   */
+  val description: String,
+
+  /**
+   * (optional)
+   *
+   * Documentation url for the task.
+   *
+   * Will be shown below the description on the task screen.
+   */
+  val docUrl: String = "",
+
+  /**
+   * (optional)
+   *
+   * Source code url for the model-related functions.
+   *
+   * Will be shown below the description on the task screen.
+   */
+  val sourceCodeUrl: String = "",
+
   /** List of models for the task. */
   val models: MutableList<Model>,
 
-  /** Description of the task. */
-  val description: String,
-
-  /** Documentation url for the task. */
-  val docUrl: String = "",
-
-  /** Source code url for the model-related functions. */
-  val sourceCodeUrl: String = "",
+  // The following fields are only used for built-in tasks. Can ignore if you are creating your own
+  // custom tasks.
+  //
 
   /** Placeholder text for the name of the agent shown above chat messages. */
   @StringRes val agentNameRes: Int = R.string.chat_generic_agent_name,
@@ -67,85 +94,27 @@ data class Task(
   @StringRes val textInputPlaceHolderRes: Int = R.string.chat_textinput_placeholder,
 
   // The following fields are managed by the app. Don't need to set manually.
+  //
+
   var index: Int = -1,
   val updateTrigger: MutableState<Long> = mutableLongStateOf(0),
 )
 
-val TASK_LLM_CHAT =
-  Task(
-    type = TaskType.LLM_CHAT,
-    icon = Icons.Outlined.Forum,
-    models = mutableListOf(),
-    description = "Chat with on-device large language models",
-    docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
-    sourceCodeUrl =
-      "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
-    textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
-  )
-
-val TASK_LLM_PROMPT_LAB =
-  Task(
-    type = TaskType.LLM_PROMPT_LAB,
-    icon = Icons.Outlined.Widgets,
-    models = mutableListOf(),
-    description = "Single turn use cases with on-device large language models",
-    docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
-    sourceCodeUrl =
-      "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
-    textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
-  )
-
-val TASK_LLM_ASK_IMAGE =
-  Task(
-    type = TaskType.LLM_ASK_IMAGE,
-    icon = Icons.Outlined.Mms,
-    models = mutableListOf(),
-    description = "Ask questions about images with on-device large language models",
-    docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
-    sourceCodeUrl =
-      "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
-    textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
-  )
-
-val TASK_LLM_ASK_AUDIO =
-  Task(
-    type = TaskType.LLM_ASK_AUDIO,
-    icon = Icons.Outlined.Mic,
-    models = mutableListOf(),
-    description =
-      "Instantly transcribe and/or translate audio clips using on-device large language models",
-    docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
-    sourceCodeUrl =
-      "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
-    textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
-  )
-
-/** All tasks. */
-val TASKS: List<Task> =
-  listOf(TASK_LLM_ASK_IMAGE, TASK_LLM_ASK_AUDIO, TASK_LLM_PROMPT_LAB, TASK_LLM_CHAT)
-
-fun getModelByName(name: String): Model? {
-  for (task in TASKS) {
-    for (model in task.models) {
-      if (model.name == name) {
-        return model
-      }
-    }
-  }
-  return null
+object BuiltInTaskId {
+  const val LLM_CHAT = "llm_chat"
+  const val LLM_PROMPT_LAB = "llm_prompt_lab"
+  const val LLM_ASK_IMAGE = "llm_ask_image"
+  const val LLM_ASK_AUDIO = "llm_ask_audio"
 }
 
-fun processTasks() {
-  for ((index, task) in TASKS.withIndex()) {
-    task.index = index
-    for (model in task.models) {
-      model.preProcess()
-    }
-    // Move the model that is best for this task to the front.
-    val bestModel = task.models.find { it.bestForTaskTypes.contains(task.type.id) }
-    if (bestModel != null) {
-      task.models.remove(bestModel)
-      task.models.add(0, bestModel)
-    }
-  }
+private val allBuiltInTaskIds: Set<String> =
+  setOf(
+    BuiltInTaskId.LLM_CHAT,
+    BuiltInTaskId.LLM_PROMPT_LAB,
+    BuiltInTaskId.LLM_ASK_IMAGE,
+    BuiltInTaskId.LLM_ASK_AUDIO,
+  )
+
+fun isBuiltInTask(id: String): Boolean {
+  return allBuiltInTaskIds.contains(id)
 }

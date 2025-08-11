@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.google.ai.edge.gallery.data.MODEL_INFO_ICON_SIZE
+import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
@@ -41,46 +42,60 @@ import com.google.ai.edge.gallery.ui.theme.customColors
 
 /** Composable function to display an icon representing the download status of a model. */
 @Composable
-fun StatusIcon(task: Task, downloadStatus: ModelDownloadStatus?, modifier: Modifier = Modifier) {
+fun StatusIcon(
+  task: Task,
+  model: Model,
+  downloadStatus: ModelDownloadStatus?,
+  modifier: Modifier = Modifier,
+) {
   Row(
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.Center,
     modifier = modifier,
   ) {
-    when (downloadStatus?.status) {
-      ModelDownloadStatusType.NOT_DOWNLOADED ->
-        Icon(
-          Icons.AutoMirrored.Outlined.HelpOutline,
-          tint = MaterialTheme.customColors.modelInfoIconColor,
-          contentDescription = "",
-          modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
-        )
+    if (model.localFileRelativeDirPathOverride.isNotEmpty()) {
+      Icon(
+        Icons.Filled.DownloadForOffline,
+        tint = getTaskBgGradientColors(task = task)[1],
+        contentDescription = "",
+        modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
+      )
+    } else {
+      when (downloadStatus?.status) {
+        ModelDownloadStatusType.NOT_DOWNLOADED ->
+          Icon(
+            Icons.AutoMirrored.Outlined.HelpOutline,
+            tint = MaterialTheme.customColors.modelInfoIconColor,
+            contentDescription = "",
+            modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
+          )
 
-      ModelDownloadStatusType.SUCCEEDED -> {
-        Icon(
-          Icons.Filled.DownloadForOffline,
-          tint = getTaskBgGradientColors(task = task)[1],
-          contentDescription = "",
-          modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
-        )
+        ModelDownloadStatusType.SUCCEEDED -> {
+          Icon(
+            Icons.Filled.DownloadForOffline,
+            tint = getTaskBgGradientColors(task = task)[1],
+            contentDescription = "",
+            modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
+          )
+        }
+
+        ModelDownloadStatusType.FAILED ->
+          Icon(
+            Icons.Rounded.Error,
+            tint = Color(0xFFAA0000),
+            contentDescription = "",
+            modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
+          )
+
+        ModelDownloadStatusType.IN_PROGRESS ->
+          Icon(
+            Icons.Rounded.Downloading,
+            contentDescription = "",
+            modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
+          )
+
+        else -> {}
       }
-
-      ModelDownloadStatusType.FAILED ->
-        Icon(
-          Icons.Rounded.Error,
-          tint = Color(0xFFAA0000),
-          contentDescription = "",
-          modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
-        )
-
-      ModelDownloadStatusType.IN_PROGRESS ->
-        Icon(
-          Icons.Rounded.Downloading,
-          contentDescription = "",
-          modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
-        )
-
-      else -> {}
     }
   }
 }

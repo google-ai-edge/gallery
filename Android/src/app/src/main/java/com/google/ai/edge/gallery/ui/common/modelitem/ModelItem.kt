@@ -89,7 +89,7 @@ fun ModelItem(
     derivedStateOf { modelManagerUiState.modelDownloadStatus[model.name] }
   }
 
-  val isBestOverall = model.bestForTaskTypes.contains(task.type.id)
+  val isBestOverall = model.bestForTaskIds.contains(task.id)
   var isExpanded by remember { mutableStateOf(isBestOverall) }
 
   var boxModifier =
@@ -203,7 +203,9 @@ fun ModelItem(
             )
             // Button to delete model and expand/collapse button at the right.
             Row(verticalAlignment = Alignment.Top) {
-              deleteModelButton()
+              if (model.localFileRelativeDirPathOverride.isEmpty()) {
+                deleteModelButton()
+              }
               if (!model.imported) {
                 expandButton()
               }

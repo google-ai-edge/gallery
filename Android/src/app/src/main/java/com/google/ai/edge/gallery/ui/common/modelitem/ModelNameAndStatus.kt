@@ -77,7 +77,7 @@ fun ModelNameAndStatus(
   with(sharedTransitionScope) {
     Column(modifier = modifier) {
       // Show "best overall" only for the first model if it is indeed the best for this task.
-      if (model.bestForTaskTypes.contains(task.type.id) && task.models[0] == model) {
+      if (model.bestForTaskIds.contains(task.id) && task.models[0] == model) {
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -121,6 +121,7 @@ fun ModelNameAndStatus(
         // Status icon.
         StatusIcon(
           task = task,
+          model = model,
           downloadStatus = downloadStatus,
           modifier =
             Modifier.padding(end = 4.dp)
@@ -150,6 +151,9 @@ fun ModelNameAndStatus(
         // Status label
         else {
           var sizeLabel = model.totalBytes.humanReadableSize()
+          if (model.localFileRelativeDirPathOverride.isNotEmpty()) {
+            sizeLabel = "{ext_files_dir}/${model.localFileRelativeDirPathOverride}"
+          }
 
           // Populate the status label.
           if (downloadStatus != null) {

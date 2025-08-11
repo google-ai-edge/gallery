@@ -52,23 +52,22 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.ai.edge.gallery.data.ConfigKey
+import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.TASK_LLM_PROMPT_LAB
+import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.MarkdownText
 import com.google.ai.edge.gallery.ui.common.chat.MessageBodyBenchmarkLlm
 import com.google.ai.edge.gallery.ui.common.chat.MessageBodyLoading
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import com.google.ai.edge.gallery.ui.modelmanager.PagerScrollState
 import kotlinx.coroutines.launch
 
 private val OPTIONS = listOf("Response", "Benchmark")
@@ -78,12 +77,12 @@ private const val TAG = "AGResponsePanel"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ResponsePanel(
+  task: Task,
   model: Model,
   viewModel: LlmSingleTurnViewModel,
   modelManagerViewModel: ModelManagerViewModel,
   modifier: Modifier = Modifier,
 ) {
-  val task = TASK_LLM_PROMPT_LAB
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val inProgress = uiState.inProgress
@@ -95,7 +94,8 @@ fun ResponsePanel(
   val scope = rememberCoroutineScope()
   val pagerState =
     rememberPagerState(initialPage = task.models.indexOf(model), pageCount = { task.models.size })
-  val accelerator = model.getStringConfigValue(key = ConfigKey.ACCELERATOR, defaultValue = "")
+  val accelerator = model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = "")
+  val context = LocalContext.current
 
   // Select the "response" tab when prompt template changes.
   LaunchedEffect(selectedPromptTemplateType) { selectedOptionIndex = 0 }
@@ -108,20 +108,9 @@ fun ResponsePanel(
       "Pager settled on model '${curSelectedModel.name}' from '${model.name}'. Updating selected model.",
     )
     if (curSelectedModel.name != model.name) {
-      modelManagerViewModel.cleanupModel(task = task, model = model)
+      modelManagerViewModel.cleanupModel(context = context, task = task, model = model)
     }
     modelManagerViewModel.selectModel(curSelectedModel)
-  }
-
-  // Trigger scroll sync.
-  LaunchedEffect(pagerState) {
-    snapshotFlow {
-        PagerScrollState(
-          page = pagerState.currentPage,
-          offset = pagerState.currentPageOffsetFraction,
-        )
-      }
-      .collect { scrollState -> modelManagerViewModel.pagerScrollState.value = scrollState }
   }
 
   // Scroll pager when selected model changes.

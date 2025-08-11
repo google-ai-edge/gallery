@@ -28,7 +28,7 @@ enum class ConfigEditorType {
   LABEL,
   NUMBER_SLIDER,
   BOOLEAN_SWITCH,
-  DROPDOWN,
+  SEGMENTED_BUTTON,
 }
 
 /** The data types of configuration values. */
@@ -40,27 +40,29 @@ enum class ValueType {
   BOOLEAN,
 }
 
-enum class ConfigKey(val label: String) {
-  MAX_TOKENS("Max tokens"),
-  TOPK("TopK"),
-  TOPP("TopP"),
-  TEMPERATURE("Temperature"),
-  DEFAULT_MAX_TOKENS("Default max tokens"),
-  DEFAULT_TOPK("Default TopK"),
-  DEFAULT_TOPP("Default TopP"),
-  DEFAULT_TEMPERATURE("Default temperature"),
-  SUPPORT_IMAGE("Support image"),
-  SUPPORT_AUDIO("Support audio"),
-  MAX_RESULT_COUNT("Max result count"),
-  USE_GPU("Use GPU"),
-  ACCELERATOR("Choose accelerator"),
-  COMPATIBLE_ACCELERATORS("Compatible accelerators"),
-  WARM_UP_ITERATIONS("Warm up iterations"),
-  BENCHMARK_ITERATIONS("Benchmark iterations"),
-  ITERATIONS("Iterations"),
-  THEME("Theme"),
-  NAME("Name"),
-  MODEL_TYPE("Model type"),
+data class ConfigKey(val id: String, val label: String)
+
+object ConfigKeys {
+  val MAX_TOKENS = ConfigKey("max_tokens", "Max tokens")
+  val TOPK = ConfigKey("topk", "TopK")
+  val TOPP = ConfigKey("topp", "TopP")
+  val TEMPERATURE = ConfigKey("temperature", "Temperature")
+  val DEFAULT_MAX_TOKENS = ConfigKey("default_max_tokens", "Default max tokens")
+  val DEFAULT_TOPK = ConfigKey("default_topk", "Default TopK")
+  val DEFAULT_TOPP = ConfigKey("default_topp", "Default TopP")
+  val DEFAULT_TEMPERATURE = ConfigKey("default_temperature", "Default temperature")
+  val SUPPORT_IMAGE = ConfigKey("support_image", "Support image")
+  val SUPPORT_AUDIO = ConfigKey("support_audio", "Support audio")
+  val MAX_RESULT_COUNT = ConfigKey("max_result_count", "Max result count")
+  val USE_GPU = ConfigKey("use_gpu", "Use GPU")
+  val ACCELERATOR = ConfigKey("accelerator", "Choose accelerator")
+  val COMPATIBLE_ACCELERATORS = ConfigKey("compatible_accelerators", "Compatible accelerators")
+  val WARM_UP_ITERATIONS = ConfigKey("warm_up_iterations", "Warm up iterations")
+  val BENCHMARK_ITERATIONS = ConfigKey("benchmark_iterations", "Benchmark iterations")
+  val ITERATIONS = ConfigKey("iterations", "Iterations")
+  val THEME = ConfigKey("theme", "Theme")
+  val NAME = ConfigKey("name", "Name")
+  val MODEL_TYPE = ConfigKey("model_type", "Model type")
 }
 
 /**
@@ -78,6 +80,8 @@ open class Config(
   open val key: ConfigKey,
   open val defaultValue: Any,
   open val valueType: ValueType,
+  // Changes on any configs with this field set to true will automatically trigger a model
+  // re-initialization.
   open val needReinitialization: Boolean = true,
 )
 
@@ -132,7 +136,7 @@ class SegmentedButtonConfig(
   val allowMultiple: Boolean = false,
 ) :
   Config(
-    type = ConfigEditorType.DROPDOWN,
+    type = ConfigEditorType.SEGMENTED_BUTTON,
     key = key,
     defaultValue = defaultValue,
     // The emitted value will be comma-separated labels when allowMultiple=true.
@@ -193,30 +197,30 @@ fun createLlmChatConfigs(
   accelerators: List<Accelerator> = DEFAULT_ACCELERATORS,
 ): List<Config> {
   return listOf(
-    LabelConfig(key = ConfigKey.MAX_TOKENS, defaultValue = "$defaultMaxToken"),
+    LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken"),
     NumberSliderConfig(
-      key = ConfigKey.TOPK,
+      key = ConfigKeys.TOPK,
       sliderMin = 5f,
       sliderMax = 100f,
       defaultValue = defaultTopK.toFloat(),
       valueType = ValueType.INT,
     ),
     NumberSliderConfig(
-      key = ConfigKey.TOPP,
+      key = ConfigKeys.TOPP,
       sliderMin = 0.0f,
       sliderMax = 1.0f,
       defaultValue = defaultTopP,
       valueType = ValueType.FLOAT,
     ),
     NumberSliderConfig(
-      key = ConfigKey.TEMPERATURE,
+      key = ConfigKeys.TEMPERATURE,
       sliderMin = 0.0f,
       sliderMax = 2.0f,
       defaultValue = defaultTemperature,
       valueType = ValueType.FLOAT,
     ),
     SegmentedButtonConfig(
-      key = ConfigKey.ACCELERATOR,
+      key = ConfigKeys.ACCELERATOR,
       defaultValue = accelerators[0].label,
       options = accelerators.map { it.label },
     ),

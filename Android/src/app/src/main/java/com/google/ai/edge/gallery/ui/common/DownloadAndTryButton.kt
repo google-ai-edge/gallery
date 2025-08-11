@@ -134,8 +134,9 @@ fun DownloadAndTryButton(
   val sheetState = rememberModalBottomSheetState()
 
   val needToDownloadFirst =
-    downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED ||
-      downloadStatus?.status == ModelDownloadStatusType.FAILED
+    (downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED ||
+      downloadStatus?.status == ModelDownloadStatusType.FAILED) &&
+      model.localFileRelativeDirPathOverride.isEmpty()
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
   val downloadSucceeded = downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
@@ -331,7 +332,11 @@ fun DownloadAndTryButton(
       colors =
         ButtonDefaults.buttonColors(
           containerColor =
-            if (!downloadSucceeded || !canShowTryIt) MaterialTheme.colorScheme.surfaceContainer
+            if (
+              (!downloadSucceeded || !canShowTryIt) &&
+                model.localFileRelativeDirPathOverride.isEmpty()
+            )
+              MaterialTheme.colorScheme.surfaceContainer
             else getTaskBgGradientColors(task = task)[1]
         ),
       contentPadding = PaddingValues(horizontal = 12.dp),
@@ -347,7 +352,10 @@ fun DownloadAndTryButton(
         }
       },
     ) {
-      val textColor = if (!downloadSucceeded) MaterialTheme.colorScheme.onSurface else Color.White
+      val textColor =
+        if (!downloadSucceeded && model.localFileRelativeDirPathOverride.isEmpty())
+          MaterialTheme.colorScheme.onSurface
+        else Color.White
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),

@@ -16,6 +16,8 @@
 
 package com.google.ai.edge.gallery.ui.llmsingleturn
 
+import androidx.hilt.navigation.compose.hiltViewModel
+
 // import androidx.compose.ui.tooling.preview.Preview
 // import com.google.ai.edge.gallery.ui.preview.PreviewLlmSingleTurnViewModel
 // import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
@@ -49,8 +51,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.core.os.bundleOf
+import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
-import com.google.ai.edge.gallery.data.TASK_LLM_PROMPT_LAB
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
@@ -61,11 +63,6 @@ import com.google.ai.edge.gallery.ui.theme.customColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/** Navigation destination data */
-object LlmSingleTurnDestination {
-  val route = "LlmSingleTurnRoute"
-}
-
 private const val TAG = "AGLlmSingleTurnScreen"
 
 @Composable
@@ -73,9 +70,9 @@ fun LlmSingleTurnScreen(
   modelManagerViewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
-  viewModel: LlmSingleTurnViewModel,
+  viewModel: LlmSingleTurnViewModel = hiltViewModel(),
 ) {
-  val task = TASK_LLM_PROMPT_LAB
+  val task = modelManagerViewModel.getTaskById(id = BuiltInTaskId.LLM_PROMPT_LAB)!!
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val uiState by viewModel.uiState.collectAsState()
   val selectedModel = modelManagerUiState.selectedModel
@@ -91,7 +88,7 @@ fun LlmSingleTurnScreen(
     // clean up all models.
     scope.launch(Dispatchers.Default) {
       for (model in task.models) {
-        modelManagerViewModel.cleanupModel(task = task, model = model)
+        modelManagerViewModel.cleanupModel(context = context, task = task, model = model)
       }
     }
   }
@@ -129,10 +126,12 @@ fun LlmSingleTurnScreen(
         modelPreparing = uiState.preparing,
         onConfigChanged = { _, _ -> },
         onBackClicked = { handleNavigateUp() },
-        onModelSelected = { newSelectedModel ->
+        onModelSelected = { prevModel, newSelectedModel ->
           scope.launch(Dispatchers.Default) {
-            // Clean up current model.
-            modelManagerViewModel.cleanupModel(task = task, model = selectedModel)
+            if (prevModel.name != newSelectedModel.name) {
+              // Clean up prev model.
+              modelManagerViewModel.cleanupModel(context = context, task = task, model = prevModel)
+            }
 
             // Update selected model.
             modelManagerViewModel.selectModel(model = newSelectedModel)
@@ -186,10 +185,7 @@ fun LlmSingleTurnScreen(
 
                 firebaseAnalytics?.logEvent(
                   "generate_action",
-                  bundleOf(
-                    "capability_name" to task.type.toString(),
-                    "model_id" to selectedModel.name,
-                  ),
+                  bundleOf("capability_name" to task.id, "model_id" to selectedModel.name),
                 )
               },
               onStopButtonClicked = { model -> viewModel.stopResponse(model = model) },
@@ -203,6 +199,7 @@ fun LlmSingleTurnScreen(
                 Modifier.fillMaxSize().background(MaterialTheme.customColors.agentBubbleBgColor),
             ) {
               ResponsePanel(
+                task = task,
                 model = selectedModel,
                 viewModel = viewModel,
                 modelManagerViewModel = modelManagerViewModel,

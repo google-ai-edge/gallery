@@ -125,7 +125,7 @@ fun ModelSelector(
 
         // Save the config values to Model.
         val oldConfigValues = model.configValues
-        model.configValues = curConfigValues
+        model.configValues = curConfigValues.toMap()
 
         // Force to re-initialize the model with the new configs.
         if (needReinitialization) {

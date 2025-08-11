@@ -63,7 +63,7 @@ fun ModelPageAppBar(
   model: Model,
   modelManagerViewModel: ModelManagerViewModel,
   onBackClicked: () -> Unit,
-  onModelSelected: (Model) -> Unit,
+  onModelSelected: (prev: Model, cur: Model) -> Unit,
   inProgress: Boolean,
   modelPreparing: Boolean,
   modifier: Modifier = Modifier,
@@ -98,14 +98,14 @@ fun ModelPageAppBar(
             contentDescription = "",
           )
           Text(
-            task.type.label,
+            task.label,
             style = MaterialTheme.typography.titleMedium,
             color = getTaskIconColor(task = task),
           )
         }
 
         // Model chips pager.
-        ModelPickerChipsPager(
+        ModelPickerChip(
           task = task,
           initialModel = model,
           modelManagerViewModel = modelManagerViewModel,
@@ -225,6 +225,7 @@ fun ModelPageAppBar(
         // Save the config values to Model.
         val oldConfigValues = model.configValues
         model.configValues = curConfigValues
+        modelManagerViewModel.updateConfigValuesUpdateTrigger()
 
         // Force to re-initialize the model with the new configs.
         if (needReinitialization) {
