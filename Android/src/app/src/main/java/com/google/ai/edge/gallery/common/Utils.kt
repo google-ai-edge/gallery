@@ -32,8 +32,6 @@ data class LaunchInfo(val ts: Long)
 
 private const val TAG = "AGUtils"
 private const val LAUNCH_INFO_FILE_NAME = "launch_info"
-private const val START_THINKING = "***Thinking...***"
-private const val DONE_THINKING = "***Done thinking***"
 
 fun readLaunchInfo(context: Context): LaunchInfo? {
   try {
@@ -56,26 +54,7 @@ fun cleanUpMediapipeTaskErrorMessage(message: String): String {
 }
 
 fun processLlmResponse(response: String): String {
-  // Add "thinking" and "done thinking" around the thinking content.
-  var newContent =
-    response.replace("<think>", "$START_THINKING\n").replace("</think>", "\n$DONE_THINKING")
-
-  // Remove empty thinking content.
-  val endThinkingIndex = newContent.indexOf(DONE_THINKING)
-  if (endThinkingIndex >= 0) {
-    val thinkingContent =
-      newContent
-        .substring(0, endThinkingIndex + DONE_THINKING.length)
-        .replace(START_THINKING, "")
-        .replace(DONE_THINKING, "")
-    if (thinkingContent.isBlank()) {
-      newContent = newContent.substring(endThinkingIndex + DONE_THINKING.length)
-    }
-  }
-
-  newContent = newContent.replace("\\n", "\n")
-
-  return newContent
+  return response.replace("\\n", "\n")
 }
 
 fun writeLaunchInfo(context: Context) {

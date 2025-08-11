@@ -74,7 +74,9 @@ open class LlmChatViewModelBase() : ChatViewModel() {
       val instance = model.instance as LlmModelInstance
       var prefillTokens = instance.session.sizeInTokens(input)
       prefillTokens += images.size * 257
+      val audioClips: MutableList<ByteArray> = mutableListOf()
       for (audioMessage in audioMessages) {
+        audioClips.add(audioMessage.genByteArrayForWav())
         // 150ms = 1 audio token
         val duration = audioMessage.getDurationInSeconds()
         prefillTokens += (duration * 1000f / 150f).toInt()
@@ -93,7 +95,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
           model = model,
           input = input,
           images = images,
-          audioClips = audioMessages.map { it.genByteArrayForWav() },
+          audioClips = audioClips,
           resultListener = { partialResult, done ->
             val curTs = System.currentTimeMillis()
 
