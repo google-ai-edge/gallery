@@ -181,7 +181,7 @@ fun LlmSingleTurnScreen(
               viewModel = viewModel,
               modelManagerViewModel = modelManagerViewModel,
               onSend = { fullPrompt ->
-                viewModel.generateResponse(model = selectedModel, input = fullPrompt)
+                viewModel.generateResponse(task = task, model = selectedModel, input = fullPrompt)
 
                 firebaseAnalytics?.logEvent(
                   "generate_action",
