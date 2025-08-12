@@ -186,7 +186,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
     }
   }
 
-  fun resetSession(model: Model) {
+  fun resetSession(task: Task, model: Model) {
     viewModelScope.launch(Dispatchers.Default) {
       setIsResettingSession(true)
       clearAllMessages(model = model)
@@ -194,7 +194,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
 
       while (true) {
         try {
-          LlmChatModelHelper.resetSession(model = model)
+          LlmChatModelHelper.resetSession(task = task, model = model)
           break
         } catch (e: Exception) {
           Log.d(TAG, "Failed to reset session. Trying again")

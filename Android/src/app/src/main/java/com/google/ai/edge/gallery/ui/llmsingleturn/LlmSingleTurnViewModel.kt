@@ -21,6 +21,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.common.processLlmResponse
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageBenchmarkLlmResult
 import com.google.ai.edge.gallery.ui.common.chat.Stat
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
@@ -68,7 +69,7 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
   private val _uiState = MutableStateFlow(createUiState())
   val uiState = _uiState.asStateFlow()
 
-  fun generateResponse(model: Model, input: String) {
+  fun generateResponse(task: Task, model: Model, input: String) {
     viewModelScope.launch(Dispatchers.Default) {
       setInProgress(true)
       setPreparing(true)
@@ -78,7 +79,7 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
         delay(100)
       }
 
-      LlmChatModelHelper.resetSession(model = model)
+      LlmChatModelHelper.resetSession(task = task, model = model)
       delay(500)
 
       // Run inference.

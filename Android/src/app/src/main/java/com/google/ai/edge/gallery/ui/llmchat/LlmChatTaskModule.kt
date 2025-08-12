@@ -61,7 +61,7 @@ class LlmChatTask @Inject constructor() : CustomTask {
     model: Model,
     onDone: (String) -> Unit,
   ) {
-    LlmChatModelHelper.initialize(context = context, model = model, onDone = onDone)
+    LlmChatModelHelper.initialize(context = context, task = task, model = model, onDone = onDone)
   }
 
   override fun cleanUpModelFn(
@@ -114,7 +114,7 @@ class LlmAskImageTask @Inject constructor() : CustomTask {
     model: Model,
     onDone: (String) -> Unit,
   ) {
-    LlmChatModelHelper.initialize(context = context, model = model, onDone = onDone)
+    LlmChatModelHelper.initialize(context = context, task = task, model = model, onDone = onDone)
   }
 
   override fun cleanUpModelFn(
@@ -171,7 +171,7 @@ class LlmAskAudioTask @Inject constructor() : CustomTask {
     model: Model,
     onDone: (String) -> Unit,
   ) {
-    LlmChatModelHelper.initialize(context = context, model = model, onDone = onDone)
+    LlmChatModelHelper.initialize(context = context, task = task, model = model, onDone = onDone)
   }
 
   override fun cleanUpModelFn(
