@@ -1,5 +1,19 @@
-// The default Camera Wear AAB config
+// Bundle config for the Google AI Edge Gallery app.
 // See: https://developer.android.com/studio/build/building-cmdline#bundleconfig
-
-// No specific bundle config for now.
-{}
+{
+  "optimizations": {
+    "splitsConfig": {
+      "splitDimension": [
+        {
+          "value": "ABI"
+        },
+        {
+          "value": "SCREEN_DENSITY"
+        },
+        {
+          "value": "LANGUAGE"
+        }
+      ]
+    }
+  }
+}
