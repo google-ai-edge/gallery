@@ -155,7 +155,7 @@ fun ChatViewWrapper(
       }
     },
     onBenchmarkClicked = { _, _, _, _ -> },
-    onResetSessionClicked = { model -> viewModel.resetSession(model = model) },
+    onResetSessionClicked = { model -> viewModel.resetSession(task = task, model = model) },
     showStopButtonInInputWhenInProgress = true,
     onStopButtonClicked = { model -> viewModel.stopResponse(model = model) },
     navigateUp = navigateUp,
