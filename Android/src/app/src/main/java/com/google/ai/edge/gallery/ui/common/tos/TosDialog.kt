@@ -65,10 +65,12 @@ fun TosDialog(onTosAccepted: () -> Unit, viewingMode: Boolean = false) {
     Card(shape = RoundedCornerShape(28.dp)) {
       Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         // Title.
+        val titleColor = MaterialTheme.colorScheme.onSurface
         BasicText(
           "${stringResource(R.string.tos_dialog_title_app_name)}\n${stringResource(R.string.tos_dialog_title_tos)}",
           modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
           style = MaterialTheme.typography.headlineSmall,
+          color = { titleColor },
           maxLines = 2,
           autoSize =
             TextAutoSize.StepBased(minFontSize = 16.sp, maxFontSize = 24.sp, stepSize = 1.sp),

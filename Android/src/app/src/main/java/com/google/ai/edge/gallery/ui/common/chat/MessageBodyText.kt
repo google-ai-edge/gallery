@@ -27,17 +27,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.ui.common.MarkdownText
-import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
 
 /** Composable function to display the text content of a ChatMessageText. */
 @Composable
 fun MessageBodyText(message: ChatMessageText) {
   if (message.side == ChatSide.USER) {
-    Text(
-      message.content,
-      style = bodyLargeNarrow,
-      color = Color.White,
+    MarkdownText(
+      text = message.content,
       modifier = Modifier.padding(12.dp),
+      textColor = Color.White,
     )
   } else if (message.side == ChatSide.AGENT) {
     if (message.isMarkdown) {

@@ -116,6 +116,7 @@ import com.google.ai.edge.gallery.data.MAX_AUDIO_CLIP_COUNT
 import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
 import java.util.concurrent.Executors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -482,7 +483,7 @@ fun MessageInputText(
               disabledIndicatorColor = Color.Transparent,
               disabledContainerColor = Color.Transparent,
             ),
-          textStyle = MaterialTheme.typography.bodyLarge,
+          textStyle = bodyLargeNarrow,
           modifier = Modifier.weight(1f).padding(start = 36.dp),
           placeholder = { Text(stringResource(textFieldPlaceHolderRes)) },
         )
