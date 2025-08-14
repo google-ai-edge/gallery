@@ -18,7 +18,9 @@ package com.google.ai.edge.gallery.worker
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.util.Log
@@ -46,6 +48,7 @@ import com.google.ai.edge.gallery.data.KEY_MODEL_START_UNZIPPING
 import com.google.ai.edge.gallery.data.KEY_MODEL_TOTAL_BYTES
 import com.google.ai.edge.gallery.data.KEY_MODEL_UNZIPPED_DIR
 import com.google.ai.edge.gallery.data.KEY_MODEL_URL
+import com.google.ai.edge.gallery.ui.common.AuthConfig
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -337,6 +340,18 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
     }
     val content = "Downloading in progress: $progress%"
 
+    val intent =
+      Intent(applicationContext, Class.forName(AuthConfig.packageName + ".MainActivity")).apply {
+        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+      }
+    val pendingIntent =
+      PendingIntent.getActivity(
+        applicationContext,
+        0,
+        intent,
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+      )
+
     val notification =
       NotificationCompat.Builder(applicationContext, FOREGROUND_NOTIFICATION_CHANNEL_ID)
         .setContentTitle(title)
@@ -344,6 +359,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
         .setSmallIcon(android.R.drawable.ic_dialog_info)
         .setOngoing(true) // Makes the notification non-dismissable
         .setProgress(100, progress, false) // Show progress
+        .setContentIntent(pendingIntent)
         .build()
 
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
