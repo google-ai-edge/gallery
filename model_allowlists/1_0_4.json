@@ -1,14 +1,15 @@
 {
   "models": [
     {
-      "name": "Gemma-3n-E2B-it-int4",
-      "modelId": "google/gemma-3n-E2B-it-litert-preview",
-      "modelFile": "gemma-3n-E2B-it-int4.task",
-      "description": "Preview version of [Gemma 3n E2B](https://ai.google.dev/gemma/docs/gemma-3n) ready for deployment on Android using the [MediaPipe LLM Inference API](https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference). The current checkpoint only supports text and vision input, with 4096 context length.",
-      "sizeInBytes": 3136226711,
+      "name": "Gemma-3n-E2B-it",
+      "modelId": "litert-community-staging/gemma-3n-E2B-it-litert-lm",
+      "modelFile": "gemma-3n-E2B-it-int4.litertlm",
+      "description": "Preview version of [Gemma 3n E2B](https://ai.google.dev/gemma/docs/gemma-3n) ready for deployment on Android using the [MediaPipe LLM Inference API](https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference). The current checkpoint suppots text, vision, and audio input, with 4096 context length.",
+      "sizeInBytes": 3388604416,
       "minDeviceMemoryInGb": 8,
-      "commitHash": "b2b54222ba849ee74ac9f88d6af2470b390afa9e",
+      "commitHash": "8cc75444d0db2084b2b66937a484342d0fb16c12",
       "llmSupportImage": true,
+      "llmSupportAudio": true,
       "defaultConfig": {
         "topK": 64,
         "topP": 0.95,
@@ -16,18 +17,19 @@
         "maxTokens": 4096,
         "accelerators": "cpu,gpu"
       },
-      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_ask_image"],
+      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_ask_image", "llm_ask_audio"],
       "bestForTaskTypes": ["llm_ask_image", "llm_ask_audio"]
     },
     {
-      "name": "Gemma-3n-E4B-it-int4",
-      "modelId": "google/gemma-3n-E4B-it-litert-preview",
-      "modelFile": "gemma-3n-E4B-it-int4.task",
-      "description": "Preview version of [Gemma 3n E4B](https://ai.google.dev/gemma/docs/gemma-3n) ready for deployment on Android using the [MediaPipe LLM Inference API](https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference). The current checkpoint only supports text and vision input, with 4096 context length.",
-      "sizeInBytes": 4405655031,
+      "name": "Gemma-3n-E4B-it",
+      "modelId": "litert-community-staging/gemma-3n-E4B-it-litert-lm",
+      "modelFile": "gemma-3n-E4B-it-int4.litertlm",
+      "description": "Preview version of [Gemma 3n E4B](https://ai.google.dev/gemma/docs/gemma-3n) ready for deployment on Android using the [MediaPipe LLM Inference API](https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference). The current checkpoint supports text, vision, and audio input, with 4096 context length.",
+      "sizeInBytes": 4652318720,
       "minDeviceMemoryInGb": 12,
-      "commitHash": "1bb9b9c34cfe96536b5540699ffa07060e9fa124",
+      "commitHash": "aca28cdc041554985ad53c36c9bfa2bbd171a775",
       "llmSupportImage": true,
+      "llmSupportAudio": true,
       "defaultConfig": {
         "topK": 64,
         "topP": 0.95,
@@ -35,16 +37,16 @@
         "maxTokens": 4096,
         "accelerators": "cpu,gpu"
       },
-      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_ask_image"]
+      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_ask_image", "llm_ask_audio"]
     },
     {
-      "name": "Gemma3-1B-IT q4",
-      "modelId": "litert-community/Gemma3-1B-IT",
-      "modelFile": "Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task",
+      "name": "Gemma3-1B-IT",
+      "modelId": "litert-community-staging/Gemma3-1B-IT",
+      "modelFile": "Gemma3-1B-IT-f32-ekv4096.litertlm",
       "description": "A variant of [google/Gemma-3-1B-IT](https://huggingface.co/google/Gemma-3-1B-IT) with 4-bit quantization ready for deployment on Android using the [MediaPipe LLM Inference API](https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference)",
-      "sizeInBytes": 554661246,
+      "sizeInBytes": 584417280,
       "minDeviceMemoryInGb": 6,
-      "commitHash": "a1162a5674cd20452540a007dbe8d54e046d5f8b",
+      "commitHash": "1c5d7cdb18d48a8949a0353e5d94cd28ec57e0fb",
       "defaultConfig": {
         "topK": 64,
         "topP": 0.95,
