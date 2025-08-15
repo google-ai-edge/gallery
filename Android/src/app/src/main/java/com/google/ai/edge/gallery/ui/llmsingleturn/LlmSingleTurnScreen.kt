@@ -94,7 +94,15 @@ fun LlmSingleTurnScreen(
   }
 
   // Handle system's edge swipe.
-  BackHandler { handleNavigateUp() }
+  BackHandler {
+    val modelInitializationStatus =
+      modelManagerUiState.modelInitializationStatus[selectedModel.name]
+    val isModelInitializing =
+      modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
+    if (!isModelInitializing && !uiState.inProgress) {
+      handleNavigateUp()
+    }
+  }
 
   // Initialize model when model/download state changes.
   val curDownloadStatus = modelManagerUiState.modelDownloadStatus[selectedModel.name]

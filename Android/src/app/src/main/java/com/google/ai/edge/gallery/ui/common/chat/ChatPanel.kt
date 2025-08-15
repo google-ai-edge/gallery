@@ -191,7 +191,9 @@ fun ChatPanel(
     // changes we want the display to not scroll.
     if (messages.isNotEmpty()) {
       if (uiState.showingStatsByModel === lastShowingStatsByModel.value) {
-        listState.animateScrollToItem(messages.lastIndex, scrollOffset = 10000)
+        if (!listState.canScrollForward) {
+          listState.animateScrollToItem(messages.lastIndex, scrollOffset = 10000)
+        }
       } else {
         // Scroll to bottom if the message to show stats is the last message.
         val curShowingStats =

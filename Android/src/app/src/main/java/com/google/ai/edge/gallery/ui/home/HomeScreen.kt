@@ -72,7 +72,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -90,7 +89,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush.Companion.linearGradient
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -163,7 +161,6 @@ fun HomeScreen(
   navigateToTaskScreen: (Task) -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
   val uiState by modelManagerViewModel.uiState.collectAsState()
   var showSettingsDialog by remember { mutableStateOf(false) }
   var showImportModelSheet by remember { mutableStateOf(false) }
@@ -314,7 +311,6 @@ fun HomeScreen(
     // Main UI when allowlist is done loading.
     if (!loadingModelAllowlistDelayed && !uiState.loadingModelAllowlist) {
       Scaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
           // Top bar animation:
@@ -340,7 +336,6 @@ fun HomeScreen(
                   actionType = AppBarActionType.APP_SETTING,
                   actionFn = { showSettingsDialog = true },
                 ),
-              scrollBehavior = scrollBehavior,
             )
           }
         },

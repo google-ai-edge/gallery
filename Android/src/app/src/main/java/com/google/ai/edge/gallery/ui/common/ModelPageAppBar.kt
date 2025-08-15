@@ -79,6 +79,8 @@ fun ModelPageAppBar(
   val context = LocalContext.current
   val curDownloadStatus = modelManagerUiState.modelDownloadStatus[model.name]
   val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[model.name]
+  val isModelInitializing =
+    modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
 
   CenterAlignedTopAppBar(
     title = {
@@ -116,7 +118,8 @@ fun ModelPageAppBar(
     modifier = modifier,
     // The back button.
     navigationIcon = {
-      IconButton(onClick = onBackClicked) {
+      val enableBackButton = !isModelInitializing && !inProgress
+      IconButton(onClick = onBackClicked, enabled = enableBackButton) {
         Icon(imageVector = Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "")
       }
     },
@@ -130,8 +133,6 @@ fun ModelPageAppBar(
         if (showConfigButton && canShowResetSessionButton) {
           configButtonOffset = (-40).dp
         }
-        val isModelInitializing =
-          modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
         if (showConfigButton) {
           val enableConfigButton = !isModelInitializing && !inProgress
           IconButton(

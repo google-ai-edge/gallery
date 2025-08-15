@@ -128,7 +128,7 @@ fun ResponsePanel(
 
     // Scroll to bottom when response changes.
     LaunchedEffect(response) {
-      if (inProgress) {
+      if (inProgress && responseScrollState.maxValue - responseScrollState.value < 80) {
         responseScrollState.animateScrollTo(responseScrollState.maxValue)
       }
     }

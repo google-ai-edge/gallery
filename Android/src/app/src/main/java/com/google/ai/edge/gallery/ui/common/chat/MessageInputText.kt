@@ -16,9 +16,6 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
-// import androidx.compose.ui.tooling.preview.Preview
-// import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
-// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -26,6 +23,10 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.net.Uri
 import android.util.Log
 import android.util.Size
@@ -109,6 +110,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.scale
+import androidx.exifinterface.media.ExifInterface
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.ai.edge.gallery.common.AudioClip
 import com.google.ai.edge.gallery.common.convertWavToMonoWithMaxSeconds
@@ -151,6 +156,7 @@ fun MessageInputText(
   showStopButtonWhenInProgress: Boolean = false,
 ) {
   val context = LocalContext.current
+  val lifecycleOwner = LocalLifecycleOwner.current
   val scope = rememberCoroutineScope()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   var showAddContentMenu by remember { mutableStateOf(false) }
@@ -162,6 +168,7 @@ fun MessageInputText(
   var pickedImages by remember { mutableStateOf<List<Bitmap>>(listOf()) }
   var pickedAudioClips by remember { mutableStateOf<List<AudioClip>>(listOf()) }
   var hasFrontCamera by remember { mutableStateOf(false) }
+  val sensorObserver = remember { SensorObserver(context) }
 
   val updatePickedImages: (List<Bitmap>) -> Unit = { bitmaps ->
     var newPickedImages: MutableList<Bitmap> = mutableListOf()
@@ -240,6 +247,11 @@ fun MessageInputText(
         Log.d(TAG, "Wav picking cancelled.")
       }
     }
+
+  DisposableEffect(lifecycleOwner) {
+    lifecycleOwner.lifecycle.addObserver(sensorObserver)
+    onDispose { lifecycleOwner.lifecycle.removeObserver(sensorObserver) }
+  }
 
   Column {
     // A preview panel for the selected images and audio clips.
@@ -507,9 +519,8 @@ fun MessageInputText(
             }
           }
         }
-        // Send button. Only shown when text is not empty, or there is at least one recorded
-        // audio clip.
-        else if (curMessage.isNotEmpty() || pickedAudioClips.isNotEmpty()) {
+        // Send button. Only shown when text is not empty.
+        else if (curMessage.isNotEmpty()) {
           IconButton(
             enabled = !inProgress && !isResettingSession,
             onClick = {
@@ -667,21 +678,21 @@ fun MessageInputText(
           modifier =
             Modifier.align(Alignment.BottomCenter)
               .padding(bottom = 32.dp)
-              .size(64.dp)
-              .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape),
+              .size(size = 64.dp)
+              .border(width = 2.dp, color = MaterialTheme.colorScheme.onPrimary, CircleShape),
           onClick = {
             val callback =
               object : ImageCapture.OnImageCapturedCallback() {
                 override fun onCaptureSuccess(image: ImageProxy) {
                   try {
                     var bitmap = image.toBitmap()
-                    val rotation = image.imageInfo.rotationDegrees
+                    val rotation = sensorObserver.currentRotation + image.imageInfo.rotationDegrees
                     bitmap =
                       if (rotation != 0) {
                         val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
-                        Log.d(TAG, "image size: ${bitmap.width}, ${bitmap.height}")
                         Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
                       } else bitmap
+                    bitmap = resizeBitmap(originalBitmap = bitmap)
                     updatePickedImages(listOf(bitmap))
                   } catch (e: Exception) {
                     Log.e(TAG, "Failed to process image", e)
@@ -776,18 +787,25 @@ private fun handleImagesSelected(
   context: Context,
   uris: List<Uri>,
   onImagesSelected: (List<Bitmap>) -> Unit,
-  // For some reason, some Android phone would store the picture taken by the camera rotated
-  // horizontally. Use this flag to rotate the image back to portrait if the picture's width
-  // is bigger than height.
-  rotateForPortrait: Boolean = false,
 ) {
   val images: MutableList<Bitmap> = mutableListOf()
   for (uri in uris) {
     val bitmap: Bitmap? =
       try {
         val inputStream = context.contentResolver.openInputStream(uri)
-        val tmpBitmap = BitmapFactory.decodeStream(inputStream)
-        rotateImageIfNecessary(bitmap = tmpBitmap, rotateForPortrait = rotateForPortrait)
+        if (inputStream != null) {
+          // Read the EXIF metadata from the picture and rotate it correctly.
+          val exif = ExifInterface(inputStream)
+          val orientation =
+            exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+          inputStream.close()
+          val originalBitmap =
+            BitmapFactory.decodeStream(context.contentResolver.openInputStream(uri))
+          val rotatedBitmap = rotateBitmap(bitmap = originalBitmap, orientation = orientation)
+          resizeBitmap(originalBitmap = rotatedBitmap)
+        } else {
+          null
+        }
       } catch (e: Exception) {
         e.printStackTrace()
         null
@@ -801,14 +819,59 @@ private fun handleImagesSelected(
   }
 }
 
-private fun rotateImageIfNecessary(bitmap: Bitmap, rotateForPortrait: Boolean = false): Bitmap {
-  return if (rotateForPortrait && bitmap.width > bitmap.height) {
-    val matrix = Matrix()
-    matrix.postRotate(90f)
-    Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-  } else {
-    bitmap
+private fun rotateBitmap(bitmap: Bitmap, orientation: Int): Bitmap {
+  val matrix = Matrix()
+  when (orientation) {
+    ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+    ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+    ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+    ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.preScale(-1.0f, 1.0f)
+    ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.preScale(1.0f, -1.0f)
+    ExifInterface.ORIENTATION_TRANSPOSE -> {
+      matrix.postRotate(90f)
+      matrix.preScale(-1.0f, 1.0f)
+    }
+    ExifInterface.ORIENTATION_TRANSVERSE -> {
+      matrix.postRotate(270f)
+      matrix.preScale(-1.0f, 1.0f)
+    }
+    ExifInterface.ORIENTATION_NORMAL -> return bitmap
+    else -> return bitmap
   }
+  return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+}
+
+/**
+ * Resizes a given Bitmap to fit within a square of a specified size, while maintaining its original
+ * aspect ratio.
+ */
+private fun resizeBitmap(originalBitmap: Bitmap, size: Int = 1024): Bitmap {
+  val originalWidth = originalBitmap.width
+  val originalHeight = originalBitmap.height
+
+  // Return the original bitmap if it's already within the specified size.
+  if (originalWidth <= size && originalHeight <= size) {
+    return originalBitmap
+  }
+
+  val aspectRatio: Float = originalWidth.toFloat() / originalHeight.toFloat()
+  val newWidth: Int
+  val newHeight: Int
+
+  if (aspectRatio > 1) {
+    // Landscape or square orientation
+    newWidth = size
+    newHeight = (size / aspectRatio).toInt()
+  } else {
+    // Portrait orientation
+    newHeight = size
+    newWidth = (size * aspectRatio).toInt()
+  }
+
+  Log.d(TAG, "Resizing image from $originalWidth x $originalHeight to $newWidth x $newHeight")
+
+  // Create a new scaled bitmap using the calculated dimensions
+  return originalBitmap.scale(newWidth, newHeight)
 }
 
 private fun checkFrontCamera(context: Context, callback: (Boolean) -> Unit) {
@@ -878,72 +941,56 @@ private fun createMessagesToSend(
   return messages
 }
 
-// @Preview(showBackground = true)
-// @Composable
-// fun MessageInputTextPreview() {
-//   val context = LocalContext.current
+/**
+ * A private class that acts as a LifecycleObserver to monitor sensor events for a device's
+ * orientation, specifically using the accelerometer.
+ *
+ * This observer registers for accelerometer events in `onResume` and unregisters in `onPause` to
+ * conserve battery and resources. It calculates the device's rotation (0, 90, 180, -90) by checking
+ * if the acceleration on the X or Y axis exceeds a threshold of 7.0 m/s^2, which corresponds to
+ * gravity's pull when the device is held in a cardinal direction. A 'dead zone' is used to prevent
+ * the rotation from "chattering" when the device is held at an angle between the cardinal
+ * directions.
+ */
+private class SensorObserver(context: Context) : DefaultLifecycleObserver, SensorEventListener {
+  private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+  private val accelerometer: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
-//   GalleryTheme {
-//     Column {
-//       MessageInputText(
-//         modelManagerViewModel = PreviewModelManagerViewModel(context = context),
-//         curMessage = "hello",
-//         inProgress = false,
-//         isResettingSession = false,
-//         modelInitializing = false,
-//         hasImageMessage = false,
-//         textFieldPlaceHolderRes = R.string.chat_textinput_placeholder,
-//         onValueChanged = {},
-//         onSendMessage = {},
-//         showStopButtonWhenInProgress = true,
-//         showImagePickerInMenu = true,
-//       )
-//       MessageInputText(
-//         modelManagerViewModel = PreviewModelManagerViewModel(context = context),
-//         curMessage = "hello",
-//         inProgress = false,
-//         isResettingSession = false,
-//         hasImageMessage = false,
-//         modelInitializing = false,
-//         textFieldPlaceHolderRes = R.string.chat_textinput_placeholder,
-//         onValueChanged = {},
-//         onSendMessage = {},
-//         showStopButtonWhenInProgress = true,
-//       )
-//       MessageInputText(
-//         modelManagerViewModel = PreviewModelManagerViewModel(context = context),
-//         curMessage = "hello",
-//         inProgress = true,
-//         isResettingSession = false,
-//         hasImageMessage = false,
-//         modelInitializing = false,
-//         textFieldPlaceHolderRes = R.string.chat_textinput_placeholder,
-//         onValueChanged = {},
-//         onSendMessage = {},
-//       )
-//       MessageInputText(
-//         modelManagerViewModel = PreviewModelManagerViewModel(context = context),
-//         curMessage = "",
-//         inProgress = false,
-//         isResettingSession = false,
-//         hasImageMessage = false,
-//         modelInitializing = false,
-//         textFieldPlaceHolderRes = R.string.chat_textinput_placeholder,
-//         onValueChanged = {},
-//         onSendMessage = {},
-//       )
-//       MessageInputText(
-//         modelManagerViewModel = PreviewModelManagerViewModel(context = context),
-//         curMessage = "",
-//         inProgress = true,
-//         isResettingSession = false,
-//         hasImageMessage = false,
-//         modelInitializing = false,
-//         textFieldPlaceHolderRes = R.string.chat_textinput_placeholder,
-//         onValueChanged = {},
-//         onSendMessage = {},
-//         showStopButtonWhenInProgress = true,
-//       )
-//     }
-//   }
-// }
+  var currentRotation = 0
+
+  override fun onResume(owner: LifecycleOwner) {
+    super.onResume(owner)
+    accelerometer?.let {
+      sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+    }
+  }
+
+  override fun onPause(owner: LifecycleOwner) {
+    super.onPause(owner)
+    sensorManager.unregisterListener(this)
+  }
+
+  override fun onSensorChanged(event: SensorEvent?) {
+    if (event?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
+      val x = event.values[0]
+      val y = event.values[1]
+
+      // When the phone is on its side, gravity acts primarily along the x-axis.
+      // When the phone is upright, gravity acts primarily along the y-axis.
+      val newOrientation =
+        when {
+          x < -7.0 -> 90
+          x > 7.0 -> -90
+          y < -7.0 -> 180
+          y > 7.0 -> 0
+          else -> currentRotation // Keep the last known orientation
+        }
+
+      if (newOrientation != currentRotation) {
+        currentRotation = newOrientation
+      }
+    }
+  }
+
+  override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+}

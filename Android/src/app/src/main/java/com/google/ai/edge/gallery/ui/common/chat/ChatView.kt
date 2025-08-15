@@ -62,6 +62,7 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
+import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -130,7 +131,15 @@ fun ChatView(
   }
 
   // Handle system's edge swipe.
-  BackHandler { handleNavigateUp() }
+  BackHandler {
+    val modelInitializationStatus =
+      modelManagerUiState.modelInitializationStatus[selectedModel.name]
+    val isModelInitializing =
+      modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
+    if (!isModelInitializing && !uiState.inProgress) {
+      handleNavigateUp()
+    }
+  }
 
   Scaffold(
     modifier = modifier,
