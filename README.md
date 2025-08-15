@@ -42,6 +42,10 @@ The Google AI Edge Gallery is an experimental app that puts the power of cutting
 *   **LLM Inference API:** Powering on-device Large Language Models.
 *   **Hugging Face Integration:** For model discovery and download.
 
+## ⌨️ Development
+
+Check out the [development notes](DEVELOPMENT.md) for instructions for how to build the app locally.
+
 ## 🤝 Feedback
 
 This is an **experimental Alpha release**, and your input is crucial!
