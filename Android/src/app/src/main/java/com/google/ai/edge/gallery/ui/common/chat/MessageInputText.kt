@@ -123,6 +123,8 @@ import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
 import java.util.concurrent.Executors
+import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -798,11 +800,13 @@ private fun handleImagesSelected(
           val exif = ExifInterface(inputStream)
           val orientation =
             exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+          // You MUST close the first input stream before opening another one on the same URI.
           inputStream.close()
-          val originalBitmap =
-            BitmapFactory.decodeStream(context.contentResolver.openInputStream(uri))
-          val rotatedBitmap = rotateBitmap(bitmap = originalBitmap, orientation = orientation)
-          resizeBitmap(originalBitmap = rotatedBitmap)
+
+          // The let block will now return the rotated bitmap
+          decodeSampledBitmapFromUri(context, uri, 1024, 1024)?.let { originalBitmap ->
+            rotateBitmap(bitmap = originalBitmap, orientation = orientation)
+          }
         } else {
           null
         }
@@ -817,6 +821,55 @@ private fun handleImagesSelected(
   if (images.isNotEmpty()) {
     onImagesSelected(images)
   }
+}
+
+private fun decodeSampledBitmapFromUri(
+  context: Context,
+  uri: Uri,
+  reqWidth: Int,
+  reqHeight: Int,
+): Bitmap? {
+  // First, decode with inJustDecodeBounds=true to check dimensions
+  val options =
+    BitmapFactory.Options().apply {
+      inJustDecodeBounds = true
+      context.contentResolver.openInputStream(uri)?.use {
+        BitmapFactory.decodeStream(it, null, this)
+      }
+
+      // Calculate inSampleSize
+      inSampleSize = calculateInSampleSize(this, reqWidth, reqHeight)
+
+      // Decode bitmap with inSampleSize set
+      inJustDecodeBounds = false
+    }
+
+  return context.contentResolver.openInputStream(uri)?.use {
+    BitmapFactory.decodeStream(it, null, options)
+  }
+}
+
+private fun calculateInSampleSize(
+  options: BitmapFactory.Options,
+  reqWidth: Int,
+  reqHeight: Int,
+): Int {
+  // Raw height and width of image
+  val height: Int = options.outHeight
+  val width: Int = options.outWidth
+  var inSampleSize = 1
+
+  if (height > reqHeight || width > reqWidth) {
+    // Calculate the ratio of height and width to the requested height and width
+    val heightRatio = (height.toFloat() / reqHeight.toFloat()).roundToInt()
+    val widthRatio = (width.toFloat() / reqWidth.toFloat()).roundToInt()
+
+    // Choose the largest ratio as inSampleSize value to ensure
+    // that both dimensions are smaller than or equal to the requested dimensions.
+    inSampleSize = max(heightRatio, widthRatio)
+  }
+
+  return inSampleSize
 }
 
 private fun rotateBitmap(bitmap: Bitmap, orientation: Int): Bitmap {
