@@ -44,7 +44,7 @@ The Google AI Edge Gallery is an experimental app that puts the power of cutting
 
 ## ⌨️ Development
 
-Check out the [development notes](DEVELOPMENT.md) for instructions for how to build the app locally.
+Check out the [development notes](DEVELOPMENT.md) for instructions about how to build the app locally.
 
 ## 🤝 Feedback
 
