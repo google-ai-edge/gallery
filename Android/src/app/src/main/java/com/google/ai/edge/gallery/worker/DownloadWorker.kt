@@ -30,6 +30,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import com.google.ai.edge.gallery.common.ProjectConfig
 import com.google.ai.edge.gallery.common.readLaunchInfo
 import com.google.ai.edge.gallery.data.KEY_MODEL_COMMIT_HASH
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
@@ -48,7 +49,6 @@ import com.google.ai.edge.gallery.data.KEY_MODEL_START_UNZIPPING
 import com.google.ai.edge.gallery.data.KEY_MODEL_TOTAL_BYTES
 import com.google.ai.edge.gallery.data.KEY_MODEL_UNZIPPED_DIR
 import com.google.ai.edge.gallery.data.KEY_MODEL_URL
-import com.google.ai.edge.gallery.ui.common.AuthConfig
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -341,7 +341,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
     val content = "Downloading in progress: $progress%"
 
     val intent =
-      Intent(applicationContext, Class.forName(AuthConfig.packageName + ".MainActivity")).apply {
+      Intent(applicationContext, Class.forName(ProjectConfig.packageName + ".MainActivity")).apply {
         flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
       }
     val pendingIntent =
