@@ -24,6 +24,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.AppLifecycleProvider
 import com.google.ai.edge.gallery.BuildConfig
+import com.google.ai.edge.gallery.common.ProjectConfig
 import com.google.ai.edge.gallery.common.getJsonResponse
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.data.AGWorkInfo
@@ -43,7 +44,6 @@ import com.google.ai.edge.gallery.data.createLlmChatConfigs
 import com.google.ai.edge.gallery.proto.AccessTokenData
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.proto.Theme
-import com.google.ai.edge.gallery.ui.common.AuthConfig
 import com.google.gson.Gson
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -552,10 +552,10 @@ constructor(
 
   fun getAuthorizationRequest(): AuthorizationRequest {
     return AuthorizationRequest.Builder(
-        AuthConfig.authServiceConfig,
-        AuthConfig.clientId,
+        ProjectConfig.authServiceConfig,
+        ProjectConfig.clientId,
         ResponseTypeValues.CODE,
-        AuthConfig.redirectUri.toUri(),
+        ProjectConfig.redirectUri.toUri(),
       )
       .setScope("read-repos")
       .build()
