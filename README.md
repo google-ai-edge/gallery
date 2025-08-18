@@ -54,7 +54,7 @@ Check out the [development notes](DEVELOPMENT.md) for instructions about how to 
 
 ## 🤝 Feedback
 
-This is an **experimental Alpha release**, and your input is crucial!
+This is an **experimental Beta release**, and your input is crucial!
 
 *   🐞 **Found a bug?** [Report it here!](https://github.com/google-ai-edge/gallery/issues/new?assignees=&labels=bug&template=bug_report.md&title=%5BBUG%5D)
 *   💡 **Have an idea?** [Suggest a feature!](https://github.com/google-ai-edge/gallery/issues/new?assignees=&labels=enhancement&template=feature_request.md&title=%5BFEATURE%5D)
@@ -68,4 +68,5 @@ Licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file 
 *   [**Project Wiki (Detailed Guides)**](https://github.com/google-ai-edge/gallery/wiki)
 *   [Hugging Face LiteRT Community](https://huggingface.co/litert-community)
 *   [LLM Inference guide for Android](https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android)
+*   [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM)
 *   [Google AI Edge Documentation](https://ai.google.dev/edge)
