@@ -20,7 +20,7 @@ protobuf = "0.9.5"
 protobufJavaLite = "4.26.1"
 #noinspection GradleDependency
 mediapipeTasksText = "0.10.21"
-mediapipeTasksGenai = "0.10.25"
+mediapipeTasksGenai = "0.10.27"
 mediapipeTasksImageGenerator = "0.10.21"
 commonmark = "1.0.0-alpha02"
 richtext = "1.0.0-alpha02"

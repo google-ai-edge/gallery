@@ -31,6 +31,7 @@ import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mediapipe.tasks.genai.llminference.AudioModelOptions
 import com.google.mediapipe.tasks.genai.llminference.GraphOptions
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
@@ -73,6 +74,9 @@ object LlmChatModelHelper {
         .setMaxTokens(maxTokens)
         .setPreferredBackend(preferredBackend)
         .setMaxNumImages(if (shouldEnableImage) MAX_IMAGE_COUNT else 0)
+    if (shouldEnableAudio) {
+      optionsBuilder.setAudioModelOptions(AudioModelOptions.builder().build())
+    }
     val options = optionsBuilder.build()
 
     // Create an instance of the LLM Inference task and session.
@@ -89,6 +93,7 @@ object LlmChatModelHelper {
             .setGraphOptions(
               GraphOptions.builder()
                 .setEnableVisionModality(shouldEnableImage)
+                .setEnableAudioModality(shouldEnableAudio)
                 .build()
             )
             .build(),
@@ -127,6 +132,7 @@ object LlmChatModelHelper {
             .setGraphOptions(
               GraphOptions.builder()
                 .setEnableVisionModality(shouldEnableImage)
+                .setEnableAudioModality(shouldEnableAudio)
                 .build()
             )
             .build(),
@@ -194,8 +200,7 @@ object LlmChatModelHelper {
       session.addImage(BitmapImageBuilder(image).build())
     }
     for (audioClip in audioClips) {
-      // Uncomment when audio is supported.
-      // session.addAudio(audioClip)
+      session.addAudio(audioClip)
     }
     val unused = session.generateResponseAsync(resultListener)
   }
