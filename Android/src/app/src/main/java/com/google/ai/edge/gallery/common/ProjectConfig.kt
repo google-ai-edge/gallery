@@ -24,10 +24,6 @@ object ProjectConfig {
   //
   const val clientId = "REPLACE_WITH_YOUR_CLIENT_ID_IN_HUGGINGFACE_APP"
 
-  // Package name
-  //
-  const val packageName = "com.google.aiedge.gallery"
-
   // Registered redirect URI.
   //
   // The scheme needs to match the

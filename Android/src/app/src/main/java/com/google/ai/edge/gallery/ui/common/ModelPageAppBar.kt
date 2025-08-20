@@ -81,6 +81,8 @@ fun ModelPageAppBar(
   val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[model.name]
   val isModelInitializing =
     modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
+  val isModelInitialized =
+    modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZED
 
   CenterAlignedTopAppBar(
     title = {
@@ -134,7 +136,7 @@ fun ModelPageAppBar(
           configButtonOffset = (-40).dp
         }
         if (showConfigButton) {
-          val enableConfigButton = !isModelInitializing && !inProgress
+          val enableConfigButton = !isModelInitializing && !inProgress && isModelInitialized
           IconButton(
             onClick = { showConfigDialog = true },
             enabled = enableConfigButton,
@@ -157,7 +159,7 @@ fun ModelPageAppBar(
               modifier = Modifier.size(16.dp),
             )
           } else {
-            val enableResetButton = !isModelInitializing && !modelPreparing
+            val enableResetButton = !isModelInitializing && !modelPreparing && isModelInitialized
             IconButton(
               onClick = { onResetSessionClicked(model) },
               enabled = enableResetButton,

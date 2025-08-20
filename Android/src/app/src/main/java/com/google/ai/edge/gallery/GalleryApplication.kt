@@ -17,7 +17,6 @@
 package com.google.ai.edge.gallery
 
 import android.app.Application
-import com.google.ai.edge.gallery.common.writeLaunchInfo
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.ui.theme.ThemeSettings
 import com.google.firebase.FirebaseApp
@@ -31,8 +30,6 @@ class GalleryApplication : Application() {
 
   override fun onCreate() {
     super.onCreate()
-
-    writeLaunchInfo(context = this)
 
     // Load saved theme.
     ThemeSettings.themeOverride.value = dataStoreRepository.readTheme()

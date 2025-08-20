@@ -21,29 +21,13 @@ import android.net.Uri
 import android.util.Log
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.gson.Gson
-import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.floor
 
-data class LaunchInfo(val ts: Long)
-
 private const val TAG = "AGUtils"
-private const val LAUNCH_INFO_FILE_NAME = "launch_info"
-
-fun readLaunchInfo(context: Context): LaunchInfo? {
-  try {
-    val gson = Gson()
-    val file = File(context.getExternalFilesDir(null), LAUNCH_INFO_FILE_NAME)
-    val content = file.readText()
-    return gson.fromJson(content, LaunchInfo::class.java)
-  } catch (e: Exception) {
-    Log.e(TAG, "Failed to read launch info", e)
-    return null
-  }
-}
 
 fun cleanUpMediapipeTaskErrorMessage(message: String): String {
   val index = message.indexOf("=== Source Location Trace")
@@ -55,18 +39,6 @@ fun cleanUpMediapipeTaskErrorMessage(message: String): String {
 
 fun processLlmResponse(response: String): String {
   return response.replace("\\n", "\n")
-}
-
-fun writeLaunchInfo(context: Context) {
-  try {
-    val gson = Gson()
-    val launchInfo = LaunchInfo(ts = System.currentTimeMillis())
-    val jsonString = gson.toJson(launchInfo)
-    val file = File(context.getExternalFilesDir(null), LAUNCH_INFO_FILE_NAME)
-    file.writeText(jsonString)
-  } catch (e: Exception) {
-    Log.e(TAG, "Failed to write launch info", e)
-  }
 }
 
 inline fun <reified T> getJsonResponse(url: String): JsonObjAndTextContent<T>? {

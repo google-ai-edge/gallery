@@ -22,19 +22,14 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
-import com.google.ai.edge.gallery.common.ProjectConfig
-import com.google.ai.edge.gallery.common.readLaunchInfo
 import com.google.ai.edge.gallery.data.KEY_MODEL_COMMIT_HASH
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
-import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_APP_TS
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ERROR_MESSAGE
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_FILE_NAME
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_MODEL_DIR
@@ -49,6 +44,7 @@ import com.google.ai.edge.gallery.data.KEY_MODEL_START_UNZIPPING
 import com.google.ai.edge.gallery.data.KEY_MODEL_TOTAL_BYTES
 import com.google.ai.edge.gallery.data.KEY_MODEL_UNZIPPED_DIR
 import com.google.ai.edge.gallery.data.KEY_MODEL_URL
+import com.google.ai.edge.gallery.data.TMP_FILE_EXT
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -68,7 +64,6 @@ data class UrlAndFileName(val url: String, val fileName: String)
 private const val FOREGROUND_NOTIFICATION_CHANNEL_ID = "model_download_channel_foreground"
 private var channelCreated = false
 
-@RequiresApi(Build.VERSION_CODES.O)
 class DownloadWorker(context: Context, params: WorkerParameters) :
   CoroutineWorker(context, params) {
   private val externalFilesDir = context.getExternalFilesDir(null)
@@ -96,8 +91,6 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
   }
 
   override suspend fun doWork(): Result {
-    val appTs = readLaunchInfo(context = applicationContext)?.ts ?: 0
-
     val fileUrl = inputData.getString(KEY_MODEL_URL)
     val modelName = inputData.getString(KEY_MODEL_NAME) ?: "Model"
     val version = inputData.getString(KEY_MODEL_COMMIT_HASH)!!
@@ -110,12 +103,6 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
       inputData.getString(KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES)?.split(",") ?: listOf()
     val totalBytes = inputData.getLong(KEY_MODEL_TOTAL_BYTES, 0L)
     val accessToken = inputData.getString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN)
-    val workerAppTs = inputData.getLong(KEY_MODEL_DOWNLOAD_APP_TS, 0L)
-
-    if (workerAppTs > 0 && appTs > 0 && workerAppTs != appTs) {
-      Log.d(TAG, "Worker is from previous launch. Ignoring...")
-      return Result.success()
-    }
 
     return withContext(Dispatchers.IO) {
       if (fileUrl == null || fileName == null) {
@@ -159,17 +146,18 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               outputDir.mkdirs()
             }
 
-            // Read the file and see if it is partially downloaded.
-            val outputFile =
+            // Read the tmp file and see if it is partially downloaded.
+            val outputTmpFile =
               File(
                 applicationContext.getExternalFilesDir(null),
-                listOf(modelDir, version, file.fileName).joinToString(separator = File.separator),
+                listOf(modelDir, version, "${file.fileName}.$TMP_FILE_EXT")
+                  .joinToString(separator = File.separator),
               )
-            val outputFileBytes = outputFile.length()
+            val outputFileBytes = outputTmpFile.length()
             if (outputFileBytes > 0) {
               Log.d(
                 TAG,
-                "File '${file.fileName}' partial size: ${outputFileBytes}. Trying to resume download",
+                "File '${outputTmpFile.name}' partial size: ${outputFileBytes}. Trying to resume download",
               )
               connection.setRequestProperty("Range", "bytes=${outputFileBytes}-")
             }
@@ -203,7 +191,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             }
 
             val inputStream = connection.inputStream
-            val outputStream = FileOutputStream(outputFile, true /* append */)
+            val outputStream = FileOutputStream(outputTmpFile, true /* append */)
 
             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
             var bytesRead: Int
@@ -259,6 +247,13 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             outputStream.close()
             inputStream.close()
 
+            // Rename the tmp file to the original file name by removing the tmp file ext.
+            val originalFilePath = outputTmpFile.absolutePath.replace(".$TMP_FILE_EXT", "")
+            val originalFile = File(originalFilePath)
+            if (originalFile.exists()) {
+              originalFile.delete()
+            }
+            outputTmpFile.renameTo(originalFile)
             Log.d(TAG, "Download done")
 
             // Unzip if the downloaded file is a zip.
@@ -341,7 +336,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
     val content = "Downloading in progress: $progress%"
 
     val intent =
-      Intent(applicationContext, Class.forName(ProjectConfig.packageName + ".MainActivity")).apply {
+      Intent(applicationContext, Class.forName("com.google.ai.edge.gallery.MainActivity")).apply {
         flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
       }
     val pendingIntent =
@@ -362,10 +357,10 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
         .setContentIntent(pendingIntent)
         .build()
 
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      ForegroundInfo(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-    } else {
-      ForegroundInfo(notificationId, notification)
-    }
+    return ForegroundInfo(
+      notificationId,
+      notification,
+      ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+    )
   }
 }

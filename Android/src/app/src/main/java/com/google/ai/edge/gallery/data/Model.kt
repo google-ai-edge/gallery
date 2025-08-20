@@ -242,9 +242,9 @@ data class Model(
       listOf(context.getExternalFilesDir(null)?.absolutePath ?: "", normalizedName, version)
         .joinToString(File.separator)
     return if (this.isZip && this.unzipDir.isNotEmpty()) {
-      "$baseDir/${this.unzipDir}"
+      listOf(baseDir, this.unzipDir).joinToString(File.separator)
     } else {
-      "$baseDir/$fileName"
+      listOf(baseDir, fileName).joinToString(File.separator)
     }
   }
 

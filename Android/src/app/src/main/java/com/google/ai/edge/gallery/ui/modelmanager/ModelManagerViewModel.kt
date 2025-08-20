@@ -27,7 +27,6 @@ import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.common.ProjectConfig
 import com.google.ai.edge.gallery.common.getJsonResponse
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
-import com.google.ai.edge.gallery.data.AGWorkInfo
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Config
@@ -39,6 +38,7 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelAllowlist
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
+import com.google.ai.edge.gallery.data.TMP_FILE_EXT
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.createLlmChatConfigs
 import com.google.ai.edge.gallery.proto.AccessTokenData
@@ -57,7 +57,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationRequest
 import net.openid.appauth.AuthorizationResponse
@@ -144,8 +143,6 @@ constructor(
   @ApplicationContext private val context: Context,
 ) : ViewModel() {
   private val externalFilesDir = context.getExternalFilesDir(null)
-  private val inProgressWorkInfos: List<AGWorkInfo> =
-    downloadRepository.getEnqueuedOrRunningWorkInfos()
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   val uiState = _uiState.asStateFlow()
 
@@ -185,7 +182,8 @@ constructor(
   }
 
   fun processTasks() {
-    for (task in uiState.value.tasks) {
+    val curTasks = customTasks.map { it.task }
+    for (task in curTasks) {
       for (model in task.models) {
         model.preProcess()
       }
@@ -649,27 +647,22 @@ constructor(
   }
 
   private fun processPendingDownloads() {
-    Log.d(TAG, "In-progress worker infos: $inProgressWorkInfos")
-
-    // Iterate through the inProgressWorkInfos and retrieve the corresponding modes.
-    // Those models are the ones that have not finished downloading.
-    val models: MutableList<Model> = mutableListOf()
-    for (info in inProgressWorkInfos) {
-      getModelByName(info.modelName)?.let { model -> models.add(model) }
-    }
-
     // Cancel all pending downloads for the retrieved models.
-    downloadRepository.cancelAll(models) {
-      Log.d(TAG, "All pending work is cancelled")
+    downloadRepository.cancelAll {
+      Log.d(TAG, "All workers are cancelled.")
 
-      viewModelScope.launch(Dispatchers.IO) {
-        // Kick off downloads for these models .
-        withContext(Dispatchers.Main) {
-          val tokenStatusAndData = getTokenStatusAndData()
-          for (info in inProgressWorkInfos) {
-            val model: Model? = getModelByName(info.modelName)
-            val task: Task? = getTaskById(id = info.taskId)
-            if (model != null && task != null) {
+      viewModelScope.launch(Dispatchers.Main) {
+        val checkedModelNames = mutableSetOf<String>()
+        val tokenStatusAndData = getTokenStatusAndData()
+        for (task in uiState.value.tasks) {
+          for (model in task.models) {
+            if (checkedModelNames.contains(model.name)) {
+              continue
+            }
+
+            // Start download for partially downloaded models.
+            val downloadStatus = uiState.value.modelDownloadStatus[model.name]?.status
+            if (downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED) {
               if (
                 tokenStatusAndData.status == TokenStatus.NOT_EXPIRED &&
                   tokenStatusAndData.data != null
@@ -683,6 +676,8 @@ constructor(
                 onStatusUpdated = this@ModelManagerViewModel::setDownloadStatus,
               )
             }
+
+            checkedModelNames.add(model.name)
           }
         }
       }
@@ -742,11 +737,11 @@ constructor(
           }
         }
 
-        // Update UI state.
-        _uiState.update { createUiState().copy(loadingModelAllowlist = false, tasks = curTasks) }
-
         // Process all tasks.
         processTasks()
+
+        // Update UI state.
+        _uiState.update { createUiState().copy(loadingModelAllowlist = false, tasks = curTasks) }
 
         // Process pending downloads.
         processPendingDownloads()
@@ -793,7 +788,10 @@ constructor(
   }
 
   private fun isModelPartiallyDownloaded(model: Model): Boolean {
-    return inProgressWorkInfos.find { it.modelName == model.name } != null
+    // A model is partially downloaded when the tmp file exists.
+    val tmpFilePath =
+      model.getPath(context = context, fileName = "${model.downloadFileName}.$TMP_FILE_EXT")
+    return File(tmpFilePath).exists()
   }
 
   private fun createEmptyUiState(): ModelManagerUiState {
@@ -808,13 +806,18 @@ constructor(
     val modelDownloadStatus: MutableMap<String, ModelDownloadStatus> = mutableMapOf()
     val modelInstances: MutableMap<String, ModelInitializationStatus> = mutableMapOf()
     val tasks: MutableMap<String, Task> = mutableMapOf()
+    val checkedModelNames = mutableSetOf<String>()
     for (customTask in customTasks) {
       val task = customTask.task
       tasks.put(key = task.id, value = task)
       for (model in task.models) {
+        if (checkedModelNames.contains(model.name)) {
+          continue
+        }
         modelDownloadStatus[model.name] = getModelDownloadStatus(model = model)
         modelInstances[model.name] =
           ModelInitializationStatus(status = ModelInitializationStatusType.NOT_INITIALIZED)
+        checkedModelNames.add(model.name)
       }
     }
 
@@ -901,7 +904,10 @@ constructor(
    * total bytes for partially downloaded models.
    */
   private fun getModelDownloadStatus(model: Model): ModelDownloadStatus {
+    Log.d(TAG, "Checking model ${model.name} download status...")
+
     if (model.localFileRelativeDirPathOverride.isNotEmpty()) {
+      Log.d(TAG, "Model has localFileRelativeDirPathOverride set. Set status to SUCCEEDED")
       return ModelDownloadStatus(
         status = ModelDownloadStatusType.SUCCEEDED,
         receivedBytes = 0,
@@ -912,16 +918,27 @@ constructor(
     var status = ModelDownloadStatusType.NOT_DOWNLOADED
     var receivedBytes = 0L
     var totalBytes = 0L
-    if (isModelDownloaded(model = model)) {
-      if (isModelPartiallyDownloaded(model = model)) {
-        status = ModelDownloadStatusType.PARTIALLY_DOWNLOADED
-        val file = File(externalFilesDir, model.downloadFileName)
-        receivedBytes = file.length()
-        totalBytes = model.totalBytes
-      } else {
-        status = ModelDownloadStatusType.SUCCEEDED
-      }
+
+    // Partially downloaded.
+    if (isModelPartiallyDownloaded(model = model)) {
+      status = ModelDownloadStatusType.PARTIALLY_DOWNLOADED
+      val tmpFilePath =
+        model.getPath(context = context, fileName = "${model.downloadFileName}.$TMP_FILE_EXT")
+      val tmpFile = File(tmpFilePath)
+      receivedBytes = tmpFile.length()
+      totalBytes = model.totalBytes
+      Log.d(TAG, "${model.name} is partially downloaded. $receivedBytes/$totalBytes")
     }
+    // Fully downloaded.
+    else if (isModelDownloaded(model = model)) {
+      status = ModelDownloadStatusType.SUCCEEDED
+      Log.d(TAG, "${model.name} has been downloaded.")
+    }
+    // Not downloaded.
+    else {
+      Log.d(TAG, "${model.name} has not been downloaded.")
+    }
+
     return ModelDownloadStatus(
       status = status,
       receivedBytes = receivedBytes,
@@ -978,7 +995,6 @@ constructor(
           listOf(model.normalizedName, model.version, model.unzipDir).joinToString(File.separator)
         )
 
-    // Will also return true if model is partially downloaded.
     return downloadedFileExists || unzippedDirectoryExists
   }
 }

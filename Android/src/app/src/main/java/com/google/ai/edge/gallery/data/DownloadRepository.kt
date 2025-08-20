@@ -33,21 +33,15 @@ import androidx.core.os.bundleOf
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.Operation
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import androidx.work.WorkQuery
 import com.google.ai.edge.gallery.AppLifecycleProvider
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.common.readLaunchInfo
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.worker.DownloadWorker
-import com.google.common.util.concurrent.FutureCallback
-import com.google.common.util.concurrent.Futures
-import com.google.common.util.concurrent.ListenableFuture
-import com.google.common.util.concurrent.MoreExecutors
 import java.util.UUID
+import java.util.concurrent.Executors
 
 private const val TAG = "AGDownloadRepository"
 private const val MODEL_NAME_TAG = "modelName"
@@ -64,7 +58,7 @@ interface DownloadRepository {
 
   fun cancelDownloadModel(model: Model)
 
-  fun cancelAll(models: List<Model>, onComplete: () -> Unit)
+  fun cancelAll(onComplete: () -> Unit)
 
   fun observerWorkerProgress(
     workerId: UUID,
@@ -72,8 +66,6 @@ interface DownloadRepository {
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   )
-
-  fun getEnqueuedOrRunningWorkInfos(): List<AGWorkInfo>
 }
 
 /**
@@ -103,8 +95,6 @@ class DefaultDownloadRepository(
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
-    val appTs = readLaunchInfo(context = context)?.ts ?: 0
-
     // Create input data.
     val builder = Data.Builder()
     val totalBytes = model.totalBytes + model.extraDataFiles.sumOf { it.sizeInBytes }
@@ -118,7 +108,6 @@ class DefaultDownloadRepository(
         .putBoolean(KEY_MODEL_IS_ZIP, model.isZip)
         .putString(KEY_MODEL_UNZIPPED_DIR, model.unzipDir)
         .putLong(KEY_MODEL_TOTAL_BYTES, totalBytes)
-        .putLong(KEY_MODEL_DOWNLOAD_APP_TS, appTs)
 
     if (model.extraDataFiles.isNotEmpty()) {
       inputDataBuilder
@@ -160,33 +149,11 @@ class DefaultDownloadRepository(
     workManager.cancelAllWorkByTag("$MODEL_NAME_TAG:${model.name}")
   }
 
-  override fun cancelAll(models: List<Model>, onComplete: () -> Unit) {
-    if (models.isEmpty()) {
-      onComplete()
-      return
-    }
-
-    val futures = mutableListOf<ListenableFuture<Operation.State.SUCCESS>>()
-    for (tag in models.map { "$MODEL_NAME_TAG:${it.name}" }) {
-      futures.add(workManager.cancelAllWorkByTag(tag).result)
-    }
-    val combinedFuture: ListenableFuture<List<Operation.State.SUCCESS>> = Futures.allAsList(futures)
-    Futures.addCallback(
-      combinedFuture,
-      object : FutureCallback<List<Operation.State.SUCCESS>> {
-        override fun onSuccess(result: List<Operation.State.SUCCESS>?) {
-          // All cancellations are complete
-          onComplete()
-        }
-
-        override fun onFailure(t: Throwable) {
-          // At least one cancellation failed
-          t.printStackTrace()
-          onComplete()
-        }
-      },
-      MoreExecutors.directExecutor(),
-    )
+  override fun cancelAll(onComplete: () -> Unit) {
+    workManager
+      .cancelAllWork()
+      .result
+      .addListener({ onComplete() }, Executors.newSingleThreadExecutor())
   }
 
   override fun observerWorkerProgress(
@@ -298,37 +265,6 @@ class DefaultDownloadRepository(
           else -> {}
         }
       }
-    }
-  }
-
-  /**
-   * Retrieves a list of AGWorkInfo objects representing WorkManager work items that are either
-   * enqueued or currently running.
-   */
-  override fun getEnqueuedOrRunningWorkInfos(): List<AGWorkInfo> {
-    val workQuery =
-      WorkQuery.Builder.fromStates(listOf(WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING)).build()
-
-    return workManager.getWorkInfos(workQuery).get().map { info ->
-      val tags = info.tags
-      var taskId = ""
-      var modelName = ""
-      Log.d(TAG, "work: ${info.id}, tags: $tags")
-      for (tag in tags) {
-        if (tag.startsWith("$MODEL_NAME_TAG:")) {
-          val index = tag.indexOf(':')
-          if (index >= 0) {
-            modelName = tag.substring(index + 1)
-          }
-        }
-        if (tag.startsWith("$TASK_ID_TAG:")) {
-          val index = tag.indexOf(':')
-          if (index >= 0) {
-            taskId = tag.substring(index + 1)
-          }
-        }
-      }
-      return@map AGWorkInfo(taskId = taskId, modelName = modelName, workId = info.id.toString())
     }
   }
 
