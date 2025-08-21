@@ -60,8 +60,12 @@ message LlmConfig {
 
 message Settings {
   Theme theme = 1;
-  AccessTokenData access_token_data = 2;
+  AccessTokenData access_token_data = 2;  // deprecated
   repeated string text_input_history = 3;
   repeated ImportedModel imported_model = 4;
   bool is_tos_accepted = 5;
+}
+
+message UserData {
+  AccessTokenData access_token_data = 1;
 }

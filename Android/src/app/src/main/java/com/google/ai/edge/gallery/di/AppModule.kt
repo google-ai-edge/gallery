@@ -24,11 +24,13 @@ import androidx.datastore.dataStoreFile
 import com.google.ai.edge.gallery.AppLifecycleProvider
 import com.google.ai.edge.gallery.GalleryLifecycleProvider
 import com.google.ai.edge.gallery.SettingsSerializer
+import com.google.ai.edge.gallery.UserDataSerializer
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.DefaultDataStoreRepository
 import com.google.ai.edge.gallery.data.DefaultDownloadRepository
 import com.google.ai.edge.gallery.data.DownloadRepository
 import com.google.ai.edge.gallery.proto.Settings
+import com.google.ai.edge.gallery.proto.UserData
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -47,6 +49,13 @@ internal object AppModule {
     return SettingsSerializer
   }
 
+  // Provides the UserDataSerializer
+  @Provides
+  @Singleton
+  fun provideUserDataSerializer(): Serializer<UserData> {
+    return UserDataSerializer
+  }
+
   // Provides DataStore<Settings>
   @Provides
   @Singleton
@@ -60,6 +69,19 @@ internal object AppModule {
     )
   }
 
+  // Provides DataStore<UserData>
+  @Provides
+  @Singleton
+  fun provideUserDataDataStore(
+    @ApplicationContext context: Context,
+    userDataSerializer: Serializer<UserData>,
+  ): DataStore<UserData> {
+    return DataStoreFactory.create(
+      serializer = userDataSerializer,
+      produceFile = { context.dataStoreFile("user_data.pb") },
+    )
+  }
+
   // Provides AppLifecycleProvider
   @Provides
   @Singleton
@@ -70,8 +92,11 @@ internal object AppModule {
   // Provides DataStoreRepository
   @Provides
   @Singleton
-  fun provideDataStoreRepository(dataStore: DataStore<Settings>): DataStoreRepository {
-    return DefaultDataStoreRepository(dataStore)
+  fun provideDataStoreRepository(
+    dataStore: DataStore<Settings>,
+    userDataDataStore: DataStore<UserData>,
+  ): DataStoreRepository {
+    return DefaultDataStoreRepository(dataStore, userDataDataStore)
   }
 
   // Provides DownloadRepository

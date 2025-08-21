@@ -523,7 +523,7 @@ constructor(
     val tokenData = dataStoreRepository.readAccessTokenData()
 
     // Token exists.
-    if (tokenData != null) {
+    if (tokenData != null && tokenData.accessToken.isNotEmpty()) {
       Log.d(TAG, "Token exists and loaded.")
 
       // Check expiration (with 5-minute buffer).

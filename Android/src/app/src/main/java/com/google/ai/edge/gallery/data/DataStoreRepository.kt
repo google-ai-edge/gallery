@@ -21,6 +21,7 @@ import com.google.ai.edge.gallery.proto.AccessTokenData
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.proto.Settings
 import com.google.ai.edge.gallery.proto.Theme
+import com.google.ai.edge.gallery.proto.UserData
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
@@ -50,7 +51,10 @@ interface DataStoreRepository {
 }
 
 /** Repository for managing data using Proto DataStore. */
-class DefaultDataStoreRepository(private val dataStore: DataStore<Settings>) : DataStoreRepository {
+class DefaultDataStoreRepository(
+  private val dataStore: DataStore<Settings>,
+  private val userDataDataStore: DataStore<UserData>,
+) : DataStoreRepository {
   override fun saveTextInputHistory(history: List<String>) {
     runBlocking {
       dataStore.updateData { settings ->
@@ -83,8 +87,13 @@ class DefaultDataStoreRepository(private val dataStore: DataStore<Settings>) : D
 
   override fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long) {
     runBlocking {
+      // Clear the entry in old data store.
       dataStore.updateData { settings ->
-        settings
+        settings.toBuilder().setAccessTokenData(AccessTokenData.getDefaultInstance()).build()
+      }
+
+      userDataDataStore.updateData { userData ->
+        userData
           .toBuilder()
           .setAccessTokenData(
             AccessTokenData.newBuilder()
@@ -101,13 +110,16 @@ class DefaultDataStoreRepository(private val dataStore: DataStore<Settings>) : D
   override fun clearAccessTokenData() {
     runBlocking {
       dataStore.updateData { settings -> settings.toBuilder().clearAccessTokenData().build() }
+      userDataDataStore.updateData { userData ->
+        userData.toBuilder().clearAccessTokenData().build()
+      }
     }
   }
 
   override fun readAccessTokenData(): AccessTokenData? {
     return runBlocking {
-      val settings = dataStore.data.first()
-      settings.accessTokenData
+      val userData = userDataDataStore.data.first()
+      userData.accessTokenData
     }
   }
 
