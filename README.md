@@ -36,10 +36,11 @@ For users outside the US, install the apk from the [**latest release**](https://
 
 ## 🏁 Get Started in Minutes!
 
-1.  **Download the App:**
+1. **Check OS Requirement**: Android 12 and up
+2.  **Download the App:**
     - For US users: Install the app from [Google Play](https://play.google.com/store/apps/details?id=com.google.ai.edge.gallery).
     - For users outside the US: install the apk from the [**latest release**](https://github.com/google-ai-edge/gallery/releases/latest/)
-1.  **Install & Explore:** For detailed installation instructions (including for corporate devices) and a full user guide, head over to our [**Project Wiki**](https://github.com/google-ai-edge/gallery/wiki)!
+3.  **Install & Explore:** For detailed installation instructions (including for corporate devices) and a full user guide, head over to our [**Project Wiki**](https://github.com/google-ai-edge/gallery/wiki)!
 
 ## 🛠️ Technology Highlights
 
