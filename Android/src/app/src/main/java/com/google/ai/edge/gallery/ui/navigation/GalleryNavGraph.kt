@@ -211,16 +211,19 @@ fun GalleryNavHost(
                 )
             )
           } else {
+            var disableAppBarControls by remember { mutableStateOf(false) }
             CustomTaskScreen(
               task = customTask.task,
               modelManagerViewModel = modelManagerViewModel,
               onNavigateUp = { navController.navigateUp() },
+              disableAppBarControls = disableAppBarControls,
             ) { bottomPadding ->
               customTask.MainScreen(
                 data =
                   CustomTaskData(
                     modelManagerViewModel = modelManagerViewModel,
                     bottomPadding = bottomPadding,
+                    setAppBarControlsDisabled = { disableAppBarControls = it },
                   )
               )
             }
@@ -250,6 +253,7 @@ fun GalleryNavHost(
 private fun CustomTaskScreen(
   task: Task,
   modelManagerViewModel: ModelManagerViewModel,
+  disableAppBarControls: Boolean,
   onNavigateUp: () -> Unit,
   content: @Composable (bottomPadding: Dp) -> Unit,
 ) {
@@ -300,8 +304,8 @@ private fun CustomTaskScreen(
         task = task,
         model = selectedModel,
         modelManagerViewModel = modelManagerViewModel,
-        inProgress = false,
-        modelPreparing = false,
+        inProgress = disableAppBarControls,
+        modelPreparing = disableAppBarControls,
         canShowResetSessionButton = false,
         onConfigChanged = { _, _ -> },
         onBackClicked = { handleNavigateUp() },
