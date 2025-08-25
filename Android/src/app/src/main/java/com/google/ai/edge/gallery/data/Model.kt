@@ -171,6 +171,13 @@ data class Model(
    */
   val localFileRelativeDirPathOverride: String = "",
 
+  /**
+   * When set, the app will try to use this path to find the model file.
+   *
+   * For testing purpose only.
+   */
+  val localModelFilePathOverride: String = "",
+
   // The following fields are only used for built-in tasks. Can ignore if you are creating your own
   // custom tasks.
   //
@@ -227,6 +234,10 @@ data class Model(
     if (imported) {
       return listOf(context.getExternalFilesDir(null)?.absolutePath ?: "", fileName)
         .joinToString(File.separator)
+    }
+
+    if (localModelFilePathOverride.isNotEmpty()) {
+      return localModelFilePathOverride
     }
 
     if (localFileRelativeDirPathOverride.isNotEmpty()) {

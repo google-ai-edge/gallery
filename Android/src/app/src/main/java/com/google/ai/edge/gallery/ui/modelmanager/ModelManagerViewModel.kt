@@ -788,6 +788,10 @@ constructor(
   }
 
   private fun isModelPartiallyDownloaded(model: Model): Boolean {
+    if (model.localModelFilePathOverride.isNotEmpty()) {
+      return false
+    }
+
     // A model is partially downloaded when the tmp file exists.
     val tmpFilePath =
       model.getPath(context = context, fileName = "${model.downloadFileName}.$TMP_FILE_EXT")
@@ -955,6 +959,11 @@ constructor(
     }
   }
 
+  private fun isFileInDataLocalTmpDir(fileName: String): Boolean {
+    val file = File("/data/local/tmp", fileName)
+    return file.exists()
+  }
+
   private fun deleteFileFromExternalFilesDir(fileName: String) {
     if (isFileInExternalFilesDir(fileName)) {
       val file = File(externalFilesDir, fileName)
@@ -981,12 +990,15 @@ constructor(
   }
 
   private fun isModelDownloaded(model: Model): Boolean {
+    val modelRelativePath =
+      listOf(model.normalizedName, model.version, model.downloadFileName)
+        .joinToString(File.separator)
     val downloadedFileExists =
       model.downloadFileName.isNotEmpty() &&
-        isFileInExternalFilesDir(
-          listOf(model.normalizedName, model.version, model.downloadFileName)
-            .joinToString(File.separator)
-        )
+        ((model.localModelFilePathOverride.isEmpty() &&
+          isFileInExternalFilesDir(modelRelativePath)) ||
+          (model.localModelFilePathOverride.isNotEmpty() &&
+            File(model.localModelFilePathOverride).exists()))
 
     val unzippedDirectoryExists =
       model.isZip &&
