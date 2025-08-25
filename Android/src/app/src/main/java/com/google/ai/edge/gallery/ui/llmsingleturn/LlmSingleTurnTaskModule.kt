@@ -57,7 +57,13 @@ class LlmSingleTurnTask @Inject constructor() : CustomTask {
     model: Model,
     onDone: (String) -> Unit,
   ) {
-    LlmChatModelHelper.initialize(context = context, task = task, model = model, onDone = onDone)
+    LlmChatModelHelper.initialize(
+      context = context,
+      model = model,
+      supportImage = false,
+      supportAudio = false,
+      onDone = onDone,
+    )
   }
 
   override fun cleanUpModelFn(

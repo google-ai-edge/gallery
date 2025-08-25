@@ -48,7 +48,13 @@ object LlmChatModelHelper {
   // Indexed by model name.
   private val cleanUpListeners: MutableMap<String, CleanUpListener> = mutableMapOf()
 
-  fun initialize(context: Context, task: Task, model: Model, onDone: (String) -> Unit) {
+  fun initialize(
+    context: Context,
+    model: Model,
+    supportImage: Boolean,
+    supportAudio: Boolean,
+    onDone: (String) -> Unit,
+  ) {
     // Prepare options.
     val maxTokens =
       model.getIntConfigValue(key = ConfigKeys.MAX_TOKENS, defaultValue = DEFAULT_MAX_TOKEN)
@@ -59,8 +65,8 @@ object LlmChatModelHelper {
     val accelerator =
       model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
     Log.d(TAG, "Initializing...")
-    val shouldEnableImage = model.llmSupportImage && task.id == BuiltInTaskId.LLM_ASK_IMAGE
-    val shouldEnableAudio = model.llmSupportAudio && task.id == BuiltInTaskId.LLM_ASK_AUDIO
+    val shouldEnableImage = supportImage
+    val shouldEnableAudio = supportAudio
     Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
     val preferredBackend =
       when (accelerator) {
