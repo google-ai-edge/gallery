@@ -20,6 +20,7 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -62,8 +63,25 @@ fun VideoAnalysisViewWrapper(
   modifier: Modifier = Modifier,
 ) {
   val context = LocalContext.current
-  val task = modelManagerViewModel.getTaskById(id = taskId)!!
+  val task = modelManagerViewModel.getTaskById(id = taskId)
   var capturedFrames by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
+
+  // Handle case when task is not yet loaded
+  if (task == null) {
+    // Trigger model allowlist loading if needed
+    LaunchedEffect(Unit) {
+      modelManagerViewModel.loadModelAllowlistWhenNeeded()
+    }
+    
+    // Show loading state
+    Box(
+      modifier = modifier.fillMaxSize(),
+      contentAlignment = Alignment.Center
+    ) {
+      CircularProgressIndicator()
+    }
+    return
+  }
 
   Column(modifier = modifier.fillMaxSize()) {
     // Video Analysis Quick Start Panel
@@ -72,9 +90,18 @@ fun VideoAnalysisViewWrapper(
         capturedFrames = frames
       },
       onAnalyzeFrames = { frames: List<Bitmap> ->
-        if (frames.isNotEmpty()) {
+        val selectedModel = modelManagerViewModel.uiState.value.selectedModel
+        if (frames.isNotEmpty() && selectedModel.name.isNotEmpty()) {
           // Auto-send the frames and analysis prompt to the chat
-          sendVideoAnalysisMessage(viewModel, modelManagerViewModel.uiState.value.selectedModel, frames, buildVideoAnalysisPrompt())
+          sendVideoAnalysisMessage(
+            viewModel = viewModel, 
+            model = selectedModel, 
+            frames = frames, 
+            prompt = buildVideoAnalysisPrompt(),
+            context = context,
+            task = task,
+            modelManagerViewModel = modelManagerViewModel
+          )
         }
       },
       modifier = Modifier.padding(16.dp)
@@ -87,24 +114,64 @@ fun VideoAnalysisViewWrapper(
       modelManagerViewModel = modelManagerViewModel,
       onSendMessage = { model, messages ->
         for (message in messages) {
-          viewModel.addMessage(model, message)
-          when (message) {
-            is ChatMessageText -> {
-              viewModel.generateResponse(model = model, input = message.content, onError = {})
-              firebaseAnalytics?.logEvent(
-                "message_sent",
-                bundleOf("message_length" to message.content.length, "task_id" to task.id)
-              )
-            }
+          viewModel.addMessage(model = model, message = message)
+        }
+
+        var text = ""
+        val images: MutableList<Bitmap> = mutableListOf()
+        var chatMessageText: ChatMessageText? = null
+        for (message in messages) {
+          if (message is ChatMessageText) {
+            chatMessageText = message
+            text = message.content
+          } else if (message is ChatMessageImage) {
+            images.addAll(message.bitmaps)
           }
+        }
+        if (text.isNotEmpty() && chatMessageText != null) {
+          modelManagerViewModel.addTextInputHistory(text)
+          viewModel.generateResponse(
+            model = model,
+            input = text,
+            images = images,
+            onError = {
+              viewModel.handleError(
+                context = context,
+                task = task,
+                model = model,
+                modelManagerViewModel = modelManagerViewModel,
+                triggeredMessage = chatMessageText,
+              )
+            },
+          )
+
+          firebaseAnalytics?.logEvent(
+            "generate_action",
+            bundleOf("capability_name" to task.id, "model_id" to model.name),
+          )
         }
       },
       onRunAgainClicked = { model, message ->
-        when (message) {
-          is ChatMessageText -> viewModel.runAgain(model, message, onError = {})
+        if (message is ChatMessageText) {
+          viewModel.runAgain(
+            model = model,
+            message = message,
+            onError = {
+              viewModel.handleError(
+                context = context,
+                task = task,
+                model = model,
+                modelManagerViewModel = modelManagerViewModel,
+                triggeredMessage = message,
+              )
+            },
+          )
         }
       },
       onBenchmarkClicked = { _, _, _, _ -> },
+      onResetSessionClicked = { model -> viewModel.resetSession(task = task, model = model) },
+      showStopButtonInInputWhenInProgress = true,
+      onStopButtonClicked = { model -> viewModel.stopResponse(model = model) },
       navigateUp = navigateUp,
       modifier = Modifier.weight(1f)
     )
@@ -118,7 +185,10 @@ private fun sendVideoAnalysisMessage(
   viewModel: LlmChatViewModelBase,
   model: Model,
   frames: List<Bitmap>,
-  prompt: String
+  prompt: String,
+  context: android.content.Context,
+  task: com.google.ai.edge.gallery.data.Task,
+  modelManagerViewModel: ModelManagerViewModel
 ) {
   // Add captured images to chat
   if (frames.isNotEmpty()) {
@@ -142,7 +212,15 @@ private fun sendVideoAnalysisMessage(
     model = model,
     input = prompt,
     images = frames,
-    onError = {}
+    onError = {
+      viewModel.handleError(
+        context = context,
+        task = task,
+        model = model,
+        modelManagerViewModel = modelManagerViewModel,
+        triggeredMessage = textMessage,
+      )
+    }
   )
 }
 

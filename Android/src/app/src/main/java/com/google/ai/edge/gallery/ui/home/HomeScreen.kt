@@ -149,6 +149,7 @@ private val PREDEFINED_LLM_TASK_ORDER =
   listOf(
     BuiltInTaskId.LLM_ASK_IMAGE,
     BuiltInTaskId.LLM_ASK_AUDIO,
+    BuiltInTaskId.VIDEO_ANALYSIS,
     BuiltInTaskId.LLM_PROMPT_LAB,
     BuiltInTaskId.LLM_CHAT,
   )
@@ -165,6 +166,11 @@ fun HomeScreen(
   var showSettingsDialog by remember { mutableStateOf(false) }
   var showImportModelSheet by remember { mutableStateOf(false) }
   var showUnsupportedFileTypeDialog by remember { mutableStateOf(false) }
+  
+  // Load models lazily when HomeScreen is first displayed - same pattern as Ask Image task
+  LaunchedEffect(Unit) {
+    modelManagerViewModel.loadModelAllowlistWhenNeeded()
+  }
   val sheetState = rememberModalBottomSheetState()
   var showImportDialog by remember { mutableStateOf(false) }
   var showImportingDialog by remember { mutableStateOf(false) }
@@ -526,9 +532,9 @@ fun HomeScreen(
       },
       title = { Text(uiState.loadingModelAllowlistError) },
       text = { Text("Please check your internet connection and try again later.") },
-      onDismissRequest = { modelManagerViewModel.loadModelAllowlist() },
+      onDismissRequest = { modelManagerViewModel.loadModelAllowlistWhenNeeded() },
       confirmButton = {
-        TextButton(onClick = { modelManagerViewModel.loadModelAllowlist() }) { Text("Retry") }
+        TextButton(onClick = { modelManagerViewModel.loadModelAllowlistWhenNeeded() }) { Text("Retry") }
       },
     )
   }

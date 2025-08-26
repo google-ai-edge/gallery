@@ -150,7 +150,7 @@ constructor(
   var curAccessToken: String = ""
 
   init {
-    loadModelAllowlist()
+    // Don't load model allowlist immediately - use lazy loading like Ask Image task
   }
 
   override fun onCleared() {
@@ -686,7 +686,12 @@ constructor(
     }
   }
 
-  fun loadModelAllowlist() {
+  fun loadModelAllowlistWhenNeeded() {
+    // Only load if not already loading or loaded
+    if (uiState.value.loadingModelAllowlist || uiState.value.tasks.isNotEmpty()) {
+      return
+    }
+    
     _uiState.update {
       uiState.value.copy(loadingModelAllowlist = true, loadingModelAllowlistError = "")
     }
@@ -762,7 +767,15 @@ constructor(
           _uiState.update { fullUiState }
         }
       } catch (e: Exception) {
+        Log.e(TAG, "Error loading model allowlist", e)
         e.printStackTrace()
+        // Ensure loading state is reset even when an exception occurs
+        _uiState.update {
+          uiState.value.copy(
+            loadingModelAllowlist = false,
+            loadingModelAllowlistError = "Failed to load model list"
+          )
+        }
       }
     }
   }
@@ -836,6 +849,7 @@ constructor(
       tasks = listOf(),
       modelDownloadStatus = mapOf(),
       modelInitializationStatus = mapOf(),
+      loadingModelAllowlist = false, // Start with false - lazy loading like Ask Image task
     )
   }
 

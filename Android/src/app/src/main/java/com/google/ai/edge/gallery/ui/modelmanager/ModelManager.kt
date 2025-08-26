@@ -47,6 +47,11 @@ fun ModelManager(
   onModelClicked: (Model) -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  // Load models lazily when ModelManager is displayed - same pattern as Ask Image task
+  LaunchedEffect(Unit) {
+    viewModel.loadModelAllowlistWhenNeeded()
+  }
+  
   // Set title based on the task.
   val title = task.label
   // Model count.
