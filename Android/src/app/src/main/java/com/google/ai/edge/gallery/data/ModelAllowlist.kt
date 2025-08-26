@@ -41,6 +41,7 @@ data class AllowedModel(
   val llmSupportAudio: Boolean? = null,
   val minDeviceMemoryInGb: Int? = null,
   val bestForTaskTypes: List<String>? = null,
+  val localModelFilePathOverride: String? = null,
 ) {
   fun toModel(): Model {
     // Construct HF download url.
@@ -104,6 +105,7 @@ data class AllowedModel(
       llmSupportImage = llmSupportImage == true,
       llmSupportAudio = llmSupportAudio == true,
       bestForTaskIds = bestForTaskTypes ?: listOf(),
+      localModelFilePathOverride = localModelFilePathOverride ?: "",
     )
   }
 

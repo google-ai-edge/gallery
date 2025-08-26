@@ -21,7 +21,6 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.google.ai.edge.gallery.common.cleanUpMediapipeTaskErrorMessage
 import com.google.ai.edge.gallery.data.Accelerator
-import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
@@ -29,7 +28,6 @@ import com.google.ai.edge.gallery.data.DEFAULT_TOPK
 import com.google.ai.edge.gallery.data.DEFAULT_TOPP
 import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.Task
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.genai.llminference.AudioModelOptions
 import com.google.mediapipe.tasks.genai.llminference.GraphOptions
@@ -48,7 +46,13 @@ object LlmChatModelHelper {
   // Indexed by model name.
   private val cleanUpListeners: MutableMap<String, CleanUpListener> = mutableMapOf()
 
-  fun initialize(context: Context, task: Task, model: Model, onDone: (String) -> Unit) {
+  fun initialize(
+    context: Context,
+    model: Model,
+    supportImage: Boolean,
+    supportAudio: Boolean,
+    onDone: (String) -> Unit,
+  ) {
     // Prepare options.
     val maxTokens =
       model.getIntConfigValue(key = ConfigKeys.MAX_TOKENS, defaultValue = DEFAULT_MAX_TOKEN)
@@ -59,8 +63,8 @@ object LlmChatModelHelper {
     val accelerator =
       model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
     Log.d(TAG, "Initializing...")
-    val shouldEnableImage = model.llmSupportImage && task.id == BuiltInTaskId.LLM_ASK_IMAGE
-    val shouldEnableAudio = model.llmSupportAudio && task.id == BuiltInTaskId.LLM_ASK_AUDIO
+    val shouldEnableImage = supportImage
+    val shouldEnableAudio = supportAudio
     Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
     val preferredBackend =
       when (accelerator) {
@@ -106,7 +110,7 @@ object LlmChatModelHelper {
     onDone("")
   }
 
-  fun resetSession(task: Task, model: Model) {
+  fun resetSession(model: Model, supportImage: Boolean, supportAudio: Boolean) {
     try {
       Log.d(TAG, "Resetting session for model '${model.name}'")
 
@@ -119,8 +123,8 @@ object LlmChatModelHelper {
       val topP = model.getFloatConfigValue(key = ConfigKeys.TOPP, defaultValue = DEFAULT_TOPP)
       val temperature =
         model.getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
-      val shouldEnableImage = model.llmSupportImage && task.id == BuiltInTaskId.LLM_ASK_IMAGE
-      val shouldEnableAudio = model.llmSupportAudio && task.id == BuiltInTaskId.LLM_ASK_AUDIO
+      val shouldEnableImage = supportImage
+      val shouldEnableAudio = supportAudio
       Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
       val newSession =
         LlmInferenceSession.createFromOptions(
