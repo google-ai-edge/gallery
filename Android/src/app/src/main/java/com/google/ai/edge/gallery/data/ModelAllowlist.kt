@@ -51,7 +51,8 @@ data class AllowedModel(
       taskTypes.contains(BuiltInTaskId.LLM_CHAT) ||
         taskTypes.contains(BuiltInTaskId.LLM_PROMPT_LAB) ||
         taskTypes.contains(BuiltInTaskId.LLM_ASK_AUDIO) ||
-        taskTypes.contains(BuiltInTaskId.LLM_ASK_IMAGE)
+        taskTypes.contains(BuiltInTaskId.LLM_ASK_IMAGE) ||
+        taskTypes.contains(BuiltInTaskId.VIDEO_ANALYSIS)
     var configs: List<Config> = listOf()
     if (isLlmModel) {
       val defaultTopK: Int = defaultConfig.topK ?: DEFAULT_TOPK

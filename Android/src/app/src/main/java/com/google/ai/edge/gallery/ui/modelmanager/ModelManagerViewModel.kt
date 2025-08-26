@@ -466,6 +466,7 @@ constructor(
             BuiltInTaskId.LLM_ASK_IMAGE,
             BuiltInTaskId.LLM_ASK_AUDIO,
             BuiltInTaskId.LLM_PROMPT_LAB,
+            BuiltInTaskId.VIDEO_ANALYSIS,
           )
       )) {
       // Remove duplicated imported model if existed.
@@ -477,7 +478,8 @@ constructor(
       if (
         (task.id == BuiltInTaskId.LLM_ASK_IMAGE && model.llmSupportImage) ||
           (task.id == BuiltInTaskId.LLM_ASK_AUDIO && model.llmSupportAudio) ||
-          (task.id != BuiltInTaskId.LLM_ASK_IMAGE && task.id != BuiltInTaskId.LLM_ASK_AUDIO)
+          (task.id == BuiltInTaskId.VIDEO_ANALYSIS && model.llmSupportImage) ||
+          (task.id != BuiltInTaskId.LLM_ASK_IMAGE && task.id != BuiltInTaskId.LLM_ASK_AUDIO && task.id != BuiltInTaskId.VIDEO_ANALYSIS)
       ) {
         task.models.add(model)
       }
@@ -721,10 +723,11 @@ constructor(
           return@launch
         }
 
-        Log.d(TAG, "Allowlist: $modelAllowlist")
+        Log.d(TAG, "Allowlist loaded successfully with ${modelAllowlist.models.size} models")
 
         // Convert models in the allowlist.
         val curTasks = customTasks.map { it.task }
+        Log.d(TAG, "Processing ${curTasks.size} tasks")
         for (allowedModel in modelAllowlist.models) {
           if (allowedModel.disabled == true) {
             continue
@@ -739,12 +742,25 @@ constructor(
 
         // Process all tasks.
         processTasks()
+        Log.d(TAG, "Tasks processed, updating UI state")
 
-        // Update UI state.
-        _uiState.update { createUiState().copy(loadingModelAllowlist = false, tasks = curTasks) }
+        // Update UI state immediately without expensive file checks
+        _uiState.update { 
+          uiState.value.copy(
+            loadingModelAllowlist = false, 
+            tasks = curTasks
+          ) 
+        }
 
-        // Process pending downloads.
-        processPendingDownloads()
+        // Process pending downloads asynchronously (non-blocking)
+        viewModelScope.launch(Dispatchers.IO) {
+          processPendingDownloads()
+          
+          // Update download statuses after initial load (background operation)
+          delay(100) // Small delay to ensure UI is responsive
+          val fullUiState = createUiState().copy(loadingModelAllowlist = false, tasks = curTasks)
+          _uiState.update { fullUiState }
+        }
       } catch (e: Exception) {
         e.printStackTrace()
       }
@@ -771,6 +787,8 @@ constructor(
   ): ModelAllowlist? {
     try {
       Log.d(TAG, "Reading model allowlist from disk: $fileName")
+      
+      // Try reading from external files directory first
       val file = File(externalFilesDir, fileName)
       if (file.exists()) {
         val content = file.readText()
@@ -779,6 +797,21 @@ constructor(
         val gson = Gson()
         return gson.fromJson(content, ModelAllowlist::class.java)
       }
+      
+      // Fallback: try reading from assets
+      Log.d(TAG, "File not found in external directory, trying assets: $fileName")
+      try {
+        val inputStream = context.assets.open(fileName)
+        val content = inputStream.bufferedReader().use { it.readText() }
+        inputStream.close()
+        Log.d(TAG, "Model allowlist content from assets: $content")
+
+        val gson = Gson()
+        return gson.fromJson(content, ModelAllowlist::class.java)
+      } catch (assetException: Exception) {
+        Log.w(TAG, "Failed to read from assets: $fileName", assetException)
+      }
+      
     } catch (e: Exception) {
       Log.e(TAG, "failed to read model allowlist from disk", e)
       return null
@@ -833,6 +866,7 @@ constructor(
       tasks.get(key = BuiltInTaskId.LLM_PROMPT_LAB)?.models?.add(model)
       if (model.llmSupportImage) {
         tasks.get(key = BuiltInTaskId.LLM_ASK_IMAGE)?.models?.add(model)
+        tasks.get(key = BuiltInTaskId.VIDEO_ANALYSIS)?.models?.add(model)
       }
       if (model.llmSupportAudio) {
         tasks.get(key = BuiltInTaskId.LLM_ASK_AUDIO)?.models?.add(model)

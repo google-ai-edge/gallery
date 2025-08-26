@@ -105,6 +105,7 @@ object BuiltInTaskId {
   const val LLM_PROMPT_LAB = "llm_prompt_lab"
   const val LLM_ASK_IMAGE = "llm_ask_image"
   const val LLM_ASK_AUDIO = "llm_ask_audio"
+  const val VIDEO_ANALYSIS = "video_analysis"
 }
 
 private val allBuiltInTaskIds: Set<String> =
@@ -113,6 +114,7 @@ private val allBuiltInTaskIds: Set<String> =
     BuiltInTaskId.LLM_PROMPT_LAB,
     BuiltInTaskId.LLM_ASK_IMAGE,
     BuiltInTaskId.LLM_ASK_AUDIO,
+    BuiltInTaskId.VIDEO_ANALYSIS,
   )
 
 fun isBuiltInTask(id: String): Boolean {

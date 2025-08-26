@@ -17,7 +17,7 @@
         "maxTokens": 4096,
         "accelerators": "cpu,gpu"
       },
-      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_ask_image", "llm_ask_audio"],
+      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_ask_image", "llm_ask_audio", "video_analysis"],
       "bestForTaskTypes": ["llm_ask_image", "llm_ask_audio"]
     },
     {

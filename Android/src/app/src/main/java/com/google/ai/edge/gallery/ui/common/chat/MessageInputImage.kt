@@ -206,6 +206,17 @@ fun MessageInputImage(
         tint = MaterialTheme.colorScheme.onPrimary,
       )
     }
+
+    // Video frame capture (1 FPS sampling)
+    VideoFrameCaptureButton(
+      onFramesCaptured = { frames ->
+        frames.forEach { bitmap ->
+          onImageSelected(bitmap)
+        }
+      },
+      enabled = !disableButtons,
+      modifier = Modifier.alpha(buttonAlpha)
+    )
   }
 
   // Live camera stream dialog.
