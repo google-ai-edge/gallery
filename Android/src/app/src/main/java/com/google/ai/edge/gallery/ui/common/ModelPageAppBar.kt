@@ -145,7 +145,7 @@ fun ModelPageAppBar(
           ) {
             Icon(
               imageVector = Icons.Rounded.Tune,
-              contentDescription = "",
+              contentDescription = "Model Setting Button",
               tint = MaterialTheme.colorScheme.onSurface,
               modifier = Modifier.size(20.dp),
             )

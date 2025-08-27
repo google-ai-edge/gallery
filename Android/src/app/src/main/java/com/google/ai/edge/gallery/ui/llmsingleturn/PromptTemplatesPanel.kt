@@ -84,6 +84,8 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -244,7 +246,10 @@ fun PromptTemplatesPanel(
                 ),
               textStyle = bodyLargeNarrow,
               placeholder = { Text("Enter content") },
-              modifier = Modifier.padding(bottom = 40.dp).focusRequester(focusRequester),
+              modifier =
+                Modifier.padding(bottom = 40.dp).focusRequester(focusRequester).semantics {
+                  contentDescription = "Content input field"
+                },
             )
           }
         }
@@ -386,7 +391,7 @@ fun PromptTemplatesPanel(
             ) {
               Icon(
                 Icons.AutoMirrored.Rounded.Send,
-                contentDescription = "",
+                contentDescription = "Send Prompt Button",
                 modifier = Modifier.size(20.dp).offset(x = 2.dp),
               )
             }
