@@ -20,17 +20,26 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.ui.common.DownloadAndTryButton
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
 import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.ai.edge.gallery.ui.common.chat.ChatViewModel
+import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import androidx.compose.ui.graphics.asImageBitmap
 
 @Composable
@@ -75,11 +84,20 @@ fun VideoAnalysisPromptButton(
 
 @Composable
 fun VideoAnalysisQuickStart(
+  task: Task,
+  model: Model,
+  modelManagerViewModel: ModelManagerViewModel,
   onFramesCaptured: (List<Bitmap>) -> Unit,
   onAnalyzeFrames: (List<Bitmap>) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   var capturedFrames by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
+  val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+  val downloadStatus by remember {
+    derivedStateOf { modelManagerUiState.modelDownloadStatus[model.name] }
+  }
+  val isModelReady = downloadStatus?.status == com.google.ai.edge.gallery.data.ModelDownloadStatusType.SUCCEEDED ||
+                     model.localFileRelativeDirPathOverride.isNotEmpty()
   
   Card(
     modifier = modifier.fillMaxWidth(),
@@ -108,32 +126,77 @@ fun VideoAnalysisQuickStart(
       
       Spacer(modifier = Modifier.height(16.dp))
       
-      Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-      ) {
-        com.google.ai.edge.gallery.ui.common.chat.VideoFrameCaptureButton(
-          onFramesCaptured = { frames ->
-            capturedFrames = frames
-            onFramesCaptured(frames)
-          },
-          enabled = true
-        )
-        
-        Button(
-          onClick = { onAnalyzeFrames(capturedFrames) },
-          enabled = capturedFrames.isNotEmpty()
+      if (isModelReady) {
+        // Show the capture and analyze workflow when model is ready
+        Row(
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalAlignment = Alignment.CenterVertically
         ) {
-          Text("Analyze ${capturedFrames.size} Frames")
+          com.google.ai.edge.gallery.ui.common.chat.VideoFrameCaptureButton(
+            onFramesCaptured = { frames ->
+              capturedFrames = frames
+              onFramesCaptured(frames)
+            },
+            enabled = true
+          )
+          
+          // "Try it!" button that shows when frames are captured
+          if (capturedFrames.isNotEmpty()) {
+            Button(
+              onClick = { onAnalyzeFrames(capturedFrames) },
+              colors = ButtonDefaults.buttonColors(
+                containerColor = com.google.ai.edge.gallery.ui.common.getTaskBgGradientColors(task = task)[1]
+              )
+            ) {
+              Icon(
+                Icons.AutoMirrored.Rounded.ArrowForward,
+                contentDescription = "",
+                tint = Color.White,
+                modifier = Modifier.size(18.dp)
+              )
+              Spacer(modifier = Modifier.width(8.dp))
+              Text(
+                stringResource(R.string.try_it),
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium,
+              )
+            }
+          } else {
+            // Show placeholder for Try it button
+            OutlinedButton(
+              onClick = { },
+              enabled = false
+            ) {
+              Icon(
+                Icons.AutoMirrored.Rounded.ArrowForward,
+                contentDescription = "",
+                modifier = Modifier.size(18.dp)
+              )
+              Spacer(modifier = Modifier.width(8.dp))
+              Text("Capture frames first")
+            }
+          }
         }
-      }
-      
-      if (capturedFrames.isNotEmpty()) {
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-          text = "✓ ${capturedFrames.size} frames captured and ready for analysis",
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onPrimaryContainer
+        
+        if (capturedFrames.isNotEmpty()) {
+          Spacer(modifier = Modifier.height(8.dp))
+          Text(
+            text = "✓ ${capturedFrames.size} frames captured and ready for analysis",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+          )
+        }
+      } else {
+        // Show download button when model is not ready
+        DownloadAndTryButton(
+          task = task,
+          model = model,
+          downloadStatus = downloadStatus,
+          enabled = true,
+          modelManagerViewModel = modelManagerViewModel,
+          onClicked = { },
+          compact = false,
+          canShowTryIt = false
         )
       }
     }

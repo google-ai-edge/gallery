@@ -85,12 +85,15 @@ fun VideoAnalysisViewWrapper(
 
   Column(modifier = modifier.fillMaxSize()) {
     // Video Analysis Quick Start Panel
+    val selectedModel = modelManagerViewModel.uiState.value.selectedModel
     VideoAnalysisQuickStart(
+      task = task,
+      model = selectedModel,
+      modelManagerViewModel = modelManagerViewModel,
       onFramesCaptured = { frames: List<Bitmap> ->
         capturedFrames = frames
       },
       onAnalyzeFrames = { frames: List<Bitmap> ->
-        val selectedModel = modelManagerViewModel.uiState.value.selectedModel
         if (frames.isNotEmpty() && selectedModel.name.isNotEmpty()) {
           // Auto-send the frames and analysis prompt to the chat
           sendVideoAnalysisMessage(

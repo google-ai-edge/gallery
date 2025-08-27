@@ -175,9 +175,15 @@ private fun VideoFrameCaptureDialog(
   
   fun initializeCamera() {
     try {
-      camera = Camera.open().apply {
+      val cameraId = 0 // Default to back camera
+      cameraDisplayOrientation = getCameraDisplayOrientation(context, cameraId)
+      
+      camera = Camera.open(cameraId).apply {
         surfaceView?.holder?.let { holder ->
           setPreviewDisplay(holder)
+          
+          // Set the display orientation to match device orientation
+          setDisplayOrientation(cameraDisplayOrientation)
           
           val parameters = this.parameters
           parameters?.let { params ->
@@ -206,7 +212,7 @@ private fun VideoFrameCaptureDialog(
             
             coroutineScope.launch {
               try {
-                val bitmap = convertFrameToBitmap(data, camera)
+                val bitmap = convertFrameToBitmap(data, camera, cameraDisplayOrientation)
                 bitmap?.let {
                   capturedFrames = capturedFrames + it
                   captureCount++
@@ -346,7 +352,7 @@ private fun VideoFrameCaptureDialog(
   }
 }
 
-private fun convertFrameToBitmap(data: ByteArray, camera: Camera?): Bitmap? {
+private fun convertFrameToBitmap(data: ByteArray, camera: Camera?, displayOrientation: Int): Bitmap? {
   return try {
     val parameters = camera?.parameters ?: return null
     val width = parameters.previewSize.width
@@ -357,7 +363,17 @@ private fun convertFrameToBitmap(data: ByteArray, camera: Camera?): Bitmap? {
     yuvImage.compressToJpeg(Rect(0, 0, width, height), 80, out)
     val imageBytes = out.toByteArray()
     
-    BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+    var bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+    
+    // Apply rotation if needed to match the display orientation
+    if (displayOrientation != 0 && bitmap != null) {
+      val matrix = Matrix().apply {
+        postRotate(displayOrientation.toFloat())
+      }
+      bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
+    
+    bitmap
   } catch (e: Exception) {
     Log.e(TAG, "Error converting frame to bitmap", e)
     null
