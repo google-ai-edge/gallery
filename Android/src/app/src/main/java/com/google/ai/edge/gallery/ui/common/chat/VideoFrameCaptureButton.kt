@@ -22,12 +22,15 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
+import android.graphics.Matrix
 import android.graphics.Rect
 import android.graphics.YuvImage
 import android.hardware.Camera
 import android.util.Log
+import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -48,6 +51,33 @@ import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 
 private const val TAG = "VideoFrameCaptureButton"
+
+/**
+ * Calculate the correct camera display orientation based on device rotation and camera info.
+ */
+private fun getCameraDisplayOrientation(context: Context, cameraId: Int): Int {
+  val cameraInfo = Camera.CameraInfo()
+  Camera.getCameraInfo(cameraId, cameraInfo)
+  
+  val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+  val rotation = windowManager.defaultDisplay.rotation
+  
+  val degrees = when (rotation) {
+    Surface.ROTATION_0 -> 0
+    Surface.ROTATION_90 -> 90
+    Surface.ROTATION_180 -> 180
+    Surface.ROTATION_270 -> 270
+    else -> 0
+  }
+  
+  return if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+    val result = (cameraInfo.orientation + degrees) % 360
+    (360 - result) % 360 // compensate for mirror
+  } else {
+    // back-facing camera
+    (cameraInfo.orientation - degrees + 360) % 360
+  }
+}
 
 @Composable
 fun VideoFrameCaptureButton(
@@ -127,6 +157,7 @@ private fun VideoFrameCaptureDialog(
   var captureCount by remember { mutableStateOf(0) }
   var capturedFrames by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
   var lastCaptureTime by remember { mutableStateOf(0L) }
+  var cameraDisplayOrientation by remember { mutableStateOf(0) }
   
   val captureIntervalMs = 1000L // 1 FPS
   
