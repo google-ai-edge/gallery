@@ -106,6 +106,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -312,7 +314,11 @@ fun MessageInputText(
         onClick = { showAddContentMenu = true },
         modifier = Modifier.offset(x = 16.dp).alpha(0.8f),
       ) {
-        Icon(Icons.Rounded.Add, contentDescription = "", modifier = Modifier.size(28.dp))
+        Icon(
+          Icons.Rounded.Add,
+          contentDescription = "Image menu button",
+          modifier = Modifier.size(28.dp),
+        )
       }
       Row(
         modifier =
@@ -497,7 +503,10 @@ fun MessageInputText(
               disabledContainerColor = Color.Transparent,
             ),
           textStyle = bodyLargeNarrow,
-          modifier = Modifier.weight(1f).padding(start = 36.dp),
+          modifier =
+            Modifier.weight(1f).padding(start = 36.dp).semantics {
+              contentDescription = "Ask image content input text field"
+            },
           placeholder = { Text(stringResource(textFieldPlaceHolderRes)) },
         )
 
@@ -542,7 +551,7 @@ fun MessageInputText(
           ) {
             Icon(
               Icons.AutoMirrored.Rounded.Send,
-              contentDescription = "",
+              contentDescription = "Ask image send button",
               modifier = Modifier.offset(x = 2.dp),
               tint = MaterialTheme.colorScheme.onSurface,
             )
@@ -680,7 +689,8 @@ fun MessageInputText(
             Modifier.align(Alignment.BottomCenter)
               .padding(bottom = 32.dp)
               .size(size = 64.dp)
-              .border(width = 2.dp, color = MaterialTheme.colorScheme.onPrimary, CircleShape),
+              .border(width = 2.dp, color = MaterialTheme.colorScheme.onPrimary, CircleShape)
+              .semantics { contentDescription = "Camera shutter button" },
           onClick = {
             val callback =
               object : ImageCapture.OnImageCapturedCallback() {
