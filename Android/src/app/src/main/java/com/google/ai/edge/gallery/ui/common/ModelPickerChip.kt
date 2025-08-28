@@ -117,7 +117,7 @@ fun ModelPickerChip(
           }
         }
         Text(
-          initialModel.name,
+          initialModel.displayName.ifEmpty { initialModel.name },
           style = MaterialTheme.typography.labelLarge,
           modifier = Modifier.padding(start = 4.dp).widthIn(0.dp, screenWidthDp - 250.dp),
           maxLines = 1,

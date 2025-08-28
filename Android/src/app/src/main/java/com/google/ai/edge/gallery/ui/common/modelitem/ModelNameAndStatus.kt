@@ -105,7 +105,7 @@ fun ModelNameAndStatus(
 
       // Model name and action buttons.
       Text(
-        model.name,
+        model.displayName.ifEmpty { model.name },
         maxLines = 1,
         overflow = TextOverflow.MiddleEllipsis,
         style = MaterialTheme.typography.titleMedium,
@@ -210,7 +210,7 @@ fun ModelNameAndStatus(
       }
 
       // Learn more url.
-      if (!model.imported) {
+      if (!model.imported && model.learnMoreUrl.isNotEmpty()) {
         Row(
           verticalAlignment = Alignment.CenterVertically,
           modifier =

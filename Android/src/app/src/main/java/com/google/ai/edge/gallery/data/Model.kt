@@ -39,13 +39,20 @@ data class PromptTemplate(val title: String, val description: String, val prompt
  */
 data class Model(
   /**
-   * The name of the model for display purpose.
+   * The name of the model.
    *
-   * This name is also used to uniquely identify this model among all the tasks.
+   * This field is used to uniquely identify this model among all the tasks.
    *
    * IMPORTANT: it shouldn't contain "/" character.
    */
   val name: String,
+
+  /**
+   * The display name of the model, for display purpose.
+   *
+   * If this field is not set, the `name` field above will be used as the default display name.
+   */
+  val displayName: String = "",
 
   /**
    * (optional)

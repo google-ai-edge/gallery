@@ -66,6 +66,7 @@ fun LiveCameraView(
   @ImageAnalysis.OutputImageFormat
   outputImageFormat: Int = ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888,
   renderPreview: Boolean = true,
+  cameraSelector: CameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA,
 ) {
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
@@ -90,6 +91,7 @@ fun LiveCameraView(
               onBitmap = onBitmapFn,
               preferredSize = preferredSize,
               outputImageFormat = outputImageFormat,
+              cameraSelector = cameraSelector,
             )
         }
       }
@@ -107,6 +109,7 @@ fun LiveCameraView(
             onBitmap = onBitmapFn,
             preferredSize = preferredSize,
             outputImageFormat = outputImageFormat,
+            cameraSelector = cameraSelector,
           )
       }
 
@@ -169,6 +172,7 @@ private suspend fun startCamera(
   onBitmap: (Bitmap, ImageProxy) -> Unit,
   preferredSize: Int,
   @ImageAnalysis.OutputImageFormat outputImageFormat: Int,
+  cameraSelector: CameraSelector,
 ): ProcessCameraProvider {
   val cameraProvider = ProcessCameraProvider.awaitInstance(context)
 
@@ -195,7 +199,9 @@ private suspend fun startCamera(
           if (rotation != 0) {
             matrix.postRotate(rotation.toFloat())
           }
-          matrix.postScale(-1f, 1f)
+          if (cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA) {
+            matrix.postScale(-1f, 1f)
+          }
           bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
           //  The caller is responsible of calling `.close` on imageProxy to mark that the
           //  processing of the current frame is done.
@@ -203,7 +209,6 @@ private suspend fun startCamera(
         }
       }
 
-  val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
   try {
     cameraProvider.unbindAll()
     cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, imageAnalysis)

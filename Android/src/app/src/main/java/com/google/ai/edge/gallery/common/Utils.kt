@@ -17,15 +17,22 @@
 package com.google.ai.edge.gallery.common
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.net.Uri
 import android.util.Log
+import androidx.exifinterface.media.ExifInterface
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.gson.Gson
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.abs
 import kotlin.math.floor
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 private const val TAG = "AGUtils"
 
@@ -196,4 +203,86 @@ private fun resample(
   }
 
   return resampledData
+}
+
+fun calculatePeakAmplitude(buffer: ByteArray, bytesRead: Int): Int {
+  // Wrap the byte array in a ByteBuffer and set the order to little-endian
+  val shortBuffer =
+    ByteBuffer.wrap(buffer, 0, bytesRead).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
+
+  var maxAmplitude = 0
+  // Iterate through the short buffer to find the maximum absolute value
+  while (shortBuffer.hasRemaining()) {
+    val currentSample = abs(shortBuffer.get().toInt())
+    if (currentSample > maxAmplitude) {
+      maxAmplitude = currentSample
+    }
+  }
+  return maxAmplitude
+}
+
+fun decodeSampledBitmapFromUri(context: Context, uri: Uri, reqWidth: Int, reqHeight: Int): Bitmap? {
+  // First, decode with inJustDecodeBounds=true to check dimensions
+  val options =
+    BitmapFactory.Options().apply {
+      inJustDecodeBounds = true
+      context.contentResolver.openInputStream(uri)?.use {
+        BitmapFactory.decodeStream(it, null, this)
+      }
+
+      // Calculate inSampleSize
+      inSampleSize = calculateInSampleSize(this, reqWidth, reqHeight)
+
+      // Decode bitmap with inSampleSize set
+      inJustDecodeBounds = false
+    }
+
+  return context.contentResolver.openInputStream(uri)?.use {
+    BitmapFactory.decodeStream(it, null, options)
+  }
+}
+
+fun rotateBitmap(bitmap: Bitmap, orientation: Int): Bitmap {
+  val matrix = Matrix()
+  when (orientation) {
+    ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+    ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+    ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+    ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.preScale(-1.0f, 1.0f)
+    ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.preScale(1.0f, -1.0f)
+    ExifInterface.ORIENTATION_TRANSPOSE -> {
+      matrix.postRotate(90f)
+      matrix.preScale(-1.0f, 1.0f)
+    }
+    ExifInterface.ORIENTATION_TRANSVERSE -> {
+      matrix.postRotate(270f)
+      matrix.preScale(-1.0f, 1.0f)
+    }
+    ExifInterface.ORIENTATION_NORMAL -> return bitmap
+    else -> return bitmap
+  }
+  return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+}
+
+private fun calculateInSampleSize(
+  options: BitmapFactory.Options,
+  reqWidth: Int,
+  reqHeight: Int,
+): Int {
+  // Raw height and width of image
+  val height: Int = options.outHeight
+  val width: Int = options.outWidth
+  var inSampleSize = 1
+
+  if (height > reqHeight || width > reqWidth) {
+    // Calculate the ratio of height and width to the requested height and width
+    val heightRatio = (height.toFloat() / reqHeight.toFloat()).roundToInt()
+    val widthRatio = (width.toFloat() / reqWidth.toFloat()).roundToInt()
+
+    // Choose the largest ratio as inSampleSize value to ensure
+    // that both dimensions are smaller than or equal to the requested dimensions.
+    inSampleSize = max(heightRatio, widthRatio)
+  }
+
+  return inSampleSize
 }

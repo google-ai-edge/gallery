@@ -61,13 +61,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.common.calculatePeakAmplitude
 import com.google.ai.edge.gallery.data.MAX_AUDIO_CLIP_DURATION_SEC
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.ui.theme.customColors
 import java.io.ByteArrayOutputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import kotlin.math.abs
 import kotlin.math.pow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
@@ -96,7 +94,7 @@ fun AudioRecorderPanel(onSendAudioClip: (ByteArray) -> Unit) {
   var currentAmplitude by remember { mutableIntStateOf(0) }
 
   val elapsedSeconds by remember {
-    derivedStateOf { "%.1f".format(elapsedMs.value.toFloat() / 1000f) }
+    derivedStateOf { "%.1f".format(elapsedMs.longValue.toFloat() / 1000f) }
   }
 
   // Cleanup on Composable Disposal.
@@ -272,7 +270,7 @@ private suspend fun startRecording(
       recorder.startRecording()
 
       val startMs = System.currentTimeMillis()
-      elapsedMs.value = 0L
+      elapsedMs.longValue = 0L
       while (audioRecordState.value?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
         val bytesRead = recorder.read(buffer, 0, buffer.size)
         if (bytesRead > 0) {
@@ -280,8 +278,8 @@ private suspend fun startRecording(
           onAmplitudeChanged(currentAmplitude)
           audioStream.write(buffer, 0, bytesRead)
         }
-        elapsedMs.value = System.currentTimeMillis() - startMs
-        if (elapsedMs.value >= MAX_AUDIO_CLIP_DURATION_SEC * 1000) {
+        elapsedMs.longValue = System.currentTimeMillis() - startMs
+        if (elapsedMs.longValue >= MAX_AUDIO_CLIP_DURATION_SEC * 1000) {
           onMaxDurationReached()
           break
         }
@@ -308,20 +306,4 @@ private fun stopRecording(
   Log.d(TAG, "Stopped. Recorded ${recordedBytes.size} bytes.")
 
   return recordedBytes
-}
-
-private fun calculatePeakAmplitude(buffer: ByteArray, bytesRead: Int): Int {
-  // Wrap the byte array in a ByteBuffer and set the order to little-endian
-  val shortBuffer =
-    ByteBuffer.wrap(buffer, 0, bytesRead).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
-
-  var maxAmplitude = 0
-  // Iterate through the short buffer to find the maximum absolute value
-  while (shortBuffer.hasRemaining()) {
-    val currentSample = abs(shortBuffer.get().toInt())
-    if (currentSample > maxAmplitude) {
-      maxAmplitude = currentSample
-    }
-  }
-  return maxAmplitude
 }

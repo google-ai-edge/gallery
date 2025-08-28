@@ -112,7 +112,10 @@ fun ModelPicker(
       ) {
         Spacer(modifier = Modifier.width(24.dp))
         Column(modifier = Modifier.weight(1f)) {
-          Text(model.name, style = MaterialTheme.typography.bodyMedium)
+          Text(
+            model.displayName.ifEmpty { model.name },
+            style = MaterialTheme.typography.bodyMedium,
+          )
           Row(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,

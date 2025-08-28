@@ -123,6 +123,11 @@ data class ModelManagerUiState(
     return modelInitializationStatus[model.name]?.status ==
       ModelInitializationStatusType.INITIALIZED
   }
+
+  fun isModelInitializing(model: Model): Boolean {
+    return modelInitializationStatus[model.name]?.status ==
+      ModelInitializationStatusType.INITIALIZING
+  }
 }
 
 /**
