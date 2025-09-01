@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   // Note: set apply to true to enable google-services (requires google-services.json).
@@ -31,6 +33,13 @@ android {
   namespace = "com.google.ai.edge.gallery"
   compileSdk = 35
 
+  // Load local.properties file for HuggingFace credentials
+  val localProperties = Properties()
+  val localPropertiesFile = rootProject.file("local.properties")
+  if (localPropertiesFile.exists()) {
+    localProperties.load(localPropertiesFile.inputStream())
+  }
+
   defaultConfig {
     applicationId = "com.google.aiedge.gallery"
     minSdk = 31
@@ -41,10 +50,19 @@ android {
     // Needed for HuggingFace auth workflows.
     // Use the scheme of the "Redirect URLs" in HuggingFace app.
     manifestPlaceholders["appAuthRedirectScheme"] =
-        "REPLACE_WITH_YOUR_REDIRECT_SCHEME_IN_HUGGINGFACE_APP"
+        localProperties.getProperty("HF_REDIRECT_SCHEME") ?: "com.google.ai.edge.gallery"
+    
+    // Add HuggingFace configuration from local.properties
+    buildConfigField("String", "HF_CLIENT_ID", "\"${localProperties.getProperty("HF_CLIENT_ID") ?: ""}\"")
+    buildConfigField("String", "HF_REDIRECT_URI", "\"${localProperties.getProperty("HF_REDIRECT_URI") ?: ""}\"")
+    buildConfigField("String", "HF_REDIRECT_SCHEME", "\"${localProperties.getProperty("HF_REDIRECT_SCHEME") ?: ""}\"")
     manifestPlaceholders["applicationName"] = "com.google.ai.edge.gallery.GalleryApplication"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  }
+
+  buildFeatures {
+    buildConfig = true
   }
 
   buildTypes {

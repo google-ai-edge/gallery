@@ -383,7 +383,13 @@ fun ChatPanel(
                   Box(modifier = messageBubbleModifier) {
                     when (message) {
                       // Text
-                      is ChatMessageText -> MessageBodyText(message = message)
+                      is ChatMessageText -> {
+                        val isStreamingMessage =
+                          uiState.inProgress &&
+                            message.side == ChatSide.AGENT &&
+                            messages.lastOrNull { it.side == ChatSide.AGENT } == message
+                        MessageBodyText(message = message, isStreaming = isStreamingMessage)
+                      }
 
                       // Image
                       is ChatMessageImage -> {
@@ -669,7 +675,7 @@ fun ChatPanel(
             ) {
               Icon(
                 Icons.Rounded.ContentCopy,
-                contentDescription = "",
+                contentDescription = "Copy to clipboard",
                 modifier = Modifier.size(18.dp),
               )
               Text("Copy text")

@@ -99,7 +99,7 @@ fun ModelPageAppBar(
             task.icon ?: ImageVector.vectorResource(task.iconVectorResourceId!!),
             tint = getTaskIconColor(task = task),
             modifier = Modifier.size(16.dp),
-            contentDescription = "",
+            contentDescription = null,
           )
           Text(
             task.label,
@@ -124,7 +124,7 @@ fun ModelPageAppBar(
     navigationIcon = {
       val enableBackButton = !isModelInitializing && !inProgress
       IconButton(onClick = onBackClicked, enabled = enableBackButton) {
-        Icon(imageVector = Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "")
+        Icon(imageVector = Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Go back")
       }
     },
     // The config button for the model (if existed).
@@ -176,7 +176,7 @@ fun ModelPageAppBar(
               ) {
                 Icon(
                   imageVector = Icons.Rounded.MapsUgc,
-                  contentDescription = "",
+                  contentDescription = "Reset session",
                   tint = MaterialTheme.colorScheme.onSurface,
                   modifier = Modifier.size(20.dp),
                 )

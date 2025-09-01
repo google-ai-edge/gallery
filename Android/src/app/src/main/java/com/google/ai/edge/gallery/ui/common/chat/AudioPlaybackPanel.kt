@@ -145,7 +145,7 @@ fun AudioPlaybackPanel(
     ) {
       Icon(
         if (isPlaying) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
-        contentDescription = "",
+        contentDescription = if (isPlaying) "Stop playback" else "Play audio",
         tint = if (onDarkBg) Color.White else MaterialTheme.colorScheme.primary,
       )
     }

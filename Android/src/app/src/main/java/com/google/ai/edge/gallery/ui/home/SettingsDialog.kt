@@ -273,7 +273,7 @@ fun SettingsDialog(
                           hfToken = modelManagerViewModel.getTokenStatusAndData().data
                         },
                       ) {
-                        Icon(Icons.Rounded.CheckCircle, contentDescription = "")
+                        Icon(Icons.Rounded.CheckCircle, contentDescription = "Selected")
                       }
                     }
                   }

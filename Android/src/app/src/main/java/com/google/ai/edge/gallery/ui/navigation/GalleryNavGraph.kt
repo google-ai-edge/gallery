@@ -49,7 +49,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.zIndex
 import androidx.core.os.bundleOf
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -180,10 +179,10 @@ fun GalleryNavHost(
     startDestination = ROUTE_PLACEHOLDER,
     enterTransition = { EnterTransition.None },
     exitTransition = { ExitTransition.None },
-    modifier = modifier.zIndex(1f),
+    modifier = Modifier,
   ) {
     // Placeholder root screen
-    composable(route = ROUTE_PLACEHOLDER) { Text("") }
+    composable(route = ROUTE_PLACEHOLDER) { /* Empty placeholder */ }
 
     composable(
       route = "$ROUTE_MODEL/{taskId}/{modelName}",

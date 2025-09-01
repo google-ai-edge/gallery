@@ -78,7 +78,7 @@ fun ModelPicker(
         task.icon ?: ImageVector.vectorResource(task.iconVectorResourceId!!),
         tint = getTaskIconColor(task = task),
         modifier = Modifier.size(16.dp),
-        contentDescription = "",
+        contentDescription = "${task.label} task",
       )
       Text(
         "${task.label} models",
@@ -135,7 +135,7 @@ fun ModelPicker(
           }
         }
         if (selected) {
-          Icon(Icons.Filled.CheckCircle, modifier = Modifier.size(16.dp), contentDescription = "")
+          Icon(Icons.Filled.CheckCircle, modifier = Modifier.size(16.dp), contentDescription = "Selected")
         }
       }
     }

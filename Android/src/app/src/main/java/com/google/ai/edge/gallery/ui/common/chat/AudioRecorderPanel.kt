@@ -202,7 +202,7 @@ fun AudioRecorderPanel(
       ) {
         Icon(
           if (isRecording) Icons.Rounded.ArrowUpward else Icons.Rounded.Mic,
-          contentDescription = "",
+          contentDescription = if (isRecording) "Send audio clip" else "Start recording",
           tint = Color.White,
         )
       }

@@ -57,7 +57,7 @@ fun StatusIcon(
       Icon(
         Icons.Filled.DownloadForOffline,
         tint = getTaskBgGradientColors(task = task)[1],
-        contentDescription = "",
+        contentDescription = "Downloaded",
         modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
       )
     } else {
@@ -66,7 +66,7 @@ fun StatusIcon(
           Icon(
             Icons.AutoMirrored.Outlined.HelpOutline,
             tint = MaterialTheme.customColors.modelInfoIconColor,
-            contentDescription = "",
+            contentDescription = "Not downloaded",
             modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
           )
 
@@ -74,7 +74,7 @@ fun StatusIcon(
           Icon(
             Icons.Filled.DownloadForOffline,
             tint = getTaskBgGradientColors(task = task)[1],
-            contentDescription = "",
+            contentDescription = "Downloaded",
             modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
           )
         }
@@ -83,14 +83,14 @@ fun StatusIcon(
           Icon(
             Icons.Rounded.Error,
             tint = Color(0xFFAA0000),
-            contentDescription = "",
+            contentDescription = "Download failed",
             modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
           )
 
         ModelDownloadStatusType.IN_PROGRESS ->
           Icon(
             Icons.Rounded.Downloading,
-            contentDescription = "",
+            contentDescription = "Downloading",
             modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
           )
 

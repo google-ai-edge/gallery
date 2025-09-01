@@ -55,6 +55,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.modelitem.StatusIcon
@@ -95,6 +99,10 @@ fun ModelPickerChip(
               modelPickerModel = initialModel
               showModelPicker = true
             }
+            .semantics {
+              contentDescription = "Model selector: ${initialModel.displayName.ifEmpty { initialModel.name }}"
+              role = Role.Button
+            }
             .padding(start = 8.dp, end = 2.dp)
             .padding(vertical = 4.dp)
             .graphicsLayer { alpha = if (enabled) 1f else 0.6f },
@@ -126,7 +134,7 @@ fun ModelPickerChip(
           maxLines = 1,
           overflow = TextOverflow.MiddleEllipsis,
         )
-        Icon(Icons.Rounded.ArrowDropDown, modifier = Modifier.size(20.dp), contentDescription = "")
+        Icon(Icons.Rounded.ArrowDropDown, modifier = Modifier.size(20.dp), contentDescription = null)
       }
     }
   }
@@ -134,7 +142,10 @@ fun ModelPickerChip(
   // Model picker.
   val curModelPickerModel = modelPickerModel
   if (showModelPicker && curModelPickerModel != null) {
-    ModalBottomSheet(onDismissRequest = { showModelPicker = false }, sheetState = sheetState) {
+    ModalBottomSheet(
+      onDismissRequest = { showModelPicker = false },
+      sheetState = sheetState
+    ) {
       ModelPicker(
         task = task,
         modelManagerViewModel = modelManagerViewModel,

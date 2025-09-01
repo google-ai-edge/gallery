@@ -363,7 +363,7 @@ fun DownloadAndTryButton(
         Icon(
           if (needToDownloadFirst) Icons.Outlined.FileDownload
           else Icons.AutoMirrored.Rounded.ArrowForward,
-          contentDescription = "",
+          contentDescription = null,
           tint = textColor,
         )
 
@@ -440,7 +440,7 @@ fun DownloadAndTryButton(
         ) {
           Icon(
             Icons.Outlined.Close,
-            contentDescription = "",
+            contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurface,
           )
         }
@@ -499,7 +499,7 @@ fun DownloadAndTryButton(
   if (showErrorDialog) {
     AlertDialog(
       icon = {
-        Icon(Icons.Rounded.Error, contentDescription = "", tint = MaterialTheme.colorScheme.error)
+        Icon(Icons.Rounded.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
       },
       title = { Text("Unknown network error") },
       text = { Text("Please check your internet connection.") },

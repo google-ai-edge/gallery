@@ -57,6 +57,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
@@ -99,17 +101,21 @@ fun ModelItem(
       .background(color = MaterialTheme.customColors.taskCardBgColor)
   boxModifier =
     if (canExpand) {
-      boxModifier.clickable(
-        onClick = {
-          if (!model.imported) {
-            isExpanded = !isExpanded
-          } else {
-            onModelClicked(model)
-          }
-        },
-        interactionSource = remember { MutableInteractionSource() },
-        indication = ripple(bounded = true, radius = 1000.dp),
-      )
+      boxModifier
+        .semantics {
+          contentDescription = "${model.displayName.ifEmpty { model.name }}, ${if (isExpanded) "expanded" else "collapsed"}"
+        }
+        .clickable(
+          onClick = {
+            if (!model.imported) {
+              isExpanded = !isExpanded
+            } else {
+              onModelClicked(model)
+            }
+          },
+          interactionSource = remember { MutableInteractionSource() },
+          indication = ripple(bounded = true, radius = 1000.dp),
+        )
     } else {
       boxModifier
     }
@@ -138,7 +144,7 @@ fun ModelItem(
           @Composable {
             Icon(
               if (isExpanded) Icons.Rounded.UnfoldLess else Icons.Rounded.UnfoldMore,
-              contentDescription = "",
+              contentDescription = if (isExpanded) "Collapse" else "Expand",
               tint = MaterialTheme.colorScheme.onSurfaceVariant,
               modifier =
                 Modifier.alpha(0.6f)

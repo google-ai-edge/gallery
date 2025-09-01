@@ -255,7 +255,7 @@ fun ChatView(
           ) {
             Icon(
               Icons.Rounded.Close,
-              contentDescription = "",
+              contentDescription = "Close image viewer",
               tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }

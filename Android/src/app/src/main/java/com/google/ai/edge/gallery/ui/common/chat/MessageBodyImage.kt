@@ -51,7 +51,7 @@ fun MessageBodyImage(
 
     Image(
       bitmap = imageBitMap,
-      contentDescription = "",
+      contentDescription = "User image",
       modifier =
         modifier.height(imageHeight.dp).width(imageWidth.dp).clickable {
           onImageClicked(message.bitmaps, 0)
@@ -82,7 +82,7 @@ fun MessageBodyImage(
             val imageBitMap = message.imageBitMaps[imageIndex]
             Image(
               bitmap = imageBitMap,
-              contentDescription = "",
+              contentDescription = "User image ${imageIndex + 1} of $imageCount",
               modifier =
                 Modifier.height(100.dp).width(100.dp).clickable {
                   onImageClicked(message.bitmaps, imageIndex)

@@ -101,6 +101,8 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.core.os.bundleOf
 import com.google.ai.edge.gallery.GalleryTopAppBar
 import com.google.ai.edge.gallery.R
@@ -469,7 +471,7 @@ fun HomeScreen(
           horizontalArrangement = Arrangement.spacedBy(6.dp),
           modifier = Modifier.fillMaxWidth().padding(16.dp),
         ) {
-          Icon(Icons.AutoMirrored.Outlined.NoteAdd, contentDescription = "")
+          Icon(Icons.AutoMirrored.Outlined.NoteAdd, contentDescription = "Import model")
           Text("From local model file")
         }
       }
@@ -542,7 +544,7 @@ fun HomeScreen(
   if (uiState.loadingModelAllowlistError.isNotEmpty()) {
     AlertDialog(
       icon = {
-        Icon(Icons.Rounded.Error, contentDescription = "", tint = MaterialTheme.colorScheme.error)
+        Icon(Icons.Rounded.Error, contentDescription = "Error", tint = MaterialTheme.colorScheme.error)
       },
       title = { Text(uiState.loadingModelAllowlistError) },
       text = { Text("Please check your internet connection and try again later.") },
@@ -848,6 +850,8 @@ private fun TaskCard(task: Task, index: Int, onClick: () -> Unit, modifier: Modi
     modifier =
       modifier.clip(RoundedCornerShape(24.dp)).clickable(onClick = onClick).graphicsLayer {
         alpha = progress
+      }.semantics {
+        contentDescription = "${task.label} task with $curModelCountLabel"
       },
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.customColors.taskCardBgColor),
   ) {

@@ -17,19 +17,20 @@
 package com.google.ai.edge.gallery.common
 
 import androidx.core.net.toUri
+import com.google.ai.edge.gallery.BuildConfig
 import net.openid.appauth.AuthorizationServiceConfiguration
 
 object ProjectConfig {
-  // Hugging Face Client ID.
+  // Hugging Face Client ID from BuildConfig (loaded from local.properties)
   //
-  const val clientId = "REPLACE_WITH_YOUR_CLIENT_ID_IN_HUGGINGFACE_APP"
+  val clientId = BuildConfig.HF_CLIENT_ID
 
-  // Registered redirect URI.
+  // Registered redirect URI from BuildConfig (loaded from local.properties)
   //
   // The scheme needs to match the
   // "android.defaultConfig.manifestPlaceholders["appAuthRedirectScheme"]" field in
   // "build.gradle.kts".
-  const val redirectUri = "REPLACE_WITH_YOUR_REDIRECT_URI_IN_HUGGINGFACE_APP"
+  val redirectUri = BuildConfig.HF_REDIRECT_URI
 
   // OAuth 2.0 Endpoints (Authorization + Token Exchange)
   private const val authEndpoint = "https://huggingface.co/oauth/authorize"

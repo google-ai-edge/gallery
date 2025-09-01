@@ -30,6 +30,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -120,7 +124,12 @@ fun ModelDownloadingAnimation(
           style = MaterialTheme.typography.labelMedium,
           textAlign = TextAlign.Center,
           overflow = TextOverflow.Visible,
-          modifier = Modifier.padding(bottom = 4.dp),
+          modifier = Modifier
+            .padding(bottom = 4.dp)
+            .semantics {
+              liveRegion = LiveRegionMode.Polite
+              contentDescription = "Download progress: $sizeLabel"
+            },
         )
       }
     }

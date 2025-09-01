@@ -332,7 +332,7 @@ fun ModelImportingDialog(
           ) {
             Icon(
               Icons.Rounded.Error,
-              contentDescription = "",
+              contentDescription = null,
               tint = MaterialTheme.colorScheme.error,
             )
             Text(

@@ -72,7 +72,7 @@ fun GalleryTopAppBar(
             Icon(
               painterResource(R.drawable.logo),
               modifier = Modifier.size(20.dp),
-              contentDescription = "",
+              contentDescription = "Edge Gallery logo",
               tint = Color.Unspecified,
             )
           }
@@ -101,7 +101,7 @@ fun GalleryTopAppBar(
       when (leftAction?.actionType) {
         AppBarActionType.NAVIGATE_UP -> {
           IconButton(onClick = leftAction.actionFn) {
-            Icon(imageVector = Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "")
+            Icon(imageVector = Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Navigate back")
           }
         }
 
@@ -109,7 +109,7 @@ fun GalleryTopAppBar(
           IconButton(onClick = leftAction.actionFn) {
             Icon(
               imageVector = Icons.Rounded.Refresh,
-              contentDescription = "",
+              contentDescription = "Refresh models",
               tint = MaterialTheme.colorScheme.secondary,
             )
           }
@@ -134,7 +134,7 @@ fun GalleryTopAppBar(
           IconButton(onClick = rightAction.actionFn) {
             Icon(
               imageVector = Icons.Rounded.Settings,
-              contentDescription = "",
+              contentDescription = "Settings",
               tint = MaterialTheme.colorScheme.onSurface,
             )
           }
