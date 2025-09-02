@@ -86,7 +86,9 @@ abstract class ChatViewModel() : ViewModel() {
     val newMessages = newMessagesByModel[model.name]?.toMutableList()
     if (newMessages != null) {
       newMessagesByModel[model.name] = newMessages
-      newMessages.removeAt(index)
+      if (index >= 0 && index < newMessages.size) {
+        newMessages.removeAt(index)
+      }
     }
     _uiState.update { _uiState.value.copy(messagesByModel = newMessagesByModel) }
   }
@@ -174,7 +176,7 @@ abstract class ChatViewModel() : ViewModel() {
   fun replaceMessage(model: Model, index: Int, message: ChatMessage) {
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
     val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
-    if (newMessages.size > 0) {
+    if (index >= 0 && index < newMessages.size) {
       newMessages[index] = message
     }
     newMessagesByModel[model.name] = newMessages
