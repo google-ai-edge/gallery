@@ -285,10 +285,19 @@ class DefaultDownloadRepository(
       context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     notificationManager.createNotificationChannel(channel)
 
-    // Create an Intent to open your app with a deep link.
-    val intent =
-      Intent(Intent.ACTION_VIEW, "com.google.ai.edge.gallery://model/$taskId/${modelName}".toUri())
-        .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+    val intent: Intent
+    if (taskId.isEmpty()) {
+      // If taskId is empty, it's a failed download. Just open the app's main screen.
+      intent = context.packageManager.getLaunchIntentForPackage(context.packageName)!!
+    } else {
+      // Otherwise, create the deep link as before.
+      intent =
+        Intent(
+            Intent.ACTION_VIEW,
+            "com.google.ai.edge.gallery://model/$taskId/${modelName}".toUri(),
+          )
+          .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+    }
 
     // Create a PendingIntent
     val pendingIntent: PendingIntent =

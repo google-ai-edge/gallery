@@ -240,10 +240,14 @@ fun GalleryNavHost(
     intent.data = null
     Log.d(TAG, "navigation link clicked: $data")
     if (data.toString().startsWith("com.google.ai.edge.gallery://model/")) {
-      val taskId = data.pathSegments.get(data.pathSegments.size - 2)
-      val modelName = data.pathSegments.last()
-      modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
-        navController.navigate("$ROUTE_MODEL/${taskId}/${model.name}")
+      if (data.pathSegments.size >= 2) {
+        val taskId = data.pathSegments.get(data.pathSegments.size - 2)
+        val modelName = data.pathSegments.last()
+        modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
+          navController.navigate("$ROUTE_MODEL/${taskId}/${model.name}")
+        }
+      } else {
+        Log.e(TAG, "Malformed deep link URI received: $data")
       }
     }
   }
