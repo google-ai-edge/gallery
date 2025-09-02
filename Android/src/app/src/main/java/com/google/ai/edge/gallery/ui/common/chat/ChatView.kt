@@ -32,6 +32,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -176,7 +177,10 @@ fun ChatView(
 
       Column(
         modifier =
-          Modifier.padding(innerPadding).fillMaxSize().background(MaterialTheme.colorScheme.surface)
+          Modifier.padding(innerPadding)
+            .consumeWindowInsets(innerPadding)
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
       ) {
         AnimatedContent(
           targetState = curModelDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
