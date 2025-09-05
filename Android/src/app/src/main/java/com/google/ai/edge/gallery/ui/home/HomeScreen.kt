@@ -126,7 +126,7 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "AGHomeScreen"
 private const val TASK_COUNT_ANIMATION_DURATION = 250
-private const val ANIMATION_INIT_DELAY = 100L
+private const val ANIMATION_INIT_DELAY = 0L
 private const val TOP_APP_BAR_ANIMATION_DURATION = 600
 private const val TITLE_FIRST_LINE_ANIMATION_DURATION = 600
 private const val TITLE_SECOND_LINE_ANIMATION_DURATION = 600
@@ -529,6 +529,11 @@ fun HomeScreen(
       onDismissRequest = { modelManagerViewModel.loadModelAllowlist() },
       confirmButton = {
         TextButton(onClick = { modelManagerViewModel.loadModelAllowlist() }) { Text("Retry") }
+      },
+      dismissButton = {
+        TextButton(onClick = { modelManagerViewModel.clearLoadModelAllowlistError() }) {
+          Text("Cancel")
+        }
       },
     )
   }

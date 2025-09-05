@@ -154,10 +154,6 @@ constructor(
   val authService = AuthorizationService(context)
   var curAccessToken: String = ""
 
-  init {
-    loadModelAllowlist()
-  }
-
   override fun onCleared() {
     super.onCleared()
     authService.dispose()
@@ -753,6 +749,15 @@ constructor(
       } catch (e: Exception) {
         e.printStackTrace()
       }
+    }
+  }
+
+  fun clearLoadModelAllowlistError() {
+    val curTasks = customTasks.map { it.task }
+    processTasks()
+    _uiState.update {
+      createUiState()
+        .copy(loadingModelAllowlist = false, tasks = curTasks, loadingModelAllowlistError = "")
     }
   }
 

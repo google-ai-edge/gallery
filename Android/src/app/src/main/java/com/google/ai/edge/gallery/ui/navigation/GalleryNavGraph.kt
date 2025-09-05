@@ -116,7 +116,7 @@ private fun AnimatedContentTransitionScope<*>.slideExit(): ExitTransition {
 fun GalleryNavHost(
   navController: NavHostController,
   modifier: Modifier = Modifier,
-  modelManagerViewModel: ModelManagerViewModel = hiltViewModel(),
+  modelManagerViewModel: ModelManagerViewModel,
 ) {
   val lifecycleOwner = LocalLifecycleOwner.current
   var showModelManager by remember { mutableStateOf(false) }
