@@ -73,7 +73,6 @@ import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.SegmentedButtonConfig
 import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
-import kotlin.Double.Companion.NaN
 
 private const val TAG = "AGConfigDialog"
 
@@ -209,6 +208,26 @@ fun LabelRow(config: LabelConfig, values: SnapshotStateMap<String, Any>) {
   }
 }
 
+fun getTextFieldDisplayValue(valueType: ValueType, value: Float): String {
+  return try {
+    when (valueType) {
+      ValueType.FLOAT -> {
+        "%.2f".format(value)
+      }
+
+      ValueType.INT -> {
+        "${value.toInt()}"
+      }
+
+      else -> {
+        ""
+      }
+    }
+  } catch (e: Exception) {
+    ""
+  }
+}
+
 /**
  * Composable function to display a number slider with an associated text input field.
  *
@@ -227,6 +246,14 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
       var isFocused by remember { mutableStateOf(false) }
       val focusRequester = remember { FocusRequester() }
 
+      // The displaying value for the Text field. It allows hold invalid values that is not a proper
+      // value or out of the slider range, temporary while user is still editing the text.
+      var textFieldDisplayValue by remember {
+        mutableStateOf(
+          getTextFieldDisplayValue(config.valueType, values[config.key.label] as Float)
+        )
+      }
+
       // Number slider.
       val sliderValue =
         try {
@@ -234,47 +261,41 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
         } catch (e: Exception) {
           0f
         }
+
       Slider(
         modifier = Modifier.height(24.dp).weight(1f),
         value = sliderValue,
         valueRange = config.sliderMin..config.sliderMax,
-        onValueChange = { values[config.key.label] = it },
+        onValueChange = {
+          values[config.key.label] = it
+          textFieldDisplayValue = getTextFieldDisplayValue(config.valueType, it)
+        },
       )
 
       Spacer(modifier = Modifier.width(8.dp))
 
-      // Text field.
-      val textFieldValue =
-        try {
-          when (config.valueType) {
-            ValueType.FLOAT -> {
-              "%.2f".format(values[config.key.label] as Float)
-            }
-
-            ValueType.INT -> {
-              "${(values[config.key.label] as Float).toInt()}"
-            }
-
-            else -> {
-              ""
-            }
-          }
-        } catch (e: Exception) {
-          ""
-        }
       // A smaller text field.
       BasicTextField(
-        value = textFieldValue,
+        value = textFieldDisplayValue,
         modifier =
           Modifier.width(80.dp).focusRequester(focusRequester).onFocusChanged {
             isFocused = it.isFocused
+
+            // When leaving focus, display the internal value so that any invalid value is cleared.
+            if (!isFocused) {
+              textFieldDisplayValue =
+                getTextFieldDisplayValue(config.valueType, values[config.key.label] as Float)
+            }
           },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         onValueChange = {
-          if (it.isNotEmpty()) {
-            values[config.key.label] = it.toFloatOrNull() ?: NaN
-          } else {
-            values[config.key.label] = NaN
+          // Always update the display value to reflect the update on the UI.
+          textFieldDisplayValue = it
+
+          // Only if the new value could be converted to a float, then update the internal value,
+          // bounded by the slider range. It prevents invalid values like NaN from crashing the app.
+          it.toFloatOrNull()?.let { floatValue ->
+            values[config.key.label] = minOf(maxOf(floatValue, config.sliderMin), config.sliderMax)
           }
         },
         textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
