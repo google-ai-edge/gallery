@@ -16,6 +16,12 @@
 -->
 
 <resources xmlns:tools="http://schemas.android.com/tools">
+  <style name="Theme.Gallery.SplashScreen" parent="Theme.SplashScreen">
+    <!-- Need to match surfaceDark in Colors.kt -->
+    <item name="windowSplashScreenBackground">#FF131314</item>
+    <item name="windowSplashScreenAnimatedIcon">@drawable/splash_screen_animated_icon</item>
+    <item name="postSplashScreenTheme">@style/Theme.Gallery</item>
+  </style>
   <style name="Theme.Gallery.OssLicenses" parent="Theme.AppCompat">
     <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">true</item>
   </style>

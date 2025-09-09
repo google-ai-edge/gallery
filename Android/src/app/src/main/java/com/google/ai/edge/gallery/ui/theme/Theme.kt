@@ -161,13 +161,13 @@ val lightCustomColors =
     taskIconColors =
       listOf(
         // red.
-        Color(0xFFD93025),
+        Color(0xFFDB372D),
         // green
-        Color(0xFF34A853),
+        Color(0xFF128937),
         // blue
-        Color(0xFF1967D2),
+        Color(0xFF3174F1),
         // yellow
-        Color(0xFFE37400),
+        Color(0xFFCAA12A),
       ),
     taskIconShapeBgColor = Color.White,
     homeBottomGradient = listOf(Color(0x00F8F9FF), Color(0xffFFEFC9)),
@@ -209,14 +209,14 @@ val darkCustomColors =
       ),
     taskIconColors =
       listOf(
-        // red
-        Color(0xFFFFB4AB),
+        // red.
+        Color(0xFFE25F57),
         // green
-        Color(0xFF6DD58C),
-        // blue.
-        Color(0xFFAAC7FF),
+        Color(0xFF41A15F),
+        // blue
+        Color(0xFF669DF6),
         // yellow
-        Color(0xFFFFB955),
+        Color(0xFFCAA12A),
       ),
     taskIconShapeBgColor = Color(0xFF202124),
     homeBottomGradient = listOf(Color(0x00F8F9FF), Color(0x1AF6AD01)),
