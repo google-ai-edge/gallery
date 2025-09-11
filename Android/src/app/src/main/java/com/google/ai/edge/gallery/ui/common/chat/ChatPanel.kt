@@ -104,12 +104,8 @@ import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
-enum class ChatInputType {
-  TEXT,
-  IMAGE,
-}
 
 /** Composable function for the main chat panel, displaying messages and handling user input. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -568,6 +564,15 @@ fun ChatPanel(
         onSendMessage = {
           onSendMessage(selectedModel, it)
           curMessage = ""
+          // Hide software keyboard.
+          focusManager.clearFocus()
+          // Scroll to the bottom of the message list.
+          if (messages.isNotEmpty()) {
+            scope.launch {
+              delay(200)
+              listState.animateScrollToItem(messages.lastIndex, scrollOffset = 10000)
+            }
+          }
         },
         onOpenPromptTemplatesClicked = {
           onSendMessage(
@@ -580,7 +585,14 @@ fun ChatPanel(
             ),
           )
         },
-        onStopButtonClicked = onStopButtonClicked,
+        onStopButtonClicked = {
+          onStopButtonClicked()
+          // Scroll to the bottom of the message list.
+          scope.launch {
+            delay(200)
+            listState.animateScrollToItem(messages.lastIndex, scrollOffset = 10000)
+          }
+        },
         onSetAudioRecorderVisible = { start ->
           showAudioRecorder = start
           if (!showAudioRecorder) {

@@ -165,6 +165,7 @@ fun HomeScreen(
   var showSettingsDialog by remember { mutableStateOf(false) }
   var showImportModelSheet by remember { mutableStateOf(false) }
   var showUnsupportedFileTypeDialog by remember { mutableStateOf(false) }
+  var showUnsupportedWebModelDialog by remember { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
   var showImportDialog by remember { mutableStateOf(false) }
   var showImportingDialog by remember { mutableStateOf(false) }
@@ -253,8 +254,13 @@ fun HomeScreen(
         result.data?.data?.let { uri ->
           val fileName = getFileName(context = context, uri = uri)
           Log.d(TAG, "Selected file: $fileName")
+          // Show warning for model file types other than .task and .litertlm.
           if (fileName != null && !fileName.endsWith(".task") && !fileName.endsWith(".litertlm")) {
             showUnsupportedFileTypeDialog = true
+          }
+          // Show warning for web-only model (by checking if the file name has "-web" in it).
+          else if (fileName != null && fileName.lowercase().contains("-web")) {
+            showUnsupportedWebModelDialog = true
           } else {
             selectedLocalModelFileUri.value = uri
             showImportDialog = true
@@ -513,6 +519,20 @@ fun HomeScreen(
       text = { Text("Only \".task\" or \".litertlm\" file type is supported.") },
       confirmButton = {
         Button(onClick = { showUnsupportedFileTypeDialog = false }) {
+          Text(stringResource(R.string.ok))
+        }
+      },
+    )
+  }
+
+  // Alert dialog for unsupported web model.
+  if (showUnsupportedWebModelDialog) {
+    AlertDialog(
+      onDismissRequest = { showUnsupportedWebModelDialog = false },
+      title = { Text("Unsupported model type") },
+      text = { Text("Looks like the model is a web-only model and is not supported by the app.") },
+      confirmButton = {
+        Button(onClick = { showUnsupportedWebModelDialog = false }) {
           Text(stringResource(R.string.ok))
         }
       },
