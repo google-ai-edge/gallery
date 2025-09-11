@@ -25,6 +25,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.ui.common.MarkdownText
 
@@ -39,7 +41,13 @@ fun MessageBodyText(message: ChatMessageText) {
     )
   } else if (message.side == ChatSide.AGENT) {
     if (message.isMarkdown) {
-      MarkdownText(text = message.content, modifier = Modifier.padding(12.dp))
+      MarkdownText(
+        text = message.content,
+        modifier =
+          Modifier.padding(12.dp).semantics(mergeDescendants = true) {
+            contentDescription = "Chat message content text markdown"
+          },
+      )
     } else {
       Text(
         message.content,

@@ -91,6 +91,8 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
@@ -272,7 +274,10 @@ fun ChatPanel(
     ) {
       Box(contentAlignment = Alignment.BottomCenter, modifier = Modifier.weight(1f)) {
         LazyColumn(
-          modifier = Modifier.fillMaxSize().nestedScroll(nestedScrollConnection),
+          modifier =
+            Modifier.fillMaxSize().nestedScroll(nestedScrollConnection).semantics {
+              contentDescription = "Chat panel"
+            },
           state = listState,
           verticalArrangement = Arrangement.Top,
         ) {

@@ -391,7 +391,7 @@ fun PromptTemplatesPanel(
             ) {
               Icon(
                 Icons.AutoMirrored.Rounded.Send,
-                contentDescription = "Send Prompt Button",
+                contentDescription = "Send prompt button",
                 modifier = Modifier.size(20.dp).offset(x = 2.dp),
               )
             }

@@ -533,7 +533,7 @@ fun MessageInputText(
                   textStyle = bodyLargeNarrow,
                   modifier =
                     Modifier.weight(1f).padding(start = 36.dp).semantics {
-                      contentDescription = "Ask image content input text field"
+                      contentDescription = "Prompt input text field"
                     },
                   placeholder = { Text(stringResource(textFieldPlaceHolderRes)) },
                 )
@@ -579,7 +579,7 @@ fun MessageInputText(
                   ) {
                     Icon(
                       Icons.AutoMirrored.Rounded.Send,
-                      contentDescription = "Ask image send button",
+                      contentDescription = "Message send prompt button",
                       modifier = Modifier.offset(x = 2.dp),
                       tint = Color.White,
                     )
