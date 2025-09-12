@@ -376,7 +376,15 @@ fun PromptTemplatesPanel(
               enabled = !inProgress && curTextInputContent.isNotEmpty(),
               onClick = {
                 focusManager.clearFocus()
-                onSend(fullPrompt.text)
+                if (fullPrompt.text.isNotBlank()) {
+                  onSend(fullPrompt.text)
+                } else {
+                  Toast.makeText(
+                    context,
+                    "Please enter a valid prompt",
+                    Toast.LENGTH_SHORT
+                  ).show()
+                }
               },
               colors =
                 IconButtonDefaults.iconButtonColors(

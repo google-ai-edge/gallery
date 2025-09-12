@@ -113,6 +113,10 @@ fun ChatViewWrapper(
           audioMessages.add(message)
         }
       }
+      if (text.isEmpty() && audioMessages.isEmpty()) {
+        Toast.makeText(context, "Please enter a prompt for response.", Toast.LENGTH_SHORT).show()
+        return@ChatView
+      }
       if ((text.isNotEmpty() && chatMessageText != null) || audioMessages.isNotEmpty()) {
         modelManagerViewModel.addTextInputHistory(text)
         viewModel.generateResponse(
