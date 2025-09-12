@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery.ui.llmchat
 import androidx.hilt.navigation.compose.hiltViewModel
 
 import android.graphics.Bitmap
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext

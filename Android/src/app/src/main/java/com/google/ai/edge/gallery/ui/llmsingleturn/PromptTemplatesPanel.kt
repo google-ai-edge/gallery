@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.ui.llmsingleturn
 
 import android.content.ClipData
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -82,6 +83,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.semantics.contentDescription
@@ -136,6 +138,7 @@ fun PromptTemplatesPanel(
   val interactionSource = remember { MutableInteractionSource() }
   val expandedStates = remember { mutableStateMapOf<String, Boolean>() }
   val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[model.name]
+  val context = LocalContext.current
 
   // Update input editor values when prompt template changes.
   LaunchedEffect(selectedPromptTemplateType) {
