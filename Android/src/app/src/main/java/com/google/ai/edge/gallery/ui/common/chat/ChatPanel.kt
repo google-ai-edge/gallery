@@ -101,6 +101,7 @@ import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** Composable function for the main chat panel, displaying messages and handling user input. */
@@ -189,20 +190,28 @@ fun ChatPanel(
   }
 
   // Scroll to bottom when IME is toggled.
-  LaunchedEffect(WindowInsets.ime.getBottom(density)) { scrollToBottom(listState = listState) }
+  LaunchedEffect(WindowInsets.ime.getBottom(density)) {
+    scrollToBottom(listState = listState, animate = true)
+  }
 
   // Scroll the content to the bottom when any of these changes.
-  LaunchedEffect(messages.size, lastMessage.value, lastMessageContent.value) {
+  LaunchedEffect(
+    messages.size,
+    lastMessage.value,
+    lastMessageContent.value,
+    lastMessage.value?.latencyMs,
+  ) {
     if (messages.isNotEmpty()) {
       val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.last()
       // Determines if an automatic scroll is necessary. It is true if:
       // 1. The last item is not yet fully visible
       // OR
-      // 2. The scroll position is close to the bottom (within 80 pixels of the end offset),
+      // 2. The scroll position is close to the bottom (within 90 pixels of the end offset. 90 is
+      //    slightly taller than the "show stats" chip).
       val canScroll =
         lastVisibleItem.index < messages.size - 1 ||
           lastVisibleItem.offset + lastVisibleItem.size - listState.layoutInfo.viewportEndOffset <
-            80
+            90
       // Only scroll if showingStatsByModel is not changed. In other words, when showingStatsByModel
       // changes we want the display to not scroll.
       if (uiState.showingStatsByModel === lastShowingStatsByModel.value && canScroll) {
@@ -457,6 +466,7 @@ fun ChatPanel(
                                 // Scroll to bottom if showing the stats for the last message.
                                 if (isLastMessage) {
                                   scope.launch {
+                                    delay(100L)
                                     scrollToBottom(listState = listState, animate = true)
                                   }
                                 }
@@ -475,6 +485,7 @@ fun ChatPanel(
                               // Scroll to bottom if hiding the stats for the last message.
                               if (isLastMessage) {
                                 scope.launch {
+                                  delay(100L)
                                   scrollToBottom(listState = listState, animate = true)
                                 }
                               }
