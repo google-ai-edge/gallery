@@ -281,7 +281,7 @@ fun MessageInputText(
           Box(contentAlignment = Alignment.TopEnd) {
             Image(
               bitmap = image.asImageBitmap(),
-              contentDescription = "",
+              contentDescription = "Camera picked image preview",
               modifier =
                 Modifier.height(80.dp)
                   .shadow(2.dp, shape = RoundedCornerShape(8.dp))
