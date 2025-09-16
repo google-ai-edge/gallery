@@ -34,7 +34,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.R
 
 /**
  * Composable function to display an image message with history, allowing users to navigate through
@@ -67,7 +69,12 @@ fun MessageBodyImageWithHistory(
     var savedIndex by remember { mutableIntStateOf(0) }
     Image(
       bitmap = curImageBitmap,
-      contentDescription = "",
+      contentDescription =
+        stringResource(
+          R.string.chat_image_history_position,
+          imageHistoryCurIndex.intValue + 1,
+          message.bitmaps.size,
+        ),
       modifier =
         Modifier.height(imageHeight.dp).width(imageWidth.dp).pointerInput(Unit) {
           detectHorizontalDragGestures(

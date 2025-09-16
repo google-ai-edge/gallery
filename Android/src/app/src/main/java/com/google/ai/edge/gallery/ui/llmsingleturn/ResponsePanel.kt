@@ -59,8 +59,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
@@ -178,7 +180,7 @@ fun ResponsePanel(
                         else MaterialTheme.colorScheme.onSurfaceVariant
                       Icon(
                         ICONS[index],
-                        contentDescription = "",
+                        contentDescription = null,
                         modifier = Modifier.size(16.dp).alpha(0.7f),
                         tint = titleColor,
                       )
@@ -229,7 +231,7 @@ fun ResponsePanel(
               ) {
                 Icon(
                   Icons.Outlined.ContentCopy,
-                  contentDescription = "",
+                  contentDescription = stringResource(R.string.copy_response),
                   modifier = Modifier.size(20.dp),
                 )
               }

@@ -129,7 +129,10 @@ private fun SheetContent(
         modifier = Modifier.padding(end = 12.dp),
         onClick = { showConfirmDeleteDialog = true },
       ) {
-        Icon(Icons.Rounded.DeleteSweep, contentDescription = "")
+        Icon(
+          Icons.Rounded.DeleteSweep,
+          contentDescription = stringResource(R.string.clear_text_history),
+        )
       }
     }
     LazyColumn(modifier = Modifier.weight(1f)) {
@@ -160,7 +163,10 @@ private fun SheetContent(
               }
             },
           ) {
-            Icon(Icons.Rounded.Delete, contentDescription = "")
+            Icon(
+              Icons.Rounded.Delete,
+              contentDescription = stringResource(R.string.delete_history_entry),
+            )
           }
         }
       }

@@ -49,6 +49,7 @@
   <string name="chat_llm_agent_name" translatable="false">LLM</string>
   <string name="chat_generic_agent_name" translatable="false">Model</string>
   <string name="chat_generic_result_name" translatable="false">Result</string>
+  <string name="chat_image_history_position" translatable="false">Image %1$d of %2$d</string>
   <string name="learn_more" translatable="false">Learn more</string>
   <string name="litert_community_label" translatable="false">LiteRT community</string>
   <string name="loading_model_list" translatable="false">Loading model list...</string>
@@ -70,4 +71,13 @@
   <string name="benchmark" translatable="false">Run benchmark</string>
   <string name="warming_up" translatable="false">warming up…</string>
   <string name="running" translatable="false">running</string>
+  <string name="copy_response" translatable="false">Copy response</string>
+  <string name="copy_full_prompt" translatable="false">Copy full prompt</string>
+  <string name="add_example_prompt" translatable="false">Add example prompt</string>
+  <string name="stop_generating" translatable="false">Stop generating</string>
+  <string name="expand_example_prompt" translatable="false">Expand example prompt</string>
+  <string name="collapse_example_prompt" translatable="false">Collapse example prompt</string>
+  <string name="clear_text_history" translatable="false">Clear text history</string>
+  <string name="delete_history_entry" translatable="false">Delete history entry</string>
+  <string name="delete_downloaded_model" translatable="false">Delete downloaded model</string>
 </resources>

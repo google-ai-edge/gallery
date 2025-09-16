@@ -60,7 +60,7 @@ fun ClickableLink(url: String, linkText: String, icon: ImageVector? = null) {
 
   Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
     if (icon != null) {
-      Icon(icon, contentDescription = "", modifier = Modifier.size(16.dp))
+      Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
     }
     Text(
       text = annotatedText,

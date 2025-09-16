@@ -84,6 +84,7 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
@@ -290,13 +291,13 @@ fun PromptTemplatesPanel(
               if (inputEditorValues[FULL_PROMPT_SWITCH_KEY] as Boolean) {
                 Icon(
                   imageVector = Icons.Rounded.Visibility,
-                  contentDescription = "",
+                  contentDescription = null,
                   modifier = Modifier.size(FilterChipDefaults.IconSize),
                 )
               } else {
                 Icon(
                   imageVector = Icons.Rounded.VisibilityOff,
-                  contentDescription = "",
+                  contentDescription = null,
                   modifier = Modifier.size(FilterChipDefaults.IconSize).alpha(0.3f),
                 )
               }
@@ -329,7 +330,7 @@ fun PromptTemplatesPanel(
             ) {
               Icon(
                 Icons.Outlined.ContentCopy,
-                contentDescription = "",
+                contentDescription = stringResource(R.string.copy_full_prompt),
                 modifier = Modifier.size(20.dp),
               )
             }
@@ -350,7 +351,11 @@ fun PromptTemplatesPanel(
             border = BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.surface),
             modifier = Modifier.size(ICON_BUTTON_SIZE),
           ) {
-            Icon(Icons.Rounded.Add, contentDescription = "", modifier = Modifier.size(20.dp))
+            Icon(
+              Icons.Rounded.Add,
+              contentDescription = stringResource(R.string.add_example_prompt),
+              modifier = Modifier.size(20.dp),
+            )
           }
 
           val modelInitializing =
@@ -366,7 +371,7 @@ fun PromptTemplatesPanel(
             ) {
               Icon(
                 Icons.Rounded.Stop,
-                contentDescription = "",
+                contentDescription = stringResource(R.string.stop_generating),
                 tint = MaterialTheme.colorScheme.primary,
               )
             }
@@ -435,13 +440,13 @@ fun PromptTemplatesPanel(
                 }
                 .padding(horizontal = 16.dp, vertical = 8.dp)
           ) {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-              Icon(Icons.Outlined.Description, contentDescription = "")
-              Text(
-                prompt,
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Icon(Icons.Outlined.Description, contentDescription = null)
+            Text(
+              prompt,
                 maxLines = if (isExpanded) Int.MAX_VALUE else 3,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall,
@@ -465,7 +470,7 @@ fun PromptTemplatesPanel(
                 ) {
                   Icon(
                     Icons.Outlined.ExpandMore,
-                    contentDescription = "",
+                    contentDescription = stringResource(R.string.expand_example_prompt),
                     modifier = Modifier.size(12.dp),
                   )
                 }
@@ -485,7 +490,7 @@ fun PromptTemplatesPanel(
                 ) {
                   Icon(
                     Icons.Outlined.ExpandLess,
-                    contentDescription = "",
+                    contentDescription = stringResource(R.string.collapse_example_prompt),
                     modifier = Modifier.size(12.dp),
                   )
                 }
