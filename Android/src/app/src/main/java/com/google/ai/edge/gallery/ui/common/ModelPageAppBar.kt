@@ -109,7 +109,9 @@ fun ModelPageAppBar(
         }
 
         // Model chips pager.
+        val enableModelPickerChip = !isModelInitializing && !inProgress
         ModelPickerChip(
+          enabled = enableModelPickerChip,
           task = task,
           initialModel = model,
           modelManagerViewModel = modelManagerViewModel,

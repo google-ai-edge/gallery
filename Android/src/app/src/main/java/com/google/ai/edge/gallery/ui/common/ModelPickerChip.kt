@@ -50,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,6 +64,7 @@ import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModelPickerChip(
+  enabled: Boolean,
   task: Task,
   initialModel: Model,
   modelManagerViewModel: ModelManagerViewModel,
@@ -89,12 +91,13 @@ fun ModelPickerChip(
         modifier =
           Modifier.clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .clickable {
+            .clickable(enabled = enabled) {
               modelPickerModel = initialModel
               showModelPicker = true
             }
             .padding(start = 8.dp, end = 2.dp)
-            .padding(vertical = 4.dp),
+            .padding(vertical = 4.dp)
+            .graphicsLayer { alpha = if (enabled) 1f else 0.6f },
       ) Inner@{
         Box(contentAlignment = Alignment.Center, modifier = Modifier.size(21.dp)) {
           StatusIcon(
