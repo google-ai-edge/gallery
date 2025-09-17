@@ -320,11 +320,14 @@ fun MessageInputText(
       }
     }
 
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.heightIn(min = 76.dp)) {
+    Box(
+      contentAlignment = Alignment.Center,
+      modifier = Modifier.heightIn(min = 76.dp),
+    ) {
       AnimatedContent(targetState = showAudioRecorder) { curShowAudioRecorder ->
         when (curShowAudioRecorder) {
           // Input
-          false ->
+          false -> {
             Box(contentAlignment = Alignment.CenterStart) {
               // A plus button to show a popup menu to add stuff to the chat.
               IconButton(
@@ -358,7 +361,6 @@ fun MessageInputText(
                 ) {
                   // Image related menu items.
                   if (showImagePickerInMenu) {
-                    // Take a picture.
                     DropdownMenuItem(
                       text = {
                         Row(
@@ -371,9 +373,7 @@ fun MessageInputText(
                       },
                       enabled = enableAddImageMenuItems,
                       onClick = {
-                        // Check permission
                         when (PackageManager.PERMISSION_GRANTED) {
-                          // Already got permission. Call the lambda.
                           ContextCompat.checkSelfPermission(
                             context,
                             Manifest.permission.CAMERA,
@@ -382,15 +382,11 @@ fun MessageInputText(
                             showCameraCaptureBottomSheet = true
                           }
 
-                          // Otherwise, ask for permission
-                          else -> {
-                            takePicturePermissionLauncher.launch(Manifest.permission.CAMERA)
-                          }
+                          else -> takePicturePermissionLauncher.launch(Manifest.permission.CAMERA)
                         }
                       },
                     )
 
-                    // Pick an image from album.
                     DropdownMenuItem(
                       text = {
                         Row(
@@ -403,7 +399,6 @@ fun MessageInputText(
                       },
                       enabled = enableAddImageMenuItems,
                       onClick = {
-                        // Launch the photo picker and let the user choose only images.
                         pickMedia.launch(
                           PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                         )
@@ -426,22 +421,14 @@ fun MessageInputText(
                       },
                       enabled = enableRecordAudioClipMenuItems,
                       onClick = {
-                        // Check permission
                         when (PackageManager.PERMISSION_GRANTED) {
-                          // Already got permission. Call the lambda.
                           ContextCompat.checkSelfPermission(
                             context,
                             Manifest.permission.RECORD_AUDIO,
-                          ) -> {
-                            handleClickRecordAudioClip()
-                          }
+                          ) -> handleClickRecordAudioClip()
 
-                          // Otherwise, ask for permission
-                          else -> {
-                            recordAudioClipsPermissionLauncher.launch(
-                              Manifest.permission.RECORD_AUDIO
-                            )
-                          }
+                          else ->
+                            recordAudioClipsPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                         }
                       },
                     )
@@ -460,17 +447,12 @@ fun MessageInputText(
                       onClick = {
                         showAddContentMenu = false
 
-                        // Show file picker.
                         val intent =
                           Intent(Intent.ACTION_GET_CONTENT).apply {
                             addCategory(Intent.CATEGORY_OPENABLE)
                             type = "audio/*"
-
-                            // Provide a list of more specific MIME types to filter for.
                             val mimeTypes = arrayOf("audio/wav", "audio/x-wav")
                             putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes)
-
-                            // Single select.
                             putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
                               .addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                               .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -498,6 +480,7 @@ fun MessageInputText(
                       },
                     )
                   }
+
                   // Prompt history.
                   DropdownMenuItem(
                     text = {
@@ -589,9 +572,10 @@ fun MessageInputText(
                 Spacer(modifier = Modifier.width(4.dp))
               }
             }
+          }
 
           // Audio recorder.
-          true ->
+          true -> {
             AudioRecorderPanel(
               task = task,
               onSendAudioClip = { audioData ->
@@ -610,11 +594,13 @@ fun MessageInputText(
                 onSetAudioRecorderVisible(false)
               },
             )
+          }
         }
       }
     }
-                )
-              }
+
+  }
+
   // A bottom sheet to show the text input history to pick from.
   if (showTextInputHistorySheet) {
     TextInputHistorySheet(
