@@ -51,6 +51,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
@@ -159,7 +161,12 @@ fun ModelList(
           TaskIcon(task = task, width = 64.dp, animationProgress = taskIconProgress)
 
           // Task name.
-          Box(modifier = Modifier.offset(x = (20f * (1f - taskIconProgress)).dp)) {
+          Box(
+            modifier =
+              Modifier.offset(x = (20f * (1f - taskIconProgress)).dp).semantics {
+                contentDescription = task.label
+              }
+          ) {
             RevealingText(
               text = task.label,
               style =

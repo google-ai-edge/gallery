@@ -63,7 +63,7 @@ fun SingleSelectButton(
           .padding(start = 8.dp),
     ) {
       Text("${config.label}: $selectedOption", style = MaterialTheme.typography.labelLarge)
-      Icon(Icons.Rounded.ArrowDropDown, contentDescription = "")
+      Icon(Icons.Rounded.ArrowDropDown, contentDescription = null)
     }
 
     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {

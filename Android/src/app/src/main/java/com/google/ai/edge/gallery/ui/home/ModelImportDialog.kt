@@ -56,9 +56,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.BooleanSwitchConfig
 import com.google.ai.edge.gallery.data.Config
@@ -332,7 +334,7 @@ fun ModelImportingDialog(
           ) {
             Icon(
               Icons.Rounded.Error,
-              contentDescription = "",
+              contentDescription = stringResource(R.string.cd_error),
               tint = MaterialTheme.colorScheme.error,
             )
             Text(

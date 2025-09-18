@@ -30,6 +30,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.res.stringResource
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
@@ -56,7 +58,7 @@ fun DeleteModelButton(
           IconButton(onClick = { showConfirmDeleteDialog = true }) {
             Icon(
               Icons.Outlined.Delete,
-              contentDescription = "",
+              contentDescription = stringResource(R.string.cd_delete_icon),
               tint = MaterialTheme.colorScheme.onSurfaceVariant,
               modifier = Modifier.alpha(0.6f),
             )

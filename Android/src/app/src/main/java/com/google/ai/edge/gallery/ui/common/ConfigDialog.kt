@@ -62,6 +62,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -237,7 +238,7 @@ fun getTextFieldDisplayValue(valueType: ValueType, value: Float): String {
  */
 @Composable
 fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String, Any>) {
-  Column(modifier = Modifier.fillMaxWidth()) {
+  Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
     // Field label.
     Text(config.key.label, style = MaterialTheme.typography.titleSmall)
 
@@ -332,7 +333,7 @@ fun BooleanSwitchRow(config: BooleanSwitchConfig, values: SnapshotStateMap<Strin
     } catch (e: Exception) {
       false
     }
-  Column(modifier = Modifier.fillMaxWidth()) {
+  Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
     Text(config.key.label, style = MaterialTheme.typography.titleSmall)
     Switch(checked = switchValue, onCheckedChange = { values[config.key.label] = it })
   }
@@ -347,7 +348,7 @@ fun SegmentedButtonRow(config: SegmentedButtonConfig, values: SnapshotStateMap<S
     )
   }
 
-  Column(modifier = Modifier.fillMaxWidth()) {
+  Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
     Text(config.key.label, style = MaterialTheme.typography.titleSmall)
     MultiChoiceSegmentedButtonRow {
       config.options.forEachIndexed { index, label ->

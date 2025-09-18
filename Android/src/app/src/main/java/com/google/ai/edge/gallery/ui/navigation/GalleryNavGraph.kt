@@ -34,7 +34,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -49,7 +48,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.zIndex
 import androidx.core.os.bundleOf
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -180,10 +178,12 @@ fun GalleryNavHost(
     startDestination = ROUTE_PLACEHOLDER,
     enterTransition = { EnterTransition.None },
     exitTransition = { ExitTransition.None },
-    modifier = modifier.zIndex(1f),
   ) {
     // Placeholder root screen
-    composable(route = ROUTE_PLACEHOLDER) { Text("") }
+    //
+    // Having a non-empty placeholder here is needed to make the exit transition below work.
+    // We can't have an empty Text here because it will block TalkBack.
+    composable(route = ROUTE_PLACEHOLDER) { Box {} }
 
     composable(
       route = "$ROUTE_MODEL/{taskId}/{modelName}",

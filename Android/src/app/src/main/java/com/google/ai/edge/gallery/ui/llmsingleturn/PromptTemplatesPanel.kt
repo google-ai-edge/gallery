@@ -84,6 +84,7 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
@@ -232,6 +233,7 @@ fun PromptTemplatesPanel(
                   .focusRequester(focusRequester),
             )
           } else {
+            val cdContentInput = stringResource(R.string.cd_content_input_field)
             TextField(
               value = curTextInputContent,
               onValueChange = { curTextInputContent = it },
@@ -248,7 +250,7 @@ fun PromptTemplatesPanel(
               placeholder = { Text("Enter content") },
               modifier =
                 Modifier.padding(bottom = 40.dp).focusRequester(focusRequester).semantics {
-                  contentDescription = "Content input field"
+                  contentDescription = cdContentInput
                 },
             )
           }
@@ -290,13 +292,13 @@ fun PromptTemplatesPanel(
               if (inputEditorValues[FULL_PROMPT_SWITCH_KEY] as Boolean) {
                 Icon(
                   imageVector = Icons.Rounded.Visibility,
-                  contentDescription = "",
+                  contentDescription = null,
                   modifier = Modifier.size(FilterChipDefaults.IconSize),
                 )
               } else {
                 Icon(
                   imageVector = Icons.Rounded.VisibilityOff,
-                  contentDescription = "",
+                  contentDescription = null,
                   modifier = Modifier.size(FilterChipDefaults.IconSize).alpha(0.3f),
                 )
               }
@@ -329,7 +331,7 @@ fun PromptTemplatesPanel(
             ) {
               Icon(
                 Icons.Outlined.ContentCopy,
-                contentDescription = "",
+                contentDescription = stringResource(R.string.cd_copy_to_clipboard_icon),
                 modifier = Modifier.size(20.dp),
               )
             }
@@ -350,7 +352,11 @@ fun PromptTemplatesPanel(
             border = BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.surface),
             modifier = Modifier.size(ICON_BUTTON_SIZE),
           ) {
-            Icon(Icons.Rounded.Add, contentDescription = "", modifier = Modifier.size(20.dp))
+            Icon(
+              Icons.Rounded.Add,
+              contentDescription = stringResource(R.string.cd_add_example_prompt_icon),
+              modifier = Modifier.size(20.dp),
+            )
           }
 
           val modelInitializing =
@@ -366,7 +372,7 @@ fun PromptTemplatesPanel(
             ) {
               Icon(
                 Icons.Rounded.Stop,
-                contentDescription = "",
+                contentDescription = stringResource(R.string.cd_stop_icon),
                 tint = MaterialTheme.colorScheme.primary,
               )
             }
@@ -391,7 +397,7 @@ fun PromptTemplatesPanel(
             ) {
               Icon(
                 Icons.AutoMirrored.Rounded.Send,
-                contentDescription = "Send prompt button",
+                contentDescription = stringResource(R.string.cd_send_prompt_icon),
                 modifier = Modifier.size(20.dp).offset(x = 2.dp),
               )
             }
@@ -439,7 +445,7 @@ fun PromptTemplatesPanel(
               verticalAlignment = Alignment.CenterVertically,
               horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-              Icon(Icons.Outlined.Description, contentDescription = "")
+              Icon(Icons.Outlined.Description, contentDescription = null)
               Text(
                 prompt,
                 maxLines = if (isExpanded) Int.MAX_VALUE else 3,
@@ -465,7 +471,7 @@ fun PromptTemplatesPanel(
                 ) {
                   Icon(
                     Icons.Outlined.ExpandMore,
-                    contentDescription = "",
+                    contentDescription = stringResource(R.string.cd_expand_icon),
                     modifier = Modifier.size(12.dp),
                   )
                 }
@@ -485,7 +491,7 @@ fun PromptTemplatesPanel(
                 ) {
                   Icon(
                     Icons.Outlined.ExpandLess,
-                    contentDescription = "",
+                    contentDescription = stringResource(R.string.cd_collapse_icon),
                     modifier = Modifier.size(12.dp),
                   )
                 }

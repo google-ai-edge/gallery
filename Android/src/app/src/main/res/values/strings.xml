@@ -70,4 +70,87 @@
   <string name="benchmark" translatable="false">Run benchmark</string>
   <string name="warming_up" translatable="false">warming up…</string>
   <string name="running" translatable="false">running</string>
+
+  <!-- The following entries are for accessibility -->
+
+  <!-- Content description spoken when the "import model" icon is focused. -->
+  <string name="cd_import_model_button">Import model</string>
+  <!-- Content description spoken when the task card is focused. -->
+  <string name="cd_task_card">%1$s task with %2$d models</string>
+  <!-- Content description spoken when the error icon is focused. -->
+  <string name="cd_error">Error</string>
+  <!-- Content description spoken when the "import model from local file" button is focused. -->
+  <string name="cd_import_model_from_local_file_button">Import model from local file</string>
+  <!-- Content description spoken when the back arrow icon is focused. -->
+  <string name="cd_navigate_back_icon">Go back</string>
+  <!-- Content description spoken when the settings icon is focused. -->
+  <string name="cd_app_settings_icon">Settings</string>
+  <!-- Content description spoken when the done icon is focused. -->
+  <string name="cd_done_icon">Done</string>
+  <!-- Content description spoken when the collapse icon is focused. -->
+  <string name="cd_collapse_icon">Collapse</string>
+  <!-- Content description spoken when the expand icon is focused. -->
+  <string name="cd_expand_icon">Expand</string>
+  <!-- Content description spoken when the stop icon is focused. -->
+  <string name="cd_stop_icon">Stop</string>
+  <!-- Content description spoken when the delete icon is focused. -->
+  <string name="cd_delete_icon">Delete</string>
+  <!-- Content description spoken when the close icon is focused. -->
+  <string name="cd_close_icon">Close</string>
+  <!-- Content description spoken when the selected icon is focused. -->
+  <string name="cd_selected_icon">Selected</string>
+  <!-- Content description spoken when the "model settings" icon is focused. -->
+  <string name="cd_model_settings_icon">Model settings</string>
+  <!-- Content description spoken when the "reset session" icon is focused. -->
+  <string name="cd_reset_session_icon">Reset session</string>
+  <!-- Content description spoken when the "model picker chip" is focused. -->
+  <string name="cd_change_model">Current model is %1$s. Tap to change model.</string>
+  <!-- Content description spoken when the "close image viewer" icon is focused. -->
+  <string name="cd_close_image_viewer_icon">Close image viewer</string>
+  <!-- Content description spoken when the "copy to clipboard" icon is focused. -->
+  <string name="cd_copy_to_clipboard_icon">Copy to clipboard</string>
+  <!-- Content description spoken when the "prompt input" text field is focused. -->
+  <string name="cd_prompt_input_text_field">Prompt input</string>
+  <!-- Content description spoken when the "send prompt" icon is focused. -->
+  <string name="cd_send_prompt_icon">Send prompt</string>
+  <!-- Content description spoken when the "model response" text is focused. -->
+  <string name="cd_model_response_text">Model response text</string>
+  <!-- Content description spoken when the "clear input history" icon is focused. -->
+  <string name="cd_clear_input_history_icon">Clear input history</string>
+  <!-- Content description spoken when the "delete input history entry" icon is focused. -->
+  <string name="cd_delete_input_history_entry_icon">Delete input history entry</string>
+  <!-- Content description spoken when the "content input field" is focused. -->
+  <string name="cd_content_input_field">Content input</string>
+  <!-- Content description spoken when the "add example prompt" icon is focused. -->
+  <string name="cd_add_example_prompt_icon">Add example prompt</string>
+  <!-- Content description spoken when the image thumbnail is focused. -->
+  <string name="cd_image_thumbnail">Image thumbnail</string>
+  <!-- Content description spoken when an user image is focused. -->
+  <string name="cd_user_image">User image %1$d</string>
+  <!-- Content description spoken when an user image in a group is focused. -->
+  <string name="cd_user_image_in_group">User image %1$d of %2$d</string>
+  <!-- Content description spoken when the "add content" icon is focused. -->
+  <string name="cd_add_content_icon">Add content</string>
+  <!-- Content description spoken when the "camera shutter" icon is focused. -->
+  <string name="cd_camera_shutter_icon">Camera shutter</string>
+  <!-- Content description spoken when the "toggle front or back camera" icon is focused. -->
+  <string name="cd_toggle_front_back_camera_icon">Toggle front or back camera</string>
+  <!-- Content description spoken when the "play audio" icon is focused. -->
+  <string name="cd_play_audio_icon">Play audio</string>
+  <!-- Content description spoken when the "stop playback" icon is focused. -->
+  <string name="cd_stop_playback_icon">Stop playback</string>
+  <!-- Content description spoken when the "send audio clip" icon is focused. -->
+  <string name="cd_send_audio_clip_icon">Send audio clip</string>
+  <!-- Content description spoken when the "start recording" icon is focused. -->
+  <string name="cd_start_recording">Start recording</string>
+  <!-- Content description spoken when the "downloaded" icon is focused. -->
+  <string name="cd_downloaded_icon">Downloaded</string>
+  <!-- Content description spoken when the "not downloaded" icon is focused. -->
+  <string name="cd_not_downloaded_icon">Not downloaded</string>
+  <!-- Content description spoken when the "downloading" icon is focused. -->
+  <string name="cd_downloading_icon">Downloading</string>
+  <!-- Content description spoken when the "download failed" icon is focused. -->
+  <string name="cd_download_failed_icon">Download failed</string>
+  <!-- Content description spoken when the "download failed" icon is focused. -->
+  <string name="cd_chat_panel">Chat panel</string>
 </resources>

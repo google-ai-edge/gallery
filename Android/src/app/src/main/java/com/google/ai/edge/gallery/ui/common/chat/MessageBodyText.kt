@@ -25,14 +25,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.ui.common.MarkdownText
 
 /** Composable function to display the text content of a ChatMessageText. */
 @Composable
-fun MessageBodyText(message: ChatMessageText) {
+fun MessageBodyText(message: ChatMessageText, inProgress: Boolean) {
   if (message.side == ChatSide.USER) {
     MarkdownText(
       text = message.content,
@@ -40,12 +44,17 @@ fun MessageBodyText(message: ChatMessageText) {
       textColor = Color.White,
     )
   } else if (message.side == ChatSide.AGENT) {
+    val cdResponse = stringResource(R.string.cd_model_response_text)
     if (message.isMarkdown) {
       MarkdownText(
         text = message.content,
         modifier =
           Modifier.padding(12.dp).semantics(mergeDescendants = true) {
-            contentDescription = "Chat message content text markdown"
+            contentDescription = cdResponse
+            // Only announce when message is complete.
+            if (!inProgress) {
+              liveRegion = LiveRegionMode.Polite
+            }
           },
       )
     } else {
@@ -53,7 +62,14 @@ fun MessageBodyText(message: ChatMessageText) {
         message.content,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.padding(12.dp),
+        modifier =
+          Modifier.padding(12.dp).semantics {
+            contentDescription = cdResponse
+            // Only announce when message is complete.
+            if (!inProgress) {
+              liveRegion = LiveRegionMode.Polite
+            }
+          },
       )
     }
   }

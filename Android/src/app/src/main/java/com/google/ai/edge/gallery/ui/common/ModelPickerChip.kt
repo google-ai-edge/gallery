@@ -53,8 +53,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.modelitem.StatusIcon
@@ -85,6 +90,8 @@ fun ModelPickerChip(
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
+      val modelName = initialModel.displayName.ifEmpty { initialModel.name }
+      val cdChangeModel = stringResource(R.string.cd_change_model, modelName)
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -97,7 +104,8 @@ fun ModelPickerChip(
             }
             .padding(start = 8.dp, end = 2.dp)
             .padding(vertical = 4.dp)
-            .graphicsLayer { alpha = if (enabled) 1f else 0.6f },
+            .graphicsLayer { alpha = if (enabled) 1f else 0.6f }
+            .semantics { contentDescription = cdChangeModel },
       ) Inner@{
         Box(contentAlignment = Alignment.Center, modifier = Modifier.size(21.dp)) {
           StatusIcon(
@@ -120,13 +128,20 @@ fun ModelPickerChip(
           }
         }
         Text(
-          initialModel.displayName.ifEmpty { initialModel.name },
+          modelName,
           style = MaterialTheme.typography.labelLarge,
-          modifier = Modifier.padding(start = 4.dp).widthIn(0.dp, screenWidthDp - 250.dp),
+          modifier =
+            Modifier.padding(start = 4.dp)
+              .widthIn(0.dp, screenWidthDp - 250.dp)
+              .clearAndSetSemantics {},
           maxLines = 1,
           overflow = TextOverflow.MiddleEllipsis,
         )
-        Icon(Icons.Rounded.ArrowDropDown, modifier = Modifier.size(20.dp), contentDescription = "")
+        Icon(
+          Icons.Rounded.ArrowDropDown,
+          modifier = Modifier.size(20.dp),
+          contentDescription = null,
+        )
       }
     }
   }

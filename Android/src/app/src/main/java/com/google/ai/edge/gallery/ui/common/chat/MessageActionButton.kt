@@ -61,7 +61,7 @@ fun MessageActionButton(
   ) {
     Icon(
       icon,
-      contentDescription = "",
+      contentDescription = null,
       modifier = Modifier.size(16.dp).offset(x = 6.dp).alpha(alpha),
     )
     Text(

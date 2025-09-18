@@ -28,7 +28,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.R
 import kotlin.math.ceil
 
 @Composable
@@ -51,7 +53,7 @@ fun MessageBodyImage(
 
     Image(
       bitmap = imageBitMap,
-      contentDescription = "",
+      contentDescription = stringResource(R.string.cd_user_image),
       modifier =
         modifier.height(imageHeight.dp).width(imageWidth.dp).clickable {
           onImageClicked(message.bitmaps, 0)
@@ -82,7 +84,8 @@ fun MessageBodyImage(
             val imageBitMap = message.imageBitMaps[imageIndex]
             Image(
               bitmap = imageBitMap,
-              contentDescription = "",
+              contentDescription =
+                stringResource(R.string.cd_user_image_in_group, imageIndex + 1, imageCount),
               modifier =
                 Modifier.height(100.dp).width(100.dp).clickable {
                   onImageClicked(message.bitmaps, imageIndex)

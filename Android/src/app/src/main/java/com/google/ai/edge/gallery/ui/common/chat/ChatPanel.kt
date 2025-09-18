@@ -88,7 +88,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -266,10 +268,11 @@ fun ChatPanel(
       modifier = modifier.padding(innerPadding).consumeWindowInsets(innerPadding).imePadding()
     ) {
       Box(contentAlignment = Alignment.BottomCenter, modifier = Modifier.weight(1f)) {
+        val cdChatPanel = stringResource(R.string.cd_chat_panel)
         LazyColumn(
           modifier =
             Modifier.fillMaxSize().nestedScroll(nestedScrollConnection).semantics {
-              contentDescription = "Chat panel"
+              contentDescription = cdChatPanel
             },
           state = listState,
           verticalArrangement = Arrangement.Top,
@@ -383,7 +386,8 @@ fun ChatPanel(
                   Box(modifier = messageBubbleModifier) {
                     when (message) {
                       // Text
-                      is ChatMessageText -> MessageBodyText(message = message)
+                      is ChatMessageText ->
+                        MessageBodyText(message = message, inProgress = uiState.inProgress)
 
                       // Image
                       is ChatMessageImage -> {
@@ -535,7 +539,12 @@ fun ChatPanel(
         // Show an info message for ask image task to get users started.
         if (task.id == BuiltInTaskId.LLM_ASK_IMAGE && messages.isEmpty()) {
           Column(
-            modifier = Modifier.padding(horizontal = 16.dp).fillMaxSize(),
+            modifier =
+              Modifier.padding(horizontal = 16.dp).fillMaxSize().semantics(
+                mergeDescendants = true
+              ) {
+                liveRegion = LiveRegionMode.Polite
+              },
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
           ) {
@@ -551,7 +560,12 @@ fun ChatPanel(
         // Show an info message for ask image task to get users started.
         else if (task.id == BuiltInTaskId.LLM_ASK_AUDIO && messages.isEmpty()) {
           Column(
-            modifier = Modifier.padding(horizontal = 16.dp).fillMaxSize(),
+            modifier =
+              Modifier.padding(horizontal = 16.dp).fillMaxSize().semantics(
+                mergeDescendants = true
+              ) {
+                liveRegion = LiveRegionMode.Polite
+              },
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
           ) {
@@ -669,7 +683,7 @@ fun ChatPanel(
             ) {
               Icon(
                 Icons.Rounded.ContentCopy,
-                contentDescription = "",
+                contentDescription = stringResource(R.string.cd_copy_to_clipboard_icon),
                 modifier = Modifier.size(18.dp),
               )
               Text("Copy text")

@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.Brush.Companion.linearGradient
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.ui.theme.customColors
@@ -88,7 +89,8 @@ fun RotationalLoader(size: Dp) {
     columns = GridCells.Fixed(2),
     horizontalArrangement = Arrangement.spacedBy(gridSpacing),
     verticalArrangement = Arrangement.spacedBy(gridSpacing),
-    modifier = Modifier.size(size).graphicsLayer { rotationZ = curRotationZ },
+    modifier =
+      Modifier.size(size).graphicsLayer { rotationZ = curRotationZ }.clearAndSetSemantics {},
   ) {
     itemsIndexed(
       listOf(
@@ -120,7 +122,7 @@ fun RotationalLoader(size: Dp) {
           linearGradient(colors = MaterialTheme.customColors.taskBgGradientColors[colorIndex])
         Image(
           painter = painterResource(id = imageResource),
-          contentDescription = "",
+          contentDescription = null,
           modifier =
             Modifier.size(size * ICON_SIZE_FACTOR)
               .graphicsLayer {

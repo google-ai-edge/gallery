@@ -138,7 +138,7 @@ fun TosDialog(onTosAccepted: () -> Unit, viewingMode: Boolean = false) {
               Icons.Filled.KeyboardArrowDown,
               modifier = Modifier.size(24.dp),
               tint = MaterialTheme.colorScheme.onSurfaceVariant,
-              contentDescription = "",
+              contentDescription = stringResource(R.string.cd_expand_icon),
             )
           }
         }

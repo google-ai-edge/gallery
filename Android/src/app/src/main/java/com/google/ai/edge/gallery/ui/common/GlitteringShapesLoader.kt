@@ -146,7 +146,7 @@ private fun Particle(shape: Shape, boxSize: IntSize) {
   val progress = if (exitProgress > 0) (1 - exitProgress) else enterProgress
   Image(
     painter = painterResource(shape.shape),
-    contentDescription = "",
+    contentDescription = null,
     modifier =
       Modifier.size(shape.size).graphicsLayer {
         translationX = boxSize.width * shape.relativeX

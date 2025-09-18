@@ -67,7 +67,7 @@ fun MessageBodyImageWithHistory(
     var savedIndex by remember { mutableIntStateOf(0) }
     Image(
       bitmap = curImageBitmap,
-      contentDescription = "",
+      contentDescription = null,
       modifier =
         Modifier.height(imageHeight.dp).width(imageWidth.dp).pointerInput(Unit) {
           detectHorizontalDragGestures(

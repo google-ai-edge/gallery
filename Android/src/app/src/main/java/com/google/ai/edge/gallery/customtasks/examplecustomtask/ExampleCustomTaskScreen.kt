@@ -145,7 +145,7 @@ fun ExampleCustomTaskScreen(
               Icon(
                 Icons.Outlined.Check,
                 tint = MaterialTheme.colorScheme.onPrimary,
-                contentDescription = "",
+                contentDescription = null,
                 modifier = Modifier.size(12.dp),
               )
             }
