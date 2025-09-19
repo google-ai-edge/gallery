@@ -689,6 +689,11 @@ fun ChatPanel(
                 text = message.content,
                 style = MaterialTheme.typography.bodyMedium
               )
+              Icon(
+                Icons.Rounded.ContentCopy,
+                contentDescription = stringResource(R.string.cd_copy_to_clipboard_icon),
+                modifier = Modifier.size(18.dp),
+              )
             }
           }
 
