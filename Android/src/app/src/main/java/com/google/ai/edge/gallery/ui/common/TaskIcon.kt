@@ -78,7 +78,7 @@ fun TaskIcon(
     val brush = linearGradient(colors = getTaskBgGradientColors(task = task))
     Image(
       painter = getTaskIconBgShape(task = task),
-      contentDescription = "",
+      contentDescription = null,
       modifier =
         Modifier.fillMaxSize()
           .graphicsLayer(
@@ -106,7 +106,7 @@ fun TaskIcon(
         Modifier.size(width * 0.55f)
           .graphicsLayer { alpha = iconAnimationProgress }
           .scale(iconAnimationProgress),
-      contentDescription = "",
+      contentDescription = null,
     )
   }
 }

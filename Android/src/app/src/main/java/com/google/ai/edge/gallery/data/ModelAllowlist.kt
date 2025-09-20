@@ -45,7 +45,7 @@ data class AllowedModel(
 ) {
   fun toModel(): Model {
     // Construct HF download url.
-    val downloadUrl = "https://huggingface.co/$modelId/resolve/main/$modelFile?download=true"
+    val downloadUrl = "https://huggingface.co/$modelId/resolve/$commitHash/$modelFile?download=true"
 
     // Config.
     val isLlmModel =

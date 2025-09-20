@@ -58,7 +58,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
@@ -255,7 +257,7 @@ fun ChatView(
           ) {
             Icon(
               Icons.Rounded.Close,
-              contentDescription = "",
+              contentDescription = stringResource(R.string.cd_close_image_viewer_icon),
               tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }

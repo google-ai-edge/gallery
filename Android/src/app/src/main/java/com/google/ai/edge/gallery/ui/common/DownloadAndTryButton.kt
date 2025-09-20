@@ -66,6 +66,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -363,7 +365,7 @@ fun DownloadAndTryButton(
         Icon(
           if (needToDownloadFirst) Icons.Outlined.FileDownload
           else Icons.AutoMirrored.Rounded.ArrowForward,
-          contentDescription = "",
+          contentDescription = null,
           tint = textColor,
         )
 
@@ -428,6 +430,7 @@ fun DownloadAndTryButton(
             trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
           )
         }
+        val cbStop = stringResource(R.string.cd_stop_icon)
         IconButton(
           onClick = {
             downloadStarted = false
@@ -437,10 +440,11 @@ fun DownloadAndTryButton(
             IconButtonDefaults.iconButtonColors(
               containerColor = MaterialTheme.colorScheme.surfaceContainer
             ),
+          modifier = Modifier.semantics { contentDescription = cbStop },
         ) {
           Icon(
             Icons.Outlined.Close,
-            contentDescription = "",
+            contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurface,
           )
         }
@@ -499,7 +503,11 @@ fun DownloadAndTryButton(
   if (showErrorDialog) {
     AlertDialog(
       icon = {
-        Icon(Icons.Rounded.Error, contentDescription = "", tint = MaterialTheme.colorScheme.error)
+        Icon(
+          Icons.Rounded.Error,
+          contentDescription = stringResource(R.string.cd_error),
+          tint = MaterialTheme.colorScheme.error,
+        )
       },
       title = { Text("Unknown network error") },
       text = { Text("Please check your internet connection.") },

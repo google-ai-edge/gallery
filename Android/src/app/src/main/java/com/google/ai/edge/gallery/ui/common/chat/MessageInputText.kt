@@ -118,6 +118,7 @@ import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.AudioClip
 import com.google.ai.edge.gallery.common.convertWavToMonoWithMaxSeconds
 import com.google.ai.edge.gallery.common.decodeSampledBitmapFromUri
@@ -281,7 +282,7 @@ fun MessageInputText(
           Box(contentAlignment = Alignment.TopEnd) {
             Image(
               bitmap = image.asImageBitmap(),
-              contentDescription = "",
+              contentDescription = stringResource(R.string.cd_image_thumbnail),
               modifier =
                 Modifier.height(80.dp)
                   .shadow(2.dp, shape = RoundedCornerShape(8.dp))
@@ -333,7 +334,7 @@ fun MessageInputText(
               ) {
                 Icon(
                   Icons.Rounded.Add,
-                  contentDescription = "Image menu button",
+                  contentDescription = stringResource(R.string.cd_add_content_icon),
                   modifier = Modifier.size(28.dp),
                 )
               }
@@ -364,7 +365,7 @@ fun MessageInputText(
                           verticalAlignment = Alignment.CenterVertically,
                           horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                          Icon(Icons.Rounded.PhotoCamera, contentDescription = "")
+                          Icon(Icons.Rounded.PhotoCamera, contentDescription = null)
                           Text("Take a picture")
                         }
                       },
@@ -396,7 +397,7 @@ fun MessageInputText(
                           verticalAlignment = Alignment.CenterVertically,
                           horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                          Icon(Icons.Rounded.Photo, contentDescription = "")
+                          Icon(Icons.Rounded.Photo, contentDescription = null)
                           Text("Pick from album")
                         }
                       },
@@ -419,7 +420,7 @@ fun MessageInputText(
                           verticalAlignment = Alignment.CenterVertically,
                           horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                          Icon(Icons.Rounded.Mic, contentDescription = "")
+                          Icon(Icons.Rounded.Mic, contentDescription = null)
                           Text("Record audio clip")
                         }
                       },
@@ -451,7 +452,7 @@ fun MessageInputText(
                           verticalAlignment = Alignment.CenterVertically,
                           horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                          Icon(Icons.Rounded.AudioFile, contentDescription = "")
+                          Icon(Icons.Rounded.AudioFile, contentDescription = null)
                           Text("Pick wav file")
                         }
                       },
@@ -487,7 +488,7 @@ fun MessageInputText(
                           verticalAlignment = Alignment.CenterVertically,
                           horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                          Icon(Icons.Rounded.PostAdd, contentDescription = "")
+                          Icon(Icons.Rounded.PostAdd, contentDescription = null)
                           Text("Prompt templates")
                         }
                       },
@@ -504,7 +505,7 @@ fun MessageInputText(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                       ) {
-                        Icon(Icons.Rounded.History, contentDescription = "")
+                        Icon(Icons.Rounded.History, contentDescription = null)
                         Text("Input history")
                       }
                     },
@@ -516,6 +517,7 @@ fun MessageInputText(
                 }
 
                 // Text field.
+                val cdPromptInput = stringResource(R.string.cd_prompt_input_text_field)
                 TextField(
                   value = curMessage,
                   minLines = 1,
@@ -533,7 +535,7 @@ fun MessageInputText(
                   textStyle = bodyLargeNarrow,
                   modifier =
                     Modifier.weight(1f).padding(start = 36.dp).semantics {
-                      contentDescription = "Prompt input text field"
+                      contentDescription = cdPromptInput
                     },
                   placeholder = { Text(stringResource(textFieldPlaceHolderRes)) },
                 )
@@ -551,7 +553,7 @@ fun MessageInputText(
                     ) {
                       Icon(
                         Icons.Rounded.Stop,
-                        contentDescription = "",
+                        contentDescription = stringResource(R.string.cd_stop_icon),
                         tint = MaterialTheme.colorScheme.primary,
                       )
                     }
@@ -579,7 +581,7 @@ fun MessageInputText(
                   ) {
                     Icon(
                       Icons.AutoMirrored.Rounded.Send,
-                      contentDescription = "Message send prompt button",
+                      contentDescription = stringResource(R.string.cd_send_prompt_icon),
                       modifier = Modifier.offset(x = 2.dp),
                       tint = Color.White,
                     )
@@ -728,7 +730,7 @@ fun MessageInputText(
         ) {
           Icon(
             Icons.Rounded.Close,
-            contentDescription = "",
+            contentDescription = stringResource(R.string.cd_close_icon),
             tint = MaterialTheme.colorScheme.primary,
           )
         }
@@ -741,8 +743,7 @@ fun MessageInputText(
             Modifier.align(Alignment.BottomCenter)
               .padding(bottom = 32.dp)
               .size(size = 64.dp)
-              .border(width = 2.dp, color = MaterialTheme.colorScheme.onPrimary, CircleShape)
-              .semantics { contentDescription = "Camera shutter button" },
+              .border(width = 2.dp, color = MaterialTheme.colorScheme.onPrimary, CircleShape),
           onClick = {
             val callback =
               object : ImageCapture.OnImageCapturedCallback() {
@@ -773,7 +774,7 @@ fun MessageInputText(
         ) {
           Icon(
             Icons.Rounded.PhotoCamera,
-            contentDescription = "",
+            contentDescription = stringResource(R.string.cd_camera_shutter_icon),
             tint = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.size(36.dp),
           )
@@ -798,7 +799,7 @@ fun MessageInputText(
           ) {
             Icon(
               Icons.Rounded.FlipCameraAndroid,
-              contentDescription = "",
+              contentDescription = stringResource(R.string.cd_toggle_front_back_camera_icon),
               tint = MaterialTheme.colorScheme.onSecondaryContainer,
               modifier = Modifier.size(24.dp),
             )
@@ -840,7 +841,7 @@ private fun MediaPanelCloseButton(onClicked: () -> Unit) {
   ) {
     Icon(
       Icons.Rounded.Close,
-      contentDescription = "",
+      contentDescription = stringResource(R.string.cd_delete_icon),
       modifier = Modifier.padding(3.dp).size(16.dp),
     )
   }

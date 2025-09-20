@@ -94,6 +94,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
@@ -347,12 +352,14 @@ fun HomeScreen(
         },
         floatingActionButton = {
           // A floating action button to show "import model" bottom sheet.
+          val cdImportModelFab = stringResource(R.string.cd_import_model_button)
           SmallFloatingActionButton(
             onClick = { showImportModelSheet = true },
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.secondary,
+            modifier = Modifier.semantics { contentDescription = cdImportModelFab },
           ) {
-            Icon(Icons.Filled.Add, "")
+            Icon(Icons.Filled.Add, contentDescription = null)
           }
         },
       ) { innerPadding ->
@@ -371,7 +378,10 @@ fun HomeScreen(
 
               // App title and intro text.
               Column(
-                modifier = Modifier.padding(horizontal = 40.dp, vertical = 48.dp),
+                modifier =
+                  Modifier.padding(horizontal = 40.dp, vertical = 48.dp).semantics(
+                    mergeDescendants = true
+                  ) {},
                 verticalArrangement = Arrangement.spacedBy(8.dp),
               ) {
                 AppTitle()
@@ -444,33 +454,38 @@ fun HomeScreen(
         style = MaterialTheme.typography.titleLarge,
         modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
       )
+      val cbImportFromLocalFile = stringResource(R.string.cd_import_model_from_local_file_button)
       Box(
         modifier =
           Modifier.clickable {
-            coroutineScope.launch {
-              // Give it sometime to show the click effect.
-              delay(200)
-              showImportModelSheet = false
+              coroutineScope.launch {
+                // Give it sometime to show the click effect.
+                delay(200)
+                showImportModelSheet = false
 
-              // Show file picker.
-              val intent =
-                Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                  addCategory(Intent.CATEGORY_OPENABLE)
-                  type = "*/*"
-                  // Single select.
-                  putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
-                }
-              filePickerLauncher.launch(intent)
+                // Show file picker.
+                val intent =
+                  Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                    // Single select.
+                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+                  }
+                filePickerLauncher.launch(intent)
+              }
             }
-          }
+            .semantics {
+              role = Role.Button
+              contentDescription = cbImportFromLocalFile
+            }
       ) {
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(6.dp),
           modifier = Modifier.fillMaxWidth().padding(16.dp),
         ) {
-          Icon(Icons.AutoMirrored.Outlined.NoteAdd, contentDescription = "")
-          Text("From local model file")
+          Icon(Icons.AutoMirrored.Outlined.NoteAdd, contentDescription = null)
+          Text("From local model file", modifier = Modifier.clearAndSetSemantics {})
         }
       }
     }
@@ -514,6 +529,13 @@ fun HomeScreen(
   // Alert dialog for unsupported file type.
   if (showUnsupportedFileTypeDialog) {
     AlertDialog(
+      icon = {
+        Icon(
+          Icons.Rounded.Error,
+          contentDescription = stringResource(R.string.cd_error),
+          tint = MaterialTheme.colorScheme.error,
+        )
+      },
       onDismissRequest = { showUnsupportedFileTypeDialog = false },
       title = { Text("Unsupported file type") },
       text = { Text("Only \".task\" or \".litertlm\" file type is supported.") },
@@ -528,6 +550,13 @@ fun HomeScreen(
   // Alert dialog for unsupported web model.
   if (showUnsupportedWebModelDialog) {
     AlertDialog(
+      icon = {
+        Icon(
+          Icons.Rounded.Error,
+          contentDescription = stringResource(R.string.cd_error),
+          tint = MaterialTheme.colorScheme.error,
+        )
+      },
       onDismissRequest = { showUnsupportedWebModelDialog = false },
       title = { Text("Unsupported model type") },
       text = { Text("Looks like the model is a web-only model and is not supported by the app.") },
@@ -542,7 +571,11 @@ fun HomeScreen(
   if (uiState.loadingModelAllowlistError.isNotEmpty()) {
     AlertDialog(
       icon = {
-        Icon(Icons.Rounded.Error, contentDescription = "", tint = MaterialTheme.colorScheme.error)
+        Icon(
+          Icons.Rounded.Error,
+          contentDescription = stringResource(R.string.cd_error),
+          tint = MaterialTheme.colorScheme.error,
+        )
       },
       title = { Text(uiState.loadingModelAllowlistError) },
       text = { Text("Please check your internet connection and try again later.") },
@@ -576,7 +609,7 @@ private fun AppTitle() {
   // animation. This second animation is positioned directly on top of the first, appearing just as
   // the initial reveal is finishing or has just completed, creating a layered and dynamic visual
   // effect.
-  Box {
+  Box(modifier = Modifier.clearAndSetSemantics {}) {
     var delay = ANIMATION_INIT_DELAY
     SwipingText(
       text = firstLineText,
@@ -598,7 +631,7 @@ private fun AppTitle() {
   //
   // The initial animation is the same as the first line text. Right before it is done, the final
   // text with a gradient is revealed.
-  Box {
+  Box(modifier = Modifier.clearAndSetSemantics {}) {
     var delay = TITLE_SECOND_LINE_ANIMATION_START
     SwipingText(
       text = secondLineText,
@@ -844,11 +877,14 @@ private fun TaskCard(task: Task, index: Int, onClick: () -> Unit, modifier: Modi
       animationLabel = "task card animation",
     )
 
+  val cbTask = stringResource(R.string.cd_task_card, task.label, task.models.size)
   Card(
     modifier =
-      modifier.clip(RoundedCornerShape(24.dp)).clickable(onClick = onClick).graphicsLayer {
-        alpha = progress
-      },
+      modifier
+        .clip(RoundedCornerShape(24.dp))
+        .clickable(onClick = onClick)
+        .graphicsLayer { alpha = progress }
+        .semantics { contentDescription = cbTask },
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.customColors.taskCardBgColor),
   ) {
     Row(
@@ -862,11 +898,13 @@ private fun TaskCard(task: Task, index: Int, onClick: () -> Unit, modifier: Modi
           task.label,
           color = MaterialTheme.colorScheme.onSurface,
           style = MaterialTheme.typography.titleMedium,
+          modifier = Modifier.clearAndSetSemantics {},
         )
         Text(
           curModelCountLabel,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           style = MaterialTheme.typography.bodyMedium,
+          modifier = Modifier.clearAndSetSemantics {},
         )
       }
 

@@ -26,6 +26,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.ui.theme.GalleryTheme
@@ -49,7 +51,7 @@ fun DataCard(
   showPlaceholder: Boolean = false,
 ) {
   var strValue = "-"
-  Column {
+  Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
     Text(label, style = labelSmallNarrowMedium)
     if (showPlaceholder) {
       Text("-", style = bodySmallMediumNarrow)

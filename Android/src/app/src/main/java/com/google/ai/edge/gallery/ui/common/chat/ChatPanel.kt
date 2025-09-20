@@ -16,10 +16,6 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
-// import com.google.ai.edge.gallery.ui.preview.PreviewChatModel
-// import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
-// import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
-// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.content.ClipData
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
@@ -52,6 +48,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -97,7 +94,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -198,33 +197,33 @@ fun ChatPanel(
     mutableStateOf(mapOf())
   }
 
+  // Scroll to bottom when IME is toggled.
+  LaunchedEffect(WindowInsets.ime.getBottom(density)) {
+    scrollToBottom(listState = listState, animate = true)
+  }
+
   // Scroll the content to the bottom when any of these changes.
   LaunchedEffect(
     messages.size,
     lastMessage.value,
     lastMessageContent.value,
-    WindowInsets.ime.getBottom(density),
+    lastMessage.value?.latencyMs,
   ) {
-    // Only scroll if showingStatsByModel is not changed. In other words, when showingStatsByModel
-    // changes we want the display to not scroll.
     if (messages.isNotEmpty()) {
-      if (uiState.showingStatsByModel === lastShowingStatsByModel.value) {
-        if (!listState.canScrollForward) {
-          listState.animateScrollToItem(messages.lastIndex, scrollOffset = 10000)
-        }
-      } else {
-        // Scroll to bottom if the message to show stats is the last message.
-        val curShowingStats =
-          uiState.showingStatsByModel[selectedModel.name]?.toMutableSet() ?: mutableSetOf()
-        val lastShowingStats = lastShowingStatsByModel.value[selectedModel.name] ?: mutableSetOf()
-        curShowingStats.removeAll(lastShowingStats)
-        if (curShowingStats.isNotEmpty()) {
-          val index =
-            viewModel.getMessageIndex(model = selectedModel, message = curShowingStats.first())
-          if (index == messages.size - 2) {
-            listState.animateScrollToItem(messages.lastIndex, scrollOffset = 10000)
-          }
-        }
+      val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.last()
+      // Determines if an automatic scroll is necessary. It is true if:
+      // 1. The last item is not yet fully visible
+      // OR
+      // 2. The scroll position is close to the bottom (within 90 pixels of the end offset. 90 is
+      //    slightly taller than the "show stats" chip).
+      val canScroll =
+        lastVisibleItem.index < messages.size - 1 ||
+          lastVisibleItem.offset + lastVisibleItem.size - listState.layoutInfo.viewportEndOffset <
+            90
+      // Only scroll if showingStatsByModel is not changed. In other words, when showingStatsByModel
+      // changes we want the display to not scroll.
+      if (uiState.showingStatsByModel === lastShowingStatsByModel.value && canScroll) {
+        scrollToBottom(listState = listState, animate = true)
       }
     }
     lastShowingStatsByModel.value = uiState.showingStatsByModel
@@ -275,10 +274,11 @@ fun ChatPanel(
       modifier = modifier.padding(innerPadding).consumeWindowInsets(innerPadding).imePadding()
     ) {
       Box(contentAlignment = Alignment.BottomCenter, modifier = Modifier.weight(1f)) {
+        val cdChatPanel = stringResource(R.string.cd_chat_panel)
         LazyColumn(
           modifier =
             Modifier.fillMaxSize().nestedScroll(nestedScrollConnection).semantics {
-              contentDescription = "Chat panel"
+              contentDescription = cdChatPanel
             },
           state = listState,
           verticalArrangement = Arrangement.Top,
@@ -392,7 +392,8 @@ fun ChatPanel(
                   Box(modifier = messageBubbleModifier) {
                     when (message) {
                       // Text
-                      is ChatMessageText -> MessageBodyText(message = message)
+                      is ChatMessageText ->
+                        MessageBodyText(message = message, inProgress = uiState.inProgress)
 
                       // Image
                       is ChatMessageImage -> {
@@ -461,22 +462,43 @@ fun ChatPanel(
                               viewModel.isShowingStats(model = selectedModel, message = message)
                             ) {
                               val llmBenchmarkResult = message.llmBenchmarkResult
+                              val isLastMessage =
+                                viewModel.getMessageIndex(
+                                  model = selectedModel,
+                                  message = message,
+                                ) == messages.lastIndex
                               if (llmBenchmarkResult != null) {
                                 viewModel.insertMessageAfter(
                                   model = selectedModel,
                                   anchorMessage = message,
                                   messageToAdd = llmBenchmarkResult,
                                 )
+                                // Scroll to bottom if showing the stats for the last message.
+                                if (isLastMessage) {
+                                  scope.launch {
+                                    delay(100L)
+                                    scrollToBottom(listState = listState, animate = true)
+                                  }
+                                }
                               }
                             }
                             // Remove the stats message.
                             else {
+                              // `message` here is the one before the stats message to be removed.
                               val curMessageIndex =
                                 viewModel.getMessageIndex(model = selectedModel, message = message)
+                              val isLastMessage = curMessageIndex == messages.lastIndex - 1
                               viewModel.removeMessageAt(
                                 model = selectedModel,
                                 index = curMessageIndex + 1,
                               )
+                              // Scroll to bottom if hiding the stats for the last message.
+                              if (isLastMessage) {
+                                scope.launch {
+                                  delay(100L)
+                                  scrollToBottom(listState = listState, animate = true)
+                                }
+                              }
                             }
                           },
                           enabled = !uiState.inProgress,
@@ -523,7 +545,12 @@ fun ChatPanel(
         // Show an info message for ask image task to get users started.
         if (task.id == BuiltInTaskId.LLM_ASK_IMAGE && messages.isEmpty()) {
           Column(
-            modifier = Modifier.padding(horizontal = 16.dp).fillMaxSize(),
+            modifier =
+              Modifier.padding(horizontal = 16.dp).fillMaxSize().semantics(
+                mergeDescendants = true
+              ) {
+                liveRegion = LiveRegionMode.Polite
+              },
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
           ) {
@@ -539,7 +566,12 @@ fun ChatPanel(
         // Show an info message for ask image task to get users started.
         else if (task.id == BuiltInTaskId.LLM_ASK_AUDIO && messages.isEmpty()) {
           Column(
-            modifier = Modifier.padding(horizontal = 16.dp).fillMaxSize(),
+            modifier =
+              Modifier.padding(horizontal = 16.dp).fillMaxSize().semantics(
+                mergeDescendants = true
+              ) {
+                liveRegion = LiveRegionMode.Polite
+              },
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
           ) {
@@ -572,13 +604,6 @@ fun ChatPanel(
           curMessage = ""
           // Hide software keyboard.
           focusManager.clearFocus()
-          // Scroll to the bottom of the message list.
-          if (messages.isNotEmpty()) {
-            scope.launch {
-              delay(200)
-              listState.animateScrollToItem(messages.lastIndex, scrollOffset = 10000)
-            }
-          }
         },
         onOpenPromptTemplatesClicked = {
           onSendMessage(
@@ -591,14 +616,7 @@ fun ChatPanel(
             ),
           )
         },
-        onStopButtonClicked = {
-          onStopButtonClicked()
-          // Scroll to the bottom of the message list.
-          scope.launch {
-            delay(200)
-            listState.animateScrollToItem(messages.lastIndex, scrollOffset = 10000)
-          }
-        },
+        onStopButtonClicked = onStopButtonClicked,
         onSetAudioRecorderVisible = { start ->
           showAudioRecorder = start
           if (!showAudioRecorder) {
@@ -713,21 +731,13 @@ fun ChatPanel(
 
 }
 
-// @Preview(showBackground = true)
-// @Composable
-// fun ChatPanelPreview() {
-//   GalleryTheme {
-//     val context = LocalContext.current
-//     val task = TASK_TEST1
-//     ChatPanel(
-//       modelManagerViewModel = PreviewModelManagerViewModel(context = LocalContext.current),
-//       task = task,
-//       selectedModel = TASK_TEST1.models[1],
-//       viewModel = PreviewChatModel(context = context),
-//       navigateUp = {},
-//       onSendMessage = { _, _ -> },
-//       onRunAgainClicked = { _, _ -> },
-//       onBenchmarkClicked = { _, _, _, _ -> },
-//     )
-//   }
-// }
+private suspend fun scrollToBottom(listState: LazyListState, animate: Boolean = false) {
+  val itemCount = listState.layoutInfo.totalItemsCount
+  if (itemCount > 0) {
+    if (animate) {
+      listState.animateScrollToItem(itemCount - 1, scrollOffset = 10000)
+    } else {
+      listState.scrollToItem(itemCount - 1, scrollOffset = 10000)
+    }
+  }
+}
