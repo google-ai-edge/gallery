@@ -707,6 +707,7 @@ fun ChatPanel(
                 text = message.content,
                 style = MaterialTheme.typography.bodyMedium
               )
+              Spacer(modifier = Modifier.height(2.dp))
               Icon(
                 Icons.Rounded.ContentCopy,
                 contentDescription = stringResource(R.string.cd_copy_to_clipboard_icon),

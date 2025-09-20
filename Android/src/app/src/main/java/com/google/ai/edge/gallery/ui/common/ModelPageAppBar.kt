@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.rounded.MapsUgc
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -69,6 +70,7 @@ fun ModelPageAppBar(
   inProgress: Boolean,
   modelPreparing: Boolean,
   modifier: Modifier = Modifier,
+  onDownloadPdf:()->Unit={},
   isResettingSession: Boolean = false,
   onResetSessionClicked: (Model) -> Unit = {},
   canShowResetSessionButton: Boolean = false,
@@ -137,27 +139,40 @@ fun ModelPageAppBar(
       val downloadSucceeded = curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
       val showConfigButton = model.configs.isNotEmpty() && downloadSucceeded
       val showResetSessionButton = canShowResetSessionButton && downloadSucceeded
-      Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
-        var configButtonOffset = 0.dp
-        if (showConfigButton && canShowResetSessionButton) {
-          configButtonOffset = (-40).dp
-        }
-        if (showConfigButton) {
-          val enableConfigButton = !isModelInitializing && !inProgress && isModelInitialized
-          IconButton(
-            onClick = { showConfigDialog = true },
-            enabled = enableConfigButton,
-            modifier =
-              Modifier.offset(x = configButtonOffset).alpha(if (!enableConfigButton) 0.5f else 1f),
-          ) {
+      val enableButtons = !isModelInitializing && !inProgress && isModelInitialized
+
+//      Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
+//        var configButtonOffset = 0.dp
+//        if (showConfigButton && canShowResetSessionButton) {
+//          configButtonOffset = (-40).dp
+//        }
+        if (showConfigButton && showResetSessionButton) {
+          val enablePdfButton = enableButtons && !isResettingSession
+          IconButton(onClick = { onDownloadPdf() },
+            enabled = enablePdfButton,
+            modifier = Modifier.alpha(if (!enablePdfButton) 0.5f else 1f)) {
             Icon(
-              imageVector = Icons.Rounded.Tune,
-              contentDescription = stringResource(R.string.cd_model_settings_icon),
+              imageVector = Icons.Default.Download,
+              contentDescription = "Download Chat",
               tint = MaterialTheme.colorScheme.onSurface,
               modifier = Modifier.size(20.dp),
             )
           }
         }
+      if (showConfigButton) {
+        IconButton(
+          onClick = { showConfigDialog = true },
+          enabled = enableButtons,
+          modifier = Modifier.alpha(if (!enableButtons) 0.5f else 1f),
+        ) {
+          Icon(
+            imageVector = Icons.Rounded.Tune,
+            contentDescription = stringResource(R.string.cd_model_settings_icon),
+            tint = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(20.dp),
+          )
+        }
+      }
         if (showResetSessionButton) {
           if (isResettingSession) {
             CircularProgressIndicator(
@@ -174,7 +189,8 @@ fun ModelPageAppBar(
             ) {
               Box(
                 modifier =
-                  Modifier.size(32.dp)
+                  Modifier
+                    .size(32.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceContainer),
                 contentAlignment = Alignment.Center,
@@ -189,7 +205,7 @@ fun ModelPageAppBar(
             }
           }
         }
-      }
+//      }
     },
   )
 
