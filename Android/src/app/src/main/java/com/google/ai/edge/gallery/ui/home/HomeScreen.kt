@@ -898,7 +898,6 @@ private fun TaskCard(task: Task, index: Int, onClick: () -> Unit, modifier: Modi
           task.label,
           color = MaterialTheme.colorScheme.onSurface,
           style = MaterialTheme.typography.titleMedium,
-          modifier = Modifier.clearAndSetSemantics {},
         )
         Text(
           curModelCountLabel,
