@@ -94,8 +94,6 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
 
       // Run inference.
       val instance = model.instance as LlmModelInstance
-      val prefillTokens = instance.session.sizeInTokens(input)
-
       var firstRun = true
       var timeToFirstToken = 0f
       var firstTokenTs = 0L
@@ -115,6 +113,7 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
             setPreparing(false)
             firstTokenTs = System.currentTimeMillis()
             timeToFirstToken = (firstTokenTs - start) / 1000f
+            val prefillTokens = instance.session.getBenchmarkInfo().lastPrefillTokenCount
             prefillSpeed = prefillTokens / timeToFirstToken
             firstRun = false
           } else {
@@ -220,7 +219,7 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
     viewModelScope.launch(Dispatchers.Default) {
       setInProgress(false)
       val instance = model.instance as LlmModelInstance
-      instance.session.cancelGenerateResponseAsync()
+      instance.session.cancelProcess()
     }
   }
 
