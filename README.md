@@ -31,7 +31,7 @@ For users without Google Play access, install the apk from the [**latest release
 *   **✍️ Prompt Lab:** Summarize, rewrite, generate code, or use freeform prompts to explore single-turn LLM use cases.
 *   **💬 AI Chat:** Engage in multi-turn conversations.
 *   **📊 Performance Insights:** Real-time benchmarks (TTFT, decode speed, latency).
-*   **🧩 Bring Your Own Model:** Test your local LiteRT `.litermlm` models.
+*   **🧩 Bring Your Own Model:** Test your local LiteRT `.litertlm` models.
 *   **🔗 Developer Resources:** Quick links to model cards and source code.
 
 ## 🏁 Get Started in Minutes!
