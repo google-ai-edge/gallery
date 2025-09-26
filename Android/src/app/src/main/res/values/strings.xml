@@ -70,6 +70,11 @@
   <string name="benchmark" translatable="false">Run benchmark</string>
   <string name="warming_up" translatable="false">warming up…</string>
   <string name="running" translatable="false">running</string>
+  <string name="enter_instruction" translatable="false">Enter instruction</string>
+  <string name="invalid_response" translatable="false">Invalid response</string>
+  <string name="hold_down_to_talk" translatable="false">Hold to talk</string>
+  <string name="listening" translatable="false">Listening...</string>
+  <string name="grant_record_audio_permission" translatable="false">Grant record audio permission</string>
 
   <!-- The following entries are for accessibility -->
 

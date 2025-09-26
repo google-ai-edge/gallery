@@ -726,15 +726,31 @@ constructor(
 
         // Convert models in the allowlist.
         val curTasks = customTasks.map { it.task }
+        val nameToModel = mutableMapOf<String, Model>()
         for (allowedModel in modelAllowlist.models) {
           if (allowedModel.disabled == true) {
             continue
           }
 
           val model = allowedModel.toModel()
+          nameToModel.put(model.name, model)
           for (taskType in allowedModel.taskTypes) {
             val task = curTasks.find { it.id == taskType }
             task?.models?.add(model)
+          }
+        }
+
+        // Find models from allowlist if a task's `modelNames` field is not empty.
+        for (task in curTasks) {
+          if (task.modelNames.isNotEmpty()) {
+            for (modelName in task.modelNames) {
+              val model = nameToModel[modelName]
+              if (model == null) {
+                Log.w(TAG, "Model '${modelName}' in task '${task.label}' not found in allowlist.")
+                continue
+              }
+              task.models.add(model)
+            }
           }
         }
 

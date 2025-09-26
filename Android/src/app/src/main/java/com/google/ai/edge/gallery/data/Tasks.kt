@@ -83,6 +83,14 @@ data class Task(
   /** List of models for the task. */
   val models: MutableList<Model>,
 
+  /**
+   * List of model names for the task.
+   *
+   * If this field is non-empty, the task will try to find the models with the matching names from
+   * the allowlist
+   */
+  val modelNames: List<String> = listOf(),
+
   // The following fields are only used for built-in tasks. Can ignore if you are creating your own
   // custom tasks.
   //
