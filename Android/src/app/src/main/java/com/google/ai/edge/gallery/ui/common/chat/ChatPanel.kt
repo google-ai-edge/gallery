@@ -33,10 +33,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -48,7 +51,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -657,42 +663,73 @@ fun ChatPanel(
         onDismissRequest = { showMessageLongPressedSheet = false },
         modifier = Modifier.wrapContentHeight(),
       ) {
-        Column {
-          // Copy text.
-          Box(
-            modifier =
-              Modifier.fillMaxWidth().clickable {
-                // Copy text.
-                scope.launch {
-                  val clipData = ClipData.newPlainText("message content", message.content)
-                  val clipEntry = ClipEntry(clipData = clipData)
-                  clipboard.setClipEntry(clipEntry = clipEntry)
-                }
-
-                // Hide sheet.
-                showMessageLongPressedSheet = false
-
-                // Show a snack bar.
-                scope.launch { snackbarHostState.showSnackbar("Text copied to clipboard") }
-              }
+        Column(modifier = Modifier.padding(12.dp)) {
+          // Header: title + copy whole button
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
           ) {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(6.dp),
-              modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp),
+            Text(
+              text = "Message",
+              style = MaterialTheme.typography.titleMedium
+            )
+
+            Text(
+              text = "Copy whole",
+              modifier = Modifier
+                .clickable {
+                  scope.launch {
+                    val clipData = ClipData.newPlainText("message content", message.content)
+                    val clipEntry = ClipEntry(clipData = clipData)
+                    clipboard.setClipEntry(clipEntry = clipEntry)
+                  }
+                  showMessageLongPressedSheet = false
+                  scope.launch { snackbarHostState.showSnackbar("Text copied to clipboard") }
+                }
+                .padding(8.dp),
+              style = MaterialTheme.typography.labelLarge
+            )
+          }
+
+          Spacer(modifier = Modifier.height(8.dp))
+
+          // Selectable message content (scrollable)
+          SelectionContainer {
+            Column(
+              modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 80.dp, max = 320.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(8.dp)
             ) {
+              Text(
+                text = message.content,
+                style = MaterialTheme.typography.bodyMedium
+              )
+              Spacer(modifier = Modifier.height(2.dp))
               Icon(
                 Icons.Rounded.ContentCopy,
                 contentDescription = stringResource(R.string.cd_copy_to_clipboard_icon),
                 modifier = Modifier.size(18.dp),
               )
-              Text("Copy text")
             }
           }
+
+          Spacer(modifier = Modifier.height(12.dp))
+
+          // Helper text: how to copy partial selection using OS actions
+          Text(
+            text =
+              "Long-press and drag to select part of the text, then use the system copy action to copy the selection. Use “Copy whole” to copy the entire message.",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(horizontal = 4.dp)
+          )
         }
       }
     }
   }
+
 }
 
 private suspend fun scrollToBottom(listState: LazyListState, animate: Boolean = false) {
