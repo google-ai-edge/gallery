@@ -54,73 +54,82 @@ private const val CARD_HEIGHT = 100
 
 @Composable
 fun MessageBodyPromptTemplates(
-  message: ChatMessagePromptTemplates,
-  task: Task,
-  onPromptClicked: (PromptTemplate) -> Unit = {},
+    message: ChatMessagePromptTemplates,
+    task: Task,
+    onPromptClicked: (PromptTemplate) -> Unit = {},
 ) {
-  val rowCount = message.templates.size.toFloat()
-  val color = getTaskIconColor(task)
-  val gradientColors = listOf(color.copy(alpha = 0.5f), color)
+    val rowCount = message.templates.size.toFloat()
+    val color = getTaskIconColor(task)
+    val gradientColors = listOf(color.copy(alpha = 0.5f), color)
 
-  Column(
-    modifier = Modifier.padding(top = 12.dp),
-    verticalArrangement = Arrangement.spacedBy(8.dp),
-  ) {
-    Text(
-      "Try an example prompt",
-      style =
-        MaterialTheme.typography.titleLarge.copy(
-          fontWeight = FontWeight.Bold,
-          brush = Brush.linearGradient(colors = gradientColors),
-        ),
-      modifier = Modifier.fillMaxWidth(),
-      textAlign = TextAlign.Center,
-    )
-    if (message.showMakeYourOwn) {
-      Text(
-        "Or make your own",
-        style = MaterialTheme.typography.titleSmall,
-        modifier = Modifier.fillMaxWidth().offset(y = (-4).dp),
-        textAlign = TextAlign.Center,
-      )
-    }
-    LazyColumn(
-      modifier = Modifier.height((rowCount * (CARD_HEIGHT + 8)).dp),
-      verticalArrangement = Arrangement.spacedBy(8.dp),
+    Column(
+        modifier = Modifier.padding(top = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-      // Cards.
-      items(message.templates) { template ->
-        Box(
-          modifier =
-            Modifier.border(
-                width = 1.dp,
-                color = color.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(24.dp),
-              )
-              .height(CARD_HEIGHT.dp)
-              .shadow(elevation = 2.dp, shape = RoundedCornerShape(24.dp), spotColor = color)
-              .background(MaterialTheme.colorScheme.surface)
-              .clickable { onPromptClicked(template) }
-        ) {
-          Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 20.dp).fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-          ) {
+        Text(
+            "Try an example prompt",
+            style =
+                MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    brush = Brush.linearGradient(colors = gradientColors),
+                ),
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
+        )
+        if (message.showMakeYourOwn) {
             Text(
-              template.title,
-              style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                "Or make your own",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = (-4).dp),
+                textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.weight(1f))
-            Text(
-              template.description,
-              style = MaterialTheme.typography.bodyMedium,
-              textAlign = TextAlign.Center,
-            )
-          }
         }
-      }
+        LazyColumn(
+            modifier = Modifier.height((rowCount * (CARD_HEIGHT + 8)).dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            // Cards.
+            items(message.templates) { template ->
+                Box(
+                    modifier =
+                        Modifier
+                            .border(
+                                width = 1.dp,
+                                color = color.copy(alpha = 0.3f),
+                                shape = RoundedCornerShape(24.dp),
+                            )
+                            .height(CARD_HEIGHT.dp)
+                            .shadow(
+                                elevation = 2.dp,
+                                shape = RoundedCornerShape(24.dp),
+                                spotColor = color
+                            )
+                            .background(MaterialTheme.colorScheme.surface)
+                            .clickable { onPromptClicked(template) }
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp, vertical = 20.dp)
+                            .fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            template.title,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            template.description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
+        }
     }
-  }
 }
 
 // @Preview(showBackground = true)
