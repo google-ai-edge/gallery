@@ -89,6 +89,7 @@ open class ChatMessageText(
   // Benchmark result for LLM response.
   var llmBenchmarkResult: ChatMessageBenchmarkLlmResult? = null,
   override val accelerator: String = "",
+  var data: Any? = null,
 ) :
   ChatMessage(
     type = ChatMessageType.TEXT,
@@ -104,6 +105,7 @@ open class ChatMessageText(
       accelerator = accelerator,
       isMarkdown = isMarkdown,
       llmBenchmarkResult = llmBenchmarkResult,
+      data = data,
     )
   }
 }

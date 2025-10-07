@@ -41,7 +41,7 @@ private const val SHADER =
 // The size of the render area.
 uniform float2 iResolution;
 // The color of the background to render the wave on.
-uniform vec3 bgColor;
+uniform vec4 bgColor;
 // Current timestamp in seconds.
 uniform float iTime;
 // The amplitude of the sound to be visualized.
@@ -120,9 +120,9 @@ half4 main(float2 fragCoord) {
   float fade_factor = smoothstep(fade_start, fade_end, uv.y);
 
   // Blend the base color with background color using the fade factor
-  vec4 final_color = mix(vec4(col, 1.0), vec4(bgColor, 1.0), fade_factor);
+  vec4 final_color = mix(vec4(col, 1.0), bgColor, fade_factor);
 
-  return half4(final_color) * (1 + amplitude * 0.2);
+  return vec4(half3(final_color.xyz) * (1 + amplitude * 0.2), final_color.a);
 }
 """
 
@@ -178,7 +178,7 @@ fun AudioAnimation(bgColor: Color, amplitude: Int, modifier: Modifier = Modifier
 
       shader.setFloatUniform("iTime", iTime)
       shader.setFloatUniform("iResolution", size.width, size.height)
-      shader.setFloatUniform("bgColor", bgColor.red, bgColor.green, bgColor.blue)
+      shader.setFloatUniform("bgColor", bgColor.red, bgColor.green, bgColor.blue, bgColor.alpha)
       shader.setFloatUniform("amplitude", animatedAmplitude)
       shader.setFloatUniform("pOffset", curPOffset)
 
