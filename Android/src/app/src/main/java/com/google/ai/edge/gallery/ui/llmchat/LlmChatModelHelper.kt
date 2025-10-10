@@ -36,6 +36,7 @@ import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.Session
 import com.google.ai.edge.litertlm.SessionConfig
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.CancellationException
 
 private const val TAG = "AGLlmChatModelHelper"
 
@@ -200,8 +201,13 @@ object LlmChatModelHelper {
         }
 
         override fun onError(throwable: Throwable) {
-          Log.e(TAG, "Failed to run inference: ${throwable.message}", throwable)
-          resultListener("Error: ${throwable.message}", true)
+          if (throwable is CancellationException) {
+            Log.i(TAG, "The inference is canncelled.")
+            resultListener("", true)
+          } else {
+            Log.e(TAG, "onError", throwable)
+            resultListener("Error: ${throwable.message}", true)
+          }
         }
       },
     )
