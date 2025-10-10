@@ -24,6 +24,7 @@ object ProjectConfig {
   //
   const val clientId = "REPLACE_WITH_YOUR_CLIENT_ID_IN_HUGGINGFACE_APP"
 
+
   // Registered redirect URI.
   //
   // The scheme needs to match the

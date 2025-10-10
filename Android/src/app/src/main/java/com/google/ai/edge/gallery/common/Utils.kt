@@ -16,23 +16,50 @@
 
 package com.google.ai.edge.gallery.common
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.drawable.Drawable
+import android.graphics.pdf.PdfDocument
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.util.Log
+import android.widget.Toast
+import androidx.annotation.DrawableRes
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import androidx.exifinterface.media.ExifInterface
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessageBenchmarkLlmResult
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
+import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.gson.Gson
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.roundToInt
+import android.graphics.Path
+import kotlin.math.log
+
 
 private const val TAG = "AGUtils"
 
@@ -285,4 +312,355 @@ private fun calculateInSampleSize(
   }
 
   return inSampleSize
+}
+
+/** A simplified representation of a chat message for PDF rendering. */
+data class PdfMessage(
+  val sender: String,
+  val content: String,
+//  val timestamp: String,
+  val isUser: Boolean
+)
+
+/** Converts various ChatMessage types into a simplified PdfMessage for rendering. */
+private fun convertToPdfMessage(chatMessage: ChatMessage, modelName: String): PdfMessage? {
+  val sender = when (chatMessage.side) {
+    ChatSide.USER -> "You"
+    ChatSide.AGENT -> modelName
+    ChatSide.SYSTEM -> "System"
+  }
+  val content = when (chatMessage) {
+    is ChatMessageText -> chatMessage.content
+    is ChatMessageBenchmarkLlmResult -> {
+      val stats = chatMessage.orderedStats.joinToString("\n") { stat ->
+        val value = chatMessage.statValues[stat.id]
+        "${stat.label}: ${"%.2f".format(value)} ${stat.unit}"
+      }
+      "LLM Benchmark Results:\n$stats"
+    }
+    else -> {
+      Log.w("PDFGenerator", "Unsupported ChatMessage type for PDF: ${chatMessage.type}")
+      return null
+    }
+  }
+
+  return PdfMessage(
+    sender = sender,
+    content = content,
+    isUser = chatMessage.side == ChatSide.USER
+  )
+}
+
+/** Helper function to split text into lines */
+fun splitTextIntoLines(text: String, paint: Paint, maxWidth: Float): List<String> {
+  val lines = mutableListOf<String>()
+  val words = text.split(" ")
+  var currentLine = StringBuilder()
+
+  for (word in words) {
+    if (paint.measureText(currentLine.toString() + (if (currentLine.isNotEmpty()) " " else "") + word) <= maxWidth) {
+      if (currentLine.isNotEmpty()) {
+        currentLine.append(" ")
+      }
+      currentLine.append(word)
+    } else {
+      if (currentLine.isNotEmpty()) {
+        lines.add(currentLine.toString())
+      }
+      currentLine = StringBuilder(word)
+    }
+  }
+  if (currentLine.isNotEmpty()) {
+    lines.add(currentLine.toString())
+  }
+  return lines
+}
+
+/** Creates a PdfDocument from a list of chat messages, with the specified model name. */
+private fun drawBackgroundBlobs(canvas: Canvas) {
+  val yellowBlobPaint = Paint().apply {
+    color = Color.parseColor("#FFF6B704")
+    style = Paint.Style.FILL
+  }
+  val redBlobPaint = Paint().apply {
+    color = Color.parseColor("#FFE54335")
+    style = Paint.Style.FILL
+  }
+  val greenBlobPaint = Paint().apply {
+    color = Color.parseColor("#FF34A353")
+    style = Paint.Style.FILL
+  }
+  val blueBlobPaint = Paint().apply {
+    color = Color.parseColor("#FF4280EF")
+    style = Paint.Style.FILL
+  }
+
+  val yellowPath = Path()
+  yellowPath.moveTo(37.46f, 2.58f)
+  yellowPath.cubicTo(41.92f, -0.86f, 48.12f, -0.86f, 52.58f, 2.58f)
+  yellowPath.lineTo(63.78f, 11.22f)
+  yellowPath.cubicTo(64.65f, 11.88f, 65.6f, 12.43f, 66.6f, 12.85f)
+  yellowPath.lineTo(79.66f, 18.28f)
+  yellowPath.cubicTo(84.86f, 20.43f, 87.96f, 25.83f, 87.22f, 31.42f)
+  yellowPath.lineTo(85.37f, 45.5f)
+  yellowPath.cubicTo(85.23f, 46.58f, 85.23f, 47.68f, 85.37f, 48.76f)
+  yellowPath.lineTo(87.22f, 62.83f)
+  yellowPath.cubicTo(87.96f, 68.42f, 84.86f, 73.81f, 79.66f, 75.98f)
+  yellowPath.lineTo(66.6f, 81.39f)
+  yellowPath.cubicTo(65.6f, 81.81f, 64.65f, 82.35f, 63.79f, 83.02f)
+  yellowPath.lineTo(52.59f, 91.66f)
+  yellowPath.cubicTo(48.12f, 95.1f, 41.92f, 95.1f, 37.46f, 91.66f)
+  yellowPath.lineTo(26.26f, 83.02f)
+  yellowPath.cubicTo(25.39f, 82.35f, 24.44f, 81.81f, 23.44f, 81.39f)
+  yellowPath.lineTo(10.38f, 75.97f)
+  yellowPath.cubicTo(-4.82f, 73.8f, -7.92f, 68.41f, -7.18f, 62.82f)
+  yellowPath.lineTo(-5.33f, 48.75f)
+  yellowPath.cubicTo(-5.19f, 47.67f, -5.19f, 46.57f, -5.33f, 45.49f)
+  yellowPath.lineTo(-7.18f, 31.42f)
+  yellowPath.cubicTo(-7.92f, 25.82f, -4.81f, 20.43f, 0.39f, 18.28f)
+  yellowPath.lineTo(13.45f, 12.85f)
+  yellowPath.cubicTo(14.45f, 12.43f, 15.4f, 11.89f, 16.26f, 11.22f)
+  yellowPath.lineTo(27.47f, 2.58f)
+  yellowPath.close()
+
+  val redPath = Path()
+  redPath.moveTo(118.52f, 77.54f)
+  redPath.cubicTo(103.68f, 62.69f, 103.68f, 38.81f, 118.52f, 23.96f)
+  redPath.lineTo(131.12f, 11.34f)
+  redPath.cubicTo(145.97f, -3.51f, 170.02f, -3.51f, 184.87f, 11.34f)
+  redPath.cubicTo(199.71f, 26.19f, 199.71f, 50.27f, 184.87f, 65.12f)
+  redPath.lineTo(172.26f, 77.74f)
+  redPath.cubicTo(157.42f, 92.59f, 133.56f, 92.59f, 118.52f, 77.54f)
+  redPath.close()
+
+  val greenPath = Path()
+  greenPath.moveTo(90.04f, 153.95f)
+  greenPath.cubicTo(90.04f, 129.06f, 69.89f, 108.89f, 45.02f, 108.89f)
+  greenPath.cubicTo(20.16f, 108.89f, 0f, 129.06f, 0f, 153.95f)
+  greenPath.cubicTo(0f, 178.83f, 20.16f, 199f, 45.02f, 199f)
+  greenPath.cubicTo(69.89f, 199f, 90.04f, 178.83f, 90.04f, 153.95f)
+  greenPath.close()
+
+  val bluePath = Path()
+  bluePath.moveTo(109.25f, 145.13f)
+  bluePath.cubicTo(101.39f, 127.01f, 119.77f, 108.61f, 137.89f, 116.49f)
+  bluePath.lineTo(140.89f, 117.79f)
+  bluePath.cubicTo(146.41f, 120.19f, 152.69f, 120.19f, 158.02f, 117.79f)
+  bluePath.lineTo(161.02f, 116.49f)
+  bluePath.cubicTo(179.12f, 108.62f, 197.51f, 127.02f, 189.64f, 145.14f)
+  bluePath.lineTo(188.34f, 148.14f)
+  bluePath.cubicTo(185.94f, 153.68f, 185.94f, 159.96f, 188.34f, 165.49f)
+  bluePath.lineTo(189.64f, 168.49f)
+  bluePath.cubicTo(197.51f, 186.62f, 179.13f, 205.01f, 161.01f, 197.14f)
+  bluePath.lineTo(158.02f, 195.84f)
+  bluePath.cubicTo(152.49f, 193.44f, 146.21f, 193.44f, 140.88f, 195.84f)
+  bluePath.lineTo(137.88f, 197.14f)
+  bluePath.cubicTo(119.78f, 205.01f, 101.39f, 186.61f, 109.26f, 168.49f)
+  bluePath.lineTo(110.56f, 165.49f)
+  bluePath.cubicTo(112.97f, 159.96f, 112.97f, 153.68f, 110.56f, 148.14f)
+  bluePath.lineTo(109.25f, 145.13f)
+  bluePath.close()
+
+  val matrix = Matrix()
+
+  matrix.setScale(1.5f, 1.5f)
+  matrix.postTranslate(50f, -30f)
+  yellowPath.transform(matrix)
+  canvas.drawPath(yellowPath, yellowBlobPaint)
+
+  matrix.reset()
+  matrix.setScale(1.5f, 1.5f)
+  matrix.postTranslate(350f, 0f)
+  redPath.transform(matrix)
+  canvas.drawPath(redPath, redBlobPaint)
+
+  matrix.reset()
+  matrix.setScale(1.5f, 1.5f)
+  matrix.postTranslate(0f, 500f)
+  greenPath.transform(matrix)
+  canvas.drawPath(greenPath, greenBlobPaint)
+
+  matrix.reset()
+  matrix.setScale(1.5f, 1.5f)
+  matrix.postTranslate(300f, 400f)
+  bluePath.transform(matrix)
+  canvas.drawPath(bluePath, blueBlobPaint)
+}
+
+
+/** Creates a PdfDocument from a list of chat messages, with the specified model name. */
+fun createChatPdfDocument(
+  context: Context,
+  chatMessages: List<ChatMessage>,
+  modelName: String
+): PdfDocument {
+  val document = PdfDocument()
+  val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
+  var page = document.startPage(pageInfo)
+  var canvas = page.canvas
+
+  val textPaint = Paint().apply {
+    color = Color.BLACK
+    textSize = 20f
+  }
+  val userBubblePaint = Paint().apply {
+    color = Color.parseColor("#E0E0E0")
+    style = Paint.Style.FILL
+  }
+  val aiBubblePaint = Paint().apply {
+    color = Color.parseColor("#DCF8C6")
+    style = Paint.Style.FILL
+  }
+
+  val margin = 50f
+  var y = margin
+  val pageHeight = pageInfo.pageHeight
+  val maxBubbleWidth = 450f
+
+  fun drawPageHeader(canvas: Canvas) {
+    canvas.drawColor(Color.WHITE)
+    drawBackgroundBlobs(canvas)
+    val logoBitmap = BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher_foreground)
+    val logoWidth = 50f
+    val logoHeight =
+      logoWidth * (logoBitmap?.height?.toFloat() ?: 0f) / (logoBitmap?.width?.toFloat() ?: 1f)
+    canvas.drawText(
+      "AI Edge Gallery Chat",
+      margin + 10f,
+      margin + logoHeight / 2,
+      textPaint.apply { textSize = 40f; isFakeBoldText = true;color = Color.BLACK }
+    )
+  }
+
+  drawPageHeader(canvas)
+  y += 60f
+
+  chatMessages.forEach { message ->
+    val pdfMessage = convertToPdfMessage(message, modelName)
+    if (pdfMessage != null) {
+      val padding = 10f
+      val lineSpacing = 8f
+      val horizontalPadding = 8f   // much smaller than before
+      val verticalPadding = 6f
+      val lines = splitTextIntoLines(pdfMessage.content, textPaint, maxBubbleWidth - (2 * horizontalPadding))
+      val rect = Rect()
+      textPaint.getTextBounds("A", 0, 1, rect)
+      val lineHeight = rect.height().toFloat() + lineSpacing
+
+      val bubblePaint = if (pdfMessage.isUser) userBubblePaint else aiBubblePaint
+
+      //  Compute bubble width ONCE for entire message
+      val maxLineWidth = lines.maxOfOrNull { textPaint.measureText(it) } ?: 0f
+      val bubbleWidth = (maxLineWidth + 2 * horizontalPadding).coerceAtMost(maxBubbleWidth)
+
+      val bubbleLeft =
+        if (pdfMessage.isUser) canvas.width - bubbleWidth - margin else margin
+      val bubbleRight = bubbleLeft + bubbleWidth
+
+      var startIndex = 0
+      var chunkCount = 0
+      while (startIndex < lines.size) {
+        // how many lines fit in current page
+        val availableHeight = pageHeight - margin - y - 60f
+        val maxLinesThisPage = (availableHeight / lineHeight).toInt().coerceAtLeast(1)
+        val endIndex = (startIndex + maxLinesThisPage).coerceAtMost(lines.size)
+
+        val chunk = lines.subList(startIndex, endIndex)
+
+        val bubbleHeight = verticalPadding + (lines.size * lineHeight) + verticalPadding
+        val bubbleTop = y + 20f
+        val bubbleBottom = bubbleTop + bubbleHeight
+
+        // check page break
+        if (bubbleBottom > pageHeight - margin) {
+          document.finishPage(page)
+          page = document.startPage(pageInfo)
+          canvas = page.canvas
+          drawPageHeader(canvas)
+          y = margin + 60f
+          continue
+        }
+
+        //  Sender or "continued"
+        if (chunkCount == 0) {
+          canvas.drawText(
+            pdfMessage.sender,
+            if (pdfMessage.isUser)
+              canvas.width - margin - textPaint.measureText(pdfMessage.sender)
+            else margin,
+            y,
+            textPaint.apply { textSize = 16f; isFakeBoldText = true;color = Color.BLACK }
+          )
+        } else {
+          canvas.drawText(
+            "(continued)",
+            bubbleLeft,
+            y,
+            textPaint.apply { textSize = 14f; isFakeBoldText = false; color = Color.GRAY }
+          )
+//          textPaint.apply { textSize = 16f; isFakeBoldText = true; color = Color.BLACK}
+
+        }
+        y += 20f
+
+        // bubble background (same width across chunks)
+        canvas.drawRoundRect(
+          bubbleLeft,
+          bubbleTop,
+          bubbleRight,
+          bubbleBottom,
+          12f, 12f,  // slightly smaller corners
+          bubblePaint
+        )
+
+        // draw text
+        var textY = bubbleTop + verticalPadding + rect.height()
+        val textX = bubbleLeft + horizontalPadding
+        for (line in lines) {
+          canvas.drawText(line, textX, textY, textPaint)
+          textY += lineHeight
+        }
+
+
+        y = bubbleBottom + 20f
+        startIndex = endIndex
+        chunkCount++
+      }
+    }
+  }
+
+
+  document.finishPage(page)
+  return document
+}
+
+
+
+fun writePdfToUri(context: Context, pdfDocument: PdfDocument, parcelFileDescriptor: ParcelFileDescriptor) {
+  try {
+    // Correctly open the output stream from the ParcelFileDescriptor
+    val outputStream = FileOutputStream(parcelFileDescriptor.fileDescriptor)
+
+    // Write the PDF content to the output stream
+    pdfDocument.writeTo(outputStream)
+
+    // Close the streams and document
+    outputStream.close()
+    pdfDocument.close()
+
+    // Success Toast
+    Toast.makeText(context, "PDF saved to Downloads folder!", Toast.LENGTH_LONG).show()
+    Log.d("PDFGenerator", "PDF saved successfully.")
+  } catch (e: Exception) {
+    // Failure Toast
+    Log.e("PDFGenerator", "Failed to save PDF", e)
+    Toast.makeText(context, "Failed to save PDF.", Toast.LENGTH_SHORT).show()
+  } finally {
+    // Ensure the parcel file descriptor is closed in all cases
+    try {
+      parcelFileDescriptor.close()
+    } catch (e: IOException) {
+      e.printStackTrace()
+    }
+  }
 }

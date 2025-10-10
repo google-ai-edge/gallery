@@ -20,9 +20,15 @@ package com.google.ai.edge.gallery.ui.common.chat
 // import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
 // import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+import android.app.Activity
+import android.content.Intent
 import android.graphics.Bitmap
+import android.os.ParcelFileDescriptor
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -61,6 +67,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.common.createChatPdfDocument
+import com.google.ai.edge.gallery.common.writePdfToUri
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
@@ -69,6 +77,9 @@ import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private const val TAG = "AGChatView"
 
@@ -121,6 +132,40 @@ fun ChatView(
     }
   }
 
+
+      val resultLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+        onResult = { result ->
+          if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+              Log.d("PDFGenerator", "Selected URI: $uri")
+              val messages = uiState.messagesByModel[selectedModel.name]?.toList()
+              if (messages != null) {
+                val pdfDocument = createChatPdfDocument(context, messages, selectedModel.name)
+
+                try {
+                  // Get the parcel file descriptor from the URI
+                  val parcelFileDescriptor: ParcelFileDescriptor? =
+                    context.contentResolver.openFileDescriptor(uri, "w")
+
+                  if (parcelFileDescriptor != null) {
+                    // Call the saving function with the parcel file descriptor
+                    writePdfToUri(context, pdfDocument, parcelFileDescriptor)
+                  }
+                } catch (e: Exception) {
+                  Log.e("PDFGenerator", "Error getting ParcelFileDescriptor.", e)
+                  Toast.makeText(context, "Error saving PDF.", Toast.LENGTH_SHORT).show()
+                }
+              } else {
+                Toast.makeText(context, "No chat messages to save.", Toast.LENGTH_SHORT).show()
+              }
+            }
+          } else {
+            Toast.makeText(context, "PDF save canceled.", Toast.LENGTH_SHORT).show()
+          }
+        }
+      )
+
   // Initialize model when model/download state changes.
   val curDownloadStatus = modelManagerUiState.modelDownloadStatus[selectedModel.name]
   LaunchedEffect(curDownloadStatus, selectedModel.name) {
@@ -169,6 +214,17 @@ fun ChatView(
           }
           modelManagerViewModel.selectModel(model = curModel)
         },
+        onDownloadPdf = {
+          val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+          val fileName = "AI_Chat_$timestamp.pdf"
+
+          val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/pdf"
+            putExtra(Intent.EXTRA_TITLE, fileName)
+          }
+          resultLauncher.launch(intent)
+        }
       )
     },
   ) { innerPadding ->

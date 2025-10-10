@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery.ui.llmchat
 import androidx.hilt.navigation.compose.hiltViewModel
 
 import android.graphics.Bitmap
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -112,6 +113,10 @@ fun ChatViewWrapper(
         } else if (message is ChatMessageAudioClip) {
           audioMessages.add(message)
         }
+      }
+      if (text.isEmpty() && audioMessages.isEmpty()) {
+        Toast.makeText(context, "Please enter a prompt for response.", Toast.LENGTH_SHORT).show()
+        return@ChatView
       }
       if ((text.isNotEmpty() && chatMessageText != null) || audioMessages.isNotEmpty()) {
         modelManagerViewModel.addTextInputHistory(text)
