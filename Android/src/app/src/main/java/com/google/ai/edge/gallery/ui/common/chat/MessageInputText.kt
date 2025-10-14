@@ -130,6 +130,7 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.getTaskIconColor
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
+import java.io.FileInputStream
 import java.util.concurrent.Executors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -234,11 +235,13 @@ fun MessageInputText(
       // Callback is invoked after the user selects media items or closes the
       // photo picker.
       if (uris.isNotEmpty()) {
-        handleImagesSelected(
-          context = context,
-          uris = uris,
-          onImagesSelected = { bitmaps -> updatePickedImages(bitmaps) },
-        )
+        scope.launch(Dispatchers.IO) {
+          handleImagesSelected(
+            context = context,
+            uris = uris,
+            onImagesSelected = { bitmaps -> updatePickedImages(bitmaps) },
+          )
+        }
       }
     }
 
@@ -250,13 +253,17 @@ fun MessageInputText(
         result.data?.data?.let { uri ->
           Log.d(TAG, "Picked wav file: $uri")
           scope.launch(Dispatchers.IO) {
-            convertWavToMonoWithMaxSeconds(context = context, stereoUri = uri)?.let { audioClip ->
-              updatePickedAudioClips(
-                listOf(
-                  AudioClip(audioData = audioClip.audioData, sampleRate = audioClip.sampleRate)
+            handleAudioWavSelected(
+              context = context,
+              uri = uri,
+              onAudioSelected = { audioClip ->
+                updatePickedAudioClips(
+                  listOf(
+                    AudioClip(audioData = audioClip.audioData, sampleRate = audioClip.sampleRate)
+                  )
                 )
-              )
-            }
+              },
+            )
           }
         }
       } else {
@@ -564,11 +571,12 @@ fun MessageInputText(
                   IconButton(
                     enabled = !inProgress && !isResettingSession,
                     onClick = {
+                      var message = curMessage.trim()
                       onSendMessage(
                         createMessagesToSend(
                           pickedImages = pickedImages,
                           audioClips = pickedAudioClips,
-                          text = curMessage.trim(),
+                          text = message,
                         )
                       )
                       pickedImages = listOf()
@@ -856,7 +864,12 @@ private fun handleImagesSelected(
   for (uri in uris) {
     val bitmap: Bitmap? =
       try {
-        val inputStream = context.contentResolver.openInputStream(uri)
+        val inputStream =
+          if (uri.scheme == null || uri.scheme == "file") {
+            FileInputStream(uri.path ?: "")
+          } else {
+            context.contentResolver.openInputStream(uri)
+          }
         if (inputStream != null) {
           // Read the EXIF metadata from the picture and rotate it correctly.
           val exif = ExifInterface(inputStream)
@@ -882,6 +895,16 @@ private fun handleImagesSelected(
   }
   if (images.isNotEmpty()) {
     onImagesSelected(images)
+  }
+}
+
+private fun handleAudioWavSelected(
+  context: Context,
+  uri: Uri,
+  onAudioSelected: (AudioClip) -> Unit,
+) {
+  convertWavToMonoWithMaxSeconds(context = context, stereoUri = uri)?.let { audioClip ->
+    onAudioSelected(audioClip)
   }
 }
 
