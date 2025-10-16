@@ -28,13 +28,14 @@ import com.google.ai.edge.gallery.data.DEFAULT_TOPK
 import com.google.ai.edge.gallery.data.DEFAULT_TOPP
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Conversation
+import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
-import com.google.ai.edge.litertlm.InputData
-import com.google.ai.edge.litertlm.ResponseObserver
+import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.MessageCallbacks
 import com.google.ai.edge.litertlm.SamplerConfig
-import com.google.ai.edge.litertlm.Session
-import com.google.ai.edge.litertlm.SessionConfig
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.CancellationException
 
@@ -44,7 +45,7 @@ typealias ResultListener = (partialResult: String, done: Boolean) -> Unit
 
 typealias CleanUpListener = () -> Unit
 
-data class LlmModelInstance(val engine: Engine, var session: Session)
+data class LlmModelInstance(val engine: Engine, var conversation: Conversation)
 
 object LlmChatModelHelper {
   // Indexed by model name.
@@ -86,17 +87,23 @@ object LlmChatModelHelper {
         enableBenchmark = true,
       )
 
-    // Create an instance of the LLM Inference task and session.
+    // Create an instance of the LLM Inference task and conversation.
     try {
       val engine = Engine(engineConfig)
       engine.initialize()
 
-      val sessionConfig =
-        SessionConfig(
-          SamplerConfig(topK = topK, topP = topP.toDouble(), temperature = temperature.toDouble())
+      val conversation =
+        engine.createConversation(
+          ConversationConfig(
+            samplerConfig =
+              SamplerConfig(
+                topK = topK,
+                topP = topP.toDouble(),
+                temperature = temperature.toDouble(),
+              )
+          )
         )
-      val session = engine.createSession(sessionConfig)
-      model.instance = LlmModelInstance(engine = engine, session = session)
+      model.instance = LlmModelInstance(engine = engine, conversation = conversation)
     } catch (e: Exception) {
       onDone(cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error"))
       return
@@ -104,12 +111,12 @@ object LlmChatModelHelper {
     onDone("")
   }
 
-  fun resetSession(model: Model, supportImage: Boolean, supportAudio: Boolean) {
+  fun resetConversation(model: Model, supportImage: Boolean, supportAudio: Boolean) {
     try {
-      Log.d(TAG, "Resetting session for model '${model.name}'")
+      Log.d(TAG, "Resetting conversation for model '${model.name}'")
 
       val instance = model.instance as LlmModelInstance? ?: return
-      instance.session.close()
+      instance.conversation.close()
 
       val engine = instance.engine
       val topK = model.getIntConfigValue(key = ConfigKeys.TOPK, defaultValue = DEFAULT_TOPK)
@@ -120,15 +127,22 @@ object LlmChatModelHelper {
       val shouldEnableAudio = supportAudio
       Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
 
-      val sessionConfig =
-        SessionConfig(
-          SamplerConfig(topK = topK, topP = topP.toDouble(), temperature = temperature.toDouble())
+      val newConversation =
+        engine.createConversation(
+          ConversationConfig(
+            samplerConfig =
+              SamplerConfig(
+                topK = topK,
+                topP = topP.toDouble(),
+                temperature = temperature.toDouble(),
+              )
+          )
         )
-      val newSession = engine.createSession(sessionConfig)
-      instance.session = newSession
+      instance.conversation = newConversation
+
       Log.d(TAG, "Resetting done")
     } catch (e: Exception) {
-      Log.d(TAG, "Failed to reset session", e)
+      Log.d(TAG, "Failed to reset conversation", e)
     }
   }
 
@@ -140,9 +154,9 @@ object LlmChatModelHelper {
     val instance = model.instance as LlmModelInstance
 
     try {
-      instance.session.close()
+      instance.conversation.close()
     } catch (e: Exception) {
-      Log.e(TAG, "Failed to close the LLM Inference session: ${e.message}")
+      Log.e(TAG, "Failed to close the LLM Inference conversation: ${e.message}")
     }
 
     try {
@@ -176,24 +190,27 @@ object LlmChatModelHelper {
       cleanUpListeners[model.name] = cleanUpListener
     }
 
-    val session = instance.session
-    val inputDataList = mutableListOf<InputData>()
+    val conversation = instance.conversation
+
+    val contents = mutableListOf<Content>()
     for (image in images) {
-      inputDataList.add(InputData.Image(image.toPngByteArray()))
+      contents.add(Content.ImageBytes(image.toPngByteArray()))
     }
     for (audioClip in audioClips) {
-      inputDataList.add(InputData.Audio(audioClip))
+      contents.add(Content.AudioBytes(audioClip))
     }
     // add the text after image and audio for the accurate last token
     if (input.trim().isNotEmpty()) {
-      inputDataList.add(InputData.Text(input))
+      contents.add(Content.Text(input))
     }
 
-    session.generateContentStream(
-      inputDataList,
-      object : ResponseObserver {
-        override fun onNext(response: String) {
-          resultListener(response, false)
+    conversation.sendMessageAsync(
+      Message.of(contents),
+      object : MessageCallbacks {
+        override fun onMessage(message: Message) {
+          message.contents.filterIsInstance<Content.Text>().forEach {
+            resultListener(it.text, false)
+          }
         }
 
         override fun onDone() {
