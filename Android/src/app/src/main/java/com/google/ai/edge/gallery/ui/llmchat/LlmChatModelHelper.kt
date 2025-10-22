@@ -34,7 +34,7 @@ import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
-import com.google.ai.edge.litertlm.MessageCallbacks
+import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.SamplerConfig
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.CancellationException
@@ -206,7 +206,7 @@ object LlmChatModelHelper {
 
     conversation.sendMessageAsync(
       Message.of(contents),
-      object : MessageCallbacks {
+      object : MessageCallback {
         override fun onMessage(message: Message) {
           message.contents.filterIsInstance<Content.Text>().forEach {
             resultListener(it.text, false)
