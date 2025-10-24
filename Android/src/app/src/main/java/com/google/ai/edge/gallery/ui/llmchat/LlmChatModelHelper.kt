@@ -77,6 +77,8 @@ object LlmChatModelHelper {
         Accelerator.GPU.label -> Backend.GPU
         else -> Backend.GPU
       }
+
+    // TODO(whhone): re-enable benchmark mode with ExperimentFlags.enableBenchmark
     val engineConfig =
       EngineConfig(
         modelPath = model.getPath(context = context),
@@ -84,7 +86,6 @@ object LlmChatModelHelper {
         visionBackend = if (shouldEnableImage) Backend.GPU else null, // must be GPU for Gemma 3n
         audioBackend = if (shouldEnableAudio) Backend.CPU else null, // must be CPU for Gemma 3n
         maxNumTokens = maxTokens,
-        enableBenchmark = true,
       )
 
     // Create an instance of the LLM Inference task and conversation.
