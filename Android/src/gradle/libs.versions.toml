@@ -19,7 +19,7 @@ lifecycleProcess = "2.8.7"
 protobuf = "0.9.5"
 protobufJavaLite = "4.26.1"
 #noinspection GradleDependency
-litertlm = "0.0.0-alpha04"
+litertlm = "0.0.0-alpha05"
 commonmark = "1.0.0-alpha02"
 richtext = "1.0.0-alpha02"
 playServicesTfliteJava = "16.4.0"

@@ -78,7 +78,6 @@ object LlmChatModelHelper {
         else -> Backend.GPU
       }
 
-    // TODO(whhone): re-enable benchmark mode with ExperimentFlags.enableBenchmark
     val engineConfig =
       EngineConfig(
         modelPath = model.getPath(context = context),
