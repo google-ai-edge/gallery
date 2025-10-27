@@ -797,7 +797,9 @@ constructor(
   ): ModelAllowlist? {
     try {
       Log.d(TAG, "Reading model allowlist from disk: $fileName")
-      val file = File(externalFilesDir, fileName)
+      val baseDir =
+        if (fileName == MODEL_ALLOWLIST_TEST_FILENAME) File("/data/local/tmp") else externalFilesDir
+      val file = File(baseDir, fileName)
       if (file.exists()) {
         val content = file.readText()
         Log.d(TAG, "Model allowlist content from local file: $content")

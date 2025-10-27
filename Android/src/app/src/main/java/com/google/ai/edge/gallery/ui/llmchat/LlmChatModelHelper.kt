@@ -78,13 +78,18 @@ object LlmChatModelHelper {
         else -> Backend.GPU
       }
 
+    val modelPath = model.getPath(context = context)
     val engineConfig =
       EngineConfig(
-        modelPath = model.getPath(context = context),
+        modelPath = modelPath,
         backend = preferredBackend,
         visionBackend = if (shouldEnableImage) Backend.GPU else null, // must be GPU for Gemma 3n
         audioBackend = if (shouldEnableAudio) Backend.CPU else null, // must be CPU for Gemma 3n
         maxNumTokens = maxTokens,
+        cacheDir =
+          if (modelPath.startsWith("/data/local/tmp"))
+            context.getExternalFilesDir(null)?.absolutePath
+          else null,
       )
 
     // Create an instance of the LLM Inference task and conversation.
