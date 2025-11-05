@@ -1,20 +1,25 @@
-# Google AI Edge Gallery ✨
+# Neural Forge 🔥
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/google-ai-edge/gallery)](https://github.com/google-ai-edge/gallery/releases)
 
-**Explore, Experience, and Evaluate the Future of On-Device Generative AI with Google AI Edge.**
+**Transform Your Android Device Into a Mobile AI Powerhouse**
 
-The Google AI Edge Gallery is an experimental app that puts the power of cutting-edge Generative AI models directly into your hands, running entirely on your Android *(available now)* and iOS *(coming soon)* devices. Dive into a world of creative and practical AI use cases, all running locally, without needing an internet connection once the model is loaded. Experiment with different models, chat, ask questions with images and audio clip, explore prompts, and more!
+Neural Forge is a revolutionary mobile application that brings the full power of cutting-edge AI models directly to your Android device. Running entirely on-device with support for multiple model formats (TensorFlow Lite, ONNX, LiteRT-LM), Neural Forge transcends traditional limitations to give you unprecedented control over AI on your phone.
 
-Install the app today from Google Play
+Built on the foundation of Google's AI Edge Gallery, Neural Forge adds universal model format support, intelligent download management, advanced optimization, and a vision for the future of mobile AI.
 
-<a href='https://play.google.com/store/apps/details?id=com.google.ai.edge.gallery'><img alt='Get it on Google Play' width="250" src='https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png'/></a>
+## 📲 Installation
 
-For users without Google Play access, install the apk from the [**latest release**](https://github.com/google-ai-edge/gallery/releases/latest/)
+Build and install Neural Forge from source:
 
-> [!IMPORTANT]
-> You must uninstall all previous versions of the app before installing this one. Past versions will no longer be working and supported.
+```bash
+cd Android/src
+./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+> [!NOTE]
+> Neural Forge is a fork of Google's AI Edge Gallery with enhanced capabilities. It requires Android 12 (API 31) or higher.
 
 <img width="480" alt="01" src="https://github.com/user-attachments/assets/2a60c8d0-ef4e-4040-a948-fa73f6a622b4" />
 <img width="480" alt="02" src="https://github.com/user-attachments/assets/d155d458-b822-415d-9252-7e825fe8c9c0" />
@@ -22,17 +27,35 @@ For users without Google Play access, install the apk from the [**latest release
 <img width="480" alt="04" src="https://github.com/user-attachments/assets/a48be969-f57e-4497-9ecf-8feb35f2ba71" />
 <img width="480" alt="05" src="https://github.com/user-attachments/assets/2a9679ea-f191-4ffd-87db-6726f7c1057d" />
 
-## ✨ Core Features
+## ✨ Neural Forge Features
 
-*   **📱 Run Locally, Fully Offline:** Experience the magic of GenAI without an internet connection. All processing happens directly on your device.
-*   **🤖 Choose Your Model:** Easily switch between different models from Hugging Face and compare their performance.
-*   **🖼️ Ask Image:** Upload images and ask questions about them. Get descriptions, solve problems, or identify objects.
-*   **🎙️ Audio Scribe:** Transcribe an uploaded or recorded audio clip into text or translate it into another language.
-*   **✍️ Prompt Lab:** Summarize, rewrite, generate code, or use freeform prompts to explore single-turn LLM use cases.
-*   **💬 AI Chat:** Engage in multi-turn conversations.
-*   **📊 Performance Insights:** Real-time benchmarks (TTFT, decode speed, latency).
-*   **🧩 Bring Your Own Model:** Test your local LiteRT `.litertlm` models.
-*   **🔗 Developer Resources:** Quick links to model cards and source code.
+### Phase 1 - Foundation (Current)
+*   **🔥 Universal Format Support:** Load and run TensorFlow Lite, ONNX, and LiteRT-LM models natively
+*   **📥 Enhanced Download Manager:** Chunked downloads with resume capability and intelligent progress tracking
+*   **🎯 Smart Format Detection:** Automatic model format detection from files and magic bytes
+*   **⚡ ONNX Runtime Integration:** Full ONNX model support with CPU optimizations
+*   **📱 Run Locally, Fully Offline:** All processing happens on-device, no internet needed after download
+*   **🤖 Choose Your Model:** Switch between different models from Hugging Face and compare performance
+*   **🖼️ Image Understanding:** Upload images and ask questions about them
+*   **🎙️ Audio Processing:** Transcribe and translate audio clips
+*   **💬 AI Chat:** Multi-turn conversations with LLMs
+*   **📊 Performance Insights:** Real-time benchmarks (TTFT, decode speed, latency)
+*   **🧩 Bring Your Own Model:** Test local models in multiple formats
+
+### Phase 2 - Expansion (Coming Soon)
+*   **🔄 Model Conversion Pipeline:** Convert between formats (ONNX ↔ TFLite, PyTorch → ONNX)
+*   **🎨 Enhanced UI:** Beautiful, intuitive interface with Lottie animations
+*   **📦 Split Model Support:** Download and merge large models in chunks
+*   **⚙️ Advanced Optimizations:** Quantization, pruning, and layer fusion
+*   **🔍 Model Marketplace:** Browse and discover models with advanced filtering
+
+### Phase 3 - Advanced (Future)
+*   **🔗 Model Chaining:** Create complex pipelines by chaining models together
+*   **📡 P2P Model Sharing:** Share models with nearby devices via Wi-Fi Direct
+*   **🎓 On-Device Fine-Tuning:** Adapt models to your specific needs using LoRA/QLoRA
+*   **🎤 Voice Commands:** Control model operations with voice
+*   **🔋 Battery-Aware Execution:** Intelligent scheduling based on battery level
+*   **🌐 Cross-App Integration:** Share models with other applications
 
 ## 🏁 Get Started in Minutes!
 
@@ -42,12 +65,31 @@ For users without Google Play access, install the apk from the [**latest release
     - For users without Google Play access: install the apk from the [**latest release**](https://github.com/google-ai-edge/gallery/releases/latest/)
 3.  **Install & Explore:** For detailed installation instructions (including for corporate devices) and a full user guide, head over to our [**Project Wiki**](https://github.com/google-ai-edge/gallery/wiki)!
 
-## 🛠️ Technology Highlights
+## 🛠️ Technology Stack
 
-*   **Google AI Edge:** Core APIs and tools for on-device ML.
-*   **LiteRT:** Lightweight runtime for optimized model execution.
-*   **LLM Inference API:** Powering on-device Large Language Models.
-*   **Hugging Face Integration:** For model discovery and download.
+*   **Google AI Edge & LiteRT:** Core APIs and lightweight runtime for on-device ML
+*   **ONNX Runtime:** Microsoft's cross-platform inference engine for ONNX models
+*   **TensorFlow Lite:** Google's mobile ML framework with GPU acceleration
+*   **OkHttp:** Advanced HTTP client for robust model downloads
+*   **Jetpack Compose:** Modern declarative UI framework
+*   **Kotlin Coroutines:** Asynchronous programming for smooth performance
+*   **Hilt/Dagger:** Dependency injection for clean architecture
+*   **Hugging Face Integration:** Model discovery and download from the largest ML model hub
+
+## 🏗️ Architecture
+
+Neural Forge follows a modular architecture:
+
+```
+com.neuralforge.mobile/
+├── core/              # Central engine and format detection
+├── downloader/        # Enhanced download management
+├── converter/         # Model format conversion (Phase 2+)
+├── execution/         # Runtime inference engines (ONNX, TFLite)
+└── ui/               # Jetpack Compose UI components
+```
+
+See [NEURAL_FORGE.md](NEURAL_FORGE.md) for detailed architecture documentation.
 
 ## ⌨️ Development
 
