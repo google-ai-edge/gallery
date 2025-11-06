@@ -15,9 +15,9 @@ limitations under the License.
 
 syntax = "proto3";
 
-package com.google.ai.edge.gallery.proto;
+package com.neuralforge.mobile.proto;
 
-option java_package = "com.google.ai.edge.gallery.proto";
+option java_package = "com.neuralforge.mobile.proto";
 option java_multiple_files = true;
 
 enum Theme {
