@@ -42,7 +42,13 @@ class NeuralForgeApplication : Application() {
     // Load saved theme.
     ThemeSettings.themeOverride.value = dataStoreRepository.readTheme()
 
-    FirebaseApp.initializeApp(this)
+    // Initialize Firebase (optional - won't crash if not available)
+    try {
+      FirebaseApp.initializeApp(this)
+      Log.d(TAG, "Firebase initialized")
+    } catch (e: Exception) {
+      Log.w(TAG, "Firebase not available (this is OK for offline builds): ${e.message}")
+    }
 
     Log.d(TAG, "Neural Forge initialized successfully")
   }
