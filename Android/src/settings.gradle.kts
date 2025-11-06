@@ -16,6 +16,7 @@
 
 pluginManagement {
   repositories {
+    // Try Google repository first
     google {
       content {
         includeGroupByRegex("com\\.android.*")
@@ -23,8 +24,20 @@ pluginManagement {
         includeGroupByRegex("androidx.*")
       }
     }
+
+    // Maven Central as primary alternative
     mavenCentral()
+
+    // Gradle Plugin Portal
     gradlePluginPortal()
+
+    // JitPack as additional source
+    maven {
+      url = uri("https://jitpack.io")
+      content {
+        includeGroupByRegex("com\\.github\\..*")
+      }
+    }
   }
   resolutionStrategy {
     eachPlugin {
@@ -38,12 +51,31 @@ pluginManagement {
 dependencyResolutionManagement {
   repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
   repositories {
-    //        mavenLocal()
+    // Enable local Maven cache for offline builds
+    mavenLocal()
+
+    // Primary repositories
     google()
     mavenCentral()
+
+    // Additional fallback repositories
+    maven {
+      url = uri("https://jitpack.io")
+      content {
+        includeGroupByRegex("com\\.github\\..*")
+      }
+    }
+
+    // JCenter as last resort (read-only)
+    maven {
+      url = uri("https://jcenter.bintray.com/")
+      content {
+        // Only use for specific libraries if needed
+      }
+    }
   }
 }
 
-rootProject.name = "AI Edge Gallery"
+rootProject.name = "Neural Forge"
 
 include(":app")
