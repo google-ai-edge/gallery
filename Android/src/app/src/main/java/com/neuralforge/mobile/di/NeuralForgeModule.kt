@@ -18,9 +18,11 @@ package com.neuralforge.mobile.di
 
 import android.content.Context
 import com.neuralforge.mobile.converter.ModelConverter
+import com.neuralforge.mobile.core.HardwareAccelerationManager
 import com.neuralforge.mobile.core.ModelFormatDetector
 import com.neuralforge.mobile.core.NeuralForgeEngine
 import com.neuralforge.mobile.downloader.ModelDownloadManager
+import com.neuralforge.mobile.downloader.SplitModelDownloader
 import com.neuralforge.mobile.execution.ONNXInferenceEngine
 import dagger.Module
 import dagger.Provides
@@ -62,6 +64,23 @@ object NeuralForgeModule {
         @ApplicationContext context: Context
     ): ONNXInferenceEngine {
         return ONNXInferenceEngine(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideHardwareAccelerationManager(
+        @ApplicationContext context: Context
+    ): HardwareAccelerationManager {
+        return HardwareAccelerationManager(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideSplitModelDownloader(
+        @ApplicationContext context: Context,
+        downloadManager: ModelDownloadManager
+    ): SplitModelDownloader {
+        return SplitModelDownloader(context, downloadManager)
     }
 
     @Provides

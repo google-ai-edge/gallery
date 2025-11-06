@@ -18,6 +18,7 @@ package com.neuralforge.mobile.data
 
 import androidx.datastore.core.DataStore
 import com.neuralforge.mobile.proto.AccessTokenData
+import com.neuralforge.mobile.proto.Accelerator
 import com.neuralforge.mobile.proto.ImportedModel
 import com.neuralforge.mobile.proto.Settings
 import com.neuralforge.mobile.proto.Theme
@@ -48,6 +49,10 @@ interface DataStoreRepository {
   fun isTosAccepted(): Boolean
 
   fun acceptTos()
+
+  fun savePreferredAccelerator(accelerator: Accelerator)
+
+  fun readPreferredAccelerator(): Accelerator
 }
 
 /** Repository for managing data using Proto DataStore. */
@@ -148,6 +153,27 @@ class DefaultDataStoreRepository(
   override fun acceptTos() {
     runBlocking {
       dataStore.updateData { settings -> settings.toBuilder().setIsTosAccepted(true).build() }
+    }
+  }
+
+  override fun savePreferredAccelerator(accelerator: Accelerator) {
+    runBlocking {
+      dataStore.updateData { settings ->
+        settings.toBuilder().setPreferredAccelerator(accelerator).build()
+      }
+    }
+  }
+
+  override fun readPreferredAccelerator(): Accelerator {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      val curAccelerator = settings.preferredAccelerator
+      // Use CPU as the default accelerator
+      if (curAccelerator == Accelerator.ACCELERATOR_UNSPECIFIED) {
+        Accelerator.ACCELERATOR_CPU
+      } else {
+        curAccelerator
+      }
     }
   }
 }
