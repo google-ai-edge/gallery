@@ -7,8 +7,4 @@ plugins {
     alias(libs.plugins.hilt) apply false
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.protobuf) apply false
-    
-    // Google Services plugin is optional (only needed for Firebase)
-    // Commenting out to avoid mirror repository issues
-    // alias(libs.plugins.google.services) apply false
 }
