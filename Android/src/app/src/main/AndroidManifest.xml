@@ -37,6 +37,11 @@
         android:name="android.hardware.camera"
         android:required="false" />
 
+    <!-- Declare NPU/Neural Network capabilities for NNAPI -->
+    <uses-feature
+        android:name="android.hardware.opengles.aep"
+        android:required="false" />
+
     <application
         android:name="${applicationName}"
         android:allowBackup="true"
@@ -78,16 +83,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Set themes for activities that are used for viewing open source licenses -->
-        <activity
-            android:name="com.google.android.gms.oss.licenses.OssLicensesMenuActivity"
-            android:exported="true"
-            android:theme="@style/Theme.Gallery.OssLicenses" />
-        <activity
-            android:name="com.google.android.gms.oss.licenses.OssLicensesActivity"
-            android:exported="true"
-            android:theme="@style/Theme.Gallery.OssLicenses" />
-
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
@@ -104,20 +99,6 @@
             android:exported="false"
             tools:node="merge">
         </service>
-
-        <!-- For Firebase Analytics. -->
-        <receiver
-            android:name="com.google.android.gms.measurement.AppMeasurementReceiver"
-            android:enabled="true"
-            android:exported="false" />
-        <service android:name="com.google.android.gms.measurement.AppMeasurementService"
-            android:enabled="true"
-            android:exported="false" />
-        <service
-            android:name="com.google.android.gms.measurement.AppMeasurementJobService"
-            android:enabled="true"
-            android:exported="false"
-            android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>
         <uses-native-library android:name="libOpenCL.so" android:required="false"/>

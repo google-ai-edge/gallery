@@ -16,7 +16,6 @@
 
 package com.neuralforge.mobile.ui.home
 
-import com.google.android.gms.oss.licenses.OssLicensesMenuActivity
 import android.app.UiModeManager
 import android.content.Context
 import android.content.Intent
@@ -290,23 +289,23 @@ fun SettingsDialog(
             }
           }
 
-          // Third party licenses.
-          Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
-            Text(
-              "Third-party libraries",
-              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
-            )
-            OutlinedButton(
-              onClick = {
-                // Create an Intent to launch a license viewer that displays a list of
-                // third-party library names. Clicking a name will show its license content.
-                val intent = Intent(context, OssLicensesMenuActivity::class.java)
-                context.startActivity(intent)
-              }
-            ) {
-              Text("View licenses")
-            }
-          }
+          // Third party licenses - Commented out as OSS Licenses plugin has been removed
+          // Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
+          //   Text(
+          //     "Third-party libraries",
+          //     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+          //   )
+          //   OutlinedButton(
+          //     onClick = {
+          //       // Create an Intent to launch a license viewer that displays a list of
+          //       // third-party library names. Clicking a name will show its license content.
+          //       val intent = Intent(context, OssLicensesMenuActivity::class.java)
+          //       context.startActivity(intent)
+          //     }
+          //   ) {
+          //     Text("View licenses")
+          //   }
+          // }
 
           // Tos
           Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {

@@ -21,7 +21,6 @@ import android.app.Application
 import android.util.Log
 import com.neuralforge.mobile.data.DataStoreRepository
 import com.neuralforge.mobile.ui.theme.ThemeSettings
-import com.google.firebase.FirebaseApp
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -42,13 +41,8 @@ class NeuralForgeApplication : Application() {
     // Load saved theme.
     ThemeSettings.themeOverride.value = dataStoreRepository.readTheme()
 
-    // Initialize Firebase (optional - won't crash if not available)
-    try {
-      FirebaseApp.initializeApp(this)
-      Log.d(TAG, "Firebase initialized")
-    } catch (e: Exception) {
-      Log.w(TAG, "Firebase not available (this is OK for offline builds): ${e.message}")
-    }
+    // Firebase has been removed from the build configuration
+    Log.d(TAG, "Firebase not available (removed from build configuration)")
 
     Log.d(TAG, "Neural Forge initialized successfully")
   }

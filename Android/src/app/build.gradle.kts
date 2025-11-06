@@ -16,14 +16,11 @@
 
 plugins {
   alias(libs.plugins.android.application)
-  // Note: set apply to true to enable google-services (requires google-services.json).
-  alias(libs.plugins.google.services) apply false
   alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.protobuf)
   alias(libs.plugins.hilt.application)
-  alias(libs.plugins.oss.licenses)
   kotlin("kapt")
 }
 
@@ -100,12 +97,9 @@ dependencies {
   implementation(libs.protobuf.javalite)
   implementation(libs.hilt.android)
   implementation(libs.hilt.navigation.compose)
-  implementation(libs.play.services.oss.licenses)
-  implementation(platform(libs.firebase.bom))
-  implementation(libs.firebase.analytics)
   implementation(libs.androidx.exifinterface)
 
-  // Neural Forge - ONNX Runtime Support
+  // Neural Forge - ONNX Runtime Support with NNAPI for NPU acceleration
   implementation("com.microsoft.onnxruntime:onnxruntime-android:1.17.0")
 
   // Neural Forge - Enhanced Networking (OkHttp for advanced download management)

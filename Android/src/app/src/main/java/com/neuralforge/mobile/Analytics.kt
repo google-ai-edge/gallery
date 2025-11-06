@@ -17,20 +17,16 @@
 package com.neuralforge.mobile
 
 import android.util.Log
-import com.google.firebase.Firebase
-import com.google.firebase.analytics.FirebaseAnalytics
-import com.google.firebase.analytics.analytics
 
 private var hasLoggedAnalyticsWarning = false
 
-val firebaseAnalytics: FirebaseAnalytics?
-  get() =
-    runCatching { Firebase.analytics }
-      .onFailure { exception ->
-        // Firebase.analytics can throw an exception if goolgle-services is not set up, e.g.,
-        // missing google-services.json.
-        if (!hasLoggedAnalyticsWarning) {
-          Log.w("AGAnalyticsFirebase", "Firebase Analytics is not available", exception)
-        }
-      }
-      .getOrNull()
+// Firebase Analytics has been removed from the build configuration
+// This stub ensures compatibility with existing code
+val firebaseAnalytics: Any?
+  get() {
+    if (!hasLoggedAnalyticsWarning) {
+      Log.w("AGAnalyticsFirebase", "Firebase Analytics is not available - removed from build")
+      hasLoggedAnalyticsWarning = true
+    }
+    return null
+  }

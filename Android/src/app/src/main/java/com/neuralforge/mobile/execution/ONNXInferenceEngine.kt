@@ -38,8 +38,11 @@ class ONNXInferenceEngine @Inject constructor(
         OrtEnvironment.getEnvironment()
     }
 
-    private val sessionOptions: OrtSession.SessionOptions by lazy {
-        OrtSession.SessionOptions().apply {
+    /**
+     * Create session options with specified accelerator
+     */
+    fun createSessionOptions(accelerator: String = "CPU"): OrtSession.SessionOptions {
+        return OrtSession.SessionOptions().apply {
             // Use all available CPU threads
             setIntraOpNumThreads(Runtime.getRuntime().availableProcessors())
             setInterOpNumThreads(Runtime.getRuntime().availableProcessors())
@@ -47,29 +50,61 @@ class ONNXInferenceEngine @Inject constructor(
             // Set graph optimization level
             setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
 
-            // Enable CPU optimizations
-            addConfigEntry("session.intra_op.allow_spinning", "1")
-            addConfigEntry("session.inter_op.allow_spinning", "1")
+            // Configure execution provider based on accelerator type
+            when (accelerator.uppercase()) {
+                "NNAPI", "NPU" -> {
+                    try {
+                        // Add NNAPI execution provider for NPU acceleration
+                        addNnapi()
+                        Log.d(TAG, "NNAPI execution provider enabled for NPU acceleration")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to enable NNAPI, falling back to CPU", e)
+                    }
+                }
+                "GPU" -> {
+                    Log.d(TAG, "GPU acceleration requested but not yet implemented in ONNX Runtime Android")
+                    // GPU execution provider not available in standard Android build
+                    // Fallback to CPU with optimizations
+                }
+                else -> {
+                    // CPU - enable optimizations
+                    addConfigEntry("session.intra_op.allow_spinning", "1")
+                    addConfigEntry("session.inter_op.allow_spinning", "1")
+                    Log.d(TAG, "Using CPU execution provider with optimizations")
+                }
+            }
         }
     }
 
+    private val sessionOptions: OrtSession.SessionOptions by lazy {
+        createSessionOptions("CPU")
+    }
+
     /**
-     * Load an ONNX model
+     * Load an ONNX model with default CPU execution
      */
-    suspend fun loadModel(modelFile: File): Result<OrtSession> = withContext(Dispatchers.IO) {
+    suspend fun loadModel(modelFile: File): Result<OrtSession> = loadModel(modelFile, "CPU")
+
+    /**
+     * Load an ONNX model with specified accelerator
+     * @param modelFile The ONNX model file to load
+     * @param accelerator The accelerator to use: "CPU", "GPU", "NPU", "NNAPI"
+     */
+    suspend fun loadModel(modelFile: File, accelerator: String): Result<OrtSession> = withContext(Dispatchers.IO) {
         try {
+            val options = createSessionOptions(accelerator)
             val session = ortEnvironment.createSession(
                 modelFile.absolutePath,
-                sessionOptions
+                options
             )
 
-            Log.d(TAG, "ONNX model loaded successfully: ${modelFile.name}")
+            Log.d(TAG, "ONNX model loaded successfully: ${modelFile.name} with $accelerator accelerator")
             Log.d(TAG, "Input names: ${session.inputNames}")
             Log.d(TAG, "Output names: ${session.outputNames}")
 
             Result.success(session)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load ONNX model: ${modelFile.name}", e)
+            Log.e(TAG, "Failed to load ONNX model: ${modelFile.name} with $accelerator", e)
             Result.failure(e)
         }
     }
