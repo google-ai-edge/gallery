@@ -67,15 +67,21 @@ import com.neuralforge.mobile.ui.common.ErrorDialog
 import com.neuralforge.mobile.ui.common.ModelPageAppBar
 import com.neuralforge.mobile.ui.common.chat.ModelDownloadStatusInfoPanel
 import com.neuralforge.mobile.ui.home.HomeScreen
+import com.neuralforge.mobile.ui.marketplace.ModelMarketplaceScreen
+import com.neuralforge.mobile.ui.marketplace.MarketplaceViewModel
 import com.neuralforge.mobile.ui.modelmanager.ModelInitializationStatusType
 import com.neuralforge.mobile.ui.modelmanager.ModelManager
 import com.neuralforge.mobile.ui.modelmanager.ModelManagerViewModel
+import com.neuralforge.mobile.ui.settings.GPUSettingsScreen
+import com.neuralforge.mobile.ui.settings.GPUSettingsViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGGalleryNavGraph"
 private const val ROUTE_PLACEHOLDER = "placeholder"
 private const val ROUTE_MODEL = "route_model"
+private const val ROUTE_MARKETPLACE = "route_marketplace"
+private const val ROUTE_GPU_SETTINGS = "route_gpu_settings"
 private const val ENTER_ANIMATION_DURATION_MS = 500
 private val ENTER_ANIMATION_EASING = EaseOutExpo
 private const val ENTER_ANIMATION_DELAY_MS = 100
@@ -184,6 +190,41 @@ fun GalleryNavHost(
     // Having a non-empty placeholder here is needed to make the exit transition below work.
     // We can't have an empty Text here because it will block TalkBack.
     composable(route = ROUTE_PLACEHOLDER) { Box {} }
+
+    // Marketplace screen
+    composable(
+      route = ROUTE_MARKETPLACE,
+      enterTransition = { slideEnter() },
+      exitTransition = { slideExit() },
+    ) {
+      val viewModel: MarketplaceViewModel = hiltViewModel()
+      ModelMarketplaceScreen(
+        onModelClick = { model ->
+          // TODO: Navigate to model detail or start inference
+          Log.d(TAG, "Model clicked: ${model.name}")
+        },
+        onDownloadClick = { model ->
+          viewModel.downloadModel(model)
+        }
+      )
+    }
+
+    // GPU Settings screen
+    composable(
+      route = ROUTE_GPU_SETTINGS,
+      enterTransition = { slideEnter() },
+      exitTransition = { slideExit() },
+    ) {
+      val viewModel: GPUSettingsViewModel = hiltViewModel()
+      val uiState by viewModel.uiState.collectAsState()
+      GPUSettingsScreen(
+        hardwareCapabilities = uiState.hardwareCapabilities,
+        selectedAccelerator = uiState.selectedAccelerator,
+        onAcceleratorSelected = { accelerator ->
+          viewModel.selectAccelerator(accelerator)
+        }
+      )
+    }
 
     composable(
       route = "$ROUTE_MODEL/{taskId}/{modelName}",
