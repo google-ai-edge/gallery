@@ -16,8 +16,9 @@
 
 pluginManagement {
   repositories {
-    // Try Google repository first
-    google {
+    // Try Google repository first (explicit URL)
+    maven {
+      url = uri("https://maven.google.com")
       content {
         includeGroupByRegex("com\\.android.*")
         includeGroupByRegex("com\\.google.*")
@@ -54,8 +55,10 @@ dependencyResolutionManagement {
     // Enable local Maven cache for offline builds
     mavenLocal()
 
-    // Primary repositories
-    google()
+    // Primary repositories (explicit URL for Google)
+    maven {
+      url = uri("https://maven.google.com")
+    }
     mavenCentral()
 
     // Additional fallback repositories
