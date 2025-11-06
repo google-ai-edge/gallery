@@ -32,50 +32,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       
-      - name: Create Gradle init script for mirrors
-        run: |
-          mkdir -p ~/.gradle
-          cat > ~/.gradle/init.gradle << 'EOF'
-          allprojects {
-              buildscript {
-                  repositories {
-                      maven { 
-                          url 'https://maven.aliyun.com/repository/google/'
-                          allowInsecureProtocol = false
-                      }
-                      maven { 
-                          url 'https://maven.aliyun.com/repository/public/' 
-                          allowInsecureProtocol = false
-                      }
-                      maven { 
-                          url 'https://maven.aliyun.com/repository/gradle-plugin/'
-                          allowInsecureProtocol = false
-                      }
-                      google()
-                      mavenCentral()
-                  }
-              }
-              repositories {
-                  maven { 
-                      url 'https://maven.aliyun.com/repository/google/'
-                      allowInsecureProtocol = false
-                  }
-                  maven { 
-                      url 'https://maven.aliyun.com/repository/public/'
-                      allowInsecureProtocol = false
-                  }
-                  maven { 
-                      url 'https://jitpack.io'
-                      allowInsecureProtocol = false
-                  }
-                  google()
-                  mavenCentral()
-              }
-          }
-          EOF
-          echo "✅ Created init.gradle with mirror repositories"
-          cat ~/.gradle/init.gradle
-      
       - name: Make gradlew executable
         run: chmod +x ./gradlew
       
@@ -86,7 +42,7 @@ jobs:
           gradle-home-cache-cleanup: true
       
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace --info --no-daemon
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
         env:
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx4g"
       
