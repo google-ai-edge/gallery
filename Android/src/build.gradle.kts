@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.hilt.application) apply false
     alias(libs.plugins.protobuf) apply false
-    alias(libs.plugins.oss.licenses) apply false
-    // Google Services removed - optional Firebase feature
+    // Optional Google plugins removed (not available in mirror repos):
+    // - google-services (Firebase)
+    // - oss-licenses (license screen generation)
 }
