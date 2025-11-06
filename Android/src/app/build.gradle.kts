@@ -28,21 +28,21 @@ plugins {
 }
 
 android {
-  namespace = "com.google.ai.edge.gallery"
+  namespace = "com.neuralforge.mobile"
   compileSdk = 35
 
   defaultConfig {
-    applicationId = "com.google.aiedge.gallery"
+    applicationId = "com.neuralforge.mobile"
     minSdk = 31
     targetSdk = 35
-    versionCode = 13
-    versionName = "1.0.7"
+    versionCode = 1
+    versionName = "1.0.0"
 
     // Needed for HuggingFace auth workflows.
     // Use the scheme of the "Redirect URLs" in HuggingFace app.
     manifestPlaceholders["appAuthRedirectScheme"] =
         "REPLACE_WITH_YOUR_REDIRECT_SCHEME_IN_HUGGINGFACE_APP"
-    manifestPlaceholders["applicationName"] = "com.google.ai.edge.gallery.GalleryApplication"
+    manifestPlaceholders["applicationName"] = "com.neuralforge.mobile.NeuralForgeApplication"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -104,6 +104,24 @@ dependencies {
   implementation(platform(libs.firebase.bom))
   implementation(libs.firebase.analytics)
   implementation(libs.androidx.exifinterface)
+
+  // Neural Forge - ONNX Runtime Support
+  implementation("com.microsoft.onnxruntime:onnxruntime-android:1.17.0")
+
+  // Neural Forge - Enhanced Networking (OkHttp for advanced download management)
+  implementation("com.squareup.okhttp3:okhttp:4.12.0")
+  implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+  // Neural Forge - Coroutines for async operations
+  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+
+  // Neural Forge - Lottie for animations
+  implementation("com.airbnb.android:lottie-compose:6.1.0")
+
+  // Neural Forge - Coil for image loading
+  implementation("io.coil-kt:coil-compose:2.5.0")
+
   kapt(libs.hilt.android.compiler)
   testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.junit)
