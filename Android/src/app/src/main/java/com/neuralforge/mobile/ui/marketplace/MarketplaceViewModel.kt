@@ -229,7 +229,7 @@ class MarketplaceViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val modelFile = downloadManager.getModelFile(model.name)
-                if (modelFile.exists()) {
+                if (modelFile?.exists() == true) {
                     modelFile.delete()
                     Log.d(TAG, "Deleted model: ${model.name}")
                 }

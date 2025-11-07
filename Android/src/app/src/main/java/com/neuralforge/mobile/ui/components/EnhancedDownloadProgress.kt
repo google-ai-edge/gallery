@@ -235,6 +235,18 @@ private fun AnimatedProgressBar(
         label = "progress"
     )
 
+    // Setup shimmer animation outside of Canvas
+    val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
+    val shimmerOffset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmerOffset"
+    )
+
     Box(
         modifier = modifier
             .height(8.dp)
@@ -251,23 +263,14 @@ private fun AnimatedProgressBar(
         // Shimmer effect
         Canvas(modifier = Modifier.fillMaxSize()) {
             val shimmerWidth = size.width * 0.3f
-            val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
-            val shimmerOffset by infiniteTransition.animateFloat(
-                initialValue = -shimmerWidth,
-                targetValue = size.width,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(1500, easing = LinearEasing),
-                    repeatMode = RepeatMode.Restart
-                ),
-                label = "shimmerOffset"
-            )
+            val shimmerPosition = (shimmerOffset * (size.width + shimmerWidth)) - shimmerWidth
 
             // Only show shimmer on progress portion
             val progressWidth = size.width * animatedProgress
-            if (shimmerOffset < progressWidth) {
+            if (shimmerPosition < progressWidth) {
                 drawRect(
                     color = Color.White.copy(alpha = 0.2f),
-                    topLeft = Offset(shimmerOffset, 0f),
+                    topLeft = Offset(shimmerPosition, 0f),
                     size = Size(shimmerWidth, size.height)
                 )
             }

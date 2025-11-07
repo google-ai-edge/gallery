@@ -136,14 +136,15 @@ class MainActivity : ComponentActivity() {
   override fun onResume() {
     super.onResume()
 
-    firebaseAnalytics?.logEvent(
-      FirebaseAnalytics.Event.APP_OPEN,
-      bundleOf(
-        "app_version" to BuildConfig.VERSION_NAME,
-        "os_version" to Build.VERSION.SDK_INT.toString(),
-        "device_model" to Build.MODEL,
-      ),
-    )
+    // Firebase Analytics removed - event logging disabled
+    // firebaseAnalytics?.logEvent(
+    //   FirebaseAnalytics.Event.APP_OPEN,
+    //   bundleOf(
+    //     "app_version" to BuildConfig.VERSION_NAME,
+    //     "os_version" to Build.VERSION.SDK_INT.toString(),
+    //     "device_model" to Build.MODEL,
+    //   ),
+    // )
   }
 
   companion object {

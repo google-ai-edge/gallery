@@ -23,6 +23,7 @@ import com.neuralforge.mobile.core.ModelWrapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.nio.FloatBuffer
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -121,9 +122,10 @@ class ONNXInferenceEngine @Inject constructor(
             val inputName = session.inputNames.first()
 
             // Create tensor from input data
+            val inputBuffer = FloatBuffer.wrap(inputData)
             val inputTensor = OnnxTensor.createTensor(
                 ortEnvironment,
-                inputData,
+                inputBuffer,
                 inputShape
             )
 
@@ -132,7 +134,9 @@ class ONNXInferenceEngine @Inject constructor(
 
             // Extract output
             val outputTensor = results.first().value as OnnxTensor
-            val outputData = outputTensor.floatBuffer.array()
+            val outputBuffer = outputTensor.floatBuffer
+            val outputData = FloatArray(outputBuffer.remaining())
+            outputBuffer.get(outputData)
 
             // Clean up
             inputTensor.close()

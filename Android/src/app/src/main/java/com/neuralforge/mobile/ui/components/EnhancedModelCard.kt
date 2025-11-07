@@ -248,7 +248,7 @@ fun EnhancedModelCard(
                         }
 
                         if (isDownloaded) {
-                            FilledButton(onClick = onClick) {
+                            Button(onClick = onClick) {
                                 Icon(
                                     Icons.Default.PlayArrow,
                                     contentDescription = null,

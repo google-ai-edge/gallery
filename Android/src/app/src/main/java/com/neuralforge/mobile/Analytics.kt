@@ -16,17 +16,21 @@
 
 package com.neuralforge.mobile
 
+import android.os.Bundle
 import android.util.Log
 
 private var hasLoggedAnalyticsWarning = false
 
 // Firebase Analytics has been removed from the build configuration
 // This stub ensures compatibility with existing code
-val firebaseAnalytics: Any?
-  get() {
+class FirebaseAnalyticsStub {
+  fun logEvent(event: String, params: Bundle?) {
     if (!hasLoggedAnalyticsWarning) {
-      Log.w("AGAnalyticsFirebase", "Firebase Analytics is not available - removed from build")
+      Log.w("AGAnalyticsFirebase", "Firebase Analytics is not available - analytics events are not being logged")
       hasLoggedAnalyticsWarning = true
     }
-    return null
   }
+}
+
+val firebaseAnalytics: FirebaseAnalyticsStub?
+  get() = FirebaseAnalyticsStub()
