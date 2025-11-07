@@ -16,7 +16,7 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.google.ai.edge.gallery"
+    package="com.neuralforge.mobile"
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-sdk
@@ -37,16 +37,22 @@
         android:name="android.hardware.camera"
         android:required="false" />
 
+    <!-- Declare NPU/Neural Network capabilities for NNAPI -->
+    <uses-feature
+        android:name="android.hardware.opengles.aep"
+        android:required="false" />
+
     <application
         android:name="${applicationName}"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
-        android:label="Edge Gallery"
+        android:label="Neural Forge"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.Gallery"
+        android:networkSecurityConfig="@xml/network_security_config"
         tools:targetApi="31">
         <!--
           android:configChanges="uiMode" tells the system don't destroy and
@@ -54,7 +60,7 @@
           Instead, just recompose the view.
          -->
         <activity
-            android:name="com.google.ai.edge.gallery.MainActivity"
+            android:name="com.neuralforge.mobile.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Gallery.SplashScreen"
             android:screenOrientation="portrait"
@@ -74,19 +80,9 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="com.google.ai.edge.gallery" />
+                <data android:scheme="com.neuralforge.mobile" />
             </intent-filter>
         </activity>
-
-        <!-- Set themes for activities that are used for viewing open source licenses -->
-        <activity
-            android:name="com.google.android.gms.oss.licenses.OssLicensesMenuActivity"
-            android:exported="true"
-            android:theme="@style/Theme.Gallery.OssLicenses" />
-        <activity
-            android:name="com.google.android.gms.oss.licenses.OssLicensesActivity"
-            android:exported="true"
-            android:theme="@style/Theme.Gallery.OssLicenses" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -104,20 +100,6 @@
             android:exported="false"
             tools:node="merge">
         </service>
-
-        <!-- For Firebase Analytics. -->
-        <receiver
-            android:name="com.google.android.gms.measurement.AppMeasurementReceiver"
-            android:enabled="true"
-            android:exported="false" />
-        <service android:name="com.google.android.gms.measurement.AppMeasurementService"
-            android:enabled="true"
-            android:exported="false" />
-        <service
-            android:name="com.google.android.gms.measurement.AppMeasurementJobService"
-            android:enabled="true"
-            android:exported="false"
-            android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>
         <uses-native-library android:name="libOpenCL.so" android:required="false"/>

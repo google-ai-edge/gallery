@@ -15,9 +15,9 @@ limitations under the License.
 
 syntax = "proto3";
 
-package com.google.ai.edge.gallery.proto;
+package com.neuralforge.mobile.proto;
 
-option java_package = "com.google.ai.edge.gallery.proto";
+option java_package = "com.neuralforge.mobile.proto";
 option java_multiple_files = true;
 
 enum Theme {
@@ -31,6 +31,15 @@ enum Theme {
 
   // Use the system them setting on user's phone.
   THEME_AUTO = 3;
+}
+
+enum Accelerator {
+  ACCELERATOR_UNSPECIFIED = 0;
+  ACCELERATOR_CPU = 1;
+  ACCELERATOR_GPU = 2;
+  ACCELERATOR_NPU = 3;
+  ACCELERATOR_DSP = 4;
+  ACCELERATOR_NNAPI = 5;
 }
 
 message AccessTokenData {
@@ -64,6 +73,7 @@ message Settings {
   repeated string text_input_history = 3;
   repeated ImportedModel imported_model = 4;
   bool is_tos_accepted = 5;
+  Accelerator preferred_accelerator = 6;
 }
 
 message UserData {
