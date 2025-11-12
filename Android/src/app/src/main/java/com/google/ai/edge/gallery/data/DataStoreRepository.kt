@@ -48,6 +48,10 @@ interface DataStoreRepository {
   fun isTosAccepted(): Boolean
 
   fun acceptTos()
+
+  fun getHasRunGemmasGarden(): Boolean
+
+  fun setHasRunGemmasGarden(hasRun: Boolean)
 }
 
 /** Repository for managing data using Proto DataStore. */
@@ -148,6 +152,21 @@ class DefaultDataStoreRepository(
   override fun acceptTos() {
     runBlocking {
       dataStore.updateData { settings -> settings.toBuilder().setIsTosAccepted(true).build() }
+    }
+  }
+
+  override fun getHasRunGemmasGarden(): Boolean {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      settings.hasRunGemmasGarden
+    }
+  }
+
+  override fun setHasRunGemmasGarden(hasRun: Boolean) {
+    runBlocking {
+      dataStore.updateData { settings ->
+        settings.toBuilder().setHasRunGemmasGarden(hasRun).build()
+      }
     }
   }
 }

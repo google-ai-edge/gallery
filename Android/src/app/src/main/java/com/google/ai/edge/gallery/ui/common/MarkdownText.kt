@@ -26,6 +26,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.ui.theme.customColors
 import com.halilibo.richtext.commonmark.Markdown
 import com.halilibo.richtext.ui.CodeBlockStyle
@@ -40,13 +41,20 @@ fun MarkdownText(
   modifier: Modifier = Modifier,
   smallFontSize: Boolean = false,
   textColor: Color = MaterialTheme.colorScheme.onSurface,
+  linkColor: Color = MaterialTheme.customColors.linkColor,
 ) {
   val fontSize =
     if (smallFontSize) MaterialTheme.typography.bodyMedium.fontSize
     else MaterialTheme.typography.bodyLarge.fontSize
   CompositionLocalProvider {
     ProvideTextStyle(
-      value = TextStyle(fontSize = fontSize, lineHeight = fontSize * 1.3, color = textColor)
+      value =
+        TextStyle(
+          fontSize = fontSize,
+          lineHeight = fontSize * if (smallFontSize) 1.4f else 1.5f,
+          color = textColor,
+          letterSpacing = 0.2.sp,
+        )
     ) {
       RichText(
         modifier = modifier,
@@ -58,13 +66,11 @@ fun MarkdownText(
                   TextStyle(
                     fontSize = MaterialTheme.typography.bodySmall.fontSize,
                     fontFamily = FontFamily.Monospace,
+                    lineHeight = MaterialTheme.typography.bodySmall.fontSize * 1.4f,
                   )
               ),
             stringStyle =
-              RichTextStringStyle(
-                linkStyle =
-                  TextLinkStyles(style = SpanStyle(color = MaterialTheme.customColors.linkColor))
-              ),
+              RichTextStringStyle(linkStyle = TextLinkStyles(style = SpanStyle(color = linkColor))),
           ),
       ) {
         Markdown(content = text)

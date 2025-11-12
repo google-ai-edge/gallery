@@ -154,6 +154,8 @@ private val PREDEFINED_LLM_TASK_ORDER =
   listOf(
     BuiltInTaskId.LLM_ASK_IMAGE,
     BuiltInTaskId.LLM_ASK_AUDIO,
+    BuiltInTaskId.LLM_GEMMAS_GARDEN,
+    BuiltInTaskId.LLM_VOICE_TO_ACTION,
     BuiltInTaskId.LLM_PROMPT_LAB,
     BuiltInTaskId.LLM_CHAT,
   )

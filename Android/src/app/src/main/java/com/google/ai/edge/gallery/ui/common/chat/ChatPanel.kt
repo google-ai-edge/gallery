@@ -557,7 +557,7 @@ fun ChatPanel(
             )
           }
         }
-        // Show an info message for ask image task to get users started.
+        // Show an info message for ask audio task to get users started.
         else if (task.id == BuiltInTaskId.LLM_ASK_AUDIO && messages.isEmpty()) {
           Column(
             modifier =

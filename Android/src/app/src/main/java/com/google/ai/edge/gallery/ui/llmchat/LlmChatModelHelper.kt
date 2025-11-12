@@ -57,6 +57,8 @@ object LlmChatModelHelper {
     supportImage: Boolean,
     supportAudio: Boolean,
     onDone: (String) -> Unit,
+    systemMessage: Message? = null,
+    tools: List<Any> = listOf(),
   ) {
     // Prepare options.
     val maxTokens =
@@ -75,8 +77,9 @@ object LlmChatModelHelper {
       when (accelerator) {
         Accelerator.CPU.label -> Backend.CPU
         Accelerator.GPU.label -> Backend.GPU
-        else -> Backend.GPU
+        else -> Backend.CPU
       }
+    Log.d(TAG, "Preferred backend: $preferredBackend")
 
     val modelPath = model.getPath(context = context)
     val engineConfig =
@@ -105,7 +108,9 @@ object LlmChatModelHelper {
                 topK = topK,
                 topP = topP.toDouble(),
                 temperature = temperature.toDouble(),
-              )
+              ),
+            systemMessage = systemMessage,
+            tools = tools,
           )
         )
       model.instance = LlmModelInstance(engine = engine, conversation = conversation)

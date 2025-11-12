@@ -61,7 +61,7 @@ import com.google.ai.edge.gallery.customtasks.common.CustomTaskData
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskDataForBuiltinTask
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.data.isBuiltInTask
+import com.google.ai.edge.gallery.data.isLegacyTasks
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
@@ -198,11 +198,11 @@ fun GalleryNavHost(
       val modelName = backStackEntry.arguments?.getString("modelName") ?: ""
       val taskId = backStackEntry.arguments?.getString("taskId") ?: ""
       modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
-        modelManagerViewModel.selectModel(model)
+        LaunchedEffect(Unit) { modelManagerViewModel.selectModel(model) }
 
         val customTask = modelManagerViewModel.getCustomTaskByTaskId(id = taskId)
         if (customTask != null) {
-          if (isBuiltInTask(customTask.task.id)) {
+          if (isLegacyTasks(customTask.task.id)) {
             customTask.MainScreen(
               data =
                 CustomTaskDataForBuiltinTask(
@@ -357,7 +357,10 @@ private fun CustomTaskScreen(
   if (showErrorDialog) {
     ErrorDialog(
       error = modelInitializationStatus?.error ?: "",
-      onDismiss = { showErrorDialog = false },
+      onDismiss = {
+        showErrorDialog = false
+        onNavigateUp()
+      },
     )
   }
 }

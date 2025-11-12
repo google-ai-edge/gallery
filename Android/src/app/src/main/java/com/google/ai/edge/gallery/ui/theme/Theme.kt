@@ -127,6 +127,8 @@ data class CustomColors(
   val recordButtonBgColor: Color = Color.Transparent,
   val waveFormBgColor: Color = Color.Transparent,
   val modelInfoIconColor: Color = Color.Transparent,
+  val warningContainerColor: Color = Color.Transparent,
+  val warningTextColor: Color = Color.Transparent,
 )
 
 val LocalCustomColors = staticCompositionLocalOf { CustomColors() }
@@ -178,6 +180,8 @@ val lightCustomColors =
     recordButtonBgColor = Color(0xFFEE675C),
     waveFormBgColor = Color(0xFFaaaaaa),
     modelInfoIconColor = Color(0xFFCCCCCC),
+    warningContainerColor = Color(0xfffef7e0),
+    warningTextColor = Color(0xffe37400),
   )
 
 val darkCustomColors =
@@ -227,6 +231,8 @@ val darkCustomColors =
     recordButtonBgColor = Color(0xFFEE675C),
     waveFormBgColor = Color(0xFFaaaaaa),
     modelInfoIconColor = Color(0xFFCCCCCC),
+    warningContainerColor = Color(0xff554c33),
+    warningTextColor = Color(0xfffcc934),
   )
 
 val MaterialTheme.customColors: CustomColors

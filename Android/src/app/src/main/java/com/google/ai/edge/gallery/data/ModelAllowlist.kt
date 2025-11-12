@@ -42,17 +42,21 @@ data class AllowedModel(
   val minDeviceMemoryInGb: Int? = null,
   val bestForTaskTypes: List<String>? = null,
   val localModelFilePathOverride: String? = null,
+  val url: String? = null,
 ) {
   fun toModel(): Model {
     // Construct HF download url.
-    val downloadUrl = "https://huggingface.co/$modelId/resolve/$commitHash/$modelFile?download=true"
+    val downloadUrl =
+      url ?: "https://huggingface.co/$modelId/resolve/$commitHash/$modelFile?download=true"
 
     // Config.
     val isLlmModel =
       taskTypes.contains(BuiltInTaskId.LLM_CHAT) ||
         taskTypes.contains(BuiltInTaskId.LLM_PROMPT_LAB) ||
         taskTypes.contains(BuiltInTaskId.LLM_ASK_AUDIO) ||
-        taskTypes.contains(BuiltInTaskId.LLM_ASK_IMAGE)
+        taskTypes.contains(BuiltInTaskId.LLM_ASK_IMAGE) ||
+        taskTypes.contains(BuiltInTaskId.LLM_VOICE_TO_ACTION) ||
+        taskTypes.contains(BuiltInTaskId.LLM_GEMMAS_GARDEN)
     var configs: List<Config> = listOf()
     if (isLlmModel) {
       val defaultTopK: Int = defaultConfig.topK ?: DEFAULT_TOPK

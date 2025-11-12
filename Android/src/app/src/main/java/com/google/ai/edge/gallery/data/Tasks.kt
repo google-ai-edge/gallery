@@ -113,9 +113,11 @@ object BuiltInTaskId {
   const val LLM_PROMPT_LAB = "llm_prompt_lab"
   const val LLM_ASK_IMAGE = "llm_ask_image"
   const val LLM_ASK_AUDIO = "llm_ask_audio"
+  const val LLM_VOICE_TO_ACTION = "llm_voice_to_action"
+  const val LLM_GEMMAS_GARDEN = "llm_gemmas_garden"
 }
 
-private val allBuiltInTaskIds: Set<String> =
+private val allLegacyTaskIds: Set<String> =
   setOf(
     BuiltInTaskId.LLM_CHAT,
     BuiltInTaskId.LLM_PROMPT_LAB,
@@ -123,6 +125,6 @@ private val allBuiltInTaskIds: Set<String> =
     BuiltInTaskId.LLM_ASK_AUDIO,
   )
 
-fun isBuiltInTask(id: String): Boolean {
-  return allBuiltInTaskIds.contains(id)
+fun isLegacyTasks(id: String): Boolean {
+  return allLegacyTaskIds.contains(id)
 }

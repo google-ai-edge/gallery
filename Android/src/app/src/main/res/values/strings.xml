@@ -47,6 +47,7 @@
   <string name="chat_textinput_placeholder" translatable="false">Type message…</string>
   <string name="chat_you" translatable="false">You</string>
   <string name="chat_llm_agent_name" translatable="false">LLM</string>
+  <string name="chat_agent_agent_name" translatable="false">Agent</string>
   <string name="chat_generic_agent_name" translatable="false">Model</string>
   <string name="chat_generic_result_name" translatable="false">Result</string>
   <string name="learn_more" translatable="false">Learn more</string>
@@ -86,14 +87,21 @@
   <string name="take_picture_message" translatable="false">Opening the camera app.</string>
   <string name="voice_to_action_title" translatable="false">Voice to Action</string>
   <string name="voice_to_action_description" translatable="false">Control your device with simple commands</string>
+  <string name="conversation_history" translatable="false">Conversation History</string>
+  <string name="warning_no_function_call" translatable="false">No function recognized</string>
+  <string name="snackbar_no_function_call" translatable="false">No function recognized. Check history for details.</string>
 
+  <string name="function_name" translatable="false">Function name</string>
+  <plurals name="parameter" translatable="false">
+    <item quantity="one">Parameter</item>
+    <item quantity="other">Parameters</item>
+  </plurals>
   <string name="prompt_template_label_flash_on" translatable="false">Flashlight on</string>
   <string name="prompt_template_label_flash_off" translatable="false">Flashlight off</string>
-  <string name="prompt_template_label_screen_brighter" translatable="false">Make screen brighter</string>
-  <string name="prompt_template_label_screen_darker" translatable="false">Make screen darker</string>
-  <string name="prompt_template_label_set_timer" translatable="false">Set timer</string>
-  <string name="prompt_template_label_add_calendar_event" translatable="false">Add calendar event</string>
-  <string name="prompt_template_label_take_picture" translatable="false">Take a picture </string>
+  <string name="prompt_template_label_create_contact" translatable="false">Create contact</string>
+  <string name="prompt_template_label_send_email" translatable="false">Send email</string>
+  <string name="prompt_template_label_show_location_on_map" translatable="false">Show location on map</string>
+  <string name="prompt_template_label_open_wifi_settings" translatable="false">Open WIFI settings</string>
 
   <!-- The following entries are for accessibility -->
 
@@ -181,4 +189,8 @@
   <string name="cd_switch_to_keyboard">Switch to keyboard</string>
   <!-- Content description spoken when the "switch to voice" icon is focused. [CHAR_LIMIT=NONE] -->
   <string name="cd_switch_to_voice">Switch to voice</string>
+  <!-- Content description spoken when the "show history" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_show_history">Show history</string>
+  <!-- Content description spoken when the "more options" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_more_options">More options</string>
 </resources>

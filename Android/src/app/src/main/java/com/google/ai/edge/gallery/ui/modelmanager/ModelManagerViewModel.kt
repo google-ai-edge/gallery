@@ -52,7 +52,6 @@ import java.net.HttpURLConnection
 import java.net.URL
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -230,7 +229,7 @@ constructor(
 
   fun deleteModel(task: Task, model: Model) {
     if (model.imported) {
-      deleteFileFromExternalFilesDir(model.downloadFileName)
+      deleteFilesFromImportDir(model.downloadFileName)
     } else {
       deleteDirFromExternalFilesDir(model.normalizedName)
     }
@@ -292,18 +291,6 @@ constructor(
       // Start initialization.
       Log.d(TAG, "Initializing model '${model.name}'...")
       model.initializing = true
-
-      // Show initializing status after a delay. When the delay expires, check if the model has
-      // been initialized or not. If so, skip.
-      launch {
-        delay(500)
-        if (model.instance == null && model.initializing) {
-          updateModelInitializationStatus(
-            model = model,
-            status = ModelInitializationStatusType.INITIALIZING,
-          )
-        }
-      }
 
       val onDone: (error: String) -> Unit = { error ->
         model.initializing = false
@@ -388,6 +375,14 @@ constructor(
     _uiState.update { newUiState }
   }
 
+  fun setInitializationStatus(model: Model, status: ModelInitializationStatus) {
+    val curStatus = uiState.value.modelInitializationStatus.toMutableMap()
+    if (curStatus.containsKey(model.name)) {
+      curStatus[model.name] = status
+      _uiState.update { _uiState.value.copy(modelInitializationStatus = curStatus) }
+    }
+  }
+
   fun addTextInputHistory(text: String) {
     if (uiState.value.textInputHistory.indexOf(text) < 0) {
       val newHistory = uiState.value.textInputHistory.toMutableList()
@@ -467,6 +462,8 @@ constructor(
             BuiltInTaskId.LLM_ASK_IMAGE,
             BuiltInTaskId.LLM_ASK_AUDIO,
             BuiltInTaskId.LLM_PROMPT_LAB,
+            BuiltInTaskId.LLM_GEMMAS_GARDEN,
+            BuiltInTaskId.LLM_VOICE_TO_ACTION,
           )
       )) {
       // Remove duplicated imported model if existed.
@@ -698,6 +695,11 @@ constructor(
         // Try to read the test allowlist first.
         Log.d(TAG, "Loading test model allowlist.")
         modelAllowlist = readModelAllowlistFromDisk(fileName = MODEL_ALLOWLIST_TEST_FILENAME)
+
+        // // Local test only.
+        // val gson = Gson()
+        // modelAllowlist = gson.fromJson(TEST_MODEL_ALLOW_LIST, ModelAllowlist::class.java)
+
         if (modelAllowlist == null) {
           // Load from github.
           val url =
@@ -863,6 +865,8 @@ constructor(
       // Add to task.
       tasks.get(key = BuiltInTaskId.LLM_CHAT)?.models?.add(model)
       tasks.get(key = BuiltInTaskId.LLM_PROMPT_LAB)?.models?.add(model)
+      tasks.get(key = BuiltInTaskId.LLM_GEMMAS_GARDEN)?.models?.add(model)
+      tasks.get(key = BuiltInTaskId.LLM_VOICE_TO_ACTION)?.models?.add(model)
       if (model.llmSupportImage) {
         tasks.get(key = BuiltInTaskId.LLM_ASK_IMAGE)?.models?.add(model)
       }
@@ -995,6 +999,24 @@ constructor(
   private fun deleteFileFromExternalFilesDir(fileName: String) {
     if (isFileInExternalFilesDir(fileName)) {
       val file = File(externalFilesDir, fileName)
+      file.delete()
+    }
+  }
+
+  /**
+   * Deletes files from the the model imports directory whose absolute paths start with a given
+   * prefix.
+   */
+  private fun deleteFilesFromImportDir(fileName: String) {
+    val dir = context.getExternalFilesDir(null) ?: return
+
+    val prefixAbsolutePath = "${context.getExternalFilesDir(null)}${File.separator}$fileName"
+    val filesToDelete =
+      File(dir, IMPORTS_DIR).listFiles { dirFile, name ->
+        File(dirFile, name).absolutePath.startsWith(prefixAbsolutePath)
+      } ?: arrayOf()
+    for (file in filesToDelete) {
+      Log.d(TAG, "Deleting file: ${file.name}")
       file.delete()
     }
   }

@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.ui.common.MarkdownText
+import com.google.ai.edge.gallery.ui.theme.customColors
 
 /**
  * Composable function to display warning message content within a chat.
@@ -43,12 +44,13 @@ fun MessageBodyWarning(message: ChatMessageWarning) {
     Box(
       modifier =
         Modifier.clip(RoundedCornerShape(16.dp))
-          .background(MaterialTheme.colorScheme.tertiaryContainer)
+          .background(MaterialTheme.customColors.warningContainerColor)
     ) {
       MarkdownText(
         text = message.content,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
         smallFontSize = true,
+        textColor = MaterialTheme.customColors.warningTextColor,
       )
     }
   }

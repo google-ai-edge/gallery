@@ -42,6 +42,7 @@ fun MessageBodyText(message: ChatMessageText, inProgress: Boolean) {
       text = message.content,
       modifier = Modifier.padding(12.dp),
       textColor = Color.White,
+      linkColor = Color.White,
     )
   } else if (message.side == ChatSide.AGENT) {
     val cdResponse = stringResource(R.string.cd_model_response_text)
