@@ -25,6 +25,7 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageBenchmarkLlmResult
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessageError
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageLoading
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageType
@@ -55,7 +56,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
     input: String,
     images: List<Bitmap> = listOf(),
     audioMessages: List<ChatMessageAudioClip> = listOf(),
-    onError: () -> Unit,
+    onError: (String) -> Unit,
   ) {
     val accelerator = model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = "")
     viewModelScope.launch(Dispatchers.Default) {
@@ -166,12 +167,18 @@ open class LlmChatViewModelBase() : ChatViewModel() {
             setInProgress(false)
             setPreparing(false)
           },
+          onError = { message ->
+            Log.e(TAG, "Error occurred while running inference")
+            setInProgress(false)
+            setPreparing(false)
+            onError(message)
+          },
         )
       } catch (e: Exception) {
         Log.e(TAG, "Error occurred while running inference", e)
         setInProgress(false)
         setPreparing(false)
-        onError()
+        onError(e.message ?: "")
       }
     }
   }
@@ -217,7 +224,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
     }
   }
 
-  fun runAgain(model: Model, message: ChatMessageText, onError: () -> Unit) {
+  fun runAgain(model: Model, message: ChatMessageText, onError: (String) -> Unit) {
     viewModelScope.launch(Dispatchers.Default) {
       // Wait for model to be initialized.
       while (model.instance == null) {
@@ -237,38 +244,32 @@ open class LlmChatViewModelBase() : ChatViewModel() {
     task: Task,
     model: Model,
     modelManagerViewModel: ModelManagerViewModel,
-    triggeredMessage: ChatMessageText?,
+    errorMessage: String,
   ) {
-    // Clean up.
-    modelManagerViewModel.cleanupModel(context = context, task = task, model = model)
-
     // Remove the "loading" message.
     if (getLastMessage(model = model) is ChatMessageLoading) {
       removeLastMessage(model = model)
     }
 
-    // Remove the last Text message.
-    if (getLastMessage(model = model) == triggeredMessage) {
-      removeLastMessage(model = model)
-    }
+    // Show error message.
+    addMessage(model = model, message = ChatMessageError(content = errorMessage))
 
-    // Add a warning message for re-initializing the session.
-    addMessage(
-      model = model,
-      message = ChatMessageWarning(content = "Error occurred. Re-initializing the session."),
-    )
+    // Clean up and re-initialize.
+    viewModelScope.launch(Dispatchers.Default) {
+      modelManagerViewModel.cleanupModel(
+        context = context,
+        task = task,
+        model = model,
+        onDone = {
+          modelManagerViewModel.initializeModel(context = context, task = task, model = model)
 
-    // Add the triggered message back.
-    if (triggeredMessage != null) {
-      addMessage(model = model, message = triggeredMessage)
-    }
-
-    // Re-initialize the session/engine.
-    modelManagerViewModel.initializeModel(context = context, task = task, model = model)
-
-    // Re-generate the response automatically.
-    if (triggeredMessage != null) {
-      generateResponse(model = model, input = triggeredMessage.content, onError = {})
+          // Add a warning message for re-initializing the session.
+          addMessage(
+            model = model,
+            message = ChatMessageWarning(content = "Session re-initialized"),
+          )
+        },
+      )
     }
   }
 }

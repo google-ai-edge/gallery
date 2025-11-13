@@ -291,6 +291,10 @@ constructor(
       // Start initialization.
       Log.d(TAG, "Initializing model '${model.name}'...")
       model.initializing = true
+      updateModelInitializationStatus(
+        model = model,
+        status = ModelInitializationStatusType.INITIALIZING,
+      )
 
       val onDone: (error: String) -> Unit = { error ->
         model.initializing = false
@@ -325,7 +329,7 @@ constructor(
     }
   }
 
-  fun cleanupModel(context: Context, task: Task, model: Model) {
+  fun cleanupModel(context: Context, task: Task, model: Model, onDone: () -> Unit = {}) {
     if (model.instance != null) {
       model.cleanUpAfterInit = false
       Log.d(TAG, "Cleaning up model '${model.name}'...")
@@ -337,6 +341,7 @@ constructor(
           status = ModelInitializationStatusType.NOT_INITIALIZED,
         )
         Log.d(TAG, "Clean up model '${model.name}' done")
+        onDone()
       }
       getCustomTaskByTaskId(id = task.id)
         ?.cleanUpModelFn(

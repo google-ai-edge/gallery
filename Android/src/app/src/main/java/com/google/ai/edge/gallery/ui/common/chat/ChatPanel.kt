@@ -46,7 +46,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -170,7 +170,7 @@ fun ChatPanel(
   val benchmarkMessage: MutableState<ChatMessage?> = remember { mutableStateOf(null) }
 
   var showMessageLongPressedSheet by remember { mutableStateOf(false) }
-  val longPressedMessage: MutableState<ChatMessage?> = remember { mutableStateOf(null) }
+  var longPressedMessageIndex by remember { mutableIntStateOf(-1) }
 
   var showErrorDialog by remember { mutableStateOf(false) }
 
@@ -277,7 +277,7 @@ fun ChatPanel(
           state = listState,
           verticalArrangement = Arrangement.Top,
         ) {
-          items(messages) { message ->
+          itemsIndexed(messages) { index, message ->
             val imageHistoryCurIndex = remember { mutableIntStateOf(0) }
             var hAlign: Alignment.Horizontal = Alignment.End
             var backgroundColor: Color = MaterialTheme.customColors.userBubbleBgColor
@@ -336,6 +336,9 @@ fun ChatPanel(
                 // Warning
                 is ChatMessageWarning -> MessageBodyWarning(message = message)
 
+                // Error
+                is ChatMessageError -> MessageBodyError(message = message)
+
                 // Config values change.
                 is ChatMessageConfigValuesChange -> MessageBodyConfigUpdate(message = message)
 
@@ -377,7 +380,7 @@ fun ChatPanel(
                         detectTapGestures(
                           onLongPress = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            longPressedMessage.value = message
+                            longPressedMessageIndex = index
                             showMessageLongPressedSheet = true
                           }
                         )
@@ -649,7 +652,10 @@ fun ChatPanel(
 
   // Sheet to show when a message is long-pressed.
   if (showMessageLongPressedSheet) {
-    val message = longPressedMessage.value
+    val message =
+      uiState.messagesByModel
+        .getOrDefault(selectedModel.name, listOf())
+        .getOrNull(longPressedMessageIndex)
     if (message != null && message is ChatMessageText) {
       val clipboard = LocalClipboard.current
 
@@ -699,9 +705,9 @@ private suspend fun scrollToBottom(listState: LazyListState, animate: Boolean = 
   val itemCount = listState.layoutInfo.totalItemsCount
   if (itemCount > 0) {
     if (animate) {
-      listState.animateScrollToItem(itemCount - 1, scrollOffset = 10000)
+      listState.animateScrollToItem(itemCount - 1, scrollOffset = 1000000)
     } else {
-      listState.scrollToItem(itemCount - 1, scrollOffset = 10000)
+      listState.scrollToItem(itemCount - 1, scrollOffset = 1000000)
     }
   }
 }

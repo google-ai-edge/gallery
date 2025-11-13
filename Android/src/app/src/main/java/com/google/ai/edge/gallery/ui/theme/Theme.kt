@@ -129,6 +129,8 @@ data class CustomColors(
   val modelInfoIconColor: Color = Color.Transparent,
   val warningContainerColor: Color = Color.Transparent,
   val warningTextColor: Color = Color.Transparent,
+  val errorContainerColor: Color = Color.Transparent,
+  val errorTextColor: Color = Color.Transparent,
 )
 
 val LocalCustomColors = staticCompositionLocalOf { CustomColors() }
@@ -182,6 +184,8 @@ val lightCustomColors =
     modelInfoIconColor = Color(0xFFCCCCCC),
     warningContainerColor = Color(0xfffef7e0),
     warningTextColor = Color(0xffe37400),
+    errorContainerColor = Color(0xfffce8e6),
+    errorTextColor = Color(0xffd93025),
   )
 
 val darkCustomColors =
@@ -233,6 +237,8 @@ val darkCustomColors =
     modelInfoIconColor = Color(0xFFCCCCCC),
     warningContainerColor = Color(0xff554c33),
     warningTextColor = Color(0xfffcc934),
+    errorContainerColor = Color(0xff523a3b),
+    errorTextColor = Color(0xffee675c),
   )
 
 val MaterialTheme.customColors: CustomColors

@@ -167,6 +167,10 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
           setPreparing(false)
           setInProgress(false)
         },
+        onError = { message ->
+          setPreparing(false)
+          setInProgress(false)
+        },
       )
     }
   }

@@ -190,6 +190,7 @@ object LlmChatModelHelper {
     input: String,
     resultListener: ResultListener,
     cleanUpListener: CleanUpListener,
+    onError: (message: String) -> Unit = {},
     images: List<Bitmap> = listOf(),
     audioClips: List<ByteArray> = listOf(),
   ) {
@@ -229,11 +230,11 @@ object LlmChatModelHelper {
 
         override fun onError(throwable: Throwable) {
           if (throwable is CancellationException) {
-            Log.i(TAG, "The inference is canncelled.")
+            Log.i(TAG, "The inference is cancelled.")
             resultListener("", true)
           } else {
             Log.e(TAG, "onError", throwable)
-            resultListener("Error: ${throwable.message}", true)
+            onError("Error: ${throwable.message}")
           }
         }
       },

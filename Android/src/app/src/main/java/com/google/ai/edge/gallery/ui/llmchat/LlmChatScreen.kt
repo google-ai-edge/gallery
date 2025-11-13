@@ -120,13 +120,13 @@ fun ChatViewWrapper(
           input = text,
           images = images,
           audioMessages = audioMessages,
-          onError = {
+          onError = { errorMessage ->
             viewModel.handleError(
               context = context,
               task = task,
               model = model,
+              errorMessage = errorMessage,
               modelManagerViewModel = modelManagerViewModel,
-              triggeredMessage = chatMessageText,
             )
           },
         )
@@ -142,13 +142,13 @@ fun ChatViewWrapper(
         viewModel.runAgain(
           model = model,
           message = message,
-          onError = {
+          onError = { errorMessage ->
             viewModel.handleError(
               context = context,
               task = task,
               model = model,
+              errorMessage = errorMessage,
               modelManagerViewModel = modelManagerViewModel,
-              triggeredMessage = message,
             )
           },
         )

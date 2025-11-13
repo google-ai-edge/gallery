@@ -29,6 +29,7 @@ private const val TAG = "AGChatMessage"
 enum class ChatMessageType {
   INFO,
   WARNING,
+  ERROR,
   TEXT,
   IMAGE,
   IMAGE_WITH_HISTORY,
@@ -67,9 +68,13 @@ class ChatMessageLoading(override val accelerator: String = "") :
 class ChatMessageInfo(val content: String) :
   ChatMessage(type = ChatMessageType.INFO, side = ChatSide.SYSTEM)
 
-/** Chat message for info (help). */
+/** Chat message for warning message. */
 class ChatMessageWarning(val content: String) :
   ChatMessage(type = ChatMessageType.WARNING, side = ChatSide.SYSTEM)
+
+/** Chat message for error message. */
+class ChatMessageError(val content: String) :
+  ChatMessage(type = ChatMessageType.ERROR, side = ChatSide.SYSTEM)
 
 /** Chat message for config values change. */
 class ChatMessageConfigValuesChange(
@@ -231,8 +236,7 @@ class ChatMessageClassification(
   override val latencyMs: Float = 0f,
   // Typical android phone width is > 320dp
   val maxBarWidth: Dp? = null,
-) :
-  ChatMessage(type = ChatMessageType.CLASSIFICATION, side = ChatSide.AGENT, latencyMs = latencyMs)
+) : ChatMessage(type = ChatMessageType.CLASSIFICATION, side = ChatSide.AGENT, latencyMs = latencyMs)
 
 /** A stat used in benchmark result. */
 data class Stat(val id: String, val label: String, val unit: String)
