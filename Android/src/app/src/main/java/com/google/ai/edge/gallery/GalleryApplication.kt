@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery
 import android.app.Application
 import com.google.ai.edge.gallery.common.writeLaunchInfo
 import com.google.ai.edge.gallery.data.DataStoreRepository
+import com.google.ai.edge.gallery.service.SelinaLlmService
 import com.google.ai.edge.gallery.ui.theme.ThemeSettings
 import com.google.firebase.FirebaseApp
 import dagger.hilt.android.HiltAndroidApp
@@ -38,5 +39,8 @@ class GalleryApplication : Application() {
     ThemeSettings.themeOverride.value = dataStoreRepository.readTheme()
 
     FirebaseApp.initializeApp(this)
+
+    // Start Selina always-on LLM service
+    SelinaLlmService.start(this)
   }
 }

@@ -118,6 +118,13 @@
             android:enabled="true"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- Selina Always-On LLM Service -->
+        <service
+            android:name="com.google.ai.edge.gallery.service.SelinaLlmService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 
 </manifest>
