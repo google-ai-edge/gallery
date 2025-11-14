@@ -219,9 +219,7 @@ object LlmChatModelHelper {
       Message.of(contents),
       object : MessageCallback {
         override fun onMessage(message: Message) {
-          message.contents.filterIsInstance<Content.Text>().forEach {
-            resultListener(it.text, false)
-          }
+          resultListener(message.toString(), false)
         }
 
         override fun onDone() {
