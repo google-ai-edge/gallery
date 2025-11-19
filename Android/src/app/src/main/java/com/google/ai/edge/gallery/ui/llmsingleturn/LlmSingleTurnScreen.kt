@@ -52,7 +52,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.core.os.bundleOf
 import com.google.ai.edge.gallery.data.BuiltInTaskId
-import com.google.ai.edge.gallery.data.EMPTY_MODEL
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
@@ -207,7 +206,7 @@ fun LlmSingleTurnScreen(
               modifier =
                 Modifier.fillMaxSize().background(MaterialTheme.customColors.agentBubbleBgColor),
             ) {
-              if (selectedModel != EMPTY_MODEL) {
+              if (task.models.indexOf(selectedModel) >= 0) {
                 ResponsePanel(
                   task = task,
                   model = selectedModel,
