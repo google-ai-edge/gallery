@@ -95,7 +95,7 @@ object LlmChatModelHelper {
           else null,
       )
 
-    // Create an instance of the LLM Inference task and conversation.
+    // Create an instance of LiteRT LM engine and conversation.
     try {
       val engine = Engine(engineConfig)
       engine.initialize()
@@ -166,13 +166,13 @@ object LlmChatModelHelper {
     try {
       instance.conversation.close()
     } catch (e: Exception) {
-      Log.e(TAG, "Failed to close the LLM Inference conversation: ${e.message}")
+      Log.e(TAG, "Failed to close the conversation: ${e.message}")
     }
 
     try {
       instance.engine.close()
     } catch (e: Exception) {
-      Log.e(TAG, "Failed to close the LLM Inference engine: ${e.message}")
+      Log.e(TAG, "Failed to close the engine: ${e.message}")
     }
 
     val onCleanUp = cleanUpListeners.remove(model.name)

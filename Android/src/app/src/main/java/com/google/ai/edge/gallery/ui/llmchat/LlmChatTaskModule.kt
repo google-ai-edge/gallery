@@ -49,7 +49,7 @@ class LlmChatTask @Inject constructor() : CustomTask {
       icon = Icons.Outlined.Forum,
       models = mutableListOf(),
       description = "Chat with on-device large language models",
-      docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
+      docUrl = "https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md",
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
       textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
@@ -108,7 +108,7 @@ class LlmAskImageTask @Inject constructor() : CustomTask {
       icon = Icons.Outlined.Mms,
       models = mutableListOf(),
       description = "Ask questions about images with on-device large language models",
-      docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
+      docUrl = "https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md",
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
       textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
@@ -171,7 +171,7 @@ class LlmAskAudioTask @Inject constructor() : CustomTask {
       models = mutableListOf(),
       description =
         "Instantly transcribe and/or translate audio clips using on-device large language models",
-      docUrl = "https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android",
+      docUrl = "https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md",
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
       textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
