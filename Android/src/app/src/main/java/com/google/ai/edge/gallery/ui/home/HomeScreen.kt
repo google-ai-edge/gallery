@@ -149,16 +149,19 @@ object HomeScreenDestination {
   @StringRes val titleRes = R.string.app_name
 }
 
-private val PREDEFINED_CATEGORY_ORDER = listOf(Category.LLM.id, Category.EXPERIMENTAL.id)
+private val PREDEFINED_CATEGORY_ORDER =
+  listOf(Category.LLM.id, Category.AGENTS.id, Category.EXPERIMENTAL.id)
+
 private val PREDEFINED_LLM_TASK_ORDER =
   listOf(
     BuiltInTaskId.LLM_ASK_IMAGE,
     BuiltInTaskId.LLM_ASK_AUDIO,
-    BuiltInTaskId.LLM_GEMMAS_GARDEN,
-    BuiltInTaskId.LLM_VOICE_TO_ACTION,
     BuiltInTaskId.LLM_PROMPT_LAB,
     BuiltInTaskId.LLM_CHAT,
   )
+
+private val PREDEFINED_AGENTS_TASK_ORDER =
+  listOf(BuiltInTaskId.LLM_TINY_GARDEN, BuiltInTaskId.LLM_VOICE_TO_ACTION)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -191,13 +194,19 @@ fun HomeScreen(
     remember(tasks) {
       val groupedTasks = tasks.groupBy { it.category.id }
       val groupedSortedTasks: MutableMap<String, List<Task>> = mutableMapOf()
-      // Sort the tasks in LLM category by pre-defined order. Sort other tasks by label.
+      // Sort the tasks in categories by pre-defined order. Sort other tasks by label.
       for (categoryId in groupedTasks.keys) {
         val sortedTasks =
           groupedTasks[categoryId]!!.sortedWith { a, b ->
-            if (categoryId == Category.LLM.id) {
-              val indexA = PREDEFINED_LLM_TASK_ORDER.indexOf(a.id)
-              val indexB = PREDEFINED_LLM_TASK_ORDER.indexOf(b.id)
+            if (categoryId == Category.LLM.id || categoryId == Category.AGENTS.id) {
+              val order: List<String> =
+                when (categoryId) {
+                  Category.LLM.id -> PREDEFINED_LLM_TASK_ORDER
+                  Category.AGENTS.id -> PREDEFINED_AGENTS_TASK_ORDER
+                  else -> listOf()
+                }
+              val indexA = order.indexOf(a.id)
+              val indexB = order.indexOf(b.id)
               if (indexA != -1 && indexB != -1) {
                 indexA.compareTo(indexB)
               } else if (indexA != -1) {
@@ -804,6 +813,15 @@ private fun TaskList(
       animationLabel = "task card animation",
     )
 
+  // Tracks when the initial animation is done.
+  //
+  var initialAnimationDone by remember { mutableStateOf(false) }
+  LaunchedEffect(Unit) {
+    // Use 5 iterations to make sure all visible task cards are animated.
+    delay(((TASK_CARD_ANIMATION_DURATION + TASK_CARD_ANIMATION_DELAY_OFFSET) * 5).toLong())
+    initialAnimationDone = true
+  }
+
   HorizontalPager(
     state = pagerState,
     verticalAlignment = Alignment.Top,
@@ -822,6 +840,7 @@ private fun TaskList(
         TaskCard(
           task = task,
           index = index,
+          animate = (pageIndex == 0 || pageIndex == 1) && !initialAnimationDone,
           onClick = { navigateToTaskScreen(task) },
           modifier = Modifier.fillMaxWidth(),
         )
@@ -832,7 +851,13 @@ private fun TaskList(
 }
 
 @Composable
-private fun TaskCard(task: Task, index: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun TaskCard(
+  task: Task,
+  index: Int,
+  animate: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
   // Observes the model count and updates the model count label with a fade-in/fade-out animation
   // whenever the count changes.
   val modelCount by remember {
@@ -873,11 +898,13 @@ private fun TaskCard(task: Task, index: Int, onClick: () -> Unit, modifier: Modi
   // visible sequentially, starting after an initial delay and then with an additional offset for
   // subsequent cards.
   val progress =
-    rememberDelayedAnimationProgress(
-      initialDelay = TASK_LIST_ANIMATION_START + index * TASK_CARD_ANIMATION_DELAY_OFFSET,
-      animationDurationMs = TASK_CARD_ANIMATION_DURATION,
-      animationLabel = "task card animation",
-    )
+    if (animate)
+      rememberDelayedAnimationProgress(
+        initialDelay = TASK_LIST_ANIMATION_START + index * TASK_CARD_ANIMATION_DELAY_OFFSET,
+        animationDurationMs = TASK_CARD_ANIMATION_DURATION,
+        animationLabel = "task card animation",
+      )
+    else 1f
 
   val cbTask = stringResource(R.string.cd_task_card, task.label, task.models.size)
   Card(

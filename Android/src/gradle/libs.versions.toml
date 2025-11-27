@@ -7,7 +7,7 @@ junitVersion = "1.2.1"
 espressoCore = "3.6.1"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.10.1"
-composeBom = "2025.05.00"
+composeBom = "2025.11.01"
 navigation = "2.8.9"
 serializationPlugin = "2.0.21"
 serializationJson = "1.7.3"
@@ -16,6 +16,7 @@ workRuntime = "2.10.0"
 dataStore = "1.1.7"
 gson = "2.12.1"
 lifecycleProcess = "2.8.7"
+webkit = "1.14.0"
 protobuf = "0.9.5"
 protobufJavaLite = "4.26.1"
 #noinspection GradleDependency
@@ -27,14 +28,15 @@ playServicesTfliteGpu= "16.4.0"
 cameraX = "1.4.2"
 netOpenidAppauth = "0.11.1"
 splashscreen = "1.2.0-beta01"
-hilt = "2.57"
-hiltNavigation = "1.2.0"
+hilt = "2.57.2"
+hiltNavigation = "1.3.0"
 ossLicenses = "0.10.6"
 playServicesOssLicenses = "17.1.0"
 googleService = "4.4.3"
 firebaseBom = "33.16.0"
 exifinterface = "1.4.1"
 securityCrypto = "1.1.0"
+kotlinReflect = "2.2.21"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -53,12 +55,14 @@ androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-man
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-compose-navigation = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
+kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlinReflect" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serializationJson" }
 material-icon-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIconExtended" }
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntime" }
 androidx-datastore = { group = "androidx.datastore", name = "datastore", version.ref = "dataStore" }
 com-google-code-gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycleProcess" }
+androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit"}
 litertlm = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", version.ref = "litertlm" }
 commonmark = { group = "com.halilibo.compose-richtext", name = "richtext-commonmark", version.ref = "commonmark" }
 richtext = { group = "com.halilibo.compose-richtext", name = "richtext-ui-material3", version.ref = "richtext" }

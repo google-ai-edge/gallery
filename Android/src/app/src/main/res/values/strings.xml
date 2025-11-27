@@ -33,6 +33,7 @@
   <string name="cancel" translatable="false">Cancel</string>
   <string name="category_unlabeled" translatable="false">Unlabeled</string>
   <string name="category_llm" translatable="false">LLM</string>
+  <string name="category_agents" translatable="false">Agents</string>
   <string name="category_classical_ml" translatable="false">Classical ML</string>
   <string name="category_experimental" translatable="false">Experimental</string>
   <string name="checking_access" translatable="false">Checking access...</string>
@@ -58,6 +59,7 @@
   <string name="memory_warning_proceed_anyway" translatable="false">Proceed anyway</string>
   <string name="model_not_downloaded_msg" translatable="false">Model not downloaded yet</string>
   <string name="model_is_initializing_msg" translatable="false">Initializing model…</string>
+  <string name="reset" translatable="false">Reset</string>
   <string name="settings_dialog_tos_title" translatable="false">Terms of services</string>
   <string name="text_input_placeholder_text_classification" translatable="false">Type movie review to classify…</string>
   <string name="text_image_generation_text_field_placeholder" translatable="false">Type prompt…</string>
@@ -90,6 +92,7 @@
   <string name="conversation_history" translatable="false">Conversation History</string>
   <string name="warning_no_function_call" translatable="false">No function recognized</string>
   <string name="snackbar_no_function_call" translatable="false">No function recognized. Check history for details.</string>
+  <string name="unknown_error" translatable="false">Unknown error</string>
 
   <string name="function_name" translatable="false">Function name</string>
   <plurals name="parameter" translatable="false">

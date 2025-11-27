@@ -467,7 +467,7 @@ constructor(
             BuiltInTaskId.LLM_ASK_IMAGE,
             BuiltInTaskId.LLM_ASK_AUDIO,
             BuiltInTaskId.LLM_PROMPT_LAB,
-            BuiltInTaskId.LLM_GEMMAS_GARDEN,
+            BuiltInTaskId.LLM_TINY_GARDEN,
             BuiltInTaskId.LLM_VOICE_TO_ACTION,
           )
       )) {
@@ -870,7 +870,7 @@ constructor(
       // Add to task.
       tasks.get(key = BuiltInTaskId.LLM_CHAT)?.models?.add(model)
       tasks.get(key = BuiltInTaskId.LLM_PROMPT_LAB)?.models?.add(model)
-      tasks.get(key = BuiltInTaskId.LLM_GEMMAS_GARDEN)?.models?.add(model)
+      tasks.get(key = BuiltInTaskId.LLM_TINY_GARDEN)?.models?.add(model)
       tasks.get(key = BuiltInTaskId.LLM_VOICE_TO_ACTION)?.models?.add(model)
       if (model.llmSupportImage) {
         tasks.get(key = BuiltInTaskId.LLM_ASK_IMAGE)?.models?.add(model)
