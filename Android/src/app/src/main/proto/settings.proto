@@ -56,6 +56,7 @@ message LlmConfig {
   float default_temperature = 5;
   bool support_image = 6;
   bool support_audio = 7;
+  bool support_agents = 8;
 }
 
 message Settings {
