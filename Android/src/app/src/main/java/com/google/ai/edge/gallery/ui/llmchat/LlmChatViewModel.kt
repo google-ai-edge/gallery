@@ -188,11 +188,10 @@ open class LlmChatViewModelBase() : ChatViewModel() {
     if (getLastMessage(model = model) is ChatMessageLoading) {
       removeLastMessage(model = model)
     }
-    viewModelScope.launch(Dispatchers.Default) {
-      setInProgress(false)
-      val instance = model.instance as LlmModelInstance
-      instance.conversation.cancelProcess()
-    }
+    setInProgress(false)
+    val instance = model.instance as LlmModelInstance
+    instance.conversation.cancelProcess()
+    Log.d(TAG, "Done stopping response")
   }
 
   fun resetSession(task: Task, model: Model) {
