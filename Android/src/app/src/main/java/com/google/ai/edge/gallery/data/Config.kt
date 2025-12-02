@@ -53,6 +53,7 @@ object ConfigKeys {
   val DEFAULT_TEMPERATURE = ConfigKey("default_temperature", "Default temperature")
   val SUPPORT_IMAGE = ConfigKey("support_image", "Support image")
   val SUPPORT_AUDIO = ConfigKey("support_audio", "Support audio")
+  val SUPPORT_AGENTS = ConfigKey("support_agents", "Support agents")
   val MAX_RESULT_COUNT = ConfigKey("max_result_count", "Max result count")
   val USE_GPU = ConfigKey("use_gpu", "Use GPU")
   val ACCELERATOR = ConfigKey("accelerator", "Choose accelerator")

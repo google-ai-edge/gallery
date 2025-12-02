@@ -480,7 +480,12 @@ constructor(
       if (
         (task.id == BuiltInTaskId.LLM_ASK_IMAGE && model.llmSupportImage) ||
           (task.id == BuiltInTaskId.LLM_ASK_AUDIO && model.llmSupportAudio) ||
-          (task.id != BuiltInTaskId.LLM_ASK_IMAGE && task.id != BuiltInTaskId.LLM_ASK_AUDIO)
+          (task.id == BuiltInTaskId.LLM_TINY_GARDEN && model.llmSupportAgents) ||
+          (task.id == BuiltInTaskId.LLM_VOICE_TO_ACTION && model.llmSupportAgents) ||
+          (task.id != BuiltInTaskId.LLM_ASK_IMAGE &&
+            task.id != BuiltInTaskId.LLM_ASK_AUDIO &&
+            task.id != BuiltInTaskId.LLM_TINY_GARDEN &&
+            task.id != BuiltInTaskId.LLM_VOICE_TO_ACTION)
       ) {
         task.models.add(model)
       }
@@ -870,13 +875,15 @@ constructor(
       // Add to task.
       tasks.get(key = BuiltInTaskId.LLM_CHAT)?.models?.add(model)
       tasks.get(key = BuiltInTaskId.LLM_PROMPT_LAB)?.models?.add(model)
-      tasks.get(key = BuiltInTaskId.LLM_TINY_GARDEN)?.models?.add(model)
-      tasks.get(key = BuiltInTaskId.LLM_VOICE_TO_ACTION)?.models?.add(model)
       if (model.llmSupportImage) {
         tasks.get(key = BuiltInTaskId.LLM_ASK_IMAGE)?.models?.add(model)
       }
       if (model.llmSupportAudio) {
         tasks.get(key = BuiltInTaskId.LLM_ASK_AUDIO)?.models?.add(model)
+      }
+      if (model.llmSupportAgents) {
+        tasks.get(key = BuiltInTaskId.LLM_TINY_GARDEN)?.models?.add(model)
+        tasks.get(key = BuiltInTaskId.LLM_VOICE_TO_ACTION)?.models?.add(model)
       }
 
       // Update status.
@@ -919,6 +926,7 @@ constructor(
       )
     val llmSupportImage = info.llmConfig.supportImage
     val llmSupportAudio = info.llmConfig.supportAudio
+    val llmSupportAgents = info.llmConfig.supportAgents
     val model =
       Model(
         name = info.fileName,
@@ -931,6 +939,7 @@ constructor(
         imported = true,
         llmSupportImage = llmSupportImage,
         llmSupportAudio = llmSupportAudio,
+        llmSupportAgents = llmSupportAgents,
       )
     model.preProcess()
 
