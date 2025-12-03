@@ -66,9 +66,9 @@
       "minDeviceMemoryInGb": 6,
       "commitHash": "19edb84c69a0212f29a6ef17ba0d6f278b6a1614",
       "defaultConfig": {
-        "topK": 64,
-        "topP": 0.95,
-        "temperature": 1.0,
+        "topK": 20,
+        "topP": 0.8,
+        "temperature": 0.7,
         "maxTokens": 4096,
         "accelerators": "gpu,cpu"
       },
