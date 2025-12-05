@@ -72,6 +72,7 @@ fun ModelPageAppBar(
   isResettingSession: Boolean = false,
   onResetSessionClicked: (Model) -> Unit = {},
   canShowResetSessionButton: Boolean = false,
+  hideModelSelector: Boolean = false,
   onConfigChanged: (oldConfigValues: Map<String, Any>, newConfigValues: Map<String, Any>) -> Unit =
     { _, _ ->
     },
@@ -111,14 +112,16 @@ fun ModelPageAppBar(
         }
 
         // Model chips pager.
-        val enableModelPickerChip = !isModelInitializing && !inProgress
-        ModelPickerChip(
-          enabled = enableModelPickerChip,
-          task = task,
-          initialModel = model,
-          modelManagerViewModel = modelManagerViewModel,
-          onModelSelected = onModelSelected,
-        )
+        if (!hideModelSelector) {
+          val enableModelPickerChip = !isModelInitializing && !inProgress
+          ModelPickerChip(
+            enabled = enableModelPickerChip,
+            task = task,
+            initialModel = model,
+            modelManagerViewModel = modelManagerViewModel,
+            onModelSelected = onModelSelected,
+          )
+        }
       }
     },
     modifier = modifier,

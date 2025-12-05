@@ -121,7 +121,13 @@ object LlmChatModelHelper {
     onDone("")
   }
 
-  fun resetConversation(model: Model, supportImage: Boolean, supportAudio: Boolean) {
+  fun resetConversation(
+    model: Model,
+    supportImage: Boolean,
+    supportAudio: Boolean,
+    systemMessage: Message? = null,
+    tools: List<Any> = listOf(),
+  ) {
     try {
       Log.d(TAG, "Resetting conversation for model '${model.name}'")
 
@@ -145,7 +151,9 @@ object LlmChatModelHelper {
                 topK = topK,
                 topP = topP.toDouble(),
                 temperature = temperature.toDouble(),
-              )
+              ),
+            systemMessage = systemMessage,
+            tools = tools,
           )
         )
       instance.conversation = newConversation

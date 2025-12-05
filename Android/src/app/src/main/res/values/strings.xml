@@ -39,6 +39,7 @@
   <string name="checking_access" translatable="false">Checking access...</string>
   <string name="ok" translatable="false">OK</string>
   <string name="close" translatable="false">Close</string>
+  <string name="error" translatable="false">Error</string>
   <string name="confirm_delete_model_dialog_title" translatable="false">Delete download</string>
   <string name="confirm_delete_model_dialog_content" translatable="false">Are you sure you want to delete the downloaded model \"%s\"?</string>
   <string name="notification_title_success" translatable="false">Model download succeeded</string>
@@ -89,9 +90,12 @@
   <string name="take_picture_message" translatable="false">Opening the camera app.</string>
   <string name="voice_to_action_title" translatable="false">Voice to Action</string>
   <string name="voice_to_action_description" translatable="false">Control your device with simple commands</string>
+  <string name="voice_to_action_supported_actions" translatable="false">Supported sample actions:</string>
+  <string name="voice_to_action_tab_model_response" translatable="false">Model response</string>
+  <string name="voice_to_action_tab_function_called" translatable="false">Function(s) called</string>
   <string name="conversation_history" translatable="false">Conversation History</string>
   <string name="warning_no_function_call" translatable="false">No function recognized</string>
-  <string name="snackbar_no_function_call" translatable="false">No function recognized. Check history for details.</string>
+  <string name="snackbar_no_function_call" translatable="false">No function recognized</string>
   <string name="unknown_error" translatable="false">Unknown error</string>
 
   <string name="function_name" translatable="false">Function name</string>
@@ -99,10 +103,12 @@
     <item quantity="one">Parameter</item>
     <item quantity="other">Parameters</item>
   </plurals>
+  <string name="prompt_template_label_flash_on_off" translatable="false">Turn flashlight on/off</string>
   <string name="prompt_template_label_flash_on" translatable="false">Flashlight on</string>
   <string name="prompt_template_label_flash_off" translatable="false">Flashlight off</string>
   <string name="prompt_template_label_create_contact" translatable="false">Create contact</string>
   <string name="prompt_template_label_send_email" translatable="false">Send email</string>
+  <string name="prompt_template_label_create_calendar_event" translatable="false">Create calendar event</string>
   <string name="prompt_template_label_show_location_on_map" translatable="false">Show location on map</string>
   <string name="prompt_template_label_open_wifi_settings" translatable="false">Open WIFI settings</string>
 

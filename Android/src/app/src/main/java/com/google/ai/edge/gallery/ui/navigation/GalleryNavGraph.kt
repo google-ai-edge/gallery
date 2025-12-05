@@ -311,6 +311,7 @@ private fun CustomTaskScreen(
         inProgress = disableAppBarControls,
         modelPreparing = disableAppBarControls,
         canShowResetSessionButton = false,
+        hideModelSelector = task.models.size <= 1,
         onConfigChanged = { _, _ -> },
         onBackClicked = { handleNavigateUp() },
         onModelSelected = { prevModel, newSelectedModel ->
