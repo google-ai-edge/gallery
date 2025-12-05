@@ -121,7 +121,7 @@ object LlmChatModelHelper {
     onDone("")
   }
 
-  fun resetConversation(model: Model, supportImage: Boolean, supportAudio: Boolean) {
+  fun resetConversation(model: Model) {
     try {
       Log.d(TAG, "Resetting conversation for model '${model.name}'")
 
@@ -133,9 +133,6 @@ object LlmChatModelHelper {
       val topP = model.getFloatConfigValue(key = ConfigKeys.TOPP, defaultValue = DEFAULT_TOPP)
       val temperature =
         model.getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
-      val shouldEnableImage = supportImage
-      val shouldEnableAudio = supportAudio
-      Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
 
       val newConversation =
         engine.createConversation(

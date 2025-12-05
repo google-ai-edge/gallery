@@ -208,11 +208,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
           val supportAudio =
             model.llmSupportAudio &&
               task.id == com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_ASK_AUDIO
-          LlmChatModelHelper.resetConversation(
-            model = model,
-            supportImage = supportImage,
-            supportAudio = supportAudio,
-          )
+          LlmChatModelHelper.resetConversation(model = model)
           break
         } catch (e: Exception) {
           Log.d(TAG, "Failed to reset session. Trying again")
