@@ -90,11 +90,11 @@
   <string name="set_timer_message" translatable="false">Setting the timer for %1$d seconds.</string>
   <string name="add_calendar_event_message" translatable="false">Adding \"Team meeting (10AM-11AM)\" to your calendar.</string>
   <string name="take_picture_message" translatable="false">Opening the camera app.</string>
-  <string name="voice_to_action_title" translatable="false">Voice to Action</string>
-  <string name="voice_to_action_description" translatable="false">Control your device with simple commands</string>
-  <string name="voice_to_action_supported_actions" translatable="false">Supported sample actions:</string>
-  <string name="voice_to_action_tab_model_response" translatable="false">Model response</string>
-  <string name="voice_to_action_tab_function_called" translatable="false">Function(s) called</string>
+  <string name="mobile_actions_title" translatable="false">Mobile Actions</string>
+  <string name="mobile_actions_description" translatable="false">Control your device with simple commands</string>
+  <string name="mobile_actions_supported_actions" translatable="false">Supported sample actions:</string>
+  <string name="mobile_actions_tab_model_response" translatable="false">Model response</string>
+  <string name="mobile_actions_tab_function_called" translatable="false">Function(s) called</string>
   <string name="conversation_history" translatable="false">Conversation History</string>
   <string name="warning_no_function_call" translatable="false">No function recognized</string>
   <string name="snackbar_no_function_call" translatable="false">No function recognized</string>

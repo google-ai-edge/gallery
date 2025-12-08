@@ -468,7 +468,7 @@ constructor(
             BuiltInTaskId.LLM_ASK_AUDIO,
             BuiltInTaskId.LLM_PROMPT_LAB,
             BuiltInTaskId.LLM_TINY_GARDEN,
-            BuiltInTaskId.LLM_VOICE_TO_ACTION,
+            BuiltInTaskId.LLM_MOBILE_ACTIONS,
           )
       )) {
       // Remove duplicated imported model if existed.
@@ -481,11 +481,11 @@ constructor(
         (task.id == BuiltInTaskId.LLM_ASK_IMAGE && model.llmSupportImage) ||
           (task.id == BuiltInTaskId.LLM_ASK_AUDIO && model.llmSupportAudio) ||
           (task.id == BuiltInTaskId.LLM_TINY_GARDEN && model.llmSupportAgents) ||
-          (task.id == BuiltInTaskId.LLM_VOICE_TO_ACTION && model.llmSupportAgents) ||
+          (task.id == BuiltInTaskId.LLM_MOBILE_ACTIONS && model.llmSupportAgents) ||
           (task.id != BuiltInTaskId.LLM_ASK_IMAGE &&
             task.id != BuiltInTaskId.LLM_ASK_AUDIO &&
             task.id != BuiltInTaskId.LLM_TINY_GARDEN &&
-            task.id != BuiltInTaskId.LLM_VOICE_TO_ACTION)
+            task.id != BuiltInTaskId.LLM_MOBILE_ACTIONS)
       ) {
         task.models.add(model)
       }
@@ -883,7 +883,7 @@ constructor(
       }
       if (model.llmSupportAgents) {
         tasks.get(key = BuiltInTaskId.LLM_TINY_GARDEN)?.models?.add(model)
-        tasks.get(key = BuiltInTaskId.LLM_VOICE_TO_ACTION)?.models?.add(model)
+        tasks.get(key = BuiltInTaskId.LLM_MOBILE_ACTIONS)?.models?.add(model)
       }
 
       // Update status.
