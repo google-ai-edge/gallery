@@ -65,7 +65,7 @@ message Settings {
   repeated string text_input_history = 3;
   repeated ImportedModel imported_model = 4;
   bool is_tos_accepted = 5;
-  bool has_run_gemmas_garden = 6;
+  bool has_run_tiny_garden = 6;
 }
 
 message UserData {

@@ -61,6 +61,8 @@
   <string name="model_not_downloaded_msg" translatable="false">Model not downloaded yet</string>
   <string name="model_is_initializing_msg" translatable="false">Initializing model…</string>
   <string name="reset" translatable="false">Reset</string>
+  <string name="reset_note" translatable="false">Tapping \"Reset\" will reset LiteRT-LM engine only. The game progress won\'t be affected.</string>
+  <string name="resetting" translatable="false">Resetting...</string>
   <string name="settings_dialog_tos_title" translatable="false">Terms of services</string>
   <string name="text_input_placeholder_text_classification" translatable="false">Type movie review to classify…</string>
   <string name="text_image_generation_text_field_placeholder" translatable="false">Type prompt…</string>
