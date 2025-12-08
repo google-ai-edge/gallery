@@ -49,9 +49,9 @@ interface DataStoreRepository {
 
   fun acceptTos()
 
-  fun getHasRunGemmasGarden(): Boolean
+  fun getHasRunTinyGarden(): Boolean
 
-  fun setHasRunGemmasGarden(hasRun: Boolean)
+  fun setHasRunTinyGarden(hasRun: Boolean)
 }
 
 /** Repository for managing data using Proto DataStore. */
@@ -155,18 +155,16 @@ class DefaultDataStoreRepository(
     }
   }
 
-  override fun getHasRunGemmasGarden(): Boolean {
+  override fun getHasRunTinyGarden(): Boolean {
     return runBlocking {
       val settings = dataStore.data.first()
-      settings.hasRunGemmasGarden
+      settings.hasRunTinyGarden
     }
   }
 
-  override fun setHasRunGemmasGarden(hasRun: Boolean) {
+  override fun setHasRunTinyGarden(hasRun: Boolean) {
     runBlocking {
-      dataStore.updateData { settings ->
-        settings.toBuilder().setHasRunGemmasGarden(hasRun).build()
-      }
+      dataStore.updateData { settings -> settings.toBuilder().setHasRunTinyGarden(hasRun).build() }
     }
   }
 }
