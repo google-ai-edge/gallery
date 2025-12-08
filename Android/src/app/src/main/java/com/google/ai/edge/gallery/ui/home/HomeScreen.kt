@@ -161,7 +161,7 @@ private val PREDEFINED_LLM_TASK_ORDER =
   )
 
 private val PREDEFINED_AGENTS_TASK_ORDER =
-  listOf(BuiltInTaskId.LLM_TINY_GARDEN, BuiltInTaskId.LLM_VOICE_TO_ACTION)
+  listOf(BuiltInTaskId.LLM_TINY_GARDEN, BuiltInTaskId.LLM_MOBILE_ACTIONS)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
