@@ -22,14 +22,11 @@ import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.EaseOutExpo
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.padding
@@ -74,7 +71,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGGalleryNavGraph"
-private const val ROUTE_PLACEHOLDER = "placeholder"
+private const val ROUTE_HOMESCREEN = "homepage"
+private const val ROUTE_MODEL_LIST = "model_list"
 private const val ROUTE_MODEL = "route_model"
 private const val ENTER_ANIMATION_DURATION_MS = 500
 private val ENTER_ANIMATION_EASING = EaseOutExpo
@@ -119,6 +117,8 @@ fun GalleryNavHost(
   val lifecycleOwner = LocalLifecycleOwner.current
   var showModelManager by remember { mutableStateOf(false) }
   var pickedTask by remember { mutableStateOf<Task?>(null) }
+  var enableHomeScreenAnimation by remember { mutableStateOf(true) }
+  var enableModelListAnimation by remember { mutableStateOf(true) }
 
   // Track whether app is in foreground.
   DisposableEffect(lifecycleOwner) {
@@ -143,48 +143,63 @@ fun GalleryNavHost(
     onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
   }
 
-  HomeScreen(
-    modelManagerViewModel = modelManagerViewModel,
-    tosViewModel = hiltViewModel(),
-    navigateToTaskScreen = { task ->
-      pickedTask = task
-      showModelManager = true
-      firebaseAnalytics?.logEvent("capability_select", bundleOf("capability_name" to task.id))
-    },
-  )
-
-  // Model manager.
-  AnimatedVisibility(
-    visible = showModelManager,
-    enter = slideInHorizontally(initialOffsetX = { it }),
-    exit = slideOutHorizontally(targetOffsetX = { it }),
-  ) {
-    val curPickedTask = pickedTask
-    if (curPickedTask != null) {
-      ModelManager(
-        viewModel = modelManagerViewModel,
-        task = curPickedTask,
-        onModelClicked = { model ->
-          navController.navigate("$ROUTE_MODEL/${curPickedTask.id}/${model.name}")
-        },
-        navigateUp = { showModelManager = false },
-      )
-    }
-  }
-
   NavHost(
     navController = navController,
     // Default to open home screen.
-    startDestination = ROUTE_PLACEHOLDER,
+    startDestination = ROUTE_HOMESCREEN,
     enterTransition = { EnterTransition.None },
     exitTransition = { ExitTransition.None },
   ) {
-    // Placeholder root screen
-    //
-    // Having a non-empty placeholder here is needed to make the exit transition below work.
-    // We can't have an empty Text here because it will block TalkBack.
-    composable(route = ROUTE_PLACEHOLDER) { Box {} }
+    // Home screen.
+    composable(route = ROUTE_HOMESCREEN) {
+      HomeScreen(
+        modelManagerViewModel = modelManagerViewModel,
+        tosViewModel = hiltViewModel(),
+        enableAnimation = enableHomeScreenAnimation,
+        navigateToTaskScreen = { task ->
+          pickedTask = task
+          enableModelListAnimation = true
+          navController.navigate(ROUTE_MODEL_LIST)
+          firebaseAnalytics?.logEvent("capability_select", bundleOf("capability_name" to task.id))
+        },
+      )
+    }
 
+    // Model list.
+    composable(
+      route = ROUTE_MODEL_LIST,
+      enterTransition = {
+        if (initialState.destination.route == ROUTE_HOMESCREEN) {
+          slideEnter()
+        } else {
+          EnterTransition.None
+        }
+      },
+      exitTransition = {
+        if (targetState.destination.route == ROUTE_HOMESCREEN) {
+          slideExit()
+        } else {
+          ExitTransition.None
+        }
+      },
+    ) {
+      pickedTask?.let {
+        ModelManager(
+          viewModel = modelManagerViewModel,
+          task = it,
+          enableAnimation = enableModelListAnimation,
+          onModelClicked = { model ->
+            navController.navigate("$ROUTE_MODEL/${it.id}/${model.name}")
+          },
+          navigateUp = {
+            enableHomeScreenAnimation = false
+            navController.navigateUp()
+          },
+        )
+      }
+    }
+
+    // Model page.
     composable(
       route = "$ROUTE_MODEL/{taskId}/{modelName}",
       arguments =
@@ -207,7 +222,10 @@ fun GalleryNavHost(
               data =
                 CustomTaskDataForBuiltinTask(
                   modelManagerViewModel = modelManagerViewModel,
-                  onNavUp = { navController.navigateUp() },
+                  onNavUp = {
+                    enableModelListAnimation = false
+                    navController.navigateUp()
+                  },
                 )
             )
           } else {
@@ -215,7 +233,10 @@ fun GalleryNavHost(
             CustomTaskScreen(
               task = customTask.task,
               modelManagerViewModel = modelManagerViewModel,
-              onNavigateUp = { navController.navigateUp() },
+              onNavigateUp = {
+                enableModelListAnimation = false
+                navController.navigateUp()
+              },
               disableAppBarControls = disableAppBarControls,
             ) { bottomPadding ->
               customTask.MainScreen(
