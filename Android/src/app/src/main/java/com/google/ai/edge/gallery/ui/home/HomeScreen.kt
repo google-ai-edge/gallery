@@ -149,19 +149,17 @@ object HomeScreenDestination {
   @StringRes val titleRes = R.string.app_name
 }
 
-private val PREDEFINED_CATEGORY_ORDER =
-  listOf(Category.LLM.id, Category.AGENTS.id, Category.EXPERIMENTAL.id)
+private val PREDEFINED_CATEGORY_ORDER = listOf(Category.LLM.id, Category.EXPERIMENTAL.id)
 
 private val PREDEFINED_LLM_TASK_ORDER =
   listOf(
+    BuiltInTaskId.LLM_MOBILE_ACTIONS,
+    BuiltInTaskId.LLM_TINY_GARDEN,
     BuiltInTaskId.LLM_ASK_IMAGE,
     BuiltInTaskId.LLM_ASK_AUDIO,
     BuiltInTaskId.LLM_PROMPT_LAB,
     BuiltInTaskId.LLM_CHAT,
   )
-
-private val PREDEFINED_AGENTS_TASK_ORDER =
-  listOf(BuiltInTaskId.LLM_TINY_GARDEN, BuiltInTaskId.LLM_MOBILE_ACTIONS)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -198,11 +196,10 @@ fun HomeScreen(
       for (categoryId in groupedTasks.keys) {
         val sortedTasks =
           groupedTasks[categoryId]!!.sortedWith { a, b ->
-            if (categoryId == Category.LLM.id || categoryId == Category.AGENTS.id) {
+            if (categoryId == Category.LLM.id) {
               val order: List<String> =
                 when (categoryId) {
                   Category.LLM.id -> PREDEFINED_LLM_TASK_ORDER
-                  Category.AGENTS.id -> PREDEFINED_AGENTS_TASK_ORDER
                   else -> listOf()
                 }
               val indexA = order.indexOf(a.id)

@@ -169,7 +169,8 @@ fun ModelPageAppBar(
               modifier = Modifier.size(16.dp),
             )
           } else {
-            val enableResetButton = !isModelInitializing && !modelPreparing && isModelInitialized
+            val enableResetButton =
+              !isModelInitializing && !modelPreparing && !inProgress && isModelInitialized
             IconButton(
               onClick = { onResetSessionClicked(model) },
               enabled = enableResetButton,

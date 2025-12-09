@@ -39,7 +39,6 @@ data class CategoryInfo(
 /** Pre-defined categories. */
 object Category {
   val LLM = CategoryInfo(id = "llm", labelStringRes = R.string.category_llm)
-  val AGENTS = CategoryInfo(id = "agents", labelStringRes = R.string.category_agents)
   val CLASSICAL_ML = CategoryInfo(id = "classical_ml", labelStringRes = R.string.category_llm)
   val EXPERIMENTAL =
     CategoryInfo(id = "experimental", labelStringRes = R.string.category_experimental)
