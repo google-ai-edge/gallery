@@ -82,6 +82,7 @@ fun ModelList(
   task: Task,
   modelManagerViewModel: ModelManagerViewModel,
   contentPadding: PaddingValues,
+  enableAnimation: Boolean,
   onModelClicked: (Model) -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -113,32 +114,40 @@ fun ModelList(
   val listState = rememberLazyListState()
 
   val taskIconProgress =
-    rememberDelayedAnimationProgress(
-      initialDelay = ANIMATION_INIT_DELAY,
-      animationDurationMs = TASK_ICON_ANIMATION_DURATION,
-      animationLabel = "task icon",
-    )
+    if (!enableAnimation) 1f
+    else
+      rememberDelayedAnimationProgress(
+        initialDelay = ANIMATION_INIT_DELAY,
+        animationDurationMs = TASK_ICON_ANIMATION_DURATION,
+        animationLabel = "task icon",
+      )
 
   val taskLabelProgress =
-    rememberDelayedAnimationProgress(
-      initialDelay = ANIMATION_INIT_DELAY + 300,
-      animationDurationMs = TASK_ICON_ANIMATION_DURATION,
-      animationLabel = "task label",
-    )
+    if (!enableAnimation) 1f
+    else
+      rememberDelayedAnimationProgress(
+        initialDelay = ANIMATION_INIT_DELAY + 300,
+        animationDurationMs = TASK_ICON_ANIMATION_DURATION,
+        animationLabel = "task label",
+      )
 
   val descriptionProgress =
-    rememberDelayedAnimationProgress(
-      initialDelay = ANIMATION_INIT_DELAY + TASK_DESCRIPTION_SECTION_ANIMATION_START,
-      animationDurationMs = DEFAULT_ANIMATION_DURATION,
-      animationLabel = "description",
-    )
+    if (!enableAnimation) 1f
+    else
+      rememberDelayedAnimationProgress(
+        initialDelay = ANIMATION_INIT_DELAY + TASK_DESCRIPTION_SECTION_ANIMATION_START,
+        animationDurationMs = DEFAULT_ANIMATION_DURATION,
+        animationLabel = "description",
+      )
 
   val modelListProgress =
-    rememberDelayedAnimationProgress(
-      initialDelay = ANIMATION_INIT_DELAY + MODEL_LIST_ANIMATION_START,
-      animationDurationMs = DEFAULT_ANIMATION_DURATION,
-      animationLabel = "model_list",
-    )
+    if (!enableAnimation) 1f
+    else
+      rememberDelayedAnimationProgress(
+        initialDelay = ANIMATION_INIT_DELAY + MODEL_LIST_ANIMATION_START,
+        animationDurationMs = DEFAULT_ANIMATION_DURATION,
+        animationLabel = "model_list",
+      )
 
   Box(
     contentAlignment = Alignment.BottomEnd,

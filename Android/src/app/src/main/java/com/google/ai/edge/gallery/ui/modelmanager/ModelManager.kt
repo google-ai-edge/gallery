@@ -43,6 +43,7 @@ import com.google.ai.edge.gallery.data.Task
 fun ModelManager(
   task: Task,
   viewModel: ModelManagerViewModel,
+  enableAnimation: Boolean,
   navigateUp: () -> Unit,
   onModelClicked: (Model) -> Unit,
   modifier: Modifier = Modifier,
@@ -84,6 +85,7 @@ fun ModelManager(
       task = task,
       modelManagerViewModel = viewModel,
       contentPadding = innerPadding,
+      enableAnimation = enableAnimation,
       onModelClicked = onModelClicked,
       modifier = Modifier.fillMaxSize(),
     )

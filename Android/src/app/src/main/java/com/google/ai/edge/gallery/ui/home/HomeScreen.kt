@@ -167,6 +167,7 @@ fun HomeScreen(
   modelManagerViewModel: ModelManagerViewModel,
   tosViewModel: TosViewModel,
   navigateToTaskScreen: (Task) -> Unit,
+  enableAnimation: Boolean,
   modifier: Modifier = Modifier,
 ) {
   val uiState by modelManagerViewModel.uiState.collectAsState()
@@ -336,11 +337,13 @@ fun HomeScreen(
           //
           // Fade in and move down at the same time.
           val progress =
-            rememberDelayedAnimationProgress(
-              initialDelay = ANIMATION_INIT_DELAY - 50,
-              animationDurationMs = TOP_APP_BAR_ANIMATION_DURATION,
-              animationLabel = "top bar",
-            )
+            if (!enableAnimation) 1f
+            else
+              rememberDelayedAnimationProgress(
+                initialDelay = ANIMATION_INIT_DELAY - 50,
+                animationDurationMs = TOP_APP_BAR_ANIMATION_DURATION,
+                animationLabel = "top bar",
+              )
           Box(
             modifier =
               Modifier.graphicsLayer {
@@ -392,8 +395,8 @@ fun HomeScreen(
                   ) {},
                 verticalArrangement = Arrangement.spacedBy(8.dp),
               ) {
-                AppTitle()
-                IntroText()
+                AppTitle(enableAnimation = enableAnimation)
+                IntroText(enableAnimation = enableAnimation)
               }
 
               // Tab header for categories.
@@ -408,6 +411,7 @@ fun HomeScreen(
                 CategoryTabHeader(
                   sortedCategories = sortedCategories,
                   selectedIndex = selectedCategoryIndex,
+                  enableAnimation = enableAnimation,
                   onCategorySelected = { index ->
                     selectedCategoryIndex = index
                     scope.launch { pagerState.animateScrollToPage(page = index) }
@@ -421,6 +425,7 @@ fun HomeScreen(
                 pagerState = pagerState,
                 sortedCategories = sortedCategories,
                 tasksByCategories = tasksByCategories,
+                enableAnimation = enableAnimation,
                 navigateToTaskScreen = navigateToTaskScreen,
               )
             }
@@ -601,7 +606,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun AppTitle() {
+private fun AppTitle(enableAnimation: Boolean) {
   val firstLineText = stringResource(R.string.app_name_first_part)
   val secondLineText = stringResource(R.string.app_name_second_part)
   val titleColor = MaterialTheme.customColors.appTitleGradientColors[1]
@@ -619,20 +624,22 @@ private fun AppTitle() {
   // effect.
   Box(modifier = Modifier.clearAndSetSemantics {}) {
     var delay = ANIMATION_INIT_DELAY
-    SwipingText(
-      text = firstLineText,
-      style = titleStyle,
-      color = titleColor,
-      animationDelay = delay,
-      animationDurationMs = TITLE_FIRST_LINE_ANIMATION_DURATION,
-    )
-    delay += (TITLE_FIRST_LINE_ANIMATION_DURATION * 0.3).toLong()
+    if (enableAnimation) {
+      SwipingText(
+        text = firstLineText,
+        style = titleStyle,
+        color = titleColor,
+        animationDelay = delay,
+        animationDurationMs = TITLE_FIRST_LINE_ANIMATION_DURATION,
+      )
+      delay += (TITLE_FIRST_LINE_ANIMATION_DURATION * 0.3).toLong()
+    }
     SwipingText(
       text = firstLineText,
       style = titleStyle,
       color = MaterialTheme.colorScheme.onSurface,
-      animationDelay = delay,
-      animationDurationMs = TITLE_FIRST_LINE_ANIMATION_DURATION,
+      animationDelay = if (enableAnimation) delay else 0,
+      animationDurationMs = if (enableAnimation) TITLE_FIRST_LINE_ANIMATION_DURATION else 0,
     )
   }
   // Second line text "Edge Gallery" and its animation.
@@ -641,24 +648,26 @@ private fun AppTitle() {
   // text with a gradient is revealed.
   Box(modifier = Modifier.clearAndSetSemantics {}) {
     var delay = TITLE_SECOND_LINE_ANIMATION_START
-    SwipingText(
-      text = secondLineText,
-      style = titleStyle,
-      color = titleColor,
-      modifier = Modifier.offset(y = (-16).dp),
-      animationDelay = delay,
-      animationDurationMs = TITLE_SECOND_LINE_ANIMATION_DURATION,
-    )
-    delay += (TITLE_SECOND_LINE_ANIMATION_DURATION * 0.3).toInt()
-    SwipingText(
-      text = secondLineText,
-      style = titleStyle,
-      color = MaterialTheme.colorScheme.onSurface,
-      modifier = Modifier.offset(y = (-16).dp),
-      animationDelay = delay,
-      animationDurationMs = TITLE_SECOND_LINE_ANIMATION_DURATION,
-    )
-    delay += (TITLE_SECOND_LINE_ANIMATION_DURATION * 0.6).toInt()
+    if (enableAnimation) {
+      SwipingText(
+        text = secondLineText,
+        style = titleStyle,
+        color = titleColor,
+        modifier = Modifier.offset(y = (-16).dp),
+        animationDelay = delay,
+        animationDurationMs = TITLE_SECOND_LINE_ANIMATION_DURATION,
+      )
+      delay += (TITLE_SECOND_LINE_ANIMATION_DURATION * 0.3).toInt()
+      SwipingText(
+        text = secondLineText,
+        style = titleStyle,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.offset(y = (-16).dp),
+        animationDelay = delay,
+        animationDurationMs = TITLE_SECOND_LINE_ANIMATION_DURATION,
+      )
+      delay += (TITLE_SECOND_LINE_ANIMATION_DURATION * 0.6).toInt()
+    }
     RevealingText(
       text = secondLineText,
       style =
@@ -666,14 +675,14 @@ private fun AppTitle() {
           brush = linearGradient(colors = MaterialTheme.customColors.appTitleGradientColors)
         ),
       modifier = Modifier.offset(x = (-16).dp, y = (-16).dp),
-      animationDelay = delay,
-      animationDurationMs = TITLE_SECOND_LINE_ANIMATION_DURATION2,
+      animationDelay = if (enableAnimation) delay else 0,
+      animationDurationMs = if (enableAnimation) TITLE_SECOND_LINE_ANIMATION_DURATION2 else 0,
     )
   }
 }
 
 @Composable
-private fun IntroText() {
+private fun IntroText(enableAnimation: Boolean) {
   val url = "https://huggingface.co/litert-community"
   val linkColor = MaterialTheme.customColors.linkColor
   val uriHandler = LocalUriHandler.current
@@ -682,11 +691,13 @@ private fun IntroText() {
   //
   // fade in + slide up.
   val progress =
-    rememberDelayedAnimationProgress(
-      initialDelay = TITLE_SECOND_LINE_ANIMATION_START,
-      animationDurationMs = CONTENT_COMPOSABLES_ANIMATION_DURATION,
-      animationLabel = "intro text animation",
-    )
+    if (!enableAnimation) 1f
+    else
+      rememberDelayedAnimationProgress(
+        initialDelay = TITLE_SECOND_LINE_ANIMATION_START,
+        animationDurationMs = CONTENT_COMPOSABLES_ANIMATION_DURATION,
+        animationLabel = "intro text animation",
+      )
 
   val introText = buildAnnotatedString {
     append("${stringResource(R.string.app_intro)} ")
@@ -723,6 +734,7 @@ private fun IntroText() {
 private fun CategoryTabHeader(
   sortedCategories: List<CategoryInfo>,
   selectedIndex: Int,
+  enableAnimation: Boolean,
   onCategorySelected: (Int) -> Unit,
 ) {
   val context = LocalContext.current
@@ -730,11 +742,13 @@ private fun CategoryTabHeader(
   val listState = rememberLazyListState()
 
   val progress =
-    rememberDelayedAnimationProgress(
-      initialDelay = TASK_LIST_ANIMATION_START,
-      animationDurationMs = CONTENT_COMPOSABLES_ANIMATION_DURATION,
-      animationLabel = "task card animation",
-    )
+    if (!enableAnimation) 1f
+    else
+      rememberDelayedAnimationProgress(
+        initialDelay = TASK_LIST_ANIMATION_START,
+        animationDurationMs = CONTENT_COMPOSABLES_ANIMATION_DURATION,
+        animationLabel = "task card animation",
+      )
 
   LazyRow(
     state = listState,
@@ -797,6 +811,7 @@ private fun TaskList(
   pagerState: PagerState,
   sortedCategories: List<CategoryInfo>,
   tasksByCategories: Map<String, List<Task>>,
+  enableAnimation: Boolean,
   navigateToTaskScreen: (Task) -> Unit,
 ) {
   // Model list animation:
@@ -804,11 +819,13 @@ private fun TaskList(
   // 1.  Slide Up: The entire column of task cards translates upwards,
   // 2.  Fade in one by one: The task card fade in one by one. See TaskCard for details.
   val progress =
-    rememberDelayedAnimationProgress(
-      initialDelay = TASK_LIST_ANIMATION_START,
-      animationDurationMs = CONTENT_COMPOSABLES_ANIMATION_DURATION,
-      animationLabel = "task card animation",
-    )
+    if (!enableAnimation) 1f
+    else
+      rememberDelayedAnimationProgress(
+        initialDelay = TASK_LIST_ANIMATION_START,
+        animationDurationMs = CONTENT_COMPOSABLES_ANIMATION_DURATION,
+        animationLabel = "task card animation",
+      )
 
   // Tracks when the initial animation is done.
   //
@@ -837,7 +854,7 @@ private fun TaskList(
         TaskCard(
           task = task,
           index = index,
-          animate = (pageIndex == 0 || pageIndex == 1) && !initialAnimationDone,
+          animate = (pageIndex == 0 || pageIndex == 1) && !initialAnimationDone && enableAnimation,
           onClick = { navigateToTaskScreen(task) },
           modifier = Modifier.fillMaxWidth(),
         )
