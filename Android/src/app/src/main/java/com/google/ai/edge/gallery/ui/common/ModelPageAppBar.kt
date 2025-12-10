@@ -238,21 +238,24 @@ fun ModelPageAppBar(
 
         // Save the config values to Model.
         val oldConfigValues = model.configValues
+        model.prevConfigValues = oldConfigValues
         model.configValues = curConfigValues
         modelManagerViewModel.updateConfigValuesUpdateTrigger()
 
-        // Force to re-initialize the model with the new configs.
-        if (needReinitialization) {
-          modelManagerViewModel.initializeModel(
-            context = context,
-            task = task,
-            model = model,
-            force = true,
-          )
-        }
+        if (!task.handleModelConfigChangesInTask) {
+          // Force to re-initialize the model with the new configs.
+          if (needReinitialization) {
+            modelManagerViewModel.initializeModel(
+              context = context,
+              task = task,
+              model = model,
+              force = true,
+            )
+          }
 
-        // Notify.
-        onConfigChanged(oldConfigValues, model.configValues)
+          // Notify.
+          onConfigChanged(oldConfigValues, model.configValues)
+        }
       },
     )
   }

@@ -30,6 +30,7 @@ import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Config
+import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.DownloadRepository
 import com.google.ai.edge.gallery.data.EMPTY_MODEL
@@ -38,8 +39,10 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelAllowlist
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
+import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.TMP_FILE_EXT
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.data.createLlmChatConfigs
 import com.google.ai.edge.gallery.proto.AccessTokenData
 import com.google.ai.edge.gallery.proto.ImportedModel
@@ -128,6 +131,15 @@ data class ModelManagerUiState(
       ModelInitializationStatusType.INITIALIZING
   }
 }
+
+private val RESET_CONVERSATION_TURN_COUNT_CONFIG =
+  NumberSliderConfig(
+    key = ConfigKeys.RESET_CONVERSATION_TURN_COUNT,
+    sliderMin = 1f,
+    sliderMax = 30f,
+    defaultValue = 5f,
+    valueType = ValueType.INT,
+  )
 
 /**
  * ViewModel responsible for managing models, their download status, and initialization.
@@ -488,6 +500,12 @@ constructor(
             task.id != BuiltInTaskId.LLM_MOBILE_ACTIONS)
       ) {
         task.models.add(model)
+        if (task.id == BuiltInTaskId.LLM_TINY_GARDEN) {
+          val newConfigs = model.configs.toMutableList()
+          newConfigs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
+          model.configs = newConfigs
+          model.preProcess()
+        }
       }
       task.updateTrigger.value = System.currentTimeMillis()
     }
@@ -749,6 +767,12 @@ constructor(
           for (taskType in allowedModel.taskTypes) {
             val task = curTasks.find { it.id == taskType }
             task?.models?.add(model)
+
+            if (task?.id == BuiltInTaskId.LLM_TINY_GARDEN) {
+              val newConfigs = model.configs.toMutableList()
+              newConfigs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
+              model.configs = newConfigs
+            }
           }
         }
 
@@ -884,6 +908,10 @@ constructor(
       if (model.llmSupportAgents) {
         tasks.get(key = BuiltInTaskId.LLM_TINY_GARDEN)?.models?.add(model)
         tasks.get(key = BuiltInTaskId.LLM_MOBILE_ACTIONS)?.models?.add(model)
+        val newConfigs = model.configs.toMutableList()
+        newConfigs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
+        model.configs = newConfigs
+        model.preProcess()
       }
 
       // Update status.
@@ -916,14 +944,15 @@ constructor(
           else -> null // Ignore unknown accelerator labels
         }
       }
-    val configs: List<Config> =
+    val configs: MutableList<Config> =
       createLlmChatConfigs(
-        defaultMaxToken = info.llmConfig.defaultMaxTokens,
-        defaultTopK = info.llmConfig.defaultTopk,
-        defaultTopP = info.llmConfig.defaultTopp,
-        defaultTemperature = info.llmConfig.defaultTemperature,
-        accelerators = accelerators,
-      )
+          defaultMaxToken = info.llmConfig.defaultMaxTokens,
+          defaultTopK = info.llmConfig.defaultTopk,
+          defaultTopP = info.llmConfig.defaultTopp,
+          defaultTemperature = info.llmConfig.defaultTemperature,
+          accelerators = accelerators,
+        )
+        .toMutableList()
     val llmSupportImage = info.llmConfig.supportImage
     val llmSupportAudio = info.llmConfig.supportAudio
     val llmSupportAgents = info.llmConfig.supportAgents

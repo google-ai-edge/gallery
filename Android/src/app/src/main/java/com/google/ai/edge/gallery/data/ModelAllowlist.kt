@@ -58,7 +58,7 @@ data class AllowedModel(
         taskTypes.contains(BuiltInTaskId.LLM_ASK_IMAGE) ||
         taskTypes.contains(BuiltInTaskId.LLM_MOBILE_ACTIONS) ||
         taskTypes.contains(BuiltInTaskId.LLM_TINY_GARDEN)
-    var configs: List<Config> = listOf()
+    var configs: MutableList<Config> = mutableListOf()
     if (isLlmModel) {
       val defaultTopK: Int = defaultConfig.topK ?: DEFAULT_TOPK
       val defaultTopP: Float = defaultConfig.topP ?: DEFAULT_TOPP
@@ -78,12 +78,13 @@ data class AllowedModel(
       }
       configs =
         createLlmChatConfigs(
-          defaultTopK = defaultTopK,
-          defaultTopP = defaultTopP,
-          defaultTemperature = defaultTemperature,
-          defaultMaxToken = defaultMaxToken,
-          accelerators = accelerators,
-        )
+            defaultTopK = defaultTopK,
+            defaultTopP = defaultTopP,
+            defaultTemperature = defaultTemperature,
+            defaultMaxToken = defaultMaxToken,
+            accelerators = accelerators,
+          )
+          .toMutableList()
     }
 
     // Misc.
