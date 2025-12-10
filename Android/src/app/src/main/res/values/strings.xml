@@ -42,6 +42,7 @@
   <string name="error" translatable="false">Error</string>
   <string name="confirm_delete_model_dialog_title" translatable="false">Delete download</string>
   <string name="confirm_delete_model_dialog_content" translatable="false">Are you sure you want to delete the downloaded model \"%s\"?</string>
+  <string name="conversation_reset_message" translatable="false">Conversation was reset</string>
   <string name="notification_title_success" translatable="false">Model download succeeded</string>
   <string name="notification_content_success" translatable="false">Model \"%s\" has been downloaded</string>
   <string name="notification_title_fail" translatable="false">Model download failed</string>
@@ -62,7 +63,8 @@
   <string name="model_is_initializing_msg" translatable="false">Initializing model…</string>
   <string name="reset" translatable="false">Reset</string>
   <string name="reset_note" translatable="false">Tapping \"Reset\" will reset LiteRT-LM engine only. The game progress won\'t be affected.</string>
-  <string name="resetting" translatable="false">Resetting...</string>
+  <string name="resetting_engine" translatable="false">Resetting engine...</string>
+  <string name="reinitializing_description" translatable="false">The game progress won\'t be affected</string>
   <string name="settings_dialog_tos_title" translatable="false">Terms of services</string>
   <string name="text_input_placeholder_text_classification" translatable="false">Type movie review to classify…</string>
   <string name="text_image_generation_text_field_placeholder" translatable="false">Type prompt…</string>

@@ -64,6 +64,8 @@ object ConfigKeys {
   val THEME = ConfigKey("theme", "Theme")
   val NAME = ConfigKey("name", "Name")
   val MODEL_TYPE = ConfigKey("model_type", "Model type")
+  val RESET_CONVERSATION_TURN_COUNT =
+    ConfigKey("reset_conversation_turn_count", "Number of turns before the conversation resets")
 }
 
 /**
