@@ -157,8 +157,8 @@ private val PREDEFINED_LLM_TASK_ORDER =
     BuiltInTaskId.LLM_TINY_GARDEN,
     BuiltInTaskId.LLM_ASK_IMAGE,
     BuiltInTaskId.LLM_ASK_AUDIO,
-    BuiltInTaskId.LLM_PROMPT_LAB,
     BuiltInTaskId.LLM_CHAT,
+    BuiltInTaskId.LLM_PROMPT_LAB,
   )
 
 @OptIn(ExperimentalMaterial3Api::class)

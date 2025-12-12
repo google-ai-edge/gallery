@@ -22,26 +22,36 @@ import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.EaseOutExpo
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -230,6 +240,7 @@ fun GalleryNavHost(
             )
           } else {
             var disableAppBarControls by remember { mutableStateOf(false) }
+            var hideTopBar by remember { mutableStateOf(false) }
             CustomTaskScreen(
               task = customTask.task,
               modelManagerViewModel = modelManagerViewModel,
@@ -238,6 +249,7 @@ fun GalleryNavHost(
                 navController.navigateUp()
               },
               disableAppBarControls = disableAppBarControls,
+              hideTopBar = hideTopBar,
             ) { bottomPadding ->
               customTask.MainScreen(
                 data =
@@ -245,6 +257,7 @@ fun GalleryNavHost(
                     modelManagerViewModel = modelManagerViewModel,
                     bottomPadding = bottomPadding,
                     setAppBarControlsDisabled = { disableAppBarControls = it },
+                    setTopBarVisible = { hideTopBar = !it },
                   )
               )
             }
@@ -279,6 +292,7 @@ private fun CustomTaskScreen(
   task: Task,
   modelManagerViewModel: ModelManagerViewModel,
   disableAppBarControls: Boolean,
+  hideTopBar: Boolean,
   onNavigateUp: () -> Unit,
   content: @Composable (bottomPadding: Dp) -> Unit,
 ) {
@@ -288,6 +302,7 @@ private fun CustomTaskScreen(
   val context = LocalContext.current
   var navigatingUp by remember { mutableStateOf(false) }
   var showErrorDialog by remember { mutableStateOf(false) }
+  var appBarHeight by remember { mutableIntStateOf(0) }
 
   val handleNavigateUp = {
     navigatingUp = true
@@ -325,34 +340,63 @@ private fun CustomTaskScreen(
 
   Scaffold(
     topBar = {
-      ModelPageAppBar(
-        task = task,
-        model = selectedModel,
-        modelManagerViewModel = modelManagerViewModel,
-        inProgress = disableAppBarControls,
-        modelPreparing = disableAppBarControls,
-        canShowResetSessionButton = false,
-        hideModelSelector = task.models.size <= 1,
-        onConfigChanged = { _, _ -> },
-        onBackClicked = { handleNavigateUp() },
-        onModelSelected = { prevModel, newSelectedModel ->
-          scope.launch(Dispatchers.Default) {
-            // Clean up prev model.
-            if (prevModel.name != newSelectedModel.name) {
-              modelManagerViewModel.cleanupModel(context = context, task = task, model = prevModel)
-            }
+      AnimatedVisibility(
+        !hideTopBar,
+        enter = slideInVertically { -it },
+        exit = slideOutVertically { -it },
+      ) {
+        ModelPageAppBar(
+          task = task,
+          model = selectedModel,
+          modelManagerViewModel = modelManagerViewModel,
+          inProgress = disableAppBarControls,
+          modelPreparing = disableAppBarControls,
+          canShowResetSessionButton = false,
+          modifier =
+            Modifier.onGloballyPositioned { coordinates -> appBarHeight = coordinates.size.height },
+          hideModelSelector = task.models.size <= 1,
+          onConfigChanged = { _, _ -> },
+          onBackClicked = { handleNavigateUp() },
+          onModelSelected = { prevModel, newSelectedModel ->
+            scope.launch(Dispatchers.Default) {
+              // Clean up prev model.
+              if (prevModel.name != newSelectedModel.name) {
+                modelManagerViewModel.cleanupModel(
+                  context = context,
+                  task = task,
+                  model = prevModel,
+                )
+              }
 
-            // Update selected model.
-            modelManagerViewModel.selectModel(model = newSelectedModel)
-          }
-        },
-      )
+              // Update selected model.
+              modelManagerViewModel.selectModel(model = newSelectedModel)
+            }
+          },
+        )
+      }
     }
   ) { innerPadding ->
+    // Calculate the target height in Dp for the content's top padding.
+    val targetPaddingDp =
+      if (!hideTopBar && appBarHeight > 0) {
+        // Convert measured pixel height to Dp
+        with(LocalDensity.current) { appBarHeight.toDp() }
+      } else {
+        WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+      }
+
+    // Animate the actual top padding value.
+    val animatedTopPadding by
+      animateDpAsState(
+        targetValue = targetPaddingDp,
+        animationSpec = tween(durationMillis = 300),
+        label = "TopPaddingAnimation",
+      )
+
     Box(
       modifier =
         Modifier.padding(
-          top = innerPadding.calculateTopPadding(),
+          top = animatedTopPadding,
           start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
           end = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
         )
