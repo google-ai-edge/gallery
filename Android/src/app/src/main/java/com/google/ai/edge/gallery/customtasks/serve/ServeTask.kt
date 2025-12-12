@@ -17,6 +17,8 @@
 package com.google.ai.edge.gallery.customtasks.serve
 
 import android.content.Context
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.runtime.Composable
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
@@ -37,6 +39,7 @@ class ServeTask @Inject constructor() : CustomTask {
       label = "Serve",
       category = Category.EXPERIMENTAL,
       description = "Serve the model via an OpenAI-compatible HTTP server.",
+      icon = Icons.Filled.Share,
       models = mutableListOf(),
     )
 
