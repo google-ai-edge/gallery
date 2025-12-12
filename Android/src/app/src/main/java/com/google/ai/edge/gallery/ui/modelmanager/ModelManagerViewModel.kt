@@ -510,6 +510,17 @@ constructor(
       task.updateTrigger.value = System.currentTimeMillis()
     }
 
+    // Also add to Serve task
+    val serveTask = getTaskById("serve")
+    if (serveTask != null) {
+        val modelIndex = serveTask.models.indexOfFirst { info.fileName == it.name && it.imported }
+        if (modelIndex >= 0) {
+            serveTask.models.removeAt(modelIndex)
+        }
+        serveTask.models.add(model)
+        serveTask.updateTrigger.value = System.currentTimeMillis()
+    }
+
     // Add initial status and states.
     val modelDownloadStatus = uiState.value.modelDownloadStatus.toMutableMap()
     val modelInstances = uiState.value.modelInitializationStatus.toMutableMap()
@@ -773,6 +784,14 @@ constructor(
               newConfigs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
               model.configs = newConfigs
             }
+
+            // Auto-add LLM Chat models to Serve task
+            if (taskType == BuiltInTaskId.LLM_CHAT) {
+                val serveTask = curTasks.find { it.id == "serve" }
+                if (serveTask != null && !serveTask.models.contains(model)) {
+                    serveTask.models.add(model)
+                }
+            }
           }
         }
 
@@ -899,6 +918,8 @@ constructor(
       // Add to task.
       tasks.get(key = BuiltInTaskId.LLM_CHAT)?.models?.add(model)
       tasks.get(key = BuiltInTaskId.LLM_PROMPT_LAB)?.models?.add(model)
+      tasks.get(key = "serve")?.models?.add(model)
+
       if (model.llmSupportImage) {
         tasks.get(key = BuiltInTaskId.LLM_ASK_IMAGE)?.models?.add(model)
       }
