@@ -43,6 +43,7 @@
   <string name="confirm_delete_model_dialog_title" translatable="false">Delete download</string>
   <string name="confirm_delete_model_dialog_content" translatable="false">Are you sure you want to delete the downloaded model \"%s\"?</string>
   <string name="conversation_reset_message" translatable="false">Conversation was reset</string>
+  <string name="engin_reset_message" translatable="false">Engine was reset</string>
   <string name="notification_title_success" translatable="false">Model download succeeded</string>
   <string name="notification_content_success" translatable="false">Model \"%s\" has been downloaded</string>
   <string name="notification_title_fail" translatable="false">Model download failed</string>
