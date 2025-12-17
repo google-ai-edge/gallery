@@ -106,6 +106,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.core.os.bundleOf
 import com.google.ai.edge.gallery.GalleryTopAppBar
 import com.google.ai.edge.gallery.R
@@ -114,6 +115,8 @@ import com.google.ai.edge.gallery.data.AppBarActionType
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.CategoryInfo
+import com.google.ai.edge.gallery.data.ConfigKeys
+import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.ImportedModel
@@ -153,8 +156,8 @@ private val PREDEFINED_CATEGORY_ORDER = listOf(Category.LLM.id, Category.EXPERIM
 
 private val PREDEFINED_LLM_TASK_ORDER =
   listOf(
-    BuiltInTaskId.LLM_MOBILE_ACTIONS,
     BuiltInTaskId.LLM_TINY_GARDEN,
+    BuiltInTaskId.LLM_MOBILE_ACTIONS,
     BuiltInTaskId.LLM_ASK_IMAGE,
     BuiltInTaskId.LLM_ASK_AUDIO,
     BuiltInTaskId.LLM_CHAT,
@@ -179,6 +182,7 @@ fun HomeScreen(
   var showImportDialog by remember { mutableStateOf(false) }
   var showImportingDialog by remember { mutableStateOf(false) }
   var showTosDialog by remember { mutableStateOf(!tosViewModel.getIsTosAccepted()) }
+  var showMobileActionsChallengeDialog by remember { mutableStateOf(false) }
   val selectedLocalModelFileUri = remember { mutableStateOf<Uri?>(null) }
   val selectedImportedModelInfo = remember { mutableStateOf<ImportedModel?>(null) }
   val coroutineScope = rememberCoroutineScope()
@@ -426,7 +430,13 @@ fun HomeScreen(
                 sortedCategories = sortedCategories,
                 tasksByCategories = tasksByCategories,
                 enableAnimation = enableAnimation,
-                navigateToTaskScreen = navigateToTaskScreen,
+                navigateToTaskScreen = { task ->
+                  if (task.id == BuiltInTaskId.LLM_MOBILE_ACTIONS && task.models.isEmpty()) {
+                    showMobileActionsChallengeDialog = true
+                  } else {
+                    navigateToTaskScreen(task)
+                  }
+                },
               )
             }
 
@@ -507,6 +517,10 @@ fun HomeScreen(
   // Import dialog
   if (showImportDialog) {
     selectedLocalModelFileUri.value?.let { uri ->
+      // If it is from the Mobile Actions challenge flow.
+      val supportMobileActions = showMobileActionsChallengeDialog
+      showMobileActionsChallengeDialog = false
+
       ModelImportDialog(
         uri = uri,
         onDismiss = { showImportDialog = false },
@@ -515,6 +529,12 @@ fun HomeScreen(
           showImportDialog = false
           showImportingDialog = true
         },
+        defaultValues =
+          mapOf(
+            ConfigKeys.SUPPORT_MOBILE_ACTIONS to supportMobileActions,
+            ConfigKeys.DEFAULT_TEMPERATURE to
+              (if (supportMobileActions) 0.0f else DEFAULT_TEMPERATURE),
+          ),
       )
     }
   }

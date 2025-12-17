@@ -492,8 +492,8 @@ constructor(
       if (
         (task.id == BuiltInTaskId.LLM_ASK_IMAGE && model.llmSupportImage) ||
           (task.id == BuiltInTaskId.LLM_ASK_AUDIO && model.llmSupportAudio) ||
-          (task.id == BuiltInTaskId.LLM_TINY_GARDEN && model.llmSupportAgents) ||
-          (task.id == BuiltInTaskId.LLM_MOBILE_ACTIONS && model.llmSupportAgents) ||
+          (task.id == BuiltInTaskId.LLM_TINY_GARDEN && model.llmSupportTinyGarden) ||
+          (task.id == BuiltInTaskId.LLM_MOBILE_ACTIONS && model.llmSupportMobileActions) ||
           (task.id != BuiltInTaskId.LLM_ASK_IMAGE &&
             task.id != BuiltInTaskId.LLM_ASK_AUDIO &&
             task.id != BuiltInTaskId.LLM_TINY_GARDEN &&
@@ -905,13 +905,15 @@ constructor(
       if (model.llmSupportAudio) {
         tasks.get(key = BuiltInTaskId.LLM_ASK_AUDIO)?.models?.add(model)
       }
-      if (model.llmSupportAgents) {
+      if (model.llmSupportTinyGarden) {
         tasks.get(key = BuiltInTaskId.LLM_TINY_GARDEN)?.models?.add(model)
-        tasks.get(key = BuiltInTaskId.LLM_MOBILE_ACTIONS)?.models?.add(model)
         val newConfigs = model.configs.toMutableList()
         newConfigs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
         model.configs = newConfigs
         model.preProcess()
+      }
+      if (model.llmSupportMobileActions) {
+        tasks.get(key = BuiltInTaskId.LLM_MOBILE_ACTIONS)?.models?.add(model)
       }
 
       // Update status.
@@ -955,7 +957,8 @@ constructor(
         .toMutableList()
     val llmSupportImage = info.llmConfig.supportImage
     val llmSupportAudio = info.llmConfig.supportAudio
-    val llmSupportAgents = info.llmConfig.supportAgents
+    val llmSupportTinyGarden = info.llmConfig.supportTinyGarden
+    val llmSupportMobileActions = info.llmConfig.supportMobileActions
     val model =
       Model(
         name = info.fileName,
@@ -968,7 +971,8 @@ constructor(
         imported = true,
         llmSupportImage = llmSupportImage,
         llmSupportAudio = llmSupportAudio,
-        llmSupportAgents = llmSupportAgents,
+        llmSupportTinyGarden = llmSupportTinyGarden,
+        llmSupportMobileActions = llmSupportMobileActions,
       )
     model.preProcess()
 

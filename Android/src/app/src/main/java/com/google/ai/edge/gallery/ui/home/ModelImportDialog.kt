@@ -64,6 +64,7 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.BooleanSwitchConfig
 import com.google.ai.edge.gallery.data.Config
+import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
@@ -124,7 +125,8 @@ private val IMPORT_CONFIGS_LLM: List<Config> =
     ),
     BooleanSwitchConfig(key = ConfigKeys.SUPPORT_IMAGE, defaultValue = false),
     BooleanSwitchConfig(key = ConfigKeys.SUPPORT_AUDIO, defaultValue = false),
-    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_AGENTS, defaultValue = false),
+    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_TINY_GARDEN, defaultValue = false),
+    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_MOBILE_ACTIONS, defaultValue = false),
     SegmentedButtonConfig(
       key = ConfigKeys.COMPATIBLE_ACCELERATORS,
       defaultValue = Accelerator.CPU.label,
@@ -134,7 +136,12 @@ private val IMPORT_CONFIGS_LLM: List<Config> =
   )
 
 @Composable
-fun ModelImportDialog(uri: Uri, onDismiss: () -> Unit, onDone: (ImportedModel) -> Unit) {
+fun ModelImportDialog(
+  uri: Uri,
+  onDismiss: () -> Unit,
+  onDone: (ImportedModel) -> Unit,
+  defaultValues: Map<ConfigKey, Any> = emptyMap(),
+) {
   val context = LocalContext.current
   val info = remember { getFileSizeAndDisplayNameFromUri(context = context, uri = uri) }
   val fileSize by remember { mutableLongStateOf(info.first) }
@@ -148,6 +155,10 @@ fun ModelImportDialog(uri: Uri, onDismiss: () -> Unit, onDone: (ImportedModel) -
       put(ConfigKeys.NAME.label, fileName)
       // TODO: support other types.
       put(ConfigKeys.MODEL_TYPE.label, "LLM")
+
+      for ((key, value) in defaultValues) {
+        put(key.label, value)
+      }
     }
   }
   val values: SnapshotStateMap<String, Any> = remember {
@@ -240,9 +251,15 @@ fun ModelImportDialog(uri: Uri, onDismiss: () -> Unit, onDone: (ImportedModel) -
                   valueType = ValueType.BOOLEAN,
                 )
                   as Boolean
-              val supportAgents =
+              val supportTinyGarden =
                 convertValueToTargetType(
-                  value = values.get(ConfigKeys.SUPPORT_AGENTS.label)!!,
+                  value = values.get(ConfigKeys.SUPPORT_TINY_GARDEN.label)!!,
+                  valueType = ValueType.BOOLEAN,
+                )
+                  as Boolean
+              val supportMobileActions =
+                convertValueToTargetType(
+                  value = values.get(ConfigKeys.SUPPORT_MOBILE_ACTIONS.label)!!,
                   valueType = ValueType.BOOLEAN,
                 )
                   as Boolean
@@ -259,7 +276,8 @@ fun ModelImportDialog(uri: Uri, onDismiss: () -> Unit, onDone: (ImportedModel) -
                       .setDefaultTemperature(defaultTemperature)
                       .setSupportImage(supportImage)
                       .setSupportAudio(supportAudio)
-                      .setSupportAgents(supportAgents)
+                      .setSupportMobileActions(supportMobileActions)
+                      .setSupportTinyGarden(supportTinyGarden)
                       .build()
                   )
                   .build()
