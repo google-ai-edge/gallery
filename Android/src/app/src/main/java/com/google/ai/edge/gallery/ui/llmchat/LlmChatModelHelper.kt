@@ -104,6 +104,8 @@ object LlmChatModelHelper {
       val engine = Engine(engineConfig)
       engine.initialize()
 
+      ExperimentalFlags.enableConversationConstrainedDecoding =
+        enableConversationConstrainedDecoding
       val conversation =
         engine.createConversation(
           ConversationConfig(
@@ -117,6 +119,7 @@ object LlmChatModelHelper {
             tools = tools,
           )
         )
+      ExperimentalFlags.enableConversationConstrainedDecoding = false
       model.instance = LlmModelInstance(engine = engine, conversation = conversation)
     } catch (e: Exception) {
       onDone(cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error"))
@@ -149,6 +152,8 @@ object LlmChatModelHelper {
       val shouldEnableAudio = supportAudio
       Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
 
+      ExperimentalFlags.enableConversationConstrainedDecoding =
+        enableConversationConstrainedDecoding
       val newConversation =
         engine.createConversation(
           ConversationConfig(
@@ -162,6 +167,7 @@ object LlmChatModelHelper {
             tools = tools,
           )
         )
+      ExperimentalFlags.enableConversationConstrainedDecoding = false
       instance.conversation = newConversation
 
       Log.d(TAG, "Resetting done")
