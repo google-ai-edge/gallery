@@ -210,8 +210,11 @@ data class Model(
   /** Whether the LLM model supports audio input. */
   val llmSupportAudio: Boolean = false,
 
-  /** Whether the LLM model supports agents. */
-  val llmSupportAgents: Boolean = false,
+  /** Whether the LLM model supports tiny garden. */
+  val llmSupportTinyGarden: Boolean = false,
+
+  /** Whether the LLM model supports mobile actions. */
+  val llmSupportMobileActions: Boolean = false,
 
   /** Whether the model is imported or not. */
   val imported: Boolean = false,
