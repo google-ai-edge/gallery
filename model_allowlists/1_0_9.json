@@ -109,7 +109,7 @@
       "taskTypes": ["llm_chat", "llm_prompt_lab"]
     },
     {
-      "name": "FunctionGemma-270M-IT",
+      "name": "TinyGarden-270M",
       "modelId": "google/functiongemma-270m-it",
       "modelFile": "tiny_garden.litertlm",
       "description": "Fine-tuned Function Gemma 270M model for Tiny Garden.",
