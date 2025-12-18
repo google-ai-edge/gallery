@@ -97,6 +97,9 @@ data class Task(
    */
   val handleModelConfigChangesInTask: Boolean = false,
 
+  /** Whether the task is experimental. */
+  val experimental: Boolean = false,
+
   // The following fields are only used for built-in tasks. Can ignore if you are creating your own
   // custom tasks.
   //

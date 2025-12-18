@@ -67,13 +67,14 @@ fun TextAndVoiceInput(
   onAmplitudeChanged: (Int) -> Unit,
   modifier: Modifier = Modifier,
   clearTextTrigger: Long = 0L,
+  defaultTextInputMode: Boolean = false,
 ) {
   Row(
     modifier = modifier,
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.spacedBy(8.dp),
   ) {
-    var textInputMode by remember { mutableStateOf(false) }
+    var textInputMode by remember { mutableStateOf(defaultTextInputMode) }
     var curTextInput by remember { mutableStateOf("") }
 
     LaunchedEffect(clearTextTrigger) { curTextInput = "" }

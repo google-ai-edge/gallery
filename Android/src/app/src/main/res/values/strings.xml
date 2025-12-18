@@ -27,6 +27,7 @@
   </plurals>
   <string name="model_list_recommended_models_title" translatable="false">Recommended models</string>
   <string name="model_list_imported_models_title" translatable="false">Imported models</string>
+  <string name="model_list_experimental_label" translatable="false">EXPERIMENTAL</string>
   <string name="model_manager" translatable="false">Model Manager</string>
   <string name="download" translatable="false">Download</string>
   <string name="downloaded_size" translatable="false">%1$s downloaded</string>
