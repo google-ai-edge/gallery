@@ -5,7 +5,7 @@
 
 **Explore, Experience, and Evaluate the Future of On-Device Generative AI with Google AI Edge.**
 
-The Google AI Edge Gallery is an experimental app that puts the power of cutting-edge Generative AI models directly into your hands, running entirely on your Android *(available now)* and iOS *(coming soon)* devices. Dive into a world of creative and practical AI use cases, all running locally, without needing an internet connection once the model is loaded. Experiment with different models, chat, ask questions with images and audio clip, explore prompts, and more!
+The Google AI Edge Gallery is an experimental app that puts the power of cutting-edge Generative AI models directly into your hands, running entirely on your Android *(available now)* and iOS *(available now via TestFlight)* devices. Dive into a world of creative and practical AI use cases, all running locally, without needing an internet connection once the model is loaded. Experiment with different models, chat, ask questions with images and audio clip, explore prompts, and more!
 
 Install the app today from Google Play
 
@@ -15,6 +15,18 @@ For users without Google Play access, install the apk from the [**latest release
 
 > [!IMPORTANT]
 > You must uninstall all previous versions of the app before installing this one. Past versions will no longer be working and supported.
+
+## iOS Testing via TestFlight
+
+We're excited to announce that the app is now available for testing on iOS through TestFlight! We invite you to be among the first to try it out and share your feedback.
+
+***How to Join***:
+
+- Follow this [**public invitation link**](https://testflight.apple.com/join/nAtSQKTF) to get access.
+
+- Availability: Access is on a first-come, first-served basis. TestFlight currently limits the number of testers to 10,000.
+
+We appreciate your help with this early testing phase. Your feedback is invaluable as we work to improve the app. Once we've gathered and addressed all the feedback, we aim to officially launch on the App Store early 2026.
 
 <img width="480" alt="01" src="https://github.com/user-attachments/assets/2a60c8d0-ef4e-4040-a948-fa73f6a622b4" />
 <img width="480" alt="02" src="https://github.com/user-attachments/assets/d155d458-b822-415d-9252-7e825fe8c9c0" />
