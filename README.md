@@ -25,6 +25,8 @@ We're excited to announce that the app is now available for testing on iOS throu
 - Follow this [**public invitation link**](https://testflight.apple.com/join/nAtSQKTF) to get access.
 
 - Availability: Access is on a first-come, first-served basis. TestFlight currently limits the number of testers to 10,000.
+  
+- Supported device models: iOS devices with at least 6GB of RAM.
 
 We appreciate your help with this early testing phase. Your feedback is invaluable as we work to improve the app. Once we've gathered and addressed all the feedback, we aim to officially launch on the App Store early 2026.
 
