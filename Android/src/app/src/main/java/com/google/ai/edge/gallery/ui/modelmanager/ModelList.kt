@@ -202,7 +202,11 @@ fun ModelList(
               Surface(
                 shape = CircleShape, // This creates the "pill" effect
                 color = MaterialTheme.colorScheme.secondaryContainer,
-                modifier = Modifier.align(Alignment.Center),
+                modifier =
+                  Modifier.align(Alignment.Center).graphicsLayer {
+                    alpha = descriptionProgress
+                    translationY = (CONTENT_ANIMATION_OFFSET * (1 - descriptionProgress)).toPx()
+                  },
               ) {
                 Text(
                   text = stringResource(R.string.model_list_experimental_label),
