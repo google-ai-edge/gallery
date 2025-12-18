@@ -59,7 +59,7 @@
             android:name="com.google.ai.edge.gallery.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Gallery.SplashScreen"
-            android:screenOrientation="portrait"
+            android:screenOrientation="unspecified"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="uiMode"
             tools:ignore="DiscouragedApi,LockedOrientationActivity">
