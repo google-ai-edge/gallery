@@ -93,6 +93,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -156,12 +157,12 @@ private val PREDEFINED_CATEGORY_ORDER = listOf(Category.LLM.id, Category.EXPERIM
 
 private val PREDEFINED_LLM_TASK_ORDER =
   listOf(
-    BuiltInTaskId.LLM_TINY_GARDEN,
-    BuiltInTaskId.LLM_MOBILE_ACTIONS,
     BuiltInTaskId.LLM_ASK_IMAGE,
     BuiltInTaskId.LLM_ASK_AUDIO,
     BuiltInTaskId.LLM_CHAT,
     BuiltInTaskId.LLM_PROMPT_LAB,
+    BuiltInTaskId.LLM_TINY_GARDEN,
+    BuiltInTaskId.LLM_MOBILE_ACTIONS,
   )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -957,11 +958,21 @@ private fun TaskCard(
     ) {
       // Title and model count
       Column {
-        Text(
-          task.label,
-          color = MaterialTheme.colorScheme.onSurface,
-          style = MaterialTheme.typography.titleMedium,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Text(
+            task.label,
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.titleMedium,
+          )
+          if (task.experimental) {
+            Icon(
+              painter = painterResource(R.drawable.ic_experiment),
+              contentDescription = "Experimental",
+              modifier = Modifier.size(20.dp).padding(start = 4.dp),
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+        }
         Text(
           curModelCountLabel,
           color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -35,10 +35,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -53,6 +55,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
@@ -191,6 +194,23 @@ fun ModelList(
               textAlign = TextAlign.Center,
               animationProgress = taskLabelProgress,
             )
+          }
+
+          // Experimental pill
+          if (task.experimental) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+              Surface(
+                shape = CircleShape, // This creates the "pill" effect
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                modifier = Modifier.align(Alignment.Center),
+              ) {
+                Text(
+                  text = stringResource(R.string.model_list_experimental_label),
+                  style = bodyLargeNarrow.copy(fontWeight = FontWeight.Bold),
+                  modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                )
+              }
+            }
           }
 
           // Description.

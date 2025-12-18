@@ -137,7 +137,7 @@ private val RESET_CONVERSATION_TURN_COUNT_CONFIG =
     key = ConfigKeys.RESET_CONVERSATION_TURN_COUNT,
     sliderMin = 1f,
     sliderMax = 30f,
-    defaultValue = 5f,
+    defaultValue = 3f,
     valueType = ValueType.INT,
   )
 
