@@ -470,6 +470,33 @@ fun HomeScreen(
     )
   }
 
+  if (showMobileActionsChallengeDialog) {
+    MobileActionsChallengeDialog(
+      onDismiss = { showMobileActionsChallengeDialog = false },
+      onLoadModel = {
+        // Show file picker.
+        val intent =
+          Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+            // Single select.
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+          }
+        filePickerLauncher.launch(intent)
+      },
+      onSendEmail = {
+        context.startActivity(
+          Intent(Intent.ACTION_SEND).apply {
+            data = "mailto:".toUri()
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "Finetune FunctionGemma 270M for Mobile Actions")
+            putExtra(Intent.EXTRA_TEXT, "https://ai.google.dev/gemma/docs/mobile-actions")
+          }
+        )
+      },
+    )
+  }
+
   // Import model bottom sheet.
   if (showImportModelSheet) {
     ModalBottomSheet(onDismissRequest = { showImportModelSheet = false }, sheetState = sheetState) {

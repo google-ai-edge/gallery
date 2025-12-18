@@ -116,6 +116,18 @@
   <string name="prompt_template_label_show_location_on_map" translatable="false">Show location on map</string>
   <string name="prompt_template_label_open_wifi_settings" translatable="false">Open WIFI settings</string>
 
+  <!-- Strings for MobileActionsChallengeDialog -->
+  <string name="mobile_actions_challenge_title" translatable="false">Mobile Actions Finetune Challenge</string>
+  <string name="mobile_actions_challenge_subtitle" translatable="false">Build it to play it!</string>
+  <string name="mobile_actions_challenge_description" translatable="false">This demo is locked. To unlock the Mobile Actions agent, you need to compile the model yourself using our open-source recipe.</string>
+  <string name="mobile_actions_challenge_instructions_title" translatable="false">Instructions:</string>
+  <string name="mobile_actions_challenge_instruction_1" translatable="false">1. <![CDATA[<b>On your computer</b>]]>, open <![CDATA[<a href="https://ai.google.dev/gemma/docs/mobile-actions">this guide</a>]]></string>
+  <string name="mobile_actions_challenge_instruction_2" translatable="false">2. Follow the instructions to fine tune the model and convert it to .litertlm format.</string>
+  <string name="mobile_actions_challenge_instruction_3" translatable="false">3. Transfer the file to this phone.</string>
+  <string name="mobile_actions_challenge_instruction_4" translatable="false">4. Tap <![CDATA[<b>Load Model</b>]]> below to unlock the demo.</string>
+  <string name="mobile_actions_challenge_email_colab" translatable="false">Email guide to myself</string>
+  <string name="mobile_actions_challenge_load_model" translatable="false">Load Model</string>
+
   <!-- The following entries are for accessibility -->
 
   <!-- Content description spoken when the "import model" icon is focused. [CHAR_LIMIT=NONE] -->
