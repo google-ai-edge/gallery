@@ -45,7 +45,7 @@
       "modelFile": "gemma3-1b-it-int4.litertlm",
       "description": "A variant of [google/Gemma-3-1B-IT](https://huggingface.co/google/Gemma-3-1B-IT) with 4-bit quantization ready for deployment on iOS",
       "sizeInBytes": 584417280,
-      "minDeviceMemoryInGb": 6,
+      "minDeviceMemoryInGb": 4,
       "commitHash": "42d538a932e8d5b12e6b3b455f5572560bd60b2c",
       "defaultConfig": {
         "topK": 64,
