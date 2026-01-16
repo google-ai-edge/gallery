@@ -113,7 +113,7 @@ constructor(
 
       try {
         val responseMessage = conversation.sendMessage(Message.of(contents))
-        val response = (responseMessage.contents[0] as Content.Text).text
+        val response = responseMessage.toString()
         Log.d(TAG, "Done processing user instruction. Response: $response")
         onDone(response)
       } catch (e: Exception) {
