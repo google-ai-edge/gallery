@@ -30,7 +30,7 @@ import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.gallery.ui.llmchat.LlmModelInstance
 import com.google.ai.edge.litertlm.Content
-import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.Contents
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -112,7 +112,7 @@ constructor(
       }
 
       try {
-        val responseMessage = conversation.sendMessage(Message.of(contents))
+        val responseMessage = conversation.sendMessage(Contents.of(contents))
         val response = responseMessage.toString()
         Log.d(TAG, "Done processing user instruction. Response: $response")
         onDone(response)
@@ -179,7 +179,7 @@ constructor(
                   ChatMessageWarning(content = context.getString(R.string.engin_reset_message))
               )
             },
-            systemMessage = Message.of(getTinyGardenSystemPrompt()),
+            systemInstruction = Contents.of(getTinyGardenSystemPrompt()),
             tools = tools,
             enableConversationConstrainedDecoding = true,
           )
@@ -210,7 +210,7 @@ constructor(
         model = model,
         supportImage = false,
         supportAudio = false,
-        systemMessage = Message.of(curSystemPrompt),
+        systemInstruction = Contents.of(curSystemPrompt),
         tools = tools,
         enableConversationConstrainedDecoding = true,
       )

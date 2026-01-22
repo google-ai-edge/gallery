@@ -27,7 +27,7 @@ import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
-import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.Contents
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -108,7 +108,7 @@ class TinyGardenTask @Inject constructor() : CustomTask {
       supportImage = false,
       supportAudio = false,
       onDone = onDone,
-      systemMessage = Message.of(getTinyGardenSystemPrompt()),
+      systemInstruction = Contents.of(getTinyGardenSystemPrompt()),
       tools = tools,
       enableConversationConstrainedDecoding = true,
     )
