@@ -34,7 +34,7 @@ import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatus
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.litertlm.Content
-import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.Contents
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.net.URLEncoder
@@ -161,7 +161,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
       }
 
       conversation
-        .sendMessageAsync(Message.of(contents))
+        .sendMessageAsync(Contents.of(contents))
         .catch {
           Log.e(TAG, "Failed to run inference", it)
           onError(it.message ?: "Unknown error")
@@ -184,7 +184,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
       model = model,
       supportImage = false,
       supportAudio = false,
-      systemMessage = Message.of(getSystemPrompt()),
+      systemInstruction = Contents.of(getSystemPrompt()),
       tools = tools,
     )
     _isResettingConversation.value = false
@@ -222,7 +222,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
                 onError(error)
               }
             },
-            systemMessage = Message.of(getSystemPrompt()),
+            systemInstruction = Contents.of(getSystemPrompt()),
             tools = tools,
           )
         },

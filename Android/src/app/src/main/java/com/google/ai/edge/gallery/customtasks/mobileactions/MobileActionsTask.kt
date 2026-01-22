@@ -28,7 +28,7 @@ import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
-import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.Contents
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -74,7 +74,7 @@ class MobileActionsTask @Inject constructor() : CustomTask {
       supportImage = false,
       supportAudio = false,
       onDone = onDone,
-      systemMessage = Message.of(getSystemPrompt()),
+      systemInstruction = Contents.of(getSystemPrompt()),
       tools = tools,
     )
   }
