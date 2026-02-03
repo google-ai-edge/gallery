@@ -18,6 +18,8 @@ package com.google.ai.edge.gallery.data
 
 import androidx.datastore.core.DataStore
 import com.google.ai.edge.gallery.proto.AccessTokenData
+import com.google.ai.edge.gallery.proto.Cutout
+import com.google.ai.edge.gallery.proto.CutoutCollection
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.proto.Settings
 import com.google.ai.edge.gallery.proto.Theme
@@ -52,12 +54,21 @@ interface DataStoreRepository {
   fun getHasRunTinyGarden(): Boolean
 
   fun setHasRunTinyGarden(hasRun: Boolean)
+
+  fun addCutout(cutout: Cutout)
+
+  fun getAllCutouts(): List<Cutout>
+
+  fun setCutout(newCutout: Cutout)
+
+  fun setCutouts(cutouts: List<Cutout>)
 }
 
 /** Repository for managing data using Proto DataStore. */
 class DefaultDataStoreRepository(
   private val dataStore: DataStore<Settings>,
   private val userDataDataStore: DataStore<UserData>,
+  private val cutoutDataStore: DataStore<CutoutCollection>,
 ) : DataStoreRepository {
   override fun saveTextInputHistory(history: List<String>) {
     runBlocking {
@@ -165,6 +176,42 @@ class DefaultDataStoreRepository(
   override fun setHasRunTinyGarden(hasRun: Boolean) {
     runBlocking {
       dataStore.updateData { settings -> settings.toBuilder().setHasRunTinyGarden(hasRun).build() }
+    }
+  }
+
+  override fun addCutout(cutout: Cutout) {
+    runBlocking {
+      cutoutDataStore.updateData { cutouts -> cutouts.toBuilder().addCutout(cutout).build() }
+    }
+  }
+
+  override fun getAllCutouts(): List<Cutout> {
+    return runBlocking { cutoutDataStore.data.first().cutoutList }
+  }
+
+  override fun setCutout(newCutout: Cutout) {
+    runBlocking {
+      cutoutDataStore.updateData { cutouts ->
+        var index = -1
+        for (i in 0..<cutouts.cutoutCount) {
+          val cutout = cutouts.cutoutList.get(i)
+          if (cutout.id == newCutout.id) {
+            index = i
+            break
+          }
+        }
+        if (index >= 0) {
+          cutouts.toBuilder().setCutout(index, newCutout).build()
+        } else {
+          cutouts
+        }
+      }
+    }
+  }
+
+  override fun setCutouts(cutouts: List<Cutout>) {
+    runBlocking {
+      cutoutDataStore.updateData { CutoutCollection.newBuilder().addAllCutout(cutouts).build() }
     }
   }
 }

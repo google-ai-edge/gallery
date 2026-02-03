@@ -100,6 +100,9 @@ data class Task(
   /** Whether the task is experimental. */
   val experimental: Boolean = false,
 
+  /** Whether to use theme color instead of the task tint color. */
+  val useThemeColor: Boolean = false,
+
   // The following fields are only used for built-in tasks. Can ignore if you are creating your own
   // custom tasks.
   //
@@ -124,6 +127,7 @@ object BuiltInTaskId {
   const val LLM_ASK_AUDIO = "llm_ask_audio"
   const val LLM_MOBILE_ACTIONS = "llm_mobile_actions"
   const val LLM_TINY_GARDEN = "llm_tiny_garden"
+  const val MP_SCRAPBOOK = "mp_scrapbook"
 }
 
 private val allLegacyTaskIds: Set<String> =

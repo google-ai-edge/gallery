@@ -18,5 +18,5 @@
 <paths>
     <cache-path
         name="cache_pictures"
-        path="/" />
+        path="images/" />
 </paths>

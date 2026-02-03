@@ -242,7 +242,11 @@ fun ChatView(
             modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.95f)),
           ) { page ->
             allImageViewerImages[page].let { image ->
-              ZoomableImage(bitmap = image.asImageBitmap(), pagerState = pagerState)
+              ZoomableImage(
+                bitmap = image.asImageBitmap(),
+                pagerState = pagerState,
+                modifier = Modifier.fillMaxSize(),
+              )
             }
           }
 

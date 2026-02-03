@@ -163,6 +163,7 @@ private val PREDEFINED_LLM_TASK_ORDER =
     BuiltInTaskId.LLM_PROMPT_LAB,
     BuiltInTaskId.LLM_TINY_GARDEN,
     BuiltInTaskId.LLM_MOBILE_ACTIONS,
+    BuiltInTaskId.MP_SCRAPBOOK,
   )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -194,46 +195,6 @@ fun HomeScreen(
   val tasks = uiState.tasks
   val categoryMap: Map<String, CategoryInfo> =
     remember(tasks) { tasks.associateBy { it.category.id }.mapValues { it.value.category } }
-  val tasksByCategories: Map<String, List<Task>> =
-    remember(tasks) {
-      val groupedTasks = tasks.groupBy { it.category.id }
-      val groupedSortedTasks: MutableMap<String, List<Task>> = mutableMapOf()
-      // Sort the tasks in categories by pre-defined order. Sort other tasks by label.
-      for (categoryId in groupedTasks.keys) {
-        val sortedTasks =
-          groupedTasks[categoryId]!!.sortedWith { a, b ->
-            if (categoryId == Category.LLM.id) {
-              val order: List<String> =
-                when (categoryId) {
-                  Category.LLM.id -> PREDEFINED_LLM_TASK_ORDER
-                  else -> listOf()
-                }
-              val indexA = order.indexOf(a.id)
-              val indexB = order.indexOf(b.id)
-              if (indexA != -1 && indexB != -1) {
-                indexA.compareTo(indexB)
-              } else if (indexA != -1) {
-                -1
-              } else if (indexB != -1) {
-                1
-              } else {
-                val ca = categoryMap[a.id]!!
-                val cb = categoryMap[b.id]!!
-                val caLabel = getCategoryLabel(context = context, category = ca)
-                val cbLabel = getCategoryLabel(context = context, category = cb)
-                caLabel.compareTo(cbLabel)
-              }
-            } else {
-              a.label.compareTo(b.label)
-            }
-          }
-        for ((index, task) in sortedTasks.withIndex()) {
-          task.index = index
-        }
-        groupedSortedTasks[categoryId] = sortedTasks
-      }
-      groupedSortedTasks
-    }
   val sortedCategories =
     remember(categoryMap) {
       categoryMap.keys
@@ -429,7 +390,7 @@ fun HomeScreen(
               TaskList(
                 pagerState = pagerState,
                 sortedCategories = sortedCategories,
-                tasksByCategories = tasksByCategories,
+                tasksByCategories = uiState.tasksByCategory,
                 enableAnimation = enableAnimation,
                 navigateToTaskScreen = { task ->
                   if (task.id == BuiltInTaskId.LLM_MOBILE_ACTIONS && task.models.isEmpty()) {
@@ -439,6 +400,8 @@ fun HomeScreen(
                   }
                 },
               )
+
+              Spacer(modifier = Modifier.height(64.dp))
             }
 
             SnackbarHost(
@@ -1041,14 +1004,3 @@ private fun getCategoryLabel(context: Context, category: CategoryInfo): String {
   }
   return context.getString(R.string.category_unlabeled)
 }
-
-// @Preview
-// @Composable
-// fun HomeScreenPreview() {
-//   GalleryTheme {
-//     HomeScreen(
-//       modelManagerViewModel = PreviewModelManagerViewModel(context = LocalContext.current),
-//       navigateToTaskScreen = {},
-//     )
-//   }
-// }
