@@ -16,78 +16,96 @@
 
 <resources>
   <!-- TODO(jingjin): Add translation support when i18n is ready. -->
+  <string name="all" translatable="false">All</string>
+  <string name="app_intro" translatable="false">Explore a world of amazing on-device models from</string>
   <string name="app_name" translatable="false">Google AI Edge Gallery</string>
   <string name="app_name_first_part" translatable="false">Google AI</string>
   <string name="app_name_second_part" translatable="false">Edge Gallery</string>
-  <string name="app_intro" translatable="false">Explore a world of amazing on-device models from</string>
+  <string name="benchmark" translatable="false">Run benchmark</string>
   <string name="best_overall" translatable="false">Best overall</string>
-  <plurals name="model_list_number_of_models_available" translatable="false">
-    <item quantity="one">%d model available</item>
-    <item quantity="other">%d models available</item>
-  </plurals>
-  <string name="model_list_recommended_models_title" translatable="false">Recommended models</string>
-  <string name="model_list_imported_models_title" translatable="false">Imported models</string>
   <string name="model_list_experimental_label" translatable="false">EXPERIMENTAL</string>
-  <string name="model_manager" translatable="false">Model Manager</string>
-  <string name="download" translatable="false">Download</string>
-  <string name="downloaded_size" translatable="false">%1$s downloaded</string>
   <string name="cancel" translatable="false">Cancel</string>
   <string name="category_unlabeled" translatable="false">Unlabeled</string>
   <string name="category_llm" translatable="false">LLM</string>
   <string name="category_agents" translatable="false">Agents</string>
   <string name="category_classical_ml" translatable="false">Classical ML</string>
   <string name="category_experimental" translatable="false">Experimental</string>
+  <string name="chat_textinput_placeholder" translatable="false">Type message…</string>
+  <string name="chat_you" translatable="false">You</string>
+  <string name="chat_llm_agent_name" translatable="false">LLM</string>
   <string name="checking_access" translatable="false">Checking access...</string>
-  <string name="ok" translatable="false">OK</string>
   <string name="close" translatable="false">Close</string>
   <string name="error" translatable="false">Error</string>
   <string name="confirm_delete_model_dialog_title" translatable="false">Delete download</string>
   <string name="confirm_delete_model_dialog_content" translatable="false">Are you sure you want to delete the downloaded model \"%s\"?</string>
   <string name="conversation_reset_message" translatable="false">Conversation was reset</string>
   <string name="engin_reset_message" translatable="false">Engine was reset</string>
-  <string name="notification_title_success" translatable="false">Model download succeeded</string>
-  <string name="notification_content_success" translatable="false">Model \"%s\" has been downloaded</string>
-  <string name="notification_title_fail" translatable="false">Model download failed</string>
-  <string name="notification_content_fail" translatable="false">Failed to download model \"%s\"</string>
-  <string name="chat_textinput_placeholder" translatable="false">Type message…</string>
-  <string name="chat_you" translatable="false">You</string>
-  <string name="chat_llm_agent_name" translatable="false">LLM</string>
   <string name="chat_agent_agent_name" translatable="false">Agent</string>
   <string name="chat_generic_agent_name" translatable="false">Model</string>
   <string name="chat_generic_result_name" translatable="false">Result</string>
+  <string name="clear" translatable="false">Clear</string>
+  <string name="collect" translatable="false">Collect</string>
+  <string name="color" translatable="false">Color</string>
+  <string name="conversation_history" translatable="false">Conversation History</string>
+  <string name="create" translatable="false">Create</string>
+  <string name="delete" translatable="false">Delete</string>
+  <string name="disabled" translatable="false">Disabled</string>
+  <string name="done" translatable="false">Done</string>
+  <string name="download" translatable="false">Download</string>
+  <string name="downloaded_size" translatable="false">%1$s downloaded</string>
+  <string name="edit" translatable="false">Edit</string>
+  <string name="enter_instruction" translatable="false">Enter instruction</string>
+  <string name="flashlight_off_message" translatable="false">I\'ve turned off the flashlight.</string>
+  <string name="flashlight_on_message" translatable="false">I\'ve turned on the flashlight.</string>
+  <string name="function_name" translatable="false">Function name</string>
+  <string name="grant_permissions" translatable="false">Grant permissions</string>
+  <string name="grant_record_audio_permission" translatable="false">Grant record audio permission</string>
+  <string name="hold_down_to_talk" translatable="false">Hold to talk</string>
+  <string name="invalid_response" translatable="false">Invalid response</string>
   <string name="learn_more" translatable="false">Learn more</string>
+  <string name="listening" translatable="false">Listening...</string>
   <string name="litert_community_label" translatable="false">LiteRT community</string>
   <string name="loading_model_list" translatable="false">Loading model list...</string>
-  <string name="memory_warning_title" translatable="false">Memory Warning</string>
   <string name="memory_warning_content" translatable="false">The model you\'ve selected may exceed your device\'s memory, which can cause the app to crash. For the best experience, we recommend trying a smaller model.</string>
   <string name="memory_warning_proceed_anyway" translatable="false">Proceed anyway</string>
-  <string name="model_not_downloaded_msg" translatable="false">Model not downloaded yet</string>
+  <string name="memory_warning_title" translatable="false">Memory Warning</string>
   <string name="model_is_initializing_msg" translatable="false">Initializing model…</string>
+  <string name="model_list_imported_models_title" translatable="false">Imported models</string>
+  <plurals name="model_list_number_of_models_available" translatable="false">
+    <item quantity="one">%d model available</item>
+    <item quantity="other">%d models available</item>
+  </plurals>
+  <string name="model_list_recommended_models_title" translatable="false">Recommended models</string>
+  <string name="model_manager" translatable="false">Model Manager</string>
+  <string name="model_not_downloaded_msg" translatable="false">Model not downloaded yet</string>
+  <string name="no_cutouts_collected" translatable="false">No cutouts collected</string>
+  <string name="notification_content_fail" translatable="false">Failed to download model "%s"</string>
+  <string name="notification_content_success" translatable="false">Model "%s" has been downloaded</string>
+  <string name="notification_title_fail" translatable="false">Model download failed</string>
+  <string name="notification_title_success" translatable="false">Model download succeeded</string>
+  <string name="ok" translatable="false">OK</string>
+  <string name="pick_from_album" translatable="false">Pick from album</string>
+  <string name="preview" translatable="false">Preview</string>
+  <string name="release_to_send" translatable="false">Release to send</string>
   <string name="reset" translatable="false">Reset</string>
   <string name="reset_note" translatable="false">Tapping \"Reset\" will reset LiteRT-LM engine only. The game progress won\'t be affected.</string>
   <string name="resetting_engine" translatable="false">Resetting engine...</string>
   <string name="reinitializing_description" translatable="false">The game progress won\'t be affected</string>
+  <string name="run_again" translatable="false">Run again</string>
+  <string name="running" translatable="false">running</string>
+  <string name="selected_count" translatable="false">%d selected</string>
   <string name="settings_dialog_tos_title" translatable="false">Terms of services</string>
-  <string name="text_input_placeholder_text_classification" translatable="false">Type movie review to classify…</string>
+  <string name="share" translatable="false">Share</string>
+  <string name="slide_up_to_cancel" translatable="false">Slide up to cancel</string>
+  <string name="take_a_picture" translatable="false">Take a picture</string>
+  <string name="tap_to_change_color" translatable="false">Tap to change color</string>
   <string name="text_image_generation_text_field_placeholder" translatable="false">Type prompt…</string>
   <string name="text_input_placeholder_llm_chat" translatable="false">Type prompt…</string>
   <string name="tos_dialog_title" translatable="false">Welcome to Google AI Edge Gallery</string>
   <string name="tos_dialog_view_accept_button_label" translatable="false">Accept &amp; Continue</string>
   <string name="try_it" translatable="false">Try it</string>
-  <string name="run_again" translatable="false">Run again</string>
-  <string name="benchmark" translatable="false">Run benchmark</string>
-  <string name="warming_up" translatable="false">warming up…</string>
-  <string name="running" translatable="false">running</string>
-  <string name="enter_instruction" translatable="false">Enter instruction</string>
-  <string name="invalid_response" translatable="false">Invalid response</string>
-  <string name="hold_down_to_talk" translatable="false">Hold to talk</string>
-  <string name="release_to_send" translatable="false">Release to send</string>
-  <string name="slide_up_to_cancel" translatable="false">Slide up to cancel</string>
-  <string name="listening" translatable="false">Listening...</string>
-  <string name="grant_record_audio_permission" translatable="false">Grant record audio permission</string>
+  <string name="undo" translatable="false">Undo</string>
   <string name="unsupported_action" translatable="false">Unsupported action</string>
-  <string name="flashlight_on_message" translatable="false">I\'ve turned on the flashlight.</string>
-  <string name="flashlight_off_message" translatable="false">I\'ve turned off the flashlight.</string>
   <string name="set_screen_brightness_message" translatable="false">I\'ve set the screen brightness to %1$d%%.</string>
   <string name="set_timer_message" translatable="false">Setting the timer for %1$d seconds.</string>
   <string name="add_calendar_event_message" translatable="false">Adding \"Team meeting (10AM-11AM)\" to your calendar.</string>
@@ -97,12 +115,11 @@
   <string name="mobile_actions_supported_actions" translatable="false">Supported sample actions:</string>
   <string name="mobile_actions_tab_model_response" translatable="false">Model response</string>
   <string name="mobile_actions_tab_function_called" translatable="false">Function(s) called</string>
-  <string name="conversation_history" translatable="false">Conversation History</string>
+  <string name="warming_up" translatable="false">warming up…</string>
   <string name="warning_no_function_call" translatable="false">No function recognized</string>
   <string name="snackbar_no_function_call" translatable="false">No function recognized</string>
   <string name="unknown_error" translatable="false">Unknown error</string>
 
-  <string name="function_name" translatable="false">Function name</string>
   <plurals name="parameter" translatable="false">
     <item quantity="one">Parameter</item>
     <item quantity="other">Parameters</item>
@@ -218,4 +235,5 @@
   <string name="cd_show_history">Show history</string>
   <!-- Content description spoken when the "more options" icon is focused. [CHAR_LIMIT=NONE] -->
   <string name="cd_more_options">More options</string>
+
 </resources>

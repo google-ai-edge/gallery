@@ -73,6 +73,7 @@ fun ModelPageAppBar(
   onResetSessionClicked: (Model) -> Unit = {},
   canShowResetSessionButton: Boolean = false,
   hideModelSelector: Boolean = false,
+  useThemeColor: Boolean = false,
   onConfigChanged: (oldConfigValues: Map<String, Any>, newConfigValues: Map<String, Any>) -> Unit =
     { _, _ ->
     },
@@ -96,19 +97,18 @@ fun ModelPageAppBar(
         // Task type.
         Row(
           verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(6.dp),
+          horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+          val tintColor =
+            if (useThemeColor) MaterialTheme.colorScheme.onSurface
+            else getTaskIconColor(task = task)
           Icon(
             task.icon ?: ImageVector.vectorResource(task.iconVectorResourceId!!),
-            tint = getTaskIconColor(task = task),
-            modifier = Modifier.size(16.dp),
+            tint = tintColor,
+            modifier = Modifier.size(24.dp),
             contentDescription = null,
           )
-          Text(
-            task.label,
-            style = MaterialTheme.typography.titleMedium,
-            color = getTaskIconColor(task = task),
-          )
+          Text(task.label, style = MaterialTheme.typography.titleMedium, color = tintColor)
         }
 
         // Model chips pager.

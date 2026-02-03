@@ -25,11 +25,13 @@ import android.util.Log
 import androidx.exifinterface.media.ExifInterface
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.gson.Gson
+import java.io.File
 import java.io.FileInputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.channels.FileChannel
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
@@ -297,4 +299,19 @@ private fun calculateInSampleSize(
   }
 
   return inSampleSize
+}
+
+fun readFileToByteBuffer(file: File): ByteBuffer? {
+  return try {
+    val fileInputStream = FileInputStream(file)
+    val fileChannel: FileChannel = fileInputStream.channel
+    val byteBuffer = ByteBuffer.allocateDirect(fileChannel.size().toInt())
+    fileChannel.read(byteBuffer)
+    byteBuffer.rewind()
+    fileInputStream.close()
+    byteBuffer
+  } catch (e: Exception) {
+    e.printStackTrace()
+    null
+  }
 }

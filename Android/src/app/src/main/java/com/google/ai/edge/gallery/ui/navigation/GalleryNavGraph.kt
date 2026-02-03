@@ -26,6 +26,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.EaseOutExpo
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -155,7 +156,6 @@ fun GalleryNavHost(
 
   NavHost(
     navController = navController,
-    // Default to open home screen.
     startDestination = ROUTE_HOMESCREEN,
     enterTransition = { EnterTransition.None },
     exitTransition = { ExitTransition.None },
@@ -222,6 +222,9 @@ fun GalleryNavHost(
     ) { backStackEntry ->
       val modelName = backStackEntry.arguments?.getString("modelName") ?: ""
       val taskId = backStackEntry.arguments?.getString("taskId") ?: ""
+      val scope = rememberCoroutineScope()
+      val context = LocalContext.current
+
       modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
         LaunchedEffect(Unit) { modelManagerViewModel.selectModel(model) }
 
@@ -241,15 +244,32 @@ fun GalleryNavHost(
           } else {
             var disableAppBarControls by remember { mutableStateOf(false) }
             var hideTopBar by remember { mutableStateOf(false) }
+            var customNavigateUpCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
             CustomTaskScreen(
               task = customTask.task,
               modelManagerViewModel = modelManagerViewModel,
               onNavigateUp = {
-                enableModelListAnimation = false
-                navController.navigateUp()
+                if (customNavigateUpCallback != null) {
+                  customNavigateUpCallback?.invoke()
+                } else {
+                  enableModelListAnimation = false
+                  navController.navigateUp()
+
+                  // clean up all models.
+                  scope.launch(Dispatchers.Default) {
+                    for (model in customTask.task.models) {
+                      modelManagerViewModel.cleanupModel(
+                        context = context,
+                        task = customTask.task,
+                        model = model,
+                      )
+                    }
+                  }
+                }
               },
               disableAppBarControls = disableAppBarControls,
               hideTopBar = hideTopBar,
+              useThemeColor = customTask.task.useThemeColor,
             ) { bottomPadding ->
               customTask.MainScreen(
                 data =
@@ -258,6 +278,7 @@ fun GalleryNavHost(
                     bottomPadding = bottomPadding,
                     setAppBarControlsDisabled = { disableAppBarControls = it },
                     setTopBarVisible = { hideTopBar = !it },
+                    setCustomNavigateUpCallback = { customNavigateUpCallback = it },
                   )
               )
             }
@@ -293,6 +314,7 @@ private fun CustomTaskScreen(
   modelManagerViewModel: ModelManagerViewModel,
   disableAppBarControls: Boolean,
   hideTopBar: Boolean,
+  useThemeColor: Boolean,
   onNavigateUp: () -> Unit,
   content: @Composable (bottomPadding: Dp) -> Unit,
 ) {
@@ -307,13 +329,6 @@ private fun CustomTaskScreen(
   val handleNavigateUp = {
     navigatingUp = true
     onNavigateUp()
-
-    // clean up all models.
-    scope.launch(Dispatchers.Default) {
-      for (model in task.models) {
-        modelManagerViewModel.cleanupModel(context = context, task = task, model = model)
-      }
-    }
   }
 
   // Handle system's edge swipe.
@@ -352,6 +367,7 @@ private fun CustomTaskScreen(
           inProgress = disableAppBarControls,
           modelPreparing = disableAppBarControls,
           canShowResetSessionButton = false,
+          useThemeColor = useThemeColor,
           modifier =
             Modifier.onGloballyPositioned { coordinates -> appBarHeight = coordinates.size.height },
           hideModelSelector = task.models.size <= 1,
@@ -389,14 +405,14 @@ private fun CustomTaskScreen(
     val animatedTopPadding by
       animateDpAsState(
         targetValue = targetPaddingDp,
-        animationSpec = tween(durationMillis = 300),
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
         label = "TopPaddingAnimation",
       )
 
     Box(
       modifier =
         Modifier.padding(
-          top = animatedTopPadding,
+          top = if (!hideTopBar) innerPadding.calculateTopPadding() else animatedTopPadding,
           start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
           end = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
         )

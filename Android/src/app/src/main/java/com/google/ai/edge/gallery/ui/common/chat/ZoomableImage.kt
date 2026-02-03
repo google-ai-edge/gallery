@@ -24,19 +24,24 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
+import kotlin.math.max
+import kotlin.math.min
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 
@@ -53,17 +58,28 @@ fun ZoomableImage(
   minScale: Float = 1f,
   maxScale: Float = 3f,
   contentScale: ContentScale = ContentScale.Fit,
-  pagerState: PagerState,
+  pagerState: PagerState? = null,
+  resetOnImageUpdate: Boolean = true,
+  enabled: Boolean = true,
+  twoFingerOnly: Boolean = false,
+  onTransformed: (offsetX: Float, offsetY: Float, scale: Float) -> Unit = { _, _, _ -> },
 ) {
-  val scale = remember { mutableStateOf(1f) }
-  val offsetX = remember { mutableStateOf(1f) }
-  val offsetY = remember { mutableStateOf(1f) }
-
+  val scale = remember { mutableFloatStateOf(1f) }
+  val offsetX = remember { mutableFloatStateOf(0f) }
+  val offsetY = remember { mutableFloatStateOf(0f) }
   val coroutineScope = rememberCoroutineScope()
-  Box(
-    contentAlignment = Alignment.TopCenter,
-    modifier =
-      Modifier.fillMaxSize().background(Color.Transparent).pointerInput(Unit) {
+
+  LaunchedEffect(bitmap) {
+    if (resetOnImageUpdate) {
+      scale.floatValue = 1f
+      offsetX.floatValue = 0f
+      offsetY.floatValue = 0f
+    }
+  }
+
+  val gestureModifier =
+    if (enabled) {
+      Modifier.pointerInput(twoFingerOnly) { // Only apply if enabled is true
         // It uses the `pointerInput` modifier to detect gestures.
         //
         // When a user performs a pinch-to-zoom gesture, the `scale` state is updated.
@@ -77,32 +93,46 @@ fun ZoomableImage(
           awaitFirstDown()
           do {
             val event = awaitPointerEvent()
-            scale.value *= event.calculateZoom()
-            if (scale.value > 1) {
-              coroutineScope.launch { pagerState.setScrolling(false) }
+            val isTwoFingerGesture = event.changes.size >= 2
+            if ((twoFingerOnly && isTwoFingerGesture) || !twoFingerOnly) {
+              scale.floatValue *= event.calculateZoom()
+              scale.floatValue = max(min(scale.floatValue, maxScale), minScale)
+              coroutineScope.launch { pagerState?.setScrolling(false) }
               val offset = event.calculatePan()
-              offsetX.value += offset.x
-              offsetY.value += offset.y
-              coroutineScope.launch { pagerState.setScrolling(true) }
-            } else {
-              scale.value = 1f
-              offsetX.value = 1f
-              offsetY.value = 1f
+              offsetX.floatValue += offset.x
+              offsetY.floatValue += offset.y
+
+              // Consume the event so the parent Pager does not receive it
+              if (twoFingerOnly) {
+                event.changes.forEach { it.consume() }
+              }
+
+              coroutineScope.launch { pagerState?.setScrolling(true) }
+              onTransformed(offsetX.floatValue, offsetY.floatValue, scale.floatValue)
             }
           } while (event.changes.any { it.pressed })
         }
-      },
+      }
+    } else {
+      // Return an empty modifier if disabled, effectively disabling interaction
+      Modifier
+    }
+
+  Box(
+    contentAlignment = Alignment.Center,
+    modifier =
+      modifier.background(Color.Transparent).clip(RoundedCornerShape(0.dp)).then(gestureModifier),
   ) {
     Image(
       bitmap = bitmap,
       contentDescription = null,
       contentScale = contentScale,
       modifier =
-        modifier.align(Alignment.Center).graphicsLayer {
-          scaleX = maxOf(minScale, minOf(maxScale, scale.value))
-          scaleY = maxOf(minScale, minOf(maxScale, scale.value))
-          translationX = offsetX.value
-          translationY = offsetY.value
+        Modifier.align(Alignment.Center).graphicsLayer {
+          scaleX = maxOf(minScale, minOf(maxScale, scale.floatValue))
+          scaleY = maxOf(minScale, minOf(maxScale, scale.floatValue))
+          translationX = offsetX.floatValue
+          translationY = offsetY.floatValue
         },
     )
   }

@@ -22,6 +22,7 @@ import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStoreFile
 import com.google.ai.edge.gallery.AppLifecycleProvider
+import com.google.ai.edge.gallery.CutoutsSerializer
 import com.google.ai.edge.gallery.GalleryLifecycleProvider
 import com.google.ai.edge.gallery.SettingsSerializer
 import com.google.ai.edge.gallery.UserDataSerializer
@@ -29,6 +30,7 @@ import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.DefaultDataStoreRepository
 import com.google.ai.edge.gallery.data.DefaultDownloadRepository
 import com.google.ai.edge.gallery.data.DownloadRepository
+import com.google.ai.edge.gallery.proto.CutoutCollection
 import com.google.ai.edge.gallery.proto.Settings
 import com.google.ai.edge.gallery.proto.UserData
 import dagger.Module
@@ -49,6 +51,13 @@ internal object AppModule {
     return SettingsSerializer
   }
 
+  // Provides the CutoutSerializer
+  @Provides
+  @Singleton
+  fun provideCutoutSerializer(): Serializer<CutoutCollection> {
+    return CutoutsSerializer
+  }
+
   // Provides the UserDataSerializer
   @Provides
   @Singleton
@@ -66,6 +75,19 @@ internal object AppModule {
     return DataStoreFactory.create(
       serializer = settingsSerializer,
       produceFile = { context.dataStoreFile("settings.pb") },
+    )
+  }
+
+  // Provides DataStore<CutoutCollection>
+  @Provides
+  @Singleton
+  fun provideCutoutsDataStore(
+    @ApplicationContext context: Context,
+    cutoutsSerializer: Serializer<CutoutCollection>,
+  ): DataStore<CutoutCollection> {
+    return DataStoreFactory.create(
+      serializer = cutoutsSerializer,
+      produceFile = { context.dataStoreFile("cutouts.pb") },
     )
   }
 
@@ -95,8 +117,9 @@ internal object AppModule {
   fun provideDataStoreRepository(
     dataStore: DataStore<Settings>,
     userDataDataStore: DataStore<UserData>,
+    cutoutsDataStore: DataStore<CutoutCollection>,
   ): DataStoreRepository {
-    return DefaultDataStoreRepository(dataStore, userDataDataStore)
+    return DefaultDataStoreRepository(dataStore, userDataDataStore, cutoutsDataStore)
   }
 
   // Provides DownloadRepository

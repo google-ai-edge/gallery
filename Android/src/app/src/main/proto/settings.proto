@@ -72,3 +72,52 @@ message Settings {
 message UserData {
   AccessTokenData access_token_data = 1;
 }
+
+enum FillMode {
+  FILL_MODE_UNSPECIFIED = 0;
+  FILL_MODE_DISABLED = 1;
+  FILL_MODE_SOLID = 2;
+  FILL_MODE_COLORIZE = 3;
+}
+
+message Point {
+  float x = 1;
+  float y = 2;
+}
+
+message StrokePath {
+  repeated Point point = 1;
+  int32 brush_color = 2;
+  float brush_size = 3;
+  float brush_softness = 4;
+  int32 blur_type = 5;
+}
+
+// A single cutout, used in scrapbook demo.
+message Cutout {
+  // id of the cutout.
+  string id = 1;
+
+  // Rotation degree applied to the cutout.
+  int32 rotation_degree = 2;
+
+  // The width of the border.
+  int32 border_width = 3;
+
+  // The color of the border.
+  int32 border_color = 4;
+
+  // The fill color.
+  int32 fill_color = 5;
+
+  // The fill mode.
+  FillMode fill_mode = 6;
+
+  // Doodle stroke paths.
+  repeated StrokePath doodle_stroke = 7;
+}
+
+// A collection of cutout, used in scrapbook demo.
+message CutoutCollection {
+  repeated Cutout cutout = 1;
+}

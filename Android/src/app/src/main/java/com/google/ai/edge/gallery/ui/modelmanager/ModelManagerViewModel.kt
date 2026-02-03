@@ -24,11 +24,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.AppLifecycleProvider
 import com.google.ai.edge.gallery.BuildConfig
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.ProjectConfig
 import com.google.ai.edge.gallery.common.getJsonResponse
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.BuiltInTaskId
+import com.google.ai.edge.gallery.data.Category
+import com.google.ai.edge.gallery.data.CategoryInfo
 import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DataStoreRepository
@@ -54,6 +57,7 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import javax.inject.Inject
+import kotlin.collections.sortedWith
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -69,6 +73,8 @@ private const val TAG = "AGModelManagerViewModel"
 private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
 private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
 private const val MODEL_ALLOWLIST_TEST_FILENAME = "model_allowlist_test.json"
+
+private const val TEST_MODEL_ALLOW_LIST = ""
 
 data class ModelInitializationStatus(
   val status: ModelInitializationStatusType,
@@ -101,6 +107,9 @@ data class TokenRequestResult(val status: TokenRequestResultType, val errorMessa
 data class ModelManagerUiState(
   /** A list of tasks available in the application. */
   val tasks: List<Task>,
+
+  /** Tasks grouped by category. */
+  val tasksByCategory: Map<String, List<Task>>,
 
   /** A map that tracks the download status of each model, indexed by model name. */
   val modelDownloadStatus: Map<String, ModelDownloadStatus>,
@@ -141,6 +150,17 @@ private val RESET_CONVERSATION_TURN_COUNT_CONFIG =
     valueType = ValueType.INT,
   )
 
+private val PREDEFINED_LLM_TASK_ORDER =
+  listOf(
+    BuiltInTaskId.LLM_ASK_IMAGE,
+    BuiltInTaskId.LLM_ASK_AUDIO,
+    BuiltInTaskId.LLM_CHAT,
+    BuiltInTaskId.LLM_PROMPT_LAB,
+    BuiltInTaskId.LLM_TINY_GARDEN,
+    BuiltInTaskId.LLM_MOBILE_ACTIONS,
+    BuiltInTaskId.MP_SCRAPBOOK,
+  )
+
 /**
  * ViewModel responsible for managing models, their download status, and initialization.
  *
@@ -166,7 +186,6 @@ constructor(
   var curAccessToken: String = ""
 
   override fun onCleared() {
-    super.onCleared()
     authService.dispose()
   }
 
@@ -724,9 +743,9 @@ constructor(
         Log.d(TAG, "Loading test model allowlist.")
         modelAllowlist = readModelAllowlistFromDisk(fileName = MODEL_ALLOWLIST_TEST_FILENAME)
 
-        // // Local test only.
-        // val gson = Gson()
-        // modelAllowlist = gson.fromJson(TEST_MODEL_ALLOW_LIST, ModelAllowlist::class.java)
+        // Local test only.
+        val gson = Gson()
+        modelAllowlist = gson.fromJson(TEST_MODEL_ALLOW_LIST, ModelAllowlist::class.java)
 
         if (modelAllowlist == null) {
           // Load from github.
@@ -794,7 +813,14 @@ constructor(
         processTasks()
 
         // Update UI state.
-        _uiState.update { createUiState().copy(loadingModelAllowlist = false, tasks = curTasks) }
+        _uiState.update {
+          createUiState()
+            .copy(
+              loadingModelAllowlist = false,
+              tasks = curTasks,
+              tasksByCategory = groupTasksByCategory(),
+            )
+        }
 
         // Process pending downloads.
         processPendingDownloads()
@@ -809,7 +835,12 @@ constructor(
     processTasks()
     _uiState.update {
       createUiState()
-        .copy(loadingModelAllowlist = false, tasks = curTasks, loadingModelAllowlistError = "")
+        .copy(
+          loadingModelAllowlist = false,
+          tasks = curTasks,
+          loadingModelAllowlistError = "",
+          tasksByCategory = groupTasksByCategory(),
+        )
     }
   }
 
@@ -865,6 +896,7 @@ constructor(
   private fun createEmptyUiState(): ModelManagerUiState {
     return ModelManagerUiState(
       tasks = listOf(),
+      tasksByCategory = mapOf(),
       modelDownloadStatus = mapOf(),
       modelInitializationStatus = mapOf(),
     )
@@ -931,6 +963,7 @@ constructor(
     Log.d(TAG, "model download status: $modelDownloadStatus")
     return ModelManagerUiState(
       tasks = customTasks.map { it.task }.toList(),
+      tasksByCategory = mapOf(),
       modelDownloadStatus = modelDownloadStatus,
       modelInitializationStatus = modelInstances,
       textInputHistory = textInputHistory,
@@ -977,6 +1010,63 @@ constructor(
     model.preProcess()
 
     return model
+  }
+
+  private fun groupTasksByCategory(): Map<String, List<Task>> {
+    val tasks = customTasks.map { it.task }
+
+    val categoryMap: Map<String, CategoryInfo> =
+      tasks.associateBy { it.category.id }.mapValues { it.value.category }
+
+    val groupedTasks = tasks.groupBy { it.category.id }
+    val groupedSortedTasks: MutableMap<String, List<Task>> = mutableMapOf()
+    // Sort the tasks in categories by pre-defined order. Sort other tasks by label.
+    for (categoryId in groupedTasks.keys) {
+      val sortedTasks =
+        groupedTasks[categoryId]!!.sortedWith { a, b ->
+          if (categoryId == Category.LLM.id) {
+            val order: List<String> =
+              when (categoryId) {
+                Category.LLM.id -> PREDEFINED_LLM_TASK_ORDER
+                else -> listOf()
+              }
+            val indexA = order.indexOf(a.id)
+            val indexB = order.indexOf(b.id)
+            if (indexA != -1 && indexB != -1) {
+              indexA.compareTo(indexB)
+            } else if (indexA != -1) {
+              -1
+            } else if (indexB != -1) {
+              1
+            } else {
+              val ca = categoryMap[a.id]!!
+              val cb = categoryMap[b.id]!!
+              val caLabel = getCategoryLabel(context = context, category = ca)
+              val cbLabel = getCategoryLabel(context = context, category = cb)
+              caLabel.compareTo(cbLabel)
+            }
+          } else {
+            a.label.compareTo(b.label)
+          }
+        }
+      for ((index, task) in sortedTasks.withIndex()) {
+        task.index = index
+      }
+      groupedSortedTasks[categoryId] = sortedTasks
+    }
+
+    return groupedSortedTasks
+  }
+
+  private fun getCategoryLabel(context: Context, category: CategoryInfo): String {
+    val stringRes = category.labelStringRes
+    val label = category.label
+    if (stringRes != null) {
+      return context.getString(stringRes)
+    } else if (label != null) {
+      return label
+    }
+    return context.getString(R.string.category_unlabeled)
   }
 
   /**
