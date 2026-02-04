@@ -100,15 +100,9 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import androidx.core.os.bundleOf
 import com.google.ai.edge.gallery.GalleryTopAppBar
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.AppBarAction
@@ -119,11 +113,11 @@ import com.google.ai.edge.gallery.data.CategoryInfo
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.ui.common.RevealingText
 import com.google.ai.edge.gallery.ui.common.SwipingText
 import com.google.ai.edge.gallery.ui.common.TaskIcon
+import com.google.ai.edge.gallery.ui.common.buildTrackableUrlAnnotatedString
 import com.google.ai.edge.gallery.ui.common.rememberDelayedAnimationProgress
 import com.google.ai.edge.gallery.ui.common.tos.TosDialog
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
@@ -712,23 +706,12 @@ private fun IntroText(enableAnimation: Boolean) {
 
   val introText = buildAnnotatedString {
     append("${stringResource(R.string.app_intro)} ")
-    // TODO: Consolidate the link clicking logic into ui/common/ClickableLink.kt.
-    withLink(
-      link =
-        LinkAnnotation.Url(
-          url = url,
-          styles =
-            TextLinkStyles(
-              style = SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)
-            ),
-          linkInteractionListener = { _ ->
-            firebaseAnalytics?.logEvent("resource_link_click", bundleOf("link_destination" to url))
-            uriHandler.openUri(url)
-          },
-        )
-    ) {
-      append(stringResource(R.string.litert_community_label))
-    }
+    append(
+      buildTrackableUrlAnnotatedString(
+        url = url,
+        linkText = stringResource(R.string.litert_community_label),
+      )
+    )
   }
   Text(
     introText,

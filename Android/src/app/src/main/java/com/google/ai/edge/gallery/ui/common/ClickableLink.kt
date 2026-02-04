@@ -16,7 +16,7 @@
 
 package com.google.ai.edge.gallery.ui.common
 
-import androidx.compose.foundation.clickable
+import android.os.Bundle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -30,33 +30,50 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
-import androidx.core.os.bundleOf
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.theme.customColors
 
 @Composable
-fun ClickableLink(url: String, linkText: String, icon: ImageVector? = null) {
+fun buildTrackableUrlAnnotatedString(url: String, linkText: String): AnnotatedString {
   val uriHandler = LocalUriHandler.current
-  val annotatedText =
-    AnnotatedString(
-      text = linkText,
-      spanStyles =
-        listOf(
-          AnnotatedString.Range(
-            item =
-              SpanStyle(
-                color = MaterialTheme.customColors.linkColor,
-                textDecoration = TextDecoration.Underline,
-              ),
-            start = 0,
-            end = linkText.length,
-          )
-        ),
-    )
+  return buildAnnotatedString {
+    withLink(
+      link =
+        LinkAnnotation.Url(
+          url = url,
+          styles =
+            TextLinkStyles(
+              style =
+                SpanStyle(
+                  color = MaterialTheme.customColors.linkColor,
+                  textDecoration = TextDecoration.Underline,
+                )
+            ),
+          linkInteractionListener = {
+            uriHandler.openUri(url)
+            firebaseAnalytics?.logEvent(
+              "resource_link_click",
+              Bundle().apply { putString("link_destination", url) },
+            )
+          },
+        )
+    ) {
+      append(linkText)
+    }
+  }
+}
+
+@Composable
+fun ClickableLink(url: String, linkText: String, icon: ImageVector? = null) {
+  val annotatedText = buildTrackableUrlAnnotatedString(url, linkText)
 
   Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
     if (icon != null) {
@@ -66,11 +83,7 @@ fun ClickableLink(url: String, linkText: String, icon: ImageVector? = null) {
       text = annotatedText,
       textAlign = TextAlign.Center,
       style = MaterialTheme.typography.bodyMedium,
-      modifier =
-        Modifier.padding(start = 6.dp).clickable {
-          uriHandler.openUri(url)
-          firebaseAnalytics?.logEvent("resource_link_click", bundleOf("link_destination" to url))
-        },
+      modifier = Modifier.padding(start = 6.dp),
     )
   }
 }
