@@ -51,6 +51,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.data.BuiltInTaskId
+import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
@@ -199,9 +201,17 @@ fun ModelPageAppBar(
 
   // Config dialog.
   if (showConfigDialog) {
+    // Remove the reset conversation turn count config for non-tiny-garden tasks.
+    //
+    // This may happen when user imports a model with "enable tiny garden" turned on and use the
+    // model in another non-tiny-garden task.
+    val modelConfigs = model.configs.toMutableList()
+    if (task.id != BuiltInTaskId.LLM_TINY_GARDEN) {
+      modelConfigs.removeIf { it.key == ConfigKeys.RESET_CONVERSATION_TURN_COUNT }
+    }
     ConfigDialog(
       title = "Model configs",
-      configs = model.configs,
+      configs = modelConfigs,
       initialValues = model.configValues,
       onDismissed = { showConfigDialog = false },
       onOk = { curConfigValues ->
@@ -212,7 +222,7 @@ fun ModelPageAppBar(
         // re-initialized.
         var same = true
         var needReinitialization = false
-        for (config in model.configs) {
+        for (config in modelConfigs) {
           val key = config.key.label
           val oldValue =
             convertValueToTargetType(
