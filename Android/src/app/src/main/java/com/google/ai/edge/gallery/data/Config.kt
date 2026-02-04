@@ -57,7 +57,7 @@ object ConfigKeys {
   val SUPPORT_MOBILE_ACTIONS = ConfigKey("support_mobile_actions", "Support mobile actions")
   val MAX_RESULT_COUNT = ConfigKey("max_result_count", "Max result count")
   val USE_GPU = ConfigKey("use_gpu", "Use GPU")
-  val ACCELERATOR = ConfigKey("accelerator", "Choose accelerator")
+  val ACCELERATOR = ConfigKey("accelerator", "Accelerator")
   val COMPATIBLE_ACCELERATORS = ConfigKey("compatible_accelerators", "Compatible accelerators")
   val WARM_UP_ITERATIONS = ConfigKey("warm_up_iterations", "Warm up iterations")
   val BENCHMARK_ITERATIONS = ConfigKey("benchmark_iterations", "Benchmark iterations")

@@ -384,25 +384,3 @@ fun SegmentedButtonRow(config: SegmentedButtonConfig, values: SnapshotStateMap<S
     }
   }
 }
-
-// @Composable
-// @Preview(showBackground = true)
-// fun ConfigDialogPreview() {
-//   GalleryTheme {
-//     val defaultValues: MutableMap<String, Any> = mutableMapOf()
-//     for (config in MODEL_TEST1.configs) {
-//       defaultValues[config.key.label] = config.defaultValue
-//     }
-
-//     Column {
-//       ConfigDialog(
-//         title = "Dialog title",
-//         subtitle = "20250413",
-//         configs = MODEL_TEST1.configs,
-//         initialValues = defaultValues,
-//         onDismissed = {},
-//         onOk = {},
-//       )
-//     }
-//   }
-// }

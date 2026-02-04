@@ -61,6 +61,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.data.BuiltInTaskId
+import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
@@ -156,9 +158,18 @@ fun ChatView(
         modelPreparing = uiState.preparing,
         onResetSessionClicked = onResetSessionClicked,
         onConfigChanged = { old, new ->
+          // Filter out config values that are not relevant to the task.
+          //
+          // - The "reset conversation turn count" is only valid for tiny garden task.
+          val filteredOld = old.toMutableMap()
+          val filteredNew = new.toMutableMap()
+          if (task.id != BuiltInTaskId.LLM_TINY_GARDEN) {
+            filteredOld.remove(ConfigKeys.RESET_CONVERSATION_TURN_COUNT.label)
+            filteredNew.remove(ConfigKeys.RESET_CONVERSATION_TURN_COUNT.label)
+          }
           viewModel.addConfigChangedMessage(
-            oldConfigValues = old,
-            newConfigValues = new,
+            oldConfigValues = filteredOld,
+            newConfigValues = filteredNew,
             model = selectedModel,
           )
         },
