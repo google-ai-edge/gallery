@@ -43,6 +43,7 @@ class MessageBubbleShape(
     density: Density,
   ): Outline {
     val radiusPx = with(density) { radius.toPx() }
+    val hardCornerOnLeft = hardCornerAtLeftOrRight != (layoutDirection == LayoutDirection.Rtl)
     val path =
       Path().apply {
         addRoundRect(
@@ -52,11 +53,11 @@ class MessageBubbleShape(
             right = size.width,
             bottom = size.height,
             topLeftCornerRadius =
-              if (hardCornerAtLeftOrRight) CornerRadius(0f, 0f)
+              if (hardCornerOnLeft) CornerRadius(0f, 0f)
               else CornerRadius(radiusPx, radiusPx),
             topRightCornerRadius =
-              if (hardCornerAtLeftOrRight) CornerRadius(radiusPx, radiusPx)
-              else CornerRadius(0f, 0f), // No rounding here
+              if (hardCornerOnLeft) CornerRadius(radiusPx, radiusPx)
+              else CornerRadius(0f, 0f),
             bottomLeftCornerRadius = CornerRadius(radiusPx, radiusPx),
             bottomRightCornerRadius = CornerRadius(radiusPx, radiusPx),
           )
