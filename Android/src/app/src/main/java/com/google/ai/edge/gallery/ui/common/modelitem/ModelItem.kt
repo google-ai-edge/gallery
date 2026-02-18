@@ -82,6 +82,7 @@ fun ModelItem(
   task: Task,
   modelManagerViewModel: ModelManagerViewModel,
   onModelClicked: (Model) -> Unit,
+  onBenchmarkClicked: (Model) -> Unit,
   modifier: Modifier = Modifier,
   showDeleteButton: Boolean = true,
   canExpand: Boolean = true,
@@ -189,6 +190,7 @@ fun ModelItem(
               modelManagerViewModel = modelManagerViewModel,
               isExpanded = isExpanded,
               onTryItClicked = { onModelClicked(model) },
+              onBenchmarkClicked = { onBenchmarkClicked(model) },
             )
           }
 
@@ -230,38 +232,3 @@ fun ModelItem(
     }
   }
 }
-
-// @Preview(showBackground = true)
-// @Composable
-// fun PreviewModelItem() {
-//   GalleryTheme {
-//     Column(
-//       verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(16.dp)
-//     ) {
-//       ModelItem(
-//         model = MODEL_TEST1,
-//         task = TASK_TEST1,
-//         onModelClicked = { },
-//         modelManagerViewModel = PreviewModelManagerViewModel(context = LocalContext.current),
-//       )
-//       ModelItem(
-//         model = MODEL_TEST2,
-//         task = TASK_TEST1,
-//         onModelClicked = { },
-//         modelManagerViewModel = PreviewModelManagerViewModel(context = LocalContext.current),
-//       )
-//       ModelItem(
-//         model = MODEL_TEST3,
-//         task = TASK_TEST2,
-//         onModelClicked = { },
-//         modelManagerViewModel = PreviewModelManagerViewModel(context = LocalContext.current),
-//       )
-//       ModelItem(
-//         model = MODEL_TEST4,
-//         task = TASK_TEST2,
-//         onModelClicked = { },
-//         modelManagerViewModel = PreviewModelManagerViewModel(context = LocalContext.current),
-//       )
-//     }
-//   }
-// }

@@ -22,11 +22,8 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.common.processLlmResponse
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.ui.common.chat.ChatMessageBenchmarkLlmResult
-import com.google.ai.edge.gallery.ui.common.chat.Stat
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.gallery.ui.llmchat.LlmModelInstance
-import com.google.ai.edge.litertlm.ExperimentalApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -50,20 +47,9 @@ data class LlmSingleTurnUiState(
   // model -> <template label -> response>
   val responsesByModel: Map<String, Map<String, String>>,
 
-  // model -> <template label -> benchmark result>
-  val benchmarkByModel: Map<String, Map<String, ChatMessageBenchmarkLlmResult>>,
-
   /** Selected prompt template type. */
   val selectedPromptTemplateType: PromptTemplateType = PromptTemplateType.entries[0],
 )
-
-private val STATS =
-  listOf(
-    Stat(id = "time_to_first_token", label = "1st token", unit = "sec"),
-    Stat(id = "prefill_speed", label = "Prefill speed", unit = "tokens/s"),
-    Stat(id = "decode_speed", label = "Decode speed", unit = "tokens/s"),
-    Stat(id = "latency", label = "Latency", unit = "sec"),
-  )
 
 @HiltViewModel
 class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
@@ -94,32 +80,15 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
       delay(500)
 
       // Run inference.
-      val instance = model.instance as LlmModelInstance
       var firstRun = true
-      var timeToFirstToken = 0f
-      var firstTokenTs = 0L
-      var decodeTokens = 0
-      var prefillSpeed = 0f
-      var decodeSpeed: Float
-      val start = System.currentTimeMillis()
       var response = ""
-      var lastBenchmarkUpdateTs = 0L
       LlmChatModelHelper.runInference(
         model = model,
         input = input,
         resultListener = { partialResult, done ->
-          val curTs = System.currentTimeMillis()
-
           if (firstRun) {
             setPreparing(false)
-            firstTokenTs = System.currentTimeMillis()
-            timeToFirstToken = (firstTokenTs - start) / 1000f
-            @OptIn(ExperimentalApi::class)
-            val prefillTokens = instance.conversation.getBenchmarkInfo().lastPrefillTokenCount
-            prefillSpeed = prefillTokens / timeToFirstToken
             firstRun = false
-          } else {
-            decodeTokens++
           }
 
           // Incrementally update the streamed partial results.
@@ -131,33 +100,6 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
             promptTemplateType = uiState.value.selectedPromptTemplateType,
             response = response,
           )
-
-          // Update benchmark (with throttling).
-          if (curTs - lastBenchmarkUpdateTs > 200) {
-            decodeSpeed = decodeTokens / ((curTs - firstTokenTs) / 1000f)
-            if (decodeSpeed.isNaN()) {
-              decodeSpeed = 0f
-            }
-            val benchmark =
-              ChatMessageBenchmarkLlmResult(
-                orderedStats = STATS,
-                statValues =
-                  mutableMapOf(
-                    "prefill_speed" to prefillSpeed,
-                    "decode_speed" to decodeSpeed,
-                    "time_to_first_token" to timeToFirstToken,
-                    "latency" to (curTs - start).toFloat() / 1000f,
-                  ),
-                running = !done,
-                latencyMs = -1f,
-              )
-            updateBenchmark(
-              model = model,
-              promptTemplateType = uiState.value.selectedPromptTemplateType,
-              benchmark = benchmark,
-            )
-            lastBenchmarkUpdateTs = curTs
-          }
 
           if (done) {
             setInProgress(false)
@@ -205,21 +147,6 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
     }
   }
 
-  fun updateBenchmark(
-    model: Model,
-    promptTemplateType: PromptTemplateType,
-    benchmark: ChatMessageBenchmarkLlmResult,
-  ) {
-    _uiState.update { currentState ->
-      val currentBenchmark = currentState.benchmarkByModel
-      val modelBenchmarks = currentBenchmark[model.name]?.toMutableMap() ?: mutableMapOf()
-      modelBenchmarks[promptTemplateType.label] = benchmark
-      val newBenchmarks = currentBenchmark.toMutableMap()
-      newBenchmarks[model.name] = modelBenchmarks
-      currentState.copy(benchmarkByModel = newBenchmarks)
-    }
-  }
-
   fun stopResponse(model: Model) {
     Log.d(TAG, "Stopping response for model ${model.name}...")
     viewModelScope.launch(Dispatchers.Default) {
@@ -231,11 +158,6 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
 
   private fun createUiState(): LlmSingleTurnUiState {
     val responsesByModel: MutableMap<String, Map<String, String>> = mutableMapOf()
-    val benchmarkByModel: MutableMap<String, Map<String, ChatMessageBenchmarkLlmResult>> =
-      mutableMapOf()
-    return LlmSingleTurnUiState(
-      responsesByModel = responsesByModel,
-      benchmarkByModel = benchmarkByModel,
-    )
+    return LlmSingleTurnUiState(responsesByModel = responsesByModel)
   }
 }

@@ -103,7 +103,6 @@ import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** Composable function for the main chat panel, displaying messages and handling user input. */
@@ -187,9 +186,6 @@ fun ChatPanel(
       lastMessageContent.value = tmpLastMessage.content
     }
   }
-  val lastShowingStatsByModel: MutableState<Map<String, MutableSet<ChatMessage>>> = remember {
-    mutableStateOf(mapOf())
-  }
 
   // Scroll to bottom when IME is toggled.
   LaunchedEffect(WindowInsets.ime.getBottom(density)) {
@@ -214,13 +210,10 @@ fun ChatPanel(
         lastVisibleItem.index < messages.size - 1 ||
           lastVisibleItem.offset + lastVisibleItem.size - listState.layoutInfo.viewportEndOffset <
             90
-      // Only scroll if showingStatsByModel is not changed. In other words, when showingStatsByModel
-      // changes we want the display to not scroll.
-      if (uiState.showingStatsByModel === lastShowingStatsByModel.value && canScroll) {
+      if (canScroll) {
         scrollToBottom(listState = listState, animate = true)
       }
     }
-    lastShowingStatsByModel.value = uiState.showingStatsByModel
   }
 
   val nestedScrollConnection = remember {
@@ -435,72 +428,6 @@ fun ChatPanel(
                       horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                       LatencyText(message = message)
-                      // A button to show stats for the LLM message.
-                      if (
-                        task.id.startsWith("llm_") &&
-                          message is ChatMessageText
-                          // This means we only want to show the action button when the message is
-                          // done
-                          // generating, at which point the latency will be set.
-                          &&
-                          message.latencyMs >= 0
-                      ) {
-                        val showingStats =
-                          viewModel.isShowingStats(model = selectedModel, message = message)
-                        MessageActionButton(
-                          label = if (showingStats) "Hide stats" else "Show stats",
-                          icon = Icons.Outlined.Timer,
-                          onClick = {
-                            // Toggle showing stats.
-                            viewModel.toggleShowingStats(selectedModel, message)
-
-                            // Add the stats message after the LLM message.
-                            if (
-                              viewModel.isShowingStats(model = selectedModel, message = message)
-                            ) {
-                              val llmBenchmarkResult = message.llmBenchmarkResult
-                              val isLastMessage =
-                                viewModel.getMessageIndex(
-                                  model = selectedModel,
-                                  message = message,
-                                ) == messages.lastIndex
-                              if (llmBenchmarkResult != null) {
-                                viewModel.insertMessageAfter(
-                                  model = selectedModel,
-                                  anchorMessage = message,
-                                  messageToAdd = llmBenchmarkResult,
-                                )
-                                // Scroll to bottom if showing the stats for the last message.
-                                if (isLastMessage) {
-                                  scope.launch {
-                                    delay(100L)
-                                    scrollToBottom(listState = listState, animate = true)
-                                  }
-                                }
-                              }
-                            }
-                            // Remove the stats message.
-                            else {
-                              // `message` here is the one before the stats message to be removed.
-                              val curMessageIndex =
-                                viewModel.getMessageIndex(model = selectedModel, message = message)
-                              val isLastMessage = curMessageIndex == messages.lastIndex - 1
-                              viewModel.removeMessageAt(
-                                model = selectedModel,
-                                index = curMessageIndex + 1,
-                              )
-                              // Scroll to bottom if hiding the stats for the last message.
-                              if (isLastMessage) {
-                                scope.launch {
-                                  delay(100L)
-                                  scrollToBottom(listState = listState, animate = true)
-                                }
-                              }
-                            }
-                          },
-                          enabled = !uiState.inProgress,
-                        )
-                      }
                     }
                   } else if (message.side == ChatSide.USER) {
                     Row(
@@ -520,7 +447,7 @@ fun ChatPanel(
                       // Benchmark button
                       if (selectedModel.showBenchmarkButton) {
                         MessageActionButton(
-                          label = stringResource(R.string.benchmark),
+                          label = stringResource(R.string.run_benchmark),
                           icon = Icons.Outlined.Timer,
                           onClick = {
                             showBenchmarkConfigsDialog = true

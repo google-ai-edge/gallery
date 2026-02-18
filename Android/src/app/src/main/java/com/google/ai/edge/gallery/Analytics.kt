@@ -34,3 +34,10 @@ val firebaseAnalytics: FirebaseAnalytics?
         }
       }
       .getOrNull()
+
+enum class GalleryEvent(val id: String) {
+  CAPABILITY_SELECT(id = "capability_select"),
+  MODEL_DOWNLOAD(id = "model_download"),
+  GENERATE_ACTION(id = "generate_action"),
+  BUTTON_CLICKED(id = "button_clicked"),
+}

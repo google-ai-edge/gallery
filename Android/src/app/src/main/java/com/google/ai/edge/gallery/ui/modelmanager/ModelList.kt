@@ -87,6 +87,7 @@ fun ModelList(
   contentPadding: PaddingValues,
   enableAnimation: Boolean,
   onModelClicked: (Model) -> Unit,
+  onBenchmarkClicked: (Model) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   // This is just to update "models" list when task.updateTrigger is updated so that the UI can
@@ -301,6 +302,7 @@ fun ModelList(
           task = task,
           modelManagerViewModel = modelManagerViewModel,
           onModelClicked = onModelClicked,
+          onBenchmarkClicked = onBenchmarkClicked,
           modifier =
             Modifier.graphicsLayer {
               alpha = modelListProgress
@@ -335,6 +337,7 @@ fun ModelList(
             task = task,
             modelManagerViewModel = modelManagerViewModel,
             onModelClicked = onModelClicked,
+            onBenchmarkClicked = onBenchmarkClicked,
             modifier =
               Modifier.graphicsLayer {
                 alpha = modelListProgress

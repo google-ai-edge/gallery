@@ -232,8 +232,11 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
 
   fun performAction(action: Action, context: Context): String {
     return when (action) {
-      // Flashlight.
-      is FlashlightAction -> setFlashlight(context = context, isEnabled = action.enable)
+      // Flashlight on.
+      is FlashlightOnAction -> setFlashlight(context = context, isEnabled = true)
+
+      // Flashlight off.
+      is FlashlightOffAction -> setFlashlight(context = context, isEnabled = false)
 
       // Create contact.
       is CreateContactAction ->

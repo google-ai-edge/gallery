@@ -46,6 +46,7 @@ fun ModelManager(
   enableAnimation: Boolean,
   navigateUp: () -> Unit,
   onModelClicked: (Model) -> Unit,
+  onBenchmarkClicked: (Model) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   // Set title based on the task.
@@ -87,6 +88,7 @@ fun ModelManager(
       contentPadding = innerPadding,
       enableAnimation = enableAnimation,
       onModelClicked = onModelClicked,
+      onBenchmarkClicked = onBenchmarkClicked,
       modifier = Modifier.fillMaxSize(),
     )
   }

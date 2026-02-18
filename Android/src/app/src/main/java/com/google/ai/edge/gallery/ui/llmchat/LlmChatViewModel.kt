@@ -24,7 +24,6 @@ import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
-import com.google.ai.edge.gallery.ui.common.chat.ChatMessageBenchmarkLlmResult
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageError
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageLoading
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
@@ -32,7 +31,6 @@ import com.google.ai.edge.gallery.ui.common.chat.ChatMessageType
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageWarning
 import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.ai.edge.gallery.ui.common.chat.ChatViewModel
-import com.google.ai.edge.gallery.ui.common.chat.Stat
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.litertlm.ExperimentalApi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -42,14 +40,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGLlmChatViewModel"
-private val STATS =
-  listOf(
-    Stat(id = "time_to_first_token", label = "1st token", unit = "sec"),
-    Stat(id = "prefill_speed", label = "Prefill speed", unit = "tokens/s"),
-    Stat(id = "decode_speed", label = "Decode speed", unit = "tokens/s"),
-    Stat(id = "latency", label = "Latency", unit = "sec"),
-  )
 
+@OptIn(ExperimentalApi::class)
 open class LlmChatViewModelBase() : ChatViewModel() {
   fun generateResponse(
     model: Model,
@@ -73,22 +65,12 @@ open class LlmChatViewModelBase() : ChatViewModel() {
       delay(500)
 
       // Run inference.
-      val instance = model.instance as LlmModelInstance
-      var prefillTokens = images.size * 257
       val audioClips: MutableList<ByteArray> = mutableListOf()
       for (audioMessage in audioMessages) {
         audioClips.add(audioMessage.genByteArrayForWav())
-        // 150ms = 1 audio token
-        val duration = audioMessage.getDurationInSeconds()
-        prefillTokens += (duration * 1000f / 150f).toInt()
       }
 
       var firstRun = true
-      var timeToFirstToken = 0f
-      var firstTokenTs = 0L
-      var decodeTokens = 0
-      var prefillSpeed = 0f
-      var decodeSpeed: Float
       val start = System.currentTimeMillis()
 
       try {
@@ -98,18 +80,9 @@ open class LlmChatViewModelBase() : ChatViewModel() {
           images = images,
           audioClips = audioClips,
           resultListener = { partialResult, done ->
-            val curTs = System.currentTimeMillis()
-
             if (firstRun) {
-              firstTokenTs = System.currentTimeMillis()
-              timeToFirstToken = (firstTokenTs - start) / 1000f
-              @OptIn(ExperimentalApi::class)
-              prefillTokens += instance.conversation.getBenchmarkInfo().lastPrefillTokenCount
-              prefillSpeed = prefillTokens / timeToFirstToken
               firstRun = false
               setPreparing(false)
-            } else {
-              decodeTokens++
             }
 
             // Remove the last message if it is a "loading" message.
@@ -136,31 +109,6 @@ open class LlmChatViewModelBase() : ChatViewModel() {
 
             if (done) {
               setInProgress(false)
-
-              decodeSpeed = decodeTokens / ((curTs - firstTokenTs) / 1000f)
-              if (decodeSpeed.isNaN()) {
-                decodeSpeed = 0f
-              }
-
-              if (lastMessage is ChatMessageText) {
-                updateLastTextMessageLlmBenchmarkResult(
-                  model = model,
-                  llmBenchmarkResult =
-                    ChatMessageBenchmarkLlmResult(
-                      orderedStats = STATS,
-                      statValues =
-                        mutableMapOf(
-                          "prefill_speed" to prefillSpeed,
-                          "decode_speed" to decodeSpeed,
-                          "time_to_first_token" to timeToFirstToken,
-                          "latency" to (curTs - start).toFloat() / 1000f,
-                        ),
-                      running = false,
-                      latencyMs = -1f,
-                      accelerator = accelerator,
-                    ),
-                )
-              }
             }
           },
           cleanUpListener = {

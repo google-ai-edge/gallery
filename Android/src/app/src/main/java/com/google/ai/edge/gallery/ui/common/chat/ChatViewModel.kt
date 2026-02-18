@@ -43,12 +43,6 @@ data class ChatUiState(
 
   /** A map of model names to the currently streaming chat message. */
   val streamingMessagesByModel: Map<String, ChatMessage> = mapOf(),
-
-  /*
-   * A map of model names to a map of chat messages to a boolean indicating whether the message is
-   * showing the stats below it.
-   */
-  val showingStatsByModel: Map<String, MutableSet<ChatMessage>> = mapOf(),
 )
 
 /** ViewModel responsible for managing the chat UI state and handling chat-related operations. */
@@ -219,22 +213,6 @@ abstract class ChatViewModel() : ViewModel() {
 
   fun getMessageIndex(model: Model, message: ChatMessage): Int {
     return (_uiState.value.messagesByModel[model.name] ?: listOf()).indexOf(message)
-  }
-
-  fun isShowingStats(model: Model, message: ChatMessage): Boolean {
-    return _uiState.value.showingStatsByModel[model.name]?.contains(message) ?: false
-  }
-
-  fun toggleShowingStats(model: Model, message: ChatMessage) {
-    val newShowingStatsByModel = _uiState.value.showingStatsByModel.toMutableMap()
-    val newShowingStats = newShowingStatsByModel[model.name]?.toMutableSet() ?: mutableSetOf()
-    if (newShowingStats.contains(message)) {
-      newShowingStats.remove(message)
-    } else {
-      newShowingStats.add(message)
-    }
-    newShowingStatsByModel[model.name] = newShowingStats
-    _uiState.update { _uiState.value.copy(showingStatsByModel = newShowingStatsByModel) }
   }
 
   private fun createUiState(): ChatUiState {

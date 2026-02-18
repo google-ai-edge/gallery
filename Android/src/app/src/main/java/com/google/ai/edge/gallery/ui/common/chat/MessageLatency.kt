@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.testTag
 import com.google.ai.edge.gallery.ui.common.humanReadableDuration
 
 /** Composable function to display the latency of a chat message, if available. */
@@ -32,7 +33,7 @@ fun LatencyText(message: ChatMessage) {
   if (message.latencyMs >= 0) {
     Text(
       message.latencyMs.humanReadableDuration(),
-      modifier = Modifier.alpha(0.5f),
+      modifier = Modifier.alpha(0.5f).testTag("latency_label"),
       style = MaterialTheme.typography.labelSmall,
     )
   }

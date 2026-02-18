@@ -114,6 +114,7 @@ data class AllowedModel(
       llmSupportMobileActions = llmSupportMobileActions == true,
       bestForTaskIds = bestForTaskTypes ?: listOf(),
       localModelFilePathOverride = localModelFilePathOverride ?: "",
+      isLlm = isLlmModel,
     )
   }
 

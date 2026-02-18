@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.core.os.bundleOf
+import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.firebaseAnalytics
@@ -192,7 +193,7 @@ fun LlmSingleTurnScreen(
                 viewModel.generateResponse(task = task, model = selectedModel, input = fullPrompt)
 
                 firebaseAnalytics?.logEvent(
-                  "generate_action",
+                  GalleryEvent.GENERATE_ACTION.id,
                   bundleOf("capability_name" to task.id, "model_id" to selectedModel.name),
                 )
               },

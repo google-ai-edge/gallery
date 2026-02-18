@@ -150,6 +150,9 @@ data class Model(
    */
   val extraDataFiles: List<ModelDataFile> = listOf(),
 
+  /** Whether the model is LLM or not. */
+  val isLlm: Boolean = false,
+
   // End of model download related fields.
   //////////////////////////////////////////////////////////////////////////////////////////////////
 

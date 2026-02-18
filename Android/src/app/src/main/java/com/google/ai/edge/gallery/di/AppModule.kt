@@ -22,6 +22,7 @@ import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStoreFile
 import com.google.ai.edge.gallery.AppLifecycleProvider
+import com.google.ai.edge.gallery.BenchmarkResultsSerializer
 import com.google.ai.edge.gallery.CutoutsSerializer
 import com.google.ai.edge.gallery.GalleryLifecycleProvider
 import com.google.ai.edge.gallery.SettingsSerializer
@@ -30,6 +31,7 @@ import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.DefaultDataStoreRepository
 import com.google.ai.edge.gallery.data.DefaultDownloadRepository
 import com.google.ai.edge.gallery.data.DownloadRepository
+import com.google.ai.edge.gallery.proto.BenchmarkResults
 import com.google.ai.edge.gallery.proto.CutoutCollection
 import com.google.ai.edge.gallery.proto.Settings
 import com.google.ai.edge.gallery.proto.UserData
@@ -63,6 +65,13 @@ internal object AppModule {
   @Singleton
   fun provideUserDataSerializer(): Serializer<UserData> {
     return UserDataSerializer
+  }
+
+  // Provides the BenchmarkResultsSerializer
+  @Provides
+  @Singleton
+  fun provideBenchmarkResultsSerializer(): Serializer<BenchmarkResults> {
+    return BenchmarkResultsSerializer
   }
 
   // Provides DataStore<Settings>
@@ -104,6 +113,19 @@ internal object AppModule {
     )
   }
 
+  // Provides DataStore<BenchmarkResults>
+  @Provides
+  @Singleton
+  fun provideBenchmarkResultsDataStore(
+    @ApplicationContext context: Context,
+    benchmarkResultsSerializer: Serializer<BenchmarkResults>,
+  ): DataStore<BenchmarkResults> {
+    return DataStoreFactory.create(
+      serializer = benchmarkResultsSerializer,
+      produceFile = { context.dataStoreFile("benchmark_results.pb") },
+    )
+  }
+
   // Provides AppLifecycleProvider
   @Provides
   @Singleton
@@ -118,8 +140,14 @@ internal object AppModule {
     dataStore: DataStore<Settings>,
     userDataDataStore: DataStore<UserData>,
     cutoutsDataStore: DataStore<CutoutCollection>,
+    benchmarkResultsStore: DataStore<BenchmarkResults>,
   ): DataStoreRepository {
-    return DefaultDataStoreRepository(dataStore, userDataDataStore, cutoutsDataStore)
+    return DefaultDataStoreRepository(
+      dataStore,
+      userDataDataStore,
+      cutoutsDataStore,
+      benchmarkResultsStore,
+    )
   }
 
   // Provides DownloadRepository

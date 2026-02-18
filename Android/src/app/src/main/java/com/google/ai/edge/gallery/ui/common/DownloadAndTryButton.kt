@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.outlined.Close
@@ -70,6 +71,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
@@ -123,6 +125,7 @@ fun DownloadAndTryButton(
   modelManagerViewModel: ModelManagerViewModel,
   onClicked: () -> Unit,
   modifier: Modifier = Modifier,
+  modifierWhenExpanded: Modifier = Modifier,
   compact: Boolean = false,
   canShowTryIt: Boolean = true,
 ) {
@@ -327,7 +330,7 @@ fun DownloadAndTryButton(
   if (!showDownloadProgress) {
     var buttonModifier: Modifier = modifier.height(42.dp)
     if (!compact) {
-      buttonModifier = buttonModifier.fillMaxWidth()
+      buttonModifier = buttonModifier.then(modifierWhenExpanded)
     }
     Button(
       modifier = buttonModifier,
@@ -381,6 +384,9 @@ fun DownloadAndTryButton(
               stringResource(R.string.try_it),
               color = textColor,
               style = MaterialTheme.typography.titleMedium,
+              maxLines = 1,
+              autoSize =
+                TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 14.sp, stepSize = 1.sp),
             )
           }
         }

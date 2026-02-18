@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.customtasks.mobileactions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.FlashOff
 import androidx.compose.material.icons.outlined.FlashlightOn
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.PersonAdd
@@ -26,7 +27,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 // Supported action types.
 enum class ActionType {
-  ACTION_FLASHLIGHT,
+  ACTION_FLASHLIGHT_ON,
+  ACTION_FLASHLIGHT_OFF,
   ACTION_CREATE_CONTACT,
   ACTION_SEND_EMAIL,
   ACTION_SHOW_LOCATION_ON_MAP,
@@ -50,16 +52,22 @@ abstract class Action(
   val functionCallDetails: FunctionCallDetails,
 )
 
-// Action to control flashlight.
-class FlashlightAction(val enable: Boolean) :
+// Action to turn on flashlight.
+class FlashlightOnAction() :
   Action(
-    type = ActionType.ACTION_FLASHLIGHT,
+    type = ActionType.ACTION_FLASHLIGHT_ON,
     icon = Icons.Outlined.FlashlightOn,
     functionCallDetails =
-      FunctionCallDetails(
-        functionName = "setFlashlight",
-        parameters = listOf(Pair("enabled", enable.toString())),
-      ),
+      FunctionCallDetails(functionName = "turnOnFlashlight", parameters = listOf()),
+  )
+
+// Action to turn off flashlight.
+class FlashlightOffAction() :
+  Action(
+    type = ActionType.ACTION_FLASHLIGHT_OFF,
+    icon = Icons.Outlined.FlashOff,
+    functionCallDetails =
+      FunctionCallDetails(functionName = "turnOffFlashlight", parameters = listOf()),
   )
 
 // Action to create contact.

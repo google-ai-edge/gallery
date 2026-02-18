@@ -1,0 +1,71 @@
+/* Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+syntax = "proto3";
+
+package com.google.ai.edge.gallery.proto;
+
+option java_multiple_files = true;
+option java_outer_classname = "Benchmark";
+option java_package = "com.google.ai.edge.gallery.proto";
+
+message BenchmarkResults {
+  repeated BenchmarkResult result = 1;
+}
+
+message BenchmarkResult {
+  oneof result {
+    LlmBenchmarkResult llm_result = 2;
+  }
+}
+
+message LlmBenchmarkResult {
+  LlmBenchmarkBasicInfo baisc_info = 2;
+  LlmBenchmarkStats stats = 3;
+}
+
+message LlmBenchmarkBasicInfo {
+  int64 start_ms = 1;
+  int64 end_ms = 2;
+  string model_name = 3;
+  string accelerator = 4;
+  int32 prefill_tokens = 5;
+  int32 decode_tokens = 6;
+  int32 number_of_runs = 7;
+  string app_version = 8;
+}
+
+message LlmBenchmarkStats {
+  // tokens/sec
+  ValueSeries prefill_speed = 1;
+  // tokens/sec
+  ValueSeries decode_speed = 2;
+  // seconds
+  ValueSeries time_to_first_token = 3;
+  // ms
+  double first_init_time_ms = 4;
+  // ms
+  ValueSeries non_first_init_time_ms = 5;
+}
+
+message ValueSeries {
+  repeated double value = 1;
+  double min = 2;
+  double max = 3;
+  double avg = 4;
+  double medium = 5;
+  double pct25 = 7;
+  double pct75 = 8;
+}

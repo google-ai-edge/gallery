@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.data
 
+import androidx.annotation.StringRes
 import kotlin.math.abs
 
 /**
@@ -29,6 +30,7 @@ enum class ConfigEditorType {
   NUMBER_SLIDER,
   BOOLEAN_SWITCH,
   SEGMENTED_BUTTON,
+  BOTTOMSHEET_SELECTOR,
 }
 
 /** The data types of configuration values. */
@@ -65,8 +67,12 @@ object ConfigKeys {
   val THEME = ConfigKey("theme", "Theme")
   val NAME = ConfigKey("name", "Name")
   val MODEL_TYPE = ConfigKey("model_type", "Model type")
+  val MODEL = ConfigKey("model", "Model")
   val RESET_CONVERSATION_TURN_COUNT =
     ConfigKey("reset_conversation_turn_count", "Number of turns before the conversation resets")
+  val PREFILL_TOKENS = ConfigKey("prefill_tokens", "Prefill tokens")
+  val DECODE_TOKENS = ConfigKey("decode_tokens", "Decode tokens")
+  val NUMBER_OF_RUNS = ConfigKey("number_of_runs", "Number of runs")
 }
 
 /**
@@ -132,7 +138,7 @@ class BooleanSwitchConfig(
     valueType = ValueType.BOOLEAN,
   )
 
-/** Configuration setting for a dropdown. */
+/** Configuration setting for a segmented button. */
 class SegmentedButtonConfig(
   override val key: ConfigKey,
   override val defaultValue: String,
@@ -146,6 +152,22 @@ class SegmentedButtonConfig(
     // The emitted value will be comma-separated labels when allowMultiple=true.
     valueType = ValueType.STRING,
   )
+
+/** Configuration setting for a bottom sheet selector. */
+class BottomSheetSelectorConfig(
+  override val key: ConfigKey,
+  override val defaultValue: String,
+  val options: List<BottomSheetSelectorItem>,
+  @StringRes val bottomSheetTitleResId: Int? = null,
+) :
+  Config(
+    type = ConfigEditorType.BOTTOMSHEET_SELECTOR,
+    key = key,
+    defaultValue = defaultValue,
+    valueType = ValueType.STRING,
+  )
+
+data class BottomSheetSelectorItem(val label: String)
 
 fun convertValueToTargetType(value: Any, valueType: ValueType): Any {
   return when (valueType) {

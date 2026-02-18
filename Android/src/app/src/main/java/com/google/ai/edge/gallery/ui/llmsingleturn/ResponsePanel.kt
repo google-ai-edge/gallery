@@ -23,26 +23,19 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,7 +48,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -64,19 +56,15 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.MarkdownText
-import com.google.ai.edge.gallery.ui.common.chat.MessageBodyBenchmarkLlm
 import com.google.ai.edge.gallery.ui.common.chat.MessageBodyLoading
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import kotlinx.coroutines.launch
 
-private val OPTIONS = listOf("Response", "Benchmark")
-private val ICONS = listOf(Icons.Outlined.AutoAwesome, Icons.Outlined.Timer)
 private const val TAG = "AGResponsePanel"
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -128,8 +116,6 @@ fun ResponsePanel(
 
     val response =
       uiState.responsesByModel[curPageModel.name]?.get(selectedPromptTemplateType.label) ?: ""
-    val benchmark =
-      uiState.benchmarkByModel[curPageModel.name]?.get(selectedPromptTemplateType.label)
 
     // Scroll to bottom when response changes.
     LaunchedEffect(response) {
@@ -163,52 +149,6 @@ fun ResponsePanel(
       // Response markdown.
       else {
         Column(modifier = modifier.padding(horizontal = 16.dp).padding(bottom = 4.dp)) {
-          // Response/benchmark switch.
-          Row(modifier = Modifier.fillMaxWidth()) {
-            PrimaryTabRow(
-              selectedTabIndex = selectedOptionIndex,
-              containerColor = Color.Transparent,
-            ) {
-              OPTIONS.forEachIndexed { index, title ->
-                Tab(
-                  selected = selectedOptionIndex == index,
-                  onClick = { selectedOptionIndex = index },
-                  text = {
-                    Row(
-                      verticalAlignment = Alignment.CenterVertically,
-                      horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                      val titleColor =
-                        if (selectedOptionIndex == index) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                      Icon(
-                        ICONS[index],
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp).alpha(0.7f),
-                        tint = titleColor,
-                      )
-                      var curTitle = title
-                      if (accelerator.isNotEmpty()) {
-                        curTitle = "$curTitle on $accelerator"
-                      }
-                      BasicText(
-                        text = curTitle,
-                        maxLines = 1,
-                        color = { titleColor },
-                        style = MaterialTheme.typography.bodyMedium,
-                        autoSize =
-                          TextAutoSize.StepBased(
-                            minFontSize = 9.sp,
-                            maxFontSize = 14.sp,
-                            stepSize = 1.sp,
-                          ),
-                      )
-                    }
-                  },
-                )
-              }
-            }
-          }
           if (selectedOptionIndex == 0) {
             Box(contentAlignment = Alignment.BottomEnd, modifier = Modifier.weight(1f)) {
               Column(modifier = Modifier.fillMaxSize().verticalScroll(responseScrollState)) {
@@ -244,10 +184,6 @@ fun ResponsePanel(
                   modifier = Modifier.size(20.dp),
                 )
               }
-            }
-          } else if (selectedOptionIndex == 1) {
-            if (benchmark != null) {
-              MessageBodyBenchmarkLlm(message = benchmark, modifier = Modifier.fillMaxWidth())
             }
           }
         }

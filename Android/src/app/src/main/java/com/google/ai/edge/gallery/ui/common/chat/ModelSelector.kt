@@ -76,6 +76,7 @@ fun ModelSelector(
           task = task,
           modelManagerViewModel = modelManagerViewModel,
           onModelClicked = {},
+          onBenchmarkClicked = {},
           modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
           showDeleteButton = false,
           canExpand = false,

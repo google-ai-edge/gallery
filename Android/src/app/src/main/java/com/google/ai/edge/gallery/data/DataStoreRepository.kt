@@ -18,6 +18,8 @@ package com.google.ai.edge.gallery.data
 
 import androidx.datastore.core.DataStore
 import com.google.ai.edge.gallery.proto.AccessTokenData
+import com.google.ai.edge.gallery.proto.BenchmarkResult
+import com.google.ai.edge.gallery.proto.BenchmarkResults
 import com.google.ai.edge.gallery.proto.Cutout
 import com.google.ai.edge.gallery.proto.CutoutCollection
 import com.google.ai.edge.gallery.proto.ImportedModel
@@ -62,6 +64,16 @@ interface DataStoreRepository {
   fun setCutout(newCutout: Cutout)
 
   fun setCutouts(cutouts: List<Cutout>)
+
+  fun setHasSeenBenchmarkComparisonHelp(seen: Boolean)
+
+  fun getHasSeenBenchmarkComparisonHelp(): Boolean
+
+  fun addBenchmarkResult(result: BenchmarkResult)
+
+  fun getAllBenchmarkResults(): List<BenchmarkResult>
+
+  fun deleteBenchmarkResult(index: Int)
 }
 
 /** Repository for managing data using Proto DataStore. */
@@ -69,6 +81,7 @@ class DefaultDataStoreRepository(
   private val dataStore: DataStore<Settings>,
   private val userDataDataStore: DataStore<UserData>,
   private val cutoutDataStore: DataStore<CutoutCollection>,
+  private val benchmarkResultsDataStore: DataStore<BenchmarkResults>,
 ) : DataStoreRepository {
   override fun saveTextInputHistory(history: List<String>) {
     runBlocking {
@@ -212,6 +225,42 @@ class DefaultDataStoreRepository(
   override fun setCutouts(cutouts: List<Cutout>) {
     runBlocking {
       cutoutDataStore.updateData { CutoutCollection.newBuilder().addAllCutout(cutouts).build() }
+    }
+  }
+
+  override fun setHasSeenBenchmarkComparisonHelp(seen: Boolean) {
+    runBlocking {
+      dataStore.updateData { settings ->
+        settings.toBuilder().setHasSeenBenchmarkComparisonHelp(seen).build()
+      }
+    }
+  }
+
+  override fun getHasSeenBenchmarkComparisonHelp(): Boolean {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      settings.hasSeenBenchmarkComparisonHelp
+    }
+  }
+
+  override fun addBenchmarkResult(result: BenchmarkResult) {
+    runBlocking {
+      benchmarkResultsDataStore.updateData { results ->
+        results.toBuilder().addResult(0, result).build()
+      }
+    }
+  }
+
+  override fun getAllBenchmarkResults(): List<BenchmarkResult> {
+    return runBlocking { benchmarkResultsDataStore.data.first().resultList }
+  }
+
+  override fun deleteBenchmarkResult(index: Int) {
+    runBlocking {
+      benchmarkResultsDataStore.updateData { results ->
+        val newResults = results.toBuilder().removeResult(index).build()
+        newResults
+      }
     }
   }
 }

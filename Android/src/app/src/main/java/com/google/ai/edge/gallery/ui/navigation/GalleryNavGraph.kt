@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.ui.navigation
 
 import androidx.hilt.navigation.compose.hiltViewModel
 
+import android.os.Bundle
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -56,7 +57,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.core.os.bundleOf
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -65,12 +65,14 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskData
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskDataForBuiltinTask
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.isLegacyTasks
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.ui.benchmark.BenchmarkScreen
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
 import com.google.ai.edge.gallery.ui.common.chat.ModelDownloadStatusInfoPanel
@@ -85,6 +87,7 @@ private const val TAG = "AGGalleryNavGraph"
 private const val ROUTE_HOMESCREEN = "homepage"
 private const val ROUTE_MODEL_LIST = "model_list"
 private const val ROUTE_MODEL = "route_model"
+private const val ROUTE_BENCHMARK = "benchmark"
 private const val ENTER_ANIMATION_DURATION_MS = 500
 private val ENTER_ANIMATION_EASING = EaseOutExpo
 private const val ENTER_ANIMATION_DELAY_MS = 100
@@ -170,7 +173,10 @@ fun GalleryNavHost(
           pickedTask = task
           enableModelListAnimation = true
           navController.navigate(ROUTE_MODEL_LIST)
-          firebaseAnalytics?.logEvent("capability_select", bundleOf("capability_name" to task.id))
+          firebaseAnalytics?.logEvent(
+            GalleryEvent.CAPABILITY_SELECT.id,
+            Bundle().apply { putString("capability_name", task.id) },
+          )
         },
       )
     }
@@ -200,6 +206,13 @@ fun GalleryNavHost(
           enableAnimation = enableModelListAnimation,
           onModelClicked = { model ->
             navController.navigate("$ROUTE_MODEL/${it.id}/${model.name}")
+          },
+          onBenchmarkClicked = { model ->
+            firebaseAnalytics?.logEvent(
+              GalleryEvent.CAPABILITY_SELECT.id,
+              Bundle().apply { putString("capability_name", "benchmark_${model.name}") },
+            )
+            navController.navigate("$ROUTE_BENCHMARK/${model.name}")
           },
           navigateUp = {
             enableHomeScreenAnimation = false
@@ -284,6 +297,27 @@ fun GalleryNavHost(
             }
           }
         }
+      }
+    }
+
+    // Benchmark creation page.
+    composable(
+      route = "$ROUTE_BENCHMARK/{modelName}",
+      arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
+      enterTransition = { slideEnter() },
+      exitTransition = { slideExit() },
+    ) { backStackEntry ->
+      val modelName = backStackEntry.arguments?.getString("modelName") ?: ""
+
+      modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
+        BenchmarkScreen(
+          model = model,
+          modelManagerViewModel = modelManagerViewModel,
+          onBackClicked = {
+            enableModelListAnimation = false
+            navController.navigateUp()
+          },
+        )
       }
     }
   }

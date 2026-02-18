@@ -212,6 +212,23 @@ constructor(
     return null
   }
 
+  fun getAllModels(): List<Model> {
+    val allModels = mutableSetOf<Model>()
+    for (task in uiState.value.tasks) {
+      for (model in task.models) {
+        allModels.add(model)
+      }
+    }
+    return allModels.toList().sortedBy { it.displayName.ifEmpty { it.name } }
+  }
+
+  fun getAllDownloadedModels(): List<Model> {
+    return getAllModels().filter {
+      uiState.value.modelDownloadStatus[it.name]?.status == ModelDownloadStatusType.SUCCEEDED &&
+        it.isLlm
+    }
+  }
+
   fun processTasks() {
     val curTasks = customTasks.map { it.task }
     for (task in curTasks) {
@@ -744,8 +761,10 @@ constructor(
         modelAllowlist = readModelAllowlistFromDisk(fileName = MODEL_ALLOWLIST_TEST_FILENAME)
 
         // Local test only.
-        val gson = Gson()
-        modelAllowlist = gson.fromJson(TEST_MODEL_ALLOW_LIST, ModelAllowlist::class.java)
+        if (TEST_MODEL_ALLOW_LIST.isNotEmpty()) {
+          val gson = Gson()
+          modelAllowlist = gson.fromJson(TEST_MODEL_ALLOW_LIST, ModelAllowlist::class.java)
+        }
 
         if (modelAllowlist == null) {
           // Load from github.
@@ -1006,6 +1025,8 @@ constructor(
         llmSupportAudio = llmSupportAudio,
         llmSupportTinyGarden = llmSupportTinyGarden,
         llmSupportMobileActions = llmSupportMobileActions,
+        // We assume all imported models are LLM for now.
+        isLlm = true,
       )
     model.preProcess()
 

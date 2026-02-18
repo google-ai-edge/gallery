@@ -67,6 +67,7 @@ message Settings {
   repeated ImportedModel imported_model = 4;
   bool is_tos_accepted = 5;
   bool has_run_tiny_garden = 6;
+  bool has_seen_benchmark_comparison_help = 7;
 }
 
 message UserData {

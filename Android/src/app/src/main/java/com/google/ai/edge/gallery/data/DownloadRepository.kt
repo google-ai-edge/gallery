@@ -37,6 +37,7 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.google.ai.edge.gallery.AppLifecycleProvider
+import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.worker.DownloadWorker
@@ -170,7 +171,7 @@ class DefaultDownloadRepository(
               putLong(model.name, System.currentTimeMillis())
             }
             firebaseAnalytics?.logEvent(
-              "model_download",
+              GalleryEvent.MODEL_DOWNLOAD.id,
               bundleOf("event_type" to "start", "model_id" to model.name),
             )
           }
@@ -215,7 +216,7 @@ class DefaultDownloadRepository(
             val startTime = downloadStartTimeSharedPreferences.getLong(model.name, 0L)
             val duration = System.currentTimeMillis() - startTime
             firebaseAnalytics?.logEvent(
-              "model_download",
+              GalleryEvent.MODEL_DOWNLOAD.id,
               bundleOf(
                 "event_type" to "success",
                 "model_id" to model.name,
@@ -252,7 +253,7 @@ class DefaultDownloadRepository(
             val duration = System.currentTimeMillis() - startTime
             // TODO: Add failure reasons
             firebaseAnalytics?.logEvent(
-              "model_download",
+              GalleryEvent.MODEL_DOWNLOAD.id,
               bundleOf(
                 "event_type" to "failure",
                 "model_id" to model.name,
