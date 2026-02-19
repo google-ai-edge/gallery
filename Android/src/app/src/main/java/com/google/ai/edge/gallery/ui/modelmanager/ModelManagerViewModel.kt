@@ -73,6 +73,8 @@ private const val TAG = "AGModelManagerViewModel"
 private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
 private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
 private const val MODEL_ALLOWLIST_TEST_FILENAME = "model_allowlist_test.json"
+private const val ALLOWLIST_BASE_URL =
+  "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlists"
 
 private const val TEST_MODEL_ALLOW_LIST = ""
 
@@ -158,7 +160,7 @@ private val PREDEFINED_LLM_TASK_ORDER =
     BuiltInTaskId.LLM_PROMPT_LAB,
     BuiltInTaskId.LLM_TINY_GARDEN,
     BuiltInTaskId.LLM_MOBILE_ACTIONS,
-    BuiltInTaskId.MP_SCRAPBOOK,
+    // BuiltInTaskId.MP_SCRAPBOOK,
   )
 
 /**
@@ -762,14 +764,14 @@ constructor(
 
         // Local test only.
         if (TEST_MODEL_ALLOW_LIST.isNotEmpty()) {
+          Log.d(TAG, "Loading local model allowlist for testing.")
           val gson = Gson()
           modelAllowlist = gson.fromJson(TEST_MODEL_ALLOW_LIST, ModelAllowlist::class.java)
         }
 
         if (modelAllowlist == null) {
           // Load from github.
-          val url =
-            "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlists/${BuildConfig.VERSION_NAME.replace(".", "_")}.json"
+          val url = getAllowlistUrl()
           Log.d(TAG, "Loading model allowlist from internet. Url: $url")
           val data = getJsonResponse<ModelAllowlist>(url = url)
           modelAllowlist = data?.jsonObj
@@ -1217,4 +1219,10 @@ constructor(
 
     return downloadedFileExists || unzippedDirectoryExists
   }
+}
+
+private fun getAllowlistUrl(): String {
+  val version = BuildConfig.VERSION_NAME.replace(".", "_")
+
+  return "$ALLOWLIST_BASE_URL/${version}.json"
 }

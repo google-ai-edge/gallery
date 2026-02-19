@@ -126,8 +126,8 @@
   <string name="tap_to_see_value" translatable="false">Tap on graph to see value</string>
   <string name="text_image_generation_text_field_placeholder" translatable="false">Type prompt…</string>
   <string name="text_input_placeholder_llm_chat" translatable="false">Type prompt…</string>
-  <string name="tos_dialog_title" translatable="false">Welcome to Google AI Edge Gallery</string>
-  <string name="tos_dialog_view_accept_button_label" translatable="false">Accept &amp; Continue</string>
+  <string name="tos_dialog_title" translatable="false">Gemma Terms of Use</string>
+  <string name="tos_dialog_view_accept_button_label" translatable="false">Agree &amp; continue</string>
   <string name="try_it" translatable="false">Try it</string>
   <string name="undo" translatable="false">Undo</string>
   <string name="unsupported_action" translatable="false">Unsupported action</string>

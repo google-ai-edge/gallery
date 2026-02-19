@@ -73,11 +73,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.ui.common.tos.TosDialog
+import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.TokenRequestResultType
 import com.google.ai.edge.gallery.ui.modelmanager.TokenStatus
@@ -125,6 +128,7 @@ fun DownloadAndTryButton(
   modelManagerViewModel: ModelManagerViewModel,
   onClicked: () -> Unit,
   modifier: Modifier = Modifier,
+  tosViewModel: TosViewModel = hiltViewModel(),
   modifierWhenExpanded: Modifier = Modifier,
   compact: Boolean = false,
   canShowTryIt: Boolean = true,
@@ -135,6 +139,7 @@ fun DownloadAndTryButton(
   var showAgreementAckSheet by remember { mutableStateOf(false) }
   var showErrorDialog by remember { mutableStateOf(false) }
   var showMemoryWarning by remember { mutableStateOf(false) }
+  var showTosDialog by remember { mutableStateOf(false) }
   var downloadStarted by remember { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
 
@@ -327,6 +332,14 @@ fun DownloadAndTryButton(
     }
   }
 
+  val checkMemoryAndClickDownloadButton = {
+    if (isMemoryLow(context = context, model = model)) {
+      showMemoryWarning = true
+    } else {
+      handleClickButton()
+    }
+  }
+
   if (!showDownloadProgress) {
     var buttonModifier: Modifier = modifier.height(42.dp)
     if (!compact) {
@@ -350,10 +363,14 @@ fun DownloadAndTryButton(
           return@Button
         }
 
-        if (isMemoryLow(context = context, model = model)) {
-          showMemoryWarning = true
+        // Check TOS before downloading.
+        if (
+          model.url.startsWith("https://dl.google.com/google-ai-edge-gallery/") &&
+            !tosViewModel.getIsTosAccepted()
+        ) {
+          showTosDialog = true
         } else {
-          handleClickButton()
+          checkMemoryAndClickDownloadButton()
         }
       },
     ) {
@@ -386,7 +403,7 @@ fun DownloadAndTryButton(
               style = MaterialTheme.typography.titleMedium,
               maxLines = 1,
               autoSize =
-                TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 14.sp, stepSize = 1.sp),
+                TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
             )
           }
         }
@@ -529,6 +546,17 @@ fun DownloadAndTryButton(
         showMemoryWarning = false
       },
       onDismissed = { showMemoryWarning = false },
+    )
+  }
+
+  if (showTosDialog) {
+    TosDialog(
+      onTosAccepted = {
+        showTosDialog = false
+        tosViewModel.acceptTos()
+        checkMemoryAndClickDownloadButton()
+      },
+      onCancel = { showTosDialog = false },
     )
   }
 }

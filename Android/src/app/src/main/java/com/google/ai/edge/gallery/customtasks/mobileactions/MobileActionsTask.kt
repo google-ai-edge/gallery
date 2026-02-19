@@ -28,6 +28,7 @@ import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
+import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -74,7 +75,7 @@ class MobileActionsTask @Inject constructor() : CustomTask {
       supportImage = false,
       supportAudio = false,
       onDone = onDone,
-      systemInstruction = Contents.of(getSystemPrompt()),
+      systemInstruction = getSystemPrompt(),
       tools = tools,
     )
   }
@@ -104,10 +105,15 @@ class MobileActionsTask @Inject constructor() : CustomTask {
   }
 }
 
-fun getSystemPrompt(): String {
-  @SuppressWarnings("JavaTimeDefaultTimeZone")
-  val curDateTimeString =
-    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"))
-  return "Current date and time given in YYYY-MM-DDTHH:MM:SS format: ${curDateTimeString}. " +
-    "You are a model that can do function calling with the following functions"
+fun getSystemPrompt(): Contents {
+  @SuppressWarnings("JavaTimeDefaultTimeZone") val now = LocalDateTime.now()
+  val curDateTimeString = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"))
+  val dayOfWeekString = now.format(DateTimeFormatter.ofPattern("EEEE"))
+  return Contents.of(
+    listOf(
+        "You are a model that can do function calling with the following functions",
+        "Current date and time given in YYYY-MM-DDTHH:MM:SS format: ${curDateTimeString}\nDay of week is $dayOfWeekString",
+      )
+      .map { Content.Text(it) }
+  )
 }

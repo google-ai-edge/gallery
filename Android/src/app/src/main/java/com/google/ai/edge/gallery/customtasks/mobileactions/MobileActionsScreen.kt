@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.customtasks.mobileactions
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.res.Resources
+import android.os.Bundle
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -112,9 +113,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.MarkdownText
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageWarning
 import com.google.ai.edge.gallery.ui.common.chat.MessageBodyLoading
@@ -147,12 +150,12 @@ private val PROMPT_TEMPLATES =
     PromptTemplate(
       labelResId = R.string.prompt_template_label_create_contact,
       prompt =
-        "Create contact John Doe with email address jd@example.com and phone number 123 456 7890.",
+        "Create contact John Smith with email address js@example.com and phone number 123 456 7890.",
     ),
     PromptTemplate(
       labelResId = R.string.prompt_template_label_send_email,
       prompt =
-        "Send an email to jd@example.com with subject \"Meeting\" and body \"Hi John, let's meet at 3pm tomorrow.\"",
+        "Send an email to js@example.com with subject \"Meeting\" and body \"Hi John, let's meet at 3pm tomorrow.\"",
     ),
     PromptTemplate(
       labelResId = R.string.prompt_template_label_create_calendar_event,
@@ -403,6 +406,14 @@ fun MainUi(
           // Show error dialog for users to reset the engine.
           errorDialogContent = error
           showErrorDialog = true
+        },
+      )
+
+      firebaseAnalytics?.logEvent(
+        GalleryEvent.GENERATE_ACTION.id,
+        Bundle().apply {
+          putString("capability_name", task.id)
+          putString("model_id", model.name)
         },
       )
     }

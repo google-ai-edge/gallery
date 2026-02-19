@@ -184,7 +184,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
       model = model,
       supportImage = false,
       supportAudio = false,
-      systemInstruction = Contents.of(getSystemPrompt()),
+      systemInstruction = getSystemPrompt(),
       tools = tools,
     )
     _isResettingConversation.value = false
@@ -222,7 +222,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
                 onError(error)
               }
             },
-            systemInstruction = Contents.of(getSystemPrompt()),
+            systemInstruction = getSystemPrompt(),
             tools = tools,
           )
         },

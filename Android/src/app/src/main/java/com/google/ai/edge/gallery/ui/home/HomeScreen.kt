@@ -102,16 +102,12 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import com.google.ai.edge.gallery.GalleryTopAppBar
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.AppBarAction
 import com.google.ai.edge.gallery.data.AppBarActionType
-import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.CategoryInfo
-import com.google.ai.edge.gallery.data.ConfigKeys
-import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.ui.common.RevealingText
@@ -119,7 +115,6 @@ import com.google.ai.edge.gallery.ui.common.SwipingText
 import com.google.ai.edge.gallery.ui.common.TaskIcon
 import com.google.ai.edge.gallery.ui.common.buildTrackableUrlAnnotatedString
 import com.google.ai.edge.gallery.ui.common.rememberDelayedAnimationProgress
-import com.google.ai.edge.gallery.ui.common.tos.TosDialog
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
@@ -149,17 +144,6 @@ object HomeScreenDestination {
 
 private val PREDEFINED_CATEGORY_ORDER = listOf(Category.LLM.id, Category.EXPERIMENTAL.id)
 
-private val PREDEFINED_LLM_TASK_ORDER =
-  listOf(
-    BuiltInTaskId.LLM_ASK_IMAGE,
-    BuiltInTaskId.LLM_ASK_AUDIO,
-    BuiltInTaskId.LLM_CHAT,
-    BuiltInTaskId.LLM_PROMPT_LAB,
-    BuiltInTaskId.LLM_TINY_GARDEN,
-    BuiltInTaskId.LLM_MOBILE_ACTIONS,
-    BuiltInTaskId.MP_SCRAPBOOK,
-  )
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -177,8 +161,6 @@ fun HomeScreen(
   val sheetState = rememberModalBottomSheetState()
   var showImportDialog by remember { mutableStateOf(false) }
   var showImportingDialog by remember { mutableStateOf(false) }
-  var showTosDialog by remember { mutableStateOf(!tosViewModel.getIsTosAccepted()) }
-  var showMobileActionsChallengeDialog by remember { mutableStateOf(false) }
   val selectedLocalModelFileUri = remember { mutableStateOf<Uri?>(null) }
   val selectedImportedModelInfo = remember { mutableStateOf<ImportedModel?>(null) }
   val coroutineScope = rememberCoroutineScope()
@@ -245,177 +227,155 @@ fun HomeScreen(
       }
     }
 
-  // Show home screen content when TOS has been accepted.
-  if (!showTosDialog) {
-    // The code below manages the display of the model allowlist loading indicator with a debounced
-    // delay. It ensures that a progress indicator is only shown if the loading operation
-    // (represented by `uiState.loadingModelAllowlist`) takes longer than 200 milliseconds.
-    // If the loading completes within 200ms, the indicator is never shown,
-    // preventing a "flicker" and improving the perceived responsiveness of the UI.
-    // The `loadingModelAllowlistDelayed` state is used to control the actual
-    // visibility of the indicator based on this debounced logic.
-    var loadingModelAllowlistDelayed by remember { mutableStateOf(false) }
-    // This effect runs whenever uiState.loadingModelAllowlist changes
-    LaunchedEffect(uiState.loadingModelAllowlist) {
+  // The code below manages the display of the model allowlist loading indicator with a debounced
+  // delay. It ensures that a progress indicator is only shown if the loading operation
+  // (represented by `uiState.loadingModelAllowlist`) takes longer than 200 milliseconds.
+  // If the loading completes within 200ms, the indicator is never shown,
+  // preventing a "flicker" and improving the perceived responsiveness of the UI.
+  // The `loadingModelAllowlistDelayed` state is used to control the actual
+  // visibility of the indicator based on this debounced logic.
+  var loadingModelAllowlistDelayed by remember { mutableStateOf(false) }
+  // This effect runs whenever uiState.loadingModelAllowlist changes
+  LaunchedEffect(uiState.loadingModelAllowlist) {
+    if (uiState.loadingModelAllowlist) {
+      // If loading starts, wait for 200ms
+      delay(200)
+      // After 200ms, check if loadingModelAllowlist is still true
       if (uiState.loadingModelAllowlist) {
-        // If loading starts, wait for 200ms
-        delay(200)
-        // After 200ms, check if loadingModelAllowlist is still true
-        if (uiState.loadingModelAllowlist) {
-          loadingModelAllowlistDelayed = true
-        }
-      } else {
-        // If loading finishes, immediately hide the indicator
-        loadingModelAllowlistDelayed = false
+        loadingModelAllowlistDelayed = true
       }
-    }
-
-    // Label and spinner to show when in the process of loading model allowlist.
-    if (loadingModelAllowlistDelayed) {
-      Row(
-        modifier = Modifier.fillMaxSize(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-      ) {
-        CircularProgressIndicator(
-          trackColor = MaterialTheme.colorScheme.surfaceVariant,
-          strokeWidth = 3.dp,
-          modifier = Modifier.padding(end = 8.dp).size(20.dp),
-        )
-        Text(
-          stringResource(R.string.loading_model_list),
-          style = MaterialTheme.typography.bodyMedium,
-        )
-      }
-    }
-    // Main UI when allowlist is done loading.
-    if (!loadingModelAllowlistDelayed && !uiState.loadingModelAllowlist) {
-      Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-          // Top bar animation:
-          //
-          // Fade in and move down at the same time.
-          val progress =
-            if (!enableAnimation) 1f
-            else
-              rememberDelayedAnimationProgress(
-                initialDelay = ANIMATION_INIT_DELAY - 50,
-                animationDurationMs = TOP_APP_BAR_ANIMATION_DURATION,
-                animationLabel = "top bar",
-              )
-          Box(
-            modifier =
-              Modifier.graphicsLayer {
-                alpha = progress
-                translationY = ((-16).dp * (1 - progress)).toPx()
-              }
-          ) {
-            GalleryTopAppBar(
-              title = stringResource(HomeScreenDestination.titleRes),
-              rightAction =
-                AppBarAction(
-                  actionType = AppBarActionType.APP_SETTING,
-                  actionFn = { showSettingsDialog = true },
-                ),
-            )
-          }
-        },
-        floatingActionButton = {
-          // A floating action button to show "import model" bottom sheet.
-          val cdImportModelFab = stringResource(R.string.cd_import_model_button)
-          SmallFloatingActionButton(
-            onClick = { showImportModelSheet = true },
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.secondary,
-            modifier = Modifier.semantics { contentDescription = cdImportModelFab },
-          ) {
-            Icon(Icons.Filled.Add, contentDescription = null)
-          }
-        },
-      ) { innerPadding ->
-        // Outer box for coloring the background edge to edge.
-        Box(
-          contentAlignment = Alignment.TopCenter,
-          modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer),
-        ) {
-          // Inner box to hold content.
-          Box(
-            contentAlignment = Alignment.TopCenter,
-            modifier = Modifier.fillMaxSize().padding(innerPadding),
-          ) {
-            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-              var selectedCategoryIndex by remember { mutableIntStateOf(0) }
-
-              // App title and intro text.
-              Column(
-                modifier =
-                  Modifier.padding(horizontal = 40.dp, vertical = 48.dp).semantics(
-                    mergeDescendants = true
-                  ) {},
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-              ) {
-                AppTitle(enableAnimation = enableAnimation)
-                IntroText(enableAnimation = enableAnimation)
-              }
-
-              // Tab header for categories.
-              //
-              // synchronizes the `pagerState` and the `selectedCategoryIndex` to ensure that
-              //  both the tab header and the task list always show the correct category and page.
-              val pagerState = rememberPagerState(pageCount = { sortedCategories.size })
-              LaunchedEffect(pagerState.settledPage) {
-                selectedCategoryIndex = pagerState.settledPage
-              }
-              if (sortedCategories.size > 1) {
-                CategoryTabHeader(
-                  sortedCategories = sortedCategories,
-                  selectedIndex = selectedCategoryIndex,
-                  enableAnimation = enableAnimation,
-                  onCategorySelected = { index ->
-                    selectedCategoryIndex = index
-                    scope.launch { pagerState.animateScrollToPage(page = index) }
-                  },
-                )
-              }
-
-              // Task list in a horizontal pager. Each page shows the list of tasks for the
-              // category.
-              TaskList(
-                pagerState = pagerState,
-                sortedCategories = sortedCategories,
-                tasksByCategories = uiState.tasksByCategory,
-                enableAnimation = enableAnimation,
-                navigateToTaskScreen = { task ->
-                  if (task.id == BuiltInTaskId.LLM_MOBILE_ACTIONS && task.models.isEmpty()) {
-                    showMobileActionsChallengeDialog = true
-                  } else {
-                    navigateToTaskScreen(task)
-                  }
-                },
-              )
-
-              Spacer(modifier = Modifier.height(64.dp))
-            }
-
-            SnackbarHost(
-              hostState = snackbarHostState,
-              modifier = Modifier.align(alignment = Alignment.BottomCenter).padding(bottom = 32.dp),
-            )
-          }
-        }
-      }
+    } else {
+      // If loading finishes, immediately hide the indicator
+      loadingModelAllowlistDelayed = false
     }
   }
 
-  // Show TOS dialog for users to accept.
-  if (showTosDialog) {
-    TosDialog(
-      onTosAccepted = {
-        showTosDialog = false
-        tosViewModel.acceptTos()
+  // Label and spinner to show when in the process of loading model allowlist.
+  if (loadingModelAllowlistDelayed) {
+    Row(
+      modifier = Modifier.fillMaxSize(),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.Center,
+    ) {
+      CircularProgressIndicator(
+        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        strokeWidth = 3.dp,
+        modifier = Modifier.padding(end = 8.dp).size(20.dp),
+      )
+      Text(stringResource(R.string.loading_model_list), style = MaterialTheme.typography.bodyMedium)
+    }
+  }
+  // Main UI when allowlist is done loading.
+  if (!loadingModelAllowlistDelayed && !uiState.loadingModelAllowlist) {
+    Scaffold(
+      containerColor = MaterialTheme.colorScheme.background,
+      topBar = {
+        // Top bar animation:
+        //
+        // Fade in and move down at the same time.
+        val progress =
+          if (!enableAnimation) 1f
+          else
+            rememberDelayedAnimationProgress(
+              initialDelay = ANIMATION_INIT_DELAY - 50,
+              animationDurationMs = TOP_APP_BAR_ANIMATION_DURATION,
+              animationLabel = "top bar",
+            )
+        Box(
+          modifier =
+            Modifier.graphicsLayer {
+              alpha = progress
+              translationY = ((-16).dp * (1 - progress)).toPx()
+            }
+        ) {
+          GalleryTopAppBar(
+            title = stringResource(HomeScreenDestination.titleRes),
+            rightAction =
+              AppBarAction(
+                actionType = AppBarActionType.APP_SETTING,
+                actionFn = { showSettingsDialog = true },
+              ),
+          )
+        }
+      },
+      floatingActionButton = {
+        // A floating action button to show "import model" bottom sheet.
+        val cdImportModelFab = stringResource(R.string.cd_import_model_button)
+        SmallFloatingActionButton(
+          onClick = { showImportModelSheet = true },
+          containerColor = MaterialTheme.colorScheme.secondaryContainer,
+          contentColor = MaterialTheme.colorScheme.secondary,
+          modifier = Modifier.semantics { contentDescription = cdImportModelFab },
+        ) {
+          Icon(Icons.Filled.Add, contentDescription = null)
+        }
+      },
+    ) { innerPadding ->
+      // Outer box for coloring the background edge to edge.
+      Box(
+        contentAlignment = Alignment.TopCenter,
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer),
+      ) {
+        // Inner box to hold content.
+        Box(
+          contentAlignment = Alignment.TopCenter,
+          modifier = Modifier.fillMaxSize().padding(innerPadding),
+        ) {
+          Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+            var selectedCategoryIndex by remember { mutableIntStateOf(0) }
+
+            // App title and intro text.
+            Column(
+              modifier =
+                Modifier.padding(horizontal = 40.dp, vertical = 48.dp).semantics(
+                  mergeDescendants = true
+                ) {},
+              verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              AppTitle(enableAnimation = enableAnimation)
+              IntroText(enableAnimation = enableAnimation)
+            }
+
+            // Tab header for categories.
+            //
+            // synchronizes the `pagerState` and the `selectedCategoryIndex` to ensure that
+            //  both the tab header and the task list always show the correct category and page.
+            val pagerState = rememberPagerState(pageCount = { sortedCategories.size })
+            LaunchedEffect(pagerState.settledPage) {
+              selectedCategoryIndex = pagerState.settledPage
+            }
+            if (sortedCategories.size > 1) {
+              CategoryTabHeader(
+                sortedCategories = sortedCategories,
+                selectedIndex = selectedCategoryIndex,
+                enableAnimation = enableAnimation,
+                onCategorySelected = { index ->
+                  selectedCategoryIndex = index
+                  scope.launch { pagerState.animateScrollToPage(page = index) }
+                },
+              )
+            }
+
+            // Task list in a horizontal pager. Each page shows the list of tasks for the
+            // category.
+            TaskList(
+              pagerState = pagerState,
+              sortedCategories = sortedCategories,
+              tasksByCategories = uiState.tasksByCategory,
+              enableAnimation = enableAnimation,
+              navigateToTaskScreen = navigateToTaskScreen,
+            )
+
+            Spacer(modifier = Modifier.height(64.dp))
+          }
+
+          SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(alignment = Alignment.BottomCenter).padding(bottom = 32.dp),
+          )
+        }
       }
-    )
+    }
   }
 
   // Settings dialog.
@@ -424,33 +384,6 @@ fun HomeScreen(
       curThemeOverride = modelManagerViewModel.readThemeOverride(),
       modelManagerViewModel = modelManagerViewModel,
       onDismissed = { showSettingsDialog = false },
-    )
-  }
-
-  if (showMobileActionsChallengeDialog) {
-    MobileActionsChallengeDialog(
-      onDismiss = { showMobileActionsChallengeDialog = false },
-      onLoadModel = {
-        // Show file picker.
-        val intent =
-          Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "*/*"
-            // Single select.
-            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
-          }
-        filePickerLauncher.launch(intent)
-      },
-      onSendEmail = {
-        context.startActivity(
-          Intent(Intent.ACTION_SEND).apply {
-            data = "mailto:".toUri()
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, "Finetune FunctionGemma 270M for Mobile Actions")
-            putExtra(Intent.EXTRA_TEXT, "https://ai.google.dev/gemma/docs/mobile-actions")
-          }
-        )
-      },
     )
   }
 
@@ -502,10 +435,6 @@ fun HomeScreen(
   // Import dialog
   if (showImportDialog) {
     selectedLocalModelFileUri.value?.let { uri ->
-      // If it is from the Mobile Actions challenge flow.
-      val supportMobileActions = showMobileActionsChallengeDialog
-      showMobileActionsChallengeDialog = false
-
       ModelImportDialog(
         uri = uri,
         onDismiss = { showImportDialog = false },
@@ -514,12 +443,6 @@ fun HomeScreen(
           showImportDialog = false
           showImportingDialog = true
         },
-        defaultValues =
-          mapOf(
-            ConfigKeys.SUPPORT_MOBILE_ACTIONS to supportMobileActions,
-            ConfigKeys.DEFAULT_TEMPERATURE to
-              (if (supportMobileActions) 0.0f else DEFAULT_TEMPERATURE),
-          ),
       )
     }
   }

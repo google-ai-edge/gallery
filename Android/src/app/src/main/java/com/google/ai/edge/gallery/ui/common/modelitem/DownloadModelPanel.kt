@@ -103,7 +103,7 @@ fun DownloadModelPanel(
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 autoSize =
-                  TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 14.sp, stepSize = 1.sp),
+                  TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
               )
             }
           }
