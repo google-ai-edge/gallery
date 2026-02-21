@@ -376,7 +376,7 @@ fun HomeScreen(
                   navigateToTaskScreen = navigateToTaskScreen,
                 )
 
-                Spacer(modifier = Modifier.height(innerPadding.calculateBottomPadding()))
+                Spacer(modifier = Modifier.height(innerPadding.calculateBottomPadding() + 10.dp))
               }
             }
 

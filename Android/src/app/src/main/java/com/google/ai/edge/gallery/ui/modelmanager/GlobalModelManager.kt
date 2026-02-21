@@ -255,7 +255,7 @@ fun GlobalModelManager(
     Box() {
       Column(
         modifier =
-          Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)
+          Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .padding(top = innerPadding.calculateTopPadding())
