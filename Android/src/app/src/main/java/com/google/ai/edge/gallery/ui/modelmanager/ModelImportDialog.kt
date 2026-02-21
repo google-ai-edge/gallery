@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.google.ai.edge.gallery.ui.home
+package com.google.ai.edge.gallery.ui.modelmanager
 
 import android.content.Context
 import android.net.Uri

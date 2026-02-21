@@ -20,13 +20,7 @@ package com.google.ai.edge.gallery.ui.home
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 // import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.provider.OpenableColumns
-import android.util.Log
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -54,25 +48,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.NoteAdd
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.rounded.ListAlt
 import androidx.compose.material.icons.rounded.Error
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SmallFloatingActionButton
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -86,6 +78,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Brush.Companion.linearGradient
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -95,10 +88,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
@@ -109,12 +100,12 @@ import com.google.ai.edge.gallery.data.AppBarActionType
 import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.CategoryInfo
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.ui.common.RevealingText
 import com.google.ai.edge.gallery.ui.common.SwipingText
 import com.google.ai.edge.gallery.ui.common.TaskIcon
 import com.google.ai.edge.gallery.ui.common.buildTrackableUrlAnnotatedString
 import com.google.ai.edge.gallery.ui.common.rememberDelayedAnimationProgress
+import com.google.ai.edge.gallery.ui.common.tos.AppTosDialog
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
@@ -150,21 +141,13 @@ fun HomeScreen(
   modelManagerViewModel: ModelManagerViewModel,
   tosViewModel: TosViewModel,
   navigateToTaskScreen: (Task) -> Unit,
+  onModelsClicked: () -> Unit,
   enableAnimation: Boolean,
   modifier: Modifier = Modifier,
 ) {
   val uiState by modelManagerViewModel.uiState.collectAsState()
   var showSettingsDialog by remember { mutableStateOf(false) }
-  var showImportModelSheet by remember { mutableStateOf(false) }
-  var showUnsupportedFileTypeDialog by remember { mutableStateOf(false) }
-  var showUnsupportedWebModelDialog by remember { mutableStateOf(false) }
-  val sheetState = rememberModalBottomSheetState()
-  var showImportDialog by remember { mutableStateOf(false) }
-  var showImportingDialog by remember { mutableStateOf(false) }
-  val selectedLocalModelFileUri = remember { mutableStateOf<Uri?>(null) }
-  val selectedImportedModelInfo = remember { mutableStateOf<ImportedModel?>(null) }
-  val coroutineScope = rememberCoroutineScope()
-  val snackbarHostState = remember { SnackbarHostState() }
+  var showTosDialog by remember { mutableStateOf(!tosViewModel.getIsTosAccepted()) }
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
 
@@ -202,180 +185,227 @@ fun HomeScreen(
         .map { categoryMap[it]!! }
     }
 
-  val filePickerLauncher: ActivityResultLauncher<Intent> =
-    rememberLauncherForActivityResult(
-      contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-      if (result.resultCode == android.app.Activity.RESULT_OK) {
-        result.data?.data?.let { uri ->
-          val fileName = getFileName(context = context, uri = uri)
-          Log.d(TAG, "Selected file: $fileName")
-          // Show warning for model file types other than .task and .litertlm.
-          if (fileName != null && !fileName.endsWith(".task") && !fileName.endsWith(".litertlm")) {
-            showUnsupportedFileTypeDialog = true
-          }
-          // Show warning for web-only model (by checking if the file name has "-web" in it).
-          else if (fileName != null && fileName.lowercase().contains("-web")) {
-            showUnsupportedWebModelDialog = true
-          } else {
-            selectedLocalModelFileUri.value = uri
-            showImportDialog = true
-          }
-        } ?: run { Log.d(TAG, "No file selected or URI is null.") }
-      } else {
-        Log.d(TAG, "File picking cancelled.")
-      }
-    }
-
-  // The code below manages the display of the model allowlist loading indicator with a debounced
-  // delay. It ensures that a progress indicator is only shown if the loading operation
-  // (represented by `uiState.loadingModelAllowlist`) takes longer than 200 milliseconds.
-  // If the loading completes within 200ms, the indicator is never shown,
-  // preventing a "flicker" and improving the perceived responsiveness of the UI.
-  // The `loadingModelAllowlistDelayed` state is used to control the actual
-  // visibility of the indicator based on this debounced logic.
-  var loadingModelAllowlistDelayed by remember { mutableStateOf(false) }
-  // This effect runs whenever uiState.loadingModelAllowlist changes
-  LaunchedEffect(uiState.loadingModelAllowlist) {
-    if (uiState.loadingModelAllowlist) {
-      // If loading starts, wait for 200ms
-      delay(200)
-      // After 200ms, check if loadingModelAllowlist is still true
+  // Show home screen content when TOS has been accepted.
+  if (!showTosDialog) {
+    // The code below manages the display of the model allowlist loading indicator with a debounced
+    // delay. It ensures that a progress indicator is only shown if the loading operation
+    // (represented by `uiState.loadingModelAllowlist`) takes longer than 200 milliseconds.
+    // If the loading completes within 200ms, the indicator is never shown,
+    // preventing a "flicker" and improving the perceived responsiveness of the UI.
+    // The `loadingModelAllowlistDelayed` state is used to control the actual
+    // visibility of the indicator based on this debounced logic.
+    var loadingModelAllowlistDelayed by remember { mutableStateOf(false) }
+    // This effect runs whenever uiState.loadingModelAllowlist changes
+    LaunchedEffect(uiState.loadingModelAllowlist) {
       if (uiState.loadingModelAllowlist) {
-        loadingModelAllowlistDelayed = true
+        // If loading starts, wait for 200ms
+        delay(200)
+        // After 200ms, check if loadingModelAllowlist is still true
+        if (uiState.loadingModelAllowlist) {
+          loadingModelAllowlistDelayed = true
+        }
+      } else {
+        // If loading finishes, immediately hide the indicator
+        loadingModelAllowlistDelayed = false
       }
-    } else {
-      // If loading finishes, immediately hide the indicator
-      loadingModelAllowlistDelayed = false
     }
-  }
 
-  // Label and spinner to show when in the process of loading model allowlist.
-  if (loadingModelAllowlistDelayed) {
-    Row(
-      modifier = Modifier.fillMaxSize(),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.Center,
-    ) {
-      CircularProgressIndicator(
-        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        strokeWidth = 3.dp,
-        modifier = Modifier.padding(end = 8.dp).size(20.dp),
-      )
-      Text(stringResource(R.string.loading_model_list), style = MaterialTheme.typography.bodyMedium)
-    }
-  }
-  // Main UI when allowlist is done loading.
-  if (!loadingModelAllowlistDelayed && !uiState.loadingModelAllowlist) {
-    Scaffold(
-      containerColor = MaterialTheme.colorScheme.background,
-      topBar = {
-        // Top bar animation:
-        //
-        // Fade in and move down at the same time.
-        val progress =
-          if (!enableAnimation) 1f
-          else
-            rememberDelayedAnimationProgress(
-              initialDelay = ANIMATION_INIT_DELAY - 50,
-              animationDurationMs = TOP_APP_BAR_ANIMATION_DURATION,
-              animationLabel = "top bar",
-            )
-        Box(
-          modifier =
-            Modifier.graphicsLayer {
-              alpha = progress
-              translationY = ((-16).dp * (1 - progress)).toPx()
-            }
-        ) {
-          GalleryTopAppBar(
-            title = stringResource(HomeScreenDestination.titleRes),
-            rightAction =
-              AppBarAction(
-                actionType = AppBarActionType.APP_SETTING,
-                actionFn = { showSettingsDialog = true },
-              ),
-          )
-        }
-      },
-      floatingActionButton = {
-        // A floating action button to show "import model" bottom sheet.
-        val cdImportModelFab = stringResource(R.string.cd_import_model_button)
-        SmallFloatingActionButton(
-          onClick = { showImportModelSheet = true },
-          containerColor = MaterialTheme.colorScheme.secondaryContainer,
-          contentColor = MaterialTheme.colorScheme.secondary,
-          modifier = Modifier.semantics { contentDescription = cdImportModelFab },
-        ) {
-          Icon(Icons.Filled.Add, contentDescription = null)
-        }
-      },
-    ) { innerPadding ->
-      // Outer box for coloring the background edge to edge.
-      Box(
-        contentAlignment = Alignment.TopCenter,
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer),
+    // Label and spinner to show when in the process of loading model allowlist.
+    if (loadingModelAllowlistDelayed) {
+      Row(
+        modifier = Modifier.fillMaxSize(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
       ) {
-        // Inner box to hold content.
-        Box(
-          contentAlignment = Alignment.TopCenter,
-          modifier = Modifier.fillMaxSize().padding(innerPadding),
-        ) {
-          Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-            var selectedCategoryIndex by remember { mutableIntStateOf(0) }
+        CircularProgressIndicator(
+          trackColor = MaterialTheme.colorScheme.surfaceVariant,
+          strokeWidth = 3.dp,
+          modifier = Modifier.padding(end = 8.dp).size(20.dp),
+        )
+        Text(
+          stringResource(R.string.loading_model_list),
+          style = MaterialTheme.typography.bodyMedium,
+        )
+      }
+    }
+    // Main UI when allowlist is done loading.
+    if (!loadingModelAllowlistDelayed && !uiState.loadingModelAllowlist) {
+      val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
-            // App title and intro text.
-            Column(
-              modifier =
-                Modifier.padding(horizontal = 40.dp, vertical = 48.dp).semantics(
-                  mergeDescendants = true
-                ) {},
-              verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-              AppTitle(enableAnimation = enableAnimation)
-              IntroText(enableAnimation = enableAnimation)
+      // Close the menu when back button is pressed.
+      BackHandler(drawerState.isOpen) { scope.launch { drawerState.close() } }
+
+      ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+          ModalDrawerSheet {
+            Column(modifier = Modifier.padding(16.dp)) {
+              Row(modifier = Modifier.fillMaxWidth()) {
+                SquareDrawerItem(
+                  label = stringResource(R.string.drawer_settings_label),
+                  description = stringResource(R.string.drawer_settings_description),
+                  icon = Icons.Rounded.Settings,
+                  onClick = {
+                    showSettingsDialog = true
+                    scope.launch { drawerState.close() }
+                  },
+                  modifier = Modifier.weight(1f),
+                  iconBrush =
+                    linearGradient(
+                      colors =
+                        listOf(
+                          MaterialTheme.customColors.taskBgGradientColors[2][0],
+                          MaterialTheme.customColors.taskBgGradientColors[2][1],
+                        )
+                    ),
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                SquareDrawerItem(
+                  label = stringResource(R.string.drawer_models_label),
+                  description = stringResource(R.string.drawer_models_description),
+                  icon = Icons.AutoMirrored.Rounded.ListAlt,
+                  onClick = {
+                    scope.launch { drawerState.close() }
+                    scope.launch {
+                      delay(50)
+                      onModelsClicked()
+                    }
+                  },
+                  modifier = Modifier.weight(1f),
+                  iconBrush =
+                    linearGradient(
+                      colors =
+                        listOf(
+                          MaterialTheme.customColors.taskBgGradientColors[1][0],
+                          MaterialTheme.customColors.taskBgGradientColors[1][1],
+                        )
+                    ),
+                )
+              }
             }
-
-            // Tab header for categories.
+          }
+        },
+        gesturesEnabled = drawerState.isOpen,
+      ) {
+        Scaffold(
+          containerColor = MaterialTheme.colorScheme.background,
+          topBar = {
+            // Top bar animation:
             //
-            // synchronizes the `pagerState` and the `selectedCategoryIndex` to ensure that
-            //  both the tab header and the task list always show the correct category and page.
-            val pagerState = rememberPagerState(pageCount = { sortedCategories.size })
-            LaunchedEffect(pagerState.settledPage) {
-              selectedCategoryIndex = pagerState.settledPage
-            }
-            if (sortedCategories.size > 1) {
-              CategoryTabHeader(
-                sortedCategories = sortedCategories,
-                selectedIndex = selectedCategoryIndex,
-                enableAnimation = enableAnimation,
-                onCategorySelected = { index ->
-                  selectedCategoryIndex = index
-                  scope.launch { pagerState.animateScrollToPage(page = index) }
-                },
+            // Fade in and move down at the same time.
+            val progress =
+              if (!enableAnimation) 1f
+              else
+                rememberDelayedAnimationProgress(
+                  initialDelay = ANIMATION_INIT_DELAY - 50,
+                  animationDurationMs = TOP_APP_BAR_ANIMATION_DURATION,
+                  animationLabel = "top bar",
+                )
+            Box(
+              modifier =
+                Modifier.graphicsLayer {
+                  alpha = progress
+                  translationY = ((-16).dp * (1 - progress)).toPx()
+                }
+            ) {
+              GalleryTopAppBar(
+                title = stringResource(HomeScreenDestination.titleRes),
+                leftAction =
+                  AppBarAction(
+                    actionType = AppBarActionType.MENU,
+                    actionFn = {
+                      scope.launch { drawerState.apply { if (isClosed) open() else close() } }
+                    },
+                  ),
               )
             }
+          },
+        ) { innerPadding ->
+          // Outer box for coloring the background edge to edge.
+          Box(
+            contentAlignment = Alignment.TopCenter,
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer),
+          ) {
+            // Inner box to hold content.
+            Box(
+              contentAlignment = Alignment.TopCenter,
+              modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding()),
+            ) {
+              Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                var selectedCategoryIndex by remember { mutableIntStateOf(0) }
 
-            // Task list in a horizontal pager. Each page shows the list of tasks for the
-            // category.
-            TaskList(
-              pagerState = pagerState,
-              sortedCategories = sortedCategories,
-              tasksByCategories = uiState.tasksByCategory,
-              enableAnimation = enableAnimation,
-              navigateToTaskScreen = navigateToTaskScreen,
+                // App title and intro text.
+                Column(
+                  modifier =
+                    Modifier.padding(horizontal = 40.dp, vertical = 48.dp).semantics(
+                      mergeDescendants = true
+                    ) {},
+                  verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                  AppTitle(enableAnimation = enableAnimation)
+                  IntroText(enableAnimation = enableAnimation)
+                }
+
+                // Tab header for categories.
+                //
+                // synchronizes the `pagerState` and the `selectedCategoryIndex` to ensure that
+                //  both the tab header and the task list always show the correct category and page.
+                val pagerState = rememberPagerState(pageCount = { sortedCategories.size })
+                LaunchedEffect(pagerState.settledPage) {
+                  selectedCategoryIndex = pagerState.settledPage
+                }
+                if (sortedCategories.size > 1) {
+                  CategoryTabHeader(
+                    sortedCategories = sortedCategories,
+                    selectedIndex = selectedCategoryIndex,
+                    enableAnimation = enableAnimation,
+                    onCategorySelected = { index ->
+                      selectedCategoryIndex = index
+                      scope.launch { pagerState.animateScrollToPage(page = index) }
+                    },
+                  )
+                }
+
+                // Task list in a horizontal pager. Each page shows the list of tasks for the
+                // category.
+                TaskList(
+                  pagerState = pagerState,
+                  sortedCategories = sortedCategories,
+                  tasksByCategories = uiState.tasksByCategory,
+                  enableAnimation = enableAnimation,
+                  navigateToTaskScreen = navigateToTaskScreen,
+                )
+
+                Spacer(modifier = Modifier.height(innerPadding.calculateBottomPadding()))
+              }
+            }
+
+            // Gradient overlay at the bottom.
+            Box(
+              modifier =
+                Modifier.fillMaxWidth()
+                  .height(innerPadding.calculateBottomPadding())
+                  .background(
+                    Brush.verticalGradient(
+                      colors = listOf(Color.Transparent, MaterialTheme.colorScheme.surfaceContainer)
+                    )
+                  )
+                  .align(Alignment.BottomCenter)
             )
-
-            Spacer(modifier = Modifier.height(64.dp))
           }
-
-          SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(alignment = Alignment.BottomCenter).padding(bottom = 32.dp),
-          )
         }
       }
     }
+  }
+
+  // Show TOS dialog for users to accept.
+  if (showTosDialog) {
+    AppTosDialog(
+      onTosAccepted = {
+        showTosDialog = false
+        tosViewModel.acceptTos()
+      }
+    )
   }
 
   // Settings dialog.
@@ -384,128 +414,6 @@ fun HomeScreen(
       curThemeOverride = modelManagerViewModel.readThemeOverride(),
       modelManagerViewModel = modelManagerViewModel,
       onDismissed = { showSettingsDialog = false },
-    )
-  }
-
-  // Import model bottom sheet.
-  if (showImportModelSheet) {
-    ModalBottomSheet(onDismissRequest = { showImportModelSheet = false }, sheetState = sheetState) {
-      Text(
-        "Import model",
-        style = MaterialTheme.typography.titleLarge,
-        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
-      )
-      val cbImportFromLocalFile = stringResource(R.string.cd_import_model_from_local_file_button)
-      Box(
-        modifier =
-          Modifier.clickable {
-              coroutineScope.launch {
-                // Give it sometime to show the click effect.
-                delay(200)
-                showImportModelSheet = false
-
-                // Show file picker.
-                val intent =
-                  Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "*/*"
-                    // Single select.
-                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
-                  }
-                filePickerLauncher.launch(intent)
-              }
-            }
-            .semantics {
-              role = Role.Button
-              contentDescription = cbImportFromLocalFile
-            }
-      ) {
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(6.dp),
-          modifier = Modifier.fillMaxWidth().padding(16.dp),
-        ) {
-          Icon(Icons.AutoMirrored.Outlined.NoteAdd, contentDescription = null)
-          Text("From local model file", modifier = Modifier.clearAndSetSemantics {})
-        }
-      }
-    }
-  }
-
-  // Import dialog
-  if (showImportDialog) {
-    selectedLocalModelFileUri.value?.let { uri ->
-      ModelImportDialog(
-        uri = uri,
-        onDismiss = { showImportDialog = false },
-        onDone = { info ->
-          selectedImportedModelInfo.value = info
-          showImportDialog = false
-          showImportingDialog = true
-        },
-      )
-    }
-  }
-
-  // Importing in progress dialog.
-  if (showImportingDialog) {
-    selectedLocalModelFileUri.value?.let { uri ->
-      selectedImportedModelInfo.value?.let { info ->
-        ModelImportingDialog(
-          uri = uri,
-          info = info,
-          onDismiss = { showImportingDialog = false },
-          onDone = {
-            modelManagerViewModel.addImportedLlmModel(info = it)
-            showImportingDialog = false
-
-            // Show a snack bar for successful import.
-            scope.launch { snackbarHostState.showSnackbar("Model imported successfully") }
-          },
-        )
-      }
-    }
-  }
-
-  // Alert dialog for unsupported file type.
-  if (showUnsupportedFileTypeDialog) {
-    AlertDialog(
-      icon = {
-        Icon(
-          Icons.Rounded.Error,
-          contentDescription = stringResource(R.string.cd_error),
-          tint = MaterialTheme.colorScheme.error,
-        )
-      },
-      onDismissRequest = { showUnsupportedFileTypeDialog = false },
-      title = { Text("Unsupported file type") },
-      text = { Text("Only \".task\" or \".litertlm\" file type is supported.") },
-      confirmButton = {
-        Button(onClick = { showUnsupportedFileTypeDialog = false }) {
-          Text(stringResource(R.string.ok))
-        }
-      },
-    )
-  }
-
-  // Alert dialog for unsupported web model.
-  if (showUnsupportedWebModelDialog) {
-    AlertDialog(
-      icon = {
-        Icon(
-          Icons.Rounded.Error,
-          contentDescription = stringResource(R.string.cd_error),
-          tint = MaterialTheme.colorScheme.error,
-        )
-      },
-      onDismissRequest = { showUnsupportedWebModelDialog = false },
-      title = { Text("Unsupported model type") },
-      text = { Text("Looks like the model is a web-only model and is not supported by the app.") },
-      confirmButton = {
-        Button(onClick = { showUnsupportedWebModelDialog = false }) {
-          Text(stringResource(R.string.ok))
-        }
-      },
     )
   }
 
@@ -881,23 +789,6 @@ private fun TaskCard(
       TaskIcon(task = task, width = 40.dp)
     }
   }
-}
-
-// Helper function to get the file name from a URI
-fun getFileName(context: Context, uri: Uri): String? {
-  if (uri.scheme == "content") {
-    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-      if (cursor.moveToFirst()) {
-        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-        if (nameIndex != -1) {
-          return cursor.getString(nameIndex)
-        }
-      }
-    }
-  } else if (uri.scheme == "file") {
-    return uri.lastPathSegment
-  }
-  return null
 }
 
 private fun getCategoryLabel(context: Context, category: CategoryInfo): String {

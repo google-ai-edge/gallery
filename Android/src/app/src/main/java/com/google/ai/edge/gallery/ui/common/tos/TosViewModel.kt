@@ -32,4 +32,12 @@ open class TosViewModel @Inject constructor(private val dataStoreRepository: Dat
   fun acceptTos() {
     dataStoreRepository.acceptTos()
   }
+
+  fun getIsGemmaTermsOfUseAccepted(): Boolean {
+    return dataStoreRepository.isGemmaTermsOfUseAccepted()
+  }
+
+  fun acceptGemmaTermsOfUse() {
+    dataStoreRepository.acceptGemmaTermsOfUse()
+  }
 }

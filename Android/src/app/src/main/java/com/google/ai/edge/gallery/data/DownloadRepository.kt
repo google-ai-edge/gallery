@@ -52,7 +52,7 @@ data class AGWorkInfo(val taskId: String, val modelName: String, val workId: Str
 
 interface DownloadRepository {
   fun downloadModel(
-    task: Task,
+    task: Task?,
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   )
@@ -63,11 +63,13 @@ interface DownloadRepository {
 
   fun observerWorkerProgress(
     workerId: UUID,
-    task: Task,
+    task: Task?,
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   )
 }
+
+private const val DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID = "___"
 
 /**
  * Repository for managing model downloads using WorkManager.
@@ -92,7 +94,7 @@ class DefaultDownloadRepository(
     context.getSharedPreferences("download_start_time_ms", Context.MODE_PRIVATE)
 
   override fun downloadModel(
-    task: Task,
+    task: Task?,
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
@@ -129,7 +131,7 @@ class DefaultDownloadRepository(
         .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
         .setInputData(inputData)
         .addTag("$MODEL_NAME_TAG:${model.name}")
-        .addTag("$TASK_ID_TAG:${task.id}")
+        .addTag("$TASK_ID_TAG:${task?.id ?: ""}")
         .build()
 
     val workerId = downloadWorkRequest.id
@@ -159,7 +161,7 @@ class DefaultDownloadRepository(
 
   override fun observerWorkerProgress(
     workerId: UUID,
-    task: Task,
+    task: Task?,
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
@@ -209,7 +211,7 @@ class DefaultDownloadRepository(
             sendNotification(
               title = context.getString(R.string.notification_title_success),
               text = context.getString(R.string.notification_content_success).format(model.name),
-              taskId = task.id,
+              taskId = task?.id ?: DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID,
               modelName = model.name,
             )
 
@@ -290,7 +292,14 @@ class DefaultDownloadRepository(
     if (taskId.isEmpty()) {
       // If taskId is empty, it's a failed download. Just open the app's main screen.
       intent = context.packageManager.getLaunchIntentForPackage(context.packageName)!!
+    }
+    // Download from global model manager. Open the global model manager screen.
+    else if (taskId == DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID) {
+      intent =
+        Intent(Intent.ACTION_VIEW, "com.google.ai.edge.gallery://global_model_manager".toUri())
+          .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
     } else {
+
       // Otherwise, create the deep link as before.
       intent =
         Intent(

@@ -679,7 +679,7 @@ fun BenchmarkResultsViewer(
             Box(
               modifier =
                 Modifier.fillMaxWidth()
-                  .height(96.dp)
+                  .height(innerPadding.calculateBottomPadding())
                   .background(
                     Brush.verticalGradient(
                       colors = listOf(Color.Transparent, MaterialTheme.colorScheme.surfaceContainer)

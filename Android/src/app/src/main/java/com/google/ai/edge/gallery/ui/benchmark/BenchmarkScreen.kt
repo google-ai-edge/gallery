@@ -78,6 +78,7 @@ import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.ConfigEditorsPanel
 import com.google.ai.edge.gallery.ui.common.SMALL_BUTTON_CONTENT_PADDING
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import com.google.ai.edge.gallery.ui.theme.customColors
 
 private val CONFIGS =
   mutableStateListOf(
@@ -136,6 +137,11 @@ fun BenchmarkScreen(
     }
   }
 
+  val sumOfPrefillAndDecodeTokens =
+    getIntConfigValue(values = values, key = ConfigKeys.PREFILL_TOKENS) +
+      getIntConfigValue(values = values, key = ConfigKeys.DECODE_TOKENS)
+  val maxToken = model.llmMaxToken
+
   // Update filteredResults when selected model is changed.
   LaunchedEffect(selectedModelName, uiState.results) {
     filteredResults.clear()
@@ -192,6 +198,20 @@ fun BenchmarkScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp),
           ) {
             ConfigEditorsPanel(configs = CONFIGS, values = values)
+
+            // Info text on the limit of the sum of prefill and decode tokens.
+            Text(
+              stringResource(
+                R.string.benchmark_tokens_limit_message,
+                sumOfPrefillAndDecodeTokens,
+                maxToken,
+              ),
+              style = MaterialTheme.typography.bodyMedium,
+              color =
+                if (sumOfPrefillAndDecodeTokens > maxToken)
+                  MaterialTheme.customColors.warningTextColor
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
           }
 
           // Buttons.
@@ -221,6 +241,7 @@ fun BenchmarkScreen(
             }
             // Run benchmark.
             Button(
+              enabled = sumOfPrefillAndDecodeTokens <= maxToken,
               onClick = {
                 modelManagerViewModel.getModelByName(name = selectedModelName)?.let { model ->
                   showRunBenchmarkConfirmationDialog = true

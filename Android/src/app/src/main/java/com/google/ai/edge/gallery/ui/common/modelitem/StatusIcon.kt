@@ -45,7 +45,7 @@ import com.google.ai.edge.gallery.ui.theme.customColors
 /** Composable function to display an icon representing the download status of a model. */
 @Composable
 fun StatusIcon(
-  task: Task,
+  task: Task?,
   model: Model,
   downloadStatus: ModelDownloadStatus?,
   modifier: Modifier = Modifier,
@@ -55,10 +55,16 @@ fun StatusIcon(
     horizontalArrangement = Arrangement.Center,
     modifier = modifier,
   ) {
+    val color =
+      if (task != null) {
+        getTaskBgGradientColors(task = task)[1]
+      } else {
+        MaterialTheme.colorScheme.primary
+      }
     if (model.localFileRelativeDirPathOverride.isNotEmpty()) {
       Icon(
         Icons.Filled.DownloadForOffline,
-        tint = getTaskBgGradientColors(task = task)[1],
+        tint = color,
         contentDescription = stringResource(R.string.cd_downloaded_icon),
         modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
       )
@@ -75,7 +81,7 @@ fun StatusIcon(
         ModelDownloadStatusType.SUCCEEDED -> {
           Icon(
             Icons.Filled.DownloadForOffline,
-            tint = getTaskBgGradientColors(task = task)[1],
+            tint = color,
             contentDescription = stringResource(R.string.cd_downloaded_icon),
             modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
           )

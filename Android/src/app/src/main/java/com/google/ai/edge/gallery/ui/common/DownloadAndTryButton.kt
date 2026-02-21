@@ -79,7 +79,7 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.ui.common.tos.TosDialog
+import com.google.ai.edge.gallery.ui.common.tos.GemmaTermsOfUseDialog
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.TokenRequestResultType
@@ -121,7 +121,7 @@ private const val SYSTEM_RESERVED_MEMORY_IN_BYTES = 3 * (1L shl 30)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadAndTryButton(
-  task: Task,
+  task: Task?,
   model: Model,
   enabled: Boolean,
   downloadStatus: ModelDownloadStatus?,
@@ -139,7 +139,7 @@ fun DownloadAndTryButton(
   var showAgreementAckSheet by remember { mutableStateOf(false) }
   var showErrorDialog by remember { mutableStateOf(false) }
   var showMemoryWarning by remember { mutableStateOf(false) }
-  var showTosDialog by remember { mutableStateOf(false) }
+  var showGemmaTermsOfUseDialog by remember { mutableStateOf(false) }
   var downloadStarted by remember { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
 
@@ -353,9 +353,14 @@ fun DownloadAndTryButton(
             if (
               (!downloadSucceeded || !canShowTryIt) &&
                 model.localFileRelativeDirPathOverride.isEmpty()
-            )
+            ) {
+
               MaterialTheme.colorScheme.surfaceContainer
-            else getTaskBgGradientColors(task = task)[1]
+            } else if (task != null) {
+              getTaskBgGradientColors(task = task)[1]
+            } else {
+              MaterialTheme.colorScheme.primary
+            }
         ),
       contentPadding = PaddingValues(horizontal = 12.dp),
       onClick = {
@@ -366,18 +371,22 @@ fun DownloadAndTryButton(
         // Check TOS before downloading.
         if (
           model.url.startsWith("https://dl.google.com/google-ai-edge-gallery/") &&
-            !tosViewModel.getIsTosAccepted()
+            !tosViewModel.getIsGemmaTermsOfUseAccepted()
         ) {
-          showTosDialog = true
+          showGemmaTermsOfUseDialog = true
         } else {
           checkMemoryAndClickDownloadButton()
         }
       },
     ) {
       val textColor =
-        if (!downloadSucceeded && model.localFileRelativeDirPathOverride.isEmpty())
+        if (!downloadSucceeded && model.localFileRelativeDirPathOverride.isEmpty()) {
           MaterialTheme.colorScheme.onSurface
-        else Color.White
+        } else if (task != null) {
+          Color.White
+        } else {
+          MaterialTheme.colorScheme.onPrimary
+        }
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -446,10 +455,13 @@ fun DownloadAndTryButton(
           modifier = Modifier.padding(start = 12.dp).width(if (compact) 32.dp else 44.dp),
         )
         if (!compact) {
+          val color =
+            if (task != null) getTaskBgGradientColors(task = task)[1]
+            else MaterialTheme.colorScheme.primary
           LinearProgressIndicator(
             modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
             progress = { animatedProgress.value },
-            color = getTaskBgGradientColors(task = task)[1],
+            color = color,
             trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
           )
         }
@@ -457,7 +469,7 @@ fun DownloadAndTryButton(
         IconButton(
           onClick = {
             downloadStarted = false
-            modelManagerViewModel.cancelDownloadModel(task = task, model = model)
+            modelManagerViewModel.cancelDownloadModel(model = model)
           },
           colors =
             IconButtonDefaults.iconButtonColors(
@@ -549,14 +561,14 @@ fun DownloadAndTryButton(
     )
   }
 
-  if (showTosDialog) {
-    TosDialog(
+  if (showGemmaTermsOfUseDialog) {
+    GemmaTermsOfUseDialog(
       onTosAccepted = {
-        showTosDialog = false
-        tosViewModel.acceptTos()
+        showGemmaTermsOfUseDialog = false
+        tosViewModel.acceptGemmaTermsOfUse()
         checkMemoryAndClickDownloadButton()
       },
-      onCancel = { showTosDialog = false },
+      onCancel = { showGemmaTermsOfUseDialog = false },
     )
   }
 }

@@ -131,6 +131,8 @@ data class ModelManagerUiState(
   /** The history of text inputs entered by the user. */
   val textInputHistory: List<String> = listOf(),
   val configValuesUpdateTrigger: Long = 0L,
+  // Updated when model is imported of an imported model is deleted.
+  val modelImportingUpdateTrigger: Long = 0L,
 ) {
   fun isModelInitialized(model: Model): Boolean {
     return modelInitializationStatus[model.name]?.status ==
@@ -186,6 +188,7 @@ constructor(
 
   val authService = AuthorizationService(context)
   var curAccessToken: String = ""
+  var globalModelManagerScrollPosition: Int = 0
 
   override fun onCleared() {
     authService.dispose()
@@ -254,7 +257,7 @@ constructor(
     _uiState.update { _uiState.value.copy(selectedModel = model) }
   }
 
-  fun downloadModel(task: Task, model: Model) {
+  fun downloadModel(task: Task?, model: Model) {
     // Update status.
     setDownloadStatus(
       curModel = model,
@@ -262,7 +265,7 @@ constructor(
     )
 
     // Delete the model files first.
-    deleteModel(task = task, model = model)
+    deleteModel(model = model)
 
     // Start to send download request.
     downloadRepository.downloadModel(
@@ -272,12 +275,12 @@ constructor(
     )
   }
 
-  fun cancelDownloadModel(task: Task, model: Model) {
+  fun cancelDownloadModel(model: Model) {
     downloadRepository.cancelDownloadModel(model)
-    deleteModel(task = task, model = model)
+    deleteModel(model = model)
   }
 
-  fun deleteModel(task: Task, model: Model) {
+  fun deleteModel(model: Model) {
     if (model.imported) {
       deleteFilesFromImportDir(model.downloadFileName)
     } else {
@@ -312,6 +315,7 @@ constructor(
       uiState.value.copy(
         modelDownloadStatus = curModelDownloadStatus,
         tasks = uiState.value.tasks.toList(),
+        modelImportingUpdateTrigger = System.currentTimeMillis(),
       )
     _uiState.update { newUiState }
   }
@@ -566,6 +570,7 @@ constructor(
         tasks = uiState.value.tasks.toList(),
         modelDownloadStatus = modelDownloadStatus,
         modelInitializationStatus = modelInstances,
+        modelImportingUpdateTrigger = System.currentTimeMillis(),
       )
     }
 
@@ -1000,9 +1005,10 @@ constructor(
           else -> null // Ignore unknown accelerator labels
         }
       }
+    val llmMaxToken = info.llmConfig.defaultMaxTokens
     val configs: MutableList<Config> =
       createLlmChatConfigs(
-          defaultMaxToken = info.llmConfig.defaultMaxTokens,
+          defaultMaxToken = llmMaxToken,
           defaultTopK = info.llmConfig.defaultTopk,
           defaultTopP = info.llmConfig.defaultTopp,
           defaultTemperature = info.llmConfig.defaultTemperature,
@@ -1027,6 +1033,7 @@ constructor(
         llmSupportAudio = llmSupportAudio,
         llmSupportTinyGarden = llmSupportTinyGarden,
         llmSupportMobileActions = llmSupportMobileActions,
+        llmMaxToken = llmMaxToken,
         // We assume all imported models are LLM for now.
         isLlm = true,
       )

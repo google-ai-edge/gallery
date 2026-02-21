@@ -52,7 +52,7 @@ import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 @Composable
 fun DownloadModelPanel(
   model: Model,
-  task: Task,
+  task: Task?,
   modelManagerViewModel: ModelManagerViewModel,
   downloadStatus: ModelDownloadStatus?,
   isExpanded: Boolean,
@@ -61,6 +61,7 @@ fun DownloadModelPanel(
   onTryItClicked: () -> Unit,
   onBenchmarkClicked: () -> Unit,
   modifier: Modifier = Modifier,
+  showBenchmarkButton: Boolean = false,
 ) {
   val downloadSucceeded = downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
   with(sharedTransitionScope) {
@@ -69,7 +70,7 @@ fun DownloadModelPanel(
       horizontalArrangement = Arrangement.End,
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      if (downloadSucceeded) {
+      if (showBenchmarkButton && downloadSucceeded) {
         // Benchmark button.
         var buttonModifier: Modifier = Modifier.height(42.dp)
         if (isExpanded) {

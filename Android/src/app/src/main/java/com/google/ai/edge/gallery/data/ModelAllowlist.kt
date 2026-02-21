@@ -60,11 +60,12 @@ data class AllowedModel(
         taskTypes.contains(BuiltInTaskId.LLM_MOBILE_ACTIONS) ||
         taskTypes.contains(BuiltInTaskId.LLM_TINY_GARDEN)
     var configs: MutableList<Config> = mutableListOf()
+    var llmMaxToken = 1024
     if (isLlmModel) {
       val defaultTopK: Int = defaultConfig.topK ?: DEFAULT_TOPK
       val defaultTopP: Float = defaultConfig.topP ?: DEFAULT_TOPP
       val defaultTemperature: Float = defaultConfig.temperature ?: DEFAULT_TEMPERATURE
-      val defaultMaxToken = defaultConfig.maxTokens ?: 1024
+      llmMaxToken = defaultConfig.maxTokens ?: 1024
       var accelerators: List<Accelerator> = DEFAULT_ACCELERATORS
       if (defaultConfig.accelerators != null) {
         val items = defaultConfig.accelerators.split(",")
@@ -82,7 +83,7 @@ data class AllowedModel(
             defaultTopK = defaultTopK,
             defaultTopP = defaultTopP,
             defaultTemperature = defaultTemperature,
-            defaultMaxToken = defaultMaxToken,
+            defaultMaxToken = llmMaxToken,
             accelerators = accelerators,
           )
           .toMutableList()
@@ -112,6 +113,7 @@ data class AllowedModel(
       llmSupportAudio = llmSupportAudio == true,
       llmSupportTinyGarden = llmSupportTinyGarden == true,
       llmSupportMobileActions = llmSupportMobileActions == true,
+      llmMaxToken = llmMaxToken,
       bestForTaskIds = bestForTaskTypes ?: listOf(),
       localModelFilePathOverride = localModelFilePathOverride ?: "",
       isLlm = isLlmModel,

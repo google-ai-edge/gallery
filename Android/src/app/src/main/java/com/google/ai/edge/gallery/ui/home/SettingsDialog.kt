@@ -74,7 +74,8 @@ import androidx.compose.ui.window.Dialog
 import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.proto.Theme
-import com.google.ai.edge.gallery.ui.common.tos.TosDialog
+import com.google.ai.edge.gallery.ui.common.ClickableLink
+import com.google.ai.edge.gallery.ui.common.tos.AppTosDialog
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.ThemeSettings
 import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
@@ -314,7 +315,19 @@ fun SettingsDialog(
               stringResource(R.string.settings_dialog_tos_title),
               style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
             )
-            OutlinedButton(onClick = { showTos = true }) { Text("View Terms of Services") }
+            OutlinedButton(onClick = { showTos = true }) {
+              Text(stringResource(R.string.settings_dialog_view_app_terms_of_service))
+            }
+            ClickableLink(
+              url = "https://ai.google.dev/gemma/terms",
+              linkText = stringResource(R.string.tos_dialog_title_gemma),
+              modifier = Modifier.padding(top = 4.dp),
+            )
+            ClickableLink(
+              url = "https://ai.google.dev/gemma/prohibited_use_policy",
+              linkText = stringResource(R.string.settings_dialog_gemma_prohibited_use_policy),
+              modifier = Modifier.padding(top = 8.dp),
+            )
           }
         }
 
@@ -331,7 +344,7 @@ fun SettingsDialog(
   }
 
   if (showTos) {
-    TosDialog(onTosAccepted = { showTos = false }, viewingMode = true)
+    AppTosDialog(onTosAccepted = { showTos = false }, viewingMode = true)
   }
 }
 

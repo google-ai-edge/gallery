@@ -77,6 +77,7 @@ import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
 import com.google.ai.edge.gallery.ui.common.chat.ModelDownloadStatusInfoPanel
 import com.google.ai.edge.gallery.ui.home.HomeScreen
+import com.google.ai.edge.gallery.ui.modelmanager.GlobalModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
@@ -88,6 +89,7 @@ private const val ROUTE_HOMESCREEN = "homepage"
 private const val ROUTE_MODEL_LIST = "model_list"
 private const val ROUTE_MODEL = "route_model"
 private const val ROUTE_BENCHMARK = "benchmark"
+private const val ROUTE_MODEL_MANAGER = "model_manager"
 private const val ENTER_ANIMATION_DURATION_MS = 500
 private val ENTER_ANIMATION_EASING = EaseOutExpo
 private const val ENTER_ANIMATION_DELAY_MS = 100
@@ -118,6 +120,20 @@ private fun AnimatedContentTransitionScope<*>.slideExit(): ExitTransition {
   return slideOutOfContainer(
     animationSpec = exitTween(),
     towards = AnimatedContentTransitionScope.SlideDirection.Right,
+  )
+}
+
+private fun AnimatedContentTransitionScope<*>.slideUpEnter(): EnterTransition {
+  return slideIntoContainer(
+    animationSpec = enterTween(),
+    towards = AnimatedContentTransitionScope.SlideDirection.Up,
+  )
+}
+
+private fun AnimatedContentTransitionScope<*>.slideDownExit(): ExitTransition {
+  return slideOutOfContainer(
+    animationSpec = exitTween(),
+    towards = AnimatedContentTransitionScope.SlideDirection.Down,
   )
 }
 
@@ -178,6 +194,7 @@ fun GalleryNavHost(
             Bundle().apply { putString("capability_name", task.id) },
           )
         },
+        onModelsClicked = { navController.navigate(ROUTE_MODEL_MANAGER) },
       )
     }
 
@@ -206,13 +223,6 @@ fun GalleryNavHost(
           enableAnimation = enableModelListAnimation,
           onModelClicked = { model ->
             navController.navigate("$ROUTE_MODEL/${it.id}/${model.name}")
-          },
-          onBenchmarkClicked = { model ->
-            firebaseAnalytics?.logEvent(
-              GalleryEvent.CAPABILITY_SELECT.id,
-              Bundle().apply { putString("capability_name", "benchmark_${model.name}") },
-            )
-            navController.navigate("$ROUTE_BENCHMARK/${model.name}")
           },
           navigateUp = {
             enableHomeScreenAnimation = false
@@ -300,6 +310,49 @@ fun GalleryNavHost(
       }
     }
 
+    // Global model manager page.
+    composable(
+      route = ROUTE_MODEL_MANAGER,
+      enterTransition = {
+        if (
+          initialState.destination.route?.startsWith(ROUTE_BENCHMARK) == true ||
+            initialState.destination.route?.startsWith(ROUTE_MODEL) == true
+        ) {
+          null
+        } else {
+          slideUpEnter()
+        }
+      },
+      exitTransition = {
+        if (
+          targetState.destination.route?.startsWith(ROUTE_BENCHMARK) == true ||
+            targetState.destination.route?.startsWith(ROUTE_MODEL) == true
+        ) {
+          null
+        } else {
+          slideDownExit()
+        }
+      },
+    ) { backStackEntry ->
+      GlobalModelManager(
+        viewModel = modelManagerViewModel,
+        navigateUp = {
+          enableHomeScreenAnimation = false
+          navController.navigateUp()
+        },
+        onModelSelected = { task, model ->
+          navController.navigate("$ROUTE_MODEL/${task.id}/${model.name}")
+        },
+        onBenchmarkClicked = { model ->
+          firebaseAnalytics?.logEvent(
+            GalleryEvent.CAPABILITY_SELECT.id,
+            Bundle().apply { putString("capability_name", "benchmark_${model.name}") },
+          )
+          navController.navigate("$ROUTE_BENCHMARK/${model.name}")
+        },
+      )
+    }
+
     // Benchmark creation page.
     composable(
       route = "$ROUTE_BENCHMARK/{modelName}",
@@ -338,6 +391,8 @@ fun GalleryNavHost(
       } else {
         Log.e(TAG, "Malformed deep link URI received: $data")
       }
+    } else if (data.toString() == "com.google.ai.edge.gallery://global_model_manager") {
+      navController.navigate(ROUTE_MODEL_MANAGER)
     }
   }
 }

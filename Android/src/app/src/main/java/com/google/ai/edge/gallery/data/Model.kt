@@ -219,6 +219,9 @@ data class Model(
   /** Whether the LLM model supports mobile actions. */
   val llmSupportMobileActions: Boolean = false,
 
+  /** The max token for llm model. */
+  val llmMaxToken: Int = 0,
+
   /** Whether the model is imported or not. */
   val imported: Boolean = false,
 

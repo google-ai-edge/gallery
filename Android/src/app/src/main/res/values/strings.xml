@@ -29,6 +29,7 @@
   <string name="benchmark_model" translatable="false">Benchmark model</string>
   <string name="benchmark_results" translatable="false">Benchmark results</string>
   <string name="benchmark_no_results" translatable="false">No benchmark results</string>
+  <string name="benchmark_tokens_limit_message" translatable="false">Ensure that the sum of prefill and decode tokens remains under the model\'s maximum token limit (%d vs %d)</string>
   <string name="best_overall" translatable="false">Best overall</string>
   <string name="model_list_experimental_label" translatable="false">EXPERIMENTAL</string>
   <string name="cancel" translatable="false">Cancel</string>
@@ -66,6 +67,10 @@
   <string name="done" translatable="false">Done</string>
   <string name="download" translatable="false">Download</string>
   <string name="downloaded_size" translatable="false">%1$s downloaded</string>
+  <string name="drawer_settings_label" translatable="false">Settings</string>
+  <string name="drawer_settings_description" translatable="false">Manage application settings</string>
+  <string name="drawer_models_label" translatable="false">Models</string>
+  <string name="drawer_models_description" translatable="false">Browse, try, and benchmark models</string>
   <string name="edit" translatable="false">Edit</string>
   <string name="enter_instruction" translatable="false">Enter instruction</string>
   <string name="expand_all" translatable="false">Expand all</string>
@@ -91,6 +96,7 @@
   </plurals>
   <string name="model_list_recommended_models_title" translatable="false">Recommended models</string>
   <string name="model_manager" translatable="false">Model Manager</string>
+  <string name="model_manager_select_task_title" translatable="false">Select a use case to try</string>
   <string name="model_not_downloaded_msg" translatable="false">Model not downloaded yet</string>
   <string name="no_cutouts_collected" translatable="false">No cutouts collected</string>
   <string name="notification_content_fail" translatable="false">Failed to download model "%s"</string>
@@ -118,7 +124,9 @@
   <string name="select_downloaded_model" translatable="false">Select a downloaded model</string>
   <string name="select_model" translatable="false">Select a model</string>
   <string name="selected_count" translatable="false">%d selected</string>
-  <string name="settings_dialog_tos_title" translatable="false">Terms of services</string>
+  <string name="settings_dialog_tos_title" translatable="false">Terms of service</string>
+  <string name="settings_dialog_view_app_terms_of_service" translatable="false">View App Terms of Service</string>
+  <string name="settings_dialog_gemma_prohibited_use_policy" translatable="false">Gemma Prohibited Use Policy</string>
   <string name="share" translatable="false">Share</string>
   <string name="slide_up_to_cancel" translatable="false">Slide up to cancel</string>
   <string name="take_a_picture" translatable="false">Take a picture</string>
@@ -126,8 +134,10 @@
   <string name="tap_to_see_value" translatable="false">Tap on graph to see value</string>
   <string name="text_image_generation_text_field_placeholder" translatable="false">Type prompt…</string>
   <string name="text_input_placeholder_llm_chat" translatable="false">Type prompt…</string>
-  <string name="tos_dialog_title" translatable="false">Gemma Terms of Use</string>
-  <string name="tos_dialog_view_accept_button_label" translatable="false">Agree &amp; continue</string>
+  <string name="tos_dialog_title_app" translatable="false">Welcome to Google AI Edge Gallery</string>
+  <string name="tos_dialog_title_gemma" translatable="false">Gemma Terms of Use</string>
+  <string name="tos_dialog_accept_and_continue_button_label" translatable="false">Accept &amp; continue</string>
+  <string name="tos_dialog_agree_and_continue_button_label" translatable="false">Agree &amp; continue</string>
   <string name="try_it" translatable="false">Try it</string>
   <string name="undo" translatable="false">Undo</string>
   <string name="unsupported_action" translatable="false">Unsupported action</string>
@@ -263,5 +273,7 @@
   <string name="cd_more_options">More options</string>
   <!-- Content description spoken when the "help" icon is focused. [CHAR_LIMIT=NONE] -->
   <string name="cd_help">Help</string>
+  <!-- Content description spoken when the "menu" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_menu">Menu</string>
 
 </resources>

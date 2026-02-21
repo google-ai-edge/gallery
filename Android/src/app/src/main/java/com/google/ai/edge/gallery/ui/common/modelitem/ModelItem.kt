@@ -79,21 +79,23 @@ import com.google.ai.edge.gallery.ui.theme.customColors
 @Composable
 fun ModelItem(
   model: Model,
-  task: Task,
+  task: Task?,
   modelManagerViewModel: ModelManagerViewModel,
   onModelClicked: (Model) -> Unit,
   onBenchmarkClicked: (Model) -> Unit,
   modifier: Modifier = Modifier,
+  expanded: Boolean = false,
   showDeleteButton: Boolean = true,
   canExpand: Boolean = true,
+  showBenchmarkButton: Boolean = false,
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val downloadStatus by remember {
     derivedStateOf { modelManagerUiState.modelDownloadStatus[model.name] }
   }
 
-  val isBestOverall = model.bestForTaskIds.contains(task.id)
-  var isExpanded by remember { mutableStateOf(isBestOverall) }
+  val isBestOverall = model.bestForTaskIds.contains(task?.id ?: "")
+  var isExpanded by remember { mutableStateOf(expanded || isBestOverall) }
 
   var boxModifier =
     modifier
@@ -124,7 +126,6 @@ fun ModelItem(
           @Composable {
             DeleteModelButton(
               model = model,
-              task = task,
               modelManagerViewModel = modelManagerViewModel,
               downloadStatus = downloadStatus,
               showDeleteButton = showDeleteButton,
@@ -191,6 +192,7 @@ fun ModelItem(
               isExpanded = isExpanded,
               onTryItClicked = { onModelClicked(model) },
               onBenchmarkClicked = { onBenchmarkClicked(model) },
+              showBenchmarkButton = showBenchmarkButton,
             )
           }
 

@@ -53,6 +53,10 @@ interface DataStoreRepository {
 
   fun acceptTos()
 
+  fun isGemmaTermsOfUseAccepted(): Boolean
+
+  fun acceptGemmaTermsOfUse()
+
   fun getHasRunTinyGarden(): Boolean
 
   fun setHasRunTinyGarden(hasRun: Boolean)
@@ -176,6 +180,21 @@ class DefaultDataStoreRepository(
   override fun acceptTos() {
     runBlocking {
       dataStore.updateData { settings -> settings.toBuilder().setIsTosAccepted(true).build() }
+    }
+  }
+
+  override fun isGemmaTermsOfUseAccepted(): Boolean {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      settings.isGemmaTermsAccepted
+    }
+  }
+
+  override fun acceptGemmaTermsOfUse() {
+    runBlocking {
+      dataStore.updateData { settings ->
+        settings.toBuilder().setIsGemmaTermsAccepted(true).build()
+      }
     }
   }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Google LLC
+ * Copyright 2026 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,9 @@
 
 package com.google.ai.edge.gallery.ui.common.tos
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
@@ -33,32 +29,32 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.ui.common.buildTrackableUrlAnnotatedString
+import com.google.ai.edge.gallery.ui.common.MarkdownText
 
 /** A composable for Terms of Service dialog, shown once when app is launched. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TosDialog(onTosAccepted: () -> Unit, onCancel: () -> Unit = {}, viewingMode: Boolean = false) {
-  Dialog(onDismissRequest = onCancel) {
+fun AppTosDialog(onTosAccepted: () -> Unit, viewingMode: Boolean = false) {
+  Dialog(
+    properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+    onDismissRequest = { if (viewingMode) onTosAccepted() },
+  ) {
     Card(shape = RoundedCornerShape(28.dp)) {
-      Column(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
+      Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         // Title.
         val titleColor = MaterialTheme.colorScheme.onSurface
         BasicText(
-          stringResource(R.string.tos_dialog_title),
+          stringResource(R.string.tos_dialog_title_app),
           modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
           style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Medium),
           color = { titleColor },
@@ -68,42 +64,30 @@ fun TosDialog(onTosAccepted: () -> Unit, onCancel: () -> Unit = {}, viewingMode:
         )
 
         Column(modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false)) {
-          Text(
-            buildAnnotatedString {
-              append("Gemma models on the Google AI Edge Gallery app are governed by the ")
-              append(
-                buildTrackableUrlAnnotatedString(
-                  url = "https://ai.google.dev/gemma/terms",
-                  linkText = "Gemma Terms of Service",
-                )
-              )
-              append(". Please review these terms and ensure you agree before continuing.")
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          // Short content.
+          MarkdownText(
+            "By using this app, you agree to the " +
+              "[Google Terms of Service](https://policies.google.com/terms?hl=en-US).\n\n" +
+              "To learn what information we collect and why, how we use it, " +
+              "and how to review and update it, please review the " +
+              "[Google Privacy Policy](https://policies.google.com/privacy?hl=en-US).",
+            smallFontSize = true,
+            textColor = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 16.dp),
           )
         }
 
-        Row(
-          modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
-          horizontalArrangement = Arrangement.End,
-          verticalAlignment = Alignment.CenterVertically,
+        // Accept button.
+        Button(
+          onClick = onTosAccepted,
+          modifier = Modifier.padding(top = 28.dp, bottom = 24.dp).align(Alignment.End),
         ) {
-          // Cancel button.
-          if (!viewingMode) {
-            TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
-            Spacer(modifier = Modifier.width(8.dp))
-          }
-
-          // Accept button.
-          Button(onClick = onTosAccepted) {
-            Text(
-              stringResource(
-                if (viewingMode) R.string.close else R.string.tos_dialog_view_accept_button_label
-              )
+          Text(
+            stringResource(
+              if (viewingMode) R.string.close
+              else R.string.tos_dialog_accept_and_continue_button_label
             )
-          }
+          )
         }
       }
     }

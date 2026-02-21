@@ -63,7 +63,7 @@ import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
 @Composable
 fun ModelNameAndStatus(
   model: Model,
-  task: Task,
+  task: Task?,
   downloadStatus: ModelDownloadStatus?,
   isExpanded: Boolean,
   sharedTransitionScope: SharedTransitionScope,
@@ -77,7 +77,7 @@ fun ModelNameAndStatus(
   with(sharedTransitionScope) {
     Column(modifier = modifier) {
       // Show "best overall" only for the first model if it is indeed the best for this task.
-      if (model.bestForTaskIds.contains(task.id) && task.models[0] == model) {
+      if (task != null && model.bestForTaskIds.contains(task.id) && task.models[0] == model) {
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(8.dp),

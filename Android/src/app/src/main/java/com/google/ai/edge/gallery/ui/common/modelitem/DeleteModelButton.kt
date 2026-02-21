@@ -35,14 +35,12 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
-import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 
 /** Composable function to display a button for deleting the downloaded model. */
 @Composable
 fun DeleteModelButton(
   model: Model,
-  task: Task,
   modelManagerViewModel: ModelManagerViewModel,
   downloadStatus: ModelDownloadStatus?,
   modifier: Modifier = Modifier,
@@ -74,7 +72,7 @@ fun DeleteModelButton(
     ConfirmDeleteModelDialog(
       model = model,
       onConfirm = {
-        modelManagerViewModel.deleteModel(task = task, model = model)
+        modelManagerViewModel.deleteModel(model = model)
         showConfirmDeleteDialog = false
       },
       onDismiss = { showConfirmDeleteDialog = false },

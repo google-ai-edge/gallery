@@ -26,6 +26,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -101,6 +102,14 @@ fun GalleryTopAppBar(
             Icon(
               imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
               contentDescription = stringResource(R.string.cd_navigate_back_icon),
+            )
+          }
+        }
+        AppBarActionType.MENU -> {
+          IconButton(onClick = leftAction.actionFn) {
+            Icon(
+              imageVector = Icons.Rounded.Menu,
+              contentDescription = stringResource(R.string.cd_menu),
             )
           }
         }

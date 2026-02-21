@@ -167,7 +167,7 @@ fun checkNotificationPermissionAndStartDownload(
   context: Context,
   launcher: ManagedActivityResultLauncher<String, Boolean>,
   modelManagerViewModel: ModelManagerViewModel,
-  task: Task,
+  task: Task?,
   model: Model,
 ) {
   // Check permission

@@ -72,10 +72,19 @@ fun buildTrackableUrlAnnotatedString(url: String, linkText: String): AnnotatedSt
 }
 
 @Composable
-fun ClickableLink(url: String, linkText: String, icon: ImageVector? = null) {
+fun ClickableLink(
+  url: String,
+  linkText: String,
+  modifier: Modifier = Modifier,
+  icon: ImageVector? = null,
+) {
   val annotatedText = buildTrackableUrlAnnotatedString(url, linkText)
 
-  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+  Row(
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.Center,
+    modifier = modifier,
+  ) {
     if (icon != null) {
       Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
     }

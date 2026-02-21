@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -346,15 +345,13 @@ fun ModelList(
           )
         }
       }
-
-      item(key = "paddingBottom") { Spacer(modifier = Modifier.height(40.dp)) }
     }
 
     // Gradient overlay at the bottom.
     Box(
       modifier =
         Modifier.fillMaxWidth()
-          .height(96.dp)
+          .height(contentPadding.calculateBottomPadding())
           .background(
             Brush.verticalGradient(
               colors = listOf(Color.Transparent, MaterialTheme.colorScheme.surfaceContainer)
