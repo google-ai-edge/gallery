@@ -188,7 +188,6 @@ constructor(
 
   val authService = AuthorizationService(context)
   var curAccessToken: String = ""
-  var globalModelManagerScrollPosition: Int = 0
 
   override fun onCleared() {
     authService.dispose()

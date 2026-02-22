@@ -30,14 +30,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.NoteAdd
 import androidx.compose.material.icons.automirrored.rounded.ListAlt
@@ -63,6 +63,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -87,7 +88,6 @@ import com.google.ai.edge.gallery.ui.common.TaskIcon
 import com.google.ai.edge.gallery.ui.common.modelitem.ModelItem
 import kotlin.text.endsWith
 import kotlin.text.lowercase
-import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -119,7 +119,7 @@ fun GlobalModelManager(
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
   val snackbarHostState = remember { SnackbarHostState() }
-  val scrollState = rememberScrollState()
+  val modelItemExpandedStates = remember { mutableStateMapOf<String, Boolean>() }
 
   val filePickerLauncher: ActivityResultLauncher<Intent> =
     rememberLauncherForActivityResult(
@@ -145,19 +145,6 @@ fun GlobalModelManager(
         Log.d(TAG, "File picking cancelled.")
       }
     }
-
-  LaunchedEffect(builtInModels.size) {
-    if (builtInModels.isNotEmpty()) {
-      val unused = awaitFrame()
-      scrollState.scrollTo(viewModel.globalModelManagerScrollPosition)
-    }
-  }
-
-  LaunchedEffect(scrollState.isScrollInProgress) {
-    if (!scrollState.isScrollInProgress && builtInModels.isNotEmpty()) {
-      viewModel.globalModelManagerScrollPosition = scrollState.value
-    }
-  }
 
   LaunchedEffect(uiState.modelImportingUpdateTrigger) {
     val allModelsSet = mutableSetOf<Model>()
@@ -191,10 +178,7 @@ fun GlobalModelManager(
   }
 
   // Handle system's edge swipe.
-  BackHandler {
-    viewModel.globalModelManagerScrollPosition = 0
-    navigateUp()
-  }
+  BackHandler { navigateUp() }
 
   Scaffold(
     modifier = modifier,
@@ -223,12 +207,7 @@ fun GlobalModelManager(
         },
         // The "action" component at the right.
         actions = {
-          IconButton(
-            onClick = {
-              viewModel.globalModelManagerScrollPosition = 0
-              navigateUp()
-            }
-          ) {
+          IconButton(onClick = { navigateUp() }) {
             Icon(
               imageVector = Icons.Rounded.Close,
               contentDescription = stringResource(R.string.cd_close_icon),
@@ -253,40 +232,42 @@ fun GlobalModelManager(
     },
   ) { innerPadding ->
     Box() {
-      Column(
+      LazyColumn(
         modifier =
           Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .padding(top = innerPadding.calculateTopPadding())
-            .verticalScroll(scrollState),
+            .padding(top = innerPadding.calculateTopPadding()),
         verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding =
+          PaddingValues(top = 16.dp, bottom = innerPadding.calculateBottomPadding() + 80.dp),
       ) {
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Built-in models.
-        for (model in builtInModels) {
+        items(builtInModels) { model ->
+          val expanded = modelItemExpandedStates.getOrDefault(model.name, true)
           ModelItem(
             model = model,
             task = null,
             modelManagerViewModel = viewModel,
             onModelClicked = handleClickModel,
             onBenchmarkClicked = onBenchmarkClicked,
-            expanded = true,
+            expanded = expanded,
             showBenchmarkButton = true,
+            onExpanded = { modelItemExpandedStates[model.name] = it },
           )
         }
 
         // Imported models.
         if (importedModels.isNotEmpty()) {
-          Text(
-            stringResource(R.string.model_list_imported_models_title),
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(horizontal = 16.dp).padding(top = 32.dp, bottom = 8.dp),
-          )
+          item(key = "imported_models_label") {
+            Text(
+              stringResource(R.string.model_list_imported_models_title),
+              color = MaterialTheme.colorScheme.onSurface,
+              style = MaterialTheme.typography.labelLarge,
+              modifier = Modifier.padding(horizontal = 16.dp).padding(top = 32.dp, bottom = 8.dp),
+            )
+          }
         }
-        for (model in importedModels) {
+        items(importedModels) { model ->
           ModelItem(
             model = model,
             task = null,
@@ -297,7 +278,6 @@ fun GlobalModelManager(
             showBenchmarkButton = true,
           )
         }
-        Spacer(modifier = Modifier.height(innerPadding.calculateBottomPadding() + 64.dp))
       }
 
       SnackbarHost(

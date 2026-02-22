@@ -84,10 +84,11 @@ fun ModelItem(
   onModelClicked: (Model) -> Unit,
   onBenchmarkClicked: (Model) -> Unit,
   modifier: Modifier = Modifier,
-  expanded: Boolean = false,
+  expanded: Boolean? = null,
   showDeleteButton: Boolean = true,
   canExpand: Boolean = true,
   showBenchmarkButton: Boolean = false,
+  onExpanded: (Boolean) -> Unit = {},
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val downloadStatus by remember {
@@ -95,7 +96,7 @@ fun ModelItem(
   }
 
   val isBestOverall = model.bestForTaskIds.contains(task?.id ?: "")
-  var isExpanded by remember { mutableStateOf(expanded || isBestOverall) }
+  var isExpanded by remember { mutableStateOf(expanded ?: isBestOverall) }
 
   var boxModifier =
     modifier
@@ -108,7 +109,8 @@ fun ModelItem(
         onClick = {
           if (!model.imported) {
             isExpanded = !isExpanded
-          } else {
+            onExpanded(isExpanded)
+          } else if (!showBenchmarkButton) {
             onModelClicked(model)
           }
         },
@@ -209,8 +211,12 @@ fun ModelItem(
               task = task,
               downloadStatus = downloadStatus,
               isExpanded = isExpanded,
-              modifier = Modifier.weight(1f),
-              animatedVisibilityScope = this@AnimatedContent,
+              modifier =
+                Modifier.weight(1f)
+                  .sharedElement(
+                    sharedContentState = rememberSharedContentState(key = "info_section"),
+                    animatedVisibilityScope = this@AnimatedContent,
+                  ),
               sharedTransitionScope = this@SharedTransitionLayout,
             )
             // Button to delete model and expand/collapse button at the right.

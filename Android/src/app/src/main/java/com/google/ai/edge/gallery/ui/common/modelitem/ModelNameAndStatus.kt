@@ -16,7 +16,6 @@
 
 package com.google.ai.edge.gallery.ui.common.modelitem
 
-import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Arrangement
@@ -67,7 +66,6 @@ fun ModelNameAndStatus(
   downloadStatus: ModelDownloadStatus?,
   isExpanded: Boolean,
   sharedTransitionScope: SharedTransitionScope,
-  animatedVisibilityScope: AnimatedVisibilityScope,
   modifier: Modifier = Modifier,
 ) {
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
@@ -81,12 +79,7 @@ fun ModelNameAndStatus(
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(8.dp),
-          modifier =
-            Modifier.padding(bottom = 6.dp)
-              .sharedElement(
-                rememberSharedContentState(key = "best_overall"),
-                animatedVisibilityScope = animatedVisibilityScope,
-              ),
+          modifier = Modifier.padding(bottom = 6.dp),
         ) {
           Icon(
             Icons.Filled.Star,
@@ -109,11 +102,6 @@ fun ModelNameAndStatus(
         maxLines = 1,
         overflow = TextOverflow.MiddleEllipsis,
         style = MaterialTheme.typography.titleMedium,
-        modifier =
-          Modifier.sharedElement(
-            rememberSharedContentState(key = "model_name"),
-            animatedVisibilityScope = animatedVisibilityScope,
-          ),
       )
 
       // Status icon + size + download progress details.
@@ -123,12 +111,7 @@ fun ModelNameAndStatus(
           task = task,
           model = model,
           downloadStatus = downloadStatus,
-          modifier =
-            Modifier.padding(end = 4.dp)
-              .sharedElement(
-                rememberSharedContentState(key = "download_status_icon"),
-                animatedVisibilityScope = animatedVisibilityScope,
-              ),
+          modifier = Modifier.padding(end = 4.dp),
         )
 
         // Failure message.
@@ -139,11 +122,6 @@ fun ModelNameAndStatus(
               color = MaterialTheme.colorScheme.error,
               style = labelSmallNarrow,
               overflow = TextOverflow.Ellipsis,
-              modifier =
-                Modifier.sharedElement(
-                  rememberSharedContentState(key = "failure_messsage"),
-                  animatedVisibilityScope = animatedVisibilityScope,
-                ),
             )
           }
         }
@@ -197,12 +175,7 @@ fun ModelNameAndStatus(
                 maxLines = 1,
                 style = MaterialTheme.typography.bodyMedium,
                 overflow = TextOverflow.Visible,
-                modifier =
-                  Modifier.offset(y = if (index == 0) 0.dp else (-1).dp)
-                    .sharedElement(
-                      rememberSharedContentState(key = "status_label_${index}"),
-                      animatedVisibilityScope = animatedVisibilityScope,
-                    ),
+                modifier = Modifier.offset(y = if (index == 0) 0.dp else (-1).dp),
               )
             }
           }
@@ -211,14 +184,7 @@ fun ModelNameAndStatus(
 
       // Learn more url.
       if (!model.imported && model.learnMoreUrl.isNotEmpty()) {
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          modifier =
-            Modifier.sharedElement(
-              rememberSharedContentState(key = "learn_more"),
-              animatedVisibilityScope = animatedVisibilityScope,
-            ),
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
           Icon(
             Icons.AutoMirrored.Outlined.OpenInNew,
             tint = MaterialTheme.customColors.modelInfoIconColor,
