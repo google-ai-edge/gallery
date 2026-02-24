@@ -16,16 +16,6 @@
 
 package com.google.ai.edge.gallery.ui.common.modelitem
 
-// import androidx.compose.ui.tooling.preview.Preview
-// import com.google.ai.edge.gallery.ui.preview.MODEL_TEST1
-// import com.google.ai.edge.gallery.ui.preview.MODEL_TEST2
-// import com.google.ai.edge.gallery.ui.preview.MODEL_TEST3
-// import com.google.ai.edge.gallery.ui.preview.MODEL_TEST4
-// import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
-// import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
-// import com.google.ai.edge.gallery.ui.preview.TASK_TEST2
-// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
-
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
@@ -122,26 +112,30 @@ fun ModelItem(
     }
 
   Box(modifier = boxModifier) {
-    SharedTransitionLayout {
-      AnimatedContent(isExpanded, label = "item_layout_transition") { targetState ->
-        val deleteModelButton =
-          @Composable {
+    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.semantics { isTraversalGroup = true },
+      ) {
+        ModelNameAndStatus(
+          model = model,
+          task = task,
+          downloadStatus = downloadStatus,
+          isExpanded = isExpanded,
+          modifier = Modifier.weight(1f),
+        )
+        // Button to delete model and expand/collapse button at the right.
+        Row(verticalAlignment = Alignment.Top) {
+          if (model.localFileRelativeDirPathOverride.isEmpty()) {
             DeleteModelButton(
               model = model,
               modelManagerViewModel = modelManagerViewModel,
               downloadStatus = downloadStatus,
               showDeleteButton = showDeleteButton,
-              modifier =
-                Modifier.offset(y = (-12).dp, x = if (model.imported) 12.dp else 0.dp)
-                  .sharedElement(
-                    sharedContentState = rememberSharedContentState(key = "action_button"),
-                    animatedVisibilityScope = this@AnimatedContent,
-                  ),
+              modifier = Modifier.offset(y = (-12).dp, x = if (model.imported) 12.dp else 0.dp),
             )
           }
-
-        val expandButton =
-          @Composable {
+          if (!model.imported) {
             Icon(
               if (isExpanded) Icons.Rounded.UnfoldLess else Icons.Rounded.UnfoldMore,
               contentDescription =
@@ -149,92 +143,44 @@ fun ModelItem(
                   if (isExpanded) R.string.cd_collapse_icon else R.string.cd_expand_icon
                 ),
               tint = MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier =
-                Modifier.alpha(0.6f)
-                  .sharedElement(
-                    sharedContentState = rememberSharedContentState(key = "expand_button"),
-                    animatedVisibilityScope = this@AnimatedContent,
-                  ),
+              modifier = Modifier.alpha(0.6f),
             )
           }
-
-        val description =
-          @Composable {
-            if (model.info.isNotEmpty()) {
-              MarkdownText(
-                model.info,
-                smallFontSize = true,
-                textColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier =
-                  Modifier.padding(top = 12.dp)
-                    .sharedElement(
-                      sharedContentState = rememberSharedContentState(key = "description"),
-                      animatedVisibilityScope = this@AnimatedContent,
-                    )
-                    .skipToLookaheadSize(),
-              )
-            }
-          }
-
-        val downloadModelPanel =
-          @Composable {
-            DownloadModelPanel(
-              task = task,
-              model = model,
-              downloadStatus = downloadStatus,
-              animatedVisibilityScope = this@AnimatedContent,
-              sharedTransitionScope = this@SharedTransitionLayout,
-              modifier =
-                Modifier.sharedElement(
-                    sharedContentState = rememberSharedContentState(key = "download_panel"),
-                    animatedVisibilityScope = this@AnimatedContent,
-                  )
-                  .padding(top = if (isExpanded) 12.dp else 0.dp),
-              modelManagerViewModel = modelManagerViewModel,
-              isExpanded = isExpanded,
-              onTryItClicked = { onModelClicked(model) },
-              onBenchmarkClicked = { onBenchmarkClicked(model) },
-              showBenchmarkButton = showBenchmarkButton,
+        }
+      }
+      AnimatedContent(isExpanded, label = "item_layout_transition") { targetState ->
+        // Show description when expanded.
+        if (targetState) {
+          if (model.info.isNotEmpty()) {
+            MarkdownText(
+              model.info,
+              smallFontSize = true,
+              textColor = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.padding(top = 12.dp),
             )
           }
-
-        Column(
-          modifier = Modifier.padding(16.dp),
-          verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-          Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.semantics { isTraversalGroup = true },
-          ) {
-            ModelNameAndStatus(
-              model = model,
-              task = task,
-              downloadStatus = downloadStatus,
-              isExpanded = isExpanded,
-              modifier =
-                Modifier.weight(1f)
-                  .sharedElement(
-                    sharedContentState = rememberSharedContentState(key = "info_section"),
-                    animatedVisibilityScope = this@AnimatedContent,
-                  ),
-              sharedTransitionScope = this@SharedTransitionLayout,
-            )
-            // Button to delete model and expand/collapse button at the right.
-            Row(verticalAlignment = Alignment.Top) {
-              if (model.localFileRelativeDirPathOverride.isEmpty()) {
-                deleteModelButton()
-              }
-              if (!model.imported) {
-                expandButton()
-              }
-            }
-          }
-          // Show description when expanded.
-          if (targetState) {
-            description()
-          }
-          // Model download panel.
-          downloadModelPanel()
+        }
+      }
+      SharedTransitionLayout {
+        AnimatedContent(isExpanded, label = "item_layout_transition") { targetState ->
+          DownloadModelPanel(
+            task = task,
+            model = model,
+            downloadStatus = downloadStatus,
+            animatedVisibilityScope = this@AnimatedContent,
+            sharedTransitionScope = this@SharedTransitionLayout,
+            modifier =
+              Modifier.sharedElement(
+                  sharedContentState = rememberSharedContentState(key = "download_panel"),
+                  animatedVisibilityScope = this@AnimatedContent,
+                )
+                .padding(top = if (targetState) 12.dp else 0.dp),
+            modelManagerViewModel = modelManagerViewModel,
+            isExpanded = targetState,
+            onTryItClicked = { onModelClicked(model) },
+            onBenchmarkClicked = { onBenchmarkClicked(model) },
+            showBenchmarkButton = showBenchmarkButton,
+          )
         }
       }
     }
