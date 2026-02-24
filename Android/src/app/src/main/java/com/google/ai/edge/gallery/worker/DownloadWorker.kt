@@ -160,6 +160,8 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 "File '${outputTmpFile.name}' partial size: ${outputFileBytes}. Trying to resume download",
               )
               connection.setRequestProperty("Range", "bytes=${outputFileBytes}-")
+              // Force the server to send non-compressed data to make download resuming work.
+              connection.setRequestProperty("Accept-Encoding", "identity")
             }
             connection.connect()
             Log.d(TAG, "response code: ${connection.responseCode}")
@@ -309,6 +311,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           }
           Result.success()
         } catch (e: IOException) {
+          Log.e(TAG, e.message, e)
           Result.failure(
             Data.Builder().putString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE, e.message).build()
           )
