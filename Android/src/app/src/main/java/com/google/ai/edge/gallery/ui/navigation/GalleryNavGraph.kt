@@ -364,7 +364,7 @@ fun GalleryNavHost(
 
       modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
         BenchmarkScreen(
-          model = model,
+          initialModel = model,
           modelManagerViewModel = modelManagerViewModel,
           onBackClicked = {
             enableModelListAnimation = false

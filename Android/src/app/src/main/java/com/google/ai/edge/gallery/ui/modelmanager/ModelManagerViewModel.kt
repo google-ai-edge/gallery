@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.ui.modelmanager
 
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import androidx.activity.result.ActivityResult
 import androidx.core.net.toUri
@@ -996,14 +997,20 @@ constructor(
   }
 
   private fun createModelFromImportedModelInfo(info: ImportedModel): Model {
-    val accelerators: List<Accelerator> =
-      info.llmConfig.compatibleAcceleratorsList.mapNotNull { acceleratorLabel ->
-        when (acceleratorLabel.trim()) {
-          Accelerator.GPU.label -> Accelerator.GPU
-          Accelerator.CPU.label -> Accelerator.CPU
-          else -> null // Ignore unknown accelerator labels
+    val accelerators: MutableList<Accelerator> =
+      info.llmConfig.compatibleAcceleratorsList
+        .mapNotNull { acceleratorLabel ->
+          when (acceleratorLabel.trim()) {
+            Accelerator.GPU.label -> Accelerator.GPU
+            Accelerator.CPU.label -> Accelerator.CPU
+            else -> null // Ignore unknown accelerator labels
+          }
         }
-      }
+        .toMutableList()
+    // Remove GPU from pixel 10 devices.
+    if (Build.MODEL != null && Build.MODEL.lowercase().contains("pixel 10")) {
+      accelerators.remove(Accelerator.GPU)
+    }
     val llmMaxToken = info.llmConfig.defaultMaxTokens
     val configs: MutableList<Config> =
       createLlmChatConfigs(
@@ -1033,6 +1040,7 @@ constructor(
         llmSupportTinyGarden = llmSupportTinyGarden,
         llmSupportMobileActions = llmSupportMobileActions,
         llmMaxToken = llmMaxToken,
+        accelerators = accelerators,
         // We assume all imported models are LLM for now.
         isLlm = true,
       )

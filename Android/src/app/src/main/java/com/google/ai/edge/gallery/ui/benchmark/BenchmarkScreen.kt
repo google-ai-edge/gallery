@@ -67,6 +67,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Accelerator
+import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
@@ -80,41 +81,10 @@ import com.google.ai.edge.gallery.ui.common.SMALL_BUTTON_CONTENT_PADDING
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
 
-private val CONFIGS =
-  mutableStateListOf(
-    SegmentedButtonConfig(
-      key = ConfigKeys.ACCELERATOR,
-      defaultValue = Accelerator.CPU.label,
-      options = listOf(Accelerator.CPU.label, Accelerator.GPU.label),
-      allowMultiple = false,
-    ),
-    NumberSliderConfig(
-      key = ConfigKeys.PREFILL_TOKENS,
-      sliderMin = 16f,
-      sliderMax = 1024f,
-      defaultValue = 256f,
-      valueType = ValueType.INT,
-    ),
-    NumberSliderConfig(
-      key = ConfigKeys.DECODE_TOKENS,
-      sliderMin = 16f,
-      sliderMax = 1024f,
-      defaultValue = 256f,
-      valueType = ValueType.INT,
-    ),
-    NumberSliderConfig(
-      key = ConfigKeys.NUMBER_OF_RUNS,
-      sliderMin = 1f,
-      sliderMax = 10f,
-      defaultValue = 3f,
-      valueType = ValueType.INT,
-    ),
-  )
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BenchmarkScreen(
-  model: Model,
+  initialModel: Model,
   modelManagerViewModel: ModelManagerViewModel,
   modifier: Modifier = Modifier,
   viewModel: BenchmarkViewModel = hiltViewModel(),
@@ -126,21 +96,66 @@ fun BenchmarkScreen(
   val downloadedLlmModelNames = remember {
     modelManagerViewModel.getAllDownloadedModels().filter { it.isLlm }.map { it.name }
   }
-  var selectedModelName by remember { mutableStateOf(model.name) }
+  var selectedModelName by remember { mutableStateOf(initialModel.name) }
+  var selectedModel by
+    remember(selectedModelName) {
+      mutableStateOf(modelManagerViewModel.getModelByName(name = selectedModelName)!!)
+    }
   val filteredResults = remember { mutableStateListOf<BenchmarkResultInfo>() }
-
-  val values: SnapshotStateMap<String, Any> = remember {
-    mutableStateMapOf<String, Any>().apply {
-      for (config in CONFIGS) {
-        put(config.key.label, config.defaultValue)
+  val configs =
+    remember(selectedModel) {
+      mutableStateListOf<Config>().apply {
+        add(
+          SegmentedButtonConfig(
+            key = ConfigKeys.ACCELERATOR,
+            defaultValue = selectedModel.accelerators.getOrNull(0)?.label ?: Accelerator.CPU.label,
+            options = selectedModel.accelerators.map { it.label },
+            allowMultiple = false,
+          )
+        )
+        add(
+          NumberSliderConfig(
+            key = ConfigKeys.PREFILL_TOKENS,
+            sliderMin = 16f,
+            sliderMax = 1024f,
+            defaultValue = 256f,
+            valueType = ValueType.INT,
+          )
+        )
+        add(
+          NumberSliderConfig(
+            key = ConfigKeys.DECODE_TOKENS,
+            sliderMin = 16f,
+            sliderMax = 1024f,
+            defaultValue = 256f,
+            valueType = ValueType.INT,
+          )
+        )
+        add(
+          NumberSliderConfig(
+            key = ConfigKeys.NUMBER_OF_RUNS,
+            sliderMin = 1f,
+            sliderMax = 10f,
+            defaultValue = 3f,
+            valueType = ValueType.INT,
+          )
+        )
       }
     }
-  }
+
+  val values: SnapshotStateMap<String, Any> =
+    remember(configs) {
+      mutableStateMapOf<String, Any>().apply {
+        for (config in configs) {
+          put(config.key.label, config.defaultValue)
+        }
+      }
+    }
 
   val sumOfPrefillAndDecodeTokens =
     getIntConfigValue(values = values, key = ConfigKeys.PREFILL_TOKENS) +
       getIntConfigValue(values = values, key = ConfigKeys.DECODE_TOKENS)
-  val maxToken = model.llmMaxToken
+  val maxToken = selectedModel.llmMaxToken
 
   // Update filteredResults when selected model is changed.
   LaunchedEffect(selectedModelName, uiState.results) {
@@ -197,7 +212,7 @@ fun BenchmarkScreen(
             modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(24.dp),
           ) {
-            ConfigEditorsPanel(configs = CONFIGS, values = values)
+            ConfigEditorsPanel(configs = configs, values = values)
 
             // Info text on the limit of the sum of prefill and decode tokens.
             Text(
@@ -229,7 +244,7 @@ fun BenchmarkScreen(
                   GalleryEvent.BUTTON_CLICKED.id,
                   Bundle().apply {
                     putString("event_type", "view_benchmark_results")
-                    putString("model_id", model.name)
+                    putString("model_id", selectedModelName)
                   },
                 )
               },
@@ -291,7 +306,7 @@ fun BenchmarkScreen(
         Button(
           onClick = {
             viewModel.runBenchmark(
-              model = model,
+              model = selectedModel,
               accelerator = getStringConfigValue(values = values, key = ConfigKeys.ACCELERATOR),
               prefillTokens = getIntConfigValue(values = values, key = ConfigKeys.PREFILL_TOKENS),
               decodeTokens = getIntConfigValue(values = values, key = ConfigKeys.DECODE_TOKENS),
@@ -301,7 +316,7 @@ fun BenchmarkScreen(
               GalleryEvent.BUTTON_CLICKED.id,
               Bundle().apply {
                 putString("event_type", "run_benchmark")
-                putString("model_id", model.name)
+                putString("model_id", selectedModelName)
               },
             )
             showRunBenchmarkConfirmationDialog = false

@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.data
 
+import android.os.Build
 import com.google.gson.annotations.SerializedName
 
 data class DefaultConfig(
@@ -61,12 +62,12 @@ data class AllowedModel(
         taskTypes.contains(BuiltInTaskId.LLM_TINY_GARDEN)
     var configs: MutableList<Config> = mutableListOf()
     var llmMaxToken = 1024
+    var accelerators: List<Accelerator> = DEFAULT_ACCELERATORS
     if (isLlmModel) {
       val defaultTopK: Int = defaultConfig.topK ?: DEFAULT_TOPK
       val defaultTopP: Float = defaultConfig.topP ?: DEFAULT_TOPP
       val defaultTemperature: Float = defaultConfig.temperature ?: DEFAULT_TEMPERATURE
       llmMaxToken = defaultConfig.maxTokens ?: 1024
-      var accelerators: List<Accelerator> = DEFAULT_ACCELERATORS
       if (defaultConfig.accelerators != null) {
         val items = defaultConfig.accelerators.split(",")
         accelerators = mutableListOf()
@@ -76,6 +77,10 @@ data class AllowedModel(
           } else if (item == "gpu") {
             accelerators.add(Accelerator.GPU)
           }
+        }
+        // Remove GPU from pixel 10 devices.
+        if (Build.MODEL != null && Build.MODEL.lowercase().contains("pixel 10")) {
+          accelerators.remove(Accelerator.GPU)
         }
       }
       configs =
@@ -114,6 +119,7 @@ data class AllowedModel(
       llmSupportTinyGarden = llmSupportTinyGarden == true,
       llmSupportMobileActions = llmSupportMobileActions == true,
       llmMaxToken = llmMaxToken,
+      accelerators = accelerators,
       bestForTaskIds = bestForTaskTypes ?: listOf(),
       localModelFilePathOverride = localModelFilePathOverride ?: "",
       isLlm = isLlmModel,

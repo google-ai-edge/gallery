@@ -222,6 +222,9 @@ data class Model(
   /** The max token for llm model. */
   val llmMaxToken: Int = 0,
 
+  /** Compatible accelerators. */
+  val accelerators: List<Accelerator> = listOf(),
+
   /** Whether the model is imported or not. */
   val imported: Boolean = false,
 
