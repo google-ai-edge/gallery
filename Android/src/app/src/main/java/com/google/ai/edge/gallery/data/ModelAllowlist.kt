@@ -16,7 +16,7 @@
 
 package com.google.ai.edge.gallery.data
 
-import android.os.Build
+import com.google.ai.edge.gallery.common.isPixel10
 import com.google.gson.annotations.SerializedName
 
 data class DefaultConfig(
@@ -79,7 +79,7 @@ data class AllowedModel(
           }
         }
         // Remove GPU from pixel 10 devices.
-        if (Build.MODEL != null && Build.MODEL.lowercase().contains("pixel 10")) {
+        if (isPixel10()) {
           accelerators.remove(Accelerator.GPU)
         }
       }

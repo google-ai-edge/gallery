@@ -21,6 +21,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import androidx.exifinterface.media.ExifInterface
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
@@ -314,4 +315,8 @@ fun readFileToByteBuffer(file: File): ByteBuffer? {
     e.printStackTrace()
     null
   }
+}
+
+fun isPixel10(): Boolean {
+  return Build.MODEL != null && Build.MODEL.lowercase().contains("pixel 10")
 }

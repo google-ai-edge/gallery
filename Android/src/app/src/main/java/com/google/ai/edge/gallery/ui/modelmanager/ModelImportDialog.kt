@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.common.isPixel10
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.BooleanSwitchConfig
 import com.google.ai.edge.gallery.data.Config
@@ -90,6 +91,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGModelImportDialog"
+
+private val SUPPORTED_ACCELERATORS: List<Accelerator> =
+  if (isPixel10()) {
+    listOf(Accelerator.CPU)
+  } else {
+    listOf(Accelerator.CPU, Accelerator.GPU)
+  }
 
 private val IMPORT_CONFIGS_LLM: List<Config> =
   listOf(
@@ -129,8 +137,8 @@ private val IMPORT_CONFIGS_LLM: List<Config> =
     BooleanSwitchConfig(key = ConfigKeys.SUPPORT_MOBILE_ACTIONS, defaultValue = false),
     SegmentedButtonConfig(
       key = ConfigKeys.COMPATIBLE_ACCELERATORS,
-      defaultValue = Accelerator.CPU.label,
-      options = listOf(Accelerator.CPU.label, Accelerator.GPU.label),
+      defaultValue = SUPPORTED_ACCELERATORS[0].label,
+      options = SUPPORTED_ACCELERATORS.map { it.label },
       allowMultiple = true,
     ),
   )

@@ -17,7 +17,6 @@
 package com.google.ai.edge.gallery.ui.modelmanager
 
 import android.content.Context
-import android.os.Build
 import android.util.Log
 import androidx.activity.result.ActivityResult
 import androidx.core.net.toUri
@@ -1007,10 +1006,6 @@ constructor(
           }
         }
         .toMutableList()
-    // Remove GPU from pixel 10 devices.
-    if (Build.MODEL != null && Build.MODEL.lowercase().contains("pixel 10")) {
-      accelerators.remove(Accelerator.GPU)
-    }
     val llmMaxToken = info.llmConfig.defaultMaxTokens
     val configs: MutableList<Config> =
       createLlmChatConfigs(
