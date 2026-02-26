@@ -11,24 +11,19 @@ Install the app today from Google Play
 
 <a href='https://play.google.com/store/apps/details?id=com.google.ai.edge.gallery'><img alt='Get it on Google Play' width="250" src='https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png'/></a>
 
+Install the app today from App Store
+
+<a href="https://apps.apple.com/us/app/google-ai-edge-gallery/id6749645337?itscg=30200&itsct=apps_box_badge&mttnsubad=6749645337" style="display: inline-block;">
+    <img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/en-us?releaseDate=1771977600" alt="Download on the App Store" style="width: 246px; height: 82px; vertical-align: middle; object-fit: contain;" />
+</a>
+    
+
 For users without Google Play access, install the apk from the [**latest release**](https://github.com/google-ai-edge/gallery/releases/latest/)
 
 > [!IMPORTANT]
 > You must uninstall all previous versions of the app before installing this one. Past versions will no longer be working and supported.
 
-## iOS Testing via TestFlight
 
-We're excited to announce that the app is now available for testing on iOS through TestFlight! We invite you to be among the first to try it out and share your feedback.
-
-***How to Join***:
-
-- Follow this [**public invitation link**](https://testflight.apple.com/join/nAtSQKTF) to get access.
-
-- Availability: Access is on a first-come, first-served basis. TestFlight currently limits the number of testers to 10,000.
-  
-- Supported device models: iOS devices with at least 6GB of RAM.
-
-We appreciate your help with this early testing phase. Your feedback is invaluable as we work to improve the app. Once we've gathered and addressed all the feedback, we aim to officially launch on the App Store early 2026.
 
 <img width="480" alt="01" src="https://github.com/user-attachments/assets/09dbcf7e-a298-4063-920e-bfc88591f4a2" />
 <img width="480" alt="02" src="https://github.com/user-attachments/assets/e2986bba-f807-42e1-9d5e-a5a978fa97e9" />
