@@ -75,23 +75,6 @@
       "taskTypes": ["llm_chat", "llm_prompt_lab"]
     },
     {
-      "name": "Phi-4-mini-instruct",
-      "modelId": "litert-community/Phi-4-mini-instruct",
-      "modelFile": "Phi-4-mini-instruct_multi-prefill-seq_q8_ekv4096.litertlm",
-      "description": "A variant of [microsoft/Phi-4-mini-instruct](https://huggingface.co/microsoft/Phi-4-mini-instruct) ready for deployment on Android using [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md).",
-      "sizeInBytes": 3910090752,
-      "minDeviceMemoryInGb": 6,
-      "commitHash": "054f4e2694a86f81a129a40596e08b8d74770a9d",
-      "defaultConfig": {
-        "topK": 64,
-        "topP": 0.95,
-        "temperature": 1.0,
-        "maxTokens": 4096,
-        "accelerators": "gpu,cpu"
-      },
-      "taskTypes": ["llm_chat", "llm_prompt_lab"]
-    },
-    {
       "name": "DeepSeek-R1-Distill-Qwen-1.5B",
       "modelId": "litert-community/DeepSeek-R1-Distill-Qwen-1.5B",
       "modelFile": "DeepSeek-R1-Distill-Qwen-1.5B_multi-prefill-seq_q8_ekv4096.litertlm",
@@ -110,12 +93,12 @@
     },
     {
       "name": "TinyGarden-270M",
-      "modelId": "google/functiongemma-270m-it",
-      "modelFile": "tiny_garden.litertlm",
+      "modelId": "litert-community/functiongemma-270m-ft-tiny-garden",
+      "modelFile": "tiny_garden_q8_ekv1024.litertlm",
       "description": "Fine-tuned Function Gemma 270M model for Tiny Garden.",
-      "sizeInBytes": 288440320,
+      "sizeInBytes": 288964608,
       "minDeviceMemoryInGb": 6,
-      "commitHash": "f54f8715e2b205f72c350f6efa748fd29fa19d98",
+      "commitHash": "20260225",
       "defaultConfig": {
         "topK": 64,
         "topP": 0.95,
@@ -128,6 +111,28 @@
       ],
       "bestForTaskTypes": [
         "llm_tiny_garden"
+      ]
+    },
+    {
+      "name": "MobileActions-270M",
+      "modelId": "litert-community/functiongemma-270m-ft-mobile-actions",
+      "modelFile": "mobile_actions_q8_ekv1024.litertlm",
+      "description": "Fine-tuned Function Gemma 270M model for Mobile Actions.",
+      "sizeInBytes": 288964608,
+      "minDeviceMemoryInGb": 6,
+      "commitHash": "20260218",
+      "defaultConfig": {
+        "topK": 64,
+        "topP": 0.95,
+        "temperature": 0.0,
+        "maxTokens": 1024,
+        "accelerators": "cpu"
+      },
+      "taskTypes": [
+        "llm_mobile_actions"
+      ],
+      "bestForTaskTypes": [
+        "llm_mobile_actions"
       ]
     }
   ]
