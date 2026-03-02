@@ -33,6 +33,16 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- Additional permission required for push notification handling -->
+    <!-- Required for resurfacing notifications after boot -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Required for GCM message handling -->
+    <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
+    <!-- Required for registering with Chime properly -->
+    <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES" />
+    <!-- Required before JellyBean MR1, optional for newer versions of Android. -->
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
+
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
