@@ -80,14 +80,14 @@ object LlmChatModelHelper {
     Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
     val preferredBackend =
       when (accelerator) {
-        Accelerator.CPU.label -> Backend.CPU
-        Accelerator.GPU.label -> Backend.GPU
-        Accelerator.NPU.label -> Backend.NPU
-        else -> Backend.CPU
+        Accelerator.CPU.label -> Backend.CPU()
+        Accelerator.GPU.label -> Backend.GPU()
+        Accelerator.NPU.label -> Backend.NPU()
+        else -> Backend.CPU()
       }
     Log.d(TAG, "Preferred backend: $preferredBackend")
 
-    if (preferredBackend == Backend.NPU) {
+    if (preferredBackend is Backend.NPU) {
       @OptIn(ExperimentalApi::class)
       ExperimentalFlags.npuLibrariesDir = context.applicationInfo.nativeLibraryDir
     }
@@ -97,8 +97,8 @@ object LlmChatModelHelper {
       EngineConfig(
         modelPath = modelPath,
         backend = preferredBackend,
-        visionBackend = if (shouldEnableImage) Backend.GPU else null, // must be GPU for Gemma 3n
-        audioBackend = if (shouldEnableAudio) Backend.CPU else null, // must be CPU for Gemma 3n
+        visionBackend = if (shouldEnableImage) Backend.GPU() else null, // must be GPU for Gemma 3n
+        audioBackend = if (shouldEnableAudio) Backend.CPU() else null, // must be CPU for Gemma 3n
         maxNumTokens = maxTokens,
         cacheDir =
           if (modelPath.startsWith("/data/local/tmp"))
@@ -117,7 +117,7 @@ object LlmChatModelHelper {
         engine.createConversation(
           ConversationConfig(
             samplerConfig =
-              if (preferredBackend == Backend.NPU) {
+              if (preferredBackend is Backend.NPU) {
                 null
               } else {
                 SamplerConfig(
