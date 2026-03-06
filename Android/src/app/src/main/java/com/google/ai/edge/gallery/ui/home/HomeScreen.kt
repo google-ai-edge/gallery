@@ -19,8 +19,13 @@ package com.google.ai.edge.gallery.ui.home
 // import androidx.compose.ui.tooling.preview.Preview
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 // import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -93,6 +98,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.google.ai.edge.gallery.GalleryTopAppBar
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.AppBarAction
@@ -231,6 +237,26 @@ fun HomeScreen(
     // Main UI when allowlist is done loading.
     if (!loadingModelAllowlistDelayed && !uiState.loadingModelAllowlist) {
       val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+
+      val requestPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+          isGranted: Boolean ->
+          if (isGranted) {
+            // FCM SDK (and your app) can post notifications.
+          }
+        }
+
+      LaunchedEffect(Unit) {
+        delay(2000)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+          if (
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+              PackageManager.PERMISSION_GRANTED
+          ) {
+            requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+          }
+        }
+      }
 
       // Close the menu when back button is pressed.
       BackHandler(drawerState.isOpen) { scope.launch { drawerState.close() } }

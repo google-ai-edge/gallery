@@ -21,6 +21,7 @@
   <string name="app_name" translatable="false">Google AI Edge Gallery</string>
   <string name="app_name_first_part" translatable="false">Google AI</string>
   <string name="app_name_second_part" translatable="false">Edge Gallery</string>
+  <string name="gallery_news_notification_title" translatable="false">Gallery News</string>
   <string name="baseline" translatable="false">Baseline</string>
   <string name="basic_info" translatable="false">Basic info</string>
   <string name="benchmark" translatable="false">Benchmark</string>

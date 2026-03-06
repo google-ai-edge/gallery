@@ -85,6 +85,7 @@ firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.r
 # When using the Firebase BoM, you don't specify versions in Firebase
 # library dependencies.
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
 androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
 
 [plugins]
