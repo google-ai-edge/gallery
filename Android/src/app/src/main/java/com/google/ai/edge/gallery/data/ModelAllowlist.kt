@@ -16,8 +16,12 @@
 
 package com.google.ai.edge.gallery.data
 
+import android.os.Build
+import android.util.Log
 import com.google.ai.edge.gallery.common.isPixel10
 import com.google.gson.annotations.SerializedName
+
+private const val TAG = "AGModelAllowlist"
 
 data class DefaultConfig(
   @SerializedName("topK") val topK: Int?,
@@ -27,14 +31,22 @@ data class DefaultConfig(
   @SerializedName("maxTokens") val maxTokens: Int?,
 )
 
+/** A model file on HF for a specific SOC. */
+data class SocModelFile(
+  @SerializedName("modelFile") val modelFile: String?,
+  @SerializedName("url") val url: String?,
+  @SerializedName("commitHash") val commitHash: String?,
+  @SerializedName("sizeInBytes") val sizeInBytes: Long?,
+)
+
 /** A model in the model allowlist. */
 data class AllowedModel(
   val name: String,
   val modelId: String,
   val modelFile: String,
+  val commitHash: String,
   val description: String,
   val sizeInBytes: Long,
-  val commitHash: String,
   val defaultConfig: DefaultConfig,
   val taskTypes: List<String>,
   val disabled: Boolean? = null,
@@ -46,11 +58,30 @@ data class AllowedModel(
   val bestForTaskTypes: List<String>? = null,
   val localModelFilePathOverride: String? = null,
   val url: String? = null,
+  val socToModelFiles: Map<String, SocModelFile>? = null,
 ) {
   fun toModel(): Model {
     // Construct HF download url.
-    val downloadUrl =
+    var version = commitHash
+    var downloadedFileName = modelFile
+    var downloadUrl =
       url ?: "https://huggingface.co/$modelId/resolve/$commitHash/$modelFile?download=true"
+    var sizeInBytes = sizeInBytes
+
+    // Handle per-soc model files.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      if (socToModelFiles?.isNotEmpty() == true) {
+        socToModelFiles.get(SOC)?.let { info ->
+          Log.d(TAG, "Found soc-specific model files for model $name: $info")
+          version = info.commitHash ?: "-"
+          downloadedFileName = info.modelFile ?: "-"
+          downloadUrl =
+            info.url
+              ?: "https://huggingface.co/$modelId/resolve/${info.commitHash}/${info.modelFile}?download=true"
+          sizeInBytes = info.sizeInBytes ?: -1
+        }
+      }
+    }
 
     // Config.
     val isLlmModel =
@@ -76,6 +107,8 @@ data class AllowedModel(
             accelerators.add(Accelerator.CPU)
           } else if (item == "gpu") {
             accelerators.add(Accelerator.GPU)
+          } else if (item == "npu") {
+            accelerators.add(Accelerator.NPU)
           }
         }
         // Remove GPU from pixel 10 devices.
@@ -83,14 +116,22 @@ data class AllowedModel(
           accelerators.remove(Accelerator.GPU)
         }
       }
+      val npuOnly = accelerators.size == 1 && accelerators[0] == Accelerator.NPU
       configs =
-        createLlmChatConfigs(
-            defaultTopK = defaultTopK,
-            defaultTopP = defaultTopP,
-            defaultTemperature = defaultTemperature,
-            defaultMaxToken = llmMaxToken,
-            accelerators = accelerators,
-          )
+        if (npuOnly) {
+            createLlmChatConfigsForNpuModel(
+              defaultMaxToken = llmMaxToken,
+              accelerators = accelerators,
+            )
+          } else {
+            createLlmChatConfigs(
+              defaultTopK = defaultTopK,
+              defaultTopP = defaultTopP,
+              defaultTemperature = defaultTemperature,
+              defaultMaxToken = llmMaxToken,
+              accelerators = accelerators,
+            )
+          }
           .toMutableList()
     }
 
@@ -104,13 +145,13 @@ data class AllowedModel(
 
     return Model(
       name = name,
-      version = commitHash,
+      version = version,
       info = description,
       url = downloadUrl,
       sizeInBytes = sizeInBytes,
       minDeviceMemoryInGb = minDeviceMemoryInGb,
       configs = configs,
-      downloadFileName = modelFile,
+      downloadFileName = downloadedFileName,
       showBenchmarkButton = showBenchmarkButton,
       showRunAgainButton = showRunAgainButton,
       learnMoreUrl = "https://huggingface.co/${modelId}",

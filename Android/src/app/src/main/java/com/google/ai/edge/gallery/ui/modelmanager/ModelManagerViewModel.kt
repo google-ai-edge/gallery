@@ -43,6 +43,7 @@ import com.google.ai.edge.gallery.data.ModelAllowlist
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.NumberSliderConfig
+import com.google.ai.edge.gallery.data.SOC
 import com.google.ai.edge.gallery.data.TMP_FILE_EXT
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.ValueType
@@ -806,6 +807,21 @@ constructor(
             continue
           }
 
+          // Ignore the allowedModel if its accelerator is only npu and this device's soc is not in
+          // its socToModelFiles.
+          val accelerators = allowedModel.defaultConfig.accelerators ?: ""
+          val acceleratorList = accelerators.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+          if (acceleratorList.size == 1 && acceleratorList[0] == "npu") {
+            val socToModelFiles = allowedModel.socToModelFiles
+            if (socToModelFiles != null && !socToModelFiles.containsKey(SOC)) {
+              Log.d(
+                TAG,
+                "Ignoring model '${allowedModel.name}' because it's NPU-only and not supported on SOC: $SOC",
+              )
+              continue
+            }
+          }
+
           val model = allowedModel.toModel()
           nameToModel.put(model.name, model)
           for (taskType in allowedModel.taskTypes) {
@@ -1002,6 +1018,7 @@ constructor(
           when (acceleratorLabel.trim()) {
             Accelerator.GPU.label -> Accelerator.GPU
             Accelerator.CPU.label -> Accelerator.CPU
+            Accelerator.NPU.label -> Accelerator.NPU
             else -> null // Ignore unknown accelerator labels
           }
         }

@@ -249,7 +249,7 @@ fun GalleryNavHost(
       val context = LocalContext.current
 
       modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
-        LaunchedEffect(Unit) { modelManagerViewModel.selectModel(model) }
+        modelManagerViewModel.selectModel(model)
 
         val customTask = modelManagerViewModel.getCustomTaskByTaskId(id = taskId)
         if (customTask != null) {
