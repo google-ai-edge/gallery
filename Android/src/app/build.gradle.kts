@@ -105,6 +105,7 @@ dependencies {
   implementation(libs.play.services.oss.licenses)
   implementation(platform(libs.firebase.bom))
   implementation(libs.firebase.analytics)
+  implementation(libs.firebase.messaging)
   implementation(libs.androidx.exifinterface)
   kapt(libs.hilt.android.compiler)
   testImplementation(libs.junit)
