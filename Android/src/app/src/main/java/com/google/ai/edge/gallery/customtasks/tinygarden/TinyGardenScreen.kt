@@ -228,7 +228,7 @@ fun MainUi(
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val model = modelManagerUiState.selectedModel
-  val initialModelConfigValues = remember { model.configValues }
+  val initialModelConfigValues = remember(model) { model.configValues }
   var webViewRef: WebView? by remember { mutableStateOf(null) }
   val scope = rememberCoroutineScope()
   val uiState by viewModel.uiState.collectAsState()
@@ -415,10 +415,14 @@ fun MainUi(
       for (config in model.configs) {
         val key = config.key.label
         val oldValue =
-          convertValueToTargetType(
-            value = model.prevConfigValues.getValue(key),
-            valueType = config.valueType,
-          )
+          if (model.prevConfigValues.containsKey(key)) {
+            convertValueToTargetType(
+              value = model.prevConfigValues.getValue(key),
+              valueType = config.valueType,
+            )
+          } else {
+            null
+          }
         val newValue =
           convertValueToTargetType(
             value = model.configValues.getValue(key),

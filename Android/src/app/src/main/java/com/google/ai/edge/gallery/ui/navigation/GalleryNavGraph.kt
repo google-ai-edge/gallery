@@ -149,6 +149,7 @@ fun GalleryNavHost(
   var pickedTask by remember { mutableStateOf<Task?>(null) }
   var enableHomeScreenAnimation by remember { mutableStateOf(true) }
   var enableModelListAnimation by remember { mutableStateOf(true) }
+  var lastNavigatedModelName = remember { "" }
 
   // Track whether app is in foreground.
   DisposableEffect(lifecycleOwner) {
@@ -248,8 +249,11 @@ fun GalleryNavHost(
       val scope = rememberCoroutineScope()
       val context = LocalContext.current
 
-      modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
-        modelManagerViewModel.selectModel(model)
+      modelManagerViewModel.getModelByName(name = modelName)?.let { initialModel ->
+        if (lastNavigatedModelName != modelName) {
+          modelManagerViewModel.selectModel(initialModel)
+          lastNavigatedModelName = modelName
+        }
 
         val customTask = modelManagerViewModel.getCustomTaskByTaskId(id = taskId)
         if (customTask != null) {
@@ -260,6 +264,7 @@ fun GalleryNavHost(
                   modelManagerViewModel = modelManagerViewModel,
                   onNavUp = {
                     enableModelListAnimation = false
+                    lastNavigatedModelName = ""
                     navController.navigateUp()
                   },
                 )
@@ -276,15 +281,16 @@ fun GalleryNavHost(
                   customNavigateUpCallback?.invoke()
                 } else {
                   enableModelListAnimation = false
+                  lastNavigatedModelName = ""
                   navController.navigateUp()
 
                   // clean up all models.
                   scope.launch(Dispatchers.Default) {
-                    for (model in customTask.task.models) {
+                    for (curModel in customTask.task.models) {
                       modelManagerViewModel.cleanupModel(
                         context = context,
                         task = customTask.task,
-                        model = model,
+                        model = curModel,
                       )
                     }
                   }
@@ -474,6 +480,7 @@ private fun CustomTaskScreen(
               }
 
               // Update selected model.
+              Log.d(TAG, "from model picker. new: ${newSelectedModel.name}")
               modelManagerViewModel.selectModel(model = newSelectedModel)
             }
           },
