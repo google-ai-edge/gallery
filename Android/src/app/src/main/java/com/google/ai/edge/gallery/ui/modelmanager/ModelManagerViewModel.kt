@@ -254,7 +254,9 @@ constructor(
   }
 
   fun selectModel(model: Model) {
-    _uiState.update { _uiState.value.copy(selectedModel = model) }
+    if (_uiState.value.selectedModel.name != model.name) {
+      _uiState.update { _uiState.value.copy(selectedModel = model) }
+    }
   }
 
   fun downloadModel(task: Task?, model: Model) {
