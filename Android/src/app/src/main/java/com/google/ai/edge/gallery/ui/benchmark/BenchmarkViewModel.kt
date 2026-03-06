@@ -134,10 +134,9 @@ constructor(
       Log.d(TAG, "Using benchmark cache dir: $cacheDirPath")
       val backend: Backend =
         when (accelerator.lowercase()) {
-          "cpu" -> Backend.CPU
-          "gpu" -> Backend.GPU
-          "npu" -> Backend.NPU
-          else -> Backend.CPU
+          "gpu" -> Backend.GPU()
+          "npu" -> Backend.NPU()
+          else -> Backend.CPU()
         }
       val modelPath = model.getPath(context = appContext)
       for (i in 0 until runCount) {
