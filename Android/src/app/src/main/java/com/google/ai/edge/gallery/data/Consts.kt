@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.data
 
+import android.os.Build
 import androidx.compose.ui.unit.dp
 
 // Keys used to send/receive data to Work.
@@ -60,3 +61,12 @@ val MODEL_INFO_ICON_SIZE = 18.dp
 
 // The extension of the tmp download files.
 const val TMP_FILE_EXT = "gallerytmp"
+
+// Current device's SOC in lowercase.
+val SOC =
+  (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      Build.SOC_MODEL ?: ""
+    } else {
+      ""
+    })
+    .lowercase()

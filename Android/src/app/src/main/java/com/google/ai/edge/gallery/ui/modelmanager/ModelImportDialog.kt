@@ -96,7 +96,7 @@ private val SUPPORTED_ACCELERATORS: List<Accelerator> =
   if (isPixel10()) {
     listOf(Accelerator.CPU)
   } else {
-    listOf(Accelerator.CPU, Accelerator.GPU)
+    listOf(Accelerator.CPU, Accelerator.GPU, Accelerator.NPU)
   }
 
 private val IMPORT_CONFIGS_LLM: List<Config> =

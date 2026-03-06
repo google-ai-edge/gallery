@@ -82,9 +82,15 @@ object LlmChatModelHelper {
       when (accelerator) {
         Accelerator.CPU.label -> Backend.CPU
         Accelerator.GPU.label -> Backend.GPU
+        Accelerator.NPU.label -> Backend.NPU
         else -> Backend.CPU
       }
     Log.d(TAG, "Preferred backend: $preferredBackend")
+
+    if (preferredBackend == Backend.NPU) {
+      @OptIn(ExperimentalApi::class)
+      ExperimentalFlags.npuLibrariesDir = context.applicationInfo.nativeLibraryDir
+    }
 
     val modelPath = model.getPath(context = context)
     val engineConfig =
@@ -111,11 +117,15 @@ object LlmChatModelHelper {
         engine.createConversation(
           ConversationConfig(
             samplerConfig =
-              SamplerConfig(
-                topK = topK,
-                topP = topP.toDouble(),
-                temperature = temperature.toDouble(),
-              ),
+              if (preferredBackend == Backend.NPU) {
+                null
+              } else {
+                SamplerConfig(
+                  topK = topK,
+                  topP = topP.toDouble(),
+                  temperature = temperature.toDouble(),
+                )
+              },
             systemInstruction = systemInstruction,
             tools = tools,
           )
@@ -153,17 +163,26 @@ object LlmChatModelHelper {
       val shouldEnableAudio = supportAudio
       Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
 
+      val accelerator =
+        model.getStringConfigValue(
+          key = ConfigKeys.ACCELERATOR,
+          defaultValue = Accelerator.GPU.label,
+        )
       ExperimentalFlags.enableConversationConstrainedDecoding =
         enableConversationConstrainedDecoding
       val newConversation =
         engine.createConversation(
           ConversationConfig(
             samplerConfig =
-              SamplerConfig(
-                topK = topK,
-                topP = topP.toDouble(),
-                temperature = temperature.toDouble(),
-              ),
+              if (accelerator == Accelerator.NPU.label) {
+                null
+              } else {
+                SamplerConfig(
+                  topK = topK,
+                  topP = topP.toDouble(),
+                  temperature = temperature.toDouble(),
+                )
+              },
             systemInstruction = systemInstruction,
             tools = tools,
           )

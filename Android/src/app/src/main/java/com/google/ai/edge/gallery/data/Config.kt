@@ -253,6 +253,25 @@ fun createLlmChatConfigs(
   )
 }
 
+/**
+ * Creates the configuration settings for an LLM model that only supports NPU.
+ *
+ * For now NPU models don't support setting topK, topP, and temperature.
+ */
+fun createLlmChatConfigsForNpuModel(
+  defaultMaxToken: Int = DEFAULT_MAX_TOKEN,
+  accelerators: List<Accelerator> = DEFAULT_ACCELERATORS,
+): List<Config> {
+  return listOf(
+    LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken"),
+    SegmentedButtonConfig(
+      key = ConfigKeys.ACCELERATOR,
+      defaultValue = accelerators[0].label,
+      options = accelerators.map { it.label },
+    ),
+  )
+}
+
 fun getConfigValueString(value: Any, config: Config): String {
   var strNewValue = "$value"
   if (config.valueType == ValueType.FLOAT) {
