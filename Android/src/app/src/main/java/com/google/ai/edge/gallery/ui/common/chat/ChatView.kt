@@ -20,6 +20,7 @@ package com.google.ai.edge.gallery.ui.common.chat
 // import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
 // import com.google.ai.edge.gallery.ui.preview.TASK_TEST1
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
+
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.activity.compose.BackHandler
@@ -97,6 +98,7 @@ fun ChatView(
   onStreamImageMessage: (Model, ChatMessageImage) -> Unit = { _, _ -> },
   onStopButtonClicked: (Model) -> Unit = {},
   showStopButtonInInputWhenInProgress: Boolean = false,
+  composableBelowMessageList: @Composable (Model) -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -184,8 +186,9 @@ fun ChatView(
     },
   ) { innerPadding ->
     Box {
-      // val curSelectedModel = task.models[pageIndex]
       val curModelDownloadStatus = modelManagerUiState.modelDownloadStatus[selectedModel.name]
+
+      composableBelowMessageList(selectedModel)
 
       Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         AnimatedContent(
@@ -281,21 +284,3 @@ fun ChatView(
     }
   }
 }
-
-// @Preview
-// @Composable
-// fun ChatScreenPreview() {
-//   GalleryTheme {
-//     val context = LocalContext.current
-//     val task = TASK_TEST1
-//     ChatView(
-//       task = task,
-//       viewModel = PreviewChatModel(context = context),
-//       modelManagerViewModel = PreviewModelManagerViewModel(context = context),
-//       onSendMessage = { _, _ -> },
-//       onRunAgainClicked = { _, _ -> },
-//       onBenchmarkClicked = { _, _, _, _ -> },
-//       navigateUp = {},
-//     )
-//   }
-// }

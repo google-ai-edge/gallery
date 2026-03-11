@@ -46,10 +46,17 @@ fun MessageBodyImage(
     val imageBitMap = message.imageBitMaps[0]
     val bitmapWidth = bitmap.width
     val bitmapHeight = bitmap.height
-    val imageWidth =
-      if (bitmapWidth >= bitmapHeight) 200 else (200f / bitmapHeight * bitmapWidth).toInt()
-    val imageHeight =
-      if (bitmapHeight >= bitmapWidth) 200 else (200f / bitmapWidth * bitmapHeight).toInt()
+    val maxSize = message.maxSize
+    var imageWidth = bitmapWidth
+    var imageHeight = bitmapHeight
+    if (imageWidth >= maxSize || imageHeight >= maxSize) {
+      imageWidth =
+        if (bitmapWidth >= bitmapHeight) maxSize
+        else (maxSize.toFloat() / bitmapHeight * bitmapWidth).toInt()
+      imageHeight =
+        if (bitmapHeight >= bitmapWidth) maxSize
+        else (maxSize.toFloat() / bitmapWidth * bitmapHeight).toInt()
+    }
 
     Image(
       bitmap = imageBitMap,

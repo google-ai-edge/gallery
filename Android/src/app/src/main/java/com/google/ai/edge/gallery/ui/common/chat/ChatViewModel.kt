@@ -184,6 +184,23 @@ abstract class ChatViewModel() : ViewModel() {
     _uiState.update { _uiState.value.copy(streamingMessagesByModel = newStreamingMessagesByModel) }
   }
 
+  fun updateExtraProgressLabelInLastLoadingMessage(model: Model, extraProgressLabel: String) {
+    val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
+    val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
+    if (newMessages.size > 0) {
+      val lastMessage = newMessages.last()
+      if (lastMessage is ChatMessageLoading) {
+        val newLastMessage = lastMessage.clone()
+        newLastMessage.extraProgressLabel = extraProgressLabel
+        newMessages.removeAt(newMessages.size - 1)
+        newMessages.add(newLastMessage)
+      }
+    }
+    newMessagesByModel[model.name] = newMessages
+    val newUiState = _uiState.value.copy(messagesByModel = newMessagesByModel)
+    _uiState.update { newUiState }
+  }
+
   fun setInProgress(inProgress: Boolean) {
     _uiState.update { _uiState.value.copy(inProgress = inProgress) }
   }

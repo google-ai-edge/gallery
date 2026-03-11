@@ -282,7 +282,11 @@ fun ChatPanel(
               backgroundColor = MaterialTheme.customColors.agentBubbleBgColor
               hardCornerAtLeftOrRight = true
               extraPaddingStart = 0.dp
-              extraPaddingEnd = 48.dp
+              if (
+                message.type !== ChatMessageType.LOADING && message.type !== ChatMessageType.WEBVIEW
+              ) {
+                extraPaddingEnd = 48.dp
+              }
             } else if (message.side == ChatSide.SYSTEM) {
               extraPaddingStart = 24.dp
               extraPaddingEnd = 24.dp
@@ -312,16 +316,18 @@ fun ChatPanel(
               if (message.accelerator.isNotEmpty()) {
                 agentName = "$agentName on ${message.accelerator}"
               }
-              MessageSender(
-                message = message,
-                agentName = agentName,
-                imageHistoryCurIndex = imageHistoryCurIndex.intValue,
-              )
+              if (!message.hideSenderLabel) {
+                MessageSender(
+                  message = message,
+                  agentName = agentName,
+                  imageHistoryCurIndex = imageHistoryCurIndex.intValue,
+                )
+              }
 
               // Message body.
               when (message) {
                 // Loading.
-                is ChatMessageLoading -> MessageBodyLoading()
+                is ChatMessageLoading -> MessageBodyLoading(message = message)
 
                 // Info.
                 is ChatMessageInfo -> MessageBodyInfo(message = message)
@@ -417,6 +423,9 @@ fun ChatPanel(
                           message = message,
                           modifier = Modifier.wrapContentWidth(),
                         )
+
+                      // Webview.
+                      is ChatMessageWebView -> MessageBodyWebview(message = message)
 
                       else -> {}
                     }

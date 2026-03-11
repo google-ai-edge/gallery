@@ -17,6 +17,7 @@
 <resources>
   <!-- TODO(jingjin): Add translation support when i18n is ready. -->
   <string name="all" translatable="false">All</string>
+  <string name="add" translatable="false">Add</string>
   <string name="app_intro" translatable="false">Explore a world of amazing on-device models from</string>
   <string name="app_name" translatable="false">Google AI Edge Gallery</string>
   <string name="app_name_first_part" translatable="false">Google AI</string>
@@ -81,6 +82,7 @@
   <string name="grant_permissions" translatable="false">Grant permissions</string>
   <string name="grant_record_audio_permission" translatable="false">Grant record audio permission</string>
   <string name="hold_down_to_talk" translatable="false">Hold to talk</string>
+  <string name="input_history" translatable="false">Input history</string>
   <string name="invalid_response" translatable="false">Invalid response</string>
   <string name="learn_more" translatable="false">Learn more</string>
   <string name="listening" translatable="false">Listening...</string>
