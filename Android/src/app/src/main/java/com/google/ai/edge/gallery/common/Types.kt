@@ -17,6 +17,8 @@
 package com.google.ai.edge.gallery.common
 
 import androidx.compose.ui.graphics.Color
+import com.squareup.moshi.JsonClass
+import kotlinx.coroutines.CompletableDeferred
 
 interface LatencyProvider {
   val latencyMs: Float

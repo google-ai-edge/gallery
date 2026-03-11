@@ -25,6 +25,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.os.bundleOf
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.data.BuiltInTaskId
+import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
@@ -32,19 +34,28 @@ import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
 import com.google.ai.edge.gallery.ui.common.chat.ChatView
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 
+private const val TAG = "AGLlmChatScreen"
+
 @Composable
 fun LlmChatScreen(
   modelManagerViewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
+  onGenerateResponseDone: (Model) -> Unit = {},
+  onResetSessionClickedOverride: ((Task, Model) -> Unit)? = null,
+  composableBelowMessageList: @Composable (Model) -> Unit = {},
   viewModel: LlmChatViewModel = hiltViewModel(),
 ) {
+
   ChatViewWrapper(
     viewModel = viewModel,
     modelManagerViewModel = modelManagerViewModel,
     taskId = BuiltInTaskId.LLM_CHAT,
     navigateUp = navigateUp,
     modifier = modifier,
+    onGenerateResponseDone = onGenerateResponseDone,
+    onResetSessionClickedOverride = onResetSessionClickedOverride,
+    composableBelowMessageList = composableBelowMessageList,
   )
 }
 
@@ -87,6 +98,9 @@ fun ChatViewWrapper(
   taskId: String,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
+  onGenerateResponseDone: (Model) -> Unit = {},
+  onResetSessionClickedOverride: ((Task, Model) -> Unit)? = null,
+  composableBelowMessageList: @Composable (Model) -> Unit = {},
 ) {
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
@@ -121,6 +135,7 @@ fun ChatViewWrapper(
           input = text,
           images = images,
           audioMessages = audioMessages,
+          onDone = { onGenerateResponseDone(model) },
           onError = { errorMessage ->
             viewModel.handleError(
               context = context,
@@ -156,10 +171,17 @@ fun ChatViewWrapper(
       }
     },
     onBenchmarkClicked = { _, _, _, _ -> },
-    onResetSessionClicked = { model -> viewModel.resetSession(task = task, model = model) },
+    onResetSessionClicked = { model ->
+      if (onResetSessionClickedOverride != null) {
+        onResetSessionClickedOverride(task, model)
+      } else {
+        viewModel.resetSession(task = task, model = model)
+      }
+    },
     showStopButtonInInputWhenInProgress = true,
     onStopButtonClicked = { model -> viewModel.stopResponse(model = model) },
     navigateUp = navigateUp,
     modifier = modifier,
+    composableBelowMessageList = composableBelowMessageList,
   )
 }

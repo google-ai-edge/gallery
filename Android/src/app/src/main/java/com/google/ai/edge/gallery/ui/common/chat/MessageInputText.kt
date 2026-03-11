@@ -67,16 +67,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FlipCameraAndroid
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.HomeRepairService
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Photo
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PostAdd
 import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -101,7 +103,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -137,6 +138,7 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "AGMessageInputText"
 
+// TODO(before-launch): update for image and audio input.
 /**
  * Composable function to display a text input field for composing chat messages.
  *
@@ -328,32 +330,18 @@ fun MessageInputText(
     }
 
     Box(contentAlignment = Alignment.Center, modifier = Modifier.heightIn(min = 76.dp)) {
-      AnimatedContent(targetState = showAudioRecorder) { curShowAudioRecotder ->
-        when (curShowAudioRecotder) {
+      AnimatedContent(targetState = showAudioRecorder) { curShowAudioRecorder ->
+        when (curShowAudioRecorder) {
           // Input
           false ->
-            Box(contentAlignment = Alignment.CenterStart) {
-              // A plus button to show a popup menu to add stuff to the chat.
-              IconButton(
-                enabled = !inProgress && !isResettingSession,
-                onClick = { showAddContentMenu = true },
-                modifier = Modifier.offset(x = 16.dp).alpha(0.8f),
-              ) {
-                Icon(
-                  Icons.Rounded.Add,
-                  contentDescription = stringResource(R.string.cd_add_content_icon),
-                  modifier = Modifier.size(28.dp),
-                )
-              }
+            Column(
+              modifier =
+                Modifier.padding(horizontal = 12.dp)
+                  .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+            ) {
+              // Text field.
               Row(
-                modifier =
-                  Modifier.fillMaxWidth()
-                    .padding(12.dp)
-                    .border(
-                      1.dp,
-                      MaterialTheme.colorScheme.outlineVariant,
-                      RoundedCornerShape(28.dp),
-                    ),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
               ) {
                 val enableAddImageMenuItems = (imageCount + pickedImages.size) < MAX_IMAGE_COUNT
@@ -540,10 +528,7 @@ fun MessageInputText(
                       disabledContainerColor = Color.Transparent,
                     ),
                   textStyle = bodyLargeNarrow,
-                  modifier =
-                    Modifier.weight(1f).padding(start = 36.dp).semantics {
-                      contentDescription = cdPromptInput
-                    },
+                  modifier = Modifier.weight(1f).semantics { contentDescription = cdPromptInput },
                   placeholder = { Text(stringResource(textFieldPlaceHolderRes)) },
                 )
 
@@ -596,6 +581,27 @@ fun MessageInputText(
                   }
                 }
                 Spacer(modifier = Modifier.width(4.dp))
+              }
+
+              // Second row for buttons to add extra content.
+              Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).offset(y = (-4).dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+              ) {
+
+                // Input history.
+                AssistChip(
+                  onClick = { showTextInputHistorySheet = true },
+                  label = { Text(stringResource(R.string.input_history)) },
+                  leadingIcon = {
+                    Icon(
+                      Icons.Rounded.History,
+                      contentDescription = null,
+                      Modifier.size(AssistChipDefaults.IconSize),
+                    )
+                  },
+                )
               }
             }
 
@@ -816,25 +822,6 @@ fun MessageInputText(
       }
     }
   }
-
-  // if (showAudioRecorderBottomShe) {
-  //   ModalBottomSheet(
-  //     sheetState = audioRecorderSheetState,
-  //     onDismissRequest = { showAudioRecorderBottomSheet = false },
-  //   ) {
-  //     AudioRecorderPanel(
-  //       onSendAudioClip = { audioData ->
-  //         scope.launch {
-  //           updatePickedAudioClips(
-  //             listOf(AudioClip(audioData = audioData, sampleRate = SAMPLE_RATE))
-  //           )
-  //           audioRecorderSheetState.hide()
-  //           showAudioRecorderBottomSheet = false
-  //         }
-  //       }
-  //     )
-  //   }
-  // }
 }
 
 @Composable

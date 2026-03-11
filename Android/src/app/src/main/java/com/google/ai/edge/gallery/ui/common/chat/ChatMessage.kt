@@ -40,6 +40,7 @@ enum class ChatMessageType {
   BENCHMARK_RESULT,
   BENCHMARK_LLM_RESULT,
   PROMPT_TEMPLATES,
+  WEBVIEW,
 }
 
 enum class ChatSide {
@@ -54,15 +55,28 @@ open class ChatMessage(
   open val side: ChatSide,
   open val latencyMs: Float = -1f,
   open val accelerator: String = "",
+  open val hideSenderLabel: Boolean = false,
 ) {
   open fun clone(): ChatMessage {
-    return ChatMessage(type = type, side = side, latencyMs = latencyMs)
+    return ChatMessage(
+      type = type,
+      side = side,
+      latencyMs = latencyMs,
+      accelerator = accelerator,
+      hideSenderLabel = hideSenderLabel,
+    )
   }
 }
 
 /** Chat message for showing loading status. */
-class ChatMessageLoading(override val accelerator: String = "") :
-  ChatMessage(type = ChatMessageType.LOADING, side = ChatSide.AGENT, accelerator = accelerator)
+class ChatMessageLoading(
+  var extraProgressLabel: String = "",
+  override val accelerator: String = "",
+) : ChatMessage(type = ChatMessageType.LOADING, side = ChatSide.AGENT, accelerator = accelerator) {
+  override fun clone(): ChatMessageLoading {
+    return ChatMessageLoading(extraProgressLabel = extraProgressLabel, accelerator = accelerator)
+  }
+}
 
 /** Chat message for info (help). */
 class ChatMessageInfo(val content: String) :
@@ -119,15 +133,27 @@ open class ChatMessageText(
 class ChatMessageImage(
   val bitmaps: List<Bitmap>,
   val imageBitMaps: List<ImageBitmap>,
+  val maxSize: Int = 200,
   override val side: ChatSide,
   override val latencyMs: Float = 0f,
-) : ChatMessage(type = ChatMessageType.IMAGE, side = side, latencyMs = latencyMs) {
+  override val accelerator: String = "",
+  override val hideSenderLabel: Boolean = false,
+) :
+  ChatMessage(
+    type = ChatMessageType.IMAGE,
+    side = side,
+    latencyMs = latencyMs,
+    accelerator = accelerator,
+    hideSenderLabel = hideSenderLabel,
+  ) {
   override fun clone(): ChatMessageImage {
     return ChatMessageImage(
       bitmaps = bitmaps.toList(),
       imageBitMaps = imageBitMaps.toList(),
       side = side,
       latencyMs = latencyMs,
+      accelerator = accelerator,
+      hideSenderLabel = hideSenderLabel,
     )
   }
 }
@@ -290,3 +316,20 @@ class ChatMessagePromptTemplates(
   val templates: List<PromptTemplate>,
   val showMakeYourOwn: Boolean = true,
 ) : ChatMessage(type = ChatMessageType.PROMPT_TEMPLATES, side = ChatSide.SYSTEM)
+
+/** Chat message for showing a WebView. */
+class ChatMessageWebView(
+  val url: String,
+  val iframe: Boolean,
+  override val side: ChatSide = ChatSide.AGENT,
+  override val hideSenderLabel: Boolean = false,
+) : ChatMessage(type = ChatMessageType.WEBVIEW, side = side, hideSenderLabel = hideSenderLabel) {
+  override fun clone(): ChatMessageWebView {
+    return ChatMessageWebView(
+      url = url,
+      iframe = iframe,
+      side = side,
+      hideSenderLabel = hideSenderLabel,
+    )
+  }
+}

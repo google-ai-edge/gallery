@@ -32,6 +32,7 @@ import com.google.ai.edge.gallery.ui.common.chat.ChatMessageWarning
 import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.ai.edge.gallery.ui.common.chat.ChatViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ExperimentalApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -48,6 +49,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
     input: String,
     images: List<Bitmap> = listOf(),
     audioMessages: List<ChatMessageAudioClip> = listOf(),
+    onDone: () -> Unit = {},
     onError: (String) -> Unit,
   ) {
     val accelerator = model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = "")
@@ -80,6 +82,9 @@ open class LlmChatViewModelBase() : ChatViewModel() {
           images = images,
           audioClips = audioClips,
           resultListener = { partialResult, done ->
+            if (partialResult.startsWith("<ctrl")) {
+              return@runInference
+            }
             if (firstRun) {
               firstRun = false
               setPreparing(false)
@@ -109,6 +114,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
 
             if (done) {
               setInProgress(false)
+              onDone()
             }
           },
           cleanUpListener = {
@@ -142,7 +148,12 @@ open class LlmChatViewModelBase() : ChatViewModel() {
     Log.d(TAG, "Done stopping response")
   }
 
-  fun resetSession(task: Task, model: Model) {
+  fun resetSession(
+    task: Task,
+    model: Model,
+    systemInstruction: Contents? = null,
+    tools: List<Any> = listOf(),
+  ) {
     viewModelScope.launch(Dispatchers.Default) {
       setIsResettingSession(true)
       clearAllMessages(model = model)
@@ -160,6 +171,8 @@ open class LlmChatViewModelBase() : ChatViewModel() {
             model = model,
             supportImage = supportImage,
             supportAudio = supportAudio,
+            systemInstruction = systemInstruction,
+            tools = tools,
           )
           break
         } catch (e: Exception) {

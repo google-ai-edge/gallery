@@ -24,6 +24,7 @@ plugins {
   alias(libs.plugins.protobuf)
   alias(libs.plugins.hilt.application)
   alias(libs.plugins.oss.licenses)
+  alias(libs.plugins.ksp)
   kotlin("kapt")
 }
 
@@ -107,6 +108,7 @@ dependencies {
   implementation(libs.firebase.analytics)
   implementation(libs.firebase.messaging)
   implementation(libs.androidx.exifinterface)
+  implementation(libs.moshi.kotlin)
   kapt(libs.hilt.android.compiler)
   testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.junit)
@@ -116,6 +118,7 @@ dependencies {
   androidTestImplementation(libs.hilt.android.testing)
   debugImplementation(libs.androidx.ui.tooling)
   debugImplementation(libs.androidx.ui.test.manifest)
+  ksp(libs.moshi.kotlin.codegen)
 }
 
 protobuf {
