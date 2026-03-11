@@ -88,7 +88,6 @@ object LlmChatModelHelper {
     Log.d(TAG, "Preferred backend: $preferredBackend")
 
     if (preferredBackend is Backend.NPU) {
-      @OptIn(ExperimentalApi::class)
       ExperimentalFlags.npuLibrariesDir = context.applicationInfo.nativeLibraryDir
     }
 

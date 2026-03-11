@@ -70,8 +70,7 @@ inline fun <reified T> getJsonResponse(url: String): JsonObjAndTextContent<T>? {
       Log.e("AGUtils", "HTTP error: $responseCode")
     }
   } catch (e: Exception) {
-    Log.e("AGUtils", "Error when getting json response: ${e.message}")
-    e.printStackTrace()
+    Log.e("AGUtils", "Error when getting or parsing json response", e)
   }
 
   return null
