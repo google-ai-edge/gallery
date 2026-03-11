@@ -55,6 +55,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ListAlt
 import androidx.compose.material.icons.rounded.Error
+import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -156,8 +157,10 @@ fun HomeScreen(
   var showTosDialog by remember { mutableStateOf(!tosViewModel.getIsTosAccepted()) }
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
+  val isDevBuild = context.packageName.endsWith(".dev")
 
-  val tasks = uiState.tasks
+  var tasks = uiState.tasks
+
   val categoryMap: Map<String, CategoryInfo> =
     remember(tasks) { tasks.associateBy { it.category.id }.mapValues { it.value.category } }
   val sortedCategories =
