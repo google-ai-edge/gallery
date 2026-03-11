@@ -99,6 +99,7 @@ fun ChatView(
   onStopButtonClicked: (Model) -> Unit = {},
   showStopButtonInInputWhenInProgress: Boolean = false,
   composableBelowMessageList: @Composable (Model) -> Unit = {},
+  emptyStateComposable: @Composable () -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -225,6 +226,7 @@ fun ChatView(
                 },
                 modifier = Modifier.weight(1f),
                 showStopButtonInInputWhenInProgress = showStopButtonInInputWhenInProgress,
+                emptyStateComposable = emptyStateComposable,
               )
             // Model download
             false ->
