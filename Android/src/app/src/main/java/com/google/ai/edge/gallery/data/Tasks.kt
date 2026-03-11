@@ -130,8 +130,8 @@ object BuiltInTaskId {
   const val MP_SCRAPBOOK = "mp_scrapbook"
 }
 
-private val allLegacyTaskIds: Set<String> =
-  setOf(
+private val allLegacyTaskIds: MutableSet<String> =
+  mutableSetOf(
     BuiltInTaskId.LLM_CHAT,
     BuiltInTaskId.LLM_PROMPT_LAB,
     BuiltInTaskId.LLM_ASK_IMAGE,

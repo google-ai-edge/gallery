@@ -203,7 +203,13 @@ constructor(
   }
 
   fun getCustomTaskByTaskId(id: String): CustomTask? {
-    return customTasks.find { it.task.id == id }
+    return getActiveCustomTasks().find { it.task.id == id }
+  }
+
+  fun getActiveCustomTasks(): List<CustomTask> {
+    return customTasks.filter {
+      true
+    }
   }
 
   fun getModelByName(name: String): Model? {
@@ -235,7 +241,7 @@ constructor(
   }
 
   fun processTasks() {
-    val curTasks = customTasks.map { it.task }
+    val curTasks = getActiveCustomTasks().map { it.task }
     for (task in curTasks) {
       for (model in task.models) {
         model.preProcess()
@@ -515,18 +521,16 @@ constructor(
     // Create model.
     val model = createModelFromImportedModelInfo(info = info)
 
-    for (task in
-      getTasksByIds(
-        ids =
-          setOf(
-            BuiltInTaskId.LLM_CHAT,
-            BuiltInTaskId.LLM_ASK_IMAGE,
-            BuiltInTaskId.LLM_ASK_AUDIO,
-            BuiltInTaskId.LLM_PROMPT_LAB,
-            BuiltInTaskId.LLM_TINY_GARDEN,
-            BuiltInTaskId.LLM_MOBILE_ACTIONS,
-          )
-      )) {
+    val setOfTasks =
+      mutableSetOf(
+        BuiltInTaskId.LLM_CHAT,
+        BuiltInTaskId.LLM_ASK_IMAGE,
+        BuiltInTaskId.LLM_ASK_AUDIO,
+        BuiltInTaskId.LLM_PROMPT_LAB,
+        BuiltInTaskId.LLM_TINY_GARDEN,
+        BuiltInTaskId.LLM_MOBILE_ACTIONS,
+      )
+    for (task in getTasksByIds(ids = setOfTasks)) {
       // Remove duplicated imported model if existed.
       val modelIndex = task.models.indexOfFirst { info.fileName == it.name && it.imported }
       if (modelIndex >= 0) {
@@ -802,7 +806,7 @@ constructor(
         Log.d(TAG, "Allowlist: $modelAllowlist")
 
         // Convert models in the allowlist.
-        val curTasks = customTasks.map { it.task }
+        val curTasks = getActiveCustomTasks().map { it.task }
         val nameToModel = mutableMapOf<String, Model>()
         for (allowedModel in modelAllowlist.models) {
           if (allowedModel.disabled == true) {
@@ -874,7 +878,7 @@ constructor(
   }
 
   fun clearLoadModelAllowlistError() {
-    val curTasks = customTasks.map { it.task }
+    val curTasks = getActiveCustomTasks().map { it.task }
     processTasks()
     _uiState.update {
       createUiState()
@@ -950,7 +954,7 @@ constructor(
     val modelInstances: MutableMap<String, ModelInitializationStatus> = mutableMapOf()
     val tasks: MutableMap<String, Task> = mutableMapOf()
     val checkedModelNames = mutableSetOf<String>()
-    for (customTask in customTasks) {
+    for (customTask in getActiveCustomTasks()) {
       val task = customTask.task
       tasks.put(key = task.id, value = task)
       for (model in task.models) {
@@ -1005,7 +1009,7 @@ constructor(
 
     Log.d(TAG, "model download status: $modelDownloadStatus")
     return ModelManagerUiState(
-      tasks = customTasks.map { it.task }.toList(),
+      tasks = getActiveCustomTasks().map { it.task }.toList(),
       tasksByCategory = mapOf(),
       modelDownloadStatus = modelDownloadStatus,
       modelInitializationStatus = modelInstances,
@@ -1064,7 +1068,7 @@ constructor(
   }
 
   private fun groupTasksByCategory(): Map<String, List<Task>> {
-    val tasks = customTasks.map { it.task }
+    val tasks = getActiveCustomTasks().map { it.task }
 
     val categoryMap: Map<String, CategoryInfo> =
       tasks.associateBy { it.category.id }.mapValues { it.value.category }

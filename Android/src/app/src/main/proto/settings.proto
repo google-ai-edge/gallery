@@ -71,6 +71,10 @@ message Settings {
   bool has_seen_benchmark_comparison_help = 7;
   // Has the Gemma terms of use been accepted.
   bool is_gemma_terms_accepted = 8;
+  // copybara:strip_begin(google-internal)
+  // Feature flags
+  map<string, bool> feature_flags = 9;
+  // copybara:strip_end
 }
 
 message UserData {
