@@ -18,6 +18,8 @@
   <!-- TODO(jingjin): Add translation support when i18n is ready. -->
   <string name="all" translatable="false">All</string>
   <string name="add" translatable="false">Add</string>
+  <string name="add_audio" translatable="false">Add audio</string>
+  <string name="add_image" translatable="false">Add image</string>
   <string name="app_intro" translatable="false">Explore a world of amazing on-device models from</string>
   <string name="app_name" translatable="false">Google AI Edge Gallery</string>
   <string name="app_name_first_part" translatable="false">Google AI</string>

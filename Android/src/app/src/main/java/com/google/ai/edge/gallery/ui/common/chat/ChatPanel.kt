@@ -88,9 +88,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -124,6 +122,7 @@ fun ChatPanel(
   onStopButtonClicked: () -> Unit = {},
   onImageSelected: (bitmaps: List<Bitmap>, selectedBitmapIndex: Int) -> Unit = { _, _ -> },
   showStopButtonInInputWhenInProgress: Boolean = false,
+  emptyStateComposable: @Composable () -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -475,47 +474,9 @@ fun ChatPanel(
 
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier.padding(vertical = 4.dp))
 
-        // Show an info message for ask image task to get users started.
-        if (task.id == BuiltInTaskId.LLM_ASK_IMAGE && messages.isEmpty()) {
-          Column(
-            modifier =
-              Modifier.padding(horizontal = 16.dp).fillMaxSize().semantics(
-                mergeDescendants = true
-              ) {
-                liveRegion = LiveRegionMode.Polite
-              },
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-          ) {
-            MessageBodyInfo(
-              ChatMessageInfo(
-                content =
-                  "To get started, click + below to add images (up to 10 in a single session) and type a prompt to ask a question about it."
-              ),
-              smallFontSize = false,
-            )
-          }
-        }
-        // Show an info message for ask audio task to get users started.
-        else if (task.id == BuiltInTaskId.LLM_ASK_AUDIO && messages.isEmpty()) {
-          Column(
-            modifier =
-              Modifier.padding(horizontal = 16.dp).fillMaxSize().semantics(
-                mergeDescendants = true
-              ) {
-                liveRegion = LiveRegionMode.Polite
-              },
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-          ) {
-            MessageBodyInfo(
-              ChatMessageInfo(
-                content =
-                  "To get started, tap the + icon to add your audio clip. Limited to 1 clip up to 30 seconds long."
-              ),
-              smallFontSize = false,
-            )
-          }
+        // Show empty state.
+        if (messages.isEmpty()) {
+          emptyStateComposable()
         }
       }
 
@@ -558,10 +519,8 @@ fun ChatPanel(
         },
         onAmplitudeChanged = { curAmplitude = it },
         showPromptTemplatesInMenu = false,
-        showImagePickerInMenu =
-          selectedModel.llmSupportImage && task.id === BuiltInTaskId.LLM_ASK_IMAGE,
-        showAudioItemsInMenu =
-          selectedModel.llmSupportAudio && task.id === BuiltInTaskId.LLM_ASK_AUDIO,
+        showImagePicker = selectedModel.llmSupportImage && task.id === BuiltInTaskId.LLM_ASK_IMAGE,
+        showAudioPicker = selectedModel.llmSupportAudio && task.id === BuiltInTaskId.LLM_ASK_AUDIO,
         showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
       )
     }

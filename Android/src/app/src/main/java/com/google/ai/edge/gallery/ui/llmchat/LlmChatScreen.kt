@@ -19,9 +19,18 @@ package com.google.ai.edge.gallery.ui.llmchat
 import androidx.hilt.navigation.compose.hiltViewModel
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.core.os.bundleOf
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.data.BuiltInTaskId
@@ -30,8 +39,10 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessageInfo
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
 import com.google.ai.edge.gallery.ui.common.chat.ChatView
+import com.google.ai.edge.gallery.ui.common.chat.MessageBodyInfo
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 
 private const val TAG = "AGLlmChatScreen"
@@ -39,6 +50,7 @@ private const val TAG = "AGLlmChatScreen"
 @Composable
 fun LlmChatScreen(
   modelManagerViewModel: ModelManagerViewModel,
+  taskId: String = BuiltInTaskId.LLM_CHAT,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
   onGenerateResponseDone: (Model) -> Unit = {},
@@ -46,11 +58,10 @@ fun LlmChatScreen(
   composableBelowMessageList: @Composable (Model) -> Unit = {},
   viewModel: LlmChatViewModel = hiltViewModel(),
 ) {
-
   ChatViewWrapper(
     viewModel = viewModel,
     modelManagerViewModel = modelManagerViewModel,
-    taskId = BuiltInTaskId.LLM_CHAT,
+    taskId = taskId,
     navigateUp = navigateUp,
     modifier = modifier,
     onGenerateResponseDone = onGenerateResponseDone,
@@ -72,6 +83,24 @@ fun LlmAskImageScreen(
     taskId = BuiltInTaskId.LLM_ASK_IMAGE,
     navigateUp = navigateUp,
     modifier = modifier,
+    emptyStateComposable = {
+      Column(
+        modifier =
+          Modifier.padding(horizontal = 16.dp).fillMaxSize().semantics(mergeDescendants = true) {
+            liveRegion = LiveRegionMode.Polite
+          },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+      ) {
+        MessageBodyInfo(
+          ChatMessageInfo(
+            content =
+              "To get started, tap the Add image button below to add images (up to 10 in a single session) and type a prompt to ask a question about it."
+          ),
+          smallFontSize = false,
+        )
+      }
+    },
   )
 }
 
@@ -88,6 +117,24 @@ fun LlmAskAudioScreen(
     taskId = BuiltInTaskId.LLM_ASK_AUDIO,
     navigateUp = navigateUp,
     modifier = modifier,
+    emptyStateComposable = {
+      Column(
+        modifier =
+          Modifier.padding(horizontal = 16.dp).fillMaxSize().semantics(mergeDescendants = true) {
+            liveRegion = LiveRegionMode.Polite
+          },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+      ) {
+        MessageBodyInfo(
+          ChatMessageInfo(
+            content =
+              "To get started, tap the Add audio button below to add your audio clip. Limited to 1 clip up to 30 seconds long."
+          ),
+          smallFontSize = false,
+        )
+      }
+    },
   )
 }
 
@@ -101,6 +148,7 @@ fun ChatViewWrapper(
   onGenerateResponseDone: (Model) -> Unit = {},
   onResetSessionClickedOverride: ((Task, Model) -> Unit)? = null,
   composableBelowMessageList: @Composable (Model) -> Unit = {},
+  emptyStateComposable: @Composable () -> Unit = {},
 ) {
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
@@ -183,5 +231,6 @@ fun ChatViewWrapper(
     navigateUp = navigateUp,
     modifier = modifier,
     composableBelowMessageList = composableBelowMessageList,
+    emptyStateComposable = emptyStateComposable,
   )
 }
