@@ -794,7 +794,8 @@ constructor(
 
         if (modelAllowlist == null) {
           // Load from github.
-          val url = getAllowlistUrl()
+          var version = BuildConfig.VERSION_NAME.replace(".", "_")
+          val url = getAllowlistUrl(version)
           Log.d(TAG, "Loading model allowlist from internet. Url: $url")
           val data = getJsonResponse<ModelAllowlist>(url = url)
           modelAllowlist = data?.jsonObj
@@ -1265,8 +1266,6 @@ constructor(
   }
 }
 
-private fun getAllowlistUrl(): String {
-  val version = BuildConfig.VERSION_NAME.replace(".", "_")
-
+private fun getAllowlistUrl(version: String): String {
   return "$ALLOWLIST_BASE_URL/${version}.json"
 }
