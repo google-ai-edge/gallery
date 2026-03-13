@@ -78,8 +78,6 @@ private const val MODEL_ALLOWLIST_TEST_FILENAME = "model_allowlist_test.json"
 private const val ALLOWLIST_BASE_URL =
   "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlists"
 
-private const val TEST_MODEL_ALLOW_LIST = ""
-
 data class ModelInitializationStatus(
   val status: ModelInitializationStatusType,
   var error: String = "",
