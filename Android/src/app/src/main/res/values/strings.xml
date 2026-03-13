@@ -61,6 +61,8 @@
   <string name="clear" translatable="false">Clear</string>
   <string name="collect" translatable="false">Collect</string>
   <string name="color" translatable="false">Color</string>
+  <string name="config_dialog_tab_model_configs" translatable="false">Model configs</string>
+  <string name="config_dialog_tab_system_prompt" translatable="false">System prompt</string>
   <string name="continue_button_label" translatable="false">Continue</string>
   <string name="conversation_history" translatable="false">Conversation History</string>
   <string name="copy" translatable="false">Copy</string>
@@ -116,7 +118,10 @@
   <string name="reset" translatable="false">Reset</string>
   <string name="reset_note" translatable="false">Tapping \"Reset\" will reset LiteRT-LM engine only. The game progress won\'t be affected.</string>
   <string name="resetting_engine" translatable="false">Resetting engine...</string>
+  <string name="restore_default" translatable="false">Restore default</string>
   <string name="reinitializing_description" translatable="false">The game progress won\'t be affected</string>
+  <string name="run" translatable="false">Run</string>
+  <string name="running" translatable="false">Running...</string>
   <plurals name="runs" translatable="false">
     <item quantity="one">%d run</item>
     <item quantity="other">%d runs</item>
@@ -124,7 +129,6 @@
   <string name="run_again" translatable="false">Run again</string>
   <string name="run_benchmark" translatable="false">Run benchmark</string>
   <string name="run_benchmark_confirmation_msg" translatable="false">This process typically takes several minutes and cannot be interrupted once started. Would you like to proceed?</string>
-  <string name="running" translatable="false">running</string>
   <string name="running_benchmark_msg" translatable="false">Running model benchmark...</string>
   <string name="select_downloaded_model" translatable="false">Select a downloaded model</string>
   <string name="select_model" translatable="false">Select a model</string>
@@ -134,9 +138,11 @@
   <string name="settings_dialog_gemma_prohibited_use_policy" translatable="false">Gemma Prohibited Use Policy</string>
   <string name="share" translatable="false">Share</string>
   <string name="slide_up_to_cancel" translatable="false">Slide up to cancel</string>
+  <string name="system_prompt_updated" translatable="false">System prompt updated</string>
   <string name="take_a_picture" translatable="false">Take a picture</string>
   <string name="tap_to_change_color" translatable="false">Tap to change color</string>
   <string name="tap_to_see_value" translatable="false">Tap on graph to see value</string>
+  <string name="test" translatable="false">Test</string>
   <string name="text_image_generation_text_field_placeholder" translatable="false">Type prompt…</string>
   <string name="text_input_placeholder_llm_chat" translatable="false">Type prompt…</string>
   <string name="tos_dialog_title_app" translatable="false">Welcome to Google AI Edge Gallery</string>
@@ -250,6 +256,8 @@
   <string name="cd_camera_shutter_icon">Camera shutter</string>
   <!-- Content description spoken when the "toggle front or back camera" icon is focused. [CHAR_LIMIT=NONE] -->
   <string name="cd_toggle_front_back_camera_icon">Toggle front or back camera</string>
+  <!-- Content description spoken when the "pick file" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_pick_file">Pick file</string>
   <!-- Content description spoken when the "play audio" icon is focused. [CHAR_LIMIT=NONE] -->
   <string name="cd_play_audio_icon">Play audio</string>
   <!-- Content description spoken when the "stop playback" icon is focused. [CHAR_LIMIT=NONE] -->

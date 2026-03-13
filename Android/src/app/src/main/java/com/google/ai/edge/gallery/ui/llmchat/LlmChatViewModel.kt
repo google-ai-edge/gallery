@@ -153,6 +153,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
     model: Model,
     systemInstruction: Contents? = null,
     tools: List<Any> = listOf(),
+    onDone: () -> Unit = {},
   ) {
     viewModelScope.launch(Dispatchers.Default) {
       setIsResettingSession(true)
@@ -181,6 +182,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
         delay(200)
       }
       setIsResettingSession(false)
+      onDone()
     }
   }
 

@@ -100,6 +100,9 @@ fun ChatView(
   showStopButtonInInputWhenInProgress: Boolean = false,
   composableBelowMessageList: @Composable (Model) -> Unit = {},
   emptyStateComposable: @Composable () -> Unit = {},
+  allowEditingSystemPrompt: Boolean = false,
+  curSystemPrompt: String = "",
+  onSystemPromptChanged: (String) -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -183,6 +186,9 @@ fun ChatView(
           }
           modelManagerViewModel.selectModel(model = curModel)
         },
+        allowEditingSystemPrompt = allowEditingSystemPrompt,
+        curSystemPrompt = curSystemPrompt,
+        onSystemPromptChanged = onSystemPromptChanged,
       )
     },
   ) { innerPadding ->
