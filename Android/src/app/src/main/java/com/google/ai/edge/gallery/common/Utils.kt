@@ -63,9 +63,12 @@ inline fun <reified T> getJsonResponse(url: String): JsonObjAndTextContent<T>? {
       val inputStream = connection.inputStream
       val response = inputStream.bufferedReader().use { it.readText() }
 
-      val gson = Gson()
-      val jsonObj = gson.fromJson(response, T::class.java)
-      return JsonObjAndTextContent(jsonObj = jsonObj, textContent = response)
+      val jsonObj = parseJson<T>(response)
+      return if (jsonObj != null) {
+        JsonObjAndTextContent(jsonObj = jsonObj, textContent = response)
+      } else {
+        null
+      }
     } else {
       Log.e("AGUtils", "HTTP error: $responseCode")
     }
@@ -74,6 +77,17 @@ inline fun <reified T> getJsonResponse(url: String): JsonObjAndTextContent<T>? {
   }
 
   return null
+}
+
+/** Parses a JSON string into an object of type [T] using Gson. */
+inline fun <reified T> parseJson(response: String): T? {
+  return try {
+    val gson = Gson()
+    gson.fromJson(response, T::class.java)
+  } catch (e: Exception) {
+    Log.e("AGUtils", "Error parsing JSON string", e)
+    null
+  }
 }
 
 fun convertWavToMonoWithMaxSeconds(

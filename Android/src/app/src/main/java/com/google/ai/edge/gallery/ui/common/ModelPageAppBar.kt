@@ -79,6 +79,9 @@ fun ModelPageAppBar(
   onConfigChanged: (oldConfigValues: Map<String, Any>, newConfigValues: Map<String, Any>) -> Unit =
     { _, _ ->
     },
+  allowEditingSystemPrompt: Boolean = false,
+  curSystemPrompt: String = "",
+  onSystemPromptChanged: (String) -> Unit = {},
 ) {
   var showConfigDialog by remember { mutableStateOf(false) }
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -210,11 +213,11 @@ fun ModelPageAppBar(
       modelConfigs.removeIf { it.key == ConfigKeys.RESET_CONVERSATION_TURN_COUNT }
     }
     ConfigDialog(
-      title = "Model configs",
+      title = "Configurations",
       configs = modelConfigs,
       initialValues = model.configValues,
       onDismissed = { showConfigDialog = false },
-      onOk = { curConfigValues ->
+      onOk = { curConfigValues, oldSystemPrompt, newSystemPrompt ->
         // Hide config dialog.
         showConfigDialog = false
 
@@ -243,6 +246,9 @@ fun ModelPageAppBar(
           }
         }
         if (same) {
+          if (newSystemPrompt != oldSystemPrompt) {
+            onSystemPromptChanged(newSystemPrompt)
+          }
           return@ConfigDialog
         }
 
@@ -260,6 +266,11 @@ fun ModelPageAppBar(
               task = task,
               model = model,
               force = true,
+              onDone = {
+                if (oldSystemPrompt != newSystemPrompt) {
+                  onSystemPromptChanged(newSystemPrompt)
+                }
+              },
             )
           }
 
@@ -267,6 +278,9 @@ fun ModelPageAppBar(
           onConfigChanged(oldConfigValues, model.configValues)
         }
       },
+      showSystemPromptEditorTab = allowEditingSystemPrompt,
+      defaultSystemPrompt = task.defaultSystemPrompt,
+      curSystemPrompt = curSystemPrompt,
     )
   }
 }

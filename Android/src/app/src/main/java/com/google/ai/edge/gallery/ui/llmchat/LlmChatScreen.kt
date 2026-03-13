@@ -50,13 +50,16 @@ private const val TAG = "AGLlmChatScreen"
 @Composable
 fun LlmChatScreen(
   modelManagerViewModel: ModelManagerViewModel,
-  taskId: String = BuiltInTaskId.LLM_CHAT,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
+  taskId: String = BuiltInTaskId.LLM_CHAT,
   onGenerateResponseDone: (Model) -> Unit = {},
   onResetSessionClickedOverride: ((Task, Model) -> Unit)? = null,
   composableBelowMessageList: @Composable (Model) -> Unit = {},
   viewModel: LlmChatViewModel = hiltViewModel(),
+  allowEditingSystemPrompt: Boolean = false,
+  curSystemPrompt: String = "",
+  onSystemPromptChanged: (String) -> Unit = {},
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -67,6 +70,9 @@ fun LlmChatScreen(
     onGenerateResponseDone = onGenerateResponseDone,
     onResetSessionClickedOverride = onResetSessionClickedOverride,
     composableBelowMessageList = composableBelowMessageList,
+    allowEditingSystemPrompt = allowEditingSystemPrompt,
+    curSystemPrompt = curSystemPrompt,
+    onSystemPromptChanged = onSystemPromptChanged,
   )
 }
 
@@ -149,6 +155,9 @@ fun ChatViewWrapper(
   onResetSessionClickedOverride: ((Task, Model) -> Unit)? = null,
   composableBelowMessageList: @Composable (Model) -> Unit = {},
   emptyStateComposable: @Composable () -> Unit = {},
+  allowEditingSystemPrompt: Boolean = false,
+  curSystemPrompt: String = "",
+  onSystemPromptChanged: (String) -> Unit = {},
 ) {
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
@@ -232,5 +241,8 @@ fun ChatViewWrapper(
     modifier = modifier,
     composableBelowMessageList = composableBelowMessageList,
     emptyStateComposable = emptyStateComposable,
+    allowEditingSystemPrompt = allowEditingSystemPrompt,
+    curSystemPrompt = curSystemPrompt,
+    onSystemPromptChanged = onSystemPromptChanged,
   )
 }

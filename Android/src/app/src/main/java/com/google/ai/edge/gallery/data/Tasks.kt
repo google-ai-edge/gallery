@@ -103,6 +103,9 @@ data class Task(
   /** Whether to use theme color instead of the task tint color. */
   val useThemeColor: Boolean = false,
 
+  /** The default system prompt for this task. */
+  val defaultSystemPrompt: String = "",
+
   // The following fields are only used for built-in tasks. Can ignore if you are creating your own
   // custom tasks.
   //

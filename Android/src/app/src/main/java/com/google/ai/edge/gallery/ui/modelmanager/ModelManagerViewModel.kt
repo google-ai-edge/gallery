@@ -329,7 +329,13 @@ constructor(
     _uiState.update { newUiState }
   }
 
-  fun initializeModel(context: Context, task: Task, model: Model, force: Boolean = false) {
+  fun initializeModel(
+    context: Context,
+    task: Task,
+    model: Model,
+    force: Boolean = false,
+    onDone: () -> Unit = {},
+  ) {
     viewModelScope.launch(Dispatchers.Default) {
       // Skip if initialized already.
       if (
@@ -359,7 +365,7 @@ constructor(
         status = ModelInitializationStatusType.INITIALIZING,
       )
 
-      val onDone: (error: String) -> Unit = { error ->
+      val onDoneFn: (error: String) -> Unit = { error ->
         model.initializing = false
         if (model.instance != null) {
           Log.d(TAG, "Model '${model.name}' initialized successfully")
@@ -371,6 +377,7 @@ constructor(
             Log.d(TAG, "Model '${model.name}' needs cleaning up after init.")
             cleanupModel(context = context, task = task, model = model)
           }
+          onDone()
         } else if (error.isNotEmpty()) {
           Log.d(TAG, "Model '${model.name}' failed to initialize")
           updateModelInitializationStatus(
@@ -387,7 +394,7 @@ constructor(
           context = context,
           coroutineScope = viewModelScope,
           model = model,
-          onDone = onDone,
+          onDone = onDoneFn,
         )
     }
   }
