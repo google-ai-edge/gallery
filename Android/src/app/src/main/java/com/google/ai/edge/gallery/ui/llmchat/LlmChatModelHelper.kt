@@ -74,10 +74,8 @@ object LlmChatModelHelper {
       model.getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
     val accelerator =
       model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
-    Log.d(TAG, "Initializing...")
     val shouldEnableImage = supportImage
     val shouldEnableAudio = supportAudio
-    Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
     val preferredBackend =
       when (accelerator) {
         Accelerator.CPU.label -> Backend.CPU()
