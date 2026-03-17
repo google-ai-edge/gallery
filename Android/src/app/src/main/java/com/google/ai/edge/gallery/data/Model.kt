@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.data
 
 import android.content.Context
+import com.google.gson.annotations.SerializedName
 import java.io.File
 
 data class ModelDataFile(
@@ -30,6 +31,11 @@ const val IMPORTS_DIR = "__imports"
 private val NORMALIZE_NAME_REGEX = Regex("[^a-zA-Z0-9]")
 
 data class PromptTemplate(val title: String, val description: String, val prompt: String)
+
+enum class RuntimeType {
+  @SerializedName("unknown") UNKNOWN,
+  @SerializedName("litert_lm") LITERT_LM,
+}
 
 /**
  * A model for a task (see [Task]).
@@ -155,6 +161,9 @@ data class Model(
 
   // End of model download related fields.
   //////////////////////////////////////////////////////////////////////////////////////////////////
+
+  /** The type of local runtime environment to use for running the model. */
+  val runtimeType: RuntimeType = RuntimeType.UNKNOWN,
 
   /**
    * Set this to a relative path pointing to a dir (e.g., my_model/local_dir/) if you want to

@@ -59,6 +59,7 @@ data class AllowedModel(
   val localModelFilePathOverride: String? = null,
   val url: String? = null,
   val socToModelFiles: Map<String, SocModelFile>? = null,
+  val runtimeType: RuntimeType? = null,
 ) {
   fun toModel(): Model {
     // Construct HF download url.
@@ -142,7 +143,6 @@ data class AllowedModel(
       showBenchmarkButton = false
       showRunAgainButton = false
     }
-
     return Model(
       name = name,
       version = version,
@@ -164,6 +164,7 @@ data class AllowedModel(
       bestForTaskIds = bestForTaskTypes ?: listOf(),
       localModelFilePathOverride = localModelFilePathOverride ?: "",
       isLlm = isLlmModel,
+      runtimeType = runtimeType ?: RuntimeType.LITERT_LM,
     )
   }
 
