@@ -37,6 +37,7 @@ import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageInfo
@@ -53,6 +54,7 @@ fun LlmChatScreen(
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
   taskId: String = BuiltInTaskId.LLM_CHAT,
+  onFirstToken: (Model) -> Unit = {},
   onGenerateResponseDone: (Model) -> Unit = {},
   onResetSessionClickedOverride: ((Task, Model) -> Unit)? = null,
   composableBelowMessageList: @Composable (Model) -> Unit = {},
@@ -60,6 +62,8 @@ fun LlmChatScreen(
   allowEditingSystemPrompt: Boolean = false,
   curSystemPrompt: String = "",
   onSystemPromptChanged: (String) -> Unit = {},
+  emptyStateComposable: @Composable () -> Unit = {},
+  sendMessageTrigger: Pair<Model, List<ChatMessage>>? = null,
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -67,12 +71,15 @@ fun LlmChatScreen(
     taskId = taskId,
     navigateUp = navigateUp,
     modifier = modifier,
+    onFirstToken = onFirstToken,
     onGenerateResponseDone = onGenerateResponseDone,
     onResetSessionClickedOverride = onResetSessionClickedOverride,
     composableBelowMessageList = composableBelowMessageList,
     allowEditingSystemPrompt = allowEditingSystemPrompt,
     curSystemPrompt = curSystemPrompt,
     onSystemPromptChanged = onSystemPromptChanged,
+    emptyStateComposable = emptyStateComposable,
+    sendMessageTrigger = sendMessageTrigger,
   )
 }
 
@@ -151,6 +158,7 @@ fun ChatViewWrapper(
   taskId: String,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
+  onFirstToken: (Model) -> Unit = {},
   onGenerateResponseDone: (Model) -> Unit = {},
   onResetSessionClickedOverride: ((Task, Model) -> Unit)? = null,
   composableBelowMessageList: @Composable (Model) -> Unit = {},
@@ -158,6 +166,7 @@ fun ChatViewWrapper(
   allowEditingSystemPrompt: Boolean = false,
   curSystemPrompt: String = "",
   onSystemPromptChanged: (String) -> Unit = {},
+  sendMessageTrigger: Pair<Model, List<ChatMessage>>? = null,
 ) {
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
@@ -192,6 +201,7 @@ fun ChatViewWrapper(
           input = text,
           images = images,
           audioMessages = audioMessages,
+          onFirstToken = onFirstToken,
           onDone = { onGenerateResponseDone(model) },
           onError = { errorMessage ->
             viewModel.handleError(
@@ -244,5 +254,6 @@ fun ChatViewWrapper(
     allowEditingSystemPrompt = allowEditingSystemPrompt,
     curSystemPrompt = curSystemPrompt,
     onSystemPromptChanged = onSystemPromptChanged,
+    sendMessageTrigger = sendMessageTrigger,
   )
 }

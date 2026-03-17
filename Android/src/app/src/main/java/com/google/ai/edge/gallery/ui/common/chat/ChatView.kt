@@ -103,6 +103,7 @@ fun ChatView(
   allowEditingSystemPrompt: Boolean = false,
   curSystemPrompt: String = "",
   onSystemPromptChanged: (String) -> Unit = {},
+  sendMessageTrigger: Pair<Model, List<ChatMessage>>? = null,
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -138,6 +139,10 @@ fun ChatView(
         modelManagerViewModel.initializeModel(context, task = task, model = selectedModel)
       }
     }
+  }
+
+  LaunchedEffect(sendMessageTrigger) {
+    sendMessageTrigger?.let { trigger -> onSendMessage(trigger.first, trigger.second) }
   }
 
   // Handle system's edge swipe.

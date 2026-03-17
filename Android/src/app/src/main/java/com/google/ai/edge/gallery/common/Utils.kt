@@ -40,6 +40,8 @@ import kotlin.math.roundToInt
 
 private const val TAG = "AGUtils"
 
+const val LOCAL_URL_BASE = "https://appassets.androidplatform.net"
+
 fun cleanUpMediapipeTaskErrorMessage(message: String): String {
   val index = message.indexOf("=== Source Location Trace")
   if (index >= 0) {

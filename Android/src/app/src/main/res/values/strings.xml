@@ -48,6 +48,9 @@
   <string name="checking_access" translatable="false">Checking access...</string>
   <string name="close" translatable="false">Close</string>
   <string name="collapse_all" translatable="false">Collapse all</string>
+  <string name="discard" translatable="false">Discard</string>
+  <string name="discard_changes_dialog_title" translatable="false">Discard changes?</string>
+  <string name="discard_changes_dialog_content" translatable="false">You have unsaved changes. Are you sure you want to discard them?</string>
   <string name="delete_benchmark_result_dialog_title" translatable="false">Delete benchmark result</string>
   <string name="delete_benchmark_result_dialog_content" translatable="false">Are you sure you want to delete the benchmark result?</string>
   <string name="error" translatable="false">Error</string>
@@ -68,6 +71,8 @@
   <string name="copy" translatable="false">Copy</string>
   <string name="create" translatable="false">Create</string>
   <string name="delete" translatable="false">Delete</string>
+  <string name="description_required" translatable="false">Description*</string>
+  <string name="deselect_all" translatable="false">Deselect all</string>
   <string name="disabled" translatable="false">Disabled</string>
   <string name="dismiss" translatable="false">Dismiss</string>
   <string name="done" translatable="false">Done</string>
@@ -78,15 +83,20 @@
   <string name="drawer_models_label" translatable="false">Models</string>
   <string name="drawer_models_description" translatable="false">Browse, try, and benchmark models</string>
   <string name="edit" translatable="false">Edit</string>
+  <string name="edit_secret" translatable="false">Edit secret</string>
   <string name="enter_instruction" translatable="false">Enter instruction</string>
   <string name="expand_all" translatable="false">Expand all</string>
+  <string name="failed_to_save" translatable="false">Failed to save</string>
   <string name="flashlight_off_message" translatable="false">I\'ve turned off the flashlight.</string>
   <string name="flashlight_on_message" translatable="false">I\'ve turned on the flashlight.</string>
   <string name="function_name" translatable="false">Function name</string>
+  <string name="generate_and_copy" translatable="false">Generate and copy</string>
   <string name="grant_permissions" translatable="false">Grant permissions</string>
   <string name="grant_record_audio_permission" translatable="false">Grant record audio permission</string>
   <string name="hold_down_to_talk" translatable="false">Hold to talk</string>
   <string name="input_history" translatable="false">Input history</string>
+  <string name="instructions" translatable="false">Instructions</string>
+  <string name="introducing" translatable="false">Introducing</string>
   <string name="invalid_response" translatable="false">Invalid response</string>
   <string name="learn_more" translatable="false">Learn more</string>
   <string name="listening" translatable="false">Listening...</string>
@@ -105,15 +115,18 @@
   <string name="model_manager" translatable="false">Model Manager</string>
   <string name="model_manager_select_task_title" translatable="false">Select a use case to try</string>
   <string name="model_not_downloaded_msg" translatable="false">Model not downloaded yet</string>
+  <string name="name" translatable="false">Name</string>
   <string name="no_cutouts_collected" translatable="false">No cutouts collected</string>
   <string name="notification_content_fail" translatable="false">Failed to download model "%s"</string>
   <string name="notification_content_success" translatable="false">Model "%s" has been downloaded</string>
   <string name="notification_title_fail" translatable="false">Model download failed</string>
   <string name="notification_title_success" translatable="false">Model download succeeded</string>
   <string name="ok" translatable="false">OK</string>
+  <string name="paste_from_clipboard" translatable="false">Paste from clipboard</string>
   <string name="pick_from_album" translatable="false">Pick from album</string>
   <string name="preview" translatable="false">Preview</string>
   <string name="release_to_send" translatable="false">Release to send</string>
+  <string name="replace" translatable="false">Replace</string>
   <string name="results" translatable="false">Results</string>
   <string name="reset" translatable="false">Reset</string>
   <string name="reset_note" translatable="false">Tapping \"Reset\" will reset LiteRT-LM engine only. The game progress won\'t be affected.</string>
@@ -130,6 +143,8 @@
   <string name="run_benchmark" translatable="false">Run benchmark</string>
   <string name="run_benchmark_confirmation_msg" translatable="false">This process typically takes several minutes and cannot be interrupted once started. Would you like to proceed?</string>
   <string name="running_benchmark_msg" translatable="false">Running model benchmark...</string>
+  <string name="secret" translatable="false">Secret</string>
+  <string name="select_all" translatable="false">Select all</string>
   <string name="select_downloaded_model" translatable="false">Select a downloaded model</string>
   <string name="select_model" translatable="false">Select a model</string>
   <string name="selected_count" translatable="false">%d selected</string>
@@ -166,6 +181,7 @@
   <string name="warning_no_function_call" translatable="false">No function recognized</string>
   <string name="snackbar_no_function_call" translatable="false">No function recognized</string>
   <string name="unknown_error" translatable="false">Unknown error</string>
+  <string name="view" translatable="false">View</string>
 
   <plurals name="parameter" translatable="false">
     <item quantity="one">Parameter</item>

@@ -282,7 +282,9 @@ fun ChatPanel(
               hardCornerAtLeftOrRight = true
               extraPaddingStart = 0.dp
               if (
-                message.type !== ChatMessageType.LOADING && message.type !== ChatMessageType.WEBVIEW
+                message.type !== ChatMessageType.LOADING &&
+                  message.type !== ChatMessageType.WEBVIEW &&
+                  message.type !== ChatMessageType.COLLAPSABLE_PROGRESS_PANEL
               ) {
                 extraPaddingEnd = 48.dp
               }
@@ -357,21 +359,23 @@ fun ChatPanel(
                 else -> {
                   // The bubble shape around the message body.
                   var messageBubbleModifier: Modifier = Modifier
-                  // Use a rounded rectangle clip for multi-image image message.
-                  if (message is ChatMessageImage && message.bitmaps.size > 1) {
-                    messageBubbleModifier = messageBubbleModifier.clip(RoundedCornerShape(6.dp))
-                  }
-                  // For other messages, use a bubble shape to clip.
-                  else {
-                    messageBubbleModifier =
-                      messageBubbleModifier.clip(
-                        MessageBubbleShape(
-                          radius = bubbleBorderRadius,
-                          hardCornerAtLeftOrRight = hardCornerAtLeftOrRight,
+                  if (!message.disableBubbleShape) {
+                    // Use a rounded rectangle clip for multi-image image message.
+                    if (message is ChatMessageImage && message.bitmaps.size > 1) {
+                      messageBubbleModifier = messageBubbleModifier.clip(RoundedCornerShape(6.dp))
+                    }
+                    // For other messages, use a bubble shape to clip.
+                    else {
+                      messageBubbleModifier =
+                        messageBubbleModifier.clip(
+                          MessageBubbleShape(
+                            radius = bubbleBorderRadius,
+                            hardCornerAtLeftOrRight = hardCornerAtLeftOrRight,
+                          )
                         )
-                      )
+                    }
+                    messageBubbleModifier = messageBubbleModifier.background(backgroundColor)
                   }
-                  messageBubbleModifier = messageBubbleModifier.background(backgroundColor)
                   if (message is ChatMessageText) {
                     messageBubbleModifier =
                       messageBubbleModifier.pointerInput(Unit) {
@@ -425,6 +429,10 @@ fun ChatPanel(
 
                       // Webview.
                       is ChatMessageWebView -> MessageBodyWebview(message = message)
+
+                      // Collapsable progress panel.
+                      is ChatMessageCollapsableProgressPanel ->
+                        MessageBodyCollapsableProgressPanel(message = message)
 
                       else -> {}
                     }

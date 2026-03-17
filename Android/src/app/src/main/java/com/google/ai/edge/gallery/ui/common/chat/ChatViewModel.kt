@@ -17,8 +17,10 @@
 package com.google.ai.edge.gallery.ui.common.chat
 
 import android.util.Log
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
 import com.google.ai.edge.gallery.common.processLlmResponse
+import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -107,6 +109,20 @@ abstract class ChatViewModel() : ViewModel() {
     return (_uiState.value.messagesByModel[model.name] ?: listOf()).lastOrNull()
   }
 
+  fun getLastMessageWithType(model: Model, type: ChatMessageType): ChatMessage? {
+    return (_uiState.value.messagesByModel[model.name] ?: listOf()).lastOrNull { it.type == type }
+  }
+
+  fun getLastMessageWithTypeAndSide(
+    model: Model,
+    type: ChatMessageType,
+    side: ChatSide,
+  ): ChatMessage? {
+    return (_uiState.value.messagesByModel[model.name] ?: listOf()).lastOrNull {
+      it.type == type && it.side == side
+    }
+  }
+
   fun updateLastTextMessageContentIncrementally(
     model: Model,
     partialContent: String,
@@ -114,7 +130,7 @@ abstract class ChatViewModel() : ViewModel() {
   ) {
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
     val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
-    if (newMessages.size > 0) {
+    if (newMessages.isNotEmpty()) {
       val lastMessage = newMessages.last()
       if (lastMessage is ChatMessageText) {
         val newContent = processLlmResponse(response = "${lastMessage.content}${partialContent}")
@@ -124,6 +140,7 @@ abstract class ChatViewModel() : ViewModel() {
             side = lastMessage.side,
             latencyMs = latencyMs,
             accelerator = lastMessage.accelerator,
+            hideSenderLabel = lastMessage.hideSenderLabel,
           )
         newMessages.removeAt(newMessages.size - 1)
         newMessages.add(newLastMessage)
@@ -184,21 +201,103 @@ abstract class ChatViewModel() : ViewModel() {
     _uiState.update { _uiState.value.copy(streamingMessagesByModel = newStreamingMessagesByModel) }
   }
 
-  fun updateExtraProgressLabelInLastLoadingMessage(model: Model, extraProgressLabel: String) {
+  fun updateCollapsableProgressPanelMessage(
+    model: Model,
+    title: String,
+    inProgress: Boolean,
+    doneIcon: ImageVector,
+    addItemTitle: String,
+    addItemDescription: String,
+    customData: Any? = null,
+  ) {
+    val accelerator = model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = "")
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
     val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
-    if (newMessages.size > 0) {
+    if (newMessages.isNotEmpty()) {
       val lastMessage = newMessages.last()
+      // If the last message is a loading message, replace it with a collapsable progress message.
       if (lastMessage is ChatMessageLoading) {
-        val newLastMessage = lastMessage.clone()
-        newLastMessage.extraProgressLabel = extraProgressLabel
         newMessages.removeAt(newMessages.size - 1)
-        newMessages.add(newLastMessage)
+        val newCollapsableMessage =
+          ChatMessageCollapsableProgressPanel(
+            title = title,
+            inProgress = inProgress,
+            doneIcon = doneIcon,
+            items =
+              if (addItemTitle.isNotEmpty()) {
+                listOf(ProgressPanelItem(title = addItemTitle, description = addItemDescription))
+              } else {
+                listOf()
+              },
+            accelerator = accelerator,
+            customData = customData,
+          )
+        newMessages.add(newCollapsableMessage)
+      }
+      // If the last message is not a loading message...
+      else {
+        val lastProgressPanelMessage =
+          getLastMessageWithType(model = model, type = ChatMessageType.COLLAPSABLE_PROGRESS_PANEL)
+        val lastProgressPanelMessageIndex = newMessages.indexOf(lastProgressPanelMessage)
+        val lastUserTextMessage =
+          getLastMessageWithTypeAndSide(
+            model = model,
+            type = ChatMessageType.TEXT,
+            side = ChatSide.USER,
+          )
+        val lastUserTextMessageIndex = newMessages.indexOf(lastUserTextMessage)
+        // If the last user text message is after the last progress panel message, insert the new
+        // collapsable message after the last user text message.
+        if (
+          lastProgressPanelMessage != null &&
+            lastUserTextMessage != null &&
+            lastUserTextMessageIndex > lastProgressPanelMessageIndex
+        ) {
+          val newCollapsableMessage =
+            ChatMessageCollapsableProgressPanel(
+              title = title,
+              inProgress = inProgress,
+              doneIcon = doneIcon,
+              items =
+                if (addItemTitle.isNotEmpty()) {
+                  listOf(ProgressPanelItem(title = addItemTitle, description = addItemDescription))
+                } else {
+                  listOf()
+                },
+              accelerator = accelerator,
+              customData = customData,
+            )
+          // Insert the new collapsable message after the last user text message.
+          newMessages.add(lastUserTextMessageIndex + 1, newCollapsableMessage)
+        }
+        // If the last progress panel message is a collapsable progress panel, update it.
+        else if (
+          lastProgressPanelMessage != null &&
+            lastProgressPanelMessage is ChatMessageCollapsableProgressPanel
+        ) {
+          val updatedMessage =
+            ChatMessageCollapsableProgressPanel(
+              title = title,
+              accelerator = accelerator,
+              inProgress = inProgress,
+              doneIcon = doneIcon,
+              items =
+                lastProgressPanelMessage.items +
+                  if (addItemTitle.isNotEmpty()) {
+                    listOf(
+                      ProgressPanelItem(title = addItemTitle, description = addItemDescription)
+                    )
+                  } else {
+                    listOf()
+                  },
+              customData = lastProgressPanelMessage.customData,
+            )
+          newMessages[lastProgressPanelMessageIndex] = updatedMessage
+        }
       }
     }
     newMessagesByModel[model.name] = newMessages
-    val newUiState = _uiState.value.copy(messagesByModel = newMessagesByModel)
-    _uiState.update { newUiState }
+    _uiState.update { _uiState.value.copy(messagesByModel = newMessagesByModel) }
   }
 
   fun setInProgress(inProgress: Boolean) {

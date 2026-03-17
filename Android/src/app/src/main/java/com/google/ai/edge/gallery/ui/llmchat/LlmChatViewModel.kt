@@ -49,6 +49,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
     input: String,
     images: List<Bitmap> = listOf(),
     audioMessages: List<ChatMessageAudioClip> = listOf(),
+    onFirstToken: (Model) -> Unit = {},
     onDone: () -> Unit = {},
     onError: (String) -> Unit,
   ) {
@@ -85,22 +86,27 @@ open class LlmChatViewModelBase() : ChatViewModel() {
             if (partialResult.startsWith("<ctrl")) {
               return@runInference
             }
-            if (firstRun) {
-              firstRun = false
-              setPreparing(false)
-            }
 
             // Remove the last message if it is a "loading" message.
             // This will only be done once.
             val lastMessage = getLastMessage(model = model)
             if (lastMessage?.type == ChatMessageType.LOADING) {
               removeLastMessage(model = model)
-
+            }
+            if (
+              lastMessage?.type == ChatMessageType.LOADING ||
+                lastMessage?.type == ChatMessageType.COLLAPSABLE_PROGRESS_PANEL
+            ) {
               // Add an empty message that will receive streaming results.
               addMessage(
                 model = model,
                 message =
-                  ChatMessageText(content = "", side = ChatSide.AGENT, accelerator = accelerator),
+                  ChatMessageText(
+                    content = "",
+                    side = ChatSide.AGENT,
+                    accelerator = accelerator,
+                    hideSenderLabel = lastMessage.type == ChatMessageType.COLLAPSABLE_PROGRESS_PANEL,
+                  ),
               )
             }
 
@@ -111,6 +117,12 @@ open class LlmChatViewModelBase() : ChatViewModel() {
               partialContent = partialResult,
               latencyMs = latencyMs.toFloat(),
             )
+
+            if (firstRun) {
+              firstRun = false
+              setPreparing(false)
+              onFirstToken(model)
+            }
 
             if (done) {
               setInProgress(false)
