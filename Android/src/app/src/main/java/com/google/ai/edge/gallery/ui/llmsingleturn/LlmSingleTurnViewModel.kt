@@ -21,6 +21,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.common.processLlmResponse
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.gallery.ui.llmchat.LlmModelInstance
@@ -72,48 +73,62 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
       val supportAudio =
         model.llmSupportAudio &&
           task.id == com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_ASK_AUDIO
-      LlmChatModelHelper.resetConversation(
-        model = model,
-        supportImage = supportImage,
-        supportAudio = supportAudio,
-      )
-      delay(500)
-
-      // Run inference.
       var firstRun = true
       var response = ""
-      LlmChatModelHelper.runInference(
-        model = model,
-        input = input,
-        resultListener = { partialResult, done ->
-          if (firstRun) {
-            setPreparing(false)
-            firstRun = false
-          }
+      val resultListener: (String, Boolean) -> Unit = { partialResult, done ->
+        if (firstRun) {
+          setPreparing(false)
+          firstRun = false
+        }
 
-          // Incrementally update the streamed partial results.
-          response = processLlmResponse(response = "$response$partialResult")
+        // Incrementally update the streamed partial results.
+        response = processLlmResponse(response = "$response$partialResult")
 
-          // Update response.
-          updateResponse(
+        // Update response.
+        updateResponse(
+          model = model,
+          promptTemplateType = uiState.value.selectedPromptTemplateType,
+          response = response,
+        )
+
+        if (done) {
+          setInProgress(false)
+        }
+      }
+
+      val cleanUpListener: () -> Unit = {
+        setPreparing(false)
+        setInProgress(false)
+      }
+
+      val errorListener: (String) -> Unit = { message ->
+        setPreparing(false)
+        setInProgress(false)
+      }
+
+      when (model.runtimeType) {
+        RuntimeType.LITERT_LM -> {
+          LlmChatModelHelper.resetConversation(
             model = model,
-            promptTemplateType = uiState.value.selectedPromptTemplateType,
-            response = response,
+            supportImage = supportImage,
+            supportAudio = supportAudio,
           )
+          delay(500)
 
-          if (done) {
-            setInProgress(false)
-          }
-        },
-        cleanUpListener = {
-          setPreparing(false)
-          setInProgress(false)
-        },
-        onError = { message ->
-          setPreparing(false)
-          setInProgress(false)
-        },
-      )
+          firstRun = true
+          response = ""
+          LlmChatModelHelper.runInference(
+            model = model,
+            input = input,
+            resultListener = resultListener,
+            cleanUpListener = cleanUpListener,
+            onError = errorListener,
+          )
+        }
+        else -> {
+          Log.e(TAG, "Unsupported model runtime type: ${model.runtimeType}")
+        }
+      }
     }
   }
 
@@ -151,8 +166,15 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
     Log.d(TAG, "Stopping response for model ${model.name}...")
     viewModelScope.launch(Dispatchers.Default) {
       setInProgress(false)
-      val instance = model.instance as LlmModelInstance
-      instance.conversation.cancelProcess()
+      when (model.runtimeType) {
+        RuntimeType.LITERT_LM -> {
+          val instance = model.instance as? LlmModelInstance ?: return@launch
+          instance.conversation.cancelProcess()
+        }
+        else -> {
+          Log.e(TAG, "Cannot stop response for unknown runtime type")
+        }
+      }
     }
   }
 

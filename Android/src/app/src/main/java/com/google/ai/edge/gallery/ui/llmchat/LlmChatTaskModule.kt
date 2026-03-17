@@ -28,6 +28,7 @@ import com.google.ai.edge.gallery.customtasks.common.CustomTaskDataForBuiltinTas
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import dagger.Module
 import dagger.Provides
@@ -61,13 +62,20 @@ class LlmChatTask @Inject constructor() : CustomTask {
     model: Model,
     onDone: (String) -> Unit,
   ) {
-    LlmChatModelHelper.initialize(
-      context = context,
-      model = model,
-      supportImage = false,
-      supportAudio = false,
-      onDone = onDone,
-    )
+    when (model.runtimeType) {
+      RuntimeType.LITERT_LM -> {
+        LlmChatModelHelper.initialize(
+          context = context,
+          model = model,
+          supportImage = false,
+          supportAudio = false,
+          onDone = onDone,
+        )
+      }
+      else -> {
+        onDone("Unsupported model runtime type: ${model.runtimeType}")
+      }
+    }
   }
 
   override fun cleanUpModelFn(
@@ -76,7 +84,15 @@ class LlmChatTask @Inject constructor() : CustomTask {
     model: Model,
     onDone: () -> Unit,
   ) {
-    LlmChatModelHelper.cleanUp(model = model, onDone = onDone)
+    when (model.runtimeType) {
+      RuntimeType.LITERT_LM -> {
+        LlmChatModelHelper.cleanUp(model = model, onDone = onDone)
+      }
+      else -> {
+        // No-op
+        onDone()
+      }
+    }
   }
 
   @Composable
@@ -120,13 +136,20 @@ class LlmAskImageTask @Inject constructor() : CustomTask {
     model: Model,
     onDone: (String) -> Unit,
   ) {
-    LlmChatModelHelper.initialize(
-      context = context,
-      model = model,
-      supportImage = true,
-      supportAudio = false,
-      onDone = onDone,
-    )
+    when (model.runtimeType) {
+      RuntimeType.LITERT_LM -> {
+        LlmChatModelHelper.initialize(
+          context = context,
+          model = model,
+          supportImage = true,
+          supportAudio = false,
+          onDone = onDone,
+        )
+      }
+      else -> {
+        onDone("Unsupported model runtime type: ${model.runtimeType}")
+      }
+    }
   }
 
   override fun cleanUpModelFn(
@@ -135,7 +158,15 @@ class LlmAskImageTask @Inject constructor() : CustomTask {
     model: Model,
     onDone: () -> Unit,
   ) {
-    LlmChatModelHelper.cleanUp(model = model, onDone = onDone)
+    when (model.runtimeType) {
+      RuntimeType.LITERT_LM -> {
+        LlmChatModelHelper.cleanUp(model = model, onDone = onDone)
+      }
+      else -> {
+        // No-op
+        onDone()
+      }
+    }
   }
 
   @Composable
@@ -183,13 +214,20 @@ class LlmAskAudioTask @Inject constructor() : CustomTask {
     model: Model,
     onDone: (String) -> Unit,
   ) {
-    LlmChatModelHelper.initialize(
-      context = context,
-      model = model,
-      supportImage = false,
-      supportAudio = true,
-      onDone = onDone,
-    )
+    when (model.runtimeType) {
+      RuntimeType.LITERT_LM -> {
+        LlmChatModelHelper.initialize(
+          context = context,
+          model = model,
+          supportImage = false,
+          supportAudio = true,
+          onDone = onDone,
+        )
+      }
+      else -> {
+        onDone("Unsupported model runtime type: ${model.runtimeType}")
+      }
+    }
   }
 
   override fun cleanUpModelFn(
@@ -198,7 +236,15 @@ class LlmAskAudioTask @Inject constructor() : CustomTask {
     model: Model,
     onDone: () -> Unit,
   ) {
-    LlmChatModelHelper.cleanUp(model = model, onDone = onDone)
+    when (model.runtimeType) {
+      RuntimeType.LITERT_LM -> {
+        LlmChatModelHelper.cleanUp(model = model, onDone = onDone)
+      }
+      else -> {
+        // No-op
+        onDone()
+      }
+    }
   }
 
   @Composable

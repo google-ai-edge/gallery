@@ -22,6 +22,7 @@ import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageError
@@ -77,14 +78,13 @@ open class LlmChatViewModelBase() : ChatViewModel() {
       val start = System.currentTimeMillis()
 
       try {
-        LlmChatModelHelper.runInference(
-          model = model,
-          input = input,
-          images = images,
-          audioClips = audioClips,
-          resultListener = { partialResult, done ->
-            if (partialResult.startsWith("<ctrl")) {
-              return@runInference
+        val resultListener: (String, Boolean) -> Unit = { partialResult, done ->
+          if (partialResult.startsWith("<ctrl")) {
+            // Do nothing. Ignore control tokens.
+          } else {
+            if (firstRun) {
+              firstRun = false
+              setPreparing(false)
             }
 
             // Remove the last message if it is a "loading" message.
@@ -128,18 +128,37 @@ open class LlmChatViewModelBase() : ChatViewModel() {
               setInProgress(false)
               onDone()
             }
-          },
-          cleanUpListener = {
-            setInProgress(false)
-            setPreparing(false)
-          },
-          onError = { message ->
-            Log.e(TAG, "Error occurred while running inference")
-            setInProgress(false)
-            setPreparing(false)
-            onError(message)
-          },
-        )
+          }
+        }
+
+        val cleanUpListener: () -> Unit = {
+          setInProgress(false)
+          setPreparing(false)
+        }
+
+        val errorListener: (String) -> Unit = { message ->
+          Log.e(TAG, "Error occurred while running inference")
+          setInProgress(false)
+          setPreparing(false)
+          onError(message)
+        }
+
+        when (model.runtimeType) {
+          RuntimeType.LITERT_LM -> {
+            LlmChatModelHelper.runInference(
+              model = model,
+              input = input,
+              images = images,
+              audioClips = audioClips,
+              resultListener = resultListener,
+              cleanUpListener = cleanUpListener,
+              onError = errorListener,
+            )
+          }
+          else -> {
+            Log.e(TAG, "Unsupported model runtime type: ${model.runtimeType}")
+          }
+        }
       } catch (e: Exception) {
         Log.e(TAG, "Error occurred while running inference", e)
         setInProgress(false)
@@ -155,8 +174,15 @@ open class LlmChatViewModelBase() : ChatViewModel() {
       removeLastMessage(model = model)
     }
     setInProgress(false)
-    val instance = model.instance as LlmModelInstance
-    instance.conversation.cancelProcess()
+    when (model.runtimeType) {
+      RuntimeType.LITERT_LM -> {
+        val instance = model.instance as? LlmModelInstance ?: return
+        instance.conversation.cancelProcess()
+      }
+      else -> {
+        Log.e(TAG, "Cannot stop response for unknown runtime type")
+      }
+    }
     Log.d(TAG, "Done stopping response")
   }
 
@@ -180,13 +206,20 @@ open class LlmChatViewModelBase() : ChatViewModel() {
           val supportAudio =
             model.llmSupportAudio &&
               task.id == com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_ASK_AUDIO
-          LlmChatModelHelper.resetConversation(
-            model = model,
-            supportImage = supportImage,
-            supportAudio = supportAudio,
-            systemInstruction = systemInstruction,
-            tools = tools,
-          )
+          when (model.runtimeType) {
+            RuntimeType.LITERT_LM -> {
+              LlmChatModelHelper.resetConversation(
+                model = model,
+                supportImage = supportImage,
+                supportAudio = supportAudio,
+                systemInstruction = systemInstruction,
+                tools = tools,
+              )
+            }
+            else -> {
+              Log.e(TAG, "Unsupported model runtime type: ${model.runtimeType}")
+            }
+          }
           break
         } catch (e: Exception) {
           Log.d(TAG, "Failed to reset session. Trying again")
