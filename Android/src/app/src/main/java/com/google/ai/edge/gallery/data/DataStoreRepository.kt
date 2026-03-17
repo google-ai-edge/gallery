@@ -39,6 +39,12 @@ interface DataStoreRepository {
 
   fun readTheme(): Theme
 
+  fun saveSecret(key: String, value: String)
+
+  fun readSecret(key: String): String?
+
+  fun deleteSecret(key: String)
+
   fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long)
 
   fun clearAccessTokenData()
@@ -114,6 +120,24 @@ class DefaultDataStoreRepository(
       val curTheme = settings.theme
       // Use "auto" as the default theme.
       if (curTheme == Theme.THEME_UNSPECIFIED) Theme.THEME_AUTO else curTheme
+    }
+  }
+
+  override fun saveSecret(key: String, value: String) {
+    runBlocking {
+      userDataDataStore.updateData { userData ->
+        userData.toBuilder().putSecrets(key, value).build()
+      }
+    }
+  }
+
+  override fun readSecret(key: String): String? {
+    return runBlocking { userDataDataStore.data.first().secretsMap[key] }
+  }
+
+  override fun deleteSecret(key: String) {
+    runBlocking {
+      userDataDataStore.updateData { userData -> userData.toBuilder().removeSecrets(key).build() }
     }
   }
 

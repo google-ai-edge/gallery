@@ -18,7 +18,10 @@ package com.google.ai.edge.gallery.ui.common.chat
 
 import android.graphics.Bitmap
 import android.util.Log
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import com.google.ai.edge.gallery.common.Classification
 import com.google.ai.edge.gallery.data.Model
@@ -41,6 +44,7 @@ enum class ChatMessageType {
   BENCHMARK_LLM_RESULT,
   PROMPT_TEMPLATES,
   WEBVIEW,
+  COLLAPSABLE_PROGRESS_PANEL,
 }
 
 enum class ChatSide {
@@ -56,6 +60,7 @@ open class ChatMessage(
   open val latencyMs: Float = -1f,
   open val accelerator: String = "",
   open val hideSenderLabel: Boolean = false,
+  open val disableBubbleShape: Boolean = false,
 ) {
   open fun clone(): ChatMessage {
     return ChatMessage(
@@ -64,6 +69,7 @@ open class ChatMessage(
       latencyMs = latencyMs,
       accelerator = accelerator,
       hideSenderLabel = hideSenderLabel,
+      disableBubbleShape = disableBubbleShape,
     )
   }
 }
@@ -108,6 +114,7 @@ open class ChatMessageText(
   // Benchmark result for LLM response.
   var llmBenchmarkResult: ChatMessageBenchmarkLlmResult? = null,
   override val accelerator: String = "",
+  override val hideSenderLabel: Boolean = false,
   var data: Any? = null,
 ) :
   ChatMessage(
@@ -115,6 +122,7 @@ open class ChatMessageText(
     side = side,
     latencyMs = latencyMs,
     accelerator = accelerator,
+    hideSenderLabel = hideSenderLabel,
   ) {
   override fun clone(): ChatMessageText {
     return ChatMessageText(
@@ -124,6 +132,7 @@ open class ChatMessageText(
       accelerator = accelerator,
       isMarkdown = isMarkdown,
       llmBenchmarkResult = llmBenchmarkResult,
+      hideSenderLabel = hideSenderLabel,
       data = data,
     )
   }
@@ -323,13 +332,47 @@ class ChatMessageWebView(
   val iframe: Boolean,
   override val side: ChatSide = ChatSide.AGENT,
   override val hideSenderLabel: Boolean = false,
-) : ChatMessage(type = ChatMessageType.WEBVIEW, side = side, hideSenderLabel = hideSenderLabel) {
+) :
+  ChatMessage(
+    type = ChatMessageType.WEBVIEW,
+    side = side,
+    hideSenderLabel = hideSenderLabel,
+    disableBubbleShape = true,
+  ) {
   override fun clone(): ChatMessageWebView {
     return ChatMessageWebView(
       url = url,
       iframe = iframe,
       side = side,
       hideSenderLabel = hideSenderLabel,
+    )
+  }
+}
+
+data class ProgressPanelItem(val title: String, val description: String)
+
+/** Chat message for showing a collapsable progress panel. */
+class ChatMessageCollapsableProgressPanel(
+  val title: String,
+  val inProgress: Boolean,
+  override val accelerator: String,
+  val doneIcon: ImageVector = Icons.Rounded.Check,
+  val items: List<ProgressPanelItem> = listOf(),
+  val customData: Any? = null,
+) :
+  ChatMessage(
+    type = ChatMessageType.COLLAPSABLE_PROGRESS_PANEL,
+    side = ChatSide.AGENT,
+    accelerator = accelerator,
+  ) {
+  override fun clone(): ChatMessageCollapsableProgressPanel {
+    return ChatMessageCollapsableProgressPanel(
+      title = title,
+      inProgress = inProgress,
+      accelerator = accelerator,
+      doneIcon = doneIcon,
+      items = items.toList(),
+      customData = customData,
     )
   }
 }
