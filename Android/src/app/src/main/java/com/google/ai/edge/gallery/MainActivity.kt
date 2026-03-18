@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
       }
 
       @OptIn(ExperimentalApi::class)
-      ExperimentalFlags.enableBenchmark = true
+      ExperimentalFlags.enableBenchmark = false
 
       contentSet = true
     }
