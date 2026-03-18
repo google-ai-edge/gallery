@@ -22,8 +22,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.common.processLlmResponse
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
-import com.google.ai.edge.gallery.ui.llmchat.LlmModelInstance
+import com.google.ai.edge.gallery.runtime.runtimeHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -72,7 +71,7 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
       val supportAudio =
         model.llmSupportAudio &&
           task.id == com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_ASK_AUDIO
-      LlmChatModelHelper.resetConversation(
+      model.runtimeHelper.resetConversation(
         model = model,
         supportImage = supportImage,
         supportAudio = supportAudio,
@@ -82,10 +81,10 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
       // Run inference.
       var firstRun = true
       var response = ""
-      LlmChatModelHelper.runInference(
+      model.runtimeHelper.runInference(
         model = model,
         input = input,
-        resultListener = { partialResult, done ->
+        resultListener = { partialResult: String, done: Boolean ->
           if (firstRun) {
             setPreparing(false)
             firstRun = false
@@ -109,10 +108,11 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
           setPreparing(false)
           setInProgress(false)
         },
-        onError = { message ->
+        onError = { _: String ->
           setPreparing(false)
           setInProgress(false)
         },
+        coroutineScope = viewModelScope,
       )
     }
   }
@@ -151,8 +151,7 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
     Log.d(TAG, "Stopping response for model ${model.name}...")
     viewModelScope.launch(Dispatchers.Default) {
       setInProgress(false)
-      val instance = model.instance as LlmModelInstance
-      instance.conversation.cancelProcess()
+      model.runtimeHelper.stopResponse(model)
     }
   }
 

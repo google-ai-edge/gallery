@@ -27,6 +27,9 @@ import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
 import com.google.ai.edge.gallery.data.DEFAULT_TOPK
 import com.google.ai.edge.gallery.data.DEFAULT_TOPP
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.runtime.CleanUpListener
+import com.google.ai.edge.gallery.runtime.LlmModelHelper
+import com.google.ai.edge.gallery.runtime.ResultListener
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -41,29 +44,27 @@ import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.SamplerConfig
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.CancellationException
+import kotlinx.coroutines.CoroutineScope
 
 private const val TAG = "AGLlmChatModelHelper"
 
-typealias ResultListener = (partialResult: String, done: Boolean) -> Unit
-
-typealias CleanUpListener = () -> Unit
-
 data class LlmModelInstance(val engine: Engine, var conversation: Conversation)
 
-object LlmChatModelHelper {
+object LlmChatModelHelper : LlmModelHelper {
   // Indexed by model name.
   private val cleanUpListeners: MutableMap<String, CleanUpListener> = mutableMapOf()
 
   @OptIn(ExperimentalApi::class) // opt-in experimental flags
-  fun initialize(
+  override fun initialize(
     context: Context,
     model: Model,
     supportImage: Boolean,
     supportAudio: Boolean,
     onDone: (String) -> Unit,
-    systemInstruction: Contents? = null,
-    tools: List<Any> = listOf(),
-    enableConversationConstrainedDecoding: Boolean = false,
+    systemInstruction: Contents?,
+    tools: List<Any>,
+    enableConversationConstrainedDecoding: Boolean,
+    coroutineScope: CoroutineScope?,
   ) {
     // Prepare options.
     val maxTokens =
@@ -137,13 +138,13 @@ object LlmChatModelHelper {
   }
 
   @OptIn(ExperimentalApi::class) // opt-in experimental flags
-  fun resetConversation(
+  override fun resetConversation(
     model: Model,
     supportImage: Boolean,
     supportAudio: Boolean,
-    systemInstruction: Contents? = null,
-    tools: List<Any> = listOf(),
-    enableConversationConstrainedDecoding: Boolean = false,
+    systemInstruction: Contents?,
+    tools: List<Any>,
+    enableConversationConstrainedDecoding: Boolean,
   ) {
     try {
       Log.d(TAG, "Resetting conversation for model '${model.name}'")
@@ -193,7 +194,7 @@ object LlmChatModelHelper {
     }
   }
 
-  fun cleanUp(model: Model, onDone: () -> Unit) {
+  override fun cleanUp(model: Model, onDone: () -> Unit) {
     if (model.instance == null) {
       return
     }
@@ -222,16 +223,26 @@ object LlmChatModelHelper {
     Log.d(TAG, "Clean up done.")
   }
 
-  fun runInference(
+  override fun stopResponse(model: Model) {
+    val instance = model.instance as? LlmModelInstance ?: return
+    instance.conversation.cancelProcess()
+  }
+
+  override fun runInference(
     model: Model,
     input: String,
     resultListener: ResultListener,
     cleanUpListener: CleanUpListener,
-    onError: (message: String) -> Unit = {},
-    images: List<Bitmap> = listOf(),
-    audioClips: List<ByteArray> = listOf(),
+    onError: (message: String) -> Unit,
+    images: List<Bitmap>,
+    audioClips: List<ByteArray>,
+    coroutineScope: CoroutineScope?,
   ) {
-    val instance = model.instance as LlmModelInstance
+    val instance = model.instance as? LlmModelInstance
+    if (instance == null) {
+      onError("LlmModelInstance is not initialized.")
+      return
+    }
 
     // Set listener.
     if (!cleanUpListeners.containsKey(model.name)) {
