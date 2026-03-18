@@ -23,6 +23,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.runtime.runtimeHelper
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageError
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageLoading
@@ -77,16 +78,10 @@ open class LlmChatViewModelBase() : ChatViewModel() {
       val start = System.currentTimeMillis()
 
       try {
-        LlmChatModelHelper.runInference(
-          model = model,
-          input = input,
-          images = images,
-          audioClips = audioClips,
-          resultListener = { partialResult, done ->
-            if (partialResult.startsWith("<ctrl")) {
-              return@runInference
-            }
-
+        val resultListener: (String, Boolean) -> Unit = { partialResult, done ->
+          if (partialResult.startsWith("<ctrl")) {
+            // Do nothing. Ignore control tokens.
+          } else {
             // Remove the last message if it is a "loading" message.
             // This will only be done once.
             val lastMessage = getLastMessage(model = model)
@@ -128,17 +123,30 @@ open class LlmChatViewModelBase() : ChatViewModel() {
               setInProgress(false)
               onDone()
             }
-          },
-          cleanUpListener = {
-            setInProgress(false)
-            setPreparing(false)
-          },
-          onError = { message ->
-            Log.e(TAG, "Error occurred while running inference")
-            setInProgress(false)
-            setPreparing(false)
-            onError(message)
-          },
+          }
+        }
+
+        val cleanUpListener: () -> Unit = {
+          setInProgress(false)
+          setPreparing(false)
+        }
+
+        val errorListener: (String) -> Unit = { message ->
+          Log.e(TAG, "Error occurred while running inference")
+          setInProgress(false)
+          setPreparing(false)
+          onError(message)
+        }
+
+        model.runtimeHelper.runInference(
+          model = model,
+          input = input,
+          images = images,
+          audioClips = audioClips,
+          resultListener = resultListener,
+          cleanUpListener = cleanUpListener,
+          onError = errorListener,
+          coroutineScope = viewModelScope,
         )
       } catch (e: Exception) {
         Log.e(TAG, "Error occurred while running inference", e)
@@ -155,8 +163,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
       removeLastMessage(model = model)
     }
     setInProgress(false)
-    val instance = model.instance as LlmModelInstance
-    instance.conversation.cancelProcess()
+    model.runtimeHelper.stopResponse(model)
     Log.d(TAG, "Done stopping response")
   }
 
@@ -180,7 +187,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
           val supportAudio =
             model.llmSupportAudio &&
               task.id == com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_ASK_AUDIO
-          LlmChatModelHelper.resetConversation(
+          model.runtimeHelper.resetConversation(
             model = model,
             supportImage = supportImage,
             supportAudio = supportAudio,
