@@ -234,6 +234,9 @@ data class Model(
   /** Compatible accelerators. */
   val accelerators: List<Accelerator> = listOf(),
 
+  /** Accelerator for running vision encoder. */
+  val visionAccelerator: Accelerator = Accelerator.GPU,
+
   /** Whether the model is imported or not. */
   val imported: Boolean = false,
 

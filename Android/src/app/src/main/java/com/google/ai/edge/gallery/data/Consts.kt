@@ -43,6 +43,7 @@ const val DEFAULT_TOPK = 64
 const val DEFAULT_TOPP = 0.95f
 const val DEFAULT_TEMPERATURE = 1.0f
 val DEFAULT_ACCELERATORS = listOf(Accelerator.GPU)
+val DEFAULT_VISION_ACCELERATOR = Accelerator.GPU
 
 // Max number of images allowed in a "ask image" session.
 const val MAX_IMAGE_COUNT = 10
