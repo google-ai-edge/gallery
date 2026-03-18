@@ -28,6 +28,7 @@ data class DefaultConfig(
   @SerializedName("topP") val topP: Float?,
   @SerializedName("temperature") val temperature: Float?,
   @SerializedName("accelerators") val accelerators: String?,
+  @SerializedName("visionAccelerator") val visionAccelerator: String?,
   @SerializedName("maxTokens") val maxTokens: Int?,
 )
 
@@ -95,6 +96,7 @@ data class AllowedModel(
     var configs: MutableList<Config> = mutableListOf()
     var llmMaxToken = 1024
     var accelerators: List<Accelerator> = DEFAULT_ACCELERATORS
+    var visionAccelerator: Accelerator = DEFAULT_VISION_ACCELERATOR
     if (isLlmModel) {
       val defaultTopK: Int = defaultConfig.topK ?: DEFAULT_TOPK
       val defaultTopP: Float = defaultConfig.topP ?: DEFAULT_TOPP
@@ -115,6 +117,16 @@ data class AllowedModel(
         // Remove GPU from pixel 10 devices.
         if (isPixel10()) {
           accelerators.remove(Accelerator.GPU)
+        }
+      }
+      if (defaultConfig.visionAccelerator != null) {
+        val accelerator = defaultConfig.visionAccelerator
+        if (accelerator == "cpu") {
+          visionAccelerator = Accelerator.CPU
+        } else if (accelerator == "gpu") {
+          visionAccelerator = Accelerator.GPU
+        } else if (accelerator == "npu") {
+          visionAccelerator = Accelerator.NPU
         }
       }
       val npuOnly = accelerators.size == 1 && accelerators[0] == Accelerator.NPU
@@ -161,6 +173,7 @@ data class AllowedModel(
       llmSupportMobileActions = llmSupportMobileActions == true,
       llmMaxToken = llmMaxToken,
       accelerators = accelerators,
+      visionAccelerator = visionAccelerator,
       bestForTaskIds = bestForTaskTypes ?: listOf(),
       localModelFilePathOverride = localModelFilePathOverride ?: "",
       isLlm = isLlmModel,

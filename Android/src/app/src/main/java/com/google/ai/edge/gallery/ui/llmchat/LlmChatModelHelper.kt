@@ -26,6 +26,7 @@ import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
 import com.google.ai.edge.gallery.data.DEFAULT_TOPK
 import com.google.ai.edge.gallery.data.DEFAULT_TOPP
+import com.google.ai.edge.gallery.data.DEFAULT_VISION_ACCELERATOR
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.runtime.CleanUpListener
 import com.google.ai.edge.gallery.runtime.LlmModelHelper
@@ -75,6 +76,18 @@ object LlmChatModelHelper : LlmModelHelper {
       model.getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
     val accelerator =
       model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
+    val visionAccelerator =
+      model.getStringConfigValue(
+        key = ConfigKeys.VISION_ACCELERATOR,
+        defaultValue = DEFAULT_VISION_ACCELERATOR.label,
+      )
+    val visionBackend =
+      when (visionAccelerator) {
+        Accelerator.CPU.label -> Backend.CPU()
+        Accelerator.GPU.label -> Backend.GPU()
+        Accelerator.NPU.label -> Backend.NPU()
+        else -> Backend.GPU()
+      }
     val shouldEnableImage = supportImage
     val shouldEnableAudio = supportAudio
     val preferredBackend =
@@ -95,7 +108,7 @@ object LlmChatModelHelper : LlmModelHelper {
       EngineConfig(
         modelPath = modelPath,
         backend = preferredBackend,
-        visionBackend = if (shouldEnableImage) Backend.GPU() else null, // must be GPU for Gemma 3n
+        visionBackend = if (shouldEnableImage) visionBackend else null, // must be GPU for Gemma 3n
         audioBackend = if (shouldEnableAudio) Backend.CPU() else null, // must be CPU for Gemma 3n
         maxNumTokens = maxTokens,
         cacheDir =
