@@ -285,12 +285,14 @@ fun GalleryNavHost(
                   navController.navigateUp()
 
                   // clean up all models.
-                  scope.launch(Dispatchers.Default) {
-                    for (curModel in customTask.task.models) {
+                  for (curModel in customTask.task.models) {
+                    val instanceToCleanUp = curModel.instance
+                    scope.launch(Dispatchers.Default) {
                       modelManagerViewModel.cleanupModel(
                         context = context,
                         task = customTask.task,
                         model = curModel,
+                        instanceToCleanUp = instanceToCleanUp,
                       )
                     }
                   }
@@ -469,6 +471,7 @@ private fun CustomTaskScreen(
           onConfigChanged = { _, _ -> },
           onBackClicked = { handleNavigateUp() },
           onModelSelected = { prevModel, newSelectedModel ->
+            val instanceToCleanUp = prevModel.instance
             scope.launch(Dispatchers.Default) {
               // Clean up prev model.
               if (prevModel.name != newSelectedModel.name) {
@@ -476,6 +479,7 @@ private fun CustomTaskScreen(
                   context = context,
                   task = task,
                   model = prevModel,
+                  instanceToCleanUp = instanceToCleanUp,
                 )
               }
 
