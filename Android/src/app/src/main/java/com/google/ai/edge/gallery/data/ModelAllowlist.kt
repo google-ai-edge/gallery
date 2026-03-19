@@ -148,6 +148,8 @@ data class AllowedModel(
           .toMutableList()
     }
 
+    var learnMoreUrl = "https://huggingface.co/${modelId}"
+
     // Misc.
     var showBenchmarkButton = true
     var showRunAgainButton = true
@@ -166,7 +168,7 @@ data class AllowedModel(
       downloadFileName = downloadedFileName,
       showBenchmarkButton = showBenchmarkButton,
       showRunAgainButton = showRunAgainButton,
-      learnMoreUrl = "https://huggingface.co/${modelId}",
+      learnMoreUrl = learnMoreUrl,
       llmSupportImage = llmSupportImage == true,
       llmSupportAudio = llmSupportAudio == true,
       llmSupportTinyGarden = llmSupportTinyGarden == true,

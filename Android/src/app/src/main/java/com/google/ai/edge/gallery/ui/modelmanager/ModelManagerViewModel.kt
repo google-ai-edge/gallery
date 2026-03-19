@@ -43,6 +43,7 @@ import com.google.ai.edge.gallery.data.ModelAllowlist
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.NumberSliderConfig
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.SOC
 import com.google.ai.edge.gallery.data.TMP_FILE_EXT
 import com.google.ai.edge.gallery.data.Task
@@ -399,11 +400,23 @@ constructor(
     }
   }
 
-  fun cleanupModel(context: Context, task: Task, model: Model, onDone: () -> Unit = {}) {
+  fun cleanupModel(
+    context: Context,
+    task: Task,
+    model: Model,
+    instanceToCleanUp: Any? = model.instance,
+    onDone: () -> Unit = {},
+  ) {
+    if (instanceToCleanUp != null && instanceToCleanUp !== model.instance) {
+      Log.d(TAG, "Stale cleanup request for ${model.name}. Aborting.")
+      onDone()
+      return
+    }
+
     if (model.instance != null) {
       model.cleanUpAfterInit = false
       Log.d(TAG, "Cleaning up model '${model.name}'...")
-      val onDone: () -> Unit = {
+      val onDoneFn: () -> Unit = {
         model.instance = null
         model.initializing = false
         updateModelInitializationStatus(
@@ -418,7 +431,7 @@ constructor(
           context = context,
           coroutineScope = viewModelScope,
           model = model,
-          onDone = onDone,
+          onDone = onDoneFn,
         )
     } else {
       // When model is being initialized and we are trying to clean it up at same time, we mark it
