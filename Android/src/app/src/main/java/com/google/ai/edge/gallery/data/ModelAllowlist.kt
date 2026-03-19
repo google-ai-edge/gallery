@@ -131,7 +131,8 @@ data class AllowedModel(
       }
       val npuOnly = accelerators.size == 1 && accelerators[0] == Accelerator.NPU
       configs =
-        if (npuOnly) {
+        (
+          if (npuOnly) {
             createLlmChatConfigsForNpuModel(
               defaultMaxToken = llmMaxToken,
               accelerators = accelerators,
@@ -144,7 +145,7 @@ data class AllowedModel(
               defaultMaxToken = llmMaxToken,
               accelerators = accelerators,
             )
-          }
+          })
           .toMutableList()
     }
 
