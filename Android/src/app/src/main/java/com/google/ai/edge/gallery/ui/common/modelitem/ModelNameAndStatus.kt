@@ -42,6 +42,7 @@ import com.google.ai.edge.gallery.data.MODEL_INFO_ICON_SIZE
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.ClickableLink
 import com.google.ai.edge.gallery.ui.common.humanReadableSize
@@ -112,7 +113,10 @@ fun ModelNameAndStatus(
       )
 
       // Failure message.
-      if (downloadStatus != null && downloadStatus.status == ModelDownloadStatusType.FAILED) {
+      if (
+        downloadStatus != null &&
+          downloadStatus.status == ModelDownloadStatusType.FAILED
+      ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Text(
             downloadStatus.errorMessage,
