@@ -173,6 +173,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
     systemInstruction: Contents? = null,
     tools: List<Any> = listOf(),
     onDone: () -> Unit = {},
+    enableConversationConstrainedDecoding: Boolean = false,
   ) {
     viewModelScope.launch(Dispatchers.Default) {
       setIsResettingSession(true)
@@ -193,6 +194,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
             supportAudio = supportAudio,
             systemInstruction = systemInstruction,
             tools = tools,
+            enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
           )
           break
         } catch (e: Exception) {
