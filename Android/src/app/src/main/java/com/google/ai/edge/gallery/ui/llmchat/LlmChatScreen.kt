@@ -64,6 +64,8 @@ fun LlmChatScreen(
   onSystemPromptChanged: (String) -> Unit = {},
   emptyStateComposable: @Composable () -> Unit = {},
   sendMessageTrigger: Pair<Model, List<ChatMessage>>? = null,
+  showImagePicker: Boolean = false,
+  showAudioPicker: Boolean = false,
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -80,6 +82,8 @@ fun LlmChatScreen(
     onSystemPromptChanged = onSystemPromptChanged,
     emptyStateComposable = emptyStateComposable,
     sendMessageTrigger = sendMessageTrigger,
+    showImagePicker = showImagePicker,
+    showAudioPicker = showAudioPicker,
   )
 }
 
@@ -96,6 +100,8 @@ fun LlmAskImageScreen(
     taskId = BuiltInTaskId.LLM_ASK_IMAGE,
     navigateUp = navigateUp,
     modifier = modifier,
+    showImagePicker = true,
+    showAudioPicker = false,
     emptyStateComposable = {
       Column(
         modifier =
@@ -130,6 +136,8 @@ fun LlmAskAudioScreen(
     taskId = BuiltInTaskId.LLM_ASK_AUDIO,
     navigateUp = navigateUp,
     modifier = modifier,
+    showImagePicker = false,
+    showAudioPicker = true,
     emptyStateComposable = {
       Column(
         modifier =
@@ -167,6 +175,8 @@ fun ChatViewWrapper(
   curSystemPrompt: String = "",
   onSystemPromptChanged: (String) -> Unit = {},
   sendMessageTrigger: Pair<Model, List<ChatMessage>>? = null,
+  showImagePicker: Boolean = false,
+  showAudioPicker: Boolean = false,
 ) {
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
@@ -242,7 +252,12 @@ fun ChatViewWrapper(
       if (onResetSessionClickedOverride != null) {
         onResetSessionClickedOverride(task, model)
       } else {
-        viewModel.resetSession(task = task, model = model)
+        viewModel.resetSession(
+          task = task,
+          model = model,
+          supportImage = showImagePicker,
+          supportAudio = showAudioPicker,
+        )
       }
     },
     showStopButtonInInputWhenInProgress = true,
@@ -250,10 +265,12 @@ fun ChatViewWrapper(
     navigateUp = navigateUp,
     modifier = modifier,
     composableBelowMessageList = composableBelowMessageList,
+    showImagePicker = showImagePicker,
     emptyStateComposable = emptyStateComposable,
     allowEditingSystemPrompt = allowEditingSystemPrompt,
     curSystemPrompt = curSystemPrompt,
     onSystemPromptChanged = onSystemPromptChanged,
     sendMessageTrigger = sendMessageTrigger,
+    showAudioPicker = showAudioPicker,
   )
 }

@@ -99,6 +99,8 @@ fun ChatView(
   onStopButtonClicked: (Model) -> Unit = {},
   showStopButtonInInputWhenInProgress: Boolean = false,
   composableBelowMessageList: @Composable (Model) -> Unit = {},
+  showImagePicker: Boolean = false,
+  showAudioPicker: Boolean = false,
   emptyStateComposable: @Composable () -> Unit = {},
   allowEditingSystemPrompt: Boolean = false,
   curSystemPrompt: String = "",
@@ -237,6 +239,8 @@ fun ChatView(
                 },
                 modifier = Modifier.weight(1f),
                 showStopButtonInInputWhenInProgress = showStopButtonInInputWhenInProgress,
+                showImagePicker = showImagePicker,
+                showAudioPicker = showAudioPicker,
                 emptyStateComposable = emptyStateComposable,
               )
             // Model download

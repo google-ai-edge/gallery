@@ -320,8 +320,9 @@ fun MessageInputText(
               )
             }
             MediaPanelCloseButton {
-              pickedAudioClips =
-                pickedAudioClips.filterIndexed { curIndex, curAudioData -> curIndex != index }
+              pickedAudioClips = pickedAudioClips.filterIndexed { curIndex, curAudioData ->
+                curIndex != index
+              }
             }
           }
         }
@@ -420,7 +421,11 @@ fun MessageInputText(
 
               // Second row for buttons to add extra content.
               Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).offset(y = (-4).dp),
+                modifier =
+                  Modifier.fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp)
+                    .offset(y = (-4).dp),
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
               ) {

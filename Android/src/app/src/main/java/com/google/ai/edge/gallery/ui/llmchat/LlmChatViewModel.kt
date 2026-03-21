@@ -172,6 +172,8 @@ open class LlmChatViewModelBase() : ChatViewModel() {
     model: Model,
     systemInstruction: Contents? = null,
     tools: List<Any> = listOf(),
+    supportImage: Boolean = false,
+    supportAudio: Boolean = false,
     onDone: () -> Unit = {},
     enableConversationConstrainedDecoding: Boolean = false,
   ) {
@@ -182,12 +184,6 @@ open class LlmChatViewModelBase() : ChatViewModel() {
 
       while (true) {
         try {
-          val supportImage =
-            model.llmSupportImage &&
-              task.id == com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_ASK_IMAGE
-          val supportAudio =
-            model.llmSupportAudio &&
-              task.id == com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_ASK_AUDIO
           model.runtimeHelper.resetConversation(
             model = model,
             supportImage = supportImage,
