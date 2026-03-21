@@ -82,6 +82,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.ui.common.TaskIcon
@@ -251,7 +252,7 @@ fun GlobalModelManager(
             onModelClicked = handleClickModel,
             onBenchmarkClicked = onBenchmarkClicked,
             expanded = expanded,
-            showBenchmarkButton = true,
+            showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
             onExpanded = { modelItemExpandedStates[model.name] = it },
           )
         }
@@ -275,7 +276,7 @@ fun GlobalModelManager(
             onModelClicked = handleClickModel,
             onBenchmarkClicked = onBenchmarkClicked,
             expanded = true,
-            showBenchmarkButton = true,
+            showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
           )
         }
       }
