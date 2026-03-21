@@ -122,6 +122,8 @@ fun ChatPanel(
   onStopButtonClicked: () -> Unit = {},
   onImageSelected: (bitmaps: List<Bitmap>, selectedBitmapIndex: Int) -> Unit = { _, _ -> },
   showStopButtonInInputWhenInProgress: Boolean = false,
+  showImagePicker: Boolean = false,
+  showAudioPicker: Boolean = false,
   emptyStateComposable: @Composable () -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsState()
@@ -527,8 +529,8 @@ fun ChatPanel(
         },
         onAmplitudeChanged = { curAmplitude = it },
         showPromptTemplatesInMenu = false,
-        showImagePicker = selectedModel.llmSupportImage && task.id === BuiltInTaskId.LLM_ASK_IMAGE,
-        showAudioPicker = selectedModel.llmSupportAudio && task.id === BuiltInTaskId.LLM_ASK_AUDIO,
+        showImagePicker = selectedModel.llmSupportImage && showImagePicker,
+        showAudioPicker = selectedModel.llmSupportAudio && showAudioPicker,
         showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
       )
     }
