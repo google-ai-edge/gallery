@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.exifinterface.media.ExifInterface
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
+import com.google.android.libraries.security.content.SafeContentResolver
 import com.google.gson.Gson
 import java.io.File
 import java.io.FileInputStream
@@ -116,7 +117,7 @@ fun convertWavToMonoWithMaxSeconds(
       (if (stereoUri.scheme == null || stereoUri.scheme == "file") {
         FileInputStream(stereoUri.path ?: "")
       } else {
-        context.contentResolver.openInputStream(stereoUri)
+        SafeContentResolver.openInputStream(context, stereoUri)
       }) ?: return null
     val originalBytes = inputStream.readBytes()
     inputStream.close()
@@ -265,7 +266,7 @@ fun decodeSampledBitmapFromUri(context: Context, uri: Uri, reqWidth: Int, reqHei
       (if (uri.scheme == null || uri.scheme == "file") {
           FileInputStream(uri.path ?: "")
         } else {
-          context.contentResolver.openInputStream(uri)
+          SafeContentResolver.openInputStream(context, uri)
         })
         ?.use { BitmapFactory.decodeStream(it, null, this) }
 
@@ -279,7 +280,7 @@ fun decodeSampledBitmapFromUri(context: Context, uri: Uri, reqWidth: Int, reqHei
   return (if (uri.scheme == null || uri.scheme == "file") {
       FileInputStream(uri.path ?: "")
     } else {
-      context.contentResolver.openInputStream(uri)
+      SafeContentResolver.openInputStream(context, uri)
     })
     ?.use { BitmapFactory.decodeStream(it, null, options) }
 }
