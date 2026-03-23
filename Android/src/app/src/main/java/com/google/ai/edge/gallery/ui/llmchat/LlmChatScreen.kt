@@ -114,7 +114,7 @@ fun LlmAskImageScreen(
         MessageBodyInfo(
           ChatMessageInfo(
             content =
-              "To get started, tap the Add image button below to add images (up to 10 in a single session) and type a prompt to ask a question about it."
+              "To get started, tap the + button below to add images (up to 10 in a single session) and type a prompt to ask a question about it."
           ),
           smallFontSize = false,
         )
@@ -150,7 +150,7 @@ fun LlmAskAudioScreen(
         MessageBodyInfo(
           ChatMessageInfo(
             content =
-              "To get started, tap the Add audio button below to add your audio clip. Limited to 1 clip up to 30 seconds long."
+              "To get started, tap the + button below to add your audio clip. Limited to 1 clip up to 30 seconds long."
           ),
           smallFontSize = false,
         )

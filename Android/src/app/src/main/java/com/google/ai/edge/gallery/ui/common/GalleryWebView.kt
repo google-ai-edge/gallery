@@ -97,7 +97,7 @@ fun GalleryWebView(
   preventParentScrolling: Boolean = false,
   allowRequestPermission: Boolean = false,
   onWebViewCreated: ((WebView) -> Unit)? = null,
-  onConsoleMessage: ((ConsoleMessage?) -> Boolean)? = null,
+  onConsoleMessage: ((ConsoleMessage?) -> Unit)? = null,
   onPermissionRequest: ((PermissionRequest?) -> Unit)? = null,
   customWebViewClient: WebViewClient? = null,
 ) {
@@ -164,11 +164,11 @@ fun GalleryWebView(
         webChromeClient =
           object : WebChromeClient() {
             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+              Log.d(
+                TAG,
+                "${consoleMessage?.message()} -- From line ${consoleMessage?.lineNumber()} of ${consoleMessage?.sourceId()}",
+              )
               onConsoleMessage?.invoke(consoleMessage)
-                ?: Log.d(
-                  TAG,
-                  "${consoleMessage?.message()} -- From line ${consoleMessage?.lineNumber()} of ${consoleMessage?.sourceId()}",
-                )
               return super.onConsoleMessage(consoleMessage)
             }
 
@@ -182,10 +182,12 @@ fun GalleryWebView(
               onPermissionRequest?.invoke(request)
                 ?: run {
                   val resources = request.resources
-                  val isCameraRequest =
-                    resources.any { it == PermissionRequest.RESOURCE_VIDEO_CAPTURE }
-                  val isAudioRequest =
-                    resources.any { it == PermissionRequest.RESOURCE_AUDIO_CAPTURE }
+                  val isCameraRequest = resources.any {
+                    it == PermissionRequest.RESOURCE_VIDEO_CAPTURE
+                  }
+                  val isAudioRequest = resources.any {
+                    it == PermissionRequest.RESOURCE_AUDIO_CAPTURE
+                  }
 
                   if (isCameraRequest) {
                     pendingCameraPermissionRequest = request

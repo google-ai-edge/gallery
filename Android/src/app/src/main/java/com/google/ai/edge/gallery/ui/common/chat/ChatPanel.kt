@@ -176,6 +176,8 @@ fun ChatPanel(
 
   var showAudioRecorder by remember { mutableStateOf(false) }
   var curAmplitude by remember { mutableIntStateOf(0) }
+  var pickedImagesCount by remember { mutableIntStateOf(0) }
+  var pickedAudioClipsCount by remember { mutableIntStateOf(0) }
 
   // Keep track of the last message and last message content.
   val lastMessage: MutableState<ChatMessage?> = remember { mutableStateOf(null) }
@@ -485,7 +487,7 @@ fun ChatPanel(
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier.padding(vertical = 4.dp))
 
         // Show empty state.
-        if (messages.isEmpty()) {
+        if (messages.isEmpty() && pickedImagesCount == 0 && pickedAudioClipsCount == 0) {
           emptyStateComposable()
         }
       }
@@ -528,6 +530,8 @@ fun ChatPanel(
           }
         },
         onAmplitudeChanged = { curAmplitude = it },
+        onPickedImagesChanged = { pickedImagesCount = it.size },
+        onPickedAudioClipsChanged = { pickedAudioClipsCount = it.size },
         showPromptTemplatesInMenu = false,
         showImagePicker = selectedModel.llmSupportImage && showImagePicker,
         showAudioPicker = selectedModel.llmSupportAudio && showAudioPicker,

@@ -62,6 +62,9 @@ data class Task(
    */
   val description: String,
 
+  /** Shorter description (within 6 words) of the task. */
+  val shortDescription: String = "",
+
   /**
    * (optional)
    *
@@ -99,6 +102,9 @@ data class Task(
 
   /** Whether the task is experimental. */
   val experimental: Boolean = false,
+
+  /** Whether the task should have a "new" badge on home screen. */
+  val newFeature: Boolean = false,
 
   /** Whether to use theme color instead of the task tint color. */
   val useThemeColor: Boolean = false,

@@ -67,9 +67,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.outlined.AddPhotoAlternate
-import androidx.compose.material.icons.outlined.HomeRepairService
-import androidx.compose.material.icons.outlined.MusicNote
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FlipCameraAndroid
@@ -78,8 +76,6 @@ import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Photo
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Stop
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -88,6 +84,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -107,6 +105,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -164,6 +163,8 @@ fun MessageInputText(
   onStopButtonClicked: () -> Unit = {},
   onSetAudioRecorderVisible: (visible: Boolean) -> Unit = {},
   onAmplitudeChanged: (Int) -> Unit,
+  onPickedImagesChanged: (List<Bitmap>) -> Unit = {},
+  onPickedAudioClipsChanged: (List<AudioClip>) -> Unit = {},
   showPromptTemplatesInMenu: Boolean = false,
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
@@ -173,8 +174,7 @@ fun MessageInputText(
   val lifecycleOwner = LocalLifecycleOwner.current
   val scope = rememberCoroutineScope()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
-  var showAddImageMenu by remember { mutableStateOf(false) }
-  var showAddAudioMenu by remember { mutableStateOf(false) }
+  var showAddContentMenu by remember { mutableStateOf(false) }
   var showTextInputHistorySheet by remember { mutableStateOf(false) }
   var showCameraCaptureBottomSheet by remember { mutableStateOf(false) }
   val cameraCaptureSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -207,18 +207,22 @@ fun MessageInputText(
 
   LaunchedEffect(Unit) { checkFrontCamera(context = context, callback = { hasFrontCamera = it }) }
 
+  LaunchedEffect(pickedImages) { onPickedImagesChanged(pickedImages) }
+
+  LaunchedEffect(pickedAudioClips) { onPickedAudioClipsChanged(pickedAudioClips) }
+
   // Permission request when taking picture.
   val takePicturePermissionLauncher =
     rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
       permissionGranted ->
       if (permissionGranted) {
-        showAddImageMenu = false
+        showAddContentMenu = false
         showCameraCaptureBottomSheet = true
       }
     }
 
   val handleClickRecordAudioClip = {
-    showAddAudioMenu = false
+    showAddContentMenu = false
     showAudioRecorder = true
     onSetAudioRecorderVisible(true)
   }
@@ -342,7 +346,7 @@ fun MessageInputText(
                   .padding(vertical = 8.dp)
                   .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
             ) {
-              // Text field.
+              // First row: text field for input.
               Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -367,9 +371,203 @@ fun MessageInputText(
                   modifier = Modifier.weight(1f).semantics { contentDescription = cdPromptInput },
                   placeholder = { Text(stringResource(textFieldPlaceHolderRes)) },
                 )
+                Spacer(modifier = Modifier.width(4.dp))
+              }
 
-                Spacer(modifier = Modifier.width(8.dp))
+              // Second row: buttons to add extra content, and the action button.
+              Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).offset(y = (-8).dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+              ) {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                  // A plus button to show a popup menu to add stuff to the chat.
+                  Box() {
+                    val enableAddButton = !inProgress && !isResettingSession
+                    OutlinedIconButton(
+                      enabled = enableAddButton,
+                      onClick = { showAddContentMenu = true },
+                      colors =
+                        IconButtonDefaults.iconButtonColors(
+                          disabledContentColor =
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                        ),
+                      border =
+                        IconButtonDefaults.outlinedIconButtonBorder(true)
+                          .copy(
+                            brush =
+                              SolidColor(
+                                MaterialTheme.colorScheme.outlineVariant.copy(
+                                  alpha = if (enableAddButton) 1f else 0.1f
+                                )
+                              )
+                          ),
+                    ) {
+                      Icon(
+                        Icons.Outlined.Add,
+                        contentDescription = stringResource(R.string.cd_add_content_icon),
+                        modifier = Modifier.size(24.dp),
+                      )
+                    }
 
+                    DropdownMenu(
+                      expanded = showAddContentMenu,
+                      onDismissRequest = { showAddContentMenu = false },
+                    ) {
+                      if (showImagePicker) {
+                        val enableAddImageMenuItems =
+                          (imageCount + pickedImages.size) < MAX_IMAGE_COUNT
+                        // Take a picture.
+                        DropdownMenuItem(
+                          text = {
+                            Row(
+                              verticalAlignment = Alignment.CenterVertically,
+                              horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                              Icon(Icons.Rounded.PhotoCamera, contentDescription = null)
+                              Text("Take a picture")
+                            }
+                          },
+                          enabled = enableAddImageMenuItems,
+                          onClick = {
+                            // Check permission
+                            when (PackageManager.PERMISSION_GRANTED) {
+                              // Already got permission. Call the lambda.
+                              ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.CAMERA,
+                              ) -> {
+                                showAddContentMenu = false
+                                showCameraCaptureBottomSheet = true
+                              }
+
+                              // Otherwise, ask for permission
+                              else -> {
+                                takePicturePermissionLauncher.launch(Manifest.permission.CAMERA)
+                              }
+                            }
+                          },
+                        )
+
+                        // Pick an image from album.
+                        DropdownMenuItem(
+                          text = {
+                            Row(
+                              verticalAlignment = Alignment.CenterVertically,
+                              horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                              Icon(Icons.Rounded.Photo, contentDescription = null)
+                              Text("Pick from album")
+                            }
+                          },
+                          enabled = enableAddImageMenuItems,
+                          onClick = {
+                            // Launch the photo picker and let the user choose only images.
+                            pickMedia.launch(
+                              PickVisualMediaRequest(
+                                ActivityResultContracts.PickVisualMedia.ImageOnly
+                              )
+                            )
+                            showAddContentMenu = false
+                          },
+                        )
+                      }
+
+                      // Audio related menu items.
+                      if (showAudioPicker) {
+                        val enableRecordAudioClipMenuItems =
+                          (audioClipMessageCount + pickedAudioClips.size) < MAX_AUDIO_CLIP_COUNT
+                        DropdownMenuItem(
+                          text = {
+                            Row(
+                              verticalAlignment = Alignment.CenterVertically,
+                              horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                              Icon(Icons.Rounded.Mic, contentDescription = null)
+                              Text("Record audio clip")
+                            }
+                          },
+                          enabled = enableRecordAudioClipMenuItems,
+                          onClick = {
+                            // Check permission
+                            when (PackageManager.PERMISSION_GRANTED) {
+                              // Already got permission. Call the lambda.
+                              ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.RECORD_AUDIO,
+                              ) -> {
+                                handleClickRecordAudioClip()
+                              }
+
+                              // Otherwise, ask for permission
+                              else -> {
+                                recordAudioClipsPermissionLauncher.launch(
+                                  Manifest.permission.RECORD_AUDIO
+                                )
+                              }
+                            }
+                          },
+                        )
+
+                        DropdownMenuItem(
+                          text = {
+                            Row(
+                              verticalAlignment = Alignment.CenterVertically,
+                              horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                              Icon(Icons.Rounded.AudioFile, contentDescription = null)
+                              Text("Pick wav file")
+                            }
+                          },
+                          enabled = enableRecordAudioClipMenuItems,
+                          onClick = {
+                            showAddContentMenu = false
+
+                            // Show file picker.
+                            val intent =
+                              Intent(Intent.ACTION_GET_CONTENT).apply {
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                                type = "audio/*"
+
+                                // Provide a list of more specific MIME types to filter for.
+                                val mimeTypes = arrayOf("audio/wav", "audio/x-wav")
+                                putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes)
+
+                                // Single select.
+                                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+                                  .addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                                  .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                              }
+                            pickWav.launch(intent)
+                          },
+                        )
+                      }
+
+                      // Prompt history.
+                      DropdownMenuItem(
+                        text = {
+                          Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                          ) {
+                            Icon(Icons.Rounded.History, contentDescription = null)
+                            Text("Input history")
+                          }
+                        },
+                        onClick = {
+                          showAddContentMenu = false
+                          showTextInputHistorySheet = true
+                        },
+                      )
+                    }
+                  }
+                }
+
+                // Stop button.
+                Log.d(TAG, "${inProgress && showStopButtonWhenInProgress}")
                 if (inProgress && showStopButtonWhenInProgress) {
                   if (!modelInitializing && !modelPreparing) {
                     IconButton(
@@ -387,10 +585,10 @@ fun MessageInputText(
                     }
                   }
                 }
-                // Send button. Only shown when text is not empty.
-                else if (curMessage.isNotEmpty()) {
+                // Send button.
+                else {
                   IconButton(
-                    enabled = !inProgress && !isResettingSession,
+                    enabled = !inProgress && !isResettingSession && curMessage.isNotEmpty(),
                     onClick = {
                       var message = curMessage.trim()
                       onSendMessage(
@@ -405,7 +603,8 @@ fun MessageInputText(
                     },
                     colors =
                       IconButtonDefaults.iconButtonColors(
-                        containerColor = getTaskIconColor(task = task)
+                        containerColor = getTaskIconColor(task = task),
+                        disabledContainerColor = getTaskIconColor(task = task).copy(alpha = 0.3f),
                       ),
                   ) {
                     Icon(
@@ -416,204 +615,6 @@ fun MessageInputText(
                     )
                   }
                 }
-                Spacer(modifier = Modifier.width(4.dp))
-              }
-
-              // Second row for buttons to add extra content.
-              Row(
-                modifier =
-                  Modifier.fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp)
-                    .offset(y = (-4).dp),
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-              ) {
-
-                // Add image.
-                if (showImagePicker) {
-                  val enableAddImageMenuItems = (imageCount + pickedImages.size) < MAX_IMAGE_COUNT
-                  Box() {
-                    AssistChip(
-                      onClick = { showAddImageMenu = true },
-                      label = { Text(stringResource(R.string.add_image)) },
-                      enabled = !inProgress,
-                      leadingIcon = {
-                        Icon(
-                          Icons.Outlined.AddPhotoAlternate,
-                          contentDescription = null,
-                          Modifier.size(AssistChipDefaults.IconSize),
-                        )
-                      },
-                    )
-
-                    // Menu shown when add image chip above is clicked.
-                    DropdownMenu(
-                      expanded = showAddImageMenu,
-                      onDismissRequest = { showAddImageMenu = false },
-                    ) {
-                      // Take a picture.
-                      DropdownMenuItem(
-                        text = {
-                          Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                          ) {
-                            Icon(Icons.Rounded.PhotoCamera, contentDescription = null)
-                            Text("Take a picture")
-                          }
-                        },
-                        enabled = enableAddImageMenuItems,
-                        onClick = {
-                          // Check permission
-                          when (PackageManager.PERMISSION_GRANTED) {
-                            // Already got permission. Call the lambda.
-                            ContextCompat.checkSelfPermission(
-                              context,
-                              Manifest.permission.CAMERA,
-                            ) -> {
-                              showAddImageMenu = false
-                              showCameraCaptureBottomSheet = true
-                            }
-
-                            // Otherwise, ask for permission
-                            else -> {
-                              takePicturePermissionLauncher.launch(Manifest.permission.CAMERA)
-                            }
-                          }
-                        },
-                      )
-
-                      // Pick an image from album.
-                      DropdownMenuItem(
-                        text = {
-                          Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                          ) {
-                            Icon(Icons.Rounded.Photo, contentDescription = null)
-                            Text("Pick from album")
-                          }
-                        },
-                        enabled = enableAddImageMenuItems,
-                        onClick = {
-                          // Launch the photo picker and let the user choose only images.
-                          pickMedia.launch(
-                            PickVisualMediaRequest(
-                              ActivityResultContracts.PickVisualMedia.ImageOnly
-                            )
-                          )
-                          showAddImageMenu = false
-                        },
-                      )
-                    }
-                  }
-                }
-
-                // Add audio.
-                if (showAudioPicker) {
-                  val enableRecordAudioClipMenuItems =
-                    (audioClipMessageCount + pickedAudioClips.size) < MAX_AUDIO_CLIP_COUNT
-                  Box() {
-                    AssistChip(
-                      onClick = { showAddAudioMenu = true },
-                      label = { Text(stringResource(R.string.add_audio)) },
-                      enabled = !inProgress,
-                      leadingIcon = {
-                        Icon(
-                          Icons.Outlined.MusicNote,
-                          contentDescription = null,
-                          Modifier.size(AssistChipDefaults.IconSize),
-                        )
-                      },
-                    )
-
-                    // Menu shown when add audio chip above is clicked.
-                    DropdownMenu(
-                      expanded = showAddAudioMenu,
-                      onDismissRequest = { showAddAudioMenu = false },
-                    ) {
-                      DropdownMenuItem(
-                        text = {
-                          Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                          ) {
-                            Icon(Icons.Rounded.Mic, contentDescription = null)
-                            Text("Record audio clip")
-                          }
-                        },
-                        enabled = enableRecordAudioClipMenuItems,
-                        onClick = {
-                          // Check permission
-                          when (PackageManager.PERMISSION_GRANTED) {
-                            // Already got permission. Call the lambda.
-                            ContextCompat.checkSelfPermission(
-                              context,
-                              Manifest.permission.RECORD_AUDIO,
-                            ) -> {
-                              handleClickRecordAudioClip()
-                            }
-
-                            // Otherwise, ask for permission
-                            else -> {
-                              recordAudioClipsPermissionLauncher.launch(
-                                Manifest.permission.RECORD_AUDIO
-                              )
-                            }
-                          }
-                        },
-                      )
-
-                      DropdownMenuItem(
-                        text = {
-                          Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                          ) {
-                            Icon(Icons.Rounded.AudioFile, contentDescription = null)
-                            Text("Pick wav file")
-                          }
-                        },
-                        enabled = enableRecordAudioClipMenuItems,
-                        onClick = {
-                          showAddAudioMenu = false
-
-                          // Show file picker.
-                          val intent =
-                            Intent(Intent.ACTION_GET_CONTENT).apply {
-                              addCategory(Intent.CATEGORY_OPENABLE)
-                              type = "audio/*"
-
-                              // Provide a list of more specific MIME types to filter for.
-                              val mimeTypes = arrayOf("audio/wav", "audio/x-wav")
-                              putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes)
-
-                              // Single select.
-                              putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
-                                .addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
-                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                          pickWav.launch(intent)
-                        },
-                      )
-                    }
-                  }
-                }
-
-                // Input history.
-                AssistChip(
-                  onClick = { showTextInputHistorySheet = true },
-                  label = { Text(stringResource(R.string.input_history)) },
-                  enabled = !inProgress,
-                  leadingIcon = {
-                    Icon(
-                      Icons.Rounded.History,
-                      contentDescription = null,
-                      Modifier.size(AssistChipDefaults.IconSize),
-                    )
-                  },
-                )
               }
             }
 

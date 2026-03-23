@@ -1,0 +1,26 @@
+<!--
+ Copyright 2026 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="721dp"
+    android:height="575dp"
+    android:viewportWidth="721"
+    android:viewportHeight="575">
+  <group>
+    <path
+        android:fillColor="#FF669AF5"
+        android:pathData="M593.53 263.26c-45.91-14.92-86.09-35.4-120.54-61.4-34.44-26-61.55-56.34-81.32-91.01C384.08 97.56 378 83.9 373.31 69.9c-1.52-4.58-6.96-7.8-13.21-7.8-6.25 0-11.69 3.22-13.21 7.8-4.68 14-10.77 27.65-18.36 40.95-19.77 34.67-46.88 65.02-81.32 91.02-34.43 26-74.63 46.47-120.54 61.4-17.6 5.72-35.7 10.33-54.24 13.86-6.06 1.15-10.33 5.25-10.33 9.97 0 4.72 4.27 8.82 10.33 9.97 18.55 3.54 36.62 8.14 54.24 13.87 45.91 14.92 86.09 35.4 120.54 61.4s61.55 56.34 81.32 91.01c7.59 13.29 13.68 26.94 18.36 40.95 1.52 4.58 6.96 7.8 13.21 7.8 6.25 0 11.69-3.22 13.21-7.8 4.68-14 10.77-27.65 18.36-40.95 19.77-34.67 46.88-65 81.32-91.02 34.44-26 74.63-46.47 120.54-61.4 17.6-5.72 35.7-10.32 54.24-13.86 6.06-1.15 10.33-5.25 10.33-9.97 0-4.72-4.27-8.82-10.33-9.98-18.55-3.52-36.62-8.13-54.24-13.86Z"/>
+  </group>
+</vector>

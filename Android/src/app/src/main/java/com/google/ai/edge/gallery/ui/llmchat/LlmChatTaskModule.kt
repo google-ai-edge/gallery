@@ -50,6 +50,7 @@ class LlmChatTask @Inject constructor() : CustomTask {
       icon = Icons.Outlined.Forum,
       models = mutableListOf(),
       description = "Chat with on-device large language models",
+      shortDescription = "Chat with an on-device LLM",
       docUrl = "https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md",
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
@@ -110,6 +111,7 @@ class LlmAskImageTask @Inject constructor() : CustomTask {
       icon = Icons.Outlined.Mms,
       models = mutableListOf(),
       description = "Ask questions about images with on-device large language models",
+      shortDescription = "Ask questions about images",
       docUrl = "https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md",
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
@@ -174,6 +176,7 @@ class LlmAskAudioTask @Inject constructor() : CustomTask {
       models = mutableListOf(),
       description =
         "Instantly transcribe and/or translate audio clips using on-device large language models",
+      shortDescription = "Transcribe and translate audio",
       docUrl = "https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md",
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
