@@ -20,6 +20,7 @@ package com.google.ai.edge.gallery.ui.common.chat
 // import androidx.compose.ui.tooling.preview.Preview
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,41 +38,43 @@ import com.google.ai.edge.gallery.ui.common.MarkdownText
 /** Composable function to display the text content of a ChatMessageText. */
 @Composable
 fun MessageBodyText(message: ChatMessageText, inProgress: Boolean) {
-  if (message.side == ChatSide.USER) {
-    MarkdownText(
-      text = message.content,
-      modifier = Modifier.padding(12.dp),
-      textColor = Color.White,
-      linkColor = Color.White,
-    )
-  } else if (message.side == ChatSide.AGENT) {
-    val cdResponse = stringResource(R.string.cd_model_response_text)
-    if (message.isMarkdown) {
+  SelectionContainer {
+    if (message.side == ChatSide.USER) {
       MarkdownText(
         text = message.content,
-        modifier =
-          Modifier.padding(12.dp).semantics(mergeDescendants = true) {
-            contentDescription = cdResponse
-            // Only announce when message is complete.
-            if (!inProgress) {
-              liveRegion = LiveRegionMode.Polite
-            }
-          },
+        modifier = Modifier.padding(12.dp),
+        textColor = Color.White,
+        linkColor = Color.White,
       )
-    } else {
-      Text(
-        message.content,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier =
-          Modifier.padding(12.dp).semantics {
-            contentDescription = cdResponse
-            // Only announce when message is complete.
-            if (!inProgress) {
-              liveRegion = LiveRegionMode.Polite
-            }
-          },
-      )
+    } else if (message.side == ChatSide.AGENT) {
+      val cdResponse = stringResource(R.string.cd_model_response_text)
+      if (message.isMarkdown) {
+        MarkdownText(
+          text = message.content,
+          modifier =
+            Modifier.padding(12.dp).semantics(mergeDescendants = true) {
+              contentDescription = cdResponse
+              // Only announce when message is complete.
+              if (!inProgress) {
+                liveRegion = LiveRegionMode.Polite
+              }
+            },
+        )
+      } else {
+        Text(
+          message.content,
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurface,
+          modifier =
+            Modifier.padding(12.dp).semantics {
+              contentDescription = cdResponse
+              // Only announce when message is complete.
+              if (!inProgress) {
+                liveRegion = LiveRegionMode.Polite
+              }
+            },
+        )
+      }
     }
   }
 }

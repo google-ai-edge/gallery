@@ -567,7 +567,6 @@ fun MessageInputText(
                 }
 
                 // Stop button.
-                Log.d(TAG, "${inProgress && showStopButtonWhenInProgress}")
                 if (inProgress && showStopButtonWhenInProgress) {
                   if (!modelInitializing && !modelPreparing) {
                     IconButton(

@@ -457,7 +457,11 @@ fun DownloadAndTryButton(
       } else {
         Text(
           "${(curDownloadProgress * 100).toInt()}%",
-          style = MaterialTheme.typography.bodyMedium,
+          style =
+            MaterialTheme.typography.bodyMedium.copy(
+              // This stops numbers from "jumping around" when being updated.
+              fontFeatureSettings = "tnum"
+            ),
           color = MaterialTheme.colorScheme.onSurface,
           modifier = Modifier.padding(start = 12.dp).width(if (compact) 32.dp else 44.dp),
         )
