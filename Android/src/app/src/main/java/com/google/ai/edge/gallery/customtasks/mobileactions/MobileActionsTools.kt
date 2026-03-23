@@ -18,10 +18,11 @@ package com.google.ai.edge.gallery.customtasks.mobileactions
 import android.util.Log
 import com.google.ai.edge.litertlm.Tool
 import com.google.ai.edge.litertlm.ToolParam
+import com.google.ai.edge.litertlm.ToolSet
 
 private const val TAG = "AGMATools"
 
-class MobileActionsTools(val onFunctionCalled: (Action) -> Unit) {
+class MobileActionsTools(val onFunctionCalled: (Action) -> Unit) : ToolSet {
   /** Turns on flashlight. */
   @Tool(description = "Turns the flashlight on")
   fun turnOnFlashlight(): Map<String, String> {

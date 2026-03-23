@@ -35,6 +35,7 @@ import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.ToolProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.net.URLEncoder
@@ -125,7 +126,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
   fun processUserPrompt(
     model: Model,
     userPrompt: String,
-    tools: List<MobileActionsTools>,
+    tools: List<ToolProvider>,
     onProcessDone: () -> Unit,
     onError: (error: String) -> Unit,
   ) {
@@ -178,7 +179,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     }
   }
 
-  fun resetConversation(model: Model, tools: List<MobileActionsTools>) {
+  fun resetConversation(model: Model, tools: List<ToolProvider>) {
     _isResettingConversation.value = true
     LlmChatModelHelper.resetConversation(
       model = model,
@@ -193,7 +194,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
   fun resetEngine(
     context: Context,
     model: Model,
-    tools: List<MobileActionsTools>,
+    tools: List<ToolProvider>,
     modelManagerViewModel: ModelManagerViewModel,
     onError: (error: String) -> Unit,
   ) {

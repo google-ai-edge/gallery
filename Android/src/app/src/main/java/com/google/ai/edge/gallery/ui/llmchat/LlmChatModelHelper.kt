@@ -43,6 +43,7 @@ import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.SamplerConfig
+import com.google.ai.edge.litertlm.ToolProvider
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -63,7 +64,7 @@ object LlmChatModelHelper : LlmModelHelper {
     supportAudio: Boolean,
     onDone: (String) -> Unit,
     systemInstruction: Contents?,
-    tools: List<Any>,
+    tools: List<ToolProvider>,
     enableConversationConstrainedDecoding: Boolean,
     coroutineScope: CoroutineScope?,
   ) {
@@ -156,7 +157,7 @@ object LlmChatModelHelper : LlmModelHelper {
     supportImage: Boolean,
     supportAudio: Boolean,
     systemInstruction: Contents?,
-    tools: List<Any>,
+    tools: List<ToolProvider>,
     enableConversationConstrainedDecoding: Boolean,
   ) {
     try {

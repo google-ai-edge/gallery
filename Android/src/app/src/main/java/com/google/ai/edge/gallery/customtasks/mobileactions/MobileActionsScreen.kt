@@ -130,6 +130,7 @@ import com.google.ai.edge.gallery.ui.common.textandvoiceinput.VoiceRecognizerOve
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatus
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import com.google.ai.edge.litertlm.ToolProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -226,7 +227,7 @@ fun MobileActionsScreen(
   bottomPadding: Dp,
   setAppBarControlsDisabled: (Boolean) -> Unit,
   curActions: SnapshotStateList<Action>,
-  tools: List<MobileActionsTools>,
+  tools: List<ToolProvider>,
   onProcessingStarted: () -> Unit,
 ) {
   var recordAudioPermissionGranted by remember { mutableStateOf(false) }
@@ -280,7 +281,7 @@ fun MobileActionsScreen(
 fun MainUi(
   task: Task,
   modelManagerViewModel: ModelManagerViewModel,
-  tools: List<MobileActionsTools>,
+  tools: List<ToolProvider>,
   bottomPadding: Dp,
   viewModel: MobileActionsViewModel,
   setAppBarControlsDisabled: (Boolean) -> Unit,

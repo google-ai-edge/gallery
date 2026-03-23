@@ -31,6 +31,7 @@ import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.gallery.ui.llmchat.LlmModelInstance
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.ToolProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -154,7 +155,7 @@ constructor(
   fun resetEngine(
     context: Context,
     model: Model,
-    tools: List<TinyGardenTools>,
+    tools: List<ToolProvider>,
     onError: (error: String) -> Unit,
   ) {
     resetNumTurns()
@@ -190,7 +191,7 @@ constructor(
 
   fun resetConversation(
     model: Model,
-    tools: List<TinyGardenTools>,
+    tools: List<ToolProvider>,
     prevSeed: String,
     prevPlots: String,
     prevAction: String,
