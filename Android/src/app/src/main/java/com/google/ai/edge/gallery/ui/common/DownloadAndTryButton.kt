@@ -78,6 +78,7 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.tos.GemmaTermsOfUseDialog
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
@@ -380,7 +381,10 @@ fun DownloadAndTryButton(
       },
     ) {
       val textColor =
-        if (!downloadSucceeded && model.localFileRelativeDirPathOverride.isEmpty()) {
+        if (!enabled) {
+          // Define the color for disabled button.
+          MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+        } else if (!downloadSucceeded && model.localFileRelativeDirPathOverride.isEmpty()) {
           MaterialTheme.colorScheme.onSurface
         } else if (task != null) {
           Color.White
@@ -392,8 +396,11 @@ fun DownloadAndTryButton(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
       ) {
         Icon(
-          if (needToDownloadFirst) Icons.Outlined.FileDownload
-          else Icons.AutoMirrored.Rounded.ArrowForward,
+          if (needToDownloadFirst) {
+            Icons.Outlined.FileDownload
+          } else {
+            Icons.AutoMirrored.Rounded.ArrowForward
+          },
           contentDescription = null,
           tint = textColor,
         )
