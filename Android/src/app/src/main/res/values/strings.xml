@@ -19,7 +19,6 @@
   <string name="all" translatable="false">All</string>
   <string name="add" translatable="false">Add</string>
   <string name="add_audio" translatable="false">+Audio</string>
-  <string name="add_image" translatable="false">+Image</string>
   <string name="app_intro" translatable="false">Explore a world of amazing on-device models from</string>
   <string name="app_name" translatable="false">Google AI Edge Gallery</string>
   <string name="app_name_first_part" translatable="false">Google AI</string>
@@ -102,6 +101,9 @@
   <string name="listening" translatable="false">Listening...</string>
   <string name="litert_community_label" translatable="false">LiteRT community</string>
   <string name="loading_model_list" translatable="false">Loading model list...</string>
+  <string name="logs_viewer_filter_text_input_placeholder" translatable="false">Filter logs</string>
+  <string name="logs_viewer_title" translatable="false">Logs viewer</string>
+  <string name="logs_viewer_no_matching_logs" translatable="false">No logs match the filter</string>
   <string name="memory_warning_content" translatable="false">The model you\'ve selected may exceed your device\'s memory, which can cause the app to crash. For the best experience, we recommend trying a smaller model.</string>
   <string name="memory_warning_proceed_anyway" translatable="false">Proceed anyway</string>
   <string name="memory_warning_title" translatable="false">Memory Warning</string>
@@ -177,6 +179,7 @@
   <string name="mobile_actions_tab_model_response" translatable="false">Model response</string>
   <string name="mobile_actions_tab_function_called" translatable="false">Function(s) called</string>
   <string name="view_results" translatable="false">View results</string>
+  <string name="view_console_logs" translatable="false">View console logs</string>
   <string name="warming_up" translatable="false">warming up…</string>
   <string name="warning_no_function_call" translatable="false">No function recognized</string>
   <string name="snackbar_no_function_call" translatable="false">No function recognized</string>

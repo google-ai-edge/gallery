@@ -16,8 +16,6 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
-import android.util.Log
-import android.webkit.ConsoleMessage
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
@@ -35,12 +33,5 @@ fun MessageBodyWebview(message: ChatMessageWebView, modifier: Modifier = Modifie
     useIframeWrapper = message.iframe,
     preventParentScrolling = true,
     allowRequestPermission = true,
-    onConsoleMessage = { consoleMessage: ConsoleMessage? ->
-      Log.d(
-        TAG,
-        "${consoleMessage?.message()} -- From line ${consoleMessage?.lineNumber()} of ${consoleMessage?.sourceId()}",
-      )
-      true // Return true to indicate the message was handled.
-    },
   )
 }

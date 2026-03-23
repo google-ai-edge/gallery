@@ -291,9 +291,37 @@ abstract class ChatViewModel() : ViewModel() {
                     listOf()
                   },
               customData = lastProgressPanelMessage.customData,
+              logMessages = lastProgressPanelMessage.logMessages,
             )
           newMessages[lastProgressPanelMessageIndex] = updatedMessage
         }
+      }
+    }
+    newMessagesByModel[model.name] = newMessages
+    _uiState.update { _uiState.value.copy(messagesByModel = newMessagesByModel) }
+  }
+
+  fun addLogMessageToLastCollapsableProgressPanel(model: Model, logMessage: LogMessage) {
+    val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
+    val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
+    if (newMessages.isNotEmpty()) {
+      val lastCollapsableIndex = newMessages.indexOfLast {
+        it is ChatMessageCollapsableProgressPanel
+      }
+      if (lastCollapsableIndex != -1) {
+        val lastMessage = newMessages[lastCollapsableIndex] as ChatMessageCollapsableProgressPanel
+        val newLogMessages = lastMessage.logMessages + logMessage
+        val updatedMessage =
+          ChatMessageCollapsableProgressPanel(
+            title = lastMessage.title,
+            inProgress = lastMessage.inProgress,
+            accelerator = lastMessage.accelerator,
+            doneIcon = lastMessage.doneIcon,
+            items = lastMessage.items,
+            logMessages = newLogMessages,
+            customData = lastMessage.customData,
+          )
+        newMessages[lastCollapsableIndex] = updatedMessage
       }
     }
     newMessagesByModel[model.name] = newMessages

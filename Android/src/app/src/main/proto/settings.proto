@@ -75,6 +75,8 @@ message Settings {
   // Feature flags
   map<string, bool> feature_flags = 9;
   // copybara:strip_end
+
+  repeated string viewed_promo_id = 10;
 }
 
 message UserData {

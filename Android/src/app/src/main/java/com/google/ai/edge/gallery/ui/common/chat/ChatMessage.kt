@@ -351,6 +351,19 @@ class ChatMessageWebView(
 
 data class ProgressPanelItem(val title: String, val description: String)
 
+enum class LogMessageLevel {
+  Info,
+  Warning,
+  Error,
+}
+
+data class LogMessage(
+  val level: LogMessageLevel = LogMessageLevel.Info,
+  val source: String = "",
+  val lineNumber: Int = -1,
+  val message: String = "",
+)
+
 /** Chat message for showing a collapsable progress panel. */
 class ChatMessageCollapsableProgressPanel(
   val title: String,
@@ -358,6 +371,7 @@ class ChatMessageCollapsableProgressPanel(
   override val accelerator: String,
   val doneIcon: ImageVector = Icons.Rounded.Check,
   val items: List<ProgressPanelItem> = listOf(),
+  val logMessages: List<LogMessage> = listOf(),
   val customData: Any? = null,
 ) :
   ChatMessage(
@@ -372,6 +386,7 @@ class ChatMessageCollapsableProgressPanel(
       accelerator = accelerator,
       doneIcon = doneIcon,
       items = items.toList(),
+      logMessages = logMessages.toList(),
       customData = customData,
     )
   }

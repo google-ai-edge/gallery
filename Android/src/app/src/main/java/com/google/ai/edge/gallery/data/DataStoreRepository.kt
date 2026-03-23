@@ -84,6 +84,15 @@ interface DataStoreRepository {
   fun getAllBenchmarkResults(): List<BenchmarkResult>
 
   fun deleteBenchmarkResult(index: Int)
+
+  /** Records that a promo with the specified ID has been viewed. */
+  fun addViewedPromoId(promoId: String)
+
+  /** Removes a viewed promo record. */
+  fun removeViewedPromoId(promoId: String)
+
+  /** Returns whether a promo with the specified ID has been viewed. */
+  fun hasViewedPromo(promoId: String): Boolean
 }
 
 /** Repository for managing data using Proto DataStore. */
@@ -304,6 +313,34 @@ class DefaultDataStoreRepository(
         val newResults = results.toBuilder().removeResult(index).build()
         newResults
       }
+    }
+  }
+
+  override fun addViewedPromoId(promoId: String) {
+    runBlocking {
+      dataStore.updateData { settings ->
+        if (settings.viewedPromoIdList.contains(promoId)) {
+          settings
+        } else {
+          settings.toBuilder().addViewedPromoId(promoId).build()
+        }
+      }
+    }
+  }
+
+  override fun removeViewedPromoId(promoId: String) {
+    runBlocking {
+      dataStore.updateData { settings ->
+        val newList = settings.viewedPromoIdList.filter { it != promoId }
+        settings.toBuilder().clearViewedPromoId().addAllViewedPromoId(newList).build()
+      }
+    }
+  }
+
+  override fun hasViewedPromo(promoId: String): Boolean {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      settings.viewedPromoIdList.contains(promoId)
     }
   }
 }

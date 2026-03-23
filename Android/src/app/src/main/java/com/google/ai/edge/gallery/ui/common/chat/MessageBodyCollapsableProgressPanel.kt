@@ -40,8 +40,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -55,7 +58,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.R
 
 private const val MAX_DESCRIPTION_LINES = 5
 
@@ -66,6 +71,7 @@ private const val MAX_DESCRIPTION_LINES = 5
 @Composable
 fun MessageBodyCollapsableProgressPanel(message: ChatMessageCollapsableProgressPanel) {
   var isExpanded by remember { mutableStateOf(false) }
+  var showLogsViewer by remember { mutableStateOf(false) }
 
   Column(
     modifier =
@@ -126,7 +132,16 @@ fun MessageBodyCollapsableProgressPanel(message: ChatMessageCollapsableProgressP
       exit = shrinkVertically(),
     ) {
       Column(
-        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp),
+        modifier =
+          Modifier.padding(horizontal = 16.dp)
+            .padding(
+              bottom =
+                if (message.logMessages.isEmpty()) {
+                  12.dp
+                } else {
+                  8.dp
+                }
+            ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
       ) {
         for (item in message.items) {
@@ -172,7 +187,28 @@ fun MessageBodyCollapsableProgressPanel(message: ChatMessageCollapsableProgressP
             }
           }
         }
+
+        if (message.logMessages.isNotEmpty()) {
+          Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
+            AssistChip(
+              onClick = { showLogsViewer = true },
+              label = { Text(stringResource(R.string.view_console_logs)) },
+              leadingIcon = {
+                Icon(
+                  Icons.AutoMirrored.Outlined.Article,
+                  contentDescription = null,
+                  Modifier.size(AssistChipDefaults.IconSize),
+                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              },
+            )
+          }
+        }
       }
     }
+  }
+
+  if (showLogsViewer) {
+    LogsViewer(logs = message.logMessages, onDismissRequest = { showLogsViewer = false })
   }
 }

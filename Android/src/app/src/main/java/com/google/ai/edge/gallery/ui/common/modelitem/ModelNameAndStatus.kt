@@ -170,7 +170,11 @@ fun ModelNameAndStatus(
               line,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               maxLines = 1,
-              style = MaterialTheme.typography.bodyMedium,
+              style =
+                MaterialTheme.typography.bodyMedium.copy(
+                  // This stops numbers from "jumping around" when being updated.
+                  fontFeatureSettings = "tnum"
+                ),
               overflow = TextOverflow.Visible,
               modifier = Modifier.offset(y = if (index == 0) 0.dp else (-1).dp),
             )

@@ -29,6 +29,7 @@ data class DefaultConfig(
   @SerializedName("temperature") val temperature: Float?,
   @SerializedName("accelerators") val accelerators: String?,
   @SerializedName("visionAccelerator") val visionAccelerator: String?,
+  @SerializedName("maxContextLength") val maxContextLength: Int?,
   @SerializedName("maxTokens") val maxTokens: Int?,
 )
 
@@ -95,6 +96,7 @@ data class AllowedModel(
         taskTypes.contains(BuiltInTaskId.LLM_TINY_GARDEN)
     var configs: MutableList<Config> = mutableListOf()
     var llmMaxToken = 1024
+    var llmMaxContextLength: Int? = null
     var accelerators: List<Accelerator> = DEFAULT_ACCELERATORS
     var visionAccelerator: Accelerator = DEFAULT_VISION_ACCELERATOR
     if (isLlmModel) {
@@ -102,6 +104,7 @@ data class AllowedModel(
       val defaultTopP: Float = defaultConfig.topP ?: DEFAULT_TOPP
       val defaultTemperature: Float = defaultConfig.temperature ?: DEFAULT_TEMPERATURE
       llmMaxToken = defaultConfig.maxTokens ?: 1024
+      llmMaxContextLength = defaultConfig.maxContextLength
       if (defaultConfig.accelerators != null) {
         val items = defaultConfig.accelerators.split(",")
         accelerators = mutableListOf()
@@ -143,6 +146,7 @@ data class AllowedModel(
               defaultTopP = defaultTopP,
               defaultTemperature = defaultTemperature,
               defaultMaxToken = llmMaxToken,
+              defaultMaxContextLength = llmMaxContextLength,
               accelerators = accelerators,
             )
           })

@@ -218,13 +218,26 @@ fun convertValueToTargetType(value: Any, valueType: ValueType): Any {
 
 fun createLlmChatConfigs(
   defaultMaxToken: Int = DEFAULT_MAX_TOKEN,
+  defaultMaxContextLength: Int? = null,
   defaultTopK: Int = DEFAULT_TOPK,
   defaultTopP: Float = DEFAULT_TOPP,
   defaultTemperature: Float = DEFAULT_TEMPERATURE,
   accelerators: List<Accelerator> = DEFAULT_ACCELERATORS,
 ): List<Config> {
+  var maxTokensConfig: Config =
+    LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken")
+  if (defaultMaxContextLength != null) {
+    maxTokensConfig =
+      NumberSliderConfig(
+        key = ConfigKeys.MAX_TOKENS,
+        sliderMin = 128f,
+        sliderMax = defaultMaxContextLength.toFloat(),
+        defaultValue = defaultMaxToken.toFloat(),
+        valueType = ValueType.INT,
+      )
+  }
   return listOf(
-    LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken"),
+    maxTokensConfig,
     NumberSliderConfig(
       key = ConfigKeys.TOPK,
       sliderMin = 5f,

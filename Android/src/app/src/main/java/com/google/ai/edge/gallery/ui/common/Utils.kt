@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.Brush.Companion.linearGradient
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -250,6 +251,7 @@ fun RevealingText(
   text: String,
   style: TextStyle,
   modifier: Modifier = Modifier,
+  annotatedText: AnnotatedString? = null,
   animationDelay: Long = 0,
   animationDurationMs: Int = 300,
   edgeGradientRelativeSize: Float = 0.5f,
@@ -280,7 +282,11 @@ fun RevealingText(
         },
     contentAlignment = Alignment.Center,
   ) {
-    Text(text, style = style, modifier = Modifier.padding(horizontal = extraTextPadding))
+    if (annotatedText != null) {
+      Text(annotatedText, style = style, modifier = Modifier.padding(horizontal = extraTextPadding))
+    } else {
+      Text(text, style = style, modifier = Modifier.padding(horizontal = extraTextPadding))
+    }
   }
 }
 
