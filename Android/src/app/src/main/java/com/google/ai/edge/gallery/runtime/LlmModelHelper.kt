@@ -20,6 +20,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.ToolProvider
 import kotlinx.coroutines.CoroutineScope
 
 typealias ResultListener = (partialResult: String, done: Boolean) -> Unit
@@ -53,7 +54,7 @@ interface LlmModelHelper {
     supportAudio: Boolean,
     onDone: (String) -> Unit,
     systemInstruction: Contents? = null,
-    tools: List<Any> = listOf(),
+    tools: List<ToolProvider> = listOf(),
     enableConversationConstrainedDecoding: Boolean = false,
     coroutineScope: CoroutineScope? = null,
   )
@@ -73,7 +74,7 @@ interface LlmModelHelper {
     supportImage: Boolean = false,
     supportAudio: Boolean = false,
     systemInstruction: Contents? = null,
-    tools: List<Any> = listOf(),
+    tools: List<ToolProvider> = listOf(),
     enableConversationConstrainedDecoding: Boolean = false,
   )
 

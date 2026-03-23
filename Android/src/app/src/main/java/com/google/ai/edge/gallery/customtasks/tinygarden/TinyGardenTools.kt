@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.customtasks.tinygarden
 import android.util.Log
 import com.google.ai.edge.litertlm.Tool
 import com.google.ai.edge.litertlm.ToolParam
+import com.google.ai.edge.litertlm.ToolSet
 
 private const val TAG = "AGTGTools"
 
@@ -45,7 +46,7 @@ data class TinyGardenCommand(
  * Instructions:
  * https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md#6-defining-and-using-tools
  */
-class TinyGardenTools(val onFunctionCalled: (command: TinyGardenCommand) -> Unit) {
+class TinyGardenTools(val onFunctionCalled: (command: TinyGardenCommand) -> Unit) : ToolSet {
 
   /** Waters one or more garden plots. */
   @Tool(description = "Water one or more garden plots.")

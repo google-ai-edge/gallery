@@ -30,6 +30,7 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.tool
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -43,7 +44,7 @@ private const val TAG = "AGMATask"
  */
 class MobileActionsTask @Inject constructor() : CustomTask {
   private var curActions = mutableStateListOf<Action>()
-  private val tools = listOf(MobileActionsTools(onFunctionCalled = { curActions.add(it) }))
+  private val tools = listOf(tool(MobileActionsTools(onFunctionCalled = { curActions.add(it) })))
 
   override val task =
     Task(

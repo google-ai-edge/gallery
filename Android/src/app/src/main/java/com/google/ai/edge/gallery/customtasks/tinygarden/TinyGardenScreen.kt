@@ -108,6 +108,7 @@ import com.google.ai.edge.gallery.ui.common.textandvoiceinput.TextAndVoiceInput
 import com.google.ai.edge.gallery.ui.common.textandvoiceinput.VoiceRecognizerOverlay
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
+import com.google.ai.edge.litertlm.ToolProvider
 import com.google.common.io.BaseEncoding
 import java.security.MessageDigest
 import kotlinx.coroutines.delay
@@ -122,7 +123,7 @@ private const val ASSETS_BASE_URL = "https://appassets.androidplatform.net"
 fun TinyGardenScreen(
   task: Task,
   modelManagerViewModel: ModelManagerViewModel,
-  tools: List<TinyGardenTools>,
+  tools: List<ToolProvider>,
   bottomPadding: Dp,
   setAppBarControlsDisabled: (Boolean) -> Unit,
   setTopBarVisible: (Boolean) -> Unit,
@@ -218,7 +219,7 @@ fun TinyGardenScreen(
 fun MainUi(
   task: Task,
   modelManagerViewModel: ModelManagerViewModel,
-  tools: List<TinyGardenTools>,
+  tools: List<ToolProvider>,
   bottomPadding: Dp,
   viewModel: TinyGardenViewModel,
   setAppBarControlsDisabled: (Boolean) -> Unit,
