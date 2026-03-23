@@ -53,6 +53,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.ModelDownloadStatusType
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.MarkdownText
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
@@ -151,13 +153,15 @@ fun ModelItem(
       AnimatedContent(isExpanded, label = "item_layout_transition") { targetState ->
         // Show description when expanded.
         if (targetState) {
-          if (model.info.isNotEmpty()) {
-            MarkdownText(
-              model.info,
-              smallFontSize = true,
-              textColor = MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier = Modifier.padding(top = 12.dp),
-            )
+          Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            if (model.info.isNotEmpty()) {
+              MarkdownText(
+                model.info,
+                smallFontSize = true,
+                textColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 12.dp),
+              )
+            }
           }
         }
       }

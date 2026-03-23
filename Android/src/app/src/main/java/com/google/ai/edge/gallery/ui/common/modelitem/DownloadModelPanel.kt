@@ -44,6 +44,7 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.DownloadAndTryButton
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
@@ -113,11 +114,17 @@ fun DownloadModelPanel(
         Spacer(modifier = Modifier.width(8.dp))
       }
 
+      fun isDownloadButtonEnabled(downloadStatus: ModelDownloadStatus?, model: Model): Boolean {
+        val downloadFailed = downloadStatus?.status == ModelDownloadStatusType.FAILED
+        val isLitertLm = model.runtimeType == RuntimeType.LITERT_LM
+        return !downloadFailed || isLitertLm
+      }
+
       DownloadAndTryButton(
         task = task,
         model = model,
         downloadStatus = downloadStatus,
-        enabled = true,
+        enabled = isDownloadButtonEnabled(downloadStatus, model),
         modelManagerViewModel = modelManagerViewModel,
         onClicked = onTryItClicked,
         compact = !isExpanded,
