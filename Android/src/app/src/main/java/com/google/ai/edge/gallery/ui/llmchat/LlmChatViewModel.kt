@@ -139,6 +139,10 @@ open class LlmChatViewModelBase() : ChatViewModel() {
           onError(message)
         }
 
+        val enableThinking =
+          model.getBooleanConfigValue(key = ConfigKeys.ENABLE_THINKING, defaultValue = false)
+        val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
+
         model.runtimeHelper.runInference(
           model = model,
           input = input,
@@ -148,6 +152,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
           cleanUpListener = cleanUpListener,
           onError = errorListener,
           coroutineScope = viewModelScope,
+          extraContext = extraContext,
         )
       } catch (e: Exception) {
         Log.e(TAG, "Error occurred while running inference", e)

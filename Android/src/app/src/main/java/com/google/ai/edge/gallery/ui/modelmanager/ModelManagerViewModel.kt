@@ -1055,6 +1055,11 @@ constructor(
         }
         .toMutableList()
     val llmMaxToken = info.llmConfig.defaultMaxTokens
+    val llmSupportImage = info.llmConfig.supportImage
+    val llmSupportAudio = info.llmConfig.supportAudio
+    val llmSupportTinyGarden = info.llmConfig.supportTinyGarden
+    val llmSupportMobileActions = info.llmConfig.supportMobileActions
+    val llmSupportThinking = info.llmConfig.supportThinking
     val configs: MutableList<Config> =
       createLlmChatConfigs(
           defaultMaxToken = llmMaxToken,
@@ -1062,12 +1067,9 @@ constructor(
           defaultTopP = info.llmConfig.defaultTopp,
           defaultTemperature = info.llmConfig.defaultTemperature,
           accelerators = accelerators,
+          supportThinking = llmSupportThinking,
         )
         .toMutableList()
-    val llmSupportImage = info.llmConfig.supportImage
-    val llmSupportAudio = info.llmConfig.supportAudio
-    val llmSupportTinyGarden = info.llmConfig.supportTinyGarden
-    val llmSupportMobileActions = info.llmConfig.supportMobileActions
     val model =
       Model(
         name = info.fileName,
@@ -1082,6 +1084,7 @@ constructor(
         llmSupportAudio = llmSupportAudio,
         llmSupportTinyGarden = llmSupportTinyGarden,
         llmSupportMobileActions = llmSupportMobileActions,
+        llmSupportThinking = llmSupportThinking,
         llmMaxToken = llmMaxToken,
         accelerators = accelerators,
         // We assume all imported models are LLM for now.

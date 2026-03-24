@@ -97,6 +97,7 @@ interface LlmModelHelper {
    * @param images optional list of images provided as input context.
    * @param audioClips optional list of audio clips provided as input context.
    * @param coroutineScope optional coroutine scope for async inference execution.
+   * @param extraContext optional extra context for inference.
    */
   fun runInference(
     model: Model,
@@ -107,6 +108,7 @@ interface LlmModelHelper {
     images: List<Bitmap> = listOf(),
     audioClips: List<ByteArray> = listOf(),
     coroutineScope: CoroutineScope? = null,
+    extraContext: Map<String, String>? = null,
   )
 
   /**

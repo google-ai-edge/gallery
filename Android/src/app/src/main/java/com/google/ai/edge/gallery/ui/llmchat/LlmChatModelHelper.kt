@@ -251,6 +251,7 @@ object LlmChatModelHelper : LlmModelHelper {
     images: List<Bitmap>,
     audioClips: List<ByteArray>,
     coroutineScope: CoroutineScope?,
+    extraContext: Map<String, String>?,
   ) {
     val instance = model.instance as? LlmModelInstance
     if (instance == null) {

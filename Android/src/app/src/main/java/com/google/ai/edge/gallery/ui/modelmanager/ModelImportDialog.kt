@@ -135,6 +135,7 @@ private val IMPORT_CONFIGS_LLM: List<Config> =
     BooleanSwitchConfig(key = ConfigKeys.SUPPORT_AUDIO, defaultValue = false),
     BooleanSwitchConfig(key = ConfigKeys.SUPPORT_TINY_GARDEN, defaultValue = false),
     BooleanSwitchConfig(key = ConfigKeys.SUPPORT_MOBILE_ACTIONS, defaultValue = false),
+    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_THINKING, defaultValue = false),
     SegmentedButtonConfig(
       key = ConfigKeys.COMPATIBLE_ACCELERATORS,
       defaultValue = SUPPORTED_ACCELERATORS[0].label,
@@ -271,6 +272,12 @@ fun ModelImportDialog(
                   valueType = ValueType.BOOLEAN,
                 )
                   as Boolean
+              val supportThinking =
+                convertValueToTargetType(
+                  value = values.get(ConfigKeys.SUPPORT_THINKING.label)!!,
+                  valueType = ValueType.BOOLEAN,
+                )
+                  as Boolean
               val importedModel: ImportedModel =
                 ImportedModel.newBuilder()
                   .setFileName(fileName)
@@ -285,6 +292,7 @@ fun ModelImportDialog(
                       .setSupportImage(supportImage)
                       .setSupportAudio(supportAudio)
                       .setSupportMobileActions(supportMobileActions)
+                      .setSupportThinking(supportThinking)
                       .setSupportTinyGarden(supportTinyGarden)
                       .build()
                   )
