@@ -100,3 +100,6 @@ val homePageTitleStyle =
 val bodyLargeNarrow = baseline.bodyLarge.copy(letterSpacing = 0.2.sp)
 
 val headlineLargeMedium = baseline.headlineLarge.copy(fontWeight = FontWeight.Medium)
+
+val emptyStateTitle = baseline.headlineSmall.copy(fontSize = 37.sp, lineHeight = 50.sp)
+val emptyStateContent = baseline.headlineSmall.copy(fontSize = 16.sp, lineHeight = 22.sp)

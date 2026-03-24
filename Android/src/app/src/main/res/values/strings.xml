@@ -19,10 +19,16 @@
   <string name="all" translatable="false">All</string>
   <string name="add" translatable="false">Add</string>
   <string name="add_audio" translatable="false">+Audio</string>
+  <string name="aichat_emptystate_title" translatable="false">AI Chat</string>
+  <string name="aichat_emptystate_content" translatable="false">Chat with on-device large language models</string>
   <string name="app_intro" translatable="false">Explore a world of amazing on-device models from</string>
   <string name="app_name" translatable="false">Google AI Edge Gallery</string>
   <string name="app_name_first_part" translatable="false">Google AI</string>
   <string name="app_name_second_part" translatable="false">Edge Gallery</string>
+  <string name="askimage_emptystate_title" translatable="false">Ask Image</string>
+  <string name="askimage_emptystate_content" translatable="false">To get started, tap the + below to add an image (max 10 images per chat) and type a prompt to ask a question about it!</string>
+  <string name="askaudio_emptystate_title" translatable="false">Ask Audio</string>
+  <string name="askaudio_emptystate_content" translatable="false">To get started, tap the + below to add a audio clip (limited to 1 clip up to 30 seconds) and type a prompt to transcribe or translate it!</string>
   <string name="gallery_news_notification_title" translatable="false">Gallery News</string>
   <string name="baseline" translatable="false">Baseline</string>
   <string name="basic_info" translatable="false">Basic info</string>
@@ -97,7 +103,7 @@
   <string name="instructions" translatable="false">Instructions</string>
   <string name="introducing" translatable="false">Introducing</string>
   <string name="invalid_response" translatable="false">Invalid response</string>
-  <string name="learn_more" translatable="false">Learn more</string>
+  <string name="learn_more" translatable="false">Learn more and see model license</string>
   <string name="listening" translatable="false">Listening...</string>
   <string name="litert_community_label" translatable="false">LiteRT community</string>
   <string name="loading_model_list" translatable="false">Loading model list...</string>
@@ -185,6 +191,7 @@
   <string name="snackbar_no_function_call" translatable="false">No function recognized</string>
   <string name="unknown_error" translatable="false">Unknown error</string>
   <string name="view" translatable="false">View</string>
+  <string name="view_in_full_screen" translatable="false">View in full screen</string>
 
   <plurals name="parameter" translatable="false">
     <item quantity="one">Parameter</item>

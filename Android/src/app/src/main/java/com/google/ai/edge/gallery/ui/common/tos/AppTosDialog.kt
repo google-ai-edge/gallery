@@ -70,7 +70,8 @@ fun AppTosDialog(onTosAccepted: () -> Unit, viewingMode: Boolean = false) {
               "[Google Terms of Service](https://policies.google.com/terms?hl=en-US).\n\n" +
               "To learn what information we collect and why, how we use it, " +
               "and how to review and update it, please review the " +
-              "[Google Privacy Policy](https://policies.google.com/privacy?hl=en-US).",
+              "[Google Privacy Policy](https://policies.google.com/privacy?hl=en-US).\n\n" +
+              "Your use of each model is subject to the applicable model license terms.",
             smallFontSize = true,
             textColor = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 16.dp),

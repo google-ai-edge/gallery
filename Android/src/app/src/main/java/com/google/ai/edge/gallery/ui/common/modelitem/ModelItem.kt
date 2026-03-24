@@ -115,19 +115,19 @@ fun ModelItem(
 
   Box(modifier = boxModifier) {
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-      Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      Box(
         modifier = Modifier.semantics { isTraversalGroup = true },
+        contentAlignment = Alignment.CenterStart,
       ) {
         ModelNameAndStatus(
           model = model,
           task = task,
           downloadStatus = downloadStatus,
           isExpanded = isExpanded,
-          modifier = Modifier.weight(1f),
+          modifier = Modifier.fillMaxWidth(),
         )
         // Button to delete model and expand/collapse button at the right.
-        Row(verticalAlignment = Alignment.Top) {
+        Row(verticalAlignment = Alignment.Top, modifier = Modifier.align(Alignment.TopEnd)) {
           if (model.localFileRelativeDirPathOverride.isEmpty()) {
             DeleteModelButton(
               model = model,

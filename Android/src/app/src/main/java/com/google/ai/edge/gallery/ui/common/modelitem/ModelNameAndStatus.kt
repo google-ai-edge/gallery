@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
@@ -196,7 +197,11 @@ fun ModelNameAndStatus(
           contentDescription = null,
           modifier = Modifier.size(MODEL_INFO_ICON_SIZE).offset(y = 1.dp),
         )
-        ClickableLink(model.learnMoreUrl, linkText = stringResource(R.string.learn_more))
+        ClickableLink(
+          model.learnMoreUrl,
+          linkText = stringResource(R.string.learn_more),
+          textAlign = TextAlign.Left,
+        )
       }
     }
   }

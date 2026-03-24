@@ -213,6 +213,10 @@ constructor(
     }
   }
 
+  fun getSelectedModel(): Model? {
+    return uiState.value.selectedModel
+  }
+
   fun getModelByName(name: String): Model? {
     for (task in uiState.value.tasks) {
       for (model in task.models) {
