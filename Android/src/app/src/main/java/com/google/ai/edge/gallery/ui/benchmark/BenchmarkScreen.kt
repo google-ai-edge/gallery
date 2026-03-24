@@ -117,7 +117,7 @@ fun BenchmarkScreen(
           NumberSliderConfig(
             key = ConfigKeys.PREFILL_TOKENS,
             sliderMin = 16f,
-            sliderMax = 1024f,
+            sliderMax = selectedModel.llmMaxToken.toFloat(),
             defaultValue = 256f,
             valueType = ValueType.INT,
           )
