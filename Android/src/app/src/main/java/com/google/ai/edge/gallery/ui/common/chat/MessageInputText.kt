@@ -386,7 +386,7 @@ fun MessageInputText(
                 ) {
                   // A plus button to show a popup menu to add stuff to the chat.
                   Box() {
-                    val enableAddButton = !inProgress && !isResettingSession
+                    val enableAddButton = !inProgress && !isResettingSession && !modelInitializing
                     OutlinedIconButton(
                       enabled = enableAddButton,
                       onClick = { showAddContentMenu = true },

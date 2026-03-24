@@ -29,6 +29,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -136,6 +138,8 @@ data class CustomColors(
   val newFeatureContainerColor: Color = Color.Transparent,
   val newFeatureTextColor: Color = Color.Transparent,
   val bgStarColor: Color = Color.Transparent,
+  val promoBannerBgBrush: Brush = Brush.verticalGradient(listOf(Color.Transparent)),
+  val promoBannerIconBgBrush: Brush = Brush.verticalGradient(listOf(Color.Transparent)),
 )
 
 val LocalCustomColors = staticCompositionLocalOf { CustomColors() }
@@ -194,6 +198,28 @@ val lightCustomColors =
     newFeatureContainerColor = Color(0xFFEEDCFE),
     newFeatureTextColor = Color(0xFF400B84),
     bgStarColor = Color(0x3A669AF5),
+    promoBannerBgBrush =
+      Brush.linearGradient(
+        colorStops =
+          arrayOf(
+            0.0f to Color(0x42ACB7FF),
+            0.6154f to Color(0x422D96FF),
+            1.0f to Color(0x423C6BFF),
+          ),
+        start = Offset(0f, 0f),
+        end = Offset(0f, Float.POSITIVE_INFINITY),
+      ),
+    promoBannerIconBgBrush =
+      Brush.linearGradient(
+        colorStops =
+          arrayOf(
+            0.2442f to Color(0x3B446EFF),
+            0.4296f to Color(0x3B2E96FF),
+            0.6651f to Color(0x3BB1C5FF),
+          ),
+        start = Offset(0f, 1f),
+        end = Offset(1f, 0f),
+      ),
   )
 
 val darkCustomColors =
@@ -250,6 +276,23 @@ val darkCustomColors =
     newFeatureContainerColor = Color(0xFFEEDCFE),
     newFeatureTextColor = Color(0xFF400B84),
     bgStarColor = Color(0x19346BF0),
+    promoBannerBgBrush =
+      Brush.linearGradient(
+        colorStops = arrayOf(0.0f to Color(0x82183570), 0.8077f to Color(0x820A122D)),
+        start = Offset(0f, 0f),
+        end = Offset(0f, Float.POSITIVE_INFINITY),
+      ),
+    promoBannerIconBgBrush =
+      Brush.linearGradient(
+        colorStops =
+          arrayOf(
+            0.2442f to Color(0x6F0F41F8),
+            0.4296f to Color(0x6F1685F8),
+            0.6651f to Color(0x6F809EF3),
+          ),
+        start = Offset(0f, 1f),
+        end = Offset(1f, 0f),
+      ),
   )
 
 val MaterialTheme.customColors: CustomColors

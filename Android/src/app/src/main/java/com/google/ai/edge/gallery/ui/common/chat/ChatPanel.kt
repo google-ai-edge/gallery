@@ -37,7 +37,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
@@ -111,7 +110,7 @@ fun ChatPanel(
   showStopButtonInInputWhenInProgress: Boolean = false,
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
-  emptyStateComposable: @Composable () -> Unit = {},
+  emptyStateComposable: @Composable (Model) -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -460,7 +459,7 @@ fun ChatPanel(
 
         // Show empty state.
         if (messages.isEmpty() && pickedImagesCount == 0 && pickedAudioClipsCount == 0) {
-          emptyStateComposable()
+          emptyStateComposable(selectedModel)
         }
       }
 

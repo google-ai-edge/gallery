@@ -77,6 +77,7 @@ fun ClickableLink(
   linkText: String,
   modifier: Modifier = Modifier,
   icon: ImageVector? = null,
+  textAlign: TextAlign = TextAlign.Center,
 ) {
   val annotatedText = buildTrackableUrlAnnotatedString(url, linkText)
 
@@ -90,7 +91,7 @@ fun ClickableLink(
     }
     Text(
       text = annotatedText,
-      textAlign = TextAlign.Center,
+      textAlign = textAlign,
       style = MaterialTheme.typography.bodyMedium,
       modifier = Modifier.padding(start = 6.dp),
     )
