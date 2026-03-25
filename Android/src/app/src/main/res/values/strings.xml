@@ -77,7 +77,6 @@
   <string name="create" translatable="false">Create</string>
   <string name="delete" translatable="false">Delete</string>
   <string name="description_required" translatable="false">Description*</string>
-  <string name="deselect_all" translatable="false">Deselect all</string>
   <string name="disabled" translatable="false">Disabled</string>
   <string name="dismiss" translatable="false">Dismiss</string>
   <string name="done" translatable="false">Done</string>
@@ -152,7 +151,6 @@
   <string name="run_benchmark_confirmation_msg" translatable="false">This process typically takes several minutes and cannot be interrupted once started. Would you like to proceed?</string>
   <string name="running_benchmark_msg" translatable="false">Running model benchmark...</string>
   <string name="secret" translatable="false">Secret</string>
-  <string name="select_all" translatable="false">Select all</string>
   <string name="select_downloaded_model" translatable="false">Select a downloaded model</string>
   <string name="select_model" translatable="false">Select a model</string>
   <string name="selected_count" translatable="false">%d selected</string>
@@ -173,6 +171,8 @@
   <string name="tos_dialog_accept_and_continue_button_label" translatable="false">Accept &amp; continue</string>
   <string name="tos_dialog_agree_and_continue_button_label" translatable="false">Agree &amp; continue</string>
   <string name="try_it" translatable="false">Try it</string>
+  <string name="turn_on_all" translatable="false">Turn on all</string>
+  <string name="turn_off_all" translatable="false">Turn off all</string>
   <string name="undo" translatable="false">Undo</string>
   <string name="unsupported_action" translatable="false">Unsupported action</string>
   <string name="set_screen_brightness_message" translatable="false">I\'ve set the screen brightness to %1$d%%.</string>
