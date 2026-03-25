@@ -63,7 +63,7 @@ fun MessageBodyWebview(message: ChatMessageWebView, modifier: Modifier = Modifie
 
   Column(modifier = modifier) {
     GalleryWebView(
-      modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f),
+      modifier = Modifier.fillMaxWidth().aspectRatio(message.aspectRatio),
       initialUrl = message.url,
       useIframeWrapper = message.iframe,
       preventParentScrolling = true,

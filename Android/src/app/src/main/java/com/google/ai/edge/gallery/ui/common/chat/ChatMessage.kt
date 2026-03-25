@@ -330,6 +330,7 @@ class ChatMessagePromptTemplates(
 class ChatMessageWebView(
   val url: String,
   val iframe: Boolean,
+  val aspectRatio: Float,
   override val side: ChatSide = ChatSide.AGENT,
   override val hideSenderLabel: Boolean = false,
 ) :
@@ -343,6 +344,7 @@ class ChatMessageWebView(
     return ChatMessageWebView(
       url = url,
       iframe = iframe,
+      aspectRatio = aspectRatio,
       side = side,
       hideSenderLabel = hideSenderLabel,
     )
