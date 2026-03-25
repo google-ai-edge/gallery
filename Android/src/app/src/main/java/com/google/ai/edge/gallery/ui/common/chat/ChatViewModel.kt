@@ -213,88 +213,74 @@ abstract class ChatViewModel() : ViewModel() {
     val accelerator = model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = "")
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
     val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
-    if (newMessages.isNotEmpty()) {
-      val lastMessage = newMessages.last()
-      // If the last message is a loading message, replace it with a collapsable progress message.
-      if (lastMessage is ChatMessageLoading) {
-        newMessages.removeAt(newMessages.size - 1)
-        val newCollapsableMessage =
+
+    val createNewCollapsableMessage = {
+      ChatMessageCollapsableProgressPanel(
+        title = title,
+        inProgress = inProgress,
+        doneIcon = doneIcon,
+        items =
+          if (addItemTitle.isNotEmpty()) {
+            listOf(ProgressPanelItem(title = addItemTitle, description = addItemDescription))
+          } else {
+            listOf()
+          },
+        accelerator = accelerator,
+        customData = customData,
+      )
+    }
+
+    if (newMessages.isNotEmpty() && newMessages.last() is ChatMessageLoading) {
+      newMessages.removeAt(newMessages.size - 1)
+      newMessages.add(createNewCollapsableMessage())
+    } else {
+      val lastProgressPanelMessage =
+        getLastMessageWithType(model = model, type = ChatMessageType.COLLAPSABLE_PROGRESS_PANEL)
+      val lastProgressPanelMessageIndex = newMessages.indexOf(lastProgressPanelMessage)
+      val lastUserTextMessage =
+        getLastMessageWithTypeAndSide(
+          model = model,
+          type = ChatMessageType.TEXT,
+          side = ChatSide.USER,
+        )
+      val lastUserTextMessageIndex = newMessages.indexOf(lastUserTextMessage)
+
+      // If the last user text message is after the last progress panel message, insert the new
+      // collapsable message after the last user text message.
+      if (
+        lastProgressPanelMessage != null &&
+          lastUserTextMessage != null &&
+          lastUserTextMessageIndex > lastProgressPanelMessageIndex
+      ) {
+        newMessages.add(lastUserTextMessageIndex + 1, createNewCollapsableMessage())
+      }
+      // If the last progress panel message is a collapsable progress panel, update it.
+      else if (
+        lastProgressPanelMessage != null &&
+          lastProgressPanelMessage is ChatMessageCollapsableProgressPanel
+      ) {
+        val updatedMessage =
           ChatMessageCollapsableProgressPanel(
             title = title,
+            accelerator = accelerator,
             inProgress = inProgress,
             doneIcon = doneIcon,
             items =
-              if (addItemTitle.isNotEmpty()) {
-                listOf(ProgressPanelItem(title = addItemTitle, description = addItemDescription))
-              } else {
-                listOf()
-              },
-            accelerator = accelerator,
-            customData = customData,
-          )
-        newMessages.add(newCollapsableMessage)
-      }
-      // If the last message is not a loading message...
-      else {
-        val lastProgressPanelMessage =
-          getLastMessageWithType(model = model, type = ChatMessageType.COLLAPSABLE_PROGRESS_PANEL)
-        val lastProgressPanelMessageIndex = newMessages.indexOf(lastProgressPanelMessage)
-        val lastUserTextMessage =
-          getLastMessageWithTypeAndSide(
-            model = model,
-            type = ChatMessageType.TEXT,
-            side = ChatSide.USER,
-          )
-        val lastUserTextMessageIndex = newMessages.indexOf(lastUserTextMessage)
-        // If the last user text message is after the last progress panel message, insert the new
-        // collapsable message after the last user text message.
-        if (
-          lastProgressPanelMessage != null &&
-            lastUserTextMessage != null &&
-            lastUserTextMessageIndex > lastProgressPanelMessageIndex
-        ) {
-          val newCollapsableMessage =
-            ChatMessageCollapsableProgressPanel(
-              title = title,
-              inProgress = inProgress,
-              doneIcon = doneIcon,
-              items =
+              lastProgressPanelMessage.items +
                 if (addItemTitle.isNotEmpty()) {
                   listOf(ProgressPanelItem(title = addItemTitle, description = addItemDescription))
                 } else {
                   listOf()
                 },
-              accelerator = accelerator,
-              customData = customData,
-            )
-          // Insert the new collapsable message after the last user text message.
-          newMessages.add(lastUserTextMessageIndex + 1, newCollapsableMessage)
-        }
-        // If the last progress panel message is a collapsable progress panel, update it.
-        else if (
-          lastProgressPanelMessage != null &&
-            lastProgressPanelMessage is ChatMessageCollapsableProgressPanel
-        ) {
-          val updatedMessage =
-            ChatMessageCollapsableProgressPanel(
-              title = title,
-              accelerator = accelerator,
-              inProgress = inProgress,
-              doneIcon = doneIcon,
-              items =
-                lastProgressPanelMessage.items +
-                  if (addItemTitle.isNotEmpty()) {
-                    listOf(
-                      ProgressPanelItem(title = addItemTitle, description = addItemDescription)
-                    )
-                  } else {
-                    listOf()
-                  },
-              customData = lastProgressPanelMessage.customData,
-              logMessages = lastProgressPanelMessage.logMessages,
-            )
-          newMessages[lastProgressPanelMessageIndex] = updatedMessage
-        }
+            customData = lastProgressPanelMessage.customData,
+            logMessages = lastProgressPanelMessage.logMessages,
+          )
+        newMessages[lastProgressPanelMessageIndex] = updatedMessage
+      } else {
+        // If none of the above conditions match (for example, the chat history for the
+        // current model is empty after a model switch during skill execution),
+        // simply append a new collapsable progress panel to show the running skill status.
+        newMessages.add(createNewCollapsableMessage())
       }
     }
     newMessagesByModel[model.name] = newMessages
