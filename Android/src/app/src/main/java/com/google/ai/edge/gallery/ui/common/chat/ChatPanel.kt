@@ -24,6 +24,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +52,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -88,6 +90,7 @@ import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
+import kotlinx.coroutines.delay
 
 /** Composable function for the main chat panel, displaying messages and handling user input. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -161,6 +164,15 @@ fun ChatPanel(
   var curAmplitude by remember { mutableIntStateOf(0) }
   var pickedImagesCount by remember { mutableIntStateOf(0) }
   var pickedAudioClipsCount by remember { mutableIntStateOf(0) }
+
+  var showImageLimitBanner by remember { mutableStateOf(false) }
+
+  LaunchedEffect(showImageLimitBanner) {
+    if (showImageLimitBanner) {
+      delay(3000)
+      showImageLimitBanner = false
+    }
+  }
 
   // Keep track of the last message and last message content.
   val lastMessage: MutableState<ChatMessage?> = remember { mutableStateOf(null) }
@@ -507,6 +519,7 @@ fun ChatPanel(
         showImagePicker = selectedModel.llmSupportImage && showImagePicker,
         showAudioPicker = selectedModel.llmSupportAudio && showAudioPicker,
         showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
+        onImageLimitExceeded = { showImageLimitBanner = true },
       )
     }
   }
