@@ -38,6 +38,7 @@ import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
@@ -105,7 +106,7 @@ fun LlmAskImageScreen(
     modifier = modifier,
     showImagePicker = true,
     showAudioPicker = false,
-    emptyStateComposable = {
+    emptyStateComposable = { model ->
       Box(modifier = Modifier.fillMaxSize()) {
         Column(
           modifier =
@@ -114,8 +115,9 @@ fun LlmAskImageScreen(
           verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
           Text(stringResource(R.string.askimage_emptystate_title), style = emptyStateTitle)
+          var contentRes = R.string.askimage_emptystate_content
           Text(
-            stringResource(R.string.askimage_emptystate_content),
+            stringResource(contentRes),
             style = emptyStateContent,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

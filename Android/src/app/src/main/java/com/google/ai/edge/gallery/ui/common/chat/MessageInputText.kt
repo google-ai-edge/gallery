@@ -126,6 +126,7 @@ import com.google.ai.edge.gallery.common.decodeSampledBitmapFromUri
 import com.google.ai.edge.gallery.common.rotateBitmap
 import com.google.ai.edge.gallery.data.MAX_AUDIO_CLIP_COUNT
 import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.getTaskIconColor
@@ -169,6 +170,7 @@ fun MessageInputText(
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
   showStopButtonWhenInProgress: Boolean = false,
+  onImageLimitExceeded: () -> Unit = {},
 ) {
   val context = LocalContext.current
   val lifecycleOwner = LocalLifecycleOwner.current
@@ -186,23 +188,32 @@ fun MessageInputText(
   val sensorObserver = remember { SensorObserver(context) }
 
   val updatePickedImages: (List<Bitmap>) -> Unit = { bitmaps ->
-    var newPickedImages: MutableList<Bitmap> = mutableListOf()
-    newPickedImages.addAll(pickedImages)
-    newPickedImages.addAll(bitmaps)
-    if (newPickedImages.size > MAX_IMAGE_COUNT) {
-      newPickedImages = newPickedImages.subList(fromIndex = 0, toIndex = MAX_IMAGE_COUNT)
-    }
-    pickedImages = newPickedImages.toList()
+    var limit = MAX_IMAGE_COUNT
+    val maxAllowedForThisMessage = (limit - imageCount).coerceAtLeast(0)
+
+    val combinedSize = pickedImages.size + bitmaps.size
+    val withinLimit = combinedSize <= maxAllowedForThisMessage
+
+    pickedImages =
+      if (withinLimit) {
+        pickedImages + bitmaps
+      } else {
+        (pickedImages + bitmaps).take(maxAllowedForThisMessage)
+      }
   }
 
   val updatePickedAudioClips: (List<AudioClip>) -> Unit = { audioDataList ->
-    var newAudioDataList: MutableList<AudioClip> = mutableListOf()
-    newAudioDataList.addAll(pickedAudioClips)
-    newAudioDataList.addAll(audioDataList)
-    if (newAudioDataList.size > MAX_AUDIO_CLIP_COUNT) {
-      newAudioDataList = newAudioDataList.subList(fromIndex = 0, toIndex = MAX_AUDIO_CLIP_COUNT)
-    }
-    pickedAudioClips = newAudioDataList.toList()
+    val maxAllowedForThisMessage = (MAX_AUDIO_CLIP_COUNT - audioClipMessageCount).coerceAtLeast(0)
+
+    val combinedSize = pickedAudioClips.size + audioDataList.size
+    val withinLimit = combinedSize <= maxAllowedForThisMessage
+
+    pickedAudioClips =
+      if (withinLimit) {
+        pickedAudioClips + audioDataList
+      } else {
+        (pickedAudioClips + audioDataList).take(maxAllowedForThisMessage)
+      }
   }
 
   LaunchedEffect(Unit) { checkFrontCamera(context = context, callback = { hasFrontCamera = it }) }
