@@ -233,7 +233,7 @@ fun createLlmChatConfigs(
     maxTokensConfig =
       NumberSliderConfig(
         key = ConfigKeys.MAX_TOKENS,
-        sliderMin = 128f,
+        sliderMin = 2000f,
         sliderMax = defaultMaxContextLength.toFloat(),
         defaultValue = defaultMaxToken.toFloat(),
         valueType = ValueType.INT,
