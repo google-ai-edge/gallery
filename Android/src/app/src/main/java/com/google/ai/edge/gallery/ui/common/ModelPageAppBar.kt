@@ -213,9 +213,7 @@ fun ModelPageAppBar(
       modelConfigs.removeIf { it.key == ConfigKeys.RESET_CONVERSATION_TURN_COUNT }
     }
     if (
-        task.id != BuiltInTaskId.LLM_CHAT &&
-        task.id != BuiltInTaskId.LLM_ASK_IMAGE &&
-        task.id != BuiltInTaskId.LLM_ASK_AUDIO
+        !task.allowThinking()
     ) {
       modelConfigs.removeIf { it.key == ConfigKeys.ENABLE_THINKING }
     }

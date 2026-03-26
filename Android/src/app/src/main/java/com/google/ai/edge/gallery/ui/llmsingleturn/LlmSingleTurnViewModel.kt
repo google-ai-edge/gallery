@@ -84,7 +84,7 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
       model.runtimeHelper.runInference(
         model = model,
         input = input,
-        resultListener = { partialResult: String, done: Boolean ->
+        resultListener = { partialResult: String, done: Boolean, partialThinkingResult: String? ->
           if (firstRun) {
             setPreparing(false)
             firstRun = false

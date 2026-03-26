@@ -190,26 +190,28 @@ fun ChatPanel(
     scrollToBottom(listState = listState, animate = true)
   }
 
-  // Scroll the content to the bottom when any of these changes.
-  LaunchedEffect(
-    messages.size,
-    lastMessage.value,
-    lastMessageContent.value,
-    lastMessage.value?.latencyMs,
-  ) {
+  // Auto-scroll to bottom when a new message is added or message type changes.
+  LaunchedEffect(messages.size, lastMessage.value?.type) {
     if (messages.isNotEmpty()) {
-      val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.last()
-      // Determines if an automatic scroll is necessary. It is true if:
-      // 1. The last item is not yet fully visible
-      // OR
-      // 2. The scroll position is close to the bottom (within 90 pixels of the end offset. 90 is
-      //    slightly taller than the "show stats" chip).
-      val canScroll =
-        lastVisibleItem.index < messages.size - 1 ||
-          lastVisibleItem.offset + lastVisibleItem.size - listState.layoutInfo.viewportEndOffset <
-            90
-      if (canScroll) {
-        scrollToBottom(listState = listState, animate = true)
+      scrollToBottom(listState = listState, animate = true)
+    }
+  }
+
+  // Scroll to keep up with streaming, ONLY if we are already at the bottom.
+  LaunchedEffect(lastMessage.value, lastMessageContent.value, lastMessage.value?.latencyMs) {
+    if (messages.isNotEmpty()) {
+      val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+      if (lastVisibleItem != null) {
+        // Determines if an automatic scroll is necessary. It is true if the scroll position is
+        // close to the bottom (within 90 pixels of the end offset. 90 is slightly taller than
+        // the "show stats" chip).
+        val canScroll =
+          lastVisibleItem.index == messages.size - 1 &&
+            lastVisibleItem.offset + lastVisibleItem.size - listState.layoutInfo.viewportEndOffset <
+              90
+        if (canScroll) {
+          scrollToBottom(listState = listState, animate = true)
+        }
       }
     }
   }
@@ -420,6 +422,13 @@ fun ChatPanel(
                       // Collapsable progress panel.
                       is ChatMessageCollapsableProgressPanel ->
                         MessageBodyCollapsableProgressPanel(message = message)
+
+                      // Thinking
+                      is ChatMessageThinking ->
+                        MessageBodyThinking(
+                          thinkingText = message.content,
+                          inProgress = message.inProgress,
+                        )
 
                       else -> {}
                     }

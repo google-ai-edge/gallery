@@ -280,17 +280,17 @@ object LlmChatModelHelper : LlmModelHelper {
       Contents.of(contents),
       object : MessageCallback {
         override fun onMessage(message: Message) {
-          resultListener(message.toString(), false)
+          resultListener(message.toString(), false, null)
         }
 
         override fun onDone() {
-          resultListener("", true)
+          resultListener("", true, null)
         }
 
         override fun onError(throwable: Throwable) {
           if (throwable is CancellationException) {
             Log.i(TAG, "The inference is cancelled.")
-            resultListener("", true)
+            resultListener("", true, null)
           } else {
             Log.e(TAG, "onError", throwable)
             onError("Error: ${throwable.message}")
