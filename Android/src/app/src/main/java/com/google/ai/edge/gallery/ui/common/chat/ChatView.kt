@@ -75,11 +75,7 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "AGChatView"
 
-data class SendMessageTrigger(
-  val model: Model,
-  val messages: List<ChatMessage>,
-  val skipAddingMessages: Boolean = false,
-)
+data class SendMessageTrigger(val model: Model, val messages: List<ChatMessage>)
 
 /**
  * A composable that displays a chat interface, allowing users to interact with different models
@@ -95,7 +91,7 @@ fun ChatView(
   task: Task,
   viewModel: ChatViewModel,
   modelManagerViewModel: ModelManagerViewModel,
-  onSendMessage: (Model, List<ChatMessage>, Boolean) -> Unit,
+  onSendMessage: (Model, List<ChatMessage>) -> Unit,
   onRunAgainClicked: (Model, ChatMessage) -> Unit,
   onBenchmarkClicked: (Model, ChatMessage, Int, Int) -> Unit,
   navigateUp: () -> Unit,
@@ -150,9 +146,7 @@ fun ChatView(
   }
 
   LaunchedEffect(sendMessageTrigger) {
-    sendMessageTrigger?.let { trigger ->
-      onSendMessage(trigger.model, trigger.messages, trigger.skipAddingMessages)
-    }
+    sendMessageTrigger?.let { trigger -> onSendMessage(trigger.model, trigger.messages) }
   }
 
   // Handle system's edge swipe.
@@ -226,7 +220,7 @@ fun ChatView(
                 viewModel = viewModel,
                 innerPadding = innerPadding,
                 navigateUp = navigateUp,
-                onSendMessage = { model, messages -> onSendMessage(model, messages, false) },
+                onSendMessage = { model, messages -> onSendMessage(model, messages) },
                 onRunAgainClicked = onRunAgainClicked,
                 onBenchmarkClicked = onBenchmarkClicked,
                 onStreamImageMessage = onStreamImageMessage,
