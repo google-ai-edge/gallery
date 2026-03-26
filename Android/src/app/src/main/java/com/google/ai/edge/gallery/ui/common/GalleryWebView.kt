@@ -65,6 +65,7 @@ private val iframeWrapper =
 open class BaseGalleryWebViewClient(private val context: Context) : WebViewClient() {
   private val localFileAssetsLoader =
     WebViewAssetLoader.Builder()
+      .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
       .addPathHandler("/", WebViewAssetLoader.InternalStoragePathHandler(context, context.filesDir))
       .build()
 
@@ -73,11 +74,13 @@ open class BaseGalleryWebViewClient(private val context: Context) : WebViewClien
     request: WebResourceRequest?,
   ): WebResourceResponse? {
     if (request?.url != null && request.url.toString().startsWith(LOCAL_URL_BASE)) {
-      // Returns 404 if file not exist.
-      val path = request.url.path ?: ""
-      val localFile = File(context.filesDir, path)
-      if (!localFile.exists() || localFile.isDirectory) {
-        return WebResourceResponse("text/plain", "UTF-8", null)
+      // Returns 404 if file not exist for imported skills.
+      if (!request.url.toString().startsWith("$LOCAL_URL_BASE/assets/")) {
+        val path = request.url.path ?: ""
+        val localFile = File(context.filesDir, path)
+        if (!localFile.exists() || localFile.isDirectory) {
+          return WebResourceResponse("text/plain", "UTF-8", null)
+        }
       }
       return localFileAssetsLoader.shouldInterceptRequest(request.url)
     }

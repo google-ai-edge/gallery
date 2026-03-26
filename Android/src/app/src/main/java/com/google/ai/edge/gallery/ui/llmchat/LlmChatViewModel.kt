@@ -55,7 +55,6 @@ open class LlmChatViewModelBase() : ChatViewModel() {
     onFirstToken: (Model) -> Unit = {},
     onDone: () -> Unit = {},
     onError: (String) -> Unit,
-    skipAddingMessages: Boolean = false,
     allowThinking: Boolean = false,
   ) {
     val accelerator = model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = "")
@@ -64,9 +63,7 @@ open class LlmChatViewModelBase() : ChatViewModel() {
       setPreparing(true)
 
       // Loading.
-      if (!skipAddingMessages) {
-        addMessage(model = model, message = ChatMessageLoading(accelerator = accelerator))
-      }
+      addMessage(model = model, message = ChatMessageLoading(accelerator = accelerator))
 
       // Wait for instance to be initialized.
       while (model.instance == null) {
@@ -238,9 +235,9 @@ open class LlmChatViewModelBase() : ChatViewModel() {
     }
   }
 
-  fun stopResponse(model: Model, clearAllMessages: Boolean = true) {
+  fun stopResponse(model: Model) {
     Log.d(TAG, "Stopping response for model ${model.name}...")
-    if (getLastMessage(model = model) is ChatMessageLoading && clearAllMessages) {
+    if (getLastMessage(model = model) is ChatMessageLoading) {
       removeLastMessage(model = model)
     }
     setInProgress(false)
@@ -257,14 +254,11 @@ open class LlmChatViewModelBase() : ChatViewModel() {
     supportAudio: Boolean = false,
     onDone: () -> Unit = {},
     enableConversationConstrainedDecoding: Boolean = false,
-    clearAllMessages: Boolean = true,
   ) {
     viewModelScope.launch(Dispatchers.Default) {
       setIsResettingSession(true)
-      if (clearAllMessages) {
-        clearAllMessages(model = model)
-      }
-      stopResponse(model = model, clearAllMessages = clearAllMessages)
+      clearAllMessages(model = model)
+      stopResponse(model = model)
 
       while (true) {
         try {

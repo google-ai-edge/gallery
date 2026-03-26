@@ -191,11 +191,9 @@ fun ChatViewWrapper(
     task = task,
     viewModel = viewModel,
     modelManagerViewModel = modelManagerViewModel,
-    onSendMessage = { model, messages, skipAddingMessages ->
-      if (!skipAddingMessages) {
-        for (message in messages) {
-          viewModel.addMessage(model = model, message = message)
-        }
+    onSendMessage = { model, messages ->
+      for (message in messages) {
+        viewModel.addMessage(model = model, message = message)
       }
 
       var text = ""
@@ -230,7 +228,6 @@ fun ChatViewWrapper(
               modelManagerViewModel = modelManagerViewModel,
             )
           },
-          skipAddingMessages = skipAddingMessages,
           allowThinking = allowThinking,
         )
 
