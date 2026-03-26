@@ -86,7 +86,8 @@ object LlmChatModelHelper : LlmModelHelper {
       when (visionAccelerator) {
         Accelerator.CPU.label -> Backend.CPU()
         Accelerator.GPU.label -> Backend.GPU()
-        Accelerator.NPU.label -> Backend.NPU()
+        Accelerator.NPU.label ->
+          Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
         else -> Backend.GPU()
       }
     val shouldEnableImage = supportImage
@@ -95,14 +96,11 @@ object LlmChatModelHelper : LlmModelHelper {
       when (accelerator) {
         Accelerator.CPU.label -> Backend.CPU()
         Accelerator.GPU.label -> Backend.GPU()
-        Accelerator.NPU.label -> Backend.NPU()
+        Accelerator.NPU.label ->
+          Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
         else -> Backend.CPU()
       }
     Log.d(TAG, "Preferred backend: $preferredBackend")
-
-    if (preferredBackend is Backend.NPU) {
-      ExperimentalFlags.npuLibrariesDir = context.applicationInfo.nativeLibraryDir
-    }
 
     val modelPath = model.getPath(context = context)
     val engineConfig =

@@ -29,7 +29,6 @@ import com.google.ai.edge.gallery.proto.LlmBenchmarkStats
 import com.google.ai.edge.gallery.proto.ValueSeries
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.ExperimentalApi
-import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.benchmark
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -136,12 +135,9 @@ constructor(
       val backend: Backend =
         when (accelerator.lowercase()) {
           "gpu" -> Backend.GPU()
-          "npu" -> Backend.NPU()
+          "npu" -> Backend.NPU(nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir)
           else -> Backend.CPU()
         }
-      if (backend is Backend.NPU) {
-        ExperimentalFlags.npuLibrariesDir = appContext.applicationInfo.nativeLibraryDir
-      }
       val modelPath = model.getPath(context = appContext)
       for (i in 0 until runCount) {
         Log.d(TAG, "Start running #$i...")
