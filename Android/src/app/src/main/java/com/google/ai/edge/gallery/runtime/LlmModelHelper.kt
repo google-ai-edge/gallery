@@ -23,7 +23,8 @@ import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ToolProvider
 import kotlinx.coroutines.CoroutineScope
 
-typealias ResultListener = (partialResult: String, done: Boolean) -> Unit
+typealias ResultListener =
+  (partialResult: String, done: Boolean, partialThinkingResult: String?) -> Unit
 
 typealias CleanUpListener = () -> Unit
 

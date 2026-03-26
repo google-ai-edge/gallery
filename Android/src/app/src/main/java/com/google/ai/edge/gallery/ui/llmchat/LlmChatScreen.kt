@@ -185,6 +185,7 @@ fun ChatViewWrapper(
 ) {
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
+  val allowThinking = task.allowThinking()
 
   ChatView(
     task = task,
@@ -230,6 +231,7 @@ fun ChatViewWrapper(
             )
           },
           skipAddingMessages = skipAddingMessages,
+          allowThinking = allowThinking,
         )
 
         firebaseAnalytics?.logEvent(
@@ -252,6 +254,7 @@ fun ChatViewWrapper(
               modelManagerViewModel = modelManagerViewModel,
             )
           },
+          allowThinking = allowThinking,
         )
       }
     },

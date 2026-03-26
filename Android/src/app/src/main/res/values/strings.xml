@@ -50,6 +50,7 @@
   <string name="chat_textinput_placeholder" translatable="false">Type message…</string>
   <string name="chat_you" translatable="false">You</string>
   <string name="chat_llm_agent_name" translatable="false">LLM</string>
+  <string name="show_thinking" translatable="false">Show thinking</string>
   <string name="checking_access" translatable="false">Checking access...</string>
   <string name="close" translatable="false">Close</string>
   <string name="collapse_all" translatable="false">Collapse all</string>
