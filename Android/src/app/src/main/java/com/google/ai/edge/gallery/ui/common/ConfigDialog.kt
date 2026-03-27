@@ -96,6 +96,7 @@ import com.google.ai.edge.gallery.data.BooleanSwitchConfig
 import com.google.ai.edge.gallery.data.BottomSheetSelectorConfig
 import com.google.ai.edge.gallery.data.BottomSheetSelectorItem
 import com.google.ai.edge.gallery.data.Config
+import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.LabelConfig
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.SegmentedButtonConfig
@@ -428,6 +429,23 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
         ) {
           Box(modifier = Modifier.padding(8.dp)) { innerTextField() }
         }
+      }
+    }
+
+    if (config.key == ConfigKeys.MAX_TOKENS) {
+      val sliderValue =
+        try {
+          values[config.key.label] as Float
+        } catch (e: Exception) {
+          0f
+        }
+      if (sliderValue >= 10000f) {
+        Text(
+          text = stringResource(R.string.max_tokens_warning_message),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+          modifier = Modifier.padding(top = 8.dp),
+        )
       }
     }
   }
