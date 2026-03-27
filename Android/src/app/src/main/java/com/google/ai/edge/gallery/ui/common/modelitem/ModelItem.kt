@@ -133,8 +133,8 @@ fun ModelItem(
               model = model,
               modelManagerViewModel = modelManagerViewModel,
               downloadStatus = downloadStatus,
-              showDeleteButton = showDeleteButton,
               modifier = Modifier.offset(y = (-12).dp, x = if (model.imported) 12.dp else 0.dp),
+              showDeleteButton = showDeleteButton
             )
           }
           if (!model.imported) {
