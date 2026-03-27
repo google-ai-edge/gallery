@@ -113,6 +113,7 @@
   <string name="memory_warning_content" translatable="false">The model you\'ve selected may exceed your device\'s memory, which can cause the app to crash. For the best experience, we recommend trying a smaller model.</string>
   <string name="memory_warning_proceed_anyway" translatable="false">Proceed anyway</string>
   <string name="memory_warning_title" translatable="false">Memory Warning</string>
+  <string name="max_tokens_warning_message" translatable="false">Setting max tokens above 10000 may cause app to be unstable.</string>
   <string name="model_is_initializing_msg" translatable="false">Initializing model…</string>
   <string name="model_list_imported_models_title" translatable="false">Imported models</string>
   <plurals name="model_list_number_of_models_available" translatable="false">
