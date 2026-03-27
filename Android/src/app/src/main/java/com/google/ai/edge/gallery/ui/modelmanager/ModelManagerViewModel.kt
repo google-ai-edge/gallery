@@ -1093,6 +1093,7 @@ constructor(
         accelerators = accelerators,
         // We assume all imported models are LLM for now.
         isLlm = true,
+        runtimeType = RuntimeType.LITERT_LM,
       )
     model.preProcess()
 
