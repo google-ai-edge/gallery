@@ -598,7 +598,10 @@ fun MessageInputText(
                 // Send button.
                 else {
                   IconButton(
-                    enabled = !inProgress && !isResettingSession && curMessage.isNotEmpty(),
+                    enabled =
+                      !inProgress &&
+                        !isResettingSession &&
+                        (curMessage.isNotEmpty() || pickedAudioClips.isNotEmpty()),
                     onClick = {
                       var message = curMessage.trim()
                       onSendMessage(
