@@ -211,7 +211,9 @@ fun ChatViewWrapper(
         }
       }
       if ((text.isNotEmpty() && chatMessageText != null) || audioMessages.isNotEmpty()) {
-        modelManagerViewModel.addTextInputHistory(text)
+        if (text.isNotEmpty()) {
+          modelManagerViewModel.addTextInputHistory(text)
+        }
         viewModel.generateResponse(
           model = model,
           input = text,
