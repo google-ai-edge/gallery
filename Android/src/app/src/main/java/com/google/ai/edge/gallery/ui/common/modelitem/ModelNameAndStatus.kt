@@ -101,6 +101,7 @@ fun ModelNameAndStatus(
       maxLines = 1,
       overflow = TextOverflow.MiddleEllipsis,
       style = MaterialTheme.typography.titleMedium,
+      modifier = Modifier.padding(end = 64.dp),
     )
 
     // Status icon + size + download progress details.
