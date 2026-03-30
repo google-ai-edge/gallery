@@ -51,6 +51,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -77,6 +78,7 @@ import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
@@ -89,6 +91,8 @@ import com.google.ai.edge.gallery.ui.common.FloatingBanner
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
+import com.google.ai.edge.gallery.ui.theme.emptyStateContent
+import com.google.ai.edge.gallery.ui.theme.emptyStateTitle
 import kotlinx.coroutines.delay
 
 /** Composable function for the main chat panel, displaying messages and handling user input. */
@@ -479,7 +483,31 @@ fun ChatPanel(
 
         // Show empty state.
         if (messages.isEmpty() && pickedImagesCount == 0 && pickedAudioClipsCount == 0) {
-          emptyStateComposable(selectedModel)
+          if (
+            modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING &&
+              modelInitializationStatus.isFirstInitialization(selectedModel)
+          ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+              Column(
+                modifier =
+                  Modifier.align(Alignment.Center)
+                    .padding(horizontal = 48.dp)
+                    .padding(bottom = 48.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+              ) {
+                Text(stringResource(R.string.aichat_initializing_title), style = emptyStateTitle)
+                Text(
+                  stringResource(R.string.aichat_initializing_content),
+                  style = emptyStateContent,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  textAlign = TextAlign.Center,
+                )
+              }
+            }
+          } else {
+            emptyStateComposable(selectedModel)
+          }
         }
       }
 

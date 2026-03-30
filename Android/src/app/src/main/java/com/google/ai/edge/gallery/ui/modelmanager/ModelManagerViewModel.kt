@@ -84,7 +84,14 @@ private const val TEST_MODEL_ALLOW_LIST = ""
 data class ModelInitializationStatus(
   val status: ModelInitializationStatusType,
   var error: String = "",
-)
+  var initializedBackends: Set<String> = setOf(),
+) {
+  fun isFirstInitialization(model: Model): Boolean {
+    val backend =
+      model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
+    return !initializedBackends.contains(backend)
+  }
+}
 
 enum class ModelInitializationStatusType {
   NOT_INITIALIZED,
@@ -469,7 +476,19 @@ constructor(
   fun setInitializationStatus(model: Model, status: ModelInitializationStatus) {
     val curStatus = uiState.value.modelInitializationStatus.toMutableMap()
     if (curStatus.containsKey(model.name)) {
-      curStatus[model.name] = status
+      val initializedBackends = curStatus[model.name]?.initializedBackends ?: setOf()
+      val backend =
+        model.getStringConfigValue(
+          key = ConfigKeys.ACCELERATOR,
+          defaultValue = Accelerator.GPU.label,
+        )
+      val newInitializedBackends =
+        if (status.status == ModelInitializationStatusType.INITIALIZED) {
+          initializedBackends + backend
+        } else {
+          initializedBackends
+        }
+      curStatus[model.name] = status.copy(initializedBackends = newInitializedBackends)
       _uiState.update { _uiState.value.copy(modelInitializationStatus = curStatus) }
     }
   }
@@ -1259,7 +1278,21 @@ constructor(
     error: String = "",
   ) {
     val curModelInstance = uiState.value.modelInitializationStatus.toMutableMap()
-    curModelInstance[model.name] = ModelInitializationStatus(status = status, error = error)
+    val initializedBackends = curModelInstance[model.name]?.initializedBackends ?: setOf()
+    val backend =
+      model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
+    val newInitializedBackends =
+      if (status == ModelInitializationStatusType.INITIALIZED) {
+        initializedBackends + backend
+      } else {
+        initializedBackends
+      }
+    curModelInstance[model.name] =
+      ModelInitializationStatus(
+        status = status,
+        error = error,
+        initializedBackends = newInitializedBackends,
+      )
     val newUiState = uiState.value.copy(modelInitializationStatus = curModelInstance)
     _uiState.update { newUiState }
   }

@@ -21,6 +21,8 @@
   <string name="add_audio" translatable="false">+Audio</string>
   <string name="aichat_emptystate_title" translatable="false">AI Chat</string>
   <string name="aichat_emptystate_content" translatable="false">Chat with on-device large language models</string>
+  <string name="aichat_initializing_title" translatable="false">Initializing model</string>
+  <string name="aichat_initializing_content" translatable="false">Sit tight, this can take up to 1 minute</string>
   <string name="app_intro" translatable="false">Explore a world of amazing on-device models from</string>
   <string name="app_name" translatable="false">Google AI Edge Gallery</string>
   <string name="app_name_first_part" translatable="false">Google AI</string>
