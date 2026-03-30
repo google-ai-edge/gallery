@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.modelitem.StatusIcon
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
@@ -118,22 +119,26 @@ fun ModelPicker(
             model.displayName.ifEmpty { model.name },
             style = MaterialTheme.typography.bodyMedium,
           )
-          Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            StatusIcon(
-              task = task,
-              model = model,
-              downloadStatus = modelManagerUiState.modelDownloadStatus[model.name],
-            )
-            Text(
-              if (model.localFileRelativeDirPathOverride.isEmpty())
-                model.sizeInBytes.humanReadableSize()
-              else "{ext_file_dir}/${model.localFileRelativeDirPathOverride}",
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-              style = labelSmallNarrow.copy(lineHeight = 10.sp),
-            )
+          var showStatusIconAndSize = true
+
+          if (showStatusIconAndSize) {
+            Row(
+              horizontalArrangement = Arrangement.spacedBy(4.dp),
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              StatusIcon(
+                task = task,
+                model = model,
+                downloadStatus = modelManagerUiState.modelDownloadStatus[model.name],
+              )
+              Text(
+                if (model.localFileRelativeDirPathOverride.isEmpty())
+                  model.sizeInBytes.humanReadableSize()
+                else "{ext_file_dir}/${model.localFileRelativeDirPathOverride}",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = labelSmallNarrow.copy(lineHeight = 10.sp),
+              )
+            }
           }
         }
         if (selected) {
