@@ -93,6 +93,9 @@ import kotlinx.coroutines.withContext
 private const val TAG = "AGDownloadAndTryButton"
 private const val SYSTEM_RESERVED_MEMORY_IN_BYTES = 3 * (1L shl 30)
 
+private val MODEL_NAMES_TO_SHOW_GEMMA_LICENSES =
+  setOf("Gemma-3n-E2B-it", "Gemma-3n-E4B-it", "Gemma3-1B-IT")
+
 /**
  * Handles the "Download & Try it" button click, managing the model download process based on
  * various conditions.
@@ -372,6 +375,7 @@ fun DownloadAndTryButton(
         // Check TOS before downloading.
         if (
           model.url.startsWith("https://dl.google.com/google-ai-edge-gallery/") &&
+            MODEL_NAMES_TO_SHOW_GEMMA_LICENSES.contains(model.name) &&
             !tosViewModel.getIsGemmaTermsOfUseAccepted()
         ) {
           showGemmaTermsOfUseDialog = true

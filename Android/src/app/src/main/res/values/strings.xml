@@ -18,6 +18,7 @@
   <!-- TODO(jingjin): Add translation support when i18n is ready. -->
   <string name="all" translatable="false">All</string>
   <string name="add" translatable="false">Add</string>
+  <string name="added" translatable="false">Added</string>
   <string name="add_audio" translatable="false">+Audio</string>
   <string name="aichat_emptystate_title" translatable="false">AI Chat</string>
   <string name="aichat_emptystate_content" translatable="false">Chat with on-device large language models</string>
