@@ -197,4 +197,6 @@ data class AllowedModel(
 }
 
 /** The model allowlist. */
-data class ModelAllowlist(val models: List<AllowedModel>)
+data class ModelAllowlist(
+  val models: List<AllowedModel>,
+)
