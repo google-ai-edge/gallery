@@ -1,0 +1,130 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!doctype html>
+<html lang="en">
+  <body>
+    <script>
+      window["ai_edge_gallery_get_result"] = async (data, secret) => {
+        try {
+          const jsonData = JSON.parse(data);
+
+          // The LLM has already validated the genre in Step 1, so we use it directly
+          const genre = jsonData.genre || "House";
+          const duration = jsonData.duration || 120;
+
+          let energy = jsonData.energy || "high";
+          if (!["low", "high", "original"].includes(energy)) {
+            energy = "original"; // Fallback for invalid options
+          }
+
+          // 1. Retrieve the API secret passed from the native system
+          const apiKey = secret || "YOUR_API_KEY_HERE";
+
+          if (apiKey === "YOUR_API_KEY_HERE") {
+            console.warn("Using placeholder API Key, calls to Loudly will likely fail.");
+          }
+
+          // 2. Prepare FormData as expected by the Loudly API
+          const formData = new FormData();
+          formData.append("genre", genre);
+          formData.append("duration", duration);
+          formData.append("energy", energy);
+
+          // 3. Call Loudly soundtracks API
+          const response = await fetch("https://soundtracks.loudly.com/api/ai/songs", {
+            method: "POST",
+            headers: {
+              "API-KEY": apiKey,
+              Accept: "application/json",
+            },
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Loudly API failed with status ${response.status}: ${errorText}`);
+          }
+
+          const songData = await response.json();
+
+          // 4. Extract the correct fields based on Loudly's JSON structure
+          const audioUrl = songData.music_file_path || "";
+          const songTitle = songData.title || "Generated Track";
+
+          // 5. Return the result and instructions for the UI webview
+          return JSON.stringify({
+            webview: {
+              // Point to webview.html and pass the parsed data via query parameters
+              url: `webview.html?url=${encodeURIComponent(audioUrl)}&duration=${duration}&genre=${encodeURIComponent(genre)}&title=${encodeURIComponent(songTitle)}`,
+            },
+          });
+        } catch (e) {
+          console.error(e);
+          return JSON.stringify({ error: `Music generation failed: ${e.message}` });
+        }
+      };
+    </script>
+
+    <!-- Test UI -->
+    <div
+      style="
+        margin: 20px;
+        padding: 20px;
+        border: 1px solid #ccc;
+        background: #fff;
+        font-family: sans-serif;
+        color: #333;
+      "
+    >
+      <h3>Mood Music Local Scenario Test Area</h3>
+      <button id="run-test" style="padding: 10px 20px; font-size: 16px; cursor: pointer">
+        Run Generation Test
+      </button>
+      <pre
+        id="test-output"
+        style="
+          margin-top: 15px;
+          padding: 10px;
+          background: #f4f4f4;
+          border: 1px solid #ddd;
+          white-space: pre-wrap;
+          font-size: 13px;
+        "
+      ></pre>
+    </div>
+
+    <script>
+      document.getElementById("run-test").addEventListener("click", async () => {
+        const output = document.getElementById("test-output");
+        output.textContent = "Running test...";
+        try {
+          const mockLLMPayload = JSON.stringify({
+            genre: "Lo Fi",
+            energy: "original",
+            duration: 240,
+          });
+          const result = await window["ai_edge_gallery_get_result"](mockLLMPayload);
+          output.textContent = result;
+        } catch (e) {
+          output.textContent = `Crash Error: ${e.message}`;
+        }
+      });
+    </script>
+  </body>
+</html>

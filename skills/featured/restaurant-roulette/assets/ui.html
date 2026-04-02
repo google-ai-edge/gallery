@@ -1,0 +1,310 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Roulette UI</title>
+    <style>
+      body {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: #1e1e2f;
+        color: #fff;
+        font-family: sans-serif;
+        overflow: hidden;
+        touch-action: manipulation;
+        box-sizing: border-box;
+      }
+
+      h2 {
+        margin: 0 0 20px 0;
+        text-align: center;
+        font-size: 20px;
+        padding: 0 15px;
+      }
+      p.subtitle {
+        margin: 0 0 20px 0;
+        color: #aaa;
+        font-size: 14px;
+      }
+
+      /* The perfectly sized, compact wheel container */
+      #wheel-container {
+        position: relative;
+        width: 240px;
+        height: 240px;
+        margin-bottom: 30px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      canvas {
+        width: 100%;
+        height: 100%;
+        filter: drop-shadow(0 8px 15px rgba(0, 0, 0, 0.5));
+      }
+
+      /* The little red arrow at the top */
+      #pointer {
+        position: absolute;
+        top: -15px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 12px solid transparent;
+        border-right: 12px solid transparent;
+        border-top: 24px solid #ff4757;
+        z-index: 10;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+        pointer-events: none;
+      }
+
+      #spin-btn {
+        background: #ff4757;
+        color: white;
+        border: none;
+        padding: 15px 40px;
+        font-size: 18px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        box-shadow: 0 4px 10px rgba(255, 71, 87, 0.4);
+        -webkit-tap-highlight-color: transparent;
+      }
+      #spin-btn:active {
+        transform: scale(0.95);
+      }
+      #spin-btn:disabled {
+        background: #555;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      /* Winner Pop-up Overlay */
+      #winner-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 100;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 20px;
+        box-sizing: border-box;
+        backdrop-filter: blur(5px);
+      }
+      #winner-title {
+        color: #2ed573;
+        font-size: 28px;
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+      #winner-name {
+        color: #fff;
+        font-size: 36px;
+        font-weight: bold;
+        text-transform: uppercase;
+        text-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        margin-bottom: 30px;
+      }
+      #close-modal {
+        background: #fff;
+        color: #1e1e2f;
+        border: none;
+        padding: 12px 30px;
+        font-size: 16px;
+        font-weight: bold;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h2 id="title">Loading...</h2>
+
+    <div id="wheel-container">
+      <div id="pointer"></div>
+      <!-- High-res 600x600 canvas ensures text is not blurry when shrunk by CSS -->
+      <canvas id="wheelCanvas" width="600" height="600"></canvas>
+    </div>
+
+    <button id="spin-btn">SPIN ROULETTE</button>
+
+    <div id="winner-overlay">
+      <div id="winner-title">🎉 WINNER! 🎉</div>
+      <div id="winner-name">Restaurant Name</div>
+      <button
+        id="close-modal"
+        onclick="document.getElementById('winner-overlay').style.display='none'"
+      >
+        Spin Again
+      </button>
+    </div>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const cuisine = params.get("c") || "Food";
+      const locationStr = params.get("l") || "Nearby";
+      const compressedData = params.get("data");
+
+      let places = [];
+      if (compressedData) {
+        try {
+          const placeString = decodeURIComponent(escape(atob(compressedData)));
+          places = placeString.split("|");
+        } catch (e) {
+          console.error("Failed to decode data", e);
+          places = ["Error Loading Data"];
+        }
+      } else {
+        places = ["No Options Found"];
+      }
+
+      document.getElementById("title").innerText = `${cuisine} spots in ${locationStr}`;
+
+      const canvas = document.getElementById("wheelCanvas");
+      const wheelContainer = document.getElementById("wheel-container");
+      const spinBtn = document.getElementById("spin-btn");
+      const ctx = canvas.getContext("2d");
+
+      // High-res math for perfect text alignment
+      const cx = 300,
+        cy = 300,
+        radius = 280;
+      const N = places.length || 1;
+      const arc = (2 * Math.PI) / N;
+      let angle = 0;
+      let isSpinning = false;
+
+      const colors = [
+        "#ff4757",
+        "#ffa502",
+        "#2ed573",
+        "#1e90ff",
+        "#3742fa",
+        "#ff6348",
+        "#eccc68",
+        "#7bed9f",
+        "#70a1ff",
+        "#5352ed",
+      ];
+
+      function draw() {
+        ctx.clearRect(0, 0, 600, 600);
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+
+        for (let i = 0; i < N; i++) {
+          // Draw slices
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.arc(0, 0, radius, i * arc, (i + 1) * arc);
+          ctx.fillStyle = colors[i % colors.length];
+          ctx.fill();
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = "#1e1e2f";
+          ctx.stroke();
+
+          // Draw Text
+          ctx.save();
+          const rot = N === 1 ? 0 : i * arc + arc / 2;
+          ctx.rotate(rot);
+          ctx.textAlign = "right";
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 28px sans-serif";
+
+          let text = places[i] || "";
+          if (text.length > 15) text = text.substring(0, 13) + "...";
+
+          ctx.fillText(text, radius - 30, 0); // Spaced perfectly from the edge
+          ctx.restore();
+        }
+
+        // Inner white circle
+        ctx.beginPath();
+        ctx.arc(0, 0, 45, 0, 2 * Math.PI);
+        ctx.fillStyle = "#fff";
+        ctx.fill();
+
+        // Inner dark dot
+        ctx.beginPath();
+        ctx.arc(0, 0, 15, 0, 2 * Math.PI);
+        ctx.fillStyle = "#1e1e2f";
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      draw();
+
+      function triggerSpin() {
+        if (isSpinning) return;
+        isSpinning = true;
+        spinBtn.disabled = true;
+        spinBtn.innerText = "SPINNING...";
+
+        let velocity = Math.random() * 0.2 + 0.35;
+
+        function animate() {
+          angle += velocity;
+          velocity *= 0.985;
+          draw();
+
+          if (velocity < 0.002) {
+            isSpinning = false;
+
+            let p = (-Math.PI / 2 - angle) % (2 * Math.PI);
+            if (p < 0) p += 2 * Math.PI;
+            const winnerIndex = Math.floor(p / arc);
+            const winner = places[winnerIndex];
+
+            document.getElementById("winner-name").innerText = winner;
+            document.getElementById("winner-overlay").style.display = "flex";
+
+            spinBtn.innerText = "SPIN ROULETTE";
+            spinBtn.disabled = false;
+          } else {
+            requestAnimationFrame(animate);
+          }
+        }
+        animate();
+      }
+
+      spinBtn.addEventListener("click", triggerSpin);
+      wheelContainer.addEventListener("click", triggerSpin);
+    </script>
+  </body>
+</html>

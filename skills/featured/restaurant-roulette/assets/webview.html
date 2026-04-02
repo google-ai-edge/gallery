@@ -1,0 +1,101 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Preview Card</title>
+    <style>
+      /* This makes the entire preview card look like a clean, clickable button */
+      body {
+        margin: 0;
+        height: 200vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #1e1e2f;
+        color: white;
+        font-family: sans-serif;
+        cursor: pointer;
+        text-align: center;
+        padding: 20px;
+        box-sizing: border-box;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .icon {
+        font-size: 48px;
+        margin-bottom: 10px;
+      }
+      h2 {
+        margin: 0 0 10px 0;
+        font-size: 20px;
+        color: #2ed573;
+      }
+      p {
+        margin: 0;
+        color: #aaa;
+        font-size: 14px;
+      }
+      .btn {
+        background: #ff4757;
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-weight: bold;
+        font-size: 16px;
+        margin-top: 15px;
+        box-shadow: 0 4px 10px rgba(255, 71, 87, 0.4);
+      }
+      .btn:active {
+        transform: scale(0.95);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="icon">🎰</div>
+    <h2 id="title">Loading...</h2>
+    <p>Tap anywhere to open the wheel</p>
+    <div class="btn">SPIN ROULETTE</div>
+
+    <script>
+      // 1. Get the short, safe info from the URL
+      const params = new URLSearchParams(window.location.search);
+      const cuisine = params.get("c") || "Food";
+      const locationStr = params.get("l") || "Nearby";
+      const compressedData = params.get("data") || "";
+
+      document.getElementById("title").innerText = `${cuisine} options ready!`;
+
+      // 2. Build the local UI URL
+      const uiUrl = `ui.html?c=${encodeURIComponent(cuisine)}&l=${encodeURIComponent(locationStr)}&data=${encodeURIComponent(compressedData)}`;
+
+      // 3. Turn the whole card into a redirect trigger
+      const redirect = (e) => {
+        e.preventDefault();
+        window.location.href = uiUrl;
+      };
+
+      // Listen for taps!
+      document.body.addEventListener("click", redirect);
+      document.body.addEventListener("touchstart", redirect);
+    </script>
+  </body>
+</html>

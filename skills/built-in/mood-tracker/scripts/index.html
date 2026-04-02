@@ -1,0 +1,150 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<body>
+  <script>
+    const STORAGE_KEY = 'mood_tracker_data';
+
+    const toLocalISO = (d) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    function resolveDate(dateStr) {
+      const now = new Date();
+
+      if (!dateStr || dateStr.toLowerCase() === 'today') {
+        return toLocalISO(now);
+      }
+
+      const lower = dateStr.toLowerCase();
+      if (lower === 'yesterday') {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        return toLocalISO(d);
+      }
+
+      // Handle YYYY-MM-DD directly
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return dateStr;
+      }
+
+      // Try general date parsing (handles "March 17", "March 18 2026", etc.)
+      const parsed = new Date(dateStr);
+      if (!isNaN(parsed.getTime())) {
+        // Javascript defaults to the current year if not specified
+        return toLocalISO(parsed);
+      }
+
+      // Fallback
+      return toLocalISO(now);
+    }
+
+    function getData() {
+      const data = localStorage.getItem(STORAGE_KEY);
+      return data ? JSON.parse(data) : {};
+    }
+
+    function saveData(data) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    window['ai_edge_gallery_get_result'] = async (dataStr) => {
+      try {
+        const input = JSON.parse(dataStr);
+        const action = input.action;
+        const date = resolveDate(input.date);
+        const allData = getData();
+        let resultMessage = "";
+        let showDashboard = input.show_dashboard || action === 'get_history';
+
+        if (action === 'log_mood') {
+          const score = parseInt(input.score);
+          if (isNaN(score) || score < 1 || score > 10) {
+            throw new Error("Mood score must be a number between 1 and 10.");
+          }
+
+          allData[date] = {
+            score: score,
+            comment: input.comment || "",
+            timestamp: new Date().toISOString()
+          };
+          saveData(allData);
+          resultMessage = `Logged mood of ${score}/10 for ${date}${input.comment ? ': "' + input.comment + '"' : ''}.`;
+        } else if (action === 'get_mood') {
+          const entry = allData[date];
+          if (entry) {
+            resultMessage = `Your mood on ${date} was ${entry.score}/10${entry.comment ? ' (' + entry.comment + ')' : ''}.`;
+          } else {
+            resultMessage = `No mood entry found for ${date}.`;
+          }
+        } else if (action === 'get_history') {
+          const daysCount = parseInt(input.days) || 7;
+          const history = [];
+          // Sort chronologically (oldest first) for better trend analysis
+          const sortedDates = Object.keys(allData).sort().slice(-daysCount);
+
+          sortedDates.forEach(d => {
+            history.push({ date: d, ...allData[d] });
+          });
+
+          resultMessage = `Here is your mood history (oldest first, retrieved on ${toLocalISO(new Date())}): \n` +
+                          history.map(h => `- ${h.date}: ${h.score}/10 ${h.comment ? '(' + h.comment + ')' : ''}`).join('\n');
+        } else if (action === 'delete_mood') {
+          if (allData[date]) {
+            delete allData[date];
+            saveData(allData);
+            resultMessage = `Deleted mood entry for ${date}.`;
+          } else {
+            resultMessage = `No mood entry found to delete for ${date}.`;
+          }
+        } else if (action === 'export_data') {
+          resultMessage = `Here is your raw mood data for backup (Copy and save this JSON): \n\n${JSON.stringify(allData, null, 2)}`;
+        } else if (action === 'wipe_data') {
+          localStorage.removeItem(STORAGE_KEY);
+          resultMessage = "All your mood history has been deleted. You can now start fresh!";
+        } else {
+          throw new Error(`Unknown action: ${action}`);
+        }
+
+        const response = {
+          result: resultMessage
+        };
+
+        if (showDashboard) {
+          let url = `dashboard.html?date=${date}`;
+          if (input.days) {
+            url += `&days=${input.days}`;
+          }
+          response.webview = { url: url };
+        }
+
+        return JSON.stringify(response);
+
+      } catch (e) {
+        console.error(e);
+        return JSON.stringify({ error: `Mood Tracker error: ${e.message}` });
+      }
+    };
+  </script>
+</body>
+</html>
