@@ -169,6 +169,7 @@ private val PREDEFINED_LLM_TASK_ORDER =
     BuiltInTaskId.LLM_ASK_IMAGE,
     BuiltInTaskId.LLM_ASK_AUDIO,
     BuiltInTaskId.LLM_CHAT,
+    BuiltInTaskId.LLM_AGENT_CHAT,
     BuiltInTaskId.LLM_PROMPT_LAB,
     BuiltInTaskId.LLM_TINY_GARDEN,
     BuiltInTaskId.LLM_MOBILE_ACTIONS,
@@ -215,9 +216,7 @@ constructor(
   }
 
   fun getActiveCustomTasks(): List<CustomTask> {
-    return customTasks.filter {
-      true
-    }
+    return customTasks.toList()
   }
 
   fun getSelectedModel(): Model? {
@@ -572,6 +571,7 @@ constructor(
         BuiltInTaskId.LLM_PROMPT_LAB,
         BuiltInTaskId.LLM_TINY_GARDEN,
         BuiltInTaskId.LLM_MOBILE_ACTIONS,
+        BuiltInTaskId.LLM_AGENT_CHAT,
       )
     for (task in getTasksByIds(ids = setOfTasks)) {
       // Remove duplicated imported model if existed.
@@ -1026,6 +1026,7 @@ constructor(
       // Add to task.
       tasks.get(key = BuiltInTaskId.LLM_CHAT)?.models?.add(model)
       tasks.get(key = BuiltInTaskId.LLM_PROMPT_LAB)?.models?.add(model)
+      tasks.get(key = BuiltInTaskId.LLM_AGENT_CHAT)?.models?.add(model)
       if (model.llmSupportImage) {
         tasks.get(key = BuiltInTaskId.LLM_ASK_IMAGE)?.models?.add(model)
       }

@@ -164,9 +164,11 @@ fun MessageInputText(
   onStopButtonClicked: () -> Unit = {},
   onSetAudioRecorderVisible: (visible: Boolean) -> Unit = {},
   onAmplitudeChanged: (Int) -> Unit,
+  onSkillsClicked: () -> Unit = {},
   onPickedImagesChanged: (List<Bitmap>) -> Unit = {},
   onPickedAudioClipsChanged: (List<AudioClip>) -> Unit = {},
   showPromptTemplatesInMenu: Boolean = false,
+  showSkillsPicker: Boolean = false,
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
   showStopButtonWhenInProgress: Boolean = false,
@@ -573,6 +575,16 @@ fun MessageInputText(
                           showTextInputHistorySheet = true
                         },
                       )
+                    }
+                  }
+
+                  // Skills.
+                  if (showSkillsPicker) {
+                    OutlinedButton(
+                      onClick = onSkillsClicked,
+                      enabled = !inProgress && !isResettingSession && !modelInitializing,
+                    ) {
+                      Text(stringResource(R.string.skills))
                     }
                   }
                 }

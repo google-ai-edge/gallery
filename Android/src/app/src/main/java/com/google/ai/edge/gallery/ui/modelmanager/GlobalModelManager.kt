@@ -128,6 +128,12 @@ fun GlobalModelManager(
   val snackbarHostState = remember { SnackbarHostState() }
   val modelItemExpandedStates = remember { mutableStateMapOf<String, Boolean>() }
 
+  val promoId = "gm4_banner"
+  var showPromo by remember { mutableStateOf(false) }
+  LaunchedEffect(Unit) {
+    showPromo = !viewModel.dataStoreRepository.hasViewedPromo(promoId = promoId)
+  }
+
   val filePickerLauncher: ActivityResultLauncher<Intent> =
     rememberLauncherForActivityResult(
       contract = ActivityResultContracts.StartActivityForResult()
@@ -249,6 +255,20 @@ fun GlobalModelManager(
         contentPadding =
           PaddingValues(top = 16.dp, bottom = innerPadding.calculateBottomPadding() + 80.dp),
       ) {
+        item(key = "promo") {
+          AnimatedVisibility(
+            visible = showPromo,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { -it / 2 }) + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+          ) {
+            PromoBannerGm4(
+              onDismiss = {
+                showPromo = false
+                viewModel.dataStoreRepository.addViewedPromoId(promoId = promoId)
+              }
+            )
+          }
+        }
 
         items(builtInModels) { model ->
           val expanded = modelItemExpandedStates.getOrDefault(model.name, true)

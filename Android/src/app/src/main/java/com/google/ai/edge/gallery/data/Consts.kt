@@ -48,6 +48,9 @@ val DEFAULT_VISION_ACCELERATOR = Accelerator.GPU
 // Max number of images allowed in a "ask image" session.
 const val MAX_IMAGE_COUNT = 10
 
+// Max number of skills recommended in a "agent skills" session.
+const val MAX_RECOMMENDED_SKILL_COUNT = 15
+
 // Max number of audio clip in an "ask audio" session.
 const val MAX_AUDIO_CLIP_COUNT = 1
 

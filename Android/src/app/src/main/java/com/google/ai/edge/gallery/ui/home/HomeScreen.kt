@@ -164,6 +164,7 @@ fun HomeScreen(
   onModelsClicked: () -> Unit,
   enableAnimation: Boolean,
   modifier: Modifier = Modifier,
+  gm4: Boolean = false,
 ) {
   val uiState by modelManagerViewModel.uiState.collectAsState()
   var showSettingsDialog by remember { mutableStateOf(false) }
@@ -369,7 +370,11 @@ fun HomeScreen(
             modifier =
               Modifier.fillMaxSize()
                 .background(
-                  MaterialTheme.colorScheme.surfaceContainer
+                  if (gm4) {
+                    MaterialTheme.colorScheme.surface
+                  } else {
+                    MaterialTheme.colorScheme.surfaceContainer
+                  }
                 ),
           ) {
             // Inner box to hold content.
@@ -380,6 +385,38 @@ fun HomeScreen(
                   .padding(top = innerPadding.calculateTopPadding())
                   .verticalScroll(rememberScrollState()),
             ) {
+              // Background star at top.
+              if (gm4) {
+                val progress =
+                  if (!enableAnimation) {
+                    1f
+                  } else {
+                    rememberDelayedAnimationProgress(
+                      initialDelay = ANIMATION_INIT_DELAY,
+                      animationDurationMs = 2000,
+                      animationLabel = "bg star",
+                    )
+                  }
+                val configuration = LocalConfiguration.current
+                val screenWidth = configuration.screenWidthDp.dp
+                val targetWidth = screenWidth * 1.5f
+                Image(
+                  painter = painterResource(id = R.drawable.bg_star),
+                  contentDescription = null,
+                  modifier =
+                    Modifier.requiredWidth(targetWidth)
+                      .blur(radius = 35.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                      .offset(x = screenWidth * 0.25f, y = -screenWidth * 0.1f)
+                      .graphicsLayer {
+                        rotationZ = (1f - progress) * 40f
+                        scaleX = 0.4f + 0.6f * progress
+                        scaleY = 0.4f + 0.6f * progress
+                        alpha = progress * 2f
+                      },
+                  contentScale = ContentScale.Crop,
+                  colorFilter = ColorFilter.tint(MaterialTheme.customColors.bgStarColor),
+                )
+              }
 
               Column(modifier = Modifier.fillMaxWidth()) {
                 var selectedCategoryIndex by remember { mutableIntStateOf(0) }
@@ -388,16 +425,22 @@ fun HomeScreen(
                 Column(
                   modifier =
                     Modifier.padding(
-                        horizontal = 40.dp,
-                        vertical = 48.dp,
+                        horizontal = if (gm4) 24.dp else 40.dp,
+                        vertical = if (gm4) 0.dp else 48.dp,
                       )
+                      .padding(top = 24.dp, bottom = 16.dp)
                       .semantics(mergeDescendants = true) {},
                   verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                  AppTitle(enableAnimation = enableAnimation)
-                  IntroText(
-                    enableAnimation = enableAnimation,
-                  )
+                  if (gm4) {
+                    AppTitleGm4(enableAnimation = enableAnimation)
+                  } else {
+                    AppTitle(enableAnimation = enableAnimation)
+                  }
+                  IntroText(enableAnimation = enableAnimation, gm4 = gm4)
+                  if (gm4) {
+                    TryGm4IntroText(enableAnimation = enableAnimation)
+                  }
                 }
 
                 // Tab header for categories.
@@ -422,7 +465,7 @@ fun HomeScreen(
 
                 // Task list in a horizontal pager. Each page shows the list of tasks for the
                 // category.
-                val grid = false
+                val grid = gm4
                 TaskList(
                   modelManagerViewModel = modelManagerViewModel,
                   pagerState = pagerState,
@@ -430,6 +473,7 @@ fun HomeScreen(
                   tasksByCategories = uiState.tasksByCategory,
                   enableAnimation = enableAnimation,
                   navigateToTaskScreen = navigateToTaskScreen,
+                  gm4 = gm4,
                   grid = grid,
                 )
 
@@ -575,9 +619,32 @@ private fun AppTitle(enableAnimation: Boolean) {
 }
 
 @Composable
-private fun IntroText(
-  enableAnimation: Boolean,
-) {
+fun AppTitleGm4(enableAnimation: Boolean) {
+  val text1 = "Google"
+  val text2 = "AI Edge Gallery"
+  val annotatedText = buildAnnotatedString {
+    withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.onSurface)) { append(text1) }
+    append(" ")
+    withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary)) { append(text2) }
+  }
+
+  RevealingText(
+    text = "",
+    annotatedText = annotatedText,
+    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Medium),
+    animationDelay = 0,
+    animationDurationMs =
+      if (enableAnimation) {
+        (TITLE_FIRST_LINE_ANIMATION_DURATION + TITLE_SECOND_LINE_ANIMATION_DURATION)
+      } else {
+        0
+      },
+    extraTextPadding = 0.dp,
+  )
+}
+
+@Composable
+private fun IntroText(enableAnimation: Boolean, gm4: Boolean) {
   val litertUrl = "https://huggingface.co/litert-community"
 
   // Intro text animation:
@@ -595,16 +662,76 @@ private fun IntroText(
     }
 
   val introText = buildAnnotatedString {
-    append("${stringResource(R.string.app_intro)} ")
-    append(
-      buildTrackableUrlAnnotatedString(
-        url = litertUrl,
-        linkText = stringResource(R.string.litert_community_label),
+    val gemma4Url = "https://ai.google.dev/gemma"
+    if (gm4) {
+      append("Discover the power of on-device AI models from the ")
+      append(buildTrackableUrlAnnotatedString(url = litertUrl, linkText = "LiteRT community"))
+      append(", featuring the all-new ")
+      append(buildTrackableUrlAnnotatedString(url = gemma4Url, linkText = "Gemma 4"))
+      append(".")
+    } else {
+      append("${stringResource(R.string.app_intro)} ")
+      append(
+        buildTrackableUrlAnnotatedString(
+          url = litertUrl,
+          linkText = stringResource(R.string.litert_community_label),
+        )
       )
-    )
+    }
   }
   Text(
     introText,
+    style = MaterialTheme.typography.bodyMedium,
+    modifier =
+      Modifier.graphicsLayer {
+        alpha = progress
+        translationY = (CONTENT_COMPOSABLES_OFFSET_Y.dp * (1 - progress)).toPx()
+      },
+  )
+}
+
+@Composable
+private fun TryGm4IntroText(enableAnimation: Boolean) {
+  // fade in + slide up.
+  val progress =
+    if (!enableAnimation) {
+      1f
+    } else {
+      rememberDelayedAnimationProgress(
+        initialDelay = TITLE_SECOND_LINE_ANIMATION_START,
+        animationDurationMs = CONTENT_COMPOSABLES_ANIMATION_DURATION,
+        animationLabel = "intro text animation",
+      )
+    }
+  Row(
+    modifier =
+      Modifier.padding(top = 24.dp).graphicsLayer {
+        alpha = progress
+        translationY = (CONTENT_COMPOSABLES_OFFSET_Y.dp * (1 - progress)).toPx()
+      },
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(8.dp),
+  ) {
+    Icon(
+      ImageVector.vectorResource(R.drawable.gemma_logo),
+      contentDescription = null,
+      modifier = Modifier.size(24.dp),
+      tint = MaterialTheme.colorScheme.primary,
+    )
+    Text(
+      text = "Try Gemma 4 today",
+      style =
+        MaterialTheme.typography.headlineSmall.copy(
+          fontWeight = FontWeight.Medium,
+          fontSize = 20.sp,
+          lineHeight = 24.sp,
+        ),
+      color = MaterialTheme.colorScheme.onSurface,
+    )
+  }
+
+  Text(
+    "Gemma 4 E2B & E4B are here! Try them in AI Chat, Agent Skills, or the use cases below.",
     style = MaterialTheme.typography.bodyMedium,
     modifier =
       Modifier.graphicsLayer {
@@ -697,6 +824,7 @@ private fun TaskList(
   tasksByCategories: Map<String, List<Task>>,
   enableAnimation: Boolean,
   navigateToTaskScreen: (Task) -> Unit,
+  gm4: Boolean = false,
   grid: Boolean = false,
 ) {
   // Model list animation:
@@ -719,6 +847,52 @@ private fun TaskList(
     // Use 5 iterations to make sure all visible task cards are animated.
     delay(((TASK_CARD_ANIMATION_DURATION + TASK_CARD_ANIMATION_DELAY_OFFSET) * 5).toLong())
     initialAnimationDone = true
+  }
+
+  // The highlighted tiles at the top.
+  if (gm4) {
+    Column(
+      verticalArrangement = Arrangement.spacedBy(10.dp),
+      modifier =
+        Modifier.padding(horizontal = 24.dp).graphicsLayer {
+          alpha = progress
+          translationY = (CONTENT_COMPOSABLES_OFFSET_Y.dp * (1 - progress)).toPx()
+        },
+    ) {
+      val chatToDescription =
+        mapOf(
+          BuiltInTaskId.LLM_CHAT to "Chat with the latest Gemma 4 model today",
+          // use "\u00a0" to make sure the word before and after it should always be together when
+          // wrapping lines.
+          BuiltInTaskId.LLM_AGENT_CHAT to "Have Gemma 4 complete agentic tasks for\u00A0you",
+        )
+      for (task in
+        listOf(
+          modelManagerViewModel.getTaskById(BuiltInTaskId.LLM_CHAT)!!,
+          modelManagerViewModel.getTaskById(BuiltInTaskId.LLM_AGENT_CHAT)!!,
+        )) {
+        TaskCard(
+          task = task,
+          index = 0,
+          animate = !initialAnimationDone && enableAnimation,
+          onClick = { navigateToTaskScreen(task) },
+          modifier = Modifier.fillMaxWidth(),
+          description = chatToDescription[task.id]!!,
+        )
+      }
+
+      Text(
+        text = "Explore other use cases",
+        style =
+          MaterialTheme.typography.headlineSmall.copy(
+            fontWeight = FontWeight.Medium,
+            fontSize = 20.sp,
+            lineHeight = 24.sp,
+          ),
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(top = 22.dp, bottom = 16.dp),
+      )
+    }
   }
 
   HorizontalPager(

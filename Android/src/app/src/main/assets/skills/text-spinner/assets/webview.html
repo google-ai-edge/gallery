@@ -1,0 +1,157 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Full-Screen 3D Head Tracker</title>
+  <style>
+    body, html {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      overflow: hidden; background: #000;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+    #container { position: relative; width: 100vw; height: 100vh; perspective: 1000px; }
+    video, canvas {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover; transform: scaleX(-1);
+    }
+    #spinning-label {
+      position: absolute; pointer-events: none;
+      background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+      color: white; padding: 12px 24px;
+      border-radius: 50px; font-weight: 800;
+      text-transform: uppercase; white-space: nowrap;
+      z-index: 10; display: none;
+      box-shadow: 0 10px 30px rgba(0, 150, 255, 0.4);
+      transform-style: preserve-3d;
+    }
+    .status {
+      position: fixed; top: 20px; left: 20px;
+      color: #00f2fe; font-size: 14px; z-index: 100;
+      background: rgba(0, 0, 0, 0.6); padding: 8px 12px; border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="status" id="status">Syncing Neural Engine...</div>
+
+  <div id="container">
+    <video id="webcam" autoplay playsinline></video>
+    <canvas id="output_canvas"></canvas>
+    <div id="spinning-label">Label</div>
+  </div>
+
+  <script type="module">
+    // Using the .mjs bundle which is the current standard for MediaPipe Tasks
+    import {
+      FaceLandmarker,
+      FilesetResolver
+    } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.mjs";
+
+    let faceLandmarker;
+    let rotationZ = 0;
+
+    const video = document.getElementById("webcam");
+    const canvasElement = document.getElementById("output_canvas");
+    const labelDiv = document.getElementById("spinning-label");
+    const statusDiv = document.getElementById("status");
+
+    const urlParams = new URLSearchParams(window.location.search);
+    labelDiv.innerText = urlParams.get('label') || "3D TRACKER";
+
+    async function init() {
+      try {
+        // Pointing to the WASM folder explicitly
+        const filesetResolver = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm"
+        );
+
+        faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+          baseOptions: {
+            modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+            delegate: "CPU"
+          },
+          runningMode: "VIDEO",
+          numFaces: 1
+        });
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
+        });
+        video.srcObject = stream;
+
+        video.onloadeddata = () => {
+          statusDiv.style.display = "none";
+          canvasElement.width = window.innerWidth;
+          canvasElement.height = window.innerHeight;
+          predict();
+        };
+
+      } catch (err) {
+        statusDiv.innerText = "Init Error: " + err.message;
+        console.error(err);
+      }
+    }
+
+    function predict() {
+      if (video.currentTime !== -1 && faceLandmarker) {
+        const results = faceLandmarker.detectForVideo(video, performance.now());
+
+        if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+          labelDiv.style.display = "block";
+          const landmarks = results.faceLandmarks[0];
+
+          const topHead = landmarks[10];
+          const noseTip = landmarks[4];
+          const leftFace = landmarks[234];
+          const rightFace = landmarks[454];
+
+          // 3D calculation
+          const screenX = (1 - topHead.x) * window.innerWidth;
+          const screenY = topHead.y * window.innerHeight;
+
+          const distToLeft = Math.abs(noseTip.x - leftFace.x);
+          const distToRight = Math.abs(noseTip.x - rightFace.x);
+          const yawFactor = (distToLeft / (distToLeft + distToRight) - 0.5) * 2;
+          const rotationY = yawFactor * -60;
+
+          const faceWidth = Math.sqrt(Math.pow(rightFace.x - leftFace.x, 2) + Math.pow(rightFace.y - leftFace.y, 2));
+          const fontSize = Math.max(16, Math.min(80, faceWidth * 100));
+
+          rotationZ = (rotationZ + 4) % 360;
+
+          labelDiv.style.fontSize = fontSize + "px";
+          labelDiv.style.left = screenX + "px";
+          labelDiv.style.top = (screenY - (fontSize * 1.5)) + "px";
+          labelDiv.style.transform = `translate(-50%, -50%) rotateY(${rotationY}deg) rotateZ(${rotationZ}deg)`;
+        } else {
+          labelDiv.style.display = "none";
+        }
+      }
+      requestAnimationFrame(predict);
+    }
+
+    init();
+  </script>
+</body>
+</html>
