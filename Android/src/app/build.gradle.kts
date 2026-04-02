@@ -36,7 +36,7 @@ android {
     applicationId = "com.google.aiedge.gallery"
     minSdk = 31
     targetSdk = 35
-    versionCode = 22
+    versionCode = 23
     versionName = "1.0.11"
 
     // Needed for HuggingFace auth workflows.
