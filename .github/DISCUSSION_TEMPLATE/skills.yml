@@ -1,0 +1,48 @@
+title: "[Skill Name]: Brief Description"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Share Your Skill!
+        Fill out the form below to showcase what you have built.
+
+  - type: input
+    id: webhost-path
+    attributes:
+      label: Skill Webhost Path
+      description: The live URL where your skill is hosted. Users will use this link to import your skill directly into the AI Edge Gallery app.
+      placeholder: https://{username}.github.io/{repo}/path/to/skill_folder
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        > 💡 **Tip**: To ensure your path is correct, try loading `https://{username}.github.io/{repo}/path/to/skill_folder/SKILL.md` file in your browser. If it displays the raw file content, you are good to go!
+  - type: markdown
+    attributes:
+      value: |
+        > ⚠️ **Important**: This must be a live web deployment (e.g., GitHub Pages, Vercel, Cloudflare, etc). Do not use a standard repository link or a `raw.githubusercontent.com` URL, as these will not work in the app.
+
+  - type: markdown
+    attributes:
+      value: "<br>"
+
+  - type: input
+    id: repo-link
+    attributes:
+      label: Skill Source Repository
+      description: Link to your source code repository.
+      placeholder: https://github.com/{username}/{repo}/path/to/skill_folder
+
+  - type: markdown
+    attributes:
+      value: "<br>"
+
+  - type: textarea
+    id: skill-details
+    attributes:
+      label: Skill Description
+      description: Tell us what your skill does! Include examples, specific instructions (e.g. how to get token/api key if your skill needs it), or screenshots.
+    validations:
+      required: false
