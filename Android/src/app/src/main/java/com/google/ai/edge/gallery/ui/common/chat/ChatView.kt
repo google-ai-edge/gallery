@@ -99,6 +99,7 @@ fun ChatView(
   onResetSessionClicked: (Model) -> Unit = {},
   onStreamImageMessage: (Model, ChatMessageImage) -> Unit = { _, _ -> },
   onStopButtonClicked: (Model) -> Unit = {},
+  onSkillClicked: () -> Unit = {},
   showStopButtonInInputWhenInProgress: Boolean = false,
   composableBelowMessageList: @Composable (Model) -> Unit = {},
   showImagePicker: Boolean = false,
@@ -239,6 +240,7 @@ fun ChatView(
                   allImageViewerImages = bitmaps
                   showImageViewer = true
                 },
+                onSkillClicked = onSkillClicked,
                 modifier = Modifier.weight(1f),
                 showStopButtonInInputWhenInProgress = showStopButtonInInputWhenInProgress,
                 showImagePicker = showImagePicker,

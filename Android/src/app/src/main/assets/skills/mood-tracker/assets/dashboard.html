@@ -1,0 +1,609 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mood Tracker Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+      --glass-bg: rgba(255, 255, 255, 0.05);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --text-main: #ffffff;
+      --text-dim: rgba(255, 255, 255, 0.6);
+      --accent-primary: #4ecca3;
+      --accent-secondary: #45b7d1;
+      --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    body {
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 500px;
+      animation: fadeIn 0.8s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    h1 {
+      font-weight: 600;
+      font-size: 2.2rem;
+      letter-spacing: -0.5px;
+      background: linear-gradient(to right, #4ecca3, #45b7d1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .date-navigator {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--glass-bg);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 15px 25px;
+      margin-bottom: 25px;
+      box-shadow: var(--card-shadow);
+    }
+
+    .date-button {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: var(--text-main);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1.2rem;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .date-button:active {
+      transform: scale(0.85);
+      background: var(--accent-primary);
+    }
+
+    .date-button svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    #current-date-display {
+      font-weight: 400;
+      font-size: 1rem;
+      letter-spacing: 0.5px;
+    }
+
+    .mood-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 30px;
+      margin-bottom: 25px;
+      box-shadow: var(--card-shadow);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      transition: transform 0.3s;
+    }
+
+    .mood-card:hover {
+      transform: translateY(-5px);
+      border-color: var(--accent-primary);
+    }
+
+    .mood-score-circle {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--accent-primary), var(--accent-secondary));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(78, 204, 163, 0.3);
+      margin-bottom: 20px;
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 10px rgba(78, 204, 163, 0.2); }
+      50% { box-shadow: 0 0 25px rgba(78, 204, 163, 0.5); }
+      100% { box-shadow: 0 0 10px rgba(78, 204, 163, 0.2); }
+    }
+
+    .score-value {
+      font-size: 3rem;
+      font-weight: 600;
+      color: #1a1a2e;
+      line-height: 1;
+    }
+
+    .score-label {
+      font-size: 0.8rem;
+      color: #1a1a2e;
+      font-weight: 600;
+      text-transform: uppercase;
+      opacity: 0.8;
+    }
+
+    .mood-comment-text {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      color: var(--text-main);
+      font-style: italic;
+      min-height: 3em;
+    }
+
+    .history-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 25px;
+      box-shadow: var(--card-shadow);
+    }
+
+    .history-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: var(--accent-secondary);
+      display: flex;
+      align-items: center;
+    }
+
+    .history-title svg {
+      margin-right: 10px;
+      width: 20px;
+      height: 20px;
+    }
+
+    .history-list {
+      list-style: none;
+    }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      padding: 15px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      animation: slideIn 0.5s ease-out;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-10px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .history-item:last-child {
+      border-bottom: none;
+    }
+
+    .history-date {
+      width: 80px;
+      font-size: 0.9rem;
+      color: var(--text-dim);
+    }
+
+    .history-score-pill {
+      background: var(--accent-primary);
+      color: #1a1a2e;
+      padding: 2px 10px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        margin-right: 15px;
+        min-width: 35px;
+        text-align: center;
+    }
+
+    .history-comment {
+      flex: 1;
+      font-size: 0.95rem;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-right: 10px;
+    }
+
+    .delete-btn {
+        background: transparent;
+        border: none;
+        color: rgba(255, 255, 255, 0.2);
+        cursor: pointer;
+        padding: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.2s;
+    }
+
+    .delete-btn:hover {
+        color: #ff4d4d;
+    }
+
+    .delete-btn svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-dim);
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--glass-border);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-secondary);
+    }
+
+    /* Chart Styles */
+    .chart-container {
+      background: var(--glass-bg);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 20px;
+      margin-bottom: 25px;
+      box-shadow: var(--card-shadow);
+      width: 100%;
+      height: 250px;
+      display: none; /* Hidden until plot action is requested */
+    }
+
+    .chart-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: var(--accent-primary);
+        text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Mood Tracker</h1>
+    </header>
+
+    <div class="date-navigator">
+      <button class="date-button" id="prev-date">
+        <svg fill="currentColor" viewBox="0 0 24 24"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>
+      </button>
+      <div id="current-date-display">...</div>
+      <button class="date-button" id="next-date">
+        <svg fill="currentColor" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+      </button>
+    </div>
+
+    <div class="mood-card">
+      <div class="mood-score-circle">
+        <div class="score-value" id="current-score">-</div>
+        <div class="score-label">Score</div>
+      </div>
+      <div class="mood-comment-text" id="current-comment">No notes for today.</div>
+    </div>
+
+    <!-- Chart Section -->
+    <div class="chart-container" id="chart-container">
+        <div class="chart-title">Mood Trend Chart</div>
+        <canvas id="moodChart"></canvas>
+    </div>
+
+    <div class="history-card">
+      <div class="history-title">
+        <svg fill="currentColor" viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+        Your Mood Journey
+      </div>
+      <ul class="history-list" id="history-list">
+        <!-- History items -->
+      </ul>
+    </div>
+
+    <!-- Raw Data Section -->
+    <div style="margin-top: 30px; text-align: center;">
+        <button id="toggle-raw-btn" style="background: transparent; border: 1px solid var(--glass-border); color: var(--text-dim); padding: 8px 15px; border-radius: 10px; cursor: pointer; font-size: 0.8rem;">View Raw Data (Developer)</button>
+        <div id="raw-data-container" style="display: none; margin-top: 15px; text-align: left; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 12px; border: 1px solid var(--glass-border); overflow-x: auto; position: relative;">
+            <button id="copy-raw-btn" style="position: absolute; top: 10px; right: 10px; background: var(--accent-primary); border: none; color: #1a1a2e; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.7rem; font-weight: 600;">Copy</button>
+            <pre id="raw-json" style="font-family: monospace; font-size: 0.75rem; color: #4ecca3;"></pre>
+        </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'mood_tracker_data';
+    let currentDate = new Date();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlDateString = urlParams.get('date');
+    const plotDays = parseInt(urlParams.get('days')) || 0;
+
+    if (urlDateString) {
+      currentDate = parseISODate(urlDateString);
+    }
+
+    function getISODate(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    function parseISODate(s) {
+        const [y, m, d] = s.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    }
+
+    function formatDateDisplay(date) {
+      const options = { weekday: 'long', month: 'short', day: 'numeric' };
+      return date.toLocaleDateString('en-US', options);
+    }
+
+    function loadData() {
+      const isoDate = getISODate(currentDate);
+      document.getElementById('current-date-display').textContent = formatDateDisplay(currentDate);
+
+      const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const entry = allData[isoDate];
+
+      const scoreEl = document.getElementById('current-score');
+      const commentEl = document.getElementById('current-comment');
+
+      if (entry) {
+        scoreEl.textContent = entry.score;
+        commentEl.textContent = entry.comment || 'Feeling Zen.';
+
+        // Color based on score
+        const hue = (entry.score -1) * 12; // 0 to 108 (red-ish to green-ish)
+        document.querySelector('.mood-score-circle').style.background = `radial-gradient(circle, hsl(${hue}, 70%, 60%), hsl(${hue + 20}, 70%, 50%))`;
+      } else {
+        scoreEl.textContent = '-';
+        commentEl.textContent = 'No entry for this date.';
+        document.querySelector('.mood-score-circle').style.background = 'rgba(255,255,255,0.1)';
+      }
+
+      // Load last 5 history entries
+      const historyList = document.getElementById('history-list');
+      historyList.innerHTML = '';
+
+      const sortedDates = Object.keys(allData).sort().reverse().slice(0, 5);
+
+      if (sortedDates.length === 0) {
+        historyList.innerHTML = '<div class="empty-state">Your journey starts here. Log your first mood!</div>';
+      } else {
+        sortedDates.forEach(d => {
+          const item = allData[d];
+          const li = document.createElement('li');
+          li.className = 'history-item';
+
+          // Format date for list e.g. "Mar 24"
+          const dateObj = parseISODate(d);
+          const dateLabel = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+          li.innerHTML = `
+            <div class="history-date">${dateLabel}</div>
+            <div class="history-score-pill" style="background: hsl(${(item.score-1)*12}, 70%, 60%)">${item.score}</div>
+            <div class="history-comment">${item.comment || 'No notes.'}</div>
+            <button class="delete-btn" onclick="deleteEntry('${d}')" title="Delete entry">
+                <svg fill="currentColor" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+          `;
+          historyList.appendChild(li);
+        });
+      }
+
+      // Update Raw Data
+      document.getElementById('raw-json').textContent = JSON.stringify(allData, null, 2);
+
+      // Render Chart if requested
+      if (plotDays > 0) {
+          document.getElementById('chart-container').style.display = 'block';
+          renderTrendChart(allData, plotDays);
+      }
+    }
+
+    let moodChartInstance = null;
+    function renderTrendChart(allData, days) {
+        const ctx = document.getElementById('moodChart').getContext('2d');
+
+        // Prepare last N days labels and data
+        const labels = [];
+        const data = [];
+        const now = new Date();
+
+        for (let i = days - 1; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(now.getDate() - i);
+            const iso = getISODate(d);
+            labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+            data.push(allData[iso] ? allData[iso].score : null); // null for missing days
+        }
+
+        if (moodChartInstance) {
+            moodChartInstance.destroy();
+        }
+
+        moodChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Mood Score',
+                    data: data,
+                    borderColor: '#4ecca3',
+                    backgroundColor: 'rgba(78, 204, 163, 0.2)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#45b7d1',
+                    pointRadius: 5, // Slightly larger dots
+                    pointHoverRadius: 7,
+                    spanGaps: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        left: 10,
+                        right: 25, // Extra space on the right for the last dot
+                        top: 10,
+                        bottom: 10
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        min: 1,
+                        max: 10,
+                        ticks: { color: 'rgba(255,255,255,0.6)', stepSize: 1 },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    },
+                    x: {
+                        offset: true, // Prevents points from being right on the edge
+                        ticks: {
+                            color: 'rgba(255,255,255,0.6)',
+                            font: { size: 10 },
+                            maxRotation: 0,
+                            autoSkip: true
+                        },
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(26, 26, 46, 0.9)',
+                        titleColor: '#4ecca3',
+                        bodyColor: '#fff',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1
+                    }
+                }
+            }
+        });
+    }
+
+    function deleteEntry(date) {
+        if (confirm(`Delete mood entry for ${date}?`)) {
+            const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            delete allData[date];
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
+            loadData();
+        }
+    }
+
+    document.getElementById('toggle-raw-btn').addEventListener('click', () => {
+        const container = document.getElementById('raw-data-container');
+        const isHidden = container.style.display === 'none';
+        container.style.display = isHidden ? 'block' : 'none';
+        document.getElementById('toggle-raw-btn').textContent = isHidden ? 'Hide Raw Data' : 'View Raw Data (Developer)';
+    });
+
+    document.getElementById('copy-raw-btn').addEventListener('click', () => {
+        const rawJson = document.getElementById('raw-json').textContent;
+        navigator.clipboard.writeText(rawJson).then(() => {
+            const btn = document.getElementById('copy-raw-btn');
+            const originalText = btn.textContent;
+            btn.textContent = 'Copied!';
+            btn.style.background = '#4ecca3';
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.background = 'var(--accent-primary)';
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+            alert('Failed to copy to clipboard.');
+        });
+    });
+
+    document.getElementById('prev-date').addEventListener('click', () => {
+      currentDate.setDate(currentDate.getDate() - 1);
+      loadData();
+    });
+
+    document.getElementById('next-date').addEventListener('click', () => {
+        currentDate.setDate(currentDate.getDate() + 1);
+        loadData();
+    });
+
+    // Handle incoming messages from the AI Edge Gallery (if any)
+    window.addEventListener('message', function(event) {
+        // Future extensibility
+    });
+
+    // Initial load
+    loadData();
+  </script>
+</body>
+</html>

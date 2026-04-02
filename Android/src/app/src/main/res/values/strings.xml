@@ -20,8 +20,6 @@
   <string name="add" translatable="false">Add</string>
   <string name="added" translatable="false">Added</string>
   <string name="add_audio" translatable="false">+Audio</string>
-  <string name="aichat_emptystate_title" translatable="false">AI Chat</string>
-  <string name="aichat_emptystate_content" translatable="false">Chat with on-device large language models</string>
   <string name="aichat_initializing_title" translatable="false">Initializing model</string>
   <string name="aichat_initializing_content" translatable="false">Sit tight, this can take up to 1 minute</string>
   <string name="app_intro" translatable="false">Explore a world of amazing on-device models from</string>
@@ -155,6 +153,7 @@
   <string name="run_benchmark" translatable="false">Run benchmark</string>
   <string name="run_benchmark_confirmation_msg" translatable="false">This process typically takes several minutes and cannot be interrupted once started. Would you like to proceed?</string>
   <string name="running_benchmark_msg" translatable="false">Running model benchmark...</string>
+  <string name="save" translatable="false">Save</string>
   <string name="secret" translatable="false">Secret</string>
   <string name="select_downloaded_model" translatable="false">Select a downloaded model</string>
   <string name="select_model" translatable="false">Select a model</string>
@@ -223,8 +222,90 @@
   <string name="mobile_actions_challenge_email_colab" translatable="false">Email guide to myself</string>
   <string name="mobile_actions_challenge_load_model" translatable="false">Load Model</string>
 
+  <!-- Strings for skills -->
+  <string name="aichat_emptystate_title" translatable="false">AI Chat</string>
+  <string name="aichat_emptystate_content" translatable="false">Chat with on-device large language models.</string>
+  <string name="add_script" translatable="false">Add script</string>
+  <string name="add_default_script" translatable="false">Add default script</string>
+  <string name="add_skill" translatable="false">Add skill</string>
+  <string name="add_skill_option_featured_list_title" translatable="false">Add skill from featured list</string>
+  <string name="add_skill_option_featured_list_description" translatable="false">Add a skill from a curated list of community contributed skills</string>
+  <string name="add_skill_option_url_title" translatable="false">Load skill from URL</string>
+  <string name="add_skill_option_url_description" translatable="false">Enter the URL of a skill directory hosted on Web</string>
+  <string name="add_skill_option_local_title" translatable="false">Import local skill</string>
+  <string name="add_skill_option_local_description" translatable="false">Import the skill directory locally</string>
+  <string name="add_skill_option_skill_creator_title" translatable="false">Skill creator</string>
+  <string name="add_skill_option_skill_creator_description" translatable="false">Create a skill from scratch in-app</string>
+  <string name="add_skill_from_url_dialog_title" translatable="false">Add skill from URL</string>
+  <string name="add_skill_dialog_title_from_local_import" translatable="false">Import local skill</string>
+  <string name="add_skill_dialog_subtitle_from_local_import" translatable="false">Please first \"adb push\" the whole skill directory to /sdcard/Download</string>
+  <string name="add_skill_manual_input_sheet_title" translatable="false">Create a skill</string>
+  <string name="agent_skills" translatable="false">Agent Skills</string>
+  <string name="agent_skills_description" translatable="false">Use specialized, high-order reasoning by loading different skills or creating your own.\n\nTry tapping a sample prompt below to see Agent Skills in action!</string>
+  <string name="disclaimer_dialog_content" translatable="false">Third-party skills are not authored or endorsed by Google. Google is not responsible for their contents, security, or data handling practices.\n\nPlease exercise caution before providing sensitive information, such as personal identification, tokens, or API keys.\n\nAny use of an Agent Skill is subject to the applicable terms for that Skill.</string>
+  <string name="disclaimer_dialog_title" translatable="false">Add third-party skill</string>
+  <string name="disclaimer_dialog_agree" translatable="false">Agree</string>
+  <string name="delete_script_dialog_title" translatable="false">Delete script</string>
+  <string name="delete_skill_dialog_title" translatable="false">Delete skill</string>
+  <string name="delete_skill_dialog_content" translatable="false">Are you sure you want to delete the skill?</string>
+  <string name="delete_selected_skills_title" translatable="false">Delete selected skills</string>
+  <plurals name="delete_selected_skills_content" translatable="false">
+    <item quantity="one">Are you sure you want to delete %d skill?</item>
+    <item quantity="other">Are you sure you want to delete %d skills?</item>
+  </plurals>
+  <plurals name="selected_custom_skills_count" translatable="false">
+    <item quantity="one">%d selected</item>
+    <item quantity="other">%d selected</item>
+  </plurals>
+  <string name="built_in_skills_title" translatable="false">Built-in Skills</string>
+  <string name="custom_skills_title" translatable="false">Custom Skills</string>
+  <string name="describe_requirements" translatable="false">Describe requirements</string>
+  <string name="describe_input_data" translatable="false">Describe input data</string>
+  <string name="describe_input_data_support_text" translatable="false">The field names need to match the ones in instructions.</string>
+  <string name="describe_output_data" translatable="false">Describe output data</string>
+  <string name="duplicated_script_name" translatable="false">Duplicated script name</string>
+  <string name="enable_skill_dialog_content" translatable="false">Please enable the skill by tapping the Skills button below.</string>
+  <string name="edit_skill" translatable="false">Edit skill</string>
+  <string name="enter_skill_url" translatable="false">Enter URL of skill\'s root directory</string>
+  <string name="featured_skills_title" translatable="false">Featured skills</string>
+  <string name="featured_skills_description" translatable="false">A curated list of community contributed skills</string>
+  <string name="generate_llm_prompt_title" translatable="false">Generate LLM prompt</string>
+  <string name="generate_llm_prompt_button_label" translatable="false">LLM prompt</string>
+  <string name="learn_how_to_write_skills" translatable="false">Learn how to write skills</string>
+  <string name="loading_skills_allowlist" translatable="false">Loading featured skills...</string>
+  <string name="manage_skills" translatable="false">Manage skills</string>
+  <string name="manage_skills_description" translatable="false">View, create, and manage your skills</string>
+  <string name="skill_limit_warning" translatable="false">Enabling more than %s may impact performance.</string>
+  <string name="no_directory_selected" translatable="false">No directory selected</string>
+  <string name="pick_skill_dir" translatable="false">Pick skill\'s root directory</string>
+  <string name="prompt_copied_message" translatable="false">Prompt copied to clipboard. Paste it into your favorite LLM app to generate the code and copy/paste the code here.</string>
+  <string name="prompt_chip_kitchen_adventure" translatable="false">Kitchen adventure</string>
+  <string name="prompt_chip_calculate_hash" translatable="false">Calculate hash</string>
+  <string name="prompt_chip_query_wikipedia" translatable="false">Query Wikipedia</string>
+  <string name="prompt_chip_plot_chart" translatable="false">Plot chart</string>
+  <string name="prompt_chip_interactive_map" translatable="false">Interactive map</string>
+  <string name="prompt_chip_text_spinner" translatable="false">Spin label on my head</string>
+  <string name="prompt_chip_send_email" translatable="false">Send email</string>
+  <string name="replace_skill_dialog_title" translatable="false">Replace existing skill</string>
+  <string name="replace_skill_dialog_content" translatable="false">A skill with the same name already exists. Do you want to replace it?</string>
+  <string name="search_skill" translatable="false">Search for a skill</string>
+  <string name="select_script" translatable="false">Select script</string>
+  <string name="script_name" translatable="false">Script name</string>
+  <string name="script_content" translatable="false">Script content</string>
+  <string name="skills" translatable="false">Skills</string>
+  <plurals name="skills_count" translatable="false">
+    <item quantity="one">%d skill</item>
+    <item quantity="other">%d skills</item>
+  </plurals>
+  <string name="skill_name_input_description" translatable="false">REQUIRED. In the form of my-skill-name</string>
+  <string name="skill_description_input_description" translatable="false">REQUIRED. A brief description of the skill\'s function and trigger conditions or keywords.</string>
+  <string name="skill_instructions_input_description" translatable="false">Detailed instructions in Markdown format that LLM must follow to accomplish the task.</string>
+  <string name="use_call_js_template" translatable="false">Use Call JS template</string>
+
   <!-- The following entries are for accessibility -->
 
+  <!-- Content description spoken when the "add" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_add_icon">Add</string>
   <!-- Content description spoken when the "import model" icon is focused. [CHAR_LIMIT=NONE] -->
   <string name="cd_import_model_button">Import model</string>
   <!-- Content description spoken when the task card is focused. [CHAR_LIMIT=NONE] -->

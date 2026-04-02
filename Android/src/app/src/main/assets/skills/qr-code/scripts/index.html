@@ -1,0 +1,108 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+</head>
+<body>
+    <div id="qrcode-container" style="display: none;"></div>
+    <canvas id="qr-canvas" style="display: none;"></canvas>
+
+
+    <script>
+        window['ai_edge_gallery_get_result'] = async function(data, secret) {
+    try {
+        const params = JSON.parse(data);
+        const url = params.url;
+        const shape = params.shape || 'square';
+
+        if (!url) throw new Error("URL is required.");
+
+        const container = document.getElementById('qrcode-container');
+        container.innerHTML = '';
+
+        // 1. Generate QR Code
+        const qrcode = new QRCode(container, {
+            text: url,
+            width: 512,
+            height: 512,
+            correctLevel: QRCode.CorrectLevel.H
+        });
+
+        // 2. Wait for the CANVAS to exist (instead of the IMG)
+        const qrElement = await new Promise((resolve, reject) => {
+            let attempts = 0;
+            const check = setInterval(() => {
+                // Look for canvas first, fallback to img
+                const canvas = container.querySelector('canvas');
+                const img = container.querySelector('img');
+
+                // Ensure the canvas is actually drawn (not just created)
+                if (canvas) {
+                    clearInterval(check);
+                    resolve(canvas);
+                } else if (img && img.src && img.src.length > 10) {
+                    clearInterval(check);
+                    resolve(img);
+                }
+
+                if (attempts++ > 100) { // Timeout after 5 seconds
+                    clearInterval(check);
+                    reject(new Error("QR Generation timed out"));
+                }
+            }, 50);
+        });
+
+        // 3. Handle Shaping
+        const finalCanvas = document.getElementById('qr-canvas');
+        const ctx = finalCanvas.getContext('2d');
+        finalCanvas.width = 512;
+        finalCanvas.height = 512;
+
+        ctx.clearRect(0, 0, 512, 512); // Clear previous draws
+
+        if (shape === 'circle') {
+            ctx.beginPath();
+            ctx.arc(256, 256, 256, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+        }
+
+        // 4. Draw directly from the source element
+        ctx.drawImage(qrElement, 0, 0, 512, 512);
+
+        const finalBase64 = finalCanvas.toDataURL('image/png');
+
+        return JSON.stringify({
+            result: JSON.stringify({ status: "success", message: "Generated" }),
+            image: { base64: finalBase64 },
+            error: null
+        });
+
+    } catch (err) {
+        return JSON.stringify({ result: null, image: null, error: err.message });
+    }
+};
+    </script>
+</body>
+</html>

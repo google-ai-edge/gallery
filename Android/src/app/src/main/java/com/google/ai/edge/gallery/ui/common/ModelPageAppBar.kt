@@ -212,9 +212,7 @@ fun ModelPageAppBar(
     if (task.id != BuiltInTaskId.LLM_TINY_GARDEN) {
       modelConfigs.removeIf { it.key == ConfigKeys.RESET_CONVERSATION_TURN_COUNT }
     }
-    if (
-        !task.allowThinking()
-    ) {
+    if (!task.allowThinking()) {
       modelConfigs.removeIf { it.key == ConfigKeys.ENABLE_THINKING }
     }
     ConfigDialog(
