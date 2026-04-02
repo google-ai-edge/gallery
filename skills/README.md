@@ -23,6 +23,7 @@
 - [Share Skills with Community](#share-skills-with-community)
 - [Tips and Tricks](#tips-and-tricks)
   - [Link to Your Skill Homepage](#link-to-your-skill-homepage)
+  - [Debug JS Skill In App](#debug-js-skill-in-app)
 - [Skill Examples](#skill-examples)
 
 ## Introduction
@@ -495,6 +496,15 @@ metadata:
   homepage: https://github.com/your-username/fitness-coach-skill
 ---
 ```
+
+### Debug JS Skill In App
+
+When running a JavaScript skill, you can expand the execution panel to inspect the
+call details and the specific data passed to your script. This panel also provides
+access to real-time console logs.
+
+<img width="400" alt="debug_js_skill" src="https://github.com/user-attachments/assets/b5e12030-5132-4b60-aa66-93b3b7e5cb6e" />
+
 
 ## Skill Examples
 
