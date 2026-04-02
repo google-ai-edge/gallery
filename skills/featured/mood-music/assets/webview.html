@@ -1,0 +1,382 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mood Music Player | Loudly</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap"
+    />
+    <style>
+      :root {
+        --primary: #ff3366;
+        --secondary: #6600ff;
+        --bg: #0f0c29;
+        --glass: rgba(255, 255, 255, 0.05);
+        --border: rgba(255, 255, 255, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+      }
+
+      body {
+        font-family: "Outfit", sans-serif;
+        background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #fff;
+        overflow: hidden;
+      }
+
+      .player-container {
+        width: 380px;
+        background: var(--glass);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 30px;
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        animation: fadeIn 0.8s ease-out;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .artwork-container {
+        width: 220px;
+        height: 220px;
+        background: linear-gradient(45deg, var(--primary), var(--secondary));
+        border-radius: 20px;
+        margin-bottom: 25px;
+        box-shadow: 0 15px 35px rgba(255, 51, 102, 0.3);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .artwork-container::before {
+        content: "";
+        position: absolute;
+        width: 140%;
+        height: 140%;
+        background: rgba(255, 255, 255, 0.1);
+        transform: rotate(45deg);
+      }
+
+      .music-icon {
+        font-size: 60px;
+        animation: pulse 2s infinite ease-in-out;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+
+        50% {
+          transform: scale(1.1);
+        }
+      }
+
+      .track-info h1 {
+        font-size: 22px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        background: linear-gradient(to right, #fff, #ddd);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .track-info p {
+        font-size: 14px;
+        color: #aaa;
+        margin-bottom: 20px;
+      }
+
+      .controls {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .progress-container {
+        width: 100%;
+        margin-bottom: 20px;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        cursor: pointer;
+        position: relative;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(to right, var(--primary), var(--secondary));
+        border-radius: 3px;
+        width: 0%;
+        transition: width 0.1s linear;
+      }
+
+      .time-labels {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: #888;
+        margin-top: 5px;
+      }
+
+      .btn-play {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: #fff;
+        border: none;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        box-shadow: 0 10px 25px rgba(255, 255, 255, 0.2);
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+      }
+
+      .btn-play:hover {
+        transform: scale(1.05);
+        box-shadow: 0 15px 30px rgba(255, 255, 255, 0.3);
+      }
+
+      .btn-play:active {
+        transform: scale(0.95);
+      }
+
+      .btn-play svg {
+        fill: #1a1a1a;
+        width: 24px;
+        height: 24px;
+        transition: transform 0.2s;
+      }
+
+      .playing .btn-play svg {
+        transform: translateX(0);
+      }
+
+      .waveform {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 4px;
+        height: 30px;
+        margin-bottom: 15px;
+        opacity: 0.5;
+        transition: opacity 0.3s;
+      }
+
+      .playing .waveform {
+        opacity: 1;
+      }
+
+      .bar {
+        width: 4px;
+        height: 5px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 2px;
+      }
+
+      .playing .bar {
+        background: var(--primary);
+        animation: bounce 1.2s infinite ease-in-out;
+      }
+
+      .playing .bar:nth-child(2) {
+        animation-delay: 0.2s;
+        height: 15px;
+      }
+
+      .playing .bar:nth-child(3) {
+        animation-delay: 0.4s;
+        height: 25px;
+      }
+
+      .playing .bar:nth-child(4) {
+        animation-delay: 0.6s;
+        height: 12px;
+      }
+
+      .playing .bar:nth-child(5) {
+        animation-delay: 0.8s;
+        height: 18px;
+      }
+
+      @keyframes bounce {
+        0%,
+        100% {
+          height: 5px;
+        }
+
+        50% {
+          height: 25px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="player-container" id="player">
+      <div class="track-info">
+        <h1 id="track-title">Vibe Track</h1>
+        <p id="track-status">Wait for generation</p>
+      </div>
+
+      <div class="controls">
+        <div class="progress-container">
+          <div class="progress-bar" id="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <div class="time-labels">
+            <span id="current-time">0:00</span>
+            <span id="total-time">0:00</span>
+          </div>
+        </div>
+
+        <button class="btn-play" id="btn-play">
+          <svg id="play-icon" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" id="play-path" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <audio id="audio-element"></audio>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const audioUrl = params.get("url");
+      const genre = params.get("genre") || "Ambient";
+
+      const player = document.getElementById("player");
+      const title = document.getElementById("track-title");
+      const statusText = document.getElementById("track-status");
+      const playBtn = document.getElementById("btn-play");
+      const playIconPath = document.getElementById("play-path");
+      const audio = document.getElementById("audio-element");
+      const progressBar = document.getElementById("progress-bar");
+      const progressFill = document.getElementById("progress-fill");
+      const currentTimeEl = document.getElementById("current-time");
+      const totalTimeEl = document.getElementById("total-time");
+
+      title.textContent = `Vibe: ${genre}`;
+      statusText.textContent = audioUrl ? "Ready to play" : "Demo Track (No URL provided)";
+
+      if (audioUrl) {
+        audio.src = audioUrl;
+      } else {
+        // Fallback for demo if no URL is provided
+        audio.src = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+        title.textContent = `Vibe: Demo (Fallback)`;
+        statusText.textContent = "Playing Demo Stream";
+      }
+
+      playBtn.addEventListener("click", () => {
+        if (audio.paused) {
+          audio
+            .play()
+            .then(() => {
+              player.classList.add("playing");
+              // Change icon to pause
+              playIconPath.setAttribute("d", "M6 19h4V5H6v14zm8-14v14h4V5h-4z");
+              statusText.textContent = "Now Playing";
+            })
+            .catch((e) => {
+              console.error("Playback failed", e);
+              statusText.textContent = "Playback Error (CORS or Invalid URL)";
+            });
+        } else {
+          audio.pause();
+          player.classList.remove("playing");
+          // Change icon back to play
+          playIconPath.setAttribute("d", "M8 5v14l11-7z");
+          statusText.textContent = "Paused";
+        }
+      });
+
+      audio.addEventListener("timeupdate", () => {
+        const percent = (audio.currentTime / audio.duration) * 100;
+        progressFill.style.width = `${percent}%`;
+        currentTimeEl.textContent = formatTime(audio.currentTime);
+      });
+
+      audio.addEventListener("loadedmetadata", () => {
+        totalTimeEl.textContent = formatTime(audio.duration);
+      });
+
+      progressBar.addEventListener("click", (e) => {
+        const rect = progressBar.getBoundingClientRect();
+        const offset = e.clientX - rect.left;
+        const percent = offset / rect.width;
+        audio.currentTime = percent * audio.duration;
+      });
+
+      audio.addEventListener("ended", () => {
+        player.classList.remove("playing");
+        playIconPath.setAttribute("d", "M8 5v14l11-7z");
+        statusText.textContent = "Ended";
+      });
+
+      function formatTime(seconds) {
+        if (isNaN(seconds)) return "0:00";
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${m}:${s < 10 ? "0" : ""}${s}`;
+      }
+    </script>
+  </body>
+</html>

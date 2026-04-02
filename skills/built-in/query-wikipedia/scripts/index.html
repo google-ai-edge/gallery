@@ -1,0 +1,143 @@
+<!--
+@license
+Copyright 2026 Google LLC
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Query Wiki</title>
+  </head>
+  <body>
+    <script>
+      /**
+       * Performs a fuzzy search to get the intro, then fetches Section 0 HTML to parse the infobox.
+       * @param {string} topic - The search keywords.
+       * @param {string} lang - The two-letter language code.
+       */
+      async function fetchWikiFuzzyAndInfobox(topic, lang) {
+        const baseUrl = `https://${lang}.wikipedia.org/w/api.php`;
+        // Step 1: Fuzzy search to get the exact title and the clean introduction
+        const searchParams = new URLSearchParams({
+          action: "query",
+          format: "json",
+          generator: "search",
+          gsrsearch: topic,
+          gsrlimit: "1",
+          prop: "extracts",
+          explaintext: "1",
+          exintro: "1",
+          origin: "*",
+        });
+        const searchRes = await fetch(`${baseUrl}?${searchParams.toString()}`);
+        if (!searchRes.ok) throw new Error(`HTTP error! status: ${searchRes.status}`);
+        const searchData = await searchRes.json();
+        if (!searchData.query || !searchData.query.pages) {
+          return {
+            error: `No Wikipedia articles found matching '${topic}' in language '${lang}'.`,
+          };
+        }
+        const pages = searchData.query.pages;
+        const firstPageKey = Object.keys(pages)[0];
+        const page = pages[firstPageKey];
+        const title = page?.title;
+        let extract = page?.extract || "";
+        // Step 2: Fetch the HTML of Section 0 (the top of the page) to grab the infobox
+        let infoboxText = "";
+        try {
+          const parseParams = new URLSearchParams({
+            action: "parse",
+            page: title,
+            section: "0",
+            prop: "text",
+            format: "json",
+            origin: "*",
+          });
+          const parseRes = await fetch(`${baseUrl}?${parseParams.toString()}`);
+          const parseData = await parseRes.json();
+          const html = parseData?.parse?.text["*"];
+          if (html) {
+            // Use DOMParser to parse the HTML and find the infobox table
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+            const infobox = doc.querySelector("table.infobox");
+            if (infobox) {
+              const rows = infobox.querySelectorAll("tr");
+              rows.forEach((row) => {
+                const th = row.querySelector("th");
+                const td = row.querySelector("td");
+                if (th && td) {
+                  // Clean up text (remove citation brackets like [1] and swap newlines for separators)
+                  let key = th.textContent.replace(/\[\d+\]/g, "").trim();
+                  let value = td.textContent
+                    .replace(/\[\d+\]/g, "")
+                    .trim()
+                    .replace(/\n+/g, " | ");
+                  infoboxText += `${key}: ${value}\n`;
+                }
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("Failed to parse infobox:", e);
+          // If parsing fails, we just silently continue and return the extract
+        }
+        // Step 3: Combine Infobox and Extract
+        let finalResult = "";
+        if (infoboxText) {
+          finalResult += `--- INFOBOX ---\n${infoboxText}\n\n`;
+        }
+        if (extract) {
+          finalResult += `--- SUMMARY ---\n${extract}`;
+        }
+        if (!finalResult.trim()) {
+          return { error: `Found page '${title}' but no text or infobox was available.` };
+        }
+        // Step 4: Apply language-based safety caps
+        let maxChars;
+        switch (lang.toLowerCase()) {
+          case "zh":
+            maxChars = 1500;
+            break;
+          case "fr":
+            maxChars = 4300;
+            break;
+          case "es":
+            maxChars = 4500;
+            break;
+          case "en":
+          default:
+            maxChars = 5000;
+            break;
+        }
+        if (finalResult.length > maxChars) {
+          finalResult = finalResult.substring(0, maxChars) + "\n\n... [TRUNCATED TO SAVE CONTEXT]";
+        }
+        return { title: title, result: finalResult };
+      }
+      window["ai_edge_gallery_get_result"] = async (data) => {
+        try {
+          const jsonData = JSON.parse(data);
+          if (!jsonData.topic) return JSON.stringify({ error: "No topic provided to search." });
+          if (!jsonData.lang) return JSON.stringify({ error: "No language code (lang) provided." });
+          const wikiResponse = await fetchWikiFuzzyAndInfobox(jsonData.topic, jsonData.lang);
+          return JSON.stringify(wikiResponse);
+        } catch (e) {
+          console.error(e);
+          return JSON.stringify({ error: `Failed to query Wikipedia: ${e.message}` });
+        }
+      };
+    </script>
+  </body>
+</html>
