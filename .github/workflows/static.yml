@@ -6,7 +6,7 @@ on:
   push:
     branches: ["main"]
     paths:
-      - 'model_allowlists/**'
+      - 'skills/**'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -33,13 +33,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      # Create the nested directory structure
+      - name: Prepare for nested deployment
+        run: |
+          mkdir -p staging/skills
+          # Move all files (except the staging folder itself) into the subdirectory
+          rsync -rr --exclude='staging' ./skills/ staging/skills/
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           # Upload entire repository
-          path: 'model_allowlists/'
+          path: 'staging/'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
