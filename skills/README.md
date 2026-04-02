@@ -415,6 +415,11 @@ to the app by using the skill url.
 3. Enter the skill url in the popup dialog. The url should be pointing to the
    **skill folder** itself.
 
+   **Verify your URL**: Ensure the URL is correct by loading the `SKILL.md`
+   file in your browser (e.g., `https://your/url/SKILL.md`). If the raw content
+   of the file displays correctly, your URL is ready to use (excluding the
+   `SKILL.md` suffix).
+
 > [!IMPORTANT]
 >
 > To avoid webview loading failures, you must host your **JS skill** assets on
