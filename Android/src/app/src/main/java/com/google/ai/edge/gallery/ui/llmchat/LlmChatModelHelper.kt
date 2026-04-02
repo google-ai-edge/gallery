@@ -280,7 +280,7 @@ object LlmChatModelHelper : LlmModelHelper {
       Contents.of(contents),
       object : MessageCallback {
         override fun onMessage(message: Message) {
-          resultListener(message.toString(), false, null)
+          resultListener(message.toString(), false, message.channels["thought"])
         }
 
         override fun onDone() {
@@ -297,6 +297,7 @@ object LlmChatModelHelper : LlmModelHelper {
           }
         }
       },
+      extraContext ?: emptyMap(),
     )
   }
 
