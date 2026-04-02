@@ -150,7 +150,8 @@ fun DownloadAndTryButton(
   val needToDownloadFirst =
     (downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED ||
       downloadStatus?.status == ModelDownloadStatusType.FAILED) &&
-      model.localFileRelativeDirPathOverride.isEmpty()
+      model.localFileRelativeDirPathOverride.isEmpty() &&
+      model.runtimeType != RuntimeType.AICORE
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
   val downloadSucceeded = downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED

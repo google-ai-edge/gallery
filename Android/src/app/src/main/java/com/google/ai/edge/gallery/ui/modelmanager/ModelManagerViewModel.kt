@@ -27,6 +27,7 @@ import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.ProjectConfig
 import com.google.ai.edge.gallery.common.getJsonResponse
+import com.google.ai.edge.gallery.common.isAICoreSupported
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.BuiltInTaskId
@@ -52,6 +53,7 @@ import com.google.ai.edge.gallery.data.createLlmChatConfigs
 import com.google.ai.edge.gallery.proto.AccessTokenData
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.proto.Theme
+import com.google.ai.edge.gallery.runtime.aicore.AICoreModelHelper
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -283,6 +285,46 @@ constructor(
       status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
     )
 
+    // TODO: b/494029782 - Both litertlm and aicore download and storage should be unified into a
+    // model repository.
+    if (model.runtimeType == RuntimeType.AICORE) {
+      AICoreModelHelper.downloadModel(
+        context = context,
+        coroutineScope = viewModelScope,
+        model = model,
+        onProgress = { downloaded: Long, total: Long ->
+          setDownloadStatus(
+            curModel = model,
+            status =
+              ModelDownloadStatus(
+                status = ModelDownloadStatusType.IN_PROGRESS,
+                receivedBytes = downloaded,
+                totalBytes = total,
+              ),
+          )
+        },
+        onDone = {
+          setDownloadStatus(
+            curModel = model,
+            status =
+              ModelDownloadStatus(
+                status = ModelDownloadStatusType.SUCCEEDED,
+                receivedBytes = model.sizeInBytes,
+                totalBytes = model.sizeInBytes,
+              ),
+          )
+        },
+        onError = { error: String ->
+          setDownloadStatus(
+            curModel = model,
+            status =
+              ModelDownloadStatus(status = ModelDownloadStatusType.FAILED, errorMessage = error),
+          )
+        },
+      )
+      return
+    }
+
     // Delete the model files first.
     deleteModel(model = model)
 
@@ -295,6 +337,12 @@ constructor(
   }
 
   fun cancelDownloadModel(model: Model) {
+    // TODO: b/494029782 - Both litertlm and aicore download and storage should be unified into a
+    // model repository.
+    // AICore models cannot be deleted from the download repository within the app.
+    if (model.runtimeType == RuntimeType.AICORE) {
+      return
+    }
     downloadRepository.cancelDownloadModel(model)
     deleteModel(model = model)
   }
@@ -764,6 +812,23 @@ constructor(
     dataStoreRepository.clearAccessTokenData()
   }
 
+  // TODO: b/494029782 - Both litertlm and aicore download and storage should be unified into a
+  // model repository.
+  private fun checkAICoreModelStatuses() {
+    viewModelScope.launch(Dispatchers.Main) {
+      val aicoreModels =
+        uiState.value.tasks
+          .flatMap { it.models }
+          .filter { it.runtimeType == RuntimeType.AICORE }
+          .distinctBy { it.name }
+
+      // Proactively attempt AICore model download upon app startup.
+      for (model in aicoreModels) {
+        downloadModel(task = null, model = model)
+      }
+    }
+  }
+
   private fun processPendingDownloads() {
     // Cancel all pending downloads for the retrieved models.
     downloadRepository.cancelAll {
@@ -853,11 +918,29 @@ constructor(
 
         Log.d(TAG, "Allowlist: $modelAllowlist")
 
+        val isAICoreAvailable by lazy {
+          // Build a fast-lookup set of all supported device models.
+          // This extracts the models from all allowed groups, flattens them into a single stream,
+          // lowercases them for case-insensitive matching, and stores them in a Set.
+          val allowedDeviceModelsSet =
+            modelAllowlist.aicoreRequirements
+              ?.allowedDeviceGroups
+              ?.asSequence()
+              ?.flatMap { it.deviceModels }
+              ?.map { it.lowercase() }
+              ?.toSet()
+          isAICoreSupported(allowedDeviceModelsSet)
+        }
+
         // Convert models in the allowlist.
         val curTasks = getActiveCustomTasks().map { it.task }
         val nameToModel = mutableMapOf<String, Model>()
         for (allowedModel in modelAllowlist.models) {
           if (allowedModel.disabled == true) {
+            continue
+          }
+
+          if (allowedModel.runtimeType == RuntimeType.AICORE && !isAICoreAvailable) {
             continue
           }
 
@@ -919,6 +1002,9 @@ constructor(
 
         // Process pending downloads.
         processPendingDownloads()
+
+        // Wait for AICore models statuses and update download indicators
+        checkAICoreModelStatuses()
       } catch (e: Exception) {
         e.printStackTrace()
       }
