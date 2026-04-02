@@ -1,5 +1,5 @@
 <!-- omit from toc -->
-# AI Edge Gallery Skills
+# AI Edge Gallery Agent Skills
 
 <!-- omit from toc -->
 ## Table of contents
@@ -27,7 +27,7 @@
 
 ## Introduction
 
-A Skill is a modular set of capabilities that extends the functional reach of a
+An Agent Skill is a modular set of capabilities that extends the functional reach of a
 Large Language Model (LLM) within the AI Edge Gallery app. By giving the LLM new
 capabilities and domain-specific knowledge, skills reduce the need for
 repetitive prompt instructions, and eliminate the barriers for LLMs to discover
