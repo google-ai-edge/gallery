@@ -1,0 +1,239 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Water Tracker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f7ff;
+      padding: 20px;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+    h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 4px; color: #1565c0; }
+    .subtitle { font-size: 0.78rem; color: #90a4ae; margin-bottom: 20px; }
+
+    .progress-card {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(21,101,192,0.08);
+    }
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      margin-bottom: 10px;
+      color: #455a64;
+    }
+    .progress-bar-bg {
+      background: #e3f2fd;
+      border-radius: 8px;
+      height: 16px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #42a5f5, #1565c0);
+      transition: width 0.5s ease;
+    }
+    .progress-bar-fill.done { background: linear-gradient(90deg, #26c6da, #00897b); }
+    .big-number {
+      font-size: 2.5rem;
+      font-weight: 200;
+      color: #1565c0;
+      text-align: center;
+      margin: 12px 0 4px;
+    }
+    .big-unit { text-align: center; font-size: 0.75rem; color: #90a4ae; margin-bottom: 4px; }
+    .goal-text { text-align: center; font-size: 0.8rem; color: #78909c; }
+
+    .history-list { list-style: none; }
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: white;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .history-date { font-size: 0.85rem; color: #455a64; }
+    .history-amount { font-size: 0.85rem; font-weight: 600; color: #1565c0; }
+    .history-bar {
+      height: 4px;
+      border-radius: 2px;
+      background: #e3f2fd;
+      margin-top: 4px;
+      width: 100%;
+    }
+    .history-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: #42a5f5;
+    }
+    .history-bar-fill.done { background: #26c6da; }
+    .section-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #90a4ae; margin: 16px 0 8px; }
+  </style>
+</head>
+<body>
+<script>
+  const STORAGE_KEY = 'ai_edge_gallery_water_tracker';
+  const DEFAULT_GOAL = 2000;
+
+  function todayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function resolveDate(s) {
+    if (!s || s === 'today') return todayKey();
+    if (s === 'yesterday') {
+      const d = new Date(); d.setDate(d.getDate()-1);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+    return s;
+  }
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
+  }
+  function save(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+  function getGoal(data) { return data.__goal || DEFAULT_GOAL; }
+
+  function renderStatus(data, dateKey) {
+    const goal = getGoal(data);
+    const intake = data[dateKey] || 0;
+    const pct = Math.min(100, Math.round((intake / goal) * 100));
+    const done = intake >= goal;
+
+    document.body.innerHTML = `
+      <h2>💧 Water Tracker</h2>
+      <div class="subtitle">${dateKey === todayKey() ? 'Today' : dateKey}</div>
+      <div class="progress-card">
+        <div class="big-number">${(intake/1000).toFixed(2).replace(/\.?0+$/,'') || '0'}</div>
+        <div class="big-unit">liters drunk</div>
+        <div class="goal-text">Goal: ${goal/1000}L &nbsp;•&nbsp; ${done ? '🎉 Goal reached!' : `${goal-intake}ml remaining`}</div>
+        <div style="margin-top:14px">
+          <div class="progress-label">
+            <span>${pct}%</span>
+            <span>${intake}ml / ${goal}ml</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill ${done?'done':''}" style="width:${pct}%"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderHistory(data, days) {
+    const goal = getGoal(data);
+    document.body.innerHTML = `<h2>💧 Water History</h2><div class="subtitle">Last ${days} days</div>`;
+    const ul = document.createElement('ul');
+    ul.className = 'history-list';
+    for (let i = 0; i < days; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const intake = data[key] || 0;
+      const pct = Math.min(100, Math.round((intake / goal) * 100));
+      const done = intake >= goal;
+      const li = document.createElement('li');
+      li.className = 'history-item';
+      li.style.flexDirection = 'column';
+      li.style.alignItems = 'stretch';
+      li.innerHTML = `
+        <div style="display:flex;justify-content:space-between">
+          <span class="history-date">${i===0?'Today':i===1?'Yesterday':key}</span>
+          <span class="history-amount">${intake}ml ${done?'✓':''}</span>
+        </div>
+        <div class="history-bar"><div class="history-bar-fill ${done?'done':''}" style="width:${pct}%"></div></div>
+      `;
+      ul.appendChild(li);
+    }
+    document.body.appendChild(ul);
+  }
+
+  window['ai_edge_gallery_get_result'] = async (dataStr) => {
+    try {
+      const input = JSON.parse(dataStr);
+      const action = input.action;
+      const data = load();
+      let msg = '';
+
+      if (action === 'log') {
+        const ml = parseInt(input.ml, 10);
+        if (!ml || ml <= 0) return JSON.stringify({ error: 'ml must be a positive number.' });
+        const dateKey = resolveDate(input.date);
+        data[dateKey] = (data[dateKey] || 0) + ml;
+        save(data);
+        const goal = getGoal(data);
+        const total = data[dateKey];
+        const done = total >= goal;
+        msg = `Logged ${ml}ml. Total today: ${total}ml / ${goal}ml (${Math.round(total/goal*100)}%)${done?' 🎉 Goal reached!':''}`;
+        renderStatus(data, dateKey);
+
+      } else if (action === 'status') {
+        const dateKey = todayKey();
+        const goal = getGoal(data);
+        const intake = data[dateKey] || 0;
+        msg = `Today: ${intake}ml / ${goal}ml (${Math.round(intake/goal*100)}%)`;
+        renderStatus(data, dateKey);
+
+      } else if (action === 'set_goal') {
+        const ml = parseInt(input.ml, 10);
+        if (!ml || ml <= 0) return JSON.stringify({ error: 'ml must be a positive number.' });
+        data.__goal = ml;
+        save(data);
+        msg = `Daily goal set to ${ml}ml (${ml/1000}L).`;
+        renderStatus(data, todayKey());
+
+      } else if (action === 'history') {
+        const days = Math.max(1, Math.min(30, parseInt(input.days,10) || 7));
+        renderHistory(data, days);
+        msg = `Showing water intake for the last ${days} days.`;
+
+      } else if (action === 'reset_today') {
+        const key = todayKey();
+        data[key] = 0;
+        save(data);
+        msg = 'Today\'s water log has been reset to 0ml.';
+        renderStatus(data, key);
+
+      } else {
+        return JSON.stringify({ error: `Unknown action: "${action}". Valid: log, status, set_goal, history, reset_today.` });
+      }
+
+      return JSON.stringify({ result: msg, daily_goal_ml: getGoal(data) });
+    } catch (e) {
+      return JSON.stringify({ error: `Water tracker error: ${e.message}` });
+    }
+  };
+</script>
+</body>
+</html>

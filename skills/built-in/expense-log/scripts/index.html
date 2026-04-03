@@ -1,0 +1,263 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expense Log</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f9fafb;
+      padding: 20px;
+      color: #1f2937;
+      min-height: 100vh;
+    }
+    h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 4px; }
+    .subtitle { font-size: 0.78rem; color: #9ca3af; margin-bottom: 18px; }
+    .total-card {
+      background: #1f2937;
+      color: white;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .total-label { font-size: 0.75rem; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+    .total-amount { font-size: 2rem; font-weight: 300; }
+    .cat-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .cat-row:last-child { border-bottom: none; }
+    .cat-icon { font-size: 1.1rem; width: 28px; text-align: center; }
+    .cat-name { flex: 1; font-size: 0.88rem; color: #374151; text-transform: capitalize; }
+    .cat-amount { font-size: 0.88rem; font-weight: 600; color: #111827; }
+    .cat-bar-bg { background: #f3f4f6; border-radius: 3px; height: 4px; width: 100%; margin-top: 3px; }
+    .cat-bar-fill { height: 100%; border-radius: 3px; background: #6366f1; }
+    .expense-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: white;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .expense-icon { font-size: 1rem; }
+    .expense-info { flex: 1; }
+    .expense-desc { font-size: 0.85rem; color: #374151; }
+    .expense-meta { font-size: 0.72rem; color: #9ca3af; margin-top: 1px; }
+    .expense-amount { font-size: 0.9rem; font-weight: 600; color: #111827; }
+    .section-title { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; margin: 14px 0 8px; }
+    .card { background: white; border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  </style>
+</head>
+<body>
+<script>
+  const STORAGE_KEY = 'ai_edge_gallery_expense_log';
+
+  const CAT_ICONS = {
+    food: '🛒', transport: '🚗', shopping: '🛍️', entertainment: '🎬',
+    health: '💊', home: '🏠', coffee: '☕', restaurant: '🍽️',
+    travel: '✈️', other: '📌',
+  };
+
+  function todayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function resolveDate(s) {
+    if (!s || s === 'today') return todayKey();
+    if (s === 'yesterday') {
+      const d = new Date(); d.setDate(d.getDate()-1);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+    return s;
+  }
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } }
+  function save(d) { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
+
+  function fmtAmt(amount, currency) {
+    return currency ? `${amount.toFixed(2)} ${currency}` : amount.toFixed(2);
+  }
+
+  function getCatIcon(cat) { return CAT_ICONS[cat] || CAT_ICONS.other; }
+
+  function cutoffDate(days) {
+    const d = new Date(); d.setDate(d.getDate() - days + 1);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function renderList(expenses, days, currency) {
+    const cutoff = cutoffDate(days);
+    const recent = expenses.filter(e => e.date >= cutoff).sort((a,b) => b.date.localeCompare(a.date) || b.id - a.id);
+    const total = recent.reduce((s, e) => s + e.amount, 0);
+    const cur = currency || (recent.find(e=>e.currency)?.currency) || '';
+
+    document.body.innerHTML = `
+      <h2>💰 Expense Log</h2>
+      <div class="subtitle">Last ${days} days</div>
+      <div class="total-card">
+        <div class="total-label">Total spent</div>
+        <div class="total-amount">${fmtAmt(total, cur)}</div>
+      </div>
+    `;
+
+    if (recent.length === 0) {
+      const p = document.createElement('p');
+      p.style.cssText = 'color:#9ca3af;text-align:center;padding:20px';
+      p.textContent = 'No expenses logged yet.';
+      document.body.appendChild(p);
+      return;
+    }
+
+    const title = document.createElement('div');
+    title.className = 'section-title';
+    title.textContent = 'Recent expenses';
+    document.body.appendChild(title);
+
+    recent.slice(0, 20).forEach(e => {
+      const div = document.createElement('div');
+      div.className = 'expense-item';
+      div.innerHTML = `
+        <span class="expense-icon">${getCatIcon(e.category)}</span>
+        <div class="expense-info">
+          <div class="expense-desc">${e.description || e.category}</div>
+          <div class="expense-meta">${e.date} · ${e.category}</div>
+        </div>
+        <span class="expense-amount">${fmtAmt(e.amount, e.currency || cur)}</span>
+      `;
+      document.body.appendChild(div);
+    });
+  }
+
+  function renderSummary(expenses, days) {
+    const cutoff = cutoffDate(days);
+    const recent = expenses.filter(e => e.date >= cutoff);
+    const total = recent.reduce((s, e) => s + e.amount, 0);
+    const cur = recent.find(e=>e.currency)?.currency || '';
+
+    document.body.innerHTML = `
+      <h2>💰 Spending Summary</h2>
+      <div class="subtitle">Last ${days} days</div>
+      <div class="total-card">
+        <div class="total-label">Total spent</div>
+        <div class="total-amount">${fmtAmt(total, cur)}</div>
+      </div>
+    `;
+
+    const byCategory = {};
+    recent.forEach(e => {
+      if (!byCategory[e.category]) byCategory[e.category] = 0;
+      byCategory[e.category] += e.amount;
+    });
+
+    const sorted = Object.entries(byCategory).sort((a,b) => b[1] - a[1]);
+    const maxAmt = sorted[0]?.[1] || 1;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    sorted.forEach(([cat, amt]) => {
+      const pct = (amt / maxAmt * 100).toFixed(0);
+      const div = document.createElement('div');
+      div.innerHTML = `
+        <div class="cat-row" style="flex-wrap:wrap">
+          <span class="cat-icon">${getCatIcon(cat)}</span>
+          <span class="cat-name">${cat}</span>
+          <span class="cat-amount">${fmtAmt(amt, cur)}</span>
+          <div style="width:100%;padding-left:38px">
+            <div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${pct}%"></div></div>
+          </div>
+        </div>
+      `;
+      card.appendChild(div);
+    });
+    document.body.appendChild(card);
+  }
+
+  window['ai_edge_gallery_get_result'] = async (dataStr) => {
+    try {
+      const input = JSON.parse(dataStr);
+      const action = input.action;
+      let expenses = load();
+      let msg = '';
+
+      if (action === 'add') {
+        const amount = parseFloat(input.amount);
+        if (isNaN(amount) || amount <= 0) return JSON.stringify({ error: 'amount must be a positive number.' });
+        const category = (input.category || 'other').toLowerCase();
+        const expense = {
+          id: Date.now(),
+          amount,
+          category,
+          description: (input.description || '').trim() || null,
+          currency: (input.currency || '').trim() || null,
+          date: resolveDate(input.date),
+        };
+        expenses.push(expense);
+        save(expenses);
+        msg = `Logged ${fmtAmt(amount, expense.currency || '')} for ${category}.`;
+        renderList(expenses, 7, expense.currency);
+
+      } else if (action === 'list') {
+        const days = Math.max(1, Math.min(90, parseInt(input.days,10) || 7));
+        renderList(expenses, days, input.currency || '');
+        const cutoff = cutoffDate(days);
+        const total = expenses.filter(e => e.date >= cutoff).reduce((s,e) => s+e.amount, 0);
+        msg = `Showing ${expenses.filter(e => e.date >= cutoff).length} expenses. Total: ${total.toFixed(2)}.`;
+
+      } else if (action === 'summary') {
+        const days = Math.max(1, Math.min(365, parseInt(input.days,10) || 30));
+        renderSummary(expenses, days);
+        const cutoff = cutoffDate(days);
+        const total = expenses.filter(e => e.date >= cutoff).reduce((s,e) => s+e.amount, 0);
+        msg = `Spending summary for last ${days} days. Total: ${total.toFixed(2)}.`;
+
+      } else if (action === 'delete_last') {
+        if (expenses.length === 0) return JSON.stringify({ error: 'No expenses to delete.' });
+        const removed = expenses.pop();
+        save(expenses);
+        msg = `Deleted: ${removed.description || removed.category} (${fmtAmt(removed.amount, removed.currency || '')}) from ${removed.date}.`;
+        renderList(expenses, 7, '');
+
+      } else if (action === 'wipe') {
+        save([]);
+        msg = 'All expenses deleted.';
+        document.body.innerHTML = `<h2>💰 Expense Log</h2><p style="color:#9ca3af;margin-top:20px">All data cleared.</p>`;
+
+      } else {
+        return JSON.stringify({ error: `Unknown action: "${action}". Valid: add, list, summary, delete_last, wipe.` });
+      }
+
+      return JSON.stringify({ result: msg, total_entries: load().length });
+    } catch (e) {
+      return JSON.stringify({ error: `Expense log error: ${e.message}` });
+    }
+  };
+</script>
+</body>
+</html>
