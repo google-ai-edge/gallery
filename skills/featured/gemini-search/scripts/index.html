@@ -1,0 +1,101 @@
+<!--
+@license
+Copyright 2026 Google LLC
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gemini Search</title>
+  </head>
+  <body>
+    <script>
+      window['ai_edge_gallery_get_result'] = async (dataStr, secret) => {
+        try {
+          const jsonData = JSON.parse(dataStr || '{}');
+          const query = jsonData.query;
+          if (!query) {
+            return JSON.stringify({ error: 'No query provided.' });
+          }
+
+          const apiKey = secret;
+          if (!apiKey) {
+            return JSON.stringify({ error: 'No Gemini API key provided. Please enter your API key.' });
+          }
+
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+          const requestBody = {
+            contents: [{ parts: [{ text: query }], role: 'user' }],
+            tools: [{ googleSearch: {} }],
+            generationConfig: { temperature: 1.0, maxOutputTokens: 1024 },
+          };
+
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage = `HTTP error ${response.status}`;
+            try {
+              const errorJson = JSON.parse(errorText);
+              if (errorJson.error && errorJson.error.message) {
+                errorMessage = errorJson.error.message;
+              }
+            } catch (_) {
+              // Use the default error message if JSON parse fails
+            }
+            return JSON.stringify({ error: errorMessage });
+          }
+
+          const data = await response.json();
+
+          if (!data.candidates || data.candidates.length === 0) {
+            return JSON.stringify({ error: 'No response from Gemini API.' });
+          }
+
+          const candidate = data.candidates[0];
+          const answerText = candidate.content.parts[0].text || '';
+
+          // Extract grounding sources if present
+          const groundingChunks =
+            candidate.groundingMetadata && candidate.groundingMetadata.groundingChunks
+              ? candidate.groundingMetadata.groundingChunks
+              : [];
+
+          let result = answerText;
+
+          if (groundingChunks.length > 0) {
+            const sources = groundingChunks
+              .filter((chunk) => chunk.web && chunk.web.uri)
+              .map((chunk) => `- [${chunk.web.title || chunk.web.uri}](${chunk.web.uri})`)
+              .join('\n');
+
+            if (sources) {
+              result += `\n\nSources:\n${sources}`;
+            }
+          }
+
+          return JSON.stringify({ result });
+        } catch (e) {
+          console.error(e);
+          return JSON.stringify({ error: `Failed to search: ${e.message}` });
+        }
+      };
+    </script>
+  </body>
+</html>
