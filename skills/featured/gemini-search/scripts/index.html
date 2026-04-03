@@ -36,10 +36,21 @@ limitations under the License.
 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
+          const groundedPrompt = [
+            'Answer the user\'s question directly using current Google Search grounding.',
+            'Treat the text below as the exact user question.',
+            'Do not reinterpret a factual question as a prediction question.',
+            'If the question is about a current status, lead with the current status in the first sentence.',
+            'Then give a brief explanation and include source links when available.',
+            '',
+            'User question:',
+            query,
+          ].join('\n');
+
           const requestBody = {
-            contents: [{ parts: [{ text: query }], role: 'user' }],
+            contents: [{ parts: [{ text: groundedPrompt }], role: 'user' }],
             tools: [{ googleSearch: {} }],
-            generationConfig: { temperature: 1.0, maxOutputTokens: 1024 },
+            generationConfig: { temperature: 0.2, maxOutputTokens: 1024 },
           };
 
           const response = await fetch(url, {
@@ -80,8 +91,14 @@ limitations under the License.
           let result = answerText;
 
           if (groundingChunks.length > 0) {
+            const seen = new Set();
             const sources = groundingChunks
               .filter((chunk) => chunk.web && chunk.web.uri)
+              .filter((chunk) => {
+                if (seen.has(chunk.web.uri)) return false;
+                seen.add(chunk.web.uri);
+                return true;
+              })
               .map((chunk) => `- [${chunk.web.title || chunk.web.uri}](${chunk.web.uri})`)
               .join('\n');
 

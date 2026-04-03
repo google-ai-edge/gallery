@@ -9,16 +9,31 @@ metadata:
 
 # Gemini Search
 
-This skill searches the web using Google Search grounding via the Gemini API and returns a synthesized answer with cited sources.
+This skill searches the live web using Google Search grounding via the Gemini API and returns a direct answer with sources.
 
 ## Instructions
 
-Call the `run_js` tool using `index.html` with the following exact parameters:
-- data: A JSON string with the following field:
-  - **query**: Required. The user's search question exactly as asked — do not rephrase or simplify it.
+You MUST call the `run_js` tool using `index.html`.
 
-After receiving the result, present the answer as a well-formatted response with sources cited inline where relevant.
+### Exact payload schema
+Pass `data` as a JSON string with exactly one field:
+- **query**: String, required. Copy the user's search question as literally as possible.
 
-If an error is returned, report it clearly to the user and suggest they check that their Gemini API key is valid and has the necessary permissions.
+### Query handling rules
+- Preserve the user's original intent.
+- Do NOT turn factual questions into predictions, opinions, or broader topics.
+- Do NOT shorten the query into vague keywords if the original wording is already clear.
+- If the user asks a current-status question, keep that current-status wording.
+
+### Examples
+- User: `Can you search whether Italy will go to next world cup or not`
+  - `query`: `Can you search whether Italy will go to next world cup or not`
+- User: `What's the latest on OpenAI's funding round?`
+  - `query`: `What's the latest on OpenAI's funding round?`
+
+After receiving the result:
+- Answer the user's question directly.
+- Cite sources inline or in a short sources list.
+- If an error is returned, report it clearly and suggest checking the Gemini API key and permissions.
 
 DO NOT use any other tool. DO NOT call `run_intent`.
