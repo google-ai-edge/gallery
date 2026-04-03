@@ -1,0 +1,265 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>To-Do List</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8f9fa;
+      padding: 20px;
+      color: #212529;
+    }
+    h2 {
+      font-size: 1.2rem;
+      margin-bottom: 16px;
+      color: #343a40;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      background: #4285f4;
+      color: white;
+      border-radius: 12px;
+      padding: 2px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .task-list { list-style: none; }
+    .task-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border-left: 3px solid transparent;
+    }
+    .task-item.completed {
+      opacity: 0.6;
+      border-left-color: #34a853;
+    }
+    .task-item.pending { border-left-color: #4285f4; }
+    .task-id {
+      font-size: 0.7rem;
+      color: #adb5bd;
+      min-width: 22px;
+      padding-top: 2px;
+    }
+    .task-text {
+      flex: 1;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+    .task-text.done { text-decoration: line-through; color: #868e96; }
+    .task-status {
+      font-size: 0.7rem;
+      color: #868e96;
+      white-space: nowrap;
+      padding-top: 2px;
+    }
+    .empty {
+      text-align: center;
+      color: #adb5bd;
+      padding: 32px 0;
+      font-size: 0.9rem;
+    }
+    .section-header {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #868e96;
+      margin: 16px 0 6px;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    const STORAGE_KEY = 'ai_edge_gallery_todo_list';
+
+    function loadTasks() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      } catch { return []; }
+    }
+
+    function saveTasks(tasks) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    }
+
+    function nextId(tasks) {
+      return tasks.length === 0 ? 1 : Math.max(...tasks.map(t => t.id)) + 1;
+    }
+
+    function renderList(tasks, filter) {
+      const pending = tasks.filter(t => !t.completed);
+      const completed = tasks.filter(t => t.completed);
+      const showPending = filter !== 'completed';
+      const showCompleted = filter !== 'pending';
+
+      document.body.innerHTML = '';
+
+      const h2 = document.createElement('h2');
+      h2.textContent = 'To-Do List ';
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = `${pending.length} pending`;
+      h2.appendChild(badge);
+      document.body.appendChild(h2);
+
+      const ul = document.createElement('ul');
+      ul.className = 'task-list';
+
+      if (showPending && pending.length > 0) {
+        const hdr = document.createElement('div');
+        hdr.className = 'section-header';
+        hdr.textContent = 'Pending';
+        document.body.appendChild(hdr);
+        pending.forEach(t => ul.appendChild(makeItem(t)));
+        document.body.appendChild(ul.cloneNode(true));
+        ul.innerHTML = '';
+      }
+
+      if (showCompleted && completed.length > 0) {
+        const hdr = document.createElement('div');
+        hdr.className = 'section-header';
+        hdr.textContent = 'Completed';
+        document.body.appendChild(hdr);
+        completed.forEach(t => ul.appendChild(makeItem(t)));
+        document.body.appendChild(ul.cloneNode(true));
+        ul.innerHTML = '';
+      }
+
+      if (tasks.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'Your to-do list is empty.';
+        document.body.appendChild(empty);
+      }
+    }
+
+    function makeItem(t) {
+      const li = document.createElement('li');
+      li.className = `task-item ${t.completed ? 'completed' : 'pending'}`;
+      li.innerHTML = `
+        <span class="task-id">#${t.id}</span>
+        <span class="task-text ${t.completed ? 'done' : ''}">${escapeHtml(t.text)}</span>
+        <span class="task-status">${t.completed ? '✓ Done' : ''}</span>
+      `;
+      return li;
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    window['ai_edge_gallery_get_result'] = async (dataStr) => {
+      try {
+        const input = JSON.parse(dataStr);
+        const action = input.action;
+        let tasks = loadTasks();
+        let resultMsg = '';
+
+        if (action === 'add') {
+          if (!input.text || !input.text.trim()) {
+            return JSON.stringify({ error: 'Task text cannot be empty.' });
+          }
+          const task = {
+            id: nextId(tasks),
+            text: input.text.trim(),
+            completed: false,
+            created: new Date().toISOString(),
+          };
+          tasks.push(task);
+          saveTasks(tasks);
+          resultMsg = `Added task #${task.id}: "${task.text}"`;
+          renderList(tasks, 'all');
+
+        } else if (action === 'list') {
+          const filter = input.filter || 'all';
+          const filtered = filter === 'pending' ? tasks.filter(t => !t.completed)
+                         : filter === 'completed' ? tasks.filter(t => t.completed)
+                         : tasks;
+          renderList(filtered, filter);
+          const pending = tasks.filter(t => !t.completed).length;
+          resultMsg = `Showing ${filtered.length} task(s). ${pending} pending, ${tasks.filter(t => t.completed).length} completed.`;
+
+        } else if (action === 'complete') {
+          const task = tasks.find(t => t.id === input.id);
+          if (!task) return JSON.stringify({ error: `No task found with ID ${input.id}.` });
+          task.completed = true;
+          task.completedAt = new Date().toISOString();
+          saveTasks(tasks);
+          resultMsg = `Marked task #${task.id} as completed: "${task.text}"`;
+          renderList(tasks, 'all');
+
+        } else if (action === 'uncomplete') {
+          const task = tasks.find(t => t.id === input.id);
+          if (!task) return JSON.stringify({ error: `No task found with ID ${input.id}.` });
+          task.completed = false;
+          delete task.completedAt;
+          saveTasks(tasks);
+          resultMsg = `Reopened task #${task.id}: "${task.text}"`;
+          renderList(tasks, 'all');
+
+        } else if (action === 'delete') {
+          const idx = tasks.findIndex(t => t.id === input.id);
+          if (idx === -1) return JSON.stringify({ error: `No task found with ID ${input.id}.` });
+          const [removed] = tasks.splice(idx, 1);
+          saveTasks(tasks);
+          resultMsg = `Deleted task #${removed.id}: "${removed.text}"`;
+          renderList(tasks, 'all');
+
+        } else if (action === 'clear_completed') {
+          const before = tasks.length;
+          tasks = tasks.filter(t => !t.completed);
+          saveTasks(tasks);
+          const cleared = before - tasks.length;
+          resultMsg = `Cleared ${cleared} completed task(s). ${tasks.filter(t => !t.completed).length} pending tasks remain.`;
+          renderList(tasks, 'all');
+
+        } else if (action === 'wipe') {
+          saveTasks([]);
+          resultMsg = 'All tasks have been deleted.';
+          renderList([], 'all');
+
+        } else {
+          return JSON.stringify({ error: `Unknown action: "${action}". Valid actions: add, list, complete, uncomplete, delete, clear_completed, wipe.` });
+        }
+
+        return JSON.stringify({
+          result: resultMsg,
+          pending_count: tasks.filter(t => !t.completed).length,
+          total_count: tasks.length,
+        });
+      } catch (e) {
+        return JSON.stringify({ error: `To-do list error: ${e.message}` });
+      }
+    };
+  </script>
+</body>
+</html>
