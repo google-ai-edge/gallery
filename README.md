@@ -68,6 +68,14 @@ For users without Google Play access, install the apk from the [**latest release
 
 Check out the [development notes](DEVELOPMENT.md) for instructions about how to build the app locally.
 
+## 🤝 Contributing
+
+We welcome contributions! Whether you want to fix a bug, build a new Agent Skill, or improve the app — see **[CONTRIBUTING.md](CONTRIBUTING.md)** to get started.
+
+- 📋 [Good first issues](https://github.com/google-ai-edge/gallery/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)
+- 🧩 [Skills documentation](skills/README.md)
+- 📜 [Code of Conduct](CODE_OF_CONDUCT.md)
+
 ## 🤝 Feedback
 
 This is an **experimental Beta release**, and your input is crucial!
