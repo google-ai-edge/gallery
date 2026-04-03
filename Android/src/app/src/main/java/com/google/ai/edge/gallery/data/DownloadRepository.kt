@@ -241,7 +241,7 @@ class DefaultDownloadRepository(
             } else {
               sendNotification(
                 title = context.getString(R.string.notification_title_fail),
-                text = context.getString(R.string.notification_content_success).format(model.name),
+                text = context.getString(R.string.notification_content_fail).format(model.name),
                 taskId = "",
                 modelName = "",
               )
@@ -253,13 +253,13 @@ class DefaultDownloadRepository(
 
             val startTime = downloadStartTimeSharedPreferences.getLong(model.name, 0L)
             val duration = System.currentTimeMillis() - startTime
-            // TODO: Add failure reasons
             firebaseAnalytics?.logEvent(
               GalleryEvent.MODEL_DOWNLOAD.id,
               bundleOf(
                 "event_type" to "failure",
                 "model_id" to model.name,
                 "duration_ms" to duration,
+                "failure_reason" to errorMessage.take(100).ifEmpty { "unknown" },
               ),
             )
             downloadStartTimeSharedPreferences.edit { remove(model.name) }
@@ -320,8 +320,7 @@ class DefaultDownloadRepository(
 
     val builder =
       NotificationCompat.Builder(context, channelId)
-        // TODO: replace icon.
-        .setSmallIcon(android.R.drawable.ic_dialog_info)
+        .setSmallIcon(R.mipmap.ic_launcher)
         .setContentTitle(title)
         .setContentText(text)
         .setPriority(NotificationCompat.PRIORITY_HIGH)

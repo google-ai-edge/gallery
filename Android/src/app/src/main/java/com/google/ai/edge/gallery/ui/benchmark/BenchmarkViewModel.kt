@@ -70,6 +70,7 @@ data class BenchmarkUiState(
   val running: Boolean = false,
   val totalRunCount: Int = 0,
   val completedRunCount: Int = 0,
+  val errorMessage: String = "",
 )
 
 @HiltViewModel
@@ -114,7 +115,6 @@ constructor(
         )
       Log.d(TAG, "Running benchmark: ${parts.joinToString("\n")}")
 
-      // TODO: handle error.
       val startMs = System.currentTimeMillis()
       val prefillSpeeds = mutableListOf<Double>()
       val decodeSpeeds = mutableListOf<Double>()
@@ -139,31 +139,42 @@ constructor(
           else -> Backend.CPU()
         }
       val modelPath = model.getPath(context = appContext)
-      for (i in 0 until runCount) {
-        Log.d(TAG, "Start running #$i...")
-        val benchmarkInfo =
-          benchmark(
-            modelPath = modelPath,
-            backend = backend,
-            prefillTokens = prefillTokens,
-            decodeTokens = decodeTokens,
-            cacheDir = cacheDirPath,
-          )
-        Log.d(TAG, "Done #$i")
 
-        val initTimeMs = benchmarkInfo.initTimeInSecond * 1000.0
-        if (i == 0) {
-          firstInitTime = initTimeMs
-        } else {
-          nonFirstInitTimes.add(initTimeMs)
+      try {
+        for (i in 0 until runCount) {
+          Log.d(TAG, "Start running #$i...")
+          val benchmarkInfo =
+            benchmark(
+              modelPath = modelPath,
+              backend = backend,
+              prefillTokens = prefillTokens,
+              decodeTokens = decodeTokens,
+              cacheDir = cacheDirPath,
+            )
+          Log.d(TAG, "Done #$i")
+
+          val initTimeMs = benchmarkInfo.initTimeInSecond * 1000.0
+          if (i == 0) {
+            firstInitTime = initTimeMs
+          } else {
+            nonFirstInitTimes.add(initTimeMs)
+          }
+          prefillSpeeds.add(benchmarkInfo.lastPrefillTokensPerSecond)
+          decodeSpeeds.add(benchmarkInfo.lastDecodeTokensPerSecond)
+          timesToFirstToken.add(benchmarkInfo.timeToFirstTokenInSecond)
+
+          // Mark finish for this run.
+          setRunProgress(completedRunCount = i + 1)
         }
-        prefillSpeeds.add(benchmarkInfo.lastPrefillTokensPerSecond)
-        decodeSpeeds.add(benchmarkInfo.lastDecodeTokensPerSecond)
-        timesToFirstToken.add(benchmarkInfo.timeToFirstTokenInSecond)
-
-        // Mark finish for this run.
-        setRunProgress(completedRunCount = i + 1)
+      } catch (e: Exception) {
+        Log.e(TAG, "Benchmark failed", e)
+        if (needCleanUpCacheDir) {
+          benchmarkCacheDir.deleteRecursively()
+        }
+        _uiState.update { it.copy(running = false, errorMessage = e.message ?: "Unknown error") }
+        return@launch
       }
+
       val endMs = System.currentTimeMillis()
       if (needCleanUpCacheDir) {
         benchmarkCacheDir.deleteRecursively()
@@ -200,6 +211,7 @@ constructor(
       val newId = addBenchmarkResult(result = result)
       collapseAll()
       setExpanded(id = newId, expanded = true)
+      _uiState.update { it.copy(errorMessage = "") }
 
       setRunning(running = false)
     }
@@ -347,6 +359,10 @@ constructor(
         newResults[i].copy(expanded = false, statsExpanded = false, basicInfoExpanded = false)
     }
     _uiState.update { _uiState.value.copy(results = newResults) }
+  }
+
+  fun clearError() {
+    _uiState.update { it.copy(errorMessage = "") }
   }
 
   fun setAggregation(id: String, aggregation: Aggregation) {
