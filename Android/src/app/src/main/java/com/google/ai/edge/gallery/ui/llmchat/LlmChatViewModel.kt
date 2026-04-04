@@ -39,9 +39,12 @@ import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.ToolProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 private const val TAG = "AGLlmChatViewModel"
 
@@ -232,6 +235,37 @@ open class LlmChatViewModelBase() : ChatViewModel() {
         setPreparing(false)
         onError(e.message ?: "")
       }
+    }
+  }
+
+  /**
+   * Run inference and return the complete response as a String, without adding any messages to the
+   * chat UI. Used by the orchestration module for internal LLM calls (planning, evaluation).
+   */
+  suspend fun generateInternalResponse(model: Model, input: String): String {
+    // Wait for model instance to be ready.
+    while (model.instance == null) {
+      delay(100)
+    }
+
+    return suspendCancellableCoroutine { continuation ->
+      val buffer = StringBuilder()
+      model.runtimeHelper.runInference(
+        model = model,
+        input = input,
+        resultListener = { partialResult, done, _ ->
+          if (!partialResult.startsWith("<ctrl")) {
+            buffer.append(partialResult)
+          }
+          if (done) {
+            continuation.resume(buffer.toString())
+          }
+        },
+        cleanUpListener = {},
+        onError = { message ->
+          continuation.resumeWithException(Exception(message))
+        },
+      )
     }
   }
 

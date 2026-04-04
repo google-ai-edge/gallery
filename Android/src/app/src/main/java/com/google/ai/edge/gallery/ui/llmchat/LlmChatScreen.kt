@@ -41,6 +41,7 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
@@ -71,6 +72,7 @@ fun LlmChatScreen(
   sendMessageTrigger: SendMessageTrigger? = null,
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
+  onSendMessageOverride: ((Model, List<ChatMessage>) -> Boolean)? = null,
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -90,6 +92,7 @@ fun LlmChatScreen(
     sendMessageTrigger = sendMessageTrigger,
     showImagePicker = showImagePicker,
     showAudioPicker = showAudioPicker,
+    onSendMessageOverride = onSendMessageOverride,
   )
 }
 
@@ -185,6 +188,7 @@ fun ChatViewWrapper(
   sendMessageTrigger: SendMessageTrigger? = null,
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
+  onSendMessageOverride: ((Model, List<ChatMessage>) -> Boolean)? = null,
 ) {
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
@@ -195,51 +199,56 @@ fun ChatViewWrapper(
     viewModel = viewModel,
     modelManagerViewModel = modelManagerViewModel,
     onSendMessage = { model, messages ->
-      for (message in messages) {
-        viewModel.addMessage(model = model, message = message)
-      }
+      // If the override handles the message, skip default processing.
+      val handled = onSendMessageOverride != null && onSendMessageOverride(model, messages)
 
-      var text = ""
-      val images: MutableList<Bitmap> = mutableListOf()
-      val audioMessages: MutableList<ChatMessageAudioClip> = mutableListOf()
-      var chatMessageText: ChatMessageText? = null
-      for (message in messages) {
-        if (message is ChatMessageText) {
-          chatMessageText = message
-          text = message.content
-        } else if (message is ChatMessageImage) {
-          images.addAll(message.bitmaps)
-        } else if (message is ChatMessageAudioClip) {
-          audioMessages.add(message)
+      if (!handled) {
+        for (message in messages) {
+          viewModel.addMessage(model = model, message = message)
         }
-      }
-      if ((text.isNotEmpty() && chatMessageText != null) || audioMessages.isNotEmpty()) {
-        if (text.isNotEmpty()) {
-          modelManagerViewModel.addTextInputHistory(text)
-        }
-        viewModel.generateResponse(
-          model = model,
-          input = text,
-          images = images,
-          audioMessages = audioMessages,
-          onFirstToken = onFirstToken,
-          onDone = { onGenerateResponseDone(model) },
-          onError = { errorMessage ->
-            viewModel.handleError(
-              context = context,
-              task = task,
-              model = model,
-              errorMessage = errorMessage,
-              modelManagerViewModel = modelManagerViewModel,
-            )
-          },
-          allowThinking = allowThinking,
-        )
 
-        firebaseAnalytics?.logEvent(
-          GalleryEvent.GENERATE_ACTION.id,
-          bundleOf("capability_name" to task.id, "model_id" to model.name),
-        )
+        var text = ""
+        val images: MutableList<Bitmap> = mutableListOf()
+        val audioMessages: MutableList<ChatMessageAudioClip> = mutableListOf()
+        var chatMessageText: ChatMessageText? = null
+        for (message in messages) {
+          if (message is ChatMessageText) {
+            chatMessageText = message
+            text = message.content
+          } else if (message is ChatMessageImage) {
+            images.addAll(message.bitmaps)
+          } else if (message is ChatMessageAudioClip) {
+            audioMessages.add(message)
+          }
+        }
+        if ((text.isNotEmpty() && chatMessageText != null) || audioMessages.isNotEmpty()) {
+          if (text.isNotEmpty()) {
+            modelManagerViewModel.addTextInputHistory(text)
+          }
+          viewModel.generateResponse(
+            model = model,
+            input = text,
+            images = images,
+            audioMessages = audioMessages,
+            onFirstToken = onFirstToken,
+            onDone = { onGenerateResponseDone(model) },
+            onError = { errorMessage ->
+              viewModel.handleError(
+                context = context,
+                task = task,
+                model = model,
+                errorMessage = errorMessage,
+                modelManagerViewModel = modelManagerViewModel,
+              )
+            },
+            allowThinking = allowThinking,
+          )
+
+          firebaseAnalytics?.logEvent(
+            GalleryEvent.GENERATE_ACTION.id,
+            bundleOf("capability_name" to task.id, "model_id" to model.name),
+          )
+        }
       }
     },
     onRunAgainClicked = { model, message ->

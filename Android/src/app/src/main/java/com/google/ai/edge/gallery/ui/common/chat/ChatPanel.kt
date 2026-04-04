@@ -437,6 +437,14 @@ fun ChatPanel(
                           inProgress = message.inProgress,
                         )
 
+                      // Orchestration plan
+                      is ChatMessageOrchestrationPlan ->
+                        MessageBodyOrchestrationPlan(message = message)
+
+                      // Orchestration evaluation
+                      is ChatMessageOrchestrationEvaluation ->
+                        MessageBodyOrchestrationEvaluation(message = message)
+
                       else -> {}
                     }
                   }

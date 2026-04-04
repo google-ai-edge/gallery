@@ -58,7 +58,12 @@ enum class AgentActionName() {
   CALL_JS_SKILL,
   SKILL_PROGRESS,
   ASK_INFO,
+  ORCHESTRATION_STATE_UPDATE,
 }
+
+class OrchestrationStateUpdateAction(
+  val state: com.google.ai.edge.gallery.orchestration.OrchestrationState,
+) : AgentAction(name = AgentActionName.ORCHESTRATION_STATE_UPDATE)
 
 data class SkillTryOutChip(
   val icon: ImageVector,
