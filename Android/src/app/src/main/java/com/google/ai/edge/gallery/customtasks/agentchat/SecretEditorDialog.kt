@@ -63,8 +63,11 @@ fun SecretEditorDialog(
             if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
           leadingIcon = {
             val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
-            // TODO: Replace with string resources.
-            val description = if (passwordVisible) "Hide password" else "Show password"
+            val description = if (passwordVisible) {
+              stringResource(R.string.cd_hide_password)
+            } else {
+              stringResource(R.string.cd_show_password)
+            }
             IconButton(onClick = { passwordVisible = !passwordVisible }) {
               Icon(imageVector = image, contentDescription = description)
             }

@@ -1,0 +1,205 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Countdown Timer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      padding: 20px;
+    }
+    .label {
+      font-size: 0.85rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      opacity: 0.5;
+      margin-bottom: 32px;
+    }
+    .ring-wrapper {
+      position: relative;
+      width: 220px;
+      height: 220px;
+      margin-bottom: 32px;
+    }
+    svg { transform: rotate(-90deg); }
+    .ring-bg { stroke: rgba(255,255,255,0.08); }
+    .ring-progress {
+      stroke: #4285f4;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1s linear, stroke 0.5s;
+    }
+    .ring-progress.warning { stroke: #fbbc04; }
+    .ring-progress.danger { stroke: #ea4335; }
+    .time-display {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .time-text {
+      font-size: 3rem;
+      font-weight: 200;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    .time-unit {
+      font-size: 0.7rem;
+      opacity: 0.4;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .status {
+      font-size: 0.9rem;
+      opacity: 0.6;
+      letter-spacing: 0.05em;
+    }
+    .done-msg {
+      text-align: center;
+      animation: fadeIn 0.5s ease;
+    }
+    .done-msg .icon { font-size: 3rem; margin-bottom: 16px; }
+    .done-msg h2 { font-size: 1.5rem; margin-bottom: 8px; font-weight: 300; }
+    .done-msg p { opacity: 0.5; font-size: 0.85rem; }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+    @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+    .pulsing { animation: pulse 1s ease infinite; }
+  </style>
+</head>
+<body>
+<script>
+  const RADIUS = 90;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+  function formatTime(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  function buildUI(label, totalSeconds) {
+    document.body.innerHTML = `
+      <div class="label">${label ? label : 'Timer'}</div>
+      <div class="ring-wrapper">
+        <svg width="220" height="220" viewBox="0 0 220 220">
+          <circle class="ring-bg" cx="110" cy="110" r="${RADIUS}" fill="none" stroke-width="8"/>
+          <circle id="ring" class="ring-progress" cx="110" cy="110" r="${RADIUS}" fill="none"
+            stroke-width="8"
+            stroke-dasharray="${CIRCUMFERENCE}"
+            stroke-dashoffset="0"/>
+        </svg>
+        <div class="time-display">
+          <div class="time-text" id="time-text">${formatTime(totalSeconds)}</div>
+          <div class="time-unit" id="time-unit">${totalSeconds >= 3600 ? 'h : m : s' : 'm : s'}</div>
+        </div>
+      </div>
+      <div class="status" id="status">Running…</div>
+    `;
+  }
+
+  async function runTimer(totalSeconds, label) {
+    buildUI(label, totalSeconds);
+    const ring = document.getElementById('ring');
+    const timeText = document.getElementById('time-text');
+    const status = document.getElementById('status');
+    let remaining = totalSeconds;
+
+    const tick = () => {
+      const progress = remaining / totalSeconds;
+      ring.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+
+      if (progress <= 0.1) ring.className = 'ring-progress danger';
+      else if (progress <= 0.25) ring.className = 'ring-progress warning';
+      else ring.className = 'ring-progress';
+
+      timeText.textContent = formatTime(remaining);
+
+      if (remaining <= 10 && remaining > 0) {
+        status.textContent = 'Almost done…';
+        document.querySelector('.ring-wrapper').classList.add('pulsing');
+      }
+    };
+
+    tick();
+
+    const interval = setInterval(() => {
+      remaining--;
+      tick();
+      if (remaining <= 0) {
+        clearInterval(interval);
+        document.body.innerHTML = `
+          <div class="done-msg">
+            <div class="icon">⏰</div>
+            <h2>${label ? label + ' — Done!' : 'Time\'s up!'}</h2>
+            <p>Your ${formatTime(totalSeconds)} timer has finished.</p>
+          </div>
+        `;
+      }
+    }, 1000);
+  }
+
+  window['ai_edge_gallery_get_result'] = async (dataStr) => {
+    try {
+      const input = JSON.parse(dataStr);
+      const duration = parseInt(input.duration_seconds, 10);
+      if (!duration || duration <= 0) {
+        return JSON.stringify({ error: 'duration_seconds must be a positive number.' });
+      }
+      if (duration > 86400) {
+        return JSON.stringify({ error: 'Maximum timer duration is 24 hours (86400 seconds).' });
+      }
+      const label = (input.label || '').trim();
+
+      runTimer(duration, label);
+
+      const h = Math.floor(duration / 3600);
+      const m = Math.floor((duration % 3600) / 60);
+      const s = duration % 60;
+      const parts = [];
+      if (h) parts.push(`${h}h`);
+      if (m) parts.push(`${m}m`);
+      if (s) parts.push(`${s}s`);
+
+      return JSON.stringify({
+        result: `Timer started: ${parts.join(' ')}${label ? ' — ' + label : ''}. Watch the countdown above.`,
+        duration_seconds: duration,
+        label: label || null,
+      });
+    } catch (e) {
+      return JSON.stringify({ error: `Timer error: ${e.message}` });
+    }
+  };
+</script>
+</body>
+</html>

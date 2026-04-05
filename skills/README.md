@@ -575,5 +575,115 @@ access to real-time console logs.
   <br>
   ![Native](https://img.shields.io/badge/Native-f9844a)
 
+- [**Unit Converter**](built-in/unit-converter)
+  <br>Convert between length, weight, temperature, speed, and volume units.
+  <br>![JS](https://img.shields.io/badge/JS-0a9396)
+
+- [**Timezone Converter**](built-in/timezone-converter)
+  <br>Convert times between time zones worldwide.
+  <br>![JS](https://img.shields.io/badge/JS-0a9396)
+
+- [**Loan Calculator**](built-in/loan-calculator)
+  <br>Calculate monthly payments, total cost, and interest for loans and mortgages.
+  <br>![JS](https://img.shields.io/badge/JS-0a9396)
+
+- [**To-Do List**](built-in/todo-list)
+  <br>Persistent to-do list on-device. Add, complete, and delete tasks.
+  <br>![JS](https://img.shields.io/badge/JS-0a9396) ![Webview](https://img.shields.io/badge/Webview-ee9b00) ![Storage](https://img.shields.io/badge/Storage-6a4c93)
+
+- [**Breathing Exercise**](built-in/breathing-exercise)
+  <br>Animated breathing exercises for relaxation: box, 4-7-8, and calm breathing.
+  <br>![JS](https://img.shields.io/badge/JS-0a9396) ![Webview](https://img.shields.io/badge/Webview-ee9b00)
+
+- [**Countdown Timer**](built-in/countdown-timer)
+  <br>Visual countdown timer for cooking, exercise, meetings, and more.
+  <br>![JS](https://img.shields.io/badge/JS-0a9396) ![Webview](https://img.shields.io/badge/Webview-ee9b00) ![Storage](https://img.shields.io/badge/Storage-6a4c93)
+
+- [**Water Tracker**](built-in/water-tracker)
+  <br>Track daily water intake with goal progress stored on-device.
+  <br>![JS](https://img.shields.io/badge/JS-0a9396) ![Webview](https://img.shields.io/badge/Webview-ee9b00) ![Storage](https://img.shields.io/badge/Storage-6a4c93)
+
+- [**Sleep Log**](built-in/sleep-log)
+  <br>Log bedtime and wake time. View sleep history and average duration on-device.
+  <br>![JS](https://img.shields.io/badge/JS-0a9396) ![Webview](https://img.shields.io/badge/Webview-ee9b00) ![Storage](https://img.shields.io/badge/Storage-6a4c93)
+
+- [**Expense Log**](built-in/expense-log)
+  <br>Track personal expenses by category. View spending summaries on-device.
+  <br>![JS](https://img.shields.io/badge/JS-0a9396) ![Webview](https://img.shields.io/badge/Webview-ee9b00) ![Storage](https://img.shields.io/badge/Storage-6a4c93)
+
+- [**Shopping List**](built-in/shopping-list)
+  <br>Persistent shopping list on-device. Add items, check them off, clear bought items.
+  <br>![JS](https://img.shields.io/badge/JS-0a9396) ![Webview](https://img.shields.io/badge/Webview-ee9b00) ![Storage](https://img.shields.io/badge/Storage-6a4c93)
+
+- [**Recipe Generator**](built-in/recipe-generator)
+  <br>Suggest recipes based on ingredients you have available.
+  <br>![text only](https://img.shields.io/badge/text%20only-777777)
+
+- [**Rhyme Generator**](built-in/rhyme-generator)
+  <br>Help write rhymes, poems, lyrics, and rap verses.
+  <br>![text only](https://img.shields.io/badge/text%20only-777777)
+
+- [**Travel Planner**](built-in/travel-planner)
+  <br>Create day-by-day travel itineraries for any destination and duration.
+  <br>![text only](https://img.shields.io/badge/text%20only-777777)
+
+- [**Polite Rewriter**](built-in/polite-rewriter)
+  <br>Rewrite messages in a more professional or polite tone.
+  <br>![text only](https://img.shields.io/badge/text%20only-777777)
+
+- [**Birthday Greeting**](built-in/birthday-greeting)
+  <br>Generate personalized birthday messages and card texts.
+  <br>![text only](https://img.shields.io/badge/text%20only-777777)
+
+- [**Dictionary**](featured/dictionary)
+  <br>Look up definitions, pronunciation, synonyms, and example sentences. No API key needed.
+  <br>![JS](https://img.shields.io/badge/JS-0a9396) ![API](https://img.shields.io/badge/API-2dc653)
+
+- [**Currency Converter**](featured/currency-converter)
+  <br>Convert between currencies using real-time exchange rates. No API key needed.
+  <br>![JS](https://img.shields.io/badge/JS-0a9396) ![API](https://img.shields.io/badge/API-2dc653)
+
+- [**Book Finder**](featured/book-finder)
+  <br>Find and recommend books by title, author, or genre via Open Library. No API key needed.
+  <br>![JS](https://img.shields.io/badge/JS-0a9396) ![API](https://img.shields.io/badge/API-2dc653)
+
 Check out more examples from our
 [community-contributed skills](featured).
+
+## Available Skills — Load by URL
+
+All skills below can be loaded directly in the app via **Load skill from URL**.
+After the branch is merged to `main`, use the GitHub Pages URL. In the meantime,
+**text-only skills** can be loaded from the raw GitHub URL (JS/Webview skills
+require GitHub Pages due to MIME type requirements).
+
+### Built-in skills
+
+| Skill | Type | GitHub Pages URL (after merge) |
+|-------|------|-------------------------------|
+| Unit Converter | JS | `https://google-ai-edge.github.io/gallery/skills/built-in/unit-converter` |
+| Timezone Converter | JS | `https://google-ai-edge.github.io/gallery/skills/built-in/timezone-converter` |
+| Loan Calculator | JS | `https://google-ai-edge.github.io/gallery/skills/built-in/loan-calculator` |
+| To-Do List | JS + Webview | `https://google-ai-edge.github.io/gallery/skills/built-in/todo-list` |
+| Breathing Exercise | JS + Webview | `https://google-ai-edge.github.io/gallery/skills/built-in/breathing-exercise` |
+| Countdown Timer | JS + Webview | `https://google-ai-edge.github.io/gallery/skills/built-in/countdown-timer` |
+| Water Tracker | JS + Webview | `https://google-ai-edge.github.io/gallery/skills/built-in/water-tracker` |
+| Sleep Log | JS + Webview | `https://google-ai-edge.github.io/gallery/skills/built-in/sleep-log` |
+| Expense Log | JS + Webview | `https://google-ai-edge.github.io/gallery/skills/built-in/expense-log` |
+| Shopping List | JS + Webview | `https://google-ai-edge.github.io/gallery/skills/built-in/shopping-list` |
+| Recipe Generator | Text only | `https://google-ai-edge.github.io/gallery/skills/built-in/recipe-generator` |
+| Rhyme Generator | Text only | `https://google-ai-edge.github.io/gallery/skills/built-in/rhyme-generator` |
+| Travel Planner | Text only | `https://google-ai-edge.github.io/gallery/skills/built-in/travel-planner` |
+| Polite Rewriter | Text only | `https://google-ai-edge.github.io/gallery/skills/built-in/polite-rewriter` |
+| Birthday Greeting | Text only | `https://google-ai-edge.github.io/gallery/skills/built-in/birthday-greeting` |
+
+### Featured skills (free APIs — no key needed)
+
+| Skill | Type | GitHub Pages URL (after merge) |
+|-------|------|-------------------------------|
+| Dictionary | JS + API | `https://google-ai-edge.github.io/gallery/skills/featured/dictionary` |
+| Currency Converter | JS + API | `https://google-ai-edge.github.io/gallery/skills/featured/currency-converter` |
+| Book Finder | JS + API | `https://google-ai-edge.github.io/gallery/skills/featured/book-finder` |
+
+> A full machine-readable catalog of all skills is available in
+> [`skills/index.json`](index.json).

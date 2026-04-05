@@ -25,5 +25,13 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest
       - name: Build
         run: ./gradlew assembleRelease
+      - name: Upload unit test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: Android/src/app/build/reports/tests/testDebugUnitTest/

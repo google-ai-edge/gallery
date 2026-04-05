@@ -1,0 +1,209 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopping List</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0fdf4;
+      padding: 20px;
+      color: #14532d;
+      min-height: 100vh;
+    }
+    h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 4px; color: #166534; }
+    .subtitle { font-size: 0.78rem; color: #86efac; margin-bottom: 18px; }
+    .item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      background: white;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      border-left: 3px solid #4ade80;
+    }
+    .item.bought {
+      opacity: 0.5;
+      border-left-color: #d1fae5;
+    }
+    .checkmark {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid #4ade80;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      color: #16a34a;
+      flex-shrink: 0;
+    }
+    .checkmark.checked { background: #4ade80; border-color: #4ade80; }
+    .item-name { flex: 1; font-size: 0.92rem; }
+    .item-name.done { text-decoration: line-through; color: #86efac; }
+    .section-hdr { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #86efac; margin: 14px 0 8px; }
+    .empty { text-align: center; color: #86efac; padding: 32px 0; font-size: 0.9rem; }
+    .badge { display: inline-block; background: #166534; color: white; border-radius: 10px; padding: 2px 10px; font-size: 0.72rem; font-weight: 600; margin-left: 8px; }
+  </style>
+</head>
+<body>
+<script>
+  const STORAGE_KEY = 'ai_edge_gallery_shopping_list';
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } }
+  function save(d) { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
+
+  function findItem(items, name) {
+    const q = name.toLowerCase();
+    return items.find(i => i.name.toLowerCase() === q)
+        || items.find(i => i.name.toLowerCase().includes(q));
+  }
+
+  function renderList(items) {
+    const pending = items.filter(i => !i.bought);
+    const bought = items.filter(i => i.bought);
+
+    document.body.innerHTML = `
+      <h2>🛒 Shopping List <span class="badge">${pending.length} left</span></h2>
+      <div class="subtitle">${items.length} items total</div>
+    `;
+
+    if (items.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = 'Your shopping list is empty.';
+      document.body.appendChild(empty);
+      return;
+    }
+
+    if (pending.length > 0) {
+      const hdr = document.createElement('div');
+      hdr.className = 'section-hdr';
+      hdr.textContent = 'To buy';
+      document.body.appendChild(hdr);
+      pending.forEach(item => document.body.appendChild(makeItem(item)));
+    }
+
+    if (bought.length > 0) {
+      const hdr = document.createElement('div');
+      hdr.className = 'section-hdr';
+      hdr.textContent = 'Bought';
+      document.body.appendChild(hdr);
+      bought.forEach(item => document.body.appendChild(makeItem(item)));
+    }
+  }
+
+  function makeItem(item) {
+    const div = document.createElement('div');
+    div.className = `item ${item.bought ? 'bought' : ''}`;
+    div.innerHTML = `
+      <div class="checkmark ${item.bought ? 'checked' : ''}">${item.bought ? '✓' : ''}</div>
+      <span class="item-name ${item.bought ? 'done' : ''}">${escHtml(item.name)}</span>
+    `;
+    return div;
+  }
+
+  function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  window['ai_edge_gallery_get_result'] = async (dataStr) => {
+    try {
+      const input = JSON.parse(dataStr);
+      const action = input.action;
+      let items = load();
+      let msg = '';
+
+      if (action === 'add') {
+        const newItems = Array.isArray(input.items) ? input.items : [input.items];
+        const added = [];
+        newItems.forEach(name => {
+          if (!name || !name.trim()) return;
+          const n = name.trim();
+          if (!items.find(i => i.name.toLowerCase() === n.toLowerCase())) {
+            items.push({ id: Date.now() + Math.random(), name: n, bought: false });
+            added.push(n);
+          }
+        });
+        save(items);
+        msg = added.length > 0
+          ? `Added: ${added.join(', ')}.`
+          : 'All items already on the list.';
+        renderList(items);
+
+      } else if (action === 'list') {
+        renderList(items);
+        const pending = items.filter(i => !i.bought).length;
+        msg = items.length === 0
+          ? 'Shopping list is empty.'
+          : `${items.length} items (${pending} left to buy).`;
+
+      } else if (action === 'check') {
+        const found = findItem(items, input.item || '');
+        if (!found) return JSON.stringify({ error: `Item not found: "${input.item}".` });
+        found.bought = true;
+        save(items);
+        msg = `Checked off: ${found.name}.`;
+        renderList(items);
+
+      } else if (action === 'uncheck') {
+        const found = findItem(items, input.item || '');
+        if (!found) return JSON.stringify({ error: `Item not found: "${input.item}".` });
+        found.bought = false;
+        save(items);
+        msg = `Unchecked: ${found.name}.`;
+        renderList(items);
+
+      } else if (action === 'remove') {
+        const found = findItem(items, input.item || '');
+        if (!found) return JSON.stringify({ error: `Item not found: "${input.item}".` });
+        items = items.filter(i => i.id !== found.id);
+        save(items);
+        msg = `Removed: ${found.name}.`;
+        renderList(items);
+
+      } else if (action === 'clear_bought') {
+        const before = items.length;
+        items = items.filter(i => !i.bought);
+        save(items);
+        msg = `Cleared ${before - items.length} bought item(s). ${items.length} remaining.`;
+        renderList(items);
+
+      } else if (action === 'wipe') {
+        save([]);
+        msg = 'Shopping list cleared.';
+        renderList([]);
+
+      } else {
+        return JSON.stringify({ error: `Unknown action: "${action}".` });
+      }
+
+      const pending = load().filter(i => !i.bought).length;
+      return JSON.stringify({ result: msg, items_remaining: pending, total_items: load().length });
+    } catch (e) {
+      return JSON.stringify({ error: `Shopping list error: ${e.message}` });
+    }
+  };
+</script>
+</body>
+</html>

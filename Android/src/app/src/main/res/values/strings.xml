@@ -400,5 +400,9 @@
   <string name="cd_help">Help</string>
   <!-- Content description spoken when the "menu" icon is focused. [CHAR_LIMIT=NONE] -->
   <string name="cd_menu">Menu</string>
+  <!-- Content description spoken when the "show password" toggle is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_show_password">Show password</string>
+  <!-- Content description spoken when the "hide password" toggle is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_hide_password">Hide password</string>
 
 </resources>

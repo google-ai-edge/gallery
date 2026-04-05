@@ -1,0 +1,278 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breathing Exercise</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      overflow: hidden;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 1.1rem;
+      font-weight: 400;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      opacity: 0.7;
+      margin-bottom: 8px;
+    }
+
+    .pattern-name {
+      font-size: 0.75rem;
+      opacity: 0.45;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 40px;
+    }
+
+    /* Breathing circle */
+    .circle-wrapper {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      margin-bottom: 40px;
+    }
+
+    .ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.15);
+    }
+
+    .circle {
+      position: absolute;
+      inset: 20px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, rgba(100,180,255,0.9), rgba(50,100,200,0.6));
+      box-shadow: 0 0 40px rgba(100,180,255,0.4), inset 0 0 20px rgba(255,255,255,0.1);
+      transition: transform 0.3s ease;
+    }
+
+    .phase-label {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    }
+
+    .countdown {
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 2rem;
+      font-weight: 200;
+      opacity: 0.9;
+    }
+
+    .progress-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.25);
+      transition: background 0.4s;
+    }
+    .dot.done { background: rgba(100,180,255,0.9); }
+    .dot.active { background: white; }
+
+    .tip {
+      font-size: 0.8rem;
+      opacity: 0.4;
+      text-align: center;
+      max-width: 260px;
+      line-height: 1.5;
+    }
+
+    .complete-msg {
+      text-align: center;
+    }
+    .complete-msg .icon { font-size: 3rem; margin-bottom: 16px; }
+    .complete-msg h2 { font-size: 1.4rem; margin-bottom: 8px; }
+    .complete-msg p { opacity: 0.6; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <script>
+    const PATTERNS = {
+      box: {
+        label: 'Box Breathing',
+        phases: [
+          { name: 'Inhale', duration: 4, scale: 1.35 },
+          { name: 'Hold', duration: 4, scale: 1.35 },
+          { name: 'Exhale', duration: 4, scale: 1.0 },
+          { name: 'Hold', duration: 4, scale: 1.0 },
+        ],
+        tip: 'Breathe in through your nose, hold, out through your mouth.',
+      },
+      '478': {
+        label: '4-7-8 Breathing',
+        phases: [
+          { name: 'Inhale', duration: 4, scale: 1.35 },
+          { name: 'Hold', duration: 7, scale: 1.35 },
+          { name: 'Exhale', duration: 8, scale: 1.0 },
+        ],
+        tip: 'Exhale completely through your mouth, making a whoosh sound.',
+      },
+      calm: {
+        label: 'Calm Breathing',
+        phases: [
+          { name: 'Inhale', duration: 5, scale: 1.35 },
+          { name: 'Exhale', duration: 5, scale: 1.0 },
+        ],
+        tip: 'Breathe naturally and let your body relax.',
+      },
+    };
+
+    let animationFrame = null;
+    let resolveResult = null;
+
+    function sleep(ms) {
+      return new Promise(r => setTimeout(r, ms));
+    }
+
+    async function runExercise(patternKey, rounds) {
+      const pattern = PATTERNS[patternKey];
+      if (!pattern) {
+        document.body.innerHTML = `<p style="color:#ff6b6b">Unknown pattern: ${patternKey}</p>`;
+        return;
+      }
+
+      // Build UI
+      document.body.innerHTML = `
+        <h1>Breathing Exercise</h1>
+        <div class="pattern-name">${pattern.label}</div>
+        <div class="circle-wrapper">
+          <div class="ring"></div>
+          <div class="circle" id="circle"></div>
+          <div class="phase-label" id="phase-label">Ready</div>
+          <div class="countdown" id="countdown"></div>
+        </div>
+        <div class="progress-row" id="progress-row"></div>
+        <div class="tip">${pattern.tip}</div>
+      `;
+
+      const circle = document.getElementById('circle');
+      const phaseLabel = document.getElementById('phase-label');
+      const countdown = document.getElementById('countdown');
+      const progressRow = document.getElementById('progress-row');
+
+      // Create round dots
+      for (let i = 0; i < rounds; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'dot';
+        dot.id = `dot-${i}`;
+        progressRow.appendChild(dot);
+      }
+
+      // Brief "Ready" pause
+      await sleep(800);
+
+      for (let round = 0; round < rounds; round++) {
+        document.getElementById(`dot-${round}`).className = 'dot active';
+
+        for (const phase of pattern.phases) {
+          phaseLabel.textContent = phase.name;
+
+          // Animate circle scale
+          circle.style.transition = `transform ${phase.duration}s ${phase.name === 'Inhale' ? 'ease-in' : phase.name === 'Exhale' ? 'ease-out' : 'linear'}`;
+          circle.style.transform = `scale(${phase.scale})`;
+
+          // Countdown timer
+          const endTime = Date.now() + phase.duration * 1000;
+          while (Date.now() < endTime) {
+            const remaining = Math.ceil((endTime - Date.now()) / 1000);
+            countdown.textContent = remaining;
+            await sleep(200);
+          }
+          countdown.textContent = '';
+        }
+
+        document.getElementById(`dot-${round}`).className = 'dot done';
+      }
+
+      // Completion screen
+      document.body.innerHTML = `
+        <div class="complete-msg">
+          <div class="icon">🌿</div>
+          <h2>Well done!</h2>
+          <p>You completed ${rounds} round${rounds !== 1 ? 's' : ''} of ${pattern.label}.<br>Take a moment to notice how you feel.</p>
+        </div>
+      `;
+    }
+
+    window['ai_edge_gallery_get_result'] = async (dataStr) => {
+      try {
+        const input = JSON.parse(dataStr);
+        const patternKey = (input.pattern || 'box').toLowerCase().replace(/-/g, '');
+        const rounds = Math.max(1, Math.min(20, parseInt(input.rounds, 10) || 5));
+
+        const pattern = PATTERNS[patternKey];
+        if (!pattern) {
+          return JSON.stringify({
+            error: `Unknown pattern: "${input.pattern}". Valid options: "box", "478", "calm".`
+          });
+        }
+
+        const totalSeconds = rounds * pattern.phases.reduce((s, p) => s + p.duration, 0);
+        const mins = Math.floor(totalSeconds / 60);
+        const secs = totalSeconds % 60;
+        const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+
+        // Run async — don't await so the UI shows immediately
+        runExercise(patternKey, rounds);
+
+        return JSON.stringify({
+          result: `Starting ${pattern.label} — ${rounds} round${rounds !== 1 ? 's' : ''} (~${durationStr}). Follow the animation and breathe along.`,
+          pattern: patternKey,
+          rounds,
+          estimated_duration_seconds: totalSeconds,
+        });
+      } catch (e) {
+        return JSON.stringify({ error: `Breathing exercise error: ${e.message}` });
+      }
+    };
+  </script>
+</body>
+</html>

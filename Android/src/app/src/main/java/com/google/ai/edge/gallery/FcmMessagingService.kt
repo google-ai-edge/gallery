@@ -30,33 +30,20 @@ import com.google.firebase.messaging.RemoteMessage
 
 class GalleryFcmMessagingService : FirebaseMessagingService() {
   override fun onMessageReceived(remoteMessage: RemoteMessage) {
-    // TODO(developer): Handle FCM messages here.
-    // Not getting messages here? See why this may be: https://goo.gl/39bRNJ
     Log.d(TAG, "From: ${remoteMessage.from}")
 
-    // Check if message contains a data payload.
+    // Log data payload if present.
     if (remoteMessage.data.isNotEmpty()) {
       Log.d(TAG, "Message data payload: ${remoteMessage.data}")
-
-      // Handle message within 10 seconds
-      handleNow()
     }
 
-    // Check if message contains a notification payload.
+    // Display notification for messages that carry a notification payload.
     remoteMessage.notification?.let { notification ->
       Log.d(TAG, "Message Notification Body: ${notification.body}")
       notification.body?.let { body ->
         sendNotification(notification.title, body, notification.imageUrl)
       }
     }
-
-    // Also if you intend on generating your own notificatisons as a result of a received FCM
-    // message, here is where that should be initiated. See sendNotification method below.
-
-  }
-
-  private fun handleNow() {
-    Log.d(TAG, "Short lived task is done.")
   }
 
   private fun sendNotification(title: String?, messageBody: String, imageUrl: android.net.Uri?) {

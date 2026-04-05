@@ -1,0 +1,265 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sleep Log</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #12102a;
+      padding: 20px;
+      color: #e8eaf6;
+      min-height: 100vh;
+    }
+    h2 { font-size: 1.1rem; font-weight: 500; margin-bottom: 4px; color: #9fa8da; }
+    .subtitle { font-size: 0.78rem; color: #5c6bc0; margin-bottom: 20px; }
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .card-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .card-label { font-size: 0.75rem; color: #7986cb; text-transform: uppercase; letter-spacing: 0.06em; }
+    .card-value { font-size: 0.95rem; color: #e8eaf6; }
+    .duration-big { font-size: 2.2rem; font-weight: 200; color: #7986cb; text-align: center; margin: 8px 0 4px; }
+    .duration-unit { text-align: center; font-size: 0.7rem; color: #5c6bc0; }
+    .quality-stars { color: #ffd54f; font-size: 1.1rem; }
+    .bar-wrap { background: rgba(255,255,255,0.06); border-radius: 4px; height: 6px; margin-top: 8px; }
+    .bar-fill { height: 100%; border-radius: 4px; background: #5c6bc0; }
+    .bar-fill.good { background: #26c6da; }
+    .bar-fill.great { background: #66bb6a; }
+    .entry { padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .entry:last-child { border-bottom: none; }
+    .entry-row { display: flex; justify-content: space-between; font-size: 0.85rem; }
+    .entry-date { color: #7986cb; }
+    .entry-duration { color: #e8eaf6; font-weight: 500; }
+    .entry-times { font-size: 0.75rem; color: #5c6bc0; margin-top: 2px; }
+    .note { font-size: 0.75rem; color: #5c6bc0; margin-top: 4px; font-style: italic; }
+    .avg-row { display: flex; justify-content: space-around; text-align: center; margin-top: 12px; }
+    .avg-item .val { font-size: 1.5rem; font-weight: 200; color: #9fa8da; }
+    .avg-item .lbl { font-size: 0.68rem; color: #5c6bc0; text-transform: uppercase; letter-spacing: 0.06em; }
+  </style>
+</head>
+<body>
+<script>
+  const STORAGE_KEY = 'ai_edge_gallery_sleep_log';
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; } }
+  function save(d) { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
+
+  function todayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function resolveDate(s) {
+    if (!s || s === 'today') return todayKey();
+    if (s === 'yesterday') {
+      const d = new Date(); d.setDate(d.getDate()-1);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+    return s;
+  }
+
+  function parseTimeToMinutes(t) {
+    const s = t.trim().toLowerCase();
+    const match = s.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+    if (!match) return null;
+    let h = parseInt(match[1], 10);
+    const m = parseInt(match[2] || '0', 10);
+    const mer = match[3];
+    if (mer === 'pm' && h !== 12) h += 12;
+    if (mer === 'am' && h === 12) h = 0;
+    return h * 60 + m;
+  }
+
+  function minutesToHHMM(mins) {
+    const h = Math.floor(mins / 60) % 24;
+    const m = mins % 60;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  }
+
+  function durationStr(mins) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+
+  function qualityStars(q) {
+    if (!q) return '';
+    return '★'.repeat(q) + '☆'.repeat(5 - q);
+  }
+
+  function barClass(mins) {
+    if (mins >= 480) return 'great'; // 8h+
+    if (mins >= 420) return 'good';  // 7h+
+    return '';
+  }
+
+  function renderSingle(entry, dateLabel) {
+    document.body.innerHTML = `
+      <h2>🌙 Sleep Log</h2>
+      <div class="subtitle">${dateLabel}</div>
+      <div class="card">
+        <div class="duration-big">${durationStr(entry.duration_minutes)}</div>
+        <div class="duration-unit">total sleep</div>
+        <div class="bar-wrap"><div class="bar-fill ${barClass(entry.duration_minutes)}" style="width:${Math.min(100, entry.duration_minutes/480*100)}%"></div></div>
+        <div style="margin-top:14px">
+          <div class="card-row"><span class="card-label">Bedtime</span><span class="card-value">${entry.bedtime}</span></div>
+          <div class="card-row"><span class="card-label">Wake time</span><span class="card-value">${entry.wake_time}</span></div>
+          ${entry.quality ? `<div class="card-row"><span class="card-label">Quality</span><span class="quality-stars">${qualityStars(entry.quality)}</span></div>` : ''}
+          ${entry.note ? `<div class="note">"${entry.note}"</div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderHistory(data, days) {
+    document.body.innerHTML = `<h2>🌙 Sleep History</h2><div class="subtitle">Last ${days} days</div>`;
+
+    const entries = [];
+    let totalMins = 0, count = 0;
+    for (let i = 0; i < days; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const e = data[key];
+      if (e) { totalMins += e.duration_minutes; count++; }
+      entries.push({ key, label: i===0?'Today':i===1?'Yesterday':key, entry: e });
+    }
+
+    const avg = count > 0 ? Math.round(totalMins / count) : 0;
+    const best = count > 0 ? Math.max(...entries.filter(e=>e.entry).map(e=>e.entry.duration_minutes)) : 0;
+
+    const avgCard = document.createElement('div');
+    avgCard.className = 'card';
+    avgCard.innerHTML = `
+      <div class="avg-row">
+        <div class="avg-item"><div class="val">${avg ? durationStr(avg) : '—'}</div><div class="lbl">Average</div></div>
+        <div class="avg-item"><div class="val">${count}</div><div class="lbl">Nights logged</div></div>
+        <div class="avg-item"><div class="val">${best ? durationStr(best) : '—'}</div><div class="lbl">Best night</div></div>
+      </div>
+    `;
+    document.body.appendChild(avgCard);
+
+    const list = document.createElement('div');
+    list.className = 'card';
+    entries.forEach(({ label, entry }) => {
+      const div = document.createElement('div');
+      div.className = 'entry';
+      if (entry) {
+        div.innerHTML = `
+          <div class="entry-row">
+            <span class="entry-date">${label}</span>
+            <span class="entry-duration">${durationStr(entry.duration_minutes)}</span>
+          </div>
+          <div class="entry-times">${entry.bedtime} → ${entry.wake_time}${entry.quality ? ' · ' + qualityStars(entry.quality) : ''}</div>
+          ${entry.note ? `<div class="note">"${entry.note}"</div>` : ''}
+          <div class="bar-wrap"><div class="bar-fill ${barClass(entry.duration_minutes)}" style="width:${Math.min(100,entry.duration_minutes/480*100)}%"></div></div>
+        `;
+      } else {
+        div.innerHTML = `<div class="entry-row"><span class="entry-date">${label}</span><span style="color:#5c6bc0;font-size:0.8rem">No entry</span></div>`;
+      }
+      list.appendChild(div);
+    });
+    document.body.appendChild(list);
+  }
+
+  window['ai_edge_gallery_get_result'] = async (dataStr) => {
+    try {
+      const input = JSON.parse(dataStr);
+      const action = input.action;
+      const data = load();
+      let msg = '';
+
+      if (action === 'log') {
+        if (!input.bedtime || !input.wake_time) {
+          return JSON.stringify({ error: 'Both bedtime and wake_time are required.' });
+        }
+        const bedMins = parseTimeToMinutes(input.bedtime);
+        const wakeMins = parseTimeToMinutes(input.wake_time);
+        if (bedMins === null) return JSON.stringify({ error: `Cannot parse bedtime: "${input.bedtime}"` });
+        if (wakeMins === null) return JSON.stringify({ error: `Cannot parse wake_time: "${input.wake_time}"` });
+
+        // Duration: if wake < bed, assume crossed midnight
+        let duration = wakeMins - bedMins;
+        if (duration <= 0) duration += 24 * 60;
+
+        const dateKey = resolveDate(input.date);
+        const entry = {
+          bedtime: minutesToHHMM(bedMins),
+          wake_time: minutesToHHMM(wakeMins),
+          duration_minutes: duration,
+          quality: input.quality ? Math.max(1, Math.min(5, parseInt(input.quality,10))) : null,
+          note: input.note || null,
+          logged_at: new Date().toISOString(),
+        };
+        data[dateKey] = entry;
+        save(data);
+        msg = `Logged ${durationStr(duration)} of sleep (${entry.bedtime} → ${entry.wake_time}).`;
+        renderSingle(entry, dateKey === todayKey() ? 'Today' : dateKey);
+
+      } else if (action === 'last') {
+        const key = todayKey();
+        const prev = (() => { const d = new Date(); d.setDate(d.getDate()-1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+        const entry = data[key] || data[prev];
+        if (!entry) {
+          msg = 'No sleep logged recently. Use the "log" action to record your sleep.';
+          document.body.innerHTML = `<h2>🌙 Sleep Log</h2><p style="color:#5c6bc0;margin-top:20px">${msg}</p>`;
+        } else {
+          const label = data[key] ? 'Today' : 'Yesterday';
+          msg = `Last logged sleep: ${durationStr(entry.duration_minutes)} (${entry.bedtime} → ${entry.wake_time})`;
+          renderSingle(entry, label);
+        }
+
+      } else if (action === 'history') {
+        const days = Math.max(1, Math.min(30, parseInt(input.days,10) || 7));
+        renderHistory(data, days);
+        msg = `Showing sleep history for the last ${days} days.`;
+
+      } else if (action === 'delete') {
+        const key = resolveDate(input.date);
+        if (!data[key]) return JSON.stringify({ error: `No sleep entry found for ${key}.` });
+        delete data[key];
+        save(data);
+        msg = `Sleep entry for ${key} deleted.`;
+        document.body.innerHTML = `<h2>🌙 Sleep Log</h2><p style="color:#5c6bc0;margin-top:20px">${msg}</p>`;
+
+      } else if (action === 'wipe') {
+        localStorage.removeItem(STORAGE_KEY);
+        msg = 'All sleep data has been deleted.';
+        document.body.innerHTML = `<h2>🌙 Sleep Log</h2><p style="color:#5c6bc0;margin-top:20px">${msg}</p>`;
+
+      } else {
+        return JSON.stringify({ error: `Unknown action: "${action}". Valid: log, last, history, delete, wipe.` });
+      }
+
+      return JSON.stringify({ result: msg });
+    } catch (e) {
+      return JSON.stringify({ error: `Sleep log error: ${e.message}` });
+    }
+  };
+</script>
+</body>
+</html>

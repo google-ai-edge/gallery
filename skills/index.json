@@ -1,0 +1,217 @@
+{
+  "version": "1",
+  "baseUrl": "https://google-ai-edge.github.io/gallery/skills",
+  "skills": [
+    {
+      "id": "calculate-hash",
+      "category": "built-in",
+      "title": "Calculate Hash",
+      "description": "Calculate the hash of a given text.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/calculate-hash/SKILL.md"
+    },
+    {
+      "id": "interactive-map",
+      "category": "built-in",
+      "title": "Interactive Map",
+      "description": "Show an interactive map view for a given location.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/interactive-map/SKILL.md"
+    },
+    {
+      "id": "query-wikipedia",
+      "category": "built-in",
+      "title": "Query Wikipedia",
+      "description": "Query a summary from Wikipedia for a given topic.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/query-wikipedia/SKILL.md"
+    },
+    {
+      "id": "qr-code",
+      "category": "built-in",
+      "title": "QR Code Generator",
+      "description": "Generates a QR code for a given URL.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/qr-code/SKILL.md"
+    },
+    {
+      "id": "text-spinner",
+      "category": "built-in",
+      "title": "Text Spinner",
+      "description": "Spin text visually inside the app.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/text-spinner/SKILL.md"
+    },
+    {
+      "id": "mood-tracker",
+      "category": "built-in",
+      "title": "Mood Tracker",
+      "description": "Log and track your daily mood with history stored on-device.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/mood-tracker/SKILL.md"
+    },
+    {
+      "id": "send-email",
+      "category": "built-in",
+      "title": "Send Email",
+      "description": "Compose and send an email via the device's email app.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/send-email/SKILL.md"
+    },
+    {
+      "id": "kitchen-adventure",
+      "category": "built-in",
+      "title": "Kitchen Adventure",
+      "description": "A text adventure where everyone is a sentient kitchen appliance.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/kitchen-adventure/SKILL.md"
+    },
+    {
+      "id": "unit-converter",
+      "category": "built-in",
+      "title": "Unit Converter",
+      "description": "Converts between common units: length, weight, temperature, speed, and volume.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/unit-converter/SKILL.md"
+    },
+    {
+      "id": "timezone-converter",
+      "category": "built-in",
+      "title": "Timezone Converter",
+      "description": "Converts times between time zones worldwide.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/timezone-converter/SKILL.md"
+    },
+    {
+      "id": "todo-list",
+      "category": "built-in",
+      "title": "To-Do List",
+      "description": "Persistent to-do list stored on-device. Add, complete, and delete tasks.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/todo-list/SKILL.md"
+    },
+    {
+      "id": "breathing-exercise",
+      "category": "built-in",
+      "title": "Breathing Exercise",
+      "description": "Animated breathing exercises for relaxation: box, 4-7-8, and calm breathing.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/breathing-exercise/SKILL.md"
+    },
+    {
+      "id": "countdown-timer",
+      "category": "built-in",
+      "title": "Countdown Timer",
+      "description": "Visual countdown timer for cooking, exercise, meetings, and more.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/countdown-timer/SKILL.md"
+    },
+    {
+      "id": "water-tracker",
+      "category": "built-in",
+      "title": "Water Tracker",
+      "description": "Track daily water intake with goal progress stored on-device.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/water-tracker/SKILL.md"
+    },
+    {
+      "id": "sleep-log",
+      "category": "built-in",
+      "title": "Sleep Log",
+      "description": "Log bedtime and wake time. View sleep history and average duration on-device.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/sleep-log/SKILL.md"
+    },
+    {
+      "id": "loan-calculator",
+      "category": "built-in",
+      "title": "Loan Calculator",
+      "description": "Calculate monthly payments, total cost, and interest for loans and mortgages.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/loan-calculator/SKILL.md"
+    },
+    {
+      "id": "expense-log",
+      "category": "built-in",
+      "title": "Expense Log",
+      "description": "Track personal expenses by category. View spending summaries on-device.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/expense-log/SKILL.md"
+    },
+    {
+      "id": "shopping-list",
+      "category": "built-in",
+      "title": "Shopping List",
+      "description": "Persistent shopping list on-device. Add items, check them off, clear bought items.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/shopping-list/SKILL.md"
+    },
+    {
+      "id": "recipe-generator",
+      "category": "built-in",
+      "title": "Recipe Generator",
+      "description": "Suggests recipes based on ingredients you have available.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/recipe-generator/SKILL.md"
+    },
+    {
+      "id": "rhyme-generator",
+      "category": "built-in",
+      "title": "Rhyme Generator",
+      "description": "Helps write rhymes, poems, lyrics, and rap verses.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/rhyme-generator/SKILL.md"
+    },
+    {
+      "id": "travel-planner",
+      "category": "built-in",
+      "title": "Travel Planner",
+      "description": "Creates day-by-day travel itineraries for any destination and duration.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/travel-planner/SKILL.md"
+    },
+    {
+      "id": "polite-rewriter",
+      "category": "built-in",
+      "title": "Polite Rewriter",
+      "description": "Rewrites messages in a more professional or polite tone.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/polite-rewriter/SKILL.md"
+    },
+    {
+      "id": "birthday-greeting",
+      "category": "built-in",
+      "title": "Birthday Greeting",
+      "description": "Generates personalized birthday messages, wishes, and card texts.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/birthday-greeting/SKILL.md"
+    },
+    {
+      "id": "google-search",
+      "category": "featured",
+      "title": "Google Search",
+      "description": "Search the web using Google Custom Search and get current results. Requires a free Google API key and Custom Search Engine ID.",
+      "requiresSecret": true,
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/featured/google-search/SKILL.md"
+    },
+    {
+      "id": "mood-music",
+      "category": "featured",
+      "title": "Mood Music",
+      "description": "Suggests or plays music based on your mood using the Loudly API.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/featured/mood-music/SKILL.md"
+    },
+    {
+      "id": "restaurant-roulette",
+      "category": "featured",
+      "title": "Restaurant Roulette",
+      "description": "Randomly select a restaurant based on location and cuisine preference.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/featured/restaurant-roulette/SKILL.md"
+    },
+    {
+      "id": "virtual-piano",
+      "category": "featured",
+      "title": "Virtual Piano",
+      "description": "Play a virtual piano keyboard inside the app.",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/featured/virtual-piano/SKILL.md"
+    },
+    {
+      "id": "dictionary",
+      "category": "featured",
+      "title": "Dictionary",
+      "description": "Look up definitions, pronunciation, synonyms, and example sentences (free API, no key needed).",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/featured/dictionary/SKILL.md"
+    },
+    {
+      "id": "currency-converter",
+      "category": "featured",
+      "title": "Currency Converter",
+      "description": "Convert between currencies using real-time exchange rates (free API, no key needed).",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/featured/currency-converter/SKILL.md"
+    },
+    {
+      "id": "book-finder",
+      "category": "featured",
+      "title": "Book Finder",
+      "description": "Find and recommend books by title, author, or genre using Open Library (free API, no key needed).",
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/featured/book-finder/SKILL.md"
+    }
+  ]
+}
