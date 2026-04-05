@@ -77,7 +77,9 @@ limitations under the License.
           const parsed = JSON.parse(dataStr);
           inputs = Array.isArray(parsed) ? parsed : [parsed];
         } catch (e) {
-          inputs = JSON.parse('[' + dataStr + ']');
+          // Insert commas between adjacent JSON objects if missing
+          const fixed = '[' + dataStr.replace(/\}\s*\{/g, '},{') + ']';
+          inputs = JSON.parse(fixed);
         }
 
         const results = [];
