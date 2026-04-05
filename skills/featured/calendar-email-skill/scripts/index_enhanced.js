@@ -10,7 +10,7 @@
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the governing permissions and
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  */
 
@@ -79,7 +79,6 @@ window['ai_edge_gallery_get_result'] = async (dataStr, secret) => {
         const eventDuration = jsonData.event_duration || '';
         const location = jsonData.location || 'Virtual Meeting';
         const actuallySend = jsonData.actually_send || false;
-        const emailService = jsonData.email_service || 'auto'; // auto, gmail, sendgrid, mailgun
         
         if (!toEmail || !toEmail.includes('@')) {
           throw new Error('Invalid email address. Please provide a valid email (e.g., john@example.com)');
@@ -118,8 +117,7 @@ Calendar Assistant
           body: emailBody.trim(),
           eventTitle: eventTitle,
           eventDate: eventDate,
-          status: actuallySend ? 'sending' : 'ready_to_send',
-          service: emailService
+          status: actuallySend ? 'sending' : 'ready_to_send'
         };
         
         result = {
@@ -128,24 +126,23 @@ Calendar Assistant
           email: emailDetails,
           notes: [
             'Email is ready to send',
-            actuallySend ? `Attempting to send via ${emailService}...` : 'Set actually_send=true to send via email API'
+            actuallySend ? 'Attempting to send via email API...' : 'Set actually_send=true to send via email API'
           ]
         };
         
-        // Actually send email if requested
+        // Actually send email if requested and API key is provided
         if (actuallySend && secret) {
           try {
-            const sendResult = await sendEmailViaService(
+            const sendResult = await sendEmailViaAPI(
               toEmail,
               emailDetails.subject,
               emailDetails.body,
-              secret,
-              emailService
+              secret
             );
             
             if (sendResult.success) {
               emailDetails.status = 'sent';
-              result.message = `📧 Invitation for "${eventTitle}" SENT to ${toEmail} via ${sendResult.service}`;
+              result.message = `📧 Invitation for "${eventTitle}" SENT to ${toEmail}`;
               result.sendResult = sendResult;
             } else {
               emailDetails.status = 'failed';
@@ -170,8 +167,7 @@ Calendar Assistant
           eventTitle: eventTitle,
           eventDate: eventDate,
           toEmail: toEmail,
-          actuallySent: emailDetails.status === 'sent',
-          service: emailDetails.service
+          actuallySent: emailDetails.status === 'sent'
         };
         break;
         
@@ -236,25 +232,28 @@ Calendar Assistant
 };
 
 /**
- * Send email via various email services
+ * Send email via external email API
+ * Supports multiple email service providers
  */
-async function sendEmailViaService(toEmail, subject, body, apiKey, service = 'auto') {
-  // Auto-detect service if not specified
-  if (service === 'auto') {
-    service = detectEmailService(apiKey);
-  }
+async function sendEmailViaAPI(toEmail, subject, body, apiKey) {
+  // Determine which email service to use based on API key format
+  let service = 'unknown';
   
-  console.log(`Sending email via ${service} to ${toEmail}`);
+  if (apiKey.includes('sg.') || apiKey.startsWith('SG.')) {
+    service = 'sendgrid';
+  } else if (apiKey.includes('key-')) {
+    service = 'mailgun';
+  } else if (apiKey.includes('ses.')) {
+    service = 'aws_ses';
+  } else {
+    // Assume generic REST API
+    service = 'generic';
+  }
   
   try {
     let response;
     
-    switch (service.toLowerCase()) {
-      case 'gmail':
-        // Gmail API via proxy (since direct Gmail API requires OAuth)
-        response = await sendViaGmailAPI(toEmail, subject, body, apiKey);
-        break;
-        
+    switch (service) {
       case 'sendgrid':
         // SendGrid API
         response = await fetch('https://api.sendgrid.com/v3/mail/send', {
@@ -274,7 +273,7 @@ async function sendEmailViaService(toEmail, subject, body, apiKey, service = 'au
         
       case 'mailgun':
         // Mailgun API
-        const domain = 'edgegallery.app';
+        const domain = 'edgegallery.app'; // Would need actual domain
         const mailgunUrl = `https://api.mailgun.net/v3/${domain}/messages`;
         
         const formData = new FormData();
@@ -292,13 +291,8 @@ async function sendEmailViaService(toEmail, subject, body, apiKey, service = 'au
         });
         break;
         
-      case 'smtp':
-        // SMTP relay via proxy
-        response = await sendViaSMTPProxy(toEmail, subject, body, apiKey);
-        break;
-        
-      default:
-        // Generic REST API
+      case 'generic':
+        // Generic REST API - assume it accepts standard format
         response = await fetch('https://api.emailservice.com/send', {
           method: 'POST',
           headers: {
@@ -312,6 +306,19 @@ async function sendEmailViaService(toEmail, subject, body, apiKey, service = 'au
             text: body
           })
         });
+        break;
+        
+      default:
+        // Simulation mode - for testing without real API
+        console.log('Simulating email send (no real API configured)');
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
+        
+        return {
+          success: true,
+          message: 'Email sent (simulation)',
+          service: 'simulation',
+          note: 'Use real email API key for actual sending'
+        };
     }
     
     if (response && !response.ok) {
@@ -330,122 +337,16 @@ async function sendEmailViaService(toEmail, subject, body, apiKey, service = 'au
     return {
       success: false,
       error: error.message,
-      suggestion: `Check ${service} API key and configuration`,
-      service: service
+      suggestion: `Check ${service} API key and configuration`
     };
   }
 }
 
 /**
- * Detect email service from API key format
- */
-function detectEmailService(apiKey) {
-  if (!apiKey) return 'simulation';
-  
-  const key = apiKey.toLowerCase();
-  
-  if (key.includes('ya29.') || key.includes('googleapis.com')) {
-    return 'gmail';
-  } else if (key.includes('sg.') || key.startsWith('sg.')) {
-    return 'sendgrid';
-  } else if (key.includes('key-')) {
-    return 'mailgun';
-  } else if (key.includes('smtp://') || key.includes(':@')) {
-    return 'smtp';
-  } else if (key.includes('ses.')) {
-    return 'aws_ses';
-  } else {
-    return 'generic';
-  }
-}
-
-/**
- * Send email via Gmail API (requires OAuth token)
- * Note: Gmail API requires OAuth 2.0, which is complex for browser
- * This is a simplified version that would work with a proxy
- */
-async function sendViaGmailAPI(toEmail, subject, body, accessToken) {
-  // For Gmail API, we need to use the Gmail API endpoint
-  // This requires proper OAuth 2.0 setup which is complex for browser
-  // In a real implementation, you'd need:
-  // 1. OAuth 2.0 client ID
-  // 2. User authorization
-  // 3. Access token with gmail.send scope
-  
-  // Simplified version that shows the concept
-  const emailContent = [
-    'Content-Type: text/plain; charset="UTF-8"\n',
-    'MIME-Version: 1.0\n',
-    'Content-Transfer-Encoding: 7bit\n',
-    `to: ${toEmail}\n`,
-    `subject: ${subject}\n\n`,
-    body
-  ].join('');
-  
-  const encodedEmail = btoa(emailContent).replace(/\+/g, '-').replace(/\//g, '_');
-  
-  const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      raw: encodedEmail
-    })
-  });
-  
-  return response;
-}
-
-/**
- * Send email via SMTP proxy (simpler alternative to Gmail API)
- */
-async function sendViaSMTPProxy(toEmail, subject, body, smtpConfig) {
-  // SMTP config format: "smtp://username:password@smtp.gmail.com:587"
-  // or JSON: {"host":"smtp.gmail.com","port":587,"user":"email","pass":"password"}
-  
-  let config;
-  try {
-    if (smtpConfig.startsWith('{')) {
-      config = JSON.parse(smtpConfig);
-    } else if (smtpConfig.includes('smtp://')) {
-      // Parse SMTP URL
-      const url = new URL(smtpConfig);
-      config = {
-        host: url.hostname,
-        port: url.port || 587,
-        user: url.username,
-        pass: url.password
-      };
-    } else {
-      throw new Error('Invalid SMTP configuration format');
-    }
-    
-    // Call SMTP proxy service
-    const response = await fetch('https://smtp-proxy.edgegallery.app/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        to: toEmail,
-        subject: subject,
-        text: body,
-        smtp: config
-      })
-    });
-    
-    return response;
-  } catch (error) {
-    throw new Error(`SMTP configuration error: ${error.message}`);
-  }
-}
-
-/**
  * Check email configuration
+ * Can be called via check_config action
  */
-async function checkEmailConfiguration(apiKey, service = 'auto') {
+async function checkEmailConfiguration(apiKey) {
   if (!apiKey) {
     return {
       success: false,
@@ -454,41 +355,22 @@ async function checkEmailConfiguration(apiKey, service = 'auto') {
     };
   }
   
-  const detectedService = detectEmailService(apiKey);
-  const finalService = service === 'auto' ? detectedService : service;
-  
-  let serviceInfo = {
-    name: finalService,
-    detected: detectedService,
-    keyFormat: 'Valid'
-  };
-  
-  // Add service-specific info
-  switch (finalService) {
-    case 'gmail':
-      serviceInfo.requirements = 'OAuth 2.0 token with gmail.send scope';
-      serviceInfo.note = 'Requires Google Cloud project setup';
-      break;
-    case 'sendgrid':
-      serviceInfo.requirements = 'SendGrid API key with mail.send permission';
-      serviceInfo.note = 'Free tier: 100 emails/day';
-      break;
-    case 'mailgun':
-      serviceInfo.requirements = 'Mailgun API key with verified domain';
-      serviceInfo.note = 'Free tier: 10,000 emails/month';
-      break;
-    case 'smtp':
-      serviceInfo.requirements = 'SMTP server credentials';
-      serviceInfo.note = 'Works with Gmail, Outlook, custom SMTP';
-      break;
-    default:
-      serviceInfo.note = 'Generic REST API - check provider documentation';
+  // Try to identify the service
+  let service = 'unknown';
+  if (apiKey.includes('sg.') || apiKey.startsWith('SG.')) {
+    service = 'SendGrid';
+  } else if (apiKey.includes('key-')) {
+    service = 'Mailgun';
+  } else if (apiKey.includes('ses.')) {
+    service = 'AWS SES';
+  } else {
+    service = 'Generic Email API';
   }
   
   return {
     success: true,
-    message: `Email service: ${finalService} (detected: ${detectedService})`,
-    service: serviceInfo,
+    message: `Email service detected: ${service}`,
+    service: service,
     note: 'Set actually_send=true to send real emails'
   };
 }
