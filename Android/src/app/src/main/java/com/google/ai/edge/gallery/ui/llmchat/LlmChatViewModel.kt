@@ -39,9 +39,12 @@ import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.ToolProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 private const val TAG = "AGLlmChatViewModel"
 
@@ -232,6 +235,95 @@ open class LlmChatViewModelBase() : ChatViewModel() {
         setPreparing(false)
         onError(e.message ?: "")
       }
+    }
+  }
+
+  /**
+   * Run inference and return the complete response as a String, without adding any messages to the
+   * chat UI. Used by the orchestration module for internal LLM calls (planning, evaluation).
+   */
+  suspend fun generateInternalResponse(model: Model, input: String): String {
+    // Wait for model instance to be ready.
+    while (model.instance == null) {
+      delay(100)
+    }
+
+    return suspendCancellableCoroutine { continuation ->
+      val buffer = StringBuilder()
+      model.runtimeHelper.runInference(
+        model = model,
+        input = input,
+        resultListener = { partialResult, done, _ ->
+          if (!partialResult.startsWith("<ctrl")) {
+            buffer.append(partialResult)
+          }
+          if (done) {
+            continuation.resume(buffer.toString())
+          }
+        },
+        cleanUpListener = {},
+        onError = { message ->
+          continuation.resumeWithException(Exception(message))
+        },
+      )
+    }
+  }
+
+  /**
+   * Run inference for orchestration planning/evaluation. Resets the conversation before each
+   * call to avoid context accumulation, since the engine only supports one session and
+   * on-device models have limited context windows.
+   */
+  suspend fun generatePlanningResponse(model: Model, input: String): String {
+    Log.d(TAG, "generatePlanningResponse called, input length=${input.length}")
+    while (model.instance == null) { delay(100) }
+
+    val instance = model.instance as? LlmModelInstance
+      ?: throw IllegalStateException("Model instance is not LlmModelInstance")
+
+    // Close the current conversation and create a fresh tool-free one for this single inference.
+    val engine = instance.engine
+    instance.conversation.close()
+
+    val freshConversation = engine.createConversation(
+      com.google.ai.edge.litertlm.ConversationConfig(
+        samplerConfig = com.google.ai.edge.litertlm.SamplerConfig(
+          topK = 40, topP = 0.95, temperature = 1.0,
+        ),
+        tools = emptyList(),
+        automaticToolCalling = false,
+      )
+    )
+    instance.conversation = freshConversation
+
+    return suspendCancellableCoroutine { continuation ->
+      val buffer = StringBuilder()
+      freshConversation.sendMessageAsync(
+        com.google.ai.edge.litertlm.Contents.of(
+          listOf(com.google.ai.edge.litertlm.Content.Text(input))
+        ),
+        object : com.google.ai.edge.litertlm.MessageCallback {
+          override fun onMessage(message: com.google.ai.edge.litertlm.Message) {
+            val text = message.toString()
+            if (!text.startsWith("<ctrl")) {
+              buffer.append(text)
+            }
+          }
+          override fun onDone() {
+            Log.d(TAG, "generatePlanningResponse done, length=${buffer.length}")
+            continuation.resume(buffer.toString())
+          }
+          override fun onError(throwable: Throwable) {
+            Log.e(TAG, "generatePlanningResponse error", throwable)
+            if (throwable is java.util.concurrent.CancellationException) {
+              continuation.resume(buffer.toString())
+            } else {
+              continuation.resumeWithException(Exception(throwable.message))
+            }
+          }
+        },
+        emptyMap(),
+      )
     }
   }
 

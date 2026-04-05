@@ -1,0 +1,7 @@
+[
+  {
+    "name": "weather-tokyo",
+    "input": {"city": "Tokyo"},
+    "expected_contains": ["Weather in Tokyo"]
+  }
+]

@@ -1,0 +1,7 @@
+[
+  {
+    "name": "basic-date",
+    "input": {},
+    "expected_contains": ["Today is"]
+  }
+]

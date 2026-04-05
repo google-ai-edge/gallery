@@ -83,9 +83,15 @@ import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.BaseGalleryWebViewClient
 import com.google.ai.edge.gallery.ui.common.GalleryWebView
 import com.google.ai.edge.gallery.ui.common.buildTrackableUrlAnnotatedString
+import com.google.ai.edge.gallery.orchestration.OrchestrationController
+import com.google.ai.edge.gallery.orchestration.OrchestrationStatus
+import com.google.ai.edge.gallery.orchestration.StepStatus
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageCollapsableProgressPanel
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageInfo
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessageOrchestrationEvaluation
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessageOrchestrationPlan
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageType
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageWebView
@@ -134,6 +140,20 @@ fun AgentChatScreen(
   var sendMessageTrigger by remember { mutableStateOf<SendMessageTrigger?>(null) }
   var showAlertForDisabledSkill by remember { mutableStateOf(false) }
   var disabledSkillName by remember { mutableStateOf("") }
+  var orchestrationEnabled by remember { mutableStateOf(true) }
+  val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+
+  // Orchestration controller — created lazily when the selected model is available.
+  val orchestrationController = remember {
+    mutableStateOf<OrchestrationController?>(null)
+  }
+
+  // Observe orchestration state and render plan/evaluation messages.
+  val orchState by orchestrationController.value?.state?.collectAsState()
+    ?: remember { mutableStateOf(null) }.let {
+      @Suppress("UNCHECKED_CAST")
+      it as androidx.compose.runtime.State<com.google.ai.edge.gallery.orchestration.OrchestrationState?>
+    }
 
   LlmChatScreen(
     modelManagerViewModel = modelManagerViewModel,
@@ -438,6 +458,147 @@ fun AgentChatScreen(
       }
     },
     sendMessageTrigger = sendMessageTrigger,
+    onSendMessageOverride = { model, messages ->
+      android.util.Log.d("AGOrchOverride", "onSendMessageOverride called. orchestrationEnabled=$orchestrationEnabled, messages=${messages.size}")
+      if (!orchestrationEnabled) {
+        android.util.Log.d("AGOrchOverride", "Orchestration disabled, returning false")
+        false // Let default handler process the message.
+      } else {
+        // Extract text from the messages.
+        val text = messages.filterIsInstance<ChatMessageText>().firstOrNull()?.content ?: ""
+        android.util.Log.d("AGOrchOverride", "Extracted text: '$text'")
+        if (text.isBlank()) {
+          android.util.Log.d("AGOrchOverride", "Text is blank, returning false")
+          false // Nothing to orchestrate.
+        } else {
+          android.util.Log.d("AGOrchOverride", "Starting orchestration for: '$text'")
+          // Add user message to chat.
+          for (message in messages) {
+            viewModel.addMessage(model = model, message = message)
+          }
+
+          // Create or reuse controller.
+          val llmProvider = LlmInferenceProviderImpl(viewModel) { model }
+          val toolExec = ToolExecutorImpl(agentTools, skillManagerViewModel)
+          val controller = OrchestrationController(llmProvider, toolExec)
+          orchestrationController.value = controller
+
+          // Launch orchestration on Default dispatcher to avoid blocking UI thread
+          // (tool execution like runJs needs the main thread for WebView).
+          coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+            android.util.Log.d("AGOrchOverride", "Launching controller.run()")
+            try {
+              controller.run(text)
+              android.util.Log.d("AGOrchOverride", "controller.run() completed")
+            } catch (e: Exception) {
+              android.util.Log.e("AGOrchOverride", "controller.run() failed", e)
+            }
+          }
+
+          // Observe state changes and add chat messages.
+          coroutineScope.launch {
+            var lastStatus: OrchestrationStatus? = null
+            var lastPlanIteration = -1
+            var lastEvalIteration = -1
+
+            controller.state.collect { state ->
+              // Add plan message when plan becomes available.
+              if (state.plan != null && state.iteration != lastPlanIteration) {
+                lastPlanIteration = state.iteration
+                viewModel.addMessage(
+                  model = model,
+                  message = ChatMessageOrchestrationPlan(
+                    plan = state.plan!!,
+                    stepStatuses = state.stepResults.mapValues { it.value.status },
+                    iteration = state.iteration,
+                    inProgress = state.status == OrchestrationStatus.EXECUTING,
+                  ),
+                )
+              }
+
+              // Update plan step statuses in real-time.
+              if (state.status == OrchestrationStatus.EXECUTING && state.plan != null) {
+                val lastMsg = viewModel.getLastMessageWithType(
+                  model = model,
+                  type = ChatMessageType.ORCHESTRATION_PLAN,
+                )
+                if (lastMsg is ChatMessageOrchestrationPlan) {
+                  val updatedStatuses = state.stepResults.mapValues { it.value.status }
+                  if (updatedStatuses != lastMsg.stepStatuses) {
+                    viewModel.replaceLastMessage(
+                      model = model,
+                      message = ChatMessageOrchestrationPlan(
+                        plan = lastMsg.plan,
+                        stepStatuses = updatedStatuses,
+                        iteration = lastMsg.iteration,
+                        inProgress = true,
+                      ),
+                      type = ChatMessageType.ORCHESTRATION_PLAN,
+                    )
+                  }
+                }
+              }
+
+              // Mark plan as done when leaving EXECUTING.
+              if (lastStatus == OrchestrationStatus.EXECUTING &&
+                  state.status != OrchestrationStatus.EXECUTING) {
+                val lastMsg = viewModel.getLastMessageWithType(
+                  model = model,
+                  type = ChatMessageType.ORCHESTRATION_PLAN,
+                )
+                if (lastMsg is ChatMessageOrchestrationPlan && lastMsg.inProgress) {
+                  viewModel.replaceLastMessage(
+                    model = model,
+                    message = ChatMessageOrchestrationPlan(
+                      plan = lastMsg.plan,
+                      stepStatuses = state.stepResults.mapValues { it.value.status },
+                      iteration = lastMsg.iteration,
+                      inProgress = false,
+                    ),
+                    type = ChatMessageType.ORCHESTRATION_PLAN,
+                  )
+                }
+              }
+
+              // Add evaluation message.
+              if (state.evaluation != null && state.iteration != lastEvalIteration) {
+                lastEvalIteration = state.iteration
+                viewModel.addMessage(
+                  model = model,
+                  message = ChatMessageOrchestrationEvaluation(
+                    evaluation = state.evaluation!!,
+                    iteration = state.iteration,
+                  ),
+                )
+              }
+
+              // Add final output as text when completed.
+              if (state.status == OrchestrationStatus.COMPLETED && state.finalOutput != null) {
+                viewModel.addMessage(
+                  model = model,
+                  message = ChatMessageText(
+                    content = state.finalOutput!!,
+                    side = ChatSide.AGENT,
+                  ),
+                )
+              }
+
+              // Show error.
+              if (state.status == OrchestrationStatus.ERROR && state.error != null) {
+                viewModel.addMessage(
+                  model = model,
+                  message = ChatMessageInfo(content = "Orchestration error: ${state.error}"),
+                )
+              }
+
+              lastStatus = state.status
+            }
+          }
+
+          true // Message handled by orchestration.
+        }
+      }
+    },
   )
 
   if (showAskInfoDialog && currentAskInfoAction != null) {

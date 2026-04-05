@@ -259,110 +259,262 @@ Wire orchestration into the chat UI.
 
 ---
 
-## Test Plan
+## Test Plan — Fully Automated
 
-### Stage 1: Unit Tests (offline, no device needed)
+All tests run automatically via scripts or CI. No manual steps.
 
-Run with `./gradlew test` or IDE.
+---
+
+### Test Layer 1: Kotlin Unit Tests (offline, no device)
+
+**Location:** `Android/src/app/src/test/java/com/google/ai/edge/gallery/orchestration/`
+
+**Run:** `cd Android/src && ./gradlew test` (also runs in CI via `build_android.yaml`)
+
+Test files to create:
+
+#### `PlannerTest.kt`
 
 | Test | What it verifies |
 |---|---|
-| `Planner.parsePlan()` — valid JSON | Correctly parses a well-formed plan JSON into `ExecutionPlan` |
-| `Planner.parsePlan()` — malformed JSON | Regex fallback extracts plan from messy LLM output |
-| `Planner.parsePlan()` — empty/garbage | Returns sensible error, doesn't crash |
-| `Planner.getExecutionBatches()` — linear chain | Steps with A→B→C deps produce 3 sequential batches |
-| `Planner.getExecutionBatches()` — parallel | Independent steps grouped into same batch |
-| `Planner.getExecutionBatches()` — diamond DAG | A→{B,C}→D produces correct 3-level batching |
-| `Planner.getExecutionBatches()` — cycle detection | Circular deps handled gracefully |
-| `SelfEvaluator.parseEvaluation()` — goal achieved | Parses `goalAchieved: true` correctly |
-| `SelfEvaluator.parseEvaluation()` — needs replan | Parses missing items and `shouldReplan: true` |
-| `ExecutionOrchestrator` — mock parallel | Tool-only steps run concurrently (verify with timing) |
-| `ExecutionOrchestrator` — mock serial | LLM steps serialize through Mutex (verify ordering) |
-| `ExecutionOrchestrator` — cancel mid-batch | Cancel flag stops execution between steps |
-| `OrchestrationController` — happy path | Mock LLM returns good eval on iteration 1 → COMPLETED |
-| `OrchestrationController` — replan loop | Mock LLM fails eval twice, succeeds third → 3 iterations |
-| `OrchestrationController` — max iterations | After N failed evals, stops with COMPLETED (not infinite) |
-| `OrchestrationController` — cancel | Cancel during execution → CANCELLED state |
+| `parsePlan_validJson` | Parses well-formed JSON into `ExecutionPlan` with correct steps, deps, goal |
+| `parsePlan_malformedJson` | Regex fallback extracts steps from messy LLM output with markdown fences |
+| `parsePlan_emptyGarbage` | Returns single fallback step, doesn't crash |
+| `parsePlan_missingFields` | Handles missing optional fields (skillName, toolArgs) gracefully |
+| `getExecutionBatches_linearChain` | A→B→C deps → 3 sequential batches of 1 |
+| `getExecutionBatches_parallel` | 3 independent steps → 1 batch of 3 |
+| `getExecutionBatches_diamondDag` | A→{B,C}→D → 3 batches: [A], [B,C], [D] |
+| `getExecutionBatches_cycleDetection` | Circular deps don't hang; remaining steps placed in final batch |
+| `buildPlanningPrompt_includesSkills` | Prompt contains all skill names and descriptions |
+| `buildReplanPrompt_includesPriorResults` | Re-plan prompt contains previous step results and eval feedback |
 
-### Stage 2: On-Device Integration Tests
+#### `SelfEvaluatorTest.kt`
 
-Use the existing test infrastructure in `orchestration/`. Leverage:
-- `lib-device-helpers.sh` — ADB helpers (`dump_ui`, `tap_element`, `send_prompt`, `poll_ui`, `navigate_to_chat`, `fresh_app`, `reset_session`, `import_skill`, etc.)
-- `run-device-test.sh` — single-skill device test pattern (push skill → baseline → install → test → verify)
-- `run-multi-device-test.sh` — parallel multi-device runner (auto-detects devices, splits skills, runs in parallel)
+| Test | What it verifies |
+|---|---|
+| `parseEvaluation_goalAchieved` | JSON with `goalAchieved: true` → `EvaluationResult(goalAchieved=true)` |
+| `parseEvaluation_needsReplan` | JSON with missing items + `shouldReplan: true` → correct fields |
+| `parseEvaluation_malformedFallback` | Non-JSON with positive keywords → `goalAchieved=true` via heuristic |
+| `parseEvaluation_negativeFallback` | Non-JSON with "failed", "missing" → `goalAchieved=false` |
+
+#### `ExecutionOrchestratorTest.kt`
+
+Uses mock `LlmInferenceProvider` and `ToolExecutor`.
+
+| Test | What it verifies |
+|---|---|
+| `executePlan_toolsRunParallel` | 3 tool-only steps in same batch → all complete, wall time < 3x single step |
+| `executePlan_llmStepsSerial` | 2 LLM steps → execute sequentially (verify ordering via timestamps) |
+| `executePlan_mixedBatch` | LLM + tool steps → LLM serialized, tools parallel |
+| `executePlan_dependencyInjection` | Step B depends on A → B's context includes A's output |
+| `executePlan_cancelMidBatch` | `cancel()` called → remaining steps get SKIPPED status |
+| `executePlan_stepFailure` | Tool returns error → step marked FAILED, execution continues |
+
+#### `OrchestrationControllerTest.kt`
+
+Uses mock `LlmInferenceProvider` (returns canned plan/eval JSON) and mock `ToolExecutor`.
+
+| Test | What it verifies |
+|---|---|
+| `run_happyPath` | Plan → execute → eval passes → COMPLETED in 1 iteration |
+| `run_replanLoop` | Eval fails twice, passes third → 3 iterations, final state COMPLETED |
+| `run_maxIterations` | Eval never passes → stops at maxIterations, state COMPLETED (not infinite) |
+| `run_cancel` | `cancel()` during execution → state CANCELLED |
+| `run_stateTransitions` | Collect all state emissions → verify IDLE→PLANNING→EXECUTING→EVALUATING→COMPLETED |
+| `run_planningError` | LLM returns garbage → state ERROR with message |
+
+**CI integration:** Add to `.github/workflows/build_android.yaml`:
+
+```yaml
+- name: Unit Tests
+  run: ./gradlew test
+```
+
+---
+
+### Test Layer 2: JS Skill Regression Tests (offline, no device)
+
+**Existing scripts — no changes needed.** Orchestration must not break skill execution.
+
+**Run all automatically:**
+
+```bash
+# Single command — runs both test suites
+cd orchestration && node run-tests.js && node run-scenario-tests.js
+```
+
+- `run-tests.js` — JSDOM-based. Auto-discovers all skills with `testing/test-input.json`. Runs each test case, checks assertions (`expected`, `expected_pattern`, `expected_contains`, etc.). Supports single-shot, multi-round (games), and batch tests. Exit code 1 on any failure.
+- `run-scenario-tests.js` — Puppeteer-based (headless Chrome). Same test cases but in a real browser environment. Catches DOM/rendering issues JSDOM misses.
+
+**CI integration:** Add to `.github/workflows/build_android.yaml`:
+
+```yaml
+- name: JS Skill Tests (JSDOM)
+  working-directory: ./orchestration
+  run: |
+    npm install jsdom
+    node run-tests.js
+
+- name: JS Skill Tests (Puppeteer)
+  working-directory: ./orchestration
+  run: |
+    npm install puppeteer-core
+    node run-scenario-tests.js
+```
+
+---
+
+### Test Layer 3: On-Device Integration Tests (automated via ADB)
+
+All on-device tests are fully automated — no manual taps, no hardcoded coordinates. Uses `lib-device-helpers.sh` for XML-based UI element discovery.
+
+#### Existing infrastructure used:
+
+| Script | Role |
+|---|---|
+| `lib-device-helpers.sh` | Shared helpers: `dump_ui`, `find_element`, `tap_element`, `send_prompt`, `poll_ui`, `poll_ui_count`, `navigate_to_chat`, `fresh_app`, `reset_session`, `import_skill`, `take_screenshot`, `ensure_app_installed` |
+| `run-device-test.sh` | Single-skill test: push → baseline (disabled) → install → test → verify `Called JS script` → screenshot → PASS/FAIL |
+| `run-multi-device-test.sh` | Parallel runner: auto-detect devices → split skills → run `run-device-test.sh` per device → aggregate results |
+| `TEST-PLAN.md` | Test prompt table — `run-device-test.sh` reads prompts from here |
 
 #### New script: `run-orchestration-test.sh`
 
-Extends the existing `run-device-test.sh` pattern for orchestration-specific flows:
+Follows `run-device-test.sh` pattern but for orchestration-specific flows.
 
 ```bash
-# Usage: ./run-orchestration-test.sh [-d <device-serial>] <test-scenario>
+# Usage: ./run-orchestration-test.sh [-d <device-serial>] <scenario-name>
+# Runs a single orchestration scenario on a connected device.
+# Exit 0 = PASS, Exit 1 = FAIL
 ```
 
-Key differences from `run-device-test.sh`:
-- Enables orchestration mode toggle before sending prompt
-- Polls for orchestration-specific UI elements: plan card, step status updates, evaluation card
-- Longer timeouts (orchestration has multiple LLM round-trips)
-- Captures screenshots at each phase (plan, execution, evaluation)
+**Flow per scenario (all automated):**
 
-#### On-Device Test Scenarios
+1. **Setup** — `fresh_app`, `navigate_to_chat`
+2. **Install skills** — `import_skill` for each required skill (read from scenario config)
+3. **Enable orchestration** — `tap_element "Orchestration"` toggle
+4. **Send prompt** — `send_prompt "$PROMPT"` (read from `ORCHESTRATION-TEST-PLAN.md`)
+5. **Poll for plan** — `poll_ui "Plan" 30 3` — verify plan card appears
+6. **Poll for execution** — `poll_ui "Completed" 120 5` or `poll_ui "Called JS script" 120 5`
+7. **Poll for evaluation** — `poll_ui "Goal achieved" 120 5` or `poll_ui "Evaluation" 120 5`
+8. **Capture screenshots** — `take_screenshot` at each phase
+9. **Verify pass criteria** — `ui_has` checks per scenario
+10. **Report** — PASS/FAIL with screenshots saved to `screenshots/orchestration/`
 
-| # | Scenario | Skills Needed | Test Prompt | Pass Criteria |
-|---|----------|--------------|-------------|---------------|
-| 1 | Single-skill plan | wikipedia | "Look up the population of Tokyo" | Plan shows 1 step (loadSkill + runJs), executes, evaluation passes on iteration 1 |
-| 2 | Multi-skill chain | wikipedia, qr-code | "Look up the capital of France and generate a QR code for it" | Plan shows 2+ dependent steps, executes in sequence, both skills called |
-| 3 | Parallel execution | uuid-generator, password-generator | "Generate 3 UUIDs and a password" | Plan shows 2 independent steps, both tools called, results combined |
-| 4 | Self-evaluation loop | wikipedia | "Find 3 interesting facts about Mars and summarize them in exactly 3 bullet points" | May take >1 iteration if model output doesn't match format on first try |
-| 5 | Cancel mid-execution | wikipedia | "Research a complex topic" + tap Stop | Orchestration stops cleanly, UI shows CANCELLED, no hanging state |
-| 6 | Orchestration off | any | "Hello, how are you?" | Toggle off → message goes through direct chat, no planning phase |
-| 7 | Error recovery | (broken skill) | "Run the broken skill" | Tool failure captured in StepResult, evaluation reports failure, no crash |
+**Cancel test variant:** Steps 1-4, then `tap_element "Stop"`, then `poll_ui "CANCELLED"`.
 
-#### Verification checklist (extends existing `SCENARIO-TEST.md` pattern)
+#### `ORCHESTRATION-TEST-PLAN.md` (new file, same format as `TEST-PLAN.md`)
 
-For each scenario, verify on device:
-- [ ] Plan message appears in chat (collapsible, shows steps)
-- [ ] Step status updates in real-time (PENDING → RUNNING → COMPLETED)
-- [ ] "Calling JS script" / "Called JS script" messages appear for tool steps
-- [ ] Evaluation message appears after execution
-- [ ] If re-planning: new plan appears, execution resumes
-- [ ] Final output matches expected format
-- [ ] Stop button works at any phase
-- [ ] No UI freeze or ANR during orchestration
-- [ ] Model response time reasonable (<30s per LLM call on Gemma-4-2B-it)
+```markdown
+| # | Scenario | Skills | Test Prompt | Pass Pattern | Timeout |
+|---|----------|--------|-------------|-------------|---------|
+| 1 | single-skill | wikipedia | Look up the population of Tokyo | Goal achieved | 120 |
+| 2 | multi-skill-chain | wikipedia,qr-code | Look up the capital of France and generate a QR code for it | Called JS script | 180 |
+| 3 | parallel-exec | uuid-generator,password-generator | Generate 3 UUIDs and a password | Goal achieved | 120 |
+| 4 | self-eval-loop | wikipedia | Find 3 interesting facts about Mars and summarize them in exactly 3 bullet points | Goal achieved | 240 |
+| 5 | cancel | wikipedia | Research the history of quantum computing in detail | CANCELLED | 30 |
+| 6 | orchestration-off | blackjack | Play blackjack | Called JS script | 60 |
+| 7 | error-recovery | (none) | Use the broken-test-skill to look up weather | Failed | 120 |
+```
 
-#### Multi-device testing
+#### Run all orchestration tests on one device:
 
-Use `run-multi-device-test.sh` pattern to run orchestration scenarios across devices in parallel:
+```bash
+./run-orchestration-test.sh          # runs all scenarios sequentially
+./run-orchestration-test.sh single-skill  # run one scenario
+```
+
+#### Run across multiple devices in parallel:
+
 ```bash
 ./run-multi-device-test.sh -s orchestration-tests
 ```
 
-### Stage 3: JS Skill Regression Tests (existing infrastructure)
+This reuses `run-multi-device-test.sh` — it auto-detects connected devices, splits scenarios across them, runs in parallel, aggregates PASS/FAIL.
 
-Orchestration must not break existing skill execution. Run existing tests:
+---
 
-```bash
-# JSDOM-based unit tests
-cd orchestration && node run-tests.js
+### Test Layer 4: Build Verification (CI)
 
-# Puppeteer-based scenario tests (Chrome)
-cd orchestration && node run-scenario-tests.js
+**`.github/workflows/build_android.yaml`** — updated to run all automated tests:
+
+```yaml
+name: Build and Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths: [ 'Android/**', 'orchestration/**' ]
+  pull_request:
+    branches: [ "main" ]
+    paths: [ 'Android/**', 'orchestration/**' ]
+
+jobs:
+  build_and_test:
+    name: Build, Unit Test, JS Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Android/src
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 1. Build
+      - name: Build APK
+        run: ./gradlew assembleRelease
+
+      # 2. Kotlin unit tests (orchestration + all existing)
+      - name: Kotlin Unit Tests
+        run: ./gradlew test
+
+      # 3. JS skill regression tests
+      - name: JS Skill Tests (JSDOM)
+        working-directory: ./orchestration
+        run: |
+          npm install jsdom
+          node run-tests.js
 ```
 
-### Stage 4: Recording Tests
-
-Use the existing `run-skill-recording.sh` pattern to create video recordings of orchestration flows:
+**On-device tests** run locally (require physical device). Single command:
 
 ```bash
-./run-skill-recording.sh <skill-name> "orchestration prompt 1" "orchestration prompt 2"
+# Full automated suite: build → install → run all orchestration scenarios
+cd orchestration && ./run-orchestration-test.sh
 ```
 
-Record key scenarios for demo/review:
-- Single-skill orchestration flow
-- Multi-skill chain with parallel steps
-- Self-evaluation replan loop
+---
 
-For bulk recording across devices:
+### Test Layer 5: Recording Tests (automated capture for review)
+
+Automated video/screenshot capture of orchestration flows using existing scripts:
+
 ```bash
+# Record a single orchestration flow
+./run-skill-recording.sh wikipedia "Look up the population of Tokyo"
+
+# Record all orchestration scenarios across 2 devices
 ./run-all-recordings.sh
 ```
+
+Output: MP4 recordings + timestamped screenshots in `screenshots/orchestration/`.
+
+---
+
+### Summary: How to Run Everything
+
+| What | Command | Where | Automated |
+|---|---|---|---|
+| Kotlin unit tests | `cd Android/src && ./gradlew test` | CI + local | Yes — CI on every PR |
+| JS skill tests (JSDOM) | `cd orchestration && node run-tests.js` | CI + local | Yes — CI on every PR |
+| JS skill tests (Puppeteer) | `cd orchestration && node run-scenario-tests.js` | Local (needs Chrome) | Yes — single command |
+| On-device: single scenario | `cd orchestration && ./run-orchestration-test.sh <name>` | Local (needs device) | Yes — single command |
+| On-device: all scenarios | `cd orchestration && ./run-orchestration-test.sh` | Local (needs device) | Yes — single command |
+| On-device: multi-device | `cd orchestration && ./run-multi-device-test.sh -s orchestration-tests` | Local (needs devices) | Yes — single command |
+| Recordings | `cd orchestration && ./run-all-recordings.sh` | Local (needs devices) | Yes — single command |

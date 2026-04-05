@@ -26,6 +26,9 @@ import androidx.compose.ui.unit.Dp
 import com.google.ai.edge.gallery.common.Classification
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.PromptTemplate
+import com.google.ai.edge.gallery.orchestration.EvaluationResult
+import com.google.ai.edge.gallery.orchestration.ExecutionPlan
+import com.google.ai.edge.gallery.orchestration.StepStatus
 
 private const val TAG = "AGChatMessage"
 
@@ -46,6 +49,8 @@ enum class ChatMessageType {
   WEBVIEW,
   COLLAPSABLE_PROGRESS_PANEL,
   THINKING,
+  ORCHESTRATION_PLAN,
+  ORCHESTRATION_EVALUATION,
 }
 
 enum class ChatSide {
@@ -417,6 +422,46 @@ class ChatMessageThinking(
       side = side,
       hideSenderLabel = hideSenderLabel,
       accelerator = accelerator,
+    )
+  }
+}
+
+/** Chat message for displaying an orchestration execution plan. */
+class ChatMessageOrchestrationPlan(
+  val plan: ExecutionPlan,
+  val stepStatuses: Map<String, StepStatus> = emptyMap(),
+  val iteration: Int = 1,
+  val inProgress: Boolean = true,
+) :
+  ChatMessage(
+    type = ChatMessageType.ORCHESTRATION_PLAN,
+    side = ChatSide.AGENT,
+    disableBubbleShape = true,
+  ) {
+  override fun clone(): ChatMessageOrchestrationPlan {
+    return ChatMessageOrchestrationPlan(
+      plan = plan,
+      stepStatuses = stepStatuses.toMap(),
+      iteration = iteration,
+      inProgress = inProgress,
+    )
+  }
+}
+
+/** Chat message for displaying an orchestration evaluation result. */
+class ChatMessageOrchestrationEvaluation(
+  val evaluation: EvaluationResult,
+  val iteration: Int = 1,
+) :
+  ChatMessage(
+    type = ChatMessageType.ORCHESTRATION_EVALUATION,
+    side = ChatSide.AGENT,
+    disableBubbleShape = true,
+  ) {
+  override fun clone(): ChatMessageOrchestrationEvaluation {
+    return ChatMessageOrchestrationEvaluation(
+      evaluation = evaluation,
+      iteration = iteration,
     )
   }
 }

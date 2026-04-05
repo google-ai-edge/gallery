@@ -1,0 +1,7 @@
+[
+  {
+    "name": "basic-report",
+    "input": {"title": "Test Report", "items": ["Item 1", "Item 2"]},
+    "expected_contains": ["Test Report", "Item 1"]
+  }
+]
