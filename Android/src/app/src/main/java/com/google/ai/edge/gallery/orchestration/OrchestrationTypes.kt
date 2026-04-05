@@ -72,6 +72,7 @@ data class OrchestrationState(
   val iteration: Int = 0,
   val maxIterations: Int = 3,
   val finalOutput: String? = null,
+  val finalOutputIsHtml: Boolean = false,
   val error: String? = null,
 )
 

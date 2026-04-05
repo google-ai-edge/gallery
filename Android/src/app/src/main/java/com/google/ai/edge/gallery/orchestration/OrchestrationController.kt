@@ -132,22 +132,24 @@ class OrchestrationController(
 
         if (evaluation.goalAchieved) {
           Log.d(TAG, "Goal achieved on iteration $iteration")
-          val finalOutput = buildFinalOutput(currentPlan, results, evaluation)
+          val (finalOutput, isHtml) = buildFinalOutput(currentPlan, results, evaluation)
           _state.value =
             _state.value.copy(
               status = OrchestrationStatus.COMPLETED,
               finalOutput = finalOutput,
+              finalOutputIsHtml = isHtml,
             )
           return
         }
 
         if (!evaluation.shouldReplan || iteration == maxIterations) {
           Log.d(TAG, "Stopping: shouldReplan=${evaluation.shouldReplan}, iteration=$iteration/$maxIterations")
-          val finalOutput = buildFinalOutput(currentPlan, results, evaluation)
+          val (finalOutput, isHtml) = buildFinalOutput(currentPlan, results, evaluation)
           _state.value =
             _state.value.copy(
               status = OrchestrationStatus.COMPLETED,
               finalOutput = finalOutput,
+              finalOutputIsHtml = isHtml,
             )
           return
         }
@@ -194,35 +196,23 @@ class OrchestrationController(
     _state.value = OrchestrationState()
   }
 
-  /** Build a summary of the final output from all step results. */
+  /** Build a summary of the final output from all step results. Returns (output, isHtml). */
   private fun buildFinalOutput(
     plan: ExecutionPlan,
     results: Map<String, StepResult>,
     evaluation: EvaluationResult,
-  ): String {
-    val completedOutputs =
-      plan.steps
-        .mapNotNull { step ->
-          val result = results[step.id]
-          if (result != null && result.status == StepStatus.COMPLETED && result.output.isNotBlank()) {
-            "${step.description}: ${result.output.take(500)}"
-          } else {
-            null
-          }
-        }
+  ): Pair<String, Boolean> {
+    // Use the last completed step's output as the final result.
+    val lastOutput = plan.steps
+      .mapNotNull { step -> results[step.id] }
+      .lastOrNull { it.status == StepStatus.COMPLETED && it.output.isNotBlank() }
 
-    return buildString {
-      if (evaluation.goalAchieved) {
-        append("Goal achieved.\n\n")
-      } else {
-        append("Partial results (goal not fully achieved).\n\n")
-      }
-      append("Results:\n")
-      append(completedOutputs.joinToString("\n\n"))
-      if (!evaluation.goalAchieved && evaluation.missingItems.isNotEmpty()) {
-        append("\n\nMissing:\n")
-        append(evaluation.missingItems.joinToString("\n") { "- $it" })
-      }
+    val raw = lastOutput?.output?.take(2000) ?: "No output produced."
+    val isHtml = raw.contains("<") && raw.contains(">") && raw.contains("</")
+    return if (isHtml) {
+      raw.trim() to true
+    } else {
+      raw.trim() to false
     }
   }
 }

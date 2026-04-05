@@ -51,6 +51,7 @@ enum class ChatMessageType {
   THINKING,
   ORCHESTRATION_PLAN,
   ORCHESTRATION_EVALUATION,
+  ORCHESTRATION_LOG,
 }
 
 enum class ChatSide {
@@ -462,6 +463,24 @@ class ChatMessageOrchestrationEvaluation(
     return ChatMessageOrchestrationEvaluation(
       evaluation = evaluation,
       iteration = iteration,
+    )
+  }
+}
+
+/** Chat message for displaying orchestration streaming logs in a single consolidated bubble. */
+class ChatMessageOrchestrationLog(
+  val logLines: List<String> = emptyList(),
+  val inProgress: Boolean = true,
+) :
+  ChatMessage(
+    type = ChatMessageType.ORCHESTRATION_LOG,
+    side = ChatSide.AGENT,
+    disableBubbleShape = true,
+  ) {
+  override fun clone(): ChatMessageOrchestrationLog {
+    return ChatMessageOrchestrationLog(
+      logLines = logLines.toList(),
+      inProgress = inProgress,
     )
   }
 }

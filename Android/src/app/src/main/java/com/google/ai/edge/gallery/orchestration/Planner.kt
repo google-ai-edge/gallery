@@ -64,6 +64,7 @@ Rules:
 - dependsOn is a list of step IDs that must complete before this step runs
 - Steps with no dependencies can run in parallel
 - Keep the plan minimal
+- When a skill may return long text (e.g. query-wikipedia), add a step using the "summarize" skill (toolName: null, skillName: "summarize") after it to condense the output before passing to other skills. Set the description to explain what to summarize.
 
 User request: "$userMessage"
 

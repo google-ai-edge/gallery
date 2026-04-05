@@ -90,8 +90,7 @@ import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageCollapsableProgressPanel
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageInfo
-import com.google.ai.edge.gallery.ui.common.chat.ChatMessageOrchestrationEvaluation
-import com.google.ai.edge.gallery.ui.common.chat.ChatMessageOrchestrationPlan
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessageOrchestrationLog
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageType
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageWebView
@@ -230,15 +229,19 @@ fun AgentChatScreen(
           Log.d(TAG, "Handling action: $action")
           when (action) {
             is SkillProgressAgentAction -> {
-              viewModel.updateCollapsableProgressPanelMessage(
-                model = currentModel,
-                title = action.label,
-                inProgress = action.inProgress,
-                doneIcon = doneIcon,
-                addItemTitle = action.addItemTitle,
-                addItemDescription = action.addItemDescription,
-                customData = action.customData,
-              )
+              // During orchestration, skip individual tool progress panels —
+              // progress is shown in the consolidated log bubble.
+              if (!orchestrationEnabled || orchestrationController.value == null) {
+                viewModel.updateCollapsableProgressPanelMessage(
+                  model = currentModel,
+                  title = action.label,
+                  inProgress = action.inProgress,
+                  doneIcon = doneIcon,
+                  addItemTitle = action.addItemTitle,
+                  addItemDescription = action.addItemDescription,
+                  customData = action.customData,
+                )
+              }
             }
             is CallJsAgentAction -> {
               try {
@@ -270,6 +273,11 @@ fun AgentChatScreen(
                   action.result.complete(result)
                 }
 
+                // Escape data for safe embedding in JS. Use JSON.stringify to
+                // produce a valid JS string literal (handles backticks, quotes,
+                // newlines, and special chars like °C that break template literals).
+                val safeData = org.json.JSONObject.quote(action.data)
+                val safeSecret = org.json.JSONObject.quote(action.secret)
                 val script =
                   """
                   (async function() {
@@ -285,7 +293,7 @@ fun AgentChatScreen(
                           break;
                         }
                       }
-                      var result = await ai_edge_gallery_get_result(`${action.data}`, `${action.secret}`);
+                      var result = await ai_edge_gallery_get_result($safeData, $safeSecret);
                       AiEdgeGallery.onResultReady(result);
                   })()
                   """
@@ -327,10 +335,12 @@ fun AgentChatScreen(
                 lineNumber = curConsoleMessage.lineNumber(),
                 message = curConsoleMessage.message(),
               )
-            viewModel.addLogMessageToLastCollapsableProgressPanel(
-              model = model,
-              logMessage = logMessage,
-            )
+            if (!orchestrationEnabled || orchestrationController.value == null) {
+              viewModel.addLogMessageToLastCollapsableProgressPanel(
+                model = model,
+                logMessage = logMessage,
+              )
+            }
             Log.d(
               TAG,
               "${curConsoleMessage.message()} " +
@@ -495,100 +505,126 @@ fun AgentChatScreen(
             }
           }
 
-          // Observe state changes and add chat messages.
+          // Observe state changes — single consolidated log bubble.
           coroutineScope.launch {
             var lastStatus: OrchestrationStatus? = null
             var lastPlanIteration = -1
             var lastEvalIteration = -1
+            val loggedSteps = mutableSetOf<String>()
+
+            // Create the log bubble.
+            viewModel.addMessage(
+              model = model,
+              message = ChatMessageOrchestrationLog(
+                logLines = listOf("\uD83D\uDCA1 Planning..."),
+                inProgress = true,
+              ),
+            )
 
             controller.state.collect { state ->
-              // Add plan message when plan becomes available.
+              // Plan ready — log the plan steps.
               if (state.plan != null && state.iteration != lastPlanIteration) {
                 lastPlanIteration = state.iteration
-                viewModel.addMessage(
-                  model = model,
-                  message = ChatMessageOrchestrationPlan(
-                    plan = state.plan!!,
-                    stepStatuses = state.stepResults.mapValues { it.value.status },
-                    iteration = state.iteration,
-                    inProgress = state.status == OrchestrationStatus.EXECUTING,
-                  ),
-                )
+                loggedSteps.clear()
+                val plan = state.plan!!
+                val iterLabel = if (state.iteration > 1) " (iteration ${state.iteration})" else ""
+                viewModel.appendOrchestrationLogLine(model, "\uD83D\uDCCB Plan: ${plan.goal}$iterLabel")
+                for ((i, step) in plan.steps.withIndex()) {
+                  val skill = if (step.skillName != null) " [${step.skillName}]" else ""
+                  viewModel.appendOrchestrationLogLine(model, "   ${i + 1}. ${step.description}$skill")
+                }
               }
 
-              // Update plan step statuses in real-time.
+              // Step status updates.
               if (state.status == OrchestrationStatus.EXECUTING && state.plan != null) {
-                val lastMsg = viewModel.getLastMessageWithType(
-                  model = model,
-                  type = ChatMessageType.ORCHESTRATION_PLAN,
-                )
-                if (lastMsg is ChatMessageOrchestrationPlan) {
-                  val updatedStatuses = state.stepResults.mapValues { it.value.status }
-                  if (updatedStatuses != lastMsg.stepStatuses) {
-                    viewModel.replaceLastMessage(
+                for ((stepId, result) in state.stepResults) {
+                  val key = "$stepId:${result.status}"
+                  if (key !in loggedSteps) {
+                    loggedSteps.add(key)
+                    val step = state.plan!!.steps.find { it.id == stepId }
+                    val desc = step?.description ?: stepId
+                    when (result.status) {
+                      com.google.ai.edge.gallery.orchestration.StepStatus.RUNNING ->
+                        viewModel.appendOrchestrationLogLine(model, "\u25B6\uFE0F $desc")
+                      com.google.ai.edge.gallery.orchestration.StepStatus.COMPLETED -> {
+                        val dur = if (result.durationMs > 0) " (${String.format("%.1f", result.durationMs / 1000.0)}s)" else ""
+                        viewModel.appendOrchestrationLogLine(model, "\u2705 $desc$dur")
+                      }
+                      com.google.ai.edge.gallery.orchestration.StepStatus.FAILED ->
+                        viewModel.appendOrchestrationLogLine(model, "\u274C $desc — ${result.error ?: "unknown error"}")
+                      com.google.ai.edge.gallery.orchestration.StepStatus.SKIPPED ->
+                        viewModel.appendOrchestrationLogLine(model, "\u23ED\uFE0F $desc")
+                      else -> {}
+                    }
+                  }
+                }
+              }
+
+              // Evaluation.
+              if (state.evaluation != null && state.iteration != lastEvalIteration) {
+                lastEvalIteration = state.iteration
+                if (state.status == OrchestrationStatus.EVALUATING || lastStatus == OrchestrationStatus.EVALUATING) {
+                  viewModel.appendOrchestrationLogLine(model, "\uD83D\uDD0D Evaluating results...")
+                }
+                val eval = state.evaluation!!
+                if (eval.goalAchieved) {
+                  viewModel.appendOrchestrationLogLine(model, "\u2705 Goal achieved!")
+                } else {
+                  viewModel.appendOrchestrationLogLine(model, "\u26A0\uFE0F Not yet achieved: ${eval.assessment.take(100)}")
+                  if (eval.shouldReplan) {
+                    viewModel.appendOrchestrationLogLine(model, "\uD83D\uDD04 Re-planning...")
+                  }
+                }
+              }
+
+              // Completed — finalize log, send final output.
+              if (state.status == OrchestrationStatus.COMPLETED && lastStatus != OrchestrationStatus.COMPLETED) {
+                viewModel.finalizeOrchestrationLog(model)
+                if (state.finalOutput != null) {
+                  if (state.finalOutputIsHtml) {
+                    // Wrap HTML in a full document for proper rendering.
+                    val fullHtml = """
+                      <!DOCTYPE html>
+                      <html><head>
+                        <meta name="viewport" content="width=device-width, initial-scale=1">
+                        <style>body{margin:0;padding:8px;font-family:sans-serif;}</style>
+                      </head><body>${state.finalOutput!!}</body></html>
+                    """.trimIndent()
+                    val encoded = android.util.Base64.encodeToString(
+                      fullHtml.toByteArray(Charsets.UTF_8),
+                      android.util.Base64.NO_WRAP,
+                    )
+                    viewModel.addMessage(
                       model = model,
-                      message = ChatMessageOrchestrationPlan(
-                        plan = lastMsg.plan,
-                        stepStatuses = updatedStatuses,
-                        iteration = lastMsg.iteration,
-                        inProgress = true,
+                      message = ChatMessageWebView(
+                        url = "data:text/html;base64,$encoded",
+                        iframe = false,
+                        aspectRatio = 1.2f,
+                        side = ChatSide.AGENT,
                       ),
-                      type = ChatMessageType.ORCHESTRATION_PLAN,
+                    )
+                  } else {
+                    viewModel.addMessage(
+                      model = model,
+                      message = ChatMessageText(
+                        content = state.finalOutput!!,
+                        side = ChatSide.AGENT,
+                      ),
                     )
                   }
                 }
               }
 
-              // Mark plan as done when leaving EXECUTING.
-              if (lastStatus == OrchestrationStatus.EXECUTING &&
-                  state.status != OrchestrationStatus.EXECUTING) {
-                val lastMsg = viewModel.getLastMessageWithType(
-                  model = model,
-                  type = ChatMessageType.ORCHESTRATION_PLAN,
-                )
-                if (lastMsg is ChatMessageOrchestrationPlan && lastMsg.inProgress) {
-                  viewModel.replaceLastMessage(
-                    model = model,
-                    message = ChatMessageOrchestrationPlan(
-                      plan = lastMsg.plan,
-                      stepStatuses = state.stepResults.mapValues { it.value.status },
-                      iteration = lastMsg.iteration,
-                      inProgress = false,
-                    ),
-                    type = ChatMessageType.ORCHESTRATION_PLAN,
-                  )
-                }
+              // Error.
+              if (state.status == OrchestrationStatus.ERROR && lastStatus != OrchestrationStatus.ERROR) {
+                viewModel.appendOrchestrationLogLine(model, "\u274C Error: ${state.error ?: "unknown"}")
+                viewModel.finalizeOrchestrationLog(model)
               }
 
-              // Add evaluation message.
-              if (state.evaluation != null && state.iteration != lastEvalIteration) {
-                lastEvalIteration = state.iteration
-                viewModel.addMessage(
-                  model = model,
-                  message = ChatMessageOrchestrationEvaluation(
-                    evaluation = state.evaluation!!,
-                    iteration = state.iteration,
-                  ),
-                )
-              }
-
-              // Add final output as text when completed.
-              if (state.status == OrchestrationStatus.COMPLETED && state.finalOutput != null) {
-                viewModel.addMessage(
-                  model = model,
-                  message = ChatMessageText(
-                    content = state.finalOutput!!,
-                    side = ChatSide.AGENT,
-                  ),
-                )
-              }
-
-              // Show error.
-              if (state.status == OrchestrationStatus.ERROR && state.error != null) {
-                viewModel.addMessage(
-                  model = model,
-                  message = ChatMessageInfo(content = "Orchestration error: ${state.error}"),
-                )
+              // Cancelled.
+              if (state.status == OrchestrationStatus.CANCELLED && lastStatus != OrchestrationStatus.CANCELLED) {
+                viewModel.appendOrchestrationLogLine(model, "\uD83D\uDED1 Cancelled.")
+                viewModel.finalizeOrchestrationLog(model)
               }
 
               lastStatus = state.status

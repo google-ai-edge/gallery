@@ -26,6 +26,9 @@ import kotlinx.coroutines.sync.withLock
 
 private const val TAG = "AGExecutionOrchestrator"
 
+/** Skills that are executed by the LLM rather than by running JS in a WebView. */
+private val LLM_ONLY_SKILLS = setOf("summarize")
+
 /**
  * Module 2: Execution Orchestrator.
  *
@@ -119,9 +122,10 @@ class ExecutionOrchestrator(
     val startTime = System.currentTimeMillis()
 
     return try {
-      // If toolName is null but skillName is set, treat as a runJs tool step.
+      // If toolName is null but skillName is set, treat as a runJs tool step —
+      // unless the skill is LLM-only (e.g. "summarize"), in which case keep it as an LLM step.
       val effectiveToolName = step.toolName
-        ?: if (!step.skillName.isNullOrEmpty()) "runJs" else null
+        ?: if (!step.skillName.isNullOrEmpty() && step.skillName !in LLM_ONLY_SKILLS) "runJs" else null
 
       Log.d(TAG, "Step ${step.id}: toolName=${step.toolName}, skillName=${step.skillName}, effectiveToolName=$effectiveToolName")
 
@@ -216,15 +220,25 @@ class ExecutionOrchestrator(
       }
 
       // For remaining deps not matched to placeholders:
-      // If there's exactly one dep and one non-reserved data field, replace the value.
-      // Otherwise add as step_N keys.
+      // Only replace a field if its value looks like a placeholder (empty or references a step).
+      // Otherwise add as step_N keys to avoid overwriting real user data.
       if (depOutputMap.isNotEmpty()) {
         val nonReservedKeys = dataJson.keys().asSequence().toList()
         if (depOutputMap.size == 1 && nonReservedKeys.size == 1) {
-          // Single dep, single field — replace the field value.
-          dataJson.put(nonReservedKeys[0], depOutputMap.values.first())
+          val existingValue = dataJson.optString(nonReservedKeys[0], "")
+          val looksLikePlaceholder = existingValue.isBlank() ||
+            step.dependsOn.any { existingValue.contains(it, ignoreCase = true) } ||
+            existingValue.startsWith("Output from", ignoreCase = true) ||
+            existingValue.startsWith("[", ignoreCase = true)
+          if (looksLikePlaceholder) {
+            dataJson.put(nonReservedKeys[0], depOutputMap.values.first())
+          } else {
+            // Real data — add dep output as step_N key instead.
+            for ((depId, output) in depOutputMap) {
+              dataJson.put(depId, output)
+            }
+          }
         } else {
-          // Add remaining as step_N keys.
           for ((depId, output) in depOutputMap) {
             dataJson.put(depId, output)
           }
@@ -267,15 +281,19 @@ class ExecutionOrchestrator(
     step: PlanStep,
     previousResults: Map<String, StepResult>,
   ): StepResult {
-    Log.d(TAG, "Executing LLM step: ${step.id}")
+    Log.d(TAG, "Executing LLM step: ${step.id} (skill=${step.skillName})")
 
     return llmMutex.withLock {
-      // Build context from dependency results.
+      // Build context from dependency results.  For LLM-only skills like "summarize",
+      // include more of the dependency output since the whole point is to process it.
+      val isLlmSkill = step.skillName in LLM_ONLY_SKILLS
+      val maxOutputLen = if (isLlmSkill) 3000 else 500
+
       val contextParts = mutableListOf<String>()
       for (depId in step.dependsOn) {
         val depResult = previousResults[depId]
         if (depResult != null && depResult.status == StepStatus.COMPLETED) {
-          contextParts.add("Result from $depId: ${depResult.output.take(500)}")
+          contextParts.add("Result from $depId: ${depResult.output.take(maxOutputLen)}")
         }
       }
 
@@ -286,6 +304,9 @@ class ExecutionOrchestrator(
           append("\n\n")
         }
         append("Task: ${step.description}")
+        if (isLlmSkill) {
+          append("\n\nIMPORTANT: Output ONLY the result text. Do not add explanations or preamble.")
+        }
       }
 
       val response = llmProvider.generateResponse(prompt)

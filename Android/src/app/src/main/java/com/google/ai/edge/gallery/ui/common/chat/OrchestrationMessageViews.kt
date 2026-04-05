@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -52,6 +53,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import com.google.ai.edge.gallery.orchestration.StepStatus
 
 /** Renders an orchestration plan as a collapsible card in the chat. */
@@ -238,6 +243,89 @@ fun MessageBodyOrchestrationEvaluation(message: ChatMessageOrchestrationEvaluati
         fontWeight = FontWeight.Medium,
         color = MaterialTheme.colorScheme.onErrorContainer,
       )
+    }
+  }
+}
+
+/** Renders orchestration activity as a single consolidated log bubble. */
+@Composable
+fun MessageBodyOrchestrationLog(message: ChatMessageOrchestrationLog) {
+  var expanded by remember { mutableStateOf(false) }
+  val logLines = message.logLines
+  val scrollState = rememberScrollState()
+
+  Column(
+    modifier =
+      Modifier.fillMaxWidth()
+        .clip(RoundedCornerShape(12.dp))
+        .background(MaterialTheme.colorScheme.surfaceContainerLow)
+        .animateContentSize()
+        .padding(12.dp)
+  ) {
+    // Header row with spinner and expand button.
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        if (message.inProgress) {
+          CircularProgressIndicator(
+            modifier = Modifier.size(14.dp),
+            strokeWidth = 2.dp,
+            color = MaterialTheme.colorScheme.primary,
+          )
+          Spacer(modifier = Modifier.width(8.dp))
+        }
+        Text(
+          text = if (message.inProgress) "Working..." else "Done",
+          style = MaterialTheme.typography.labelMedium,
+          fontWeight = FontWeight.SemiBold,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+      }
+      if (logLines.size > 2) {
+        Icon(
+          imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+          contentDescription = if (expanded) "Collapse" else "Expand",
+          modifier = Modifier.size(20.dp).clickable { expanded = !expanded },
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+    }
+
+    Spacer(modifier = Modifier.height(6.dp))
+
+    if (expanded) {
+      // Full log — scrollable.
+      Column(
+        modifier = Modifier.heightIn(max = 300.dp).verticalScroll(scrollState),
+      ) {
+        for (line in logLines) {
+          Text(
+            text = line,
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = 1.dp),
+          )
+        }
+      }
+    } else {
+      // Collapsed — show last 2 lines.
+      val visibleLines = logLines.takeLast(2)
+      for (line in visibleLines) {
+        Text(
+          text = line,
+          style = MaterialTheme.typography.bodySmall,
+          fontFamily = FontFamily.Monospace,
+          fontSize = 11.sp,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
     }
   }
 }

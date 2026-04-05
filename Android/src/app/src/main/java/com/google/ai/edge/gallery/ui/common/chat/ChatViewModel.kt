@@ -208,6 +208,36 @@ abstract class ChatViewModel() : ViewModel() {
     _uiState.update { newUiState }
   }
 
+  fun appendOrchestrationLogLine(model: Model, line: String) {
+    val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
+    val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
+    val index = newMessages.indexOfLast { it.type == ChatMessageType.ORCHESTRATION_LOG }
+    if (index >= 0) {
+      val msg = newMessages[index] as ChatMessageOrchestrationLog
+      newMessages[index] = ChatMessageOrchestrationLog(
+        logLines = msg.logLines + line,
+        inProgress = msg.inProgress,
+      )
+    }
+    newMessagesByModel[model.name] = newMessages
+    _uiState.update { _uiState.value.copy(messagesByModel = newMessagesByModel) }
+  }
+
+  fun finalizeOrchestrationLog(model: Model) {
+    val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
+    val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
+    val index = newMessages.indexOfLast { it.type == ChatMessageType.ORCHESTRATION_LOG }
+    if (index >= 0) {
+      val msg = newMessages[index] as ChatMessageOrchestrationLog
+      newMessages[index] = ChatMessageOrchestrationLog(
+        logLines = msg.logLines,
+        inProgress = false,
+      )
+    }
+    newMessagesByModel[model.name] = newMessages
+    _uiState.update { _uiState.value.copy(messagesByModel = newMessagesByModel) }
+  }
+
   fun replaceMessage(model: Model, index: Int, message: ChatMessage) {
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
     val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
