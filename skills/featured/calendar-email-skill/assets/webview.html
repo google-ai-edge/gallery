@@ -1,0 +1,213 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Calendar Email Preview</title>
+    <style>
+      :root {
+        --primary: #4285f4;
+        --secondary: #34a853;
+        --bg: #ffffff;
+        --text: #333333;
+        --border: #e0e0e0;
+      }
+      
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 20px;
+        cursor: pointer;
+      }
+      
+      .icon {
+        font-size: 48px;
+        margin-bottom: 15px;
+        color: var(--primary);
+      }
+      
+      h2 {
+        margin: 0 0 10px 0;
+        font-size: 20px;
+        font-weight: 600;
+        color: var(--primary);
+      }
+      
+      .status {
+        font-size: 16px;
+        color: #666;
+        margin-bottom: 5px;
+      }
+      
+      .details {
+        font-size: 14px;
+        color: #888;
+        margin-bottom: 20px;
+        max-width: 300px;
+        line-height: 1.4;
+      }
+      
+      .btn {
+        background: var(--primary);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 16px;
+        margin-top: 15px;
+        box-shadow: 0 2px 8px rgba(66, 133, 244, 0.3);
+        transition: transform 0.1s ease;
+      }
+      
+      .btn:active {
+        transform: scale(0.95);
+      }
+      
+      .success {
+        color: var(--secondary);
+      }
+      
+      .info {
+        color: #4285f4;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="icon" id="icon">📅</div>
+    <h2 id="title">Calendar Action</h2>
+    <div class="status" id="status">Ready</div>
+    <div class="details" id="details">Tap to view details</div>
+    <div class="btn" id="button">VIEW DETAILS</div>
+
+    <script>
+      // Get data from URL parameters
+      const params = new URLSearchParams(window.location.search);
+      const action = params.get('action') || 'create_event';
+      const compressedData = params.get('data') || '';
+      
+      let webviewData = {};
+      
+      // Decode the data if available
+      if (compressedData) {
+        try {
+          const decoded = decodeURIComponent(escape(atob(compressedData)));
+          webviewData = JSON.parse(decoded);
+        } catch (e) {
+          console.error('Failed to decode data:', e);
+        }
+      }
+      
+      // Update UI based on action
+      function updateUI() {
+        const icon = document.getElementById('icon');
+        const title = document.getElementById('title');
+        const status = document.getElementById('status');
+        const details = document.getElementById('details');
+        const button = document.getElementById('button');
+        
+        switch (action) {
+          case 'create_event':
+            icon.textContent = '📅';
+            title.textContent = 'Event Scheduled';
+            status.textContent = '✓ Success';
+            status.className = 'status success';
+            
+            if (webviewData.title) {
+              details.textContent = `${webviewData.title} on ${webviewData.date} at ${webviewData.time}`;
+            } else {
+              details.textContent = 'Calendar event created successfully';
+            }
+            button.textContent = 'VIEW CALENDAR';
+            break;
+            
+          case 'send_invite':
+            icon.textContent = '📧';
+            title.textContent = 'Invitation Sent';
+            status.textContent = '✓ Success';
+            status.className = 'status success';
+            
+            if (webviewData.eventTitle) {
+              details.textContent = `Invitation for "${webviewData.eventTitle}" sent to ${webviewData.toEmail}`;
+            } else {
+              details.textContent = 'Email invitation sent successfully';
+            }
+            button.textContent = 'VIEW EMAIL';
+            break;
+            
+          case 'check_availability':
+            icon.textContent = '⏰';
+            title.textContent = 'Availability Checked';
+            status.textContent = '✓ Ready';
+            status.className = 'status info';
+            
+            if (webviewData.date) {
+              details.textContent = `Available time slots for ${webviewData.date}`;
+            } else {
+              details.textContent = 'Availability checked successfully';
+            }
+            button.textContent = 'VIEW SCHEDULE';
+            break;
+            
+          default:
+            icon.textContent = '📅';
+            title.textContent = 'Calendar Email';
+            status.textContent = 'Ready';
+            details.textContent = 'Calendar and email actions';
+            button.textContent = 'OPEN';
+        }
+      }
+      
+      // Build UI URL
+      function buildUIUrl() {
+        const uiUrl = `ui.html?action=${encodeURIComponent(action)}&data=${encodeURIComponent(compressedData)}`;
+        return uiUrl;
+      }
+      
+      // Redirect to UI
+      function redirectToUI(e) {
+        e.preventDefault();
+        window.location.href = buildUIUrl();
+      }
+      
+      // Initialize
+      updateUI();
+      
+      // Add click listeners
+      document.body.addEventListener('click', redirectToUI);
+      document.body.addEventListener('touchstart', redirectToUI);
+    </script>
+  </body>
+</html>
