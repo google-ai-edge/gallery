@@ -18,6 +18,7 @@ limitations under the License.
 
 <!DOCTYPE html>
 <html lang="en">
+
 <body>
   <script>
     const STORAGE_KEY = 'mood_tracker_data';
@@ -70,75 +71,90 @@ limitations under the License.
 
     window['ai_edge_gallery_get_result'] = async (dataStr) => {
       try {
-        const input = JSON.parse(dataStr);
-        const action = input.action;
-        const date = resolveDate(input.date);
-        const allData = getData();
-        let resultMessage = "";
-        let showDashboard = input.show_dashboard || action === 'get_history';
+        // Handle cases where the model outputs multiple JSON objects instead of one
+        let inputs;
+        try {
+          const parsed = JSON.parse(dataStr);
+          inputs = Array.isArray(parsed) ? parsed : [parsed];
+        } catch (e) {
+          inputs = JSON.parse('[' + dataStr + ']');
+        }
 
-        if (action === 'log_mood') {
-          const score = parseInt(input.score);
-          if (isNaN(score) || score < 1 || score > 10) {
-            throw new Error("Mood score must be a number between 1 and 10.");
-          }
+        const results = [];
+        for (const input of inputs) {
+          const action = input.action;
+          const date = resolveDate(input.date);
+          const allData = getData();
+          let resultMessage = "";
+          let showDashboard = input.show_dashboard || action === 'get_history';
 
-          allData[date] = {
-            score: score,
-            comment: input.comment || "",
-            timestamp: new Date().toISOString()
-          };
-          saveData(allData);
-          resultMessage = `Logged mood of ${score}/10 for ${date}${input.comment ? ': "' + input.comment + '"' : ''}.`;
-        } else if (action === 'get_mood') {
-          const entry = allData[date];
-          if (entry) {
-            resultMessage = `Your mood on ${date} was ${entry.score}/10${entry.comment ? ' (' + entry.comment + ')' : ''}.`;
-          } else {
-            resultMessage = `No mood entry found for ${date}.`;
-          }
-        } else if (action === 'get_history') {
-          const daysCount = parseInt(input.days) || 7;
-          const history = [];
-          // Sort chronologically (oldest first) for better trend analysis
-          const sortedDates = Object.keys(allData).sort().slice(-daysCount);
+          if (action === 'log_mood') {
+            const score = parseInt(input.score);
+            if (isNaN(score) || score < 1 || score > 10) {
+              throw new Error("Mood score must be a number between 1 and 10.");
+            }
 
-          sortedDates.forEach(d => {
-            history.push({ date: d, ...allData[d] });
-          });
-
-          resultMessage = `Here is your mood history (oldest first, retrieved on ${toLocalISO(new Date())}): \n` +
-                          history.map(h => `- ${h.date}: ${h.score}/10 ${h.comment ? '(' + h.comment + ')' : ''}`).join('\n');
-        } else if (action === 'delete_mood') {
-          if (allData[date]) {
-            delete allData[date];
+            allData[date] = {
+              score: score,
+              comment: input.comment || "",
+              timestamp: new Date().toISOString()
+            };
             saveData(allData);
-            resultMessage = `Deleted mood entry for ${date}.`;
+            resultMessage = `Logged mood of ${score}/10 for ${date}${input.comment ? ': "' + input.comment + '"' : ''}.`;
+          } else if (action === 'get_mood') {
+            const entry = allData[date];
+            if (entry) {
+              resultMessage = `Your mood on ${date} was ${entry.score}/10${entry.comment ? ' (' + entry.comment + ')' : ''}.`;
+            } else {
+              resultMessage = `No mood entry found for ${date}.`;
+            }
+          } else if (action === 'get_history') {
+            const daysCount = parseInt(input.days) || 7;
+            const history = [];
+            // Sort chronologically (oldest first) for better trend analysis
+            const sortedDates = Object.keys(allData).sort().slice(-daysCount);
+
+            sortedDates.forEach(d => {
+              history.push({ date: d, ...allData[d] });
+            });
+
+            resultMessage = `Here is your mood history (oldest first, retrieved on ${toLocalISO(new Date())}): \n` +
+              history.map(h => `- ${h.date}: ${h.score}/10 ${h.comment ? '(' + h.comment + ')' : ''}`).join('\n');
+          } else if (action === 'delete_mood') {
+            if (allData[date]) {
+              delete allData[date];
+              saveData(allData);
+              resultMessage = `Deleted mood entry for ${date}.`;
+            } else {
+              resultMessage = `No mood entry found to delete for ${date}.`;
+            }
+          } else if (action === 'export_data') {
+            resultMessage = `Here is your raw mood data for backup (Copy and save this JSON): \n\n${JSON.stringify(allData, null, 2)}`;
+          } else if (action === 'wipe_data') {
+            localStorage.removeItem(STORAGE_KEY);
+            resultMessage = "All your mood history has been deleted. You can now start fresh!";
           } else {
-            resultMessage = `No mood entry found to delete for ${date}.`;
+            throw new Error(`Unknown action: ${action}`);
           }
-        } else if (action === 'export_data') {
-          resultMessage = `Here is your raw mood data for backup (Copy and save this JSON): \n\n${JSON.stringify(allData, null, 2)}`;
-        } else if (action === 'wipe_data') {
-          localStorage.removeItem(STORAGE_KEY);
-          resultMessage = "All your mood history has been deleted. You can now start fresh!";
-        } else {
-          throw new Error(`Unknown action: ${action}`);
+
+          const response = {
+            result: resultMessage
+          };
+
+          if (showDashboard) {
+            let url = `dashboard.html?date=${date}`;
+            if (input.days) {
+              url += `&days=${input.days}`;
+            }
+            response.webview = { url: url };
+          }
+
+          results.push(response);
         }
 
-        const response = {
-          result: resultMessage
-        };
-
-        if (showDashboard) {
-          let url = `dashboard.html?date=${date}`;
-          if (input.days) {
-            url += `&days=${input.days}`;
-          }
-          response.webview = { url: url };
-        }
-
-        return JSON.stringify(response);
+        return results.length === 1
+          ? JSON.stringify(results[0])
+          : JSON.stringify({ result: results.map(r => r.result).join('\n'), webview: results.find(r => r.webview)?.webview });
 
       } catch (e) {
         console.error(e);
@@ -147,4 +163,5 @@ limitations under the License.
     };
   </script>
 </body>
+
 </html>
