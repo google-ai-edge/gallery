@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<script>
+window['ai_edge_gallery_get_result'] = async (dataStr, secret) => {
+  try {
+    // Parse input from the LLM
+    const input = JSON.parse(dataStr || '{}');
+    const query = (input.query || '').trim();
+    const num = Math.min(10, Math.max(1, parseInt(input.num) || 5));
+
+    if (!query) {
+      return JSON.stringify({ error: 'No search query provided.' });
+    }
+
+    // Validate and split the combined secret: API_KEY|CX_ID
+    if (!secret || !secret.includes('|')) {
+      return JSON.stringify({
+        error: 'Google Search credentials not configured. ' +
+               'Tap the key icon in the Skill Manager and enter your credentials ' +
+               'in this format: API_KEY|CX_ID\n\n' +
+               'Get your API key at: https://console.cloud.google.com/apis/credentials\n' +
+               'Get your Search Engine ID at: https://programmablesearchengine.google.com'
+      });
+    }
+
+    const pipeIndex = secret.indexOf('|');
+    const apiKey = secret.substring(0, pipeIndex).trim();
+    const cx = secret.substring(pipeIndex + 1).trim();
+
+    if (!apiKey || !cx) {
+      return JSON.stringify({
+        error: 'Invalid credentials format. Expected: API_KEY|CX_ID (both parts are required).'
+      });
+    }
+
+    // Call Google Custom Search API
+    const url = 'https://www.googleapis.com/customsearch/v1?' +
+      'key=' + encodeURIComponent(apiKey) +
+      '&cx=' + encodeURIComponent(cx) +
+      '&q=' + encodeURIComponent(query) +
+      '&num=' + num;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    // Handle API-level errors
+    if (!response.ok) {
+      const code = response.status;
+      const message = (data.error && data.error.message) || 'Unknown error';
+      if (code === 403) {
+        return JSON.stringify({
+          error: 'API key rejected (403). Please verify your API key is correct and ' +
+                 'that the Custom Search JSON API is enabled in Google Cloud Console.\n' +
+                 'Details: ' + message
+        });
+      }
+      if (code === 429) {
+        return JSON.stringify({
+          error: 'Daily query limit reached (429). The free tier allows 100 queries/day. ' +
+                 'You can increase the limit in Google Cloud Console.\n' +
+                 'Details: ' + message
+        });
+      }
+      return JSON.stringify({ error: 'Google API error ' + code + ': ' + message });
+    }
+
+    // No results found
+    if (!data.items || data.items.length === 0) {
+      return JSON.stringify({
+        result: 'No results found for: "' + query + '". Try rephrasing the search query.',
+        query: query,
+        total_results: '0'
+      });
+    }
+
+    // Format results as readable text for the LLM
+    const totalResults = (data.searchInformation && data.searchInformation.formattedTotalResults) || '';
+    const items = data.items.map((item, i) => ({
+      title: item.title || '',
+      link: item.link || '',
+      snippet: (item.snippet || '').replace(/\n/g, ' ').trim()
+    }));
+
+    const resultLines = items.map((item, i) =>
+      (i + 1) + '. ' + item.title + '\n   ' + item.link + '\n   ' + item.snippet
+    );
+
+    const resultText =
+      'Google Search results for: "' + query + '"' +
+      (totalResults ? ' (' + totalResults + ' total results)' : '') +
+      '\n\n' + resultLines.join('\n\n');
+
+    return JSON.stringify({
+      result: resultText,
+      query: query,
+      total_results: totalResults,
+      items: items
+    });
+
+  } catch (e) {
+    return JSON.stringify({ error: 'Unexpected error: ' + e.message });
+  }
+};
+</script>
+</body>
+</html>

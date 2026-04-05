@@ -164,6 +164,14 @@
       "skillUrl": "https://google-ai-edge.github.io/gallery/skills/built-in/birthday-greeting/SKILL.md"
     },
     {
+      "id": "google-search",
+      "category": "featured",
+      "title": "Google Search",
+      "description": "Search the web using Google Custom Search and get current results. Requires a free Google API key and Custom Search Engine ID.",
+      "requiresSecret": true,
+      "skillUrl": "https://google-ai-edge.github.io/gallery/skills/featured/google-search/SKILL.md"
+    },
+    {
       "id": "mood-music",
       "category": "featured",
       "title": "Mood Music",
