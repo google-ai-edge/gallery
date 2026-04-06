@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.ui.modelmanager
 
 import android.content.Context
 import android.util.Log
+import android.net.Uri
 import androidx.activity.result.ActivityResult
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
@@ -276,7 +277,7 @@ constructor(
     }
   }
 
-  fun downloadModel(task: Task?, model: Model) {
+  fun downloadModel(task: Task?, model: Model, customUrl: String? = null) {
     // Update status.
     setDownloadStatus(
       curModel = model,
@@ -291,7 +292,40 @@ constructor(
       task = task,
       model = model,
       onStatusUpdated = this::setDownloadStatus,
+      customUrl = customUrl,
     )
+  }
+
+  fun fulfillModelWithLocalUri(model: Model, uri: Uri) {
+    setDownloadStatus(
+      curModel = model,
+      status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
+    )
+    deleteModel(model = model)
+
+    viewModelScope.launch(Dispatchers.IO) {
+      try {
+        val destFile = File(model.getPath(context))
+        if (destFile.parentFile?.exists() == false) {
+          destFile.parentFile?.mkdirs()
+        }
+        context.contentResolver.openInputStream(uri)?.use { input ->
+          destFile.outputStream().use { output ->
+            input.copyTo(output)
+          }
+        }
+        val status = ModelDownloadStatus(
+          status = ModelDownloadStatusType.SUCCEEDED,
+          receivedBytes = destFile.length(),
+          totalBytes = destFile.length()
+        )
+        setDownloadStatus(model, status)
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to copy local file for fulfillment", e)
+        val status = ModelDownloadStatus(status = ModelDownloadStatusType.FAILED)
+        setDownloadStatus(model, status)
+      }
+    }
   }
 
   fun cancelDownloadModel(model: Model) {

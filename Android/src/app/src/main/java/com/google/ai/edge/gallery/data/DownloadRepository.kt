@@ -55,6 +55,7 @@ interface DownloadRepository {
     task: Task?,
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
+    customUrl: String? = null,
   )
 
   fun cancelDownloadModel(model: Model)
@@ -97,14 +98,21 @@ class DefaultDownloadRepository(
     task: Task?,
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
+    customUrl: String?,
   ) {
+    val downloadUrl = customUrl ?: model.url
+    if (downloadUrl.isEmpty()) {
+      Log.e(TAG, "Cannot download a model without url. Name: ${model.name}")
+      return
+    }
+
     // Create input data.
     val builder = Data.Builder()
     val totalBytes = model.totalBytes + model.extraDataFiles.sumOf { it.sizeInBytes }
     val inputDataBuilder =
       builder
         .putString(KEY_MODEL_NAME, model.name)
-        .putString(KEY_MODEL_URL, model.url)
+        .putString(KEY_MODEL_URL, downloadUrl)
         .putString(KEY_MODEL_COMMIT_HASH, model.version)
         .putString(KEY_MODEL_DOWNLOAD_MODEL_DIR, model.normalizedName)
         .putString(KEY_MODEL_DOWNLOAD_FILE_NAME, model.downloadFileName)
