@@ -1,7 +1,7 @@
 ---
 name: legal-service-advisor
 description: Expert legal service advisor for issue spotting, document understanding, jurisdiction-aware guidance, and next-step recommendations. Trigger this for legal questions, contracts, disputes, compliance concerns, or requests for legal process guidance.
-***
+---
 
 # Instructions
 
