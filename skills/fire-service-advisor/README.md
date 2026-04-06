@@ -24,6 +24,7 @@ This skill transforms the local LLM into a mission-focused advisor for firefight
 4. Navigate to **Agent Skills** and tap the **Refresh** icon to activate.
 
 ## Usage
+To enable and use the skill type fire service skill.  Now enter any questions related to fire services.
 Once active, the model will wait for fire-related keywords. 
 * Example: "Structure fire, smoke showing from Alpha side."
 * Response: The AI will immediately ask for your location and nature of the fire.
