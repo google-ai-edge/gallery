@@ -5,11 +5,23 @@ A specialized AI Edge Gallery skill providing emergency triage, tactical decisio
 ## Overview
 This skill transforms the local LLM into a mission-focused advisor for firefighters. It enforces a strict "location and nature" intake protocol to ensure situational awareness before providing tactical advice.
 
-## Installation
-1. Create a folder named `fire-service-advisor` in your local AI Edge Gallery skills directory.
+### Quick Install (Recommended)
+1. Open the **Google AI Edge Gallery** app.
+2. Select the **Agent Skills** option from the main menu.
+3. Select the **Gemma-4-E2B-it** model by pressing the **Try it** button (wait for everything to load).
+4. Press the **Skills Icon** located at the bottom of the GUI.
+5. Press the **Plus (+)** icon.
+6. Select **Load skill from URL**.
+7. Enter the following URL:  
+   `https://raw.githubusercontent.com/elearningshow/gallery/main/skills/fire-service-advisor/SKILL.md`
+8. Select **Add**.
+9. Enjoy the new skill!
+
+### Manual Install
+1. Create a folder named `fire-service-advisor` in your local AI Edge Gallery skills directory on your Android device.
 2. Save the `SKILL.md` and `README.md` files into that folder.
 3. Open the **Google AI Edge Gallery** app.
-4. Navigate to **Agent Skills** and tap **Refresh** to activate.
+4. Navigate to **Agent Skills** and tap the **Refresh** icon to activate.
 
 ## Usage
 Once active, the model will wait for fire-related keywords. 
