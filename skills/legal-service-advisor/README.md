@@ -3,17 +3,17 @@
 A specialized AI Edge Gallery skill providing legal information, issue spotting, document understanding, and next-step guidance for consumers, workers, and small businesses.
 
 ## Overview
-This skill transforms the local LLM into a practical legal advisor for users who need help understanding legal issues, contracts, disputes, compliance concerns, and process-related questions. It prioritizes mandatory intake of legal issue type and jurisdiction, then provides structured, plain-language next steps.
+This skill transforms the local LLM into a practical legal advisor for users who need help understanding legal issues, contracts, disputes, compliance concerns, and process-related questions. It prioritizes issue identification, jurisdiction awareness, concise responses, and clear next steps.
 
 ## Installation
 
 ### Quick Install (Android)
 1. Open the **Google AI Edge Gallery** app.
 2. Select the **Agent Skills** option from the main menu.
-3. Select the **Gemma-4-E2B-it** model by pressing the **Try it** button (wait for everything to load).
+3. Select the **Gemma-4-E2B-it** model by pressing the **Try it** button and wait for everything to load.
 4. Press the **Skills Icon** at the bottom of the GUI.
 5. Press the **Plus (+)** icon and select **Load skill from URL**.
-6. Enter the following URL:  
+6. Enter the following URL:
    `https://raw.githubusercontent.com/elearningshow/gallery/main/skills/legal-service-advisor/SKILL.md`
 7. Select **Add**.
 
@@ -26,7 +26,7 @@ This skill transforms the local LLM into a practical legal advisor for users who
 6. Press the **Plus (+)** icon and select **Load skill from Local**.
 7. Navigate to your **Downloads** folder and select the `SKILL.md` file you just saved.
 
-Enjoy the new skill! As of April 6, 2026 tested and working on Android and iDevices.
+Tested workflow format based on the same install pattern used for your Fire Service Advisor skill.
 
 ### Manual Install
 1. Create a folder named `legal-service-advisor` in your local AI Edge Gallery skills directory.
@@ -36,9 +36,13 @@ Enjoy the new skill! As of April 6, 2026 tested and working on Android and iDevi
 
 ## Usage
 Trigger this skill by describing a legal situation, such as:
-* "I need help understanding a contractor agreement in Ontario."
-* "I received a demand letter from a customer in California."
-* "I want to know my options in a landlord dispute in Newfoundland and Labrador."
+- "I need help understanding a contractor agreement in Ontario."
+- "I received a demand letter from a customer in California."
+- "I want to know my options in a landlord dispute in Newfoundland and Labrador."
+- "I need help understanding whether I should speak to a criminal lawyer after being charged."
+
+## Important Notice
+This skill provides general legal information only. It does not provide legal representation, legal opinions, or jurisdiction-specific legal advice. Users should always double-check any recommendations with a licensed lawyer or official authority before taking action.
 
 ---
 
