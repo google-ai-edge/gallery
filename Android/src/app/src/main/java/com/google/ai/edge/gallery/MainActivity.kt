@@ -17,8 +17,10 @@
 package com.google.ai.edge.gallery
 
 import android.animation.ObjectAnimator
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
@@ -44,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.animation.doOnEnd
+import androidx.core.net.toUri
 import androidx.core.os.bundleOf
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
@@ -65,6 +68,24 @@ class MainActivity : ComponentActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+
+    // Debug: Dump all intent extras to see what FCM unloads
+    intent.extras?.let { extras ->
+      for (key in extras.keySet()) {
+        Log.d(TAG, "onCreate Extra -> Key: $key, Value: ${extras.get(key)}")
+      }
+    }
+
+    // Convert FCM Console data extras to intent data for GalleryNavGraph to pick up
+    intent.getStringExtra("deeplink")?.let { link ->
+      Log.d(TAG, "onCreate: Found deeplink extra: $link")
+      if (link.startsWith("http://") || link.startsWith("https://")) {
+        val browserIntent = Intent(Intent.ACTION_VIEW, link.toUri())
+        startActivity(browserIntent)
+      } else {
+        intent.data = link.toUri()
+      }
+    }
 
     fun setContent() {
       if (contentSet) {
@@ -156,6 +177,28 @@ class MainActivity : ComponentActivity() {
     }
     // Keep the screen on while the app is running for better demo experience.
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+
+    // Debug: Dump all intent extras to see what FCM unloads
+    intent.extras?.let { extras ->
+      for (key in extras.keySet()) {
+        Log.d(TAG, "onNewIntent Extra -> Key: $key, Value: ${extras.get(key)}")
+      }
+    }
+
+    intent.getStringExtra("deeplink")?.let { link ->
+      Log.d(TAG, "onNewIntent: Found deeplink extra: $link")
+      if (link.startsWith("http://") || link.startsWith("https://")) {
+        val browserIntent = Intent(Intent.ACTION_VIEW, link.toUri())
+        startActivity(browserIntent)
+      } else {
+        intent.data = link.toUri()
+      }
+    }
   }
 
   override fun onResume() {
