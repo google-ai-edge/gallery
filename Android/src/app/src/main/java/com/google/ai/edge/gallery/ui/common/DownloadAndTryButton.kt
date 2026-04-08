@@ -522,9 +522,9 @@ fun DownloadAndTryButton(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(horizontal = 16.dp),
       ) {
-        Text("Acknowledge user agreement", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.acknowledge_user_agreement), style = MaterialTheme.typography.titleLarge)
         Text(
-          "This is a gated model. Please click the button below to view and agree to the user agreement. After accepting, simply close that tab to proceed with the model download.",
+          stringResource(R.string.gated_model_agreement_message),
           style = MaterialTheme.typography.bodyMedium,
           modifier = Modifier.padding(vertical = 16.dp),
         )

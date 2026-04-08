@@ -441,7 +441,7 @@ fun MessageInputText(
                               horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
                               Icon(Icons.Rounded.PhotoCamera, contentDescription = null)
-                              Text("Take a picture")
+                              Text(stringResource(R.string.take_a_picture))
                             }
                           },
                           enabled = enableAddImageMenuItems,

@@ -438,4 +438,89 @@
     <string name="custom_data">Custom Data</string>
     <string name="text_color_label">Text color: </string>
 
+    <!-- Strings for settings dialog -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_huggingface_token">HuggingFace access token</string>
+    <string name="settings_token_not_available">Not available</string>
+    <string name="settings_token_auto_retrieved">The token will be automatically retrieved when a gated model is downloaded</string>
+    <string name="settings_enter_token_manually">Enter token manually</string>
+    <string name="settings_third_party_libraries">Third-party libraries</string>
+    <string name="theme_auto">Auto</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_unknown">Unknown</string>
+
+    <!-- Strings for model import -->
+    <string name="import_model_dialog_title">Import Model</string>
+    <string name="import_model_sheet_title">Import model</string>
+    <string name="import_from_local_file">From local model file</string>
+    <string name="model_imported_successfully">Model imported successfully</string>
+    <string name="error_supported_file_types">Only \".task\" or \".litertlm\" file type is supported.</string>
+
+    <!-- Strings for promo screen -->
+    <string name="promo_gm4_introducing">Introducing</string>
+    <string name="promo_gm4_name">Gemma 4</string>
+    <string name="promo_gm4_description">Experience the world\'s most capable open models, designed to run frontier-level intelligence directly on your hardware.</string>
+
+    <!-- Strings for model count -->
+    <string name="model_count_one">1 Model</string>
+    <string name="model_count_multiple">%d Models</string>
+
+    <!-- Strings for links -->
+    <string name="api_documentation">API Documentation</string>
+    <string name="example_code">Example code</string>
+
+    <!-- Strings for notifications -->
+    <string name="new_release_available">New release %s available</string>
+
+    <!-- Strings for LlmChatTask -->
+    <string name="task_llm_chat_label">AI Chat</string>
+    <string name="task_llm_chat_description">Chat with on-device large language models</string>
+    <string name="task_llm_chat_short_description">Chat with an on-device LLM</string>
+
+    <!-- Strings for LlmAskImageTask -->
+    <string name="task_llm_ask_image_label">Ask Image</string>
+    <string name="task_llm_ask_image_description">Ask questions about images with on-device large language models</string>
+    <string name="task_llm_ask_image_short_description">Ask questions about images</string>
+
+    <!-- Strings for LlmAskAudioTask -->
+    <string name="task_llm_ask_audio_label">Audio Scribe</string>
+    <string name="task_llm_ask_audio_description">Instantly transcribe and/or translate audio clips using on-device large language models</string>
+    <string name="task_llm_ask_audio_short_description">Transcribe and translate audio</string>
+
+    <!-- Strings for LlmSingleTurnTask -->
+    <string name="task_llm_prompt_lab_label">Prompt Lab</string>
+    <string name="task_llm_prompt_lab_description">Single turn use cases with on-device large language models</string>
+    <string name="task_llm_prompt_lab_short_description">Single turn use cases</string>
+
+    <!-- Strings for AgentChatTask -->
+    <string name="task_agent_chat_label">Agent Skills</string>
+    <string name="task_agent_chat_description">Chat with on-device large language models with skills and tools</string>
+    <string name="task_agent_chat_short_description">Complete agentic tasks with chat</string>
+
+    <!-- Strings for TinyGardenTask -->
+    <string name="task_tiny_garden_label">Tiny Garden</string>
+    <string name="task_tiny_garden_description">Use natural language to plant, water, and harvest in this fully offline mini-game.\n\nNote: This is powered by the experimental FunctionGemma model optimized for latency. Due to its compact size (270M), it works well on simple instructions but responses may vary to more complex interactions.</string>
+    <string name="task_tiny_garden_short_description">Use natural language to plant</string>
+
+    <!-- Strings for MobileActionsTask -->
+    <string name="task_mobile_actions_label">Mobile Actions</string>
+    <string name="task_mobile_actions_description">Perform various device actions through Function Gemma</string>
+    <string name="task_mobile_actions_short_description">Leverage device mobile actions</string>
+
+    <!-- Strings for PromptTemplatesPanel -->
+    <string name="preview_prompt">Preview prompt</string>
+    <string name="select_an_example">Select an example</string>
+
+    <!-- Strings for DownloadAndTryButton -->
+    <string name="acknowledge_user_agreement">Acknowledge user agreement</string>
+    <string name="gated_model_agreement_message">This is a gated model. Please click the button below to view and agree to the user agreement. After accepting, simply close that tab to proceed with the model download.</string>
+
+    <!-- Strings for ModelNotDownloaded -->
+    <string name="download_and_try_it">Download &amp; Try it</string>
+
+    <!-- Strings for AgentChatScreen -->
+    <string name="skill_disabled_title">The \"%s\" skill is currently disabled</string>
+
 </resources>

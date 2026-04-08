@@ -437,4 +437,89 @@
     <string name="custom_data">自定义数据</string>
     <string name="text_color_label">文本颜色：</string>
 
+    <!-- Strings for settings dialog -->
+    <string name="settings_title">设置</string>
+    <string name="settings_theme">主题</string>
+    <string name="settings_huggingface_token">HuggingFace 访问令牌</string>
+    <string name="settings_token_not_available">不可用</string>
+    <string name="settings_token_auto_retrieved">当下载受限模型时，令牌将自动检索</string>
+    <string name="settings_enter_token_manually">手动输入令牌</string>
+    <string name="settings_third_party_libraries">第三方库</string>
+    <string name="theme_auto">自动</string>
+    <string name="theme_light">浅色</string>
+    <string name="theme_dark">深色</string>
+    <string name="theme_unknown">未知</string>
+
+    <!-- Strings for model import -->
+    <string name="import_model_dialog_title">导入模型</string>
+    <string name="import_model_sheet_title">导入模型</string>
+    <string name="import_from_local_file">从本地模型文件</string>
+    <string name="model_imported_successfully">模型导入成功</string>
+    <string name="error_supported_file_types">仅支持 \".task\" 或 \".litertlm\" 文件类型。</string>
+
+    <!-- Strings for promo screen -->
+    <string name="promo_gm4_introducing">介绍</string>
+    <string name="promo_gm4_name">Gemma 4</string>
+    <string name="promo_gm4_description">体验世界上最强大的开源模型，旨在直接在您的硬件上运行前沿智能。</string>
+
+    <!-- Strings for model count -->
+    <string name="model_count_one">1 个模型</string>
+    <string name="model_count_multiple">%d 个模型</string>
+
+    <!-- Strings for links -->
+    <string name="api_documentation">API 文档</string>
+    <string name="example_code">示例代码</string>
+
+    <!-- Strings for notifications -->
+    <string name="new_release_available">新版本 %s 可用</string>
+
+    <!-- Strings for LlmChatTask -->
+    <string name="task_llm_chat_label">AI 聊天</string>
+    <string name="task_llm_chat_description">与设备上的大型语言模型聊天</string>
+    <string name="task_llm_chat_short_description">与设备上的 LLM 聊天</string>
+
+    <!-- Strings for LlmAskImageTask -->
+    <string name="task_llm_ask_image_label">询问图像</string>
+    <string name="task_llm_ask_image_description">使用设备上的大型语言模型询问关于图像的问题</string>
+    <string name="task_llm_ask_image_short_description">询问关于图像的问题</string>
+
+    <!-- Strings for LlmAskAudioTask -->
+    <string name="task_llm_ask_audio_label">音频转录</string>
+    <string name="task_llm_ask_audio_description">使用设备上的大型语言模型即时转录和/或翻译音频片段</string>
+    <string name="task_llm_ask_audio_short_description">转录和翻译音频</string>
+
+    <!-- Strings for LlmSingleTurnTask -->
+    <string name="task_llm_prompt_lab_label">提示实验室</string>
+    <string name="task_llm_prompt_lab_description">使用设备上的大型语言模型进行单轮对话</string>
+    <string name="task_llm_prompt_lab_short_description">单轮对话用例</string>
+
+    <!-- Strings for AgentChatTask -->
+    <string name="task_agent_chat_label">智能体技能</string>
+    <string name="task_agent_chat_description">与具有技能和工具的设备上大型语言模型聊天</string>
+    <string name="task_agent_chat_short_description">通过聊天完成智能体任务</string>
+
+    <!-- Strings for TinyGardenTask -->
+    <string name="task_tiny_garden_label">小花园</string>
+    <string name="task_tiny_garden_description">在这个完全离线的小游戏中使用自然语言种植、浇水和收获。\n\n注意：这由实验性的 FunctionGemma 模型驱动，针对延迟进行了优化。由于其紧凑的尺寸（270M），它适用于简单的指令，但对更复杂的交互响应可能会有所不同。</string>
+    <string name="task_tiny_garden_short_description">使用自然语言种植</string>
+
+    <!-- Strings for MobileActionsTask -->
+    <string name="task_mobile_actions_label">移动操作</string>
+    <string name="task_mobile_actions_description">通过 Function Gemma 执行各种设备操作</string>
+    <string name="task_mobile_actions_short_description">利用设备移动操作</string>
+
+    <!-- Strings for PromptTemplatesPanel -->
+    <string name="preview_prompt">预览提示</string>
+    <string name="select_an_example">选择示例</string>
+
+    <!-- Strings for DownloadAndTryButton -->
+    <string name="acknowledge_user_agreement">确认用户协议</string>
+    <string name="gated_model_agreement_message">这是一个受限模型。请点击下面的按钮查看并同意用户协议。接受后，只需关闭该标签页即可继续下载模型。</string>
+
+    <!-- Strings for ModelNotDownloaded -->
+    <string name="download_and_try_it">下载并试用</string>
+
+    <!-- Strings for AgentChatScreen -->
+    <string name="skill_disabled_title">\"%s\" 技能当前已禁用</string>
+
 </resources>

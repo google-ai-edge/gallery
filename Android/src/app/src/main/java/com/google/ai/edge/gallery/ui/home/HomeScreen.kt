@@ -977,6 +977,8 @@ private fun TaskCard(
   description: String = "",
   square: Boolean = false,
 ) {
+  val modelCountOneStr = stringResource(R.string.model_count_one)
+  val modelCountMultipleStr = stringResource(R.string.model_count_multiple)
   // Observes the model count and updates the model count label with a fade-in/fade-out animation
   // whenever the count changes.
   val modelCount by remember {
@@ -992,8 +994,8 @@ private fun TaskCard(
   val modelCountLabel by remember {
     derivedStateOf {
       when (modelCount) {
-        1 -> "1 Model"
-        else -> "%d Models".format(modelCount)
+        1 -> modelCountOneStr
+        else -> modelCountMultipleStr.format(modelCount)
       }
     }
   }

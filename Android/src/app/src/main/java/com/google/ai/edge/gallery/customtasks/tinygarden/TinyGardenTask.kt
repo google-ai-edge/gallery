@@ -67,7 +67,7 @@ Tips:
 """
 
 /** A custom task that demonstrates how to use FunctionGemma to play a simple gardening game. */
-class TinyGardenTask @Inject constructor() : CustomTask {
+class TinyGardenTask(private val context: Context) : CustomTask {
   private val _updateChannel = Channel<TinyGardenCommand>(Channel.BUFFERED)
   private val commandFlow = _updateChannel.receiveAsFlow()
   private val tools =
@@ -84,10 +84,9 @@ class TinyGardenTask @Inject constructor() : CustomTask {
   override val task =
     Task(
       id = BuiltInTaskId.LLM_TINY_GARDEN,
-      label = "Tiny Garden",
-      description =
-        "Use natural language to plant, water, and harvest in this fully offline mini-game.\n\nNote: This is powered by the experimental FunctionGemma model optimized for latency. Due to its compact size (270M), it works well on simple instructions but responses may vary to more complex interactions.",
-      shortDescription = "Use natural language to plant",
+      label = context.getString(R.string.task_tiny_garden_label),
+      description = context.getString(R.string.task_tiny_garden_description),
+      shortDescription = context.getString(R.string.task_tiny_garden_short_description),
       docUrl = "https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md",
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/customtasks/tinygarden",

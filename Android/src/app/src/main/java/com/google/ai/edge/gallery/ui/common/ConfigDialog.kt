@@ -244,7 +244,7 @@ fun ConfigDialog(
           ) {
             // Cancel button.
             if (showCancel) {
-              TextButton(onClick = { onDismissed() }) { Text("Cancel") }
+              TextButton(onClick = { onDismissed() }) { Text(stringResource(R.string.cancel)) }
             }
 
             // Ok button

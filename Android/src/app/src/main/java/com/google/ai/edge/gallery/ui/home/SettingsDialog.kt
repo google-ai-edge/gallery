@@ -126,7 +126,7 @@ fun SettingsDialog(
         // Dialog title and subtitle.
         Column {
           Text(
-            "Settings",
+            stringResource(R.string.settings_title),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(bottom = 8.dp),
           )
@@ -147,7 +147,7 @@ fun SettingsDialog(
           // Theme switcher.
           Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
             Text(
-              "Theme",
+              stringResource(R.string.settings_theme),
               style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
             )
             MultiChoiceSegmentedButtonRow {
@@ -193,7 +193,7 @@ fun SettingsDialog(
             verticalArrangement = Arrangement.spacedBy(4.dp),
           ) {
             Text(
-              "HuggingFace access token",
+              stringResource(R.string.settings_huggingface_token),
               style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
             )
             // Show the start of the token.
@@ -211,12 +211,12 @@ fun SettingsDialog(
               )
             } else {
               Text(
-                "Not available",
+                stringResource(R.string.settings_token_not_available),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
               Text(
-                "The token will be automatically retrieved when a gated model is downloaded",
+                stringResource(R.string.settings_token_auto_retrieved),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
@@ -270,7 +270,7 @@ fun SettingsDialog(
                     Box(modifier = Modifier.padding(start = 16.dp).weight(1f)) {
                       if (customHfToken.isEmpty()) {
                         Text(
-                          "Enter token manually",
+                          stringResource(R.string.settings_enter_token_manually),
                           color = MaterialTheme.colorScheme.onSurfaceVariant,
                           style = MaterialTheme.typography.bodySmall,
                         )
@@ -294,7 +294,7 @@ fun SettingsDialog(
           // Third party licenses.
           Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
             Text(
-              "Third-party libraries",
+              stringResource(R.string.settings_third_party_libraries),
               style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
             )
             OutlinedButton(
@@ -348,11 +348,13 @@ fun SettingsDialog(
   }
 }
 
+@Composable
 private fun themeLabel(theme: Theme): String {
+  val context = LocalContext.current
   return when (theme) {
-    Theme.THEME_AUTO -> "Auto"
-    Theme.THEME_LIGHT -> "Light"
-    Theme.THEME_DARK -> "Dark"
-    else -> "Unknown"
+    Theme.THEME_AUTO -> stringResource(R.string.theme_auto)
+    Theme.THEME_LIGHT -> stringResource(R.string.theme_light)
+    Theme.THEME_DARK -> stringResource(R.string.theme_dark)
+    else -> stringResource(R.string.theme_unknown)
   }
 }

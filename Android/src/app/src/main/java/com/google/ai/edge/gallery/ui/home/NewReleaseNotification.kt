@@ -39,12 +39,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.ai.edge.gallery.BuildConfig
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.getJsonResponse
 import com.google.ai.edge.gallery.ui.common.ClickableLink
 import kotlin.math.max
@@ -113,7 +115,7 @@ fun NewReleaseNotification() {
           .padding(4.dp),
     ) {
       Text(
-        "New release $newReleaseVersion available",
+        stringResource(R.string.new_release_available, newReleaseVersion),
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(start = 12.dp),
       )
