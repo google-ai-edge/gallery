@@ -296,6 +296,41 @@ fun createLlmChatConfigsForNpuModel(
   )
 }
 
+/**
+ * Creates the configuration settings for an AICore model.
+ *
+ * AICore models support setting topK and temperature (clamped between 0.0 and 1.0), but not topP.
+ */
+fun createAICoreConfigs(
+  defaultMaxToken: Int = DEFAULT_MAX_TOKEN,
+  defaultTopK: Int = DEFAULT_TOPK,
+  defaultTemperature: Float = DEFAULT_TEMPERATURE,
+  accelerators: List<Accelerator> = DEFAULT_ACCELERATORS,
+): List<Config> {
+  return listOf(
+    LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken"),
+    NumberSliderConfig(
+      key = ConfigKeys.TOPK,
+      sliderMin = 5f,
+      sliderMax = 100f,
+      defaultValue = defaultTopK.toFloat(),
+      valueType = ValueType.INT,
+    ),
+    NumberSliderConfig(
+      key = ConfigKeys.TEMPERATURE,
+      sliderMin = 0.0f,
+      sliderMax = 1.0f,
+      defaultValue = defaultTemperature,
+      valueType = ValueType.FLOAT,
+    ),
+    SegmentedButtonConfig(
+      key = ConfigKeys.ACCELERATOR,
+      defaultValue = accelerators[0].label,
+      options = accelerators.map { it.label },
+    ),
+  )
+}
+
 fun getConfigValueString(value: Any, config: Config): String {
   var strNewValue = "$value"
   if (config.valueType == ValueType.FLOAT) {

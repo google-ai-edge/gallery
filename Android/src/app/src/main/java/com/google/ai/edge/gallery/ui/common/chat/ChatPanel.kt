@@ -527,6 +527,13 @@ fun ChatPanel(
             }
           }
         }
+
+        FloatingBanner(
+          visible = showImageLimitBanner,
+          text = stringResource(R.string.aicore_image_limit_message),
+          modifier =
+            Modifier.align(Alignment.TopCenter).padding(horizontal = 16.dp, vertical = 8.dp),
+        )
       }
 
       MessageInputText(

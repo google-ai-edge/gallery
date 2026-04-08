@@ -119,6 +119,7 @@ dependencies {
   debugImplementation(libs.androidx.ui.tooling)
   debugImplementation(libs.androidx.ui.test.manifest)
   ksp(libs.moshi.kotlin.codegen)
+  implementation(libs.mlkit.genai.prompt)
 }
 
 protobuf {

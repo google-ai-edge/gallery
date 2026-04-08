@@ -63,6 +63,8 @@ data class AllowedModel(
   val url: String? = null,
   val socToModelFiles: Map<String, SocModelFile>? = null,
   val runtimeType: RuntimeType? = null,
+  val aicoreReleaseStage: AICoreModelReleaseStage? = null,
+  val aicorePreference: AICoreModelPreference? = null,
 ) {
   fun toModel(): Model {
     // Construct HF download url.
@@ -135,8 +137,14 @@ data class AllowedModel(
       }
       val npuOnly = accelerators.size == 1 && accelerators[0] == Accelerator.NPU
       configs =
-        (
-          if (npuOnly) {
+        (if (runtimeType == RuntimeType.AICORE) {
+            createAICoreConfigs(
+              defaultTopK = defaultTopK,
+              defaultTemperature = if (defaultTemperature > 1.0f) 1.0f else defaultTemperature,
+              defaultMaxToken = llmMaxToken,
+              accelerators = accelerators,
+            )
+          } else if (npuOnly) {
             createLlmChatConfigsForNpuModel(
               defaultMaxToken = llmMaxToken,
               accelerators = accelerators,
@@ -156,6 +164,11 @@ data class AllowedModel(
     }
 
     var learnMoreUrl = "https://huggingface.co/${modelId}"
+
+    if (runtimeType == RuntimeType.AICORE) {
+      downloadUrl = ""
+      learnMoreUrl = "https://developers.google.com/ml-kit/terms"
+    }
 
     // Misc.
     var showBenchmarkButton = true
@@ -188,6 +201,8 @@ data class AllowedModel(
       localModelFilePathOverride = localModelFilePathOverride ?: "",
       isLlm = isLlmModel,
       runtimeType = runtimeType ?: RuntimeType.LITERT_LM,
+      aicoreReleaseStage = aicoreReleaseStage,
+      aicorePreference = aicorePreference,
     )
   }
 
@@ -196,7 +211,20 @@ data class AllowedModel(
   }
 }
 
+/** Specific device requirements grouped by a descriptive name. */
+data class NamedDeviceGroup(
+  @SerializedName("groupName") val groupName: String,
+  @SerializedName("description") val description: String? = null,
+  @SerializedName("deviceModels") val deviceModels: List<String>,
+)
+
+/** Hardware-based constraints for model deployment. */
+data class DeviceRequirements(
+  @SerializedName("allowedDeviceGroups") val allowedDeviceGroups: List<NamedDeviceGroup>? = null
+)
+
 /** The model allowlist. */
 data class ModelAllowlist(
   val models: List<AllowedModel>,
+  @SerializedName("aicoreRequirements") val aicoreRequirements: DeviceRequirements? = null,
 )

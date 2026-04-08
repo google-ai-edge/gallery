@@ -90,6 +90,9 @@ fun ModelItem(
   val isBestOverall = model.bestForTaskIds.contains(task?.id ?: "")
   var isExpanded by remember { mutableStateOf(expanded ?: isBestOverall) }
 
+  val isDownloadFailed = downloadStatus?.status == ModelDownloadStatusType.FAILED
+  val isAicore = model.runtimeType == RuntimeType.AICORE
+
   var boxModifier =
     modifier
       .fillMaxWidth()
@@ -134,7 +137,7 @@ fun ModelItem(
               modelManagerViewModel = modelManagerViewModel,
               downloadStatus = downloadStatus,
               modifier = Modifier.offset(y = (-12).dp, x = if (model.imported) 12.dp else 0.dp),
-              showDeleteButton = showDeleteButton
+              showDeleteButton = showDeleteButton && !isAicore,
             )
           }
           if (!model.imported) {
@@ -161,6 +164,9 @@ fun ModelItem(
                 textColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 12.dp),
               )
+            }
+            if (isAicore && isDownloadFailed) {
+              AICoreAccessPanel()
             }
           }
         }

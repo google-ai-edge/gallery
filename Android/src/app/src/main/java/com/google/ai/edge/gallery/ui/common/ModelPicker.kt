@@ -119,9 +119,7 @@ fun ModelPicker(
             model.displayName.ifEmpty { model.name },
             style = MaterialTheme.typography.bodyMedium,
           )
-          var showStatusIconAndSize = true
-
-          if (showStatusIconAndSize) {
+          if (model.runtimeType != RuntimeType.AICORE) {
             Row(
               horizontalArrangement = Arrangement.spacedBy(4.dp),
               verticalAlignment = Alignment.CenterVertically,
@@ -132,9 +130,11 @@ fun ModelPicker(
                 downloadStatus = modelManagerUiState.modelDownloadStatus[model.name],
               )
               Text(
-                if (model.localFileRelativeDirPathOverride.isEmpty())
+                if (model.localFileRelativeDirPathOverride.isEmpty()) {
                   model.sizeInBytes.humanReadableSize()
-                else "{ext_file_dir}/${model.localFileRelativeDirPathOverride}",
+                } else {
+                  "{ext_file_dir}/${model.localFileRelativeDirPathOverride}"
+                },
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = labelSmallNarrow.copy(lineHeight = 10.sp),
               )

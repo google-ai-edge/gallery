@@ -126,6 +126,7 @@ import com.google.ai.edge.gallery.common.decodeSampledBitmapFromUri
 import com.google.ai.edge.gallery.common.rotateBitmap
 import com.google.ai.edge.gallery.data.MAX_AUDIO_CLIP_COUNT
 import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT
+import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT_AI_CORE
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.data.Task
@@ -190,7 +191,11 @@ fun MessageInputText(
   val sensorObserver = remember { SensorObserver(context) }
 
   val updatePickedImages: (List<Bitmap>) -> Unit = { bitmaps ->
+    val isAiCore = modelManagerUiState.selectedModel.runtimeType == RuntimeType.AICORE
     var limit = MAX_IMAGE_COUNT
+    if (isAiCore) {
+      limit = MAX_IMAGE_COUNT_AI_CORE
+    }
     val maxAllowedForThisMessage = (limit - imageCount).coerceAtLeast(0)
 
     val combinedSize = pickedImages.size + bitmaps.size
@@ -200,6 +205,9 @@ fun MessageInputText(
       if (withinLimit) {
         pickedImages + bitmaps
       } else {
+        if (isAiCore) {
+          scope.launch(Dispatchers.Main) { onImageLimitExceeded() }
+        }
         (pickedImages + bitmaps).take(maxAllowedForThisMessage)
       }
   }
@@ -431,6 +439,9 @@ fun MessageInputText(
                       onDismissRequest = { showAddContentMenu = false },
                     ) {
                       if (showImagePicker) {
+                        val isImageLimitExceededForAiCore =
+                          modelManagerUiState.selectedModel.runtimeType == RuntimeType.AICORE &&
+                            (imageCount + pickedImages.size) >= MAX_IMAGE_COUNT_AI_CORE
                         val enableAddImageMenuItems =
                           (imageCount + pickedImages.size) < MAX_IMAGE_COUNT
                         // Take a picture.
@@ -446,6 +457,11 @@ fun MessageInputText(
                           },
                           enabled = enableAddImageMenuItems,
                           onClick = {
+                            if (isImageLimitExceededForAiCore) {
+                              onImageLimitExceeded()
+                              showAddContentMenu = false
+                              return@DropdownMenuItem
+                            }
                             // Check permission
                             when (PackageManager.PERMISSION_GRANTED) {
                               // Already got permission. Call the lambda.
@@ -478,6 +494,11 @@ fun MessageInputText(
                           },
                           enabled = enableAddImageMenuItems,
                           onClick = {
+                            if (isImageLimitExceededForAiCore) {
+                              onImageLimitExceeded()
+                              showAddContentMenu = false
+                              return@DropdownMenuItem
+                            }
                             // Launch the photo picker and let the user choose only images.
                             pickMedia.launch(
                               PickVisualMediaRequest(

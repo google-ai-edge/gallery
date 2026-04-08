@@ -372,3 +372,9 @@ fun Modifier.clearFocusOnKeyboardDismiss(): Modifier = composed {
     }
   }
 }
+
+fun isAICoreSupported(allowedDeviceModels: Set<String>?): Boolean {
+  if (allowedDeviceModels.isNullOrEmpty()) return false
+  val currentModel = Build.MODEL?.lowercase() ?: return false
+  return allowedDeviceModels.contains(currentModel)
+}
