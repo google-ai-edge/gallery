@@ -26,6 +26,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import android.net.Uri
+import android.provider.OpenableColumns
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
@@ -120,6 +136,36 @@ fun DownloadModelPanel(
         return !downloadFailed || isLitertLm
       }
 
+      if (downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED) {
+        var showFulfillDialog by remember { mutableStateOf(false) }
+
+        OutlinedButton(
+          onClick = { showFulfillDialog = true },
+          modifier = Modifier.height(42.dp),
+          contentPadding = PaddingValues(horizontal = 12.dp)
+        ) {
+          Icon(Icons.Rounded.Link, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+          Spacer(modifier = Modifier.width(6.dp))
+          Text("Import Custom", color = MaterialTheme.colorScheme.primary)
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+
+        if (showFulfillDialog) {
+          ModelFulfillmentDialog(
+            model = model,
+            onDismiss = { showFulfillDialog = false },
+            onUrlPicked = { url ->
+              showFulfillDialog = false
+              modelManagerViewModel.downloadModel(task = task, model = model, customUrl = url)
+            },
+            onLocalUriPicked = { uri ->
+              showFulfillDialog = false
+              modelManagerViewModel.fulfillModelWithLocalUri(model, uri)
+            }
+          )
+        }
+      }
+
       DownloadAndTryButton(
         task = task,
         model = model,
@@ -137,4 +183,91 @@ fun DownloadModelPanel(
       )
     }
   }
+}
+
+@Composable
+fun ModelFulfillmentDialog(
+  model: Model,
+  onDismiss: () -> Unit,
+  onUrlPicked: (String) -> Unit,
+  onLocalUriPicked: (Uri) -> Unit,
+) {
+  var url by remember { mutableStateOf("") }
+  var errorMsg by remember { mutableStateOf("") }
+  val context = LocalContext.current
+
+  val filePickerLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.OpenDocument(),
+    onResult = { uri ->
+      if (uri != null) {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+          if (cursor.moveToFirst()) {
+            val nameIndex = cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)
+            val displayName = cursor.getString(nameIndex)
+            if (displayName != model.downloadFileName) {
+              Toast.makeText(context, "File name '$displayName' does not match expected model file '${model.downloadFileName}'", Toast.LENGTH_LONG).show()
+            } else {
+              onLocalUriPicked(uri)
+              return@use
+            }
+          }
+        }
+        onDismiss()
+      }
+    }
+  )
+
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text("Import Custom Source") },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Expected file name: ${model.downloadFileName}", style = MaterialTheme.typography.bodySmall)
+        OutlinedTextField(
+          value = url,
+          onValueChange = { 
+            url = it
+            errorMsg = ""
+          },
+          label = { Text("Model URL") },
+          isError = errorMsg.isNotEmpty(),
+          singleLine = true,
+          modifier = Modifier.fillMaxWidth()
+        )
+        if (errorMsg.isNotEmpty()) {
+           Text(errorMsg, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+        }
+        
+        Text("OR", modifier = Modifier.align(Alignment.CenterHorizontally), style = MaterialTheme.typography.bodyMedium)
+        OutlinedButton(
+          onClick = { 
+             filePickerLauncher.launch(arrayOf("*/*"))
+          },
+          modifier = Modifier.fillMaxWidth()
+        ) {
+          Text("Select Local File")
+        }
+      }
+    },
+    confirmButton = {
+      Button(
+        onClick = {
+          if (url.isNotBlank() && android.webkit.URLUtil.isValidUrl(url) && (url.startsWith("http://") || url.startsWith("https://"))) {
+            val parsedUrl = Uri.parse(url)
+            val fileName = parsedUrl.lastPathSegment ?: ""
+            if (fileName == model.downloadFileName) {
+               onUrlPicked(url)
+            } else {
+               errorMsg = "URL string must end with ${model.downloadFileName}. Found: '$fileName'"
+            }
+          } else {
+            errorMsg = "Invalid HTTP/HTTPS URL"
+          }
+        }
+      ) { Text("Set URL") }
+    },
+    dismissButton = {
+      TextButton(onClick = onDismiss) { Text("Cancel") }
+    }
+  )
 }
