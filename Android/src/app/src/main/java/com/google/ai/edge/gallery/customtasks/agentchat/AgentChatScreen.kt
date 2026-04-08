@@ -373,14 +373,14 @@ fun AgentChatScreen(
               )
               Text(
                 buildAnnotatedString {
-                  append("Use specialized, high-order reasoning by loading different skills or ")
+                  append(stringResource(R.string.agent_skills_description_part1))
                   append(
                     buildTrackableUrlAnnotatedString(
                       url = "https://github.com/google-ai-edge/gallery/tree/main/skills",
-                      linkText = "creating\u00A0your\u00A0own",
+                      linkText = stringResource(R.string.agent_skills_link_text),
                     )
                   )
-                  append(".\n\nTry tapping a sample prompt below to see Agent Skills in action!")
+                  append(stringResource(R.string.agent_skills_description_part2))
                 },
                 style =
                   MaterialTheme.typography.headlineSmall.copy(fontSize = 16.sp, lineHeight = 22.sp),
@@ -431,7 +431,10 @@ fun AgentChatScreen(
             ) {
               Icon(promptChip.icon, contentDescription = null, modifier = Modifier.size(20.dp))
               Spacer(modifier = Modifier.width(4.dp))
-              Text(promptChip.label)
+              Text(
+                if (promptChip.labelResId != 0) stringResource(promptChip.labelResId)
+                else promptChip.label
+              )
             }
           }
         }

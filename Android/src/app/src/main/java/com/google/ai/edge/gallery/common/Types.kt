@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.common
 
+import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.squareup.moshi.JsonClass
@@ -65,6 +66,7 @@ data class SkillTryOutChip(
   val label: String,
   val prompt: String,
   val skillName: String,
+  @StringRes val labelResId: Int = 0,
 )
 
 data class SkillInfo(

@@ -107,6 +107,15 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "AGConfigDialog"
 
+@Composable
+private fun getLocalizedLabel(label: String, @StringRes labelResId: Int?): String {
+  return if (labelResId != null && labelResId != 0) {
+    stringResource(labelResId)
+  } else {
+    label
+  }
+}
+
 private data class Tab(@StringRes val labelResId: Int)
 
 private val TABS =
@@ -302,7 +311,7 @@ fun ConfigEditorsPanel(configs: List<Config>, values: SnapshotStateMap<String, A
 fun LabelRow(config: LabelConfig, values: SnapshotStateMap<String, Any>) {
   Column(modifier = Modifier.fillMaxWidth()) {
     // Field label.
-    Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+    Text(getLocalizedLabel(config.key.label, config.key.labelResId), style = MaterialTheme.typography.titleSmall)
     // Content label.
     val label =
       try {
@@ -347,7 +356,7 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
 
   Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
     // Field label.
-    Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+    Text(getLocalizedLabel(config.key.label, config.key.labelResId), style = MaterialTheme.typography.titleSmall)
 
     // Controls row.
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -466,7 +475,7 @@ fun BooleanSwitchRow(config: BooleanSwitchConfig, values: SnapshotStateMap<Strin
       false
     }
   Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
-    Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+    Text(getLocalizedLabel(config.key.label, config.key.labelResId), style = MaterialTheme.typography.titleSmall)
     Switch(checked = switchValue, onCheckedChange = { values[config.key.label] = it })
   }
 }
@@ -487,7 +496,7 @@ fun SegmentedButtonRow(config: SegmentedButtonConfig, values: SnapshotStateMap<S
   }
 
   Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
-    Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+    Text(getLocalizedLabel(config.key.label, config.key.labelResId), style = MaterialTheme.typography.titleSmall)
     MultiChoiceSegmentedButtonRow {
       config.options.forEachIndexed { index, label ->
         SegmentedButton(
@@ -555,7 +564,7 @@ fun BottomSheetSelectorRow(
     verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
     if (showLabel) {
-      Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+      Text(getLocalizedLabel(config.key.label, config.key.labelResId), style = MaterialTheme.typography.titleSmall)
     }
     Row(
       horizontalArrangement = Arrangement.SpaceBetween,

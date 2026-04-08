@@ -400,24 +400,24 @@ fun BenchmarkResultsViewer(
                               verticalArrangement = Arrangement.spacedBy(8.dp),
                               modifier = Modifier.padding(start = 6.dp, top = 6.dp, bottom = 4.dp),
                             ) {
-                              StatRow(label = "Model", value = llmResult.baiscInfo.modelName)
+                              StatRow(label = stringResource(R.string.benchmark_label_model), value = llmResult.baiscInfo.modelName)
                               StatRow(
-                                label = "Accelerator",
+                                label = stringResource(R.string.benchmark_label_accelerator),
                                 value = llmResult.baiscInfo.accelerator,
                               )
                               StatRow(
-                                label = "Prefill tokens",
+                                label = stringResource(R.string.benchmark_label_prefill_tokens),
                                 value = "${llmResult.baiscInfo.prefillTokens}",
                               )
                               StatRow(
-                                label = "Decode tokens",
+                                label = stringResource(R.string.benchmark_label_decode_tokens),
                                 value = "${llmResult.baiscInfo.decodeTokens}",
                               )
                               StatRow(
-                                label = "Number of runs",
+                                label = stringResource(R.string.benchmark_label_number_of_runs),
                                 value = "${llmResult.baiscInfo.numberOfRuns}",
                               )
-                              StatRow(label = "App version", value = llmResult.baiscInfo.appVersion)
+                              StatRow(label = stringResource(R.string.benchmark_label_app_version), value = llmResult.baiscInfo.appVersion)
                             }
                           }
 
@@ -499,10 +499,10 @@ fun BenchmarkResultsViewer(
                               val baselineStats =
                                 uiState.baselineResult?.benchmarkResult?.llmResult?.stats
                               ValueSeriesRow(
-                                label = "Prefill speed",
+                                label = stringResource(R.string.benchmark_label_prefill_speed),
                                 valueSeries = llmResult.stats.prefillSpeed,
                                 aggregation = result.aggregation,
-                                unit = "tokens/sec",
+                                unit = stringResource(R.string.benchmark_unit_tokens_per_sec),
                                 baselineValueSeries =
                                   if (result.id != uiState.baselineResult?.id) {
                                     baselineStats?.prefillSpeed
@@ -517,10 +517,10 @@ fun BenchmarkResultsViewer(
                                   },
                               )
                               ValueSeriesRow(
-                                label = "Decode speed",
+                                label = stringResource(R.string.benchmark_label_decode_speed),
                                 valueSeries = llmResult.stats.decodeSpeed,
                                 aggregation = result.aggregation,
-                                unit = "tokens/sec",
+                                unit = stringResource(R.string.benchmark_unit_tokens_per_sec),
                                 baselineValueSeries =
                                   if (result.id != uiState.baselineResult?.id) {
                                     baselineStats?.decodeSpeed
@@ -535,10 +535,10 @@ fun BenchmarkResultsViewer(
                                   },
                               )
                               ValueSeriesRow(
-                                label = "Time to first token",
+                                label = stringResource(R.string.benchmark_label_time_to_first_token),
                                 valueSeries = llmResult.stats.timeToFirstToken,
                                 aggregation = result.aggregation,
-                                unit = "sec",
+                                unit = stringResource(R.string.benchmark_unit_sec),
                                 baselineValueSeries =
                                   if (result.id != uiState.baselineResult?.id) {
                                     baselineStats?.timeToFirstToken
@@ -554,14 +554,14 @@ fun BenchmarkResultsViewer(
                                 lessIsBetter = true,
                               )
                               StatRow(
-                                label = "First init time",
+                                label = stringResource(R.string.benchmark_label_first_init_time),
                                 value =
                                   String.format(
                                     Locale.getDefault(),
                                     "%.2f",
                                     llmResult.stats.firstInitTimeMs,
                                   ),
-                                unit = "ms",
+                                unit = stringResource(R.string.benchmark_unit_ms),
                                 baselineValue =
                                   if (result.id != uiState.baselineResult?.id) {
                                     baselineStats?.firstInitTimeMs
@@ -572,10 +572,10 @@ fun BenchmarkResultsViewer(
                               )
                               if (llmResult.stats.nonFirstInitTimeMs.valueCount > 1) {
                                 ValueSeriesRow(
-                                  label = "Steady init time",
+                                  label = stringResource(R.string.benchmark_label_steady_init_time),
                                   valueSeries = llmResult.stats.nonFirstInitTimeMs,
                                   aggregation = result.aggregation,
-                                  unit = "ms",
+                                  unit = stringResource(R.string.benchmark_unit_ms),
                                   baselineValueSeries =
                                     if (result.id != uiState.baselineResult?.id) {
                                       baselineStats?.nonFirstInitTimeMs

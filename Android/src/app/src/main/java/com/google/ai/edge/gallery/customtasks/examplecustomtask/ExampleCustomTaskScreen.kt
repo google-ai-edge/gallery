@@ -65,9 +65,9 @@ data class ExampleCustomTaskModelInstance(val content: String)
  * These keys are used to uniquely identify and retrieve values for configurable parameters within a
  * model.
  */
-val EXAMPLE_CUSTOM_TASK_CONFIG_KEY_FONT_SIZE = ConfigKey(id = "font_size", label = "Font size")
+val EXAMPLE_CUSTOM_TASK_CONFIG_KEY_FONT_SIZE = ConfigKey(id = "font_size", label = "Font size", labelResId = R.string.config_label_font_size)
 val EXAMPLE_CUSTOM_TASK_CONFIG_KEY_MAX_CHAR_COUNT =
-  ConfigKey(id = "max_char_count", label = "Max character count")
+  ConfigKey(id = "max_char_count", label = "Max character count", labelResId = R.string.config_label_max_char_count)
 
 /**
  * A list of configurable parameters for the `ExampleCustomTask`'s models.

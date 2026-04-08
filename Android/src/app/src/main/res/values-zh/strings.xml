@@ -218,6 +218,13 @@
     <string name="mobile_actions_challenge_instruction_2">2. 按照说明微调模型并将其转换为.litertlm格式。</string>
     <string name="mobile_actions_challenge_instruction_3">3. 将文件传输到此手机。</string>
     <string name="mobile_actions_challenge_instruction_4">4. 点击下方的 <![CDATA[<b>加载模型</b>]]> 以解锁演示。</string>
+    <string name="mobile_actions_challenge_instruction_1_part1">1. </string>
+    <string name="mobile_actions_challenge_instruction_1_bold">在您的电脑上</string>
+    <string name="mobile_actions_challenge_instruction_1_part2">，打开 </string>
+    <string name="mobile_actions_challenge_instruction_1_link">此指南</string>
+    <string name="mobile_actions_challenge_instruction_4_part1">\n4. 点击 </string>
+    <string name="mobile_actions_challenge_instruction_4_bold">加载模型</string>
+    <string name="mobile_actions_challenge_instruction_4_part2"> 以解锁演示。</string>
     <string name="mobile_actions_challenge_email_colab">通过邮件发送指南给我</string>
     <string name="mobile_actions_challenge_load_model">加载模型</string>
 
@@ -520,6 +527,76 @@
     <string name="download_and_try_it">下载并试用</string>
 
     <!-- Strings for AgentChatScreen -->
-    <string name="skill_disabled_title">\"%s\" 技能当前已禁用</string>
+    <string name="skill_disabled_title">"%s" 技能当前已禁用</string>
+    <string name="agent_skills_description_part1">通过加载不同的技能或</string>
+    <string name="agent_skills_link_text">创建自己的技能</string>
+    <string name="agent_skills_description_part2">，使用专业的高级推理能力。\n\n尝试点击下面的示例提示词，看看智能体技能的实际效果！</string>
+
+    <!-- Strings for GemmaTermsOfUseDialog -->
+    <string name="gemma_tos_content_part1">Google AI Edge Gallery 应用中的 Gemma 模型受 </string>
+    <string name="gemma_tos_link_text">Gemma 服务条款</string>
+    <string name="gemma_tos_content_part2"> 管辖。请在继续之前查看这些条款并确保您同意。</string>
+
+    <!-- Strings for SkillManagerViewModel - skill tryout chip labels -->
+    <string name="skill_chip_interactive_map">交互式地图</string>
+    <string name="skill_chip_kitchen_adventure">厨房冒险</string>
+    <string name="skill_chip_calculate_hash">计算哈希</string>
+    <string name="skill_chip_text_spinner">文本旋转器</string>
+    <string name="skill_chip_send_email">发送邮件</string>
+    <string name="skill_chip_track_mood">追踪我的心情</string>
+    <string name="skill_chip_query_wikipedia">查询维基百科</string>
+    <string name="skill_chip_generate_qr_code">生成二维码</string>
+
+    <!-- Strings for BenchmarkResultsViewer -->
+    <string name="benchmark_label_model">模型</string>
+    <string name="benchmark_label_accelerator">加速器</string>
+    <string name="benchmark_label_prefill_tokens">预填充令牌</string>
+    <string name="benchmark_label_decode_tokens">解码令牌</string>
+    <string name="benchmark_label_number_of_runs">运行次数</string>
+    <string name="benchmark_label_app_version">应用版本</string>
+    <string name="benchmark_label_prefill_speed">预填充速度</string>
+    <string name="benchmark_label_decode_speed">解码速度</string>
+    <string name="benchmark_label_time_to_first_token">首个令牌时间</string>
+    <string name="benchmark_label_first_init_time">首次初始化时间</string>
+    <string name="benchmark_label_steady_init_time">稳定初始化时间</string>
+    <string name="benchmark_unit_tokens_per_sec">令牌/秒</string>
+    <string name="benchmark_unit_sec">秒</string>
+    <string name="benchmark_unit_ms">毫秒</string>
+
+    <!-- Strings for Config.kt - ConfigKey labels -->
+    <string name="config_label_max_tokens">最大令牌数</string>
+    <string name="config_label_topk">TopK</string>
+    <string name="config_label_topp">TopP</string>
+    <string name="config_label_temperature">温度</string>
+    <string name="config_label_default_max_tokens">默认最大令牌数</string>
+    <string name="config_label_default_topk">默认 TopK</string>
+    <string name="config_label_default_topp">默认 TopP</string>
+    <string name="config_label_default_temperature">默认温度</string>
+    <string name="config_label_support_image">支持图像</string>
+    <string name="config_label_support_audio">支持音频</string>
+    <string name="config_label_support_tiny_garden">支持小花园</string>
+    <string name="config_label_support_mobile_actions">支持移动操作</string>
+    <string name="config_label_support_thinking">支持思考</string>
+    <string name="config_label_enable_thinking">启用思考</string>
+    <string name="config_label_max_result_count">最大结果数</string>
+    <string name="config_label_use_gpu">使用 GPU</string>
+    <string name="config_label_accelerator">加速器</string>
+    <string name="config_label_vision_accelerator">视觉加速器</string>
+    <string name="config_label_compatible_accelerators">兼容的加速器</string>
+    <string name="config_label_warm_up_iterations">预热迭代次数</string>
+    <string name="config_label_benchmark_iterations">基准测试迭代次数</string>
+    <string name="config_label_iterations">迭代次数</string>
+    <string name="config_label_theme">主题</string>
+    <string name="config_label_name">名称</string>
+    <string name="config_label_model_type">模型类型</string>
+    <string name="config_label_model">模型</string>
+    <string name="config_label_reset_conversation_turn_count">对话重置前的轮数</string>
+    <string name="config_label_prefill_tokens">预填充令牌</string>
+    <string name="config_label_decode_tokens">解码令牌</string>
+    <string name="config_label_number_of_runs">运行次数</string>
+
+    <!-- Strings for ExampleCustomTask -->
+    <string name="config_label_font_size">字体大小</string>
+    <string name="config_label_max_char_count">最大字符数</string>
 
 </resources>

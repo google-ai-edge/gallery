@@ -219,6 +219,13 @@
     <string name="mobile_actions_challenge_instruction_2">2. Follow the instructions to fine tune the model and convert it to .litertlm format.</string>
     <string name="mobile_actions_challenge_instruction_3">3. Transfer the file to this phone.</string>
     <string name="mobile_actions_challenge_instruction_4">4. Tap <![CDATA[<b>Load Model</b>]]> below to unlock the demo.</string>
+    <string name="mobile_actions_challenge_instruction_1_part1">1. </string>
+    <string name="mobile_actions_challenge_instruction_1_bold">On your computer</string>
+    <string name="mobile_actions_challenge_instruction_1_part2">, open </string>
+    <string name="mobile_actions_challenge_instruction_1_link">this guide</string>
+    <string name="mobile_actions_challenge_instruction_4_part1">\n4. Tap </string>
+    <string name="mobile_actions_challenge_instruction_4_bold">Load Model</string>
+    <string name="mobile_actions_challenge_instruction_4_part2"> below to unlock the demo.</string>
     <string name="mobile_actions_challenge_email_colab">Email guide to myself</string>
     <string name="mobile_actions_challenge_load_model">Load Model</string>
 
@@ -521,6 +528,76 @@
     <string name="download_and_try_it">Download &amp; Try it</string>
 
     <!-- Strings for AgentChatScreen -->
-    <string name="skill_disabled_title">The \"%s\" skill is currently disabled</string>
+    <string name="skill_disabled_title">The "%s" skill is currently disabled</string>
+    <string name="agent_skills_description_part1">Use specialized, high-order reasoning by loading different skills or </string>
+    <string name="agent_skills_link_text">creating\u00A0your\u00A0own</string>
+    <string name="agent_skills_description_part2">.\n\nTry tapping a sample prompt below to see Agent Skills in action!</string>
+
+    <!-- Strings for GemmaTermsOfUseDialog -->
+    <string name="gemma_tos_content_part1">Gemma models on the Google AI Edge Gallery app are governed by the </string>
+    <string name="gemma_tos_link_text">Gemma Terms of Service</string>
+    <string name="gemma_tos_content_part2">. Please review these terms and ensure you agree before continuing.</string>
+
+    <!-- Strings for SkillManagerViewModel - skill tryout chip labels -->
+    <string name="skill_chip_interactive_map">Interactive Map</string>
+    <string name="skill_chip_kitchen_adventure">Kitchen Adventure</string>
+    <string name="skill_chip_calculate_hash">Calculate Hash</string>
+    <string name="skill_chip_text_spinner">Text Spinner</string>
+    <string name="skill_chip_send_email">Send Email</string>
+    <string name="skill_chip_track_mood">Track my mood</string>
+    <string name="skill_chip_query_wikipedia">Query Wikipedia</string>
+    <string name="skill_chip_generate_qr_code">Generate QR code</string>
+
+    <!-- Strings for BenchmarkResultsViewer -->
+    <string name="benchmark_label_model">Model</string>
+    <string name="benchmark_label_accelerator">Accelerator</string>
+    <string name="benchmark_label_prefill_tokens">Prefill tokens</string>
+    <string name="benchmark_label_decode_tokens">Decode tokens</string>
+    <string name="benchmark_label_number_of_runs">Number of runs</string>
+    <string name="benchmark_label_app_version">App version</string>
+    <string name="benchmark_label_prefill_speed">Prefill speed</string>
+    <string name="benchmark_label_decode_speed">Decode speed</string>
+    <string name="benchmark_label_time_to_first_token">Time to first token</string>
+    <string name="benchmark_label_first_init_time">First init time</string>
+    <string name="benchmark_label_steady_init_time">Steady init time</string>
+    <string name="benchmark_unit_tokens_per_sec">tokens/sec</string>
+    <string name="benchmark_unit_sec">sec</string>
+    <string name="benchmark_unit_ms">ms</string>
+
+    <!-- Strings for Config.kt - ConfigKey labels -->
+    <string name="config_label_max_tokens">Max tokens</string>
+    <string name="config_label_topk">TopK</string>
+    <string name="config_label_topp">TopP</string>
+    <string name="config_label_temperature">Temperature</string>
+    <string name="config_label_default_max_tokens">Default max tokens</string>
+    <string name="config_label_default_topk">Default TopK</string>
+    <string name="config_label_default_topp">Default TopP</string>
+    <string name="config_label_default_temperature">Default temperature</string>
+    <string name="config_label_support_image">Support image</string>
+    <string name="config_label_support_audio">Support audio</string>
+    <string name="config_label_support_tiny_garden">Support tiny garden</string>
+    <string name="config_label_support_mobile_actions">Support mobile actions</string>
+    <string name="config_label_support_thinking">Support thinking</string>
+    <string name="config_label_enable_thinking">Enable thinking</string>
+    <string name="config_label_max_result_count">Max result count</string>
+    <string name="config_label_use_gpu">Use GPU</string>
+    <string name="config_label_accelerator">Accelerator</string>
+    <string name="config_label_vision_accelerator">Vision accelerator</string>
+    <string name="config_label_compatible_accelerators">Compatible accelerators</string>
+    <string name="config_label_warm_up_iterations">Warm up iterations</string>
+    <string name="config_label_benchmark_iterations">Benchmark iterations</string>
+    <string name="config_label_iterations">Iterations</string>
+    <string name="config_label_theme">Theme</string>
+    <string name="config_label_name">Name</string>
+    <string name="config_label_model_type">Model type</string>
+    <string name="config_label_model">Model</string>
+    <string name="config_label_reset_conversation_turn_count">Number of turns before the conversation resets</string>
+    <string name="config_label_prefill_tokens">Prefill tokens</string>
+    <string name="config_label_decode_tokens">Decode tokens</string>
+    <string name="config_label_number_of_runs">Number of runs</string>
+
+    <!-- Strings for ExampleCustomTask -->
+    <string name="config_label_font_size">Font size</string>
+    <string name="config_label_max_char_count">Max character count</string>
 
 </resources>
