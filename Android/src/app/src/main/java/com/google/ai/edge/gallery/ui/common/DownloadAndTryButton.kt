@@ -544,7 +544,7 @@ fun DownloadAndTryButton(
             showAgreementAckSheet = false
           }
         ) {
-          Text("Open user agreement")
+          Text(stringResource(R.string.open_user_agreement))
         }
       }
     }
@@ -559,10 +559,10 @@ fun DownloadAndTryButton(
           tint = MaterialTheme.colorScheme.error,
         )
       },
-      title = { Text("Unknown network error") },
-      text = { Text("Please check your internet connection.") },
+      title = { Text(stringResource(R.string.error_unknown_network)) },
+      text = { Text(stringResource(R.string.error_check_internet)) },
       onDismissRequest = { showErrorDialog = false },
-      confirmButton = { TextButton(onClick = { showErrorDialog = false }) { Text("Close") } },
+      confirmButton = { TextButton(onClick = { showErrorDialog = false }) { Text(stringResource(R.string.close)) } },
     )
   }
 

@@ -247,7 +247,7 @@ fun PromptTemplatesPanel(
                   disabledContainerColor = Color.Transparent,
                 ),
               textStyle = bodyLargeNarrow,
-              placeholder = { Text("Enter content") },
+              placeholder = { Text(stringResource(R.string.enter_content)) },
               modifier =
                 Modifier.padding(bottom = 40.dp).focusRequester(focusRequester).semantics {
                   contentDescription = cdContentInput

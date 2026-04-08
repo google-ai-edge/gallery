@@ -464,7 +464,7 @@ fun GlobalModelManager(
         )
       },
       onDismissRequest = { showUnsupportedFileTypeDialog = false },
-      title = { Text("Unsupported file type") },
+      title = { Text(stringResource(R.string.error_unsupported_file_type)) },
       text = { Text("Only \".task\" or \".litertlm\" file type is supported.") },
       confirmButton = {
         Button(onClick = { showUnsupportedFileTypeDialog = false }) {
@@ -485,8 +485,8 @@ fun GlobalModelManager(
         )
       },
       onDismissRequest = { showUnsupportedWebModelDialog = false },
-      title = { Text("Unsupported model type") },
-      text = { Text("Looks like the model is a web-only model and is not supported by the app.") },
+      title = { Text(stringResource(R.string.error_unsupported_model_type)) },
+      text = { Text(stringResource(R.string.error_web_only_model)) },
       confirmButton = {
         Button(onClick = { showUnsupportedWebModelDialog = false }) {
           Text(stringResource(R.string.ok))

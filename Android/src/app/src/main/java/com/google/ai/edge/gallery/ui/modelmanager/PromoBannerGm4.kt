@@ -48,6 +48,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -92,9 +93,9 @@ fun PromoBannerGm4(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
           .padding(horizontal = 16.dp)
           .padding(top = 16.dp, bottom = 8.dp)
     ) {
-      Text(text = "Gemma 4: now available", style = MaterialTheme.typography.titleMedium)
+      Text(text = stringResource(R.string.promo_gm4_title), style = MaterialTheme.typography.titleMedium)
       Text(
-        "Built from the same world-class technology as Gemini 3, Gemma 4 brings frontier intelligence to your mobile and edge devices.",
+        stringResource(R.string.promo_gm4_content),
         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
         modifier = Modifier.padding(top = 4.dp),
       )
@@ -103,13 +104,13 @@ fun PromoBannerGm4(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.End,
       ) {
-        TextButton(onClick = onDismiss, contentPadding = BUTTON_PADDING) { Text("Dismiss") }
+        TextButton(onClick = onDismiss, contentPadding = BUTTON_PADDING) { Text(stringResource(R.string.dismiss)) }
         Button(
           onClick = { uriHandler.openUri("https://ai.google.dev/gemma") },
           modifier = Modifier.padding(start = 8.dp).height(32.dp),
           contentPadding = BUTTON_PADDING,
         ) {
-          Text("Read more")
+          Text(stringResource(R.string.read_more))
         }
       }
     }
