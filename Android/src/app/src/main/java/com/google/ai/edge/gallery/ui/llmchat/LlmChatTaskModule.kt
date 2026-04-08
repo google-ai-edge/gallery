@@ -56,7 +56,7 @@ import kotlinx.coroutines.CoroutineScope
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // AI Chat.
 
-class LlmChatTask(private val context: Context) : CustomTask {
+class LlmChatTask @Inject constructor(private val context: Context) : CustomTask {
   override val task: Task =
     Task(
       id = BuiltInTaskId.LLM_CHAT,

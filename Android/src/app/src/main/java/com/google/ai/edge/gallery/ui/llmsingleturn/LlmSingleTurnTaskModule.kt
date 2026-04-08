@@ -37,7 +37,7 @@ import dagger.multibindings.IntoSet
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 
-class LlmSingleTurnTask(private val context: Context) : CustomTask {
+class LlmSingleTurnTask @Inject constructor(private val context: Context) : CustomTask {
   override val task: Task =
     Task(
       id = BuiltInTaskId.LLM_PROMPT_LAB,

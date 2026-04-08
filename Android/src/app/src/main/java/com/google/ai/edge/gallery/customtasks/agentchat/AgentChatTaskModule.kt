@@ -36,7 +36,7 @@ import dagger.multibindings.IntoSet
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 
-class AgentChatTask(private val context: Context) : CustomTask {
+class AgentChatTask @Inject constructor(private val context: Context) : CustomTask {
   private val agentTools = AgentTools()
 
   override val task: Task =

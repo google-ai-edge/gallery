@@ -67,7 +67,7 @@ Tips:
 """
 
 /** A custom task that demonstrates how to use FunctionGemma to play a simple gardening game. */
-class TinyGardenTask(private val context: Context) : CustomTask {
+class TinyGardenTask @Inject constructor(private val context: Context) : CustomTask {
   private val _updateChannel = Channel<TinyGardenCommand>(Channel.BUFFERED)
   private val commandFlow = _updateChannel.receiveAsFlow()
   private val tools =

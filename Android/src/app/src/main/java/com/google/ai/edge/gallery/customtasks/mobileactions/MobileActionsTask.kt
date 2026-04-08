@@ -42,7 +42,7 @@ private const val TAG = "AGMATask"
  * A custom task that demonstrates how to use function calling to control various device
  * functionalities.
  */
-class MobileActionsTask(private val context: Context) : CustomTask {
+class MobileActionsTask @Inject constructor(private val context: Context) : CustomTask {
   private var curActions = mutableStateListOf<Action>()
   private val tools = listOf(tool(MobileActionsTools(onFunctionCalled = { curActions.add(it) })))
 
