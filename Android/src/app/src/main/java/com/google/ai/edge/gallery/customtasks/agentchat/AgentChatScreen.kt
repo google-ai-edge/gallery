@@ -103,6 +103,7 @@ import kotlin.coroutines.resume
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import org.json.JSONObject
 
 private const val TAG = "AGAgentChatScreen"
 private val chatViewJavascriptInterface = ChatWebViewJavascriptInterface()
@@ -250,6 +251,8 @@ fun AgentChatScreen(
                   action.result.complete(result)
                 }
 
+                val safeData = JSONObject.quote(action.data)
+                val safeSecret = JSONObject.quote(action.secret)
                 val script =
                   """
                   (async function() {
@@ -265,7 +268,7 @@ fun AgentChatScreen(
                           break;
                         }
                       }
-                      var result = await ai_edge_gallery_get_result(`${action.data}`, `${action.secret}`);
+                      var result = await ai_edge_gallery_get_result($safeData, $safeSecret);
                       AiEdgeGallery.onResultReady(result);
                   })()
                   """
