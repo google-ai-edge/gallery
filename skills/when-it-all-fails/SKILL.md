@@ -1,9 +1,3 @@
-<img src="https://r2cdn.perplexity.ai/pplx-full-logo-primary-dark%402x.png" style="height:64px;margin-right:32px"/>
-
-# revise again the name should remain SKILL.md
-
-Here is the final SKILL content with the correct name (`SKILL.md`), ready to save as-is:
-
 ```markdown
 ---
 name: when-it-all-fails
