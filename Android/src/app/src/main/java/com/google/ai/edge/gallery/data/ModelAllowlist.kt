@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery.data
 import android.os.Build
 import android.util.Log
 import com.google.ai.edge.gallery.common.isPixel10
+import com.google.ai.edge.gallery.common.isSnapdragon
 import com.google.gson.annotations.SerializedName
 
 private const val TAG = "AGModelAllowlist"
@@ -96,7 +97,8 @@ data class AllowedModel(
         taskTypes.contains(BuiltInTaskId.LLM_ASK_AUDIO) ||
         taskTypes.contains(BuiltInTaskId.LLM_ASK_IMAGE) ||
         taskTypes.contains(BuiltInTaskId.LLM_MOBILE_ACTIONS) ||
-        taskTypes.contains(BuiltInTaskId.LLM_TINY_GARDEN)
+        taskTypes.contains(BuiltInTaskId.LLM_TINY_GARDEN) ||
+        taskTypes.contains(BuiltInTaskId.LLM_METASPLOIT_AGENT)
     var configs: MutableList<Config> = mutableListOf()
     var llmMaxToken = 1024
     var llmMaxContextLength: Int? = null
@@ -120,9 +122,16 @@ data class AllowedModel(
             accelerators.add(Accelerator.NPU)
           }
         }
-        // Remove GPU from pixel 10 devices.
+        // Remove GPU from Pixel 10 devices.
         if (isPixel10()) {
           accelerators.remove(Accelerator.GPU)
+        }
+
+        // On Snapdragon devices, promote NPU to the front of the list so it
+        // is selected by default.  GPU and CPU remain as fallback options the
+        // user can choose in the model settings.
+        if (isSnapdragon() && !accelerators.contains(Accelerator.NPU)) {
+          accelerators.add(0, Accelerator.NPU)
         }
       }
       if (defaultConfig.visionAccelerator != null) {

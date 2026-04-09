@@ -348,6 +348,37 @@ fun isPixel10(): Boolean {
   return Build.MODEL != null && Build.MODEL.lowercase().contains("pixel 10")
 }
 
+/**
+ * Returns true if the device is powered by a Qualcomm Snapdragon SoC.
+ *
+ * Detection covers:
+ *  - Modern chips that use the "SM" prefix (SM8650 = Snapdragon 8 Gen 3,
+ *    SM8550 = 8 Gen 2, SM7675 = 7s Gen 3, etc.)
+ *  - Legacy marketing codenames used on Android ≥ S before the SM numbering
+ *    became the primary identifier (Kona/865, Lahaina/888, Taro/8G1,
+ *    Waipio/8+G1, Kalama/8G2, Pineapple/8G3, Sun/8 Elite, …)
+ *
+ * Build.SOC_MODEL requires API 31 (Android S).  On older OS versions the
+ * function returns false so NPU is not offered as an option.
+ */
+fun isSnapdragon(): Boolean {
+  if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
+  val soc = (Build.SOC_MODEL ?: "").lowercase()
+  if (soc.startsWith("sm")) return true
+  return soc in
+    setOf(
+      "kona",       // Snapdragon 865 / 865+
+      "lahaina",    // Snapdragon 888 / 888+
+      "taro",       // Snapdragon 8 Gen 1
+      "waipio",     // Snapdragon 8+ Gen 1
+      "kalama",     // Snapdragon 8 Gen 2
+      "pineapple",  // Snapdragon 8 Gen 3
+      "sun",        // Snapdragon 8 Elite
+      "parrot",     // Snapdragon 7 Gen 1
+      "crow",       // Snapdragon 6 Gen 1
+    )
+}
+
 fun Modifier.clearFocusOnKeyboardDismiss(): Modifier = composed {
   var isFocused by remember { mutableStateOf(false) }
   var keyboardAppearedSinceLastFocused by remember { mutableStateOf(false) }

@@ -24,6 +24,7 @@
         "llm_chat",
         "llm_prompt_lab",
         "llm_agent_chat",
+        "llm_metasploit_agent",
         "llm_ask_image",
         "llm_ask_audio"
       ],
@@ -31,6 +32,7 @@
         "llm_chat",
         "llm_prompt_lab",
         "llm_agent_chat",
+        "llm_metasploit_agent",
         "llm_ask_image",
         "llm_ask_audio"
       ]
@@ -59,6 +61,7 @@
         "llm_chat",
         "llm_prompt_lab",
         "llm_agent_chat",
+        "llm_metasploit_agent",
         "llm_ask_image",
         "llm_ask_audio"
       ],
@@ -66,6 +69,7 @@
         "llm_chat",
         "llm_prompt_lab",
         "llm_agent_chat",
+        "llm_metasploit_agent",
         "llm_ask_image",
         "llm_ask_audio"
       ]
@@ -124,7 +128,7 @@
         "maxTokens": 1024,
         "accelerators": "gpu,cpu"
       },
-      "taskTypes": ["llm_chat", "llm_prompt_lab"],
+      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_agent_chat", "llm_metasploit_agent"],
       "bestForTaskTypes": ["llm_chat", "llm_prompt_lab"]
     },
     {
@@ -142,7 +146,7 @@
         "maxTokens": 4096,
         "accelerators": "gpu,cpu"
       },
-      "taskTypes": ["llm_chat", "llm_prompt_lab"]
+      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_agent_chat", "llm_metasploit_agent"]
     },
     {
       "name": "DeepSeek-R1-Distill-Qwen-1.5B",
@@ -159,7 +163,7 @@
         "maxTokens": 4096,
         "accelerators": "gpu,cpu"
       },
-      "taskTypes": ["llm_chat", "llm_prompt_lab"]
+      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_agent_chat", "llm_metasploit_agent"]
     },
     {
       "name": "TinyGarden-270M",
