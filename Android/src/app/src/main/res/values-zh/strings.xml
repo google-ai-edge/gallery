@@ -28,7 +28,7 @@
     <string name="app_name_second_part">Edge Gallery</string>
     <string name="askimage_emptystate_title">询问图片</string>
     <string name="askimage_emptystate_content">开始使用，请点击下方的+添加图片（每次对话最多10张图片），然后输入提示词询问关于图片的问题！</string>
-    <string name="askimage_emptystate_content_aicore">开始使用，请点击下放的+来添加一张图片（每次对话最多一张图片），然后输入提示词询问关于图片的问题！</string>
+    <string name="askimage_emptystate_content_aicore">开始使用，请点击下方的+来添加一张图片（每次对话最多一张图片），然后输入提示词询问关于图片的问题！</string>
     <string name="askaudio_emptystate_title">询问音频</string>
     <string name="askaudio_emptystate_content">开始使用，请点击下方的+添加音频片段（限制1个片段，最长30秒），然后输入提示词进行转录或翻译！</string>
     <string name="gallery_news_notification_title">Gallery新闻</string>
