@@ -40,6 +40,9 @@ As of April 8, 2026, this flow has been tested and works on Android and iOS devi
 3. Open the **Google AI Edge Gallery** app.
 4. Navigate to **Agent Skills** and tap the **Refresh** icon to activate.
 
+### Troubleshooting
+If your phone crashes after attempting to run the skill, restart your phone and turn off all other skills.
+
 ## Usage
 Trigger this skill by describing your situation as if no help is coming, or just say for example (I need help):
 * “I am alone in a forest in cold weather with only a knife and a metal cup. What should I do first to stay alive?”
