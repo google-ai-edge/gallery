@@ -19,6 +19,7 @@
     <string name="add">添加</string>
     <string name="added">已添加</string>
     <string name="add_audio">+音频</string>
+    <string name="aicore_image_limit_message">当前模型每次对话只支持一张图片。要提问其他图片，请创建新对话。</string>
     <string name="aichat_initializing_title">正在初始化模型</string>
     <string name="aichat_initializing_content">请稍候，这可能需要最多1分钟</string>
     <string name="app_intro">探索来自</string>
@@ -27,6 +28,7 @@
     <string name="app_name_second_part">Edge Gallery</string>
     <string name="askimage_emptystate_title">询问图片</string>
     <string name="askimage_emptystate_content">开始使用，请点击下方的+添加图片（每次对话最多10张图片），然后输入提示词询问关于图片的问题！</string>
+    <string name="askimage_emptystate_content_aicore">开始使用，请点击下放的+来添加一张图片（每次对话最多一张图片），然后输入提示词询问关于图片的问题！</string>
     <string name="askaudio_emptystate_title">询问音频</string>
     <string name="askaudio_emptystate_content">开始使用，请点击下方的+添加音频片段（限制1个片段，最长30秒），然后输入提示词进行转录或翻译！</string>
     <string name="gallery_news_notification_title">Gallery新闻</string>
@@ -598,5 +600,7 @@
     <!-- Strings for ExampleCustomTask -->
     <string name="config_label_font_size">字体大小</string>
     <string name="config_label_max_char_count">最大字符数</string>
+    <string name="aicore_access_panel_title">你还不能访问这个模型。请完成这些步骤后再重试。</string>
+    <string name="aicore_access_panel_button">打开指引</string>
 
 </resources>
