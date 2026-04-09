@@ -32,6 +32,7 @@ import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.ScreenRotation
 import androidx.compose.material.icons.outlined.SentimentVerySatisfied
 import androidx.compose.material.icons.outlined.Tag
+import androidx.compose.material.icons.outlined.Terminal
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -112,6 +113,12 @@ val TRYOUT_CHIPS: List<SkillTryOutChip> =
       label = "Generate QR code",
       prompt = "Generate QR code for https://deepmind.google/models/gemma/",
       skillName = "qr-code",
+    ),
+    SkillTryOutChip(
+      icon = Icons.Outlined.Terminal,
+      label = "Run in Termux",
+      prompt = "Run a Python script in Termux that prints the current date and time.",
+      skillName = "run-in-termux",
     ),
   )
 

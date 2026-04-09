@@ -33,8 +33,22 @@ data class SendEmailParams(
 @JsonClass(generateAdapter = true)
 data class SendSmsParams(val phone_number: String, val sms_body: String)
 
+@JsonClass(generateAdapter = true)
+data class RunTermuxCommandParams(
+  val command: String,
+  val show_terminal: Boolean = true,
+)
+
 object IntentHandler {
   private const val TAG = "IntentHandler"
+
+  private const val TERMUX_PACKAGE = "com.termux"
+  private const val TERMUX_RUN_COMMAND_SERVICE =
+    "com.termux.app.RunCommandService"
+  private const val TERMUX_ACTION_RUN_COMMAND = "com.termux.RUN_COMMAND"
+  private const val TERMUX_BASH_PATH =
+    "/data/data/com.termux/files/usr/bin/bash"
+  private const val TERMUX_HOME_PATH = "/data/data/com.termux/files/home"
 
   fun handleAction(context: Context, action: String, parameters: String): Boolean {
     if (action == "send_email") {
@@ -78,6 +92,35 @@ object IntentHandler {
         }
       } catch (e: Exception) {
         Log.e(TAG, "Failed to parse send_sms parameters: $parameters", e)
+        return false
+      }
+    } else if (action == "run_termux_command") {
+      try {
+        val moshi = Moshi.Builder().build()
+        val jsonAdapter = moshi.adapter(RunTermuxCommandParams::class.java)
+        val params = jsonAdapter.fromJson(parameters)
+        if (params != null) {
+          val intent =
+            Intent().apply {
+              setClassName(TERMUX_PACKAGE, TERMUX_RUN_COMMAND_SERVICE)
+              setAction(TERMUX_ACTION_RUN_COMMAND)
+              putExtra("com.termux.RUN_COMMAND_PATH", TERMUX_BASH_PATH)
+              putExtra(
+                "com.termux.RUN_COMMAND_ARGUMENTS",
+                arrayOf("-c", params.command),
+              )
+              putExtra("com.termux.RUN_COMMAND_WORKDIR", TERMUX_HOME_PATH)
+              putExtra("com.termux.RUN_COMMAND_TERMINAL", params.show_terminal)
+              addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+          context.startForegroundService(intent)
+          return true
+        } else {
+          Log.e(TAG, "Failed to parse run_termux_command parameters: $parameters")
+          return false
+        }
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to run Termux command: $parameters", e)
         return false
       }
     }

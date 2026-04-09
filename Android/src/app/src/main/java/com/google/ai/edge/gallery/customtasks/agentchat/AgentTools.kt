@@ -220,6 +220,65 @@ class AgentTools() : ToolSet {
 
   @Tool(
     description =
+      "Run a shell command or code in Termux on the device. " +
+        "Supports bash, python3, node, ruby, and any language installed in Termux. " +
+        "The command runs in the Termux terminal so the user can see the output. " +
+        "Use this to execute scripts, install packages, or run code snippets."
+  )
+  fun runTermuxCommand(
+    @ToolParam(
+      description =
+        "The shell command to run in Termux (e.g. 'python3 -c \"print(42)\"', " +
+          "'echo hello world', 'ls -la', or a multi-line script)."
+    )
+    command: String,
+    @ToolParam(
+      description =
+        "Whether to open the Termux terminal so the user can see the output. " +
+          "Default true. Set to false to run silently in the background."
+    )
+    showTerminal: Boolean = true,
+  ): Map<String, String> {
+    return runBlocking(Dispatchers.Default) {
+      val preview = if (command.length > 60) command.take(60) + "…" else command
+      _actionChannel.send(
+        SkillProgressAgentAction(
+          label = "Running in Termux: $preview",
+          inProgress = true,
+          addItemTitle = "Termux command",
+          addItemDescription = command,
+        )
+      )
+      val params =
+        """{"command":${commandToJsonString(command)},"show_terminal":$showTerminal}"""
+      val ok = IntentHandler.handleAction(context, "run_termux_command", params)
+      _actionChannel.send(
+        SkillProgressAgentAction(
+          label = if (ok) "Sent to Termux" else "Failed to send to Termux",
+          inProgress = false,
+        )
+      )
+      if (ok) {
+        mapOf(
+          "status" to "success",
+          "message" to
+            "Command sent to Termux terminal. " +
+              if (showTerminal) "The Termux app should open with the output."
+              else "Command is running in the background.",
+        )
+      } else {
+        mapOf(
+          "status" to "failed",
+          "message" to
+            "Could not send command to Termux. " +
+              "Make sure Termux is installed and has granted the RUN_COMMAND permission.",
+        )
+      }
+    }
+  }
+
+  @Tool(
+    description =
       "Run an Android intent. It is used to interact with the app to perform certain actions."
   )
   fun runIntent(
@@ -262,4 +321,16 @@ class AgentTools() : ToolSet {
 
 fun getSkillSecretKey(skillName: String): String {
   return "skill___${skillName}"
+}
+
+/** Escapes a string for safe embedding in a JSON value. */
+private fun commandToJsonString(value: String): String {
+  val escaped =
+    value
+      .replace("\\", "\\\\")
+      .replace("\"", "\\\"")
+      .replace("\n", "\\n")
+      .replace("\r", "\\r")
+      .replace("\t", "\\t")
+  return "\"$escaped\""
 }
