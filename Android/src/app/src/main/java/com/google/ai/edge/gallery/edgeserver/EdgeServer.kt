@@ -49,14 +49,11 @@ private const val TAG = "EdgeServer"
 class EdgeServer(
   port: Int = DEFAULT_PORT,
   private val timeoutSeconds: Long = DEFAULT_TIMEOUT_SECONDS,
-  private val maxPromptChars: Int = DEFAULT_MAX_PROMPT_CHARS,
 ) : NanoHTTPD(port) {
 
   companion object {
     const val DEFAULT_PORT = 8888
     const val DEFAULT_TIMEOUT_SECONDS = 300L
-    /** Safety limit: truncate prompts beyond this to avoid OOM on small models. */
-    const val DEFAULT_MAX_PROMPT_CHARS = 12_000
     private const val MIME_JSON = "application/json"
   }
 
@@ -195,45 +192,15 @@ class EdgeServer(
    *  - String literal
    *  - Array of `{"type":"text","text":"..."}` (multi-modal format)
    *  - Single object with a `text` field
-   *
-   * If the resulting prompt exceeds [maxPromptChars], earlier messages are
-   * dropped (keeping the system message and the most recent user message).
    */
-  private fun buildPrompt(messages: com.google.gson.JsonArray): String {
-    // Parse all messages into (role, content) pairs.
-    val parsed = mutableListOf<Pair<String, String>>()
+  private fun buildPrompt(messages: com.google.gson.JsonArray): String = buildString {
     for (el in messages) {
       val obj = el.asJsonObject
       val role = obj.get("role")?.asString ?: "user"
       val content = extractContent(obj.get("content"))
       if (content.isNotEmpty()) {
-        parsed.add(role to content)
+        append("<start_of_turn>$role\n$content<end_of_turn>\n")
       }
-    }
-
-    // Try full prompt first.
-    var prompt = toGemmaPrompt(parsed)
-    if (prompt.length <= maxPromptChars) return prompt
-
-    // Prompt too long — keep system message (truncated) + last user message.
-    Log.w(TAG, "Prompt too long (${prompt.length} chars > $maxPromptChars). Truncating.")
-    val truncated = mutableListOf<Pair<String, String>>()
-    parsed.filter { it.first == "system" }.forEach { (role, content) ->
-      truncated.add(role to content.take(500))
-    }
-    parsed.lastOrNull { it.first == "user" }?.let { truncated.add(it) }
-    prompt = toGemmaPrompt(truncated)
-
-    // Final hard truncation if still too long.
-    if (prompt.length > maxPromptChars) {
-      prompt = prompt.takeLast(maxPromptChars)
-    }
-    return prompt
-  }
-
-  private fun toGemmaPrompt(msgs: List<Pair<String, String>>): String = buildString {
-    for ((role, content) in msgs) {
-      append("<start_of_turn>$role\n$content<end_of_turn>\n")
     }
     append("<start_of_turn>model\n")
   }
