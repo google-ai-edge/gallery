@@ -39,6 +39,9 @@ Enjoy the new skill! As of April 6, 2026 tested and working on Android and iDevi
 3. Open the **Google AI Edge Gallery** app.
 4. Navigate to **Agent Skills** and tap the **Refresh** icon to activate.
 
+### Troubleshooting
+If your phone crashes after attempting to run the skill, restart your phone and turn off all other skills.
+
 ## Usage
 Trigger this skill by describing a fire-related incident, such as:
 * "I have a structure fire with reports of people trapped."
