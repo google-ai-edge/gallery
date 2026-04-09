@@ -1,5 +1,3 @@
-# README.md
-
 # When It All Fails – Survival Guide Skill
 
 A specialized AI Edge Gallery skill that turns your local model into a calm, long‑term survival advisor for situations where modern infrastructure no longer exists.
