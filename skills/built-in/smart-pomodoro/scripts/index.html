@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<body>
+<script>
+window['ai_edge_gallery_get_result'] = async (data) => {
+    try {
+        const encoded = encodeURIComponent(data);
+        return JSON.stringify({
+            result: "Your task board and timer are ready.",
+            webview: { url: `webview.html?data=${encoded}`, aspectRatio: 1.2 }
+        });
+    } catch (e) { return JSON.stringify({ error: e.message }); }
+};
+</script>
+</body>
+</html>

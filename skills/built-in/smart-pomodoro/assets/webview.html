@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro</title>
+    <style>
+        body { font-family: sans-serif; background: #fafafa; margin: 0; padding: 20px; }
+        .timer { font-size: 48px; font-weight: bold; text-align: center; margin: 20px 0; }
+        .controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        button { padding: 10px 20px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; background: #2196F3; color: white; }
+        .tasks { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .task-item { display: flex; align-items: center; margin: 10px 0; font-size: 16px; }
+        .task-item input { margin-right: 10px; transform: scale(1.5); }
+    </style>
+</head>
+<body>
+    <div class="timer" id="time">25:00</div>
+    <div class="controls">
+        <button onclick="startTimer()">Start</button>
+        <button onclick="stopTimer()">Stop</button>
+        <button onclick="resetTimer()">Reset</button>
+    </div>
+    <div class="tasks" id="taskList"></div>
+
+    <script>
+        let timeLeft = 25 * 60;
+        let timerId = null;
+
+        function updateDisplay() {
+            const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            const s = (timeLeft % 60).toString().padStart(2, '0');
+            document.getElementById('time').innerText = m + ':' + s;
+        }
+
+        function startTimer() {
+            if (!timerId) timerId = setInterval(() => {
+                if (timeLeft > 0) { timeLeft--; updateDisplay(); }
+                else { clearInterval(timerId); alert("Pomodoro finished!"); }
+            }, 1000);
+        }
+
+        function stopTimer() { clearInterval(timerId); timerId = null; }
+        function resetTimer() { stopTimer(); timeLeft = 25 * 60; updateDisplay(); }
+
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('data')) {
+            const data = JSON.parse(params.get('data'));
+            const list = document.getElementById('taskList');
+            if (data.tasks) {
+                data.tasks.forEach(t => {
+                    const d = document.createElement('div');
+                    d.className = 'task-item';
+                    d.innerHTML = `<input type="checkbox"> <label>${t}</label>`;
+                    list.appendChild(d);
+                });
+            }
+        }
+    </script>
+</body>
+</html>
