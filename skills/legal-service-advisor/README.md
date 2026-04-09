@@ -34,6 +34,9 @@ Tested workflow format based on the same install pattern used for your Fire Serv
 3. Open the **Google AI Edge Gallery** app.
 4. Navigate to **Agent Skills** and tap the **Refresh** icon to activate.
 
+### Troubleshooting
+If your phone crashes after attempting to run the skill, restart your phone and turn off all other skills.
+
 ## Usage
 Trigger this skill by describing a legal situation, such as:
 - "I need help understanding a contractor agreement in Ontario."
