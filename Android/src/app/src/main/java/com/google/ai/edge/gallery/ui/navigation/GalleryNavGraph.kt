@@ -86,6 +86,9 @@ import com.google.ai.edge.gallery.ui.modelmanager.GlobalModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import com.google.ai.edge.gallery.edgeserver.EdgeServerManager
+import com.google.ai.edge.gallery.edgeserver.EdgeServerScreen
+import com.google.ai.edge.gallery.runtime.runtimeHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -96,6 +99,7 @@ private const val ROUTE_MODEL_LIST = "model_list"
 private const val ROUTE_MODEL = "route_model"
 private const val ROUTE_BENCHMARK = "benchmark"
 private const val ROUTE_MODEL_MANAGER = "model_manager"
+private const val ROUTE_EDGE_SERVER = "edge_server"
 private const val ENTER_ANIMATION_DURATION_MS = 500
 private val ENTER_ANIMATION_EASING = EaseOutExpo
 private const val ENTER_ANIMATION_DELAY_MS = 100
@@ -208,6 +212,7 @@ fun GalleryNavHost(
               )
             },
             onModelsClicked = { navController.navigate(ROUTE_MODEL_MANAGER) },
+            onEdgeServerClicked = { navController.navigate(ROUTE_EDGE_SERVER) },
             gm4 = true,
           )
         }
@@ -430,6 +435,20 @@ fun GalleryNavHost(
         )
       }
     }
+
+    // Edge Server page.
+    composable(
+      route = ROUTE_EDGE_SERVER,
+      enterTransition = { slideUpEnter() },
+      exitTransition = { slideDownExit() },
+    ) {
+      EdgeServerScreen(
+        onBack = {
+          enableHomeScreenAnimation = false
+          navController.navigateUp()
+        },
+      )
+    }
   }
 
   // Handle incoming intents for deep links
@@ -497,6 +516,14 @@ private fun CustomTaskScreen(
   val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
   LaunchedEffect(modelInitializationStatus) {
     showErrorDialog = modelInitializationStatus?.status == ModelInitializationStatusType.ERROR
+    // Auto-bind model to Edge Server when initialized.
+    if (modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZED && selectedModel.instance != null) {
+      EdgeServerManager.bindModel(
+        model = selectedModel,
+        helper = selectedModel.runtimeHelper,
+        displayName = selectedModel.displayName.ifEmpty { selectedModel.name },
+      )
+    }
   }
 
   Scaffold(

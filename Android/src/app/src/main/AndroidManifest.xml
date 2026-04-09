@@ -27,6 +27,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -139,6 +140,13 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- Edge Server: On-device OpenAI-compatible API server -->
+        <service
+            android:name=".edgeserver.EdgeServerService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" />
+
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
