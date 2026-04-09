@@ -117,7 +117,9 @@ fun LlmAskImageScreen(
           verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
           Text(stringResource(R.string.askimage_emptystate_title), style = emptyStateTitle)
-          var contentRes = R.string.askimage_emptystate_content
+          val contentRes =
+            if (model.runtimeType == RuntimeType.AICORE) R.string.askimage_emptystate_content_aicore
+            else R.string.askimage_emptystate_content
           Text(
             stringResource(contentRes),
             style = emptyStateContent,

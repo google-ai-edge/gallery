@@ -25,6 +25,7 @@ import android.media.RingtoneManager
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.net.toUri
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -32,22 +33,27 @@ class GalleryFcmMessagingService : FirebaseMessagingService() {
   override fun onMessageReceived(remoteMessage: RemoteMessage) {
     // TODO(developer): Handle FCM messages here.
     // Not getting messages here? See why this may be: https://goo.gl/39bRNJ
+    Log.d(TAG, "Full message: $remoteMessage")
     Log.d(TAG, "From: ${remoteMessage.from}")
 
-    // Check if message contains a data payload.
-    if (remoteMessage.data.isNotEmpty()) {
-      Log.d(TAG, "Message data payload: ${remoteMessage.data}")
+    // Combine data and notification payloads
+    val data = remoteMessage.data
+    val notification = remoteMessage.notification
 
-      // Handle message within 10 seconds
+    val deeplink = data["deeplink"]
+    val imageUrlStr = data["image_url"]
+    val imageUrl = imageUrlStr?.let { it.toUri() }
+
+    // Prefer data title/body, fallback to notification
+    val title = data["title"] ?: notification?.title
+    val body = data["body"] ?: notification?.body
+
+    Log.d(TAG, "Extracted FCM Data -> Title: $title, Body: $body, Deeplink: $deeplink")
+
+    if (title != null && body != null) {
+      sendNotification(title, body, imageUrl, deeplink)
+    } else if (data.isNotEmpty()) {
       handleNow()
-    }
-
-    // Check if message contains a notification payload.
-    remoteMessage.notification?.let { notification ->
-      Log.d(TAG, "Message Notification Body: ${notification.body}")
-      notification.body?.let { body ->
-        sendNotification(notification.title, body, notification.imageUrl)
-      }
     }
 
     // Also if you intend on generating your own notificatisons as a result of a received FCM
@@ -59,12 +65,26 @@ class GalleryFcmMessagingService : FirebaseMessagingService() {
     Log.d(TAG, "Short lived task is done.")
   }
 
-  private fun sendNotification(title: String?, messageBody: String, imageUrl: android.net.Uri?) {
-    val intent = Intent(this, MainActivity::class.java)
-    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+  private fun sendNotification(
+    title: String?,
+    messageBody: String,
+    imageUrl: android.net.Uri?,
+    deeplink: String? = null,
+  ) {
+    val intent =
+      if (!deeplink.isNullOrEmpty()) {
+        Intent(Intent.ACTION_VIEW, deeplink.toUri()).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+      } else {
+        Intent(this, MainActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP) }
+      }
     val requestCode = 0
     val pendingIntent =
-      PendingIntent.getActivity(this, requestCode, intent, PendingIntent.FLAG_IMMUTABLE)
+      PendingIntent.getActivity(
+        this,
+        requestCode,
+        intent,
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+      )
 
     val channelId = "gallery_high_priority_push_channel"
     val defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
