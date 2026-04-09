@@ -32,6 +32,9 @@ This skill transforms the local LLM into a game-planning advisor for coaches at 
 3. Open the **Google AI Edge Gallery** app.
 4. Navigate to **Agent Skills** and tap the **Refresh** icon to activate.
 
+### Troubleshooting
+If your phone crashes after attempting to run the skill, restart your phone and turn off all other skills.
+
 ## Usage
 Trigger this skill by describing a coaching situation, such as:
 - "I need a fourth-quarter basketball plan against a 2-3 zone."
