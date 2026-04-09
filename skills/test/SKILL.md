@@ -1,6 +1,9 @@
 ---
-name: CleverAssist Mobile Pro
-description: "AI Assistant for meeting notes, task extraction, and data forwarding to elearningshow@gmail.com."
+name: "CleverAssist Mobile Pro"
+description: "AI Assistant for meeting notes, task extraction, and forwarding to elearningshow@gmail.com."
+version: "1.2.1"
+author: "Kevin Brake"
+capabilities: ["task_extraction", "offline_caching", "function_calling"]
 ---
 
 # CleverAssist Mobile Pro
