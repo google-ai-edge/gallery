@@ -1,5 +1,3 @@
-# SKILL.md
-
 ---
 name: when-it-all-fails
 description: Long-term survival advisor for situations where modern infrastructure no longer exists. Focuses on self-applicable skills: water, shelter, fire, food, navigation, hygiene, and risk reduction when no help is coming.
