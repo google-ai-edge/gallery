@@ -55,14 +55,15 @@ class EdgeServerService : Service() {
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    val host = intent?.getStringExtra("host") ?: EdgeServer.DEFAULT_HOST
     val port = intent?.getIntExtra("port", EdgeServer.DEFAULT_PORT) ?: EdgeServer.DEFAULT_PORT
-    startForeground(NOTIFICATION_ID, buildNotification(port))
+    startForeground(NOTIFICATION_ID, buildNotification(host, port))
 
     if (server == null || !server!!.isAlive) {
-      server = EdgeServer(port = port)
+      server = EdgeServer(hostname = host, port = port)
       try {
         server?.start()
-        Log.i(TAG, "Edge Server started on port $port")
+        Log.i(TAG, "Edge Server started on $host:$port")
       } catch (e: Exception) {
         Log.e(TAG, "Failed to start Edge Server", e)
       }
@@ -110,10 +111,10 @@ class EdgeServerService : Service() {
     }
   }
 
-  private fun buildNotification(port: Int): Notification =
+  private fun buildNotification(host: String, port: Int): Notification =
     NotificationCompat.Builder(this, CHANNEL_ID)
       .setContentTitle("Edge Server")
-      .setContentText("API running on port $port")
+      .setContentText("API running on $host:$port")
       .setSmallIcon(R.drawable.ic_launcher_foreground)
       .setOngoing(true)
       .setPriority(NotificationCompat.PRIORITY_LOW)

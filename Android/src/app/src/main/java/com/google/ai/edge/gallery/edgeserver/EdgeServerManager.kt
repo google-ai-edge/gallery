@@ -42,6 +42,7 @@ object EdgeServerManager {
 
   data class ServerState(
     val isRunning: Boolean = false,
+    val host: String = EdgeServer.DEFAULT_HOST,
     val port: Int = EdgeServer.DEFAULT_PORT,
     val modelName: String = "",
   )
@@ -70,29 +71,30 @@ object EdgeServerManager {
     override fun onServiceDisconnected(name: ComponentName?) {
       service = null
       bound = false
-      _state.value = _state.value.copy(isRunning = false)
+      refreshState()
       Log.i(TAG, "Service disconnected")
     }
   }
 
-  /** Start the Edge Server on [port] with a foreground service. */
-  fun startServer(context: Context, port: Int = EdgeServer.DEFAULT_PORT) {
+  /** Start the Edge Server on [host]:[port] with a foreground service. */
+  fun startServer(context: Context, host: String = EdgeServer.DEFAULT_HOST, port: Int = EdgeServer.DEFAULT_PORT) {
     if (server == null || !server!!.isAlive) {
-      server = EdgeServer(port = port).also { it.modelFinder = modelFinderCallback }
+      server = EdgeServer(hostname = host, port = port).also { it.modelFinder = modelFinderCallback }
       try {
         server?.start()
-        Log.i(TAG, "Server started on port $port")
+        Log.i(TAG, "Server started on $host:$port")
       } catch (e: Exception) {
         Log.e(TAG, "Failed to start server", e)
       }
     }
 
     val intent = Intent(context, EdgeServerService::class.java).apply {
+      putExtra("host", host)
       putExtra("port", port)
     }
     context.startForegroundService(intent)
     context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
-    _state.value = _state.value.copy(isRunning = true, port = port)
+    _state.value = _state.value.copy(isRunning = true, host = host, port = port)
   }
 
   /** Stop the server and foreground service. */
@@ -133,10 +135,8 @@ object EdgeServerManager {
   }
 
   private fun refreshState() {
-    val svc = service ?: return
-    _state.value = _state.value.copy(
-      isRunning = svc.isServerRunning(),
-      port = svc.getPort(),
-    )
+    val running = server?.isAlive == true || service?.isServerRunning() == true
+    val port = server?.listeningPort ?: service?.getPort() ?: _state.value.port
+    _state.value = _state.value.copy(isRunning = running, port = port)
   }
 }

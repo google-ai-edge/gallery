@@ -47,11 +47,13 @@ private const val TAG = "EdgeServer"
  *   POST /v1/chat/completions     → chat completions (streaming & non-streaming)
  */
 class EdgeServer(
+  hostname: String = DEFAULT_HOST,
   port: Int = DEFAULT_PORT,
   private val timeoutSeconds: Long = DEFAULT_TIMEOUT_SECONDS,
-) : NanoHTTPD(port) {
+) : NanoHTTPD(hostname, port) {
 
   companion object {
+    const val DEFAULT_HOST = "0.0.0.0"
     const val DEFAULT_PORT = 8888
     const val DEFAULT_TIMEOUT_SECONDS = 300L
     private const val MIME_JSON = "application/json"
