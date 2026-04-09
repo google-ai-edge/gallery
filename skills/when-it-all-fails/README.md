@@ -41,7 +41,7 @@ As of April 8, 2026, this flow has been tested and works on Android and iOS devi
 4. Navigate to **Agent Skills** and tap the **Refresh** icon to activate.
 
 ## Usage
-Trigger this skill by describing your situation as if no help is coming, for example:
+Trigger this skill by describing your situation as if no help is coming, or just say for example (I need help):
 * “I am alone in a forest in cold weather with only a knife and a metal cup. What should I do first to stay alive?”
 * “We are a family of four in a hot, dry region with some basic tools and limited water. Help us plan long‑term shelter, water, and food.”
 * “I have a small injury and no medical supplies in the wilderness. How can I safely clean and protect it with what I have?”
