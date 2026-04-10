@@ -206,13 +206,15 @@ fun GalleryNavHost(
               task = task,
               model = model,
               onDone = {
-                Log.i(TAG, "Auto-initialized model '${model.name}' successfully")
-                com.google.ai.edge.gallery.claw.ClawAgent.activeModel = model
-                com.google.ai.edge.gallery.claw.ClawAgent.activeModelHelper = model.runtimeHelper
+                // Re-fetch the model from ViewModel (initializeModel may update the instance)
+                val freshModel = modelManagerViewModel.getModelByName(model.name) ?: model
+                Log.i(TAG, "Auto-initialized '${freshModel.name}', instance=${freshModel.instance != null}")
+                com.google.ai.edge.gallery.claw.ClawAgent.activeModel = freshModel
+                com.google.ai.edge.gallery.claw.ClawAgent.activeModelHelper = freshModel.runtimeHelper
                 EdgeServerManager.bindModel(
-                  model = model,
-                  helper = model.runtimeHelper,
-                  displayName = model.displayName.ifEmpty { model.name },
+                  model = freshModel,
+                  helper = freshModel.runtimeHelper,
+                  displayName = freshModel.displayName.ifEmpty { freshModel.name },
                 )
               },
             )
@@ -222,12 +224,14 @@ fun GalleryNavHost(
         }
       } else {
         // Model already initialized — just bind
-        com.google.ai.edge.gallery.claw.ClawAgent.activeModel = model
-        com.google.ai.edge.gallery.claw.ClawAgent.activeModelHelper = model.runtimeHelper
+        val freshModel = modelManagerViewModel.getModelByName(model.name) ?: model
+        Log.i(TAG, "Model '${freshModel.name}' already initialized, instance=${freshModel.instance != null}")
+        com.google.ai.edge.gallery.claw.ClawAgent.activeModel = freshModel
+        com.google.ai.edge.gallery.claw.ClawAgent.activeModelHelper = freshModel.runtimeHelper
         EdgeServerManager.bindModel(
-          model = model,
-          helper = model.runtimeHelper,
-          displayName = model.displayName.ifEmpty { model.name },
+          model = freshModel,
+          helper = freshModel.runtimeHelper,
+          displayName = freshModel.displayName.ifEmpty { freshModel.name },
         )
       }
     }
