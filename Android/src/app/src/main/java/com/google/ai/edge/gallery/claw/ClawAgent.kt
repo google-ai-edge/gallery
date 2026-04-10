@@ -44,6 +44,11 @@ private const val TAG = "ClawAgent"
  */
 object ClawAgent {
 
+  // Direct model references — set by NavGraph when model initializes.
+  // This allows Claw to work without Edge Server being ON.
+  @Volatile var activeModel: com.google.ai.edge.gallery.data.Model? = null
+  @Volatile var activeModelHelper: com.google.ai.edge.gallery.runtime.LlmModelHelper? = null
+
   data class AgentState(
     val isRunning: Boolean = false,
     val currentTask: String = "",
@@ -211,16 +216,24 @@ Rules:
   // ───────────────────────────────────────────────────────────────────────
 
   private suspend fun callEdgeServer(baseUrl: String, prompt: String): String? {
-    // Try direct in-process inference first (faster, no network issues)
-    val server = com.google.ai.edge.gallery.edgeserver.EdgeServerManager.server
-    val model = server?.activeModel
-    val helper = server?.activeModelHelper
-
-    if (model != null && helper != null && model.instance != null) {
-      return directInference(helper, model, prompt)
+    // Priority 1: ClawAgent's own model reference (set by NavGraph)
+    val model1 = activeModel
+    val helper1 = activeModelHelper
+    if (model1 != null && helper1 != null && model1.instance != null) {
+      Log.i(TAG, "Using ClawAgent's direct model reference")
+      return directInference(helper1, model1, prompt)
     }
 
-    // Fallback to HTTP if direct access not available
+    // Priority 2: EdgeServerManager's model
+    val server = com.google.ai.edge.gallery.edgeserver.EdgeServerManager.server
+    val model2 = server?.activeModel
+    val helper2 = server?.activeModelHelper
+    if (model2 != null && helper2 != null && model2.instance != null) {
+      Log.i(TAG, "Using EdgeServerManager's model reference")
+      return directInference(helper2, model2, prompt)
+    }
+
+    // Priority 3: HTTP fallback
     Log.w(TAG, "No direct model access, falling back to HTTP at $baseUrl")
     return httpInference(baseUrl, prompt)
   }

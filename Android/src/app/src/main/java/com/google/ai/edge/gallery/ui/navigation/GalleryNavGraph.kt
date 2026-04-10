@@ -533,13 +533,15 @@ private fun CustomTaskScreen(
   val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
   LaunchedEffect(modelInitializationStatus) {
     showErrorDialog = modelInitializationStatus?.status == ModelInitializationStatusType.ERROR
-    // Auto-bind model to Edge Server when initialized.
+    // Auto-bind model to Edge Server and Claw when initialized.
     if (modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZED && selectedModel.instance != null) {
       EdgeServerManager.bindModel(
         model = selectedModel,
         helper = selectedModel.runtimeHelper,
         displayName = selectedModel.displayName.ifEmpty { selectedModel.name },
       )
+      com.google.ai.edge.gallery.claw.ClawAgent.activeModel = selectedModel
+      com.google.ai.edge.gallery.claw.ClawAgent.activeModelHelper = selectedModel.runtimeHelper
     }
   }
 
