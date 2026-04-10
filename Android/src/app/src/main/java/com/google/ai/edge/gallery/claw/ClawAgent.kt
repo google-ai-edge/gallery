@@ -152,8 +152,9 @@ Rules:
 
       // 3. Call Edge Server
       _state.value = _state.value.copy(stepCount = step)
-      val response = callEdgeServer(baseUrl, prompt) ?: run {
-        addMessage("assistant", "Failed to reach Edge Server. Is it running?")
+      val response = callEdgeServer(baseUrl, prompt)
+      if (response == null) {
+        addMessage("assistant", "Cannot run inference. Please make sure:\n1. Edge Server is ON\n2. A model is loaded in AI Chat\nThen try again.")
         return
       }
 
@@ -206,10 +207,71 @@ Rules:
   }
 
   // ───────────────────────────────────────────────────────────────────────
-  // Edge Server call
+  // Edge Server call — direct in-process inference (no HTTP loopback)
   // ───────────────────────────────────────────────────────────────────────
 
   private suspend fun callEdgeServer(baseUrl: String, prompt: String): String? {
+    // Try direct in-process inference first (faster, no network issues)
+    val server = com.google.ai.edge.gallery.edgeserver.EdgeServerManager.server
+    val model = server?.activeModel
+    val helper = server?.activeModelHelper
+
+    if (model != null && helper != null && model.instance != null) {
+      return directInference(helper, model, prompt)
+    }
+
+    // Fallback to HTTP if direct access not available
+    Log.w(TAG, "No direct model access, falling back to HTTP at $baseUrl")
+    return httpInference(baseUrl, prompt)
+  }
+
+  /**
+   * Run inference directly via LlmModelHelper (same process, no HTTP).
+   */
+  private suspend fun directInference(
+    helper: com.google.ai.edge.gallery.runtime.LlmModelHelper,
+    model: com.google.ai.edge.gallery.data.Model,
+    prompt: String,
+  ): String? {
+    return withContext(Dispatchers.IO) {
+      try {
+        val result = StringBuilder()
+        val latch = java.util.concurrent.CountDownLatch(1)
+        var errorMsg: String? = null
+
+        helper.runInference(
+          model = model,
+          input = prompt,
+          resultListener = { partial, isDone, _ ->
+            if (partial.isNotEmpty()) result.append(partial)
+            if (isDone) latch.countDown()
+          },
+          cleanUpListener = { latch.countDown() },
+          onError = { msg -> errorMsg = msg; latch.countDown() },
+        )
+
+        val completed = latch.await(120, java.util.concurrent.TimeUnit.SECONDS)
+        if (!completed) {
+          Log.e(TAG, "Direct inference timed out")
+          return@withContext null
+        }
+        if (errorMsg != null) {
+          Log.e(TAG, "Direct inference error: $errorMsg")
+          return@withContext null
+        }
+        Log.i(TAG, "Direct inference done: ${result.length} chars")
+        result.toString()
+      } catch (e: Exception) {
+        Log.e(TAG, "Direct inference failed: ${e.message}", e)
+        null
+      }
+    }
+  }
+
+  /**
+   * Fallback: call Edge Server via HTTP.
+   */
+  private suspend fun httpInference(baseUrl: String, prompt: String): String? {
     return withContext(Dispatchers.IO) {
       try {
         val url = URL("$baseUrl/v1/chat/completions")
@@ -244,14 +306,17 @@ Rules:
             choices[0].asJsonObject
               .getAsJsonObject("message")
               ?.get("content")?.asString
-          } else null
+          } else {
+            Log.e(TAG, "Edge Server returned empty choices: $responseText")
+            null
+          }
         } else {
           val error = conn.errorStream?.bufferedReader()?.readText() ?: "HTTP ${conn.responseCode}"
-          Log.e(TAG, "Edge Server error: $error")
+          Log.e(TAG, "Edge Server HTTP error ${conn.responseCode}: $error")
           null
         }
       } catch (e: Exception) {
-        Log.e(TAG, "Edge Server call failed", e)
+        Log.e(TAG, "Edge Server call failed: ${e.javaClass.simpleName}: ${e.message}", e)
         null
       }
     }
