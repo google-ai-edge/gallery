@@ -124,6 +124,9 @@ dependencies {
   implementation(libs.mcp.kotlin.sdk)
   implementation(libs.ktor.client.android)
   implementation(libs.ktor.client.core)
+  // Lightweight HTTP server used by the local OpenAI-compatible endpoint
+  // (see com.google.ai.edge.gallery.server). Runs inside a foreground service.
+  implementation(libs.nanohttpd)
 }
 
 protobuf {

@@ -32,6 +32,7 @@ import com.google.ai.edge.gallery.data.ModelCapability
 import com.google.ai.edge.gallery.runtime.CleanUpListener
 import com.google.ai.edge.gallery.runtime.LlmModelHelper
 import com.google.ai.edge.gallery.runtime.ResultListener
+import com.google.ai.edge.gallery.server.ServerModelHolder
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -179,6 +180,9 @@ object LlmChatModelHelper : LlmModelHelper {
       onDone(cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error"))
       return
     }
+    // Publish the initialised model so the embedded HTTP server (see
+    // com.google.ai.edge.gallery.server) can dispatch requests to it.
+    ServerModelHolder.publish(model)
     onDone("")
   }
 
@@ -265,6 +269,8 @@ object LlmChatModelHelper : LlmModelHelper {
       onCleanUp()
     }
     model.instance = null
+    // Drop the reference held by the HTTP server bridge so we don't dispatch to a dead engine.
+    ServerModelHolder.clearIfMatches(model)
 
     onDone()
     Log.d(TAG, "Clean up done.")

@@ -123,6 +123,15 @@
             tools:node="merge">
         </service>
 
+        <!--
+          Hosts the embedded NanoHTTPD-based OpenAI-compatible LLM server.
+          Runs as a foreground service so Android doesn't reap it while the screen is off.
+        -->
+        <service
+            android:name="com.google.ai.edge.gallery.server.LlmServerService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
         <!-- For Firebase Analytics. -->
         <receiver
             android:name="com.google.android.gms.measurement.AppMeasurementReceiver"
