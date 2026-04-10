@@ -186,6 +186,50 @@ fun GalleryNavHost(
     onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
   }
 
+  // Auto-initialize the first downloaded model on app launch.
+  // This makes Claw and Edge Server work without manually entering AI Chat.
+  val autoInitContext = LocalContext.current
+  LaunchedEffect(Unit) {
+    val downloaded = modelManagerViewModel.getAllDownloadedModels()
+    if (downloaded.isNotEmpty()) {
+      val model = downloaded.first()
+      if (model.instance == null) {
+        val task = modelManagerViewModel.uiState.value.tasks.find { t ->
+          t.models.any { it.name == model.name }
+        }
+        if (task != null) {
+          Log.i(TAG, "Auto-initializing model '${model.name}' on app launch")
+          modelManagerViewModel.initializeModel(
+            context = autoInitContext,
+            task = task,
+            model = model,
+            onDone = {
+              Log.i(TAG, "Auto-initialized model '${model.name}' successfully")
+              // Bind to Claw
+              com.google.ai.edge.gallery.claw.ClawAgent.activeModel = model
+              com.google.ai.edge.gallery.claw.ClawAgent.activeModelHelper = model.runtimeHelper
+              // Bind to Edge Server
+              EdgeServerManager.bindModel(
+                model = model,
+                helper = model.runtimeHelper,
+                displayName = model.displayName.ifEmpty { model.name },
+              )
+            },
+          )
+        }
+      } else {
+        // Model already initialized — just bind
+        com.google.ai.edge.gallery.claw.ClawAgent.activeModel = model
+        com.google.ai.edge.gallery.claw.ClawAgent.activeModelHelper = model.runtimeHelper
+        EdgeServerManager.bindModel(
+          model = model,
+          helper = model.runtimeHelper,
+          displayName = model.displayName.ifEmpty { model.name },
+        )
+      }
+    }
+  }
+
   NavHost(
     navController = navController,
     startDestination = ROUTE_HOMESCREEN,
@@ -464,6 +508,7 @@ fun GalleryNavHost(
           enableHomeScreenAnimation = false
           navController.navigateUp()
         },
+        modelManagerViewModel = modelManagerViewModel,
       )
     }
   }

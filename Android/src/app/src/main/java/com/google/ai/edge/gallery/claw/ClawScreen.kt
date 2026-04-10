@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.claw
 
 import android.content.Intent
 import android.provider.Settings
+import com.google.ai.edge.gallery.runtime.runtimeHelper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -75,13 +76,25 @@ import kotlinx.coroutines.launch
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ClawScreen(onBack: () -> Unit) {
+fun ClawScreen(
+  onBack: () -> Unit,
+  modelManagerViewModel: com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel? = null,
+) {
   val agentState by ClawAgent.state.collectAsState()
   val a11yInstance by ClawAccessibilityService.instance.collectAsState()
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
   var inputText by remember { mutableStateOf("") }
   val listState = rememberLazyListState()
+
+  // Model selection
+  val downloadedModels = remember(modelManagerViewModel) {
+    modelManagerViewModel?.getAllDownloadedModels() ?: emptyList()
+  }
+  val currentModelName = ClawAgent.activeModel?.let {
+    it.displayName.ifEmpty { it.name }
+  } ?: "No model"
+  var showModelPicker by remember { mutableStateOf(false) }
 
   // Auto-scroll to bottom when messages change
   LaunchedEffect(agentState.messages.size) {
@@ -154,6 +167,77 @@ fun ClawScreen(onBack: () -> Unit) {
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onErrorContainer,
             )
+          }
+        }
+      }
+
+      // Model selector
+      Card(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(12.dp),
+        onClick = { showModelPicker = !showModelPicker },
+      ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+              text = "Model: $currentModelName",
+              style = MaterialTheme.typography.bodyMedium,
+              fontWeight = FontWeight.SemiBold,
+              modifier = Modifier.weight(1f),
+            )
+            Text(
+              text = if (showModelPicker) "▲" else "▼",
+              style = MaterialTheme.typography.bodySmall,
+            )
+          }
+          if (showModelPicker && downloadedModels.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            downloadedModels.forEach { model ->
+              val name = model.displayName.ifEmpty { model.name }
+              val isCurrent = name == currentModelName
+              Card(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                colors = CardDefaults.cardColors(
+                  containerColor = if (isCurrent) MaterialTheme.colorScheme.primaryContainer
+                    else MaterialTheme.colorScheme.surfaceVariant,
+                ),
+                shape = RoundedCornerShape(8.dp),
+                onClick = {
+                  if (!isCurrent && modelManagerViewModel != null) {
+                    val task = modelManagerViewModel.uiState.value.tasks.find { t ->
+                      t.models.any { it.name == model.name }
+                    }
+                    if (task != null) {
+                      if (model.instance != null) {
+                        // Already initialized, just bind
+                        ClawAgent.activeModel = model
+                        ClawAgent.activeModelHelper = model.runtimeHelper
+                      } else {
+                        // Need to initialize
+                        modelManagerViewModel.initializeModel(
+                          context = context,
+                          task = task,
+                          model = model,
+                          onDone = {
+                            ClawAgent.activeModel = model
+                            ClawAgent.activeModelHelper = model.runtimeHelper
+                          },
+                        )
+                      }
+                    }
+                    showModelPicker = false
+                  }
+                },
+              ) {
+                Text(
+                  text = name,
+                  modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                  style = MaterialTheme.typography.bodySmall,
+                )
+              }
+            }
           }
         }
       }
