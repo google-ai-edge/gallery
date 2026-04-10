@@ -194,28 +194,31 @@ fun GalleryNavHost(
     if (downloaded.isNotEmpty()) {
       val model = downloaded.first()
       if (model.instance == null) {
+        // Find a non-agent task (AgentChat requires SkillManagerViewModel which isn't ready yet)
         val task = modelManagerViewModel.uiState.value.tasks.find { t ->
-          t.models.any { it.name == model.name }
+          t.models.any { it.name == model.name } && t.id != com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_AGENT_CHAT
         }
         if (task != null) {
-          Log.i(TAG, "Auto-initializing model '${model.name}' on app launch")
-          modelManagerViewModel.initializeModel(
-            context = autoInitContext,
-            task = task,
-            model = model,
-            onDone = {
-              Log.i(TAG, "Auto-initialized model '${model.name}' successfully")
-              // Bind to Claw
-              com.google.ai.edge.gallery.claw.ClawAgent.activeModel = model
-              com.google.ai.edge.gallery.claw.ClawAgent.activeModelHelper = model.runtimeHelper
-              // Bind to Edge Server
-              EdgeServerManager.bindModel(
-                model = model,
-                helper = model.runtimeHelper,
-                displayName = model.displayName.ifEmpty { model.name },
-              )
-            },
-          )
+          Log.i(TAG, "Auto-initializing model '${model.name}' with task '${task.id}'")
+          try {
+            modelManagerViewModel.initializeModel(
+              context = autoInitContext,
+              task = task,
+              model = model,
+              onDone = {
+                Log.i(TAG, "Auto-initialized model '${model.name}' successfully")
+                com.google.ai.edge.gallery.claw.ClawAgent.activeModel = model
+                com.google.ai.edge.gallery.claw.ClawAgent.activeModelHelper = model.runtimeHelper
+                EdgeServerManager.bindModel(
+                  model = model,
+                  helper = model.runtimeHelper,
+                  displayName = model.displayName.ifEmpty { model.name },
+                )
+              },
+            )
+          } catch (e: Exception) {
+            Log.e(TAG, "Auto-init failed: ${e.message}", e)
+          }
         }
       } else {
         // Model already initialized — just bind
