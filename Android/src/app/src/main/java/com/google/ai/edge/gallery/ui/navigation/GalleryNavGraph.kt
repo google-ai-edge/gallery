@@ -88,6 +88,7 @@ import com.google.ai.edge.gallery.ui.modelmanager.ModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.edgeserver.EdgeServerManager
 import com.google.ai.edge.gallery.edgeserver.EdgeServerScreen
+import com.google.ai.edge.gallery.claw.ClawScreen
 import com.google.ai.edge.gallery.runtime.runtimeHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -100,6 +101,7 @@ private const val ROUTE_MODEL = "route_model"
 private const val ROUTE_BENCHMARK = "benchmark"
 private const val ROUTE_MODEL_MANAGER = "model_manager"
 private const val ROUTE_EDGE_SERVER = "edge_server"
+private const val ROUTE_CLAW = "claw"
 private const val ENTER_ANIMATION_DURATION_MS = 500
 private val ENTER_ANIMATION_EASING = EaseOutExpo
 private const val ENTER_ANIMATION_DELAY_MS = 100
@@ -213,6 +215,7 @@ fun GalleryNavHost(
             },
             onModelsClicked = { navController.navigate(ROUTE_MODEL_MANAGER) },
             onEdgeServerClicked = { navController.navigate(ROUTE_EDGE_SERVER) },
+            onClawClicked = { navController.navigate(ROUTE_CLAW) },
             gm4 = true,
           )
         }
@@ -443,6 +446,20 @@ fun GalleryNavHost(
       exitTransition = { slideDownExit() },
     ) {
       EdgeServerScreen(
+        onBack = {
+          enableHomeScreenAnimation = false
+          navController.navigateUp()
+        },
+      )
+    }
+
+    // Claw: On-device GUI Agent.
+    composable(
+      route = ROUTE_CLAW,
+      enterTransition = { slideUpEnter() },
+      exitTransition = { slideDownExit() },
+    ) {
+      ClawScreen(
         onBack = {
           enableHomeScreenAnimation = false
           navController.navigateUp()

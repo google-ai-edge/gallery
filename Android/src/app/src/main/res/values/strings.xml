@@ -27,6 +27,7 @@
   <string name="aichat_initializing_content" translatable="false">Sit tight, this can take up to 1 minute</string>
   <string name="app_intro" translatable="false">Explore a world of amazing on-device models from</string>
   <string name="app_name" translatable="false">Google AI Edge Gallery</string>
+  <string name="claw_accessibility_description" translatable="false">Claw uses accessibility to read screen content and perform actions (tap, swipe, type) on your behalf. This enables the on-device AI agent to help you operate apps using natural language.</string>
   <string name="app_name_first_part" translatable="false">Google AI</string>
   <string name="app_name_second_part" translatable="false">Edge Gallery</string>
   <string name="askimage_emptystate_title" translatable="false">Ask Image</string>

@@ -61,6 +61,7 @@ import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -164,6 +165,7 @@ fun HomeScreen(
   navigateToTaskScreen: (Task) -> Unit,
   onModelsClicked: () -> Unit,
   onEdgeServerClicked: () -> Unit = {},
+  onClawClicked: () -> Unit = {},
   enableAnimation: Boolean,
   modifier: Modifier = Modifier,
   gm4: Boolean = false,
@@ -351,7 +353,27 @@ fun HomeScreen(
                     ),
                 )
                 Spacer(modifier = Modifier.width(16.dp))
-                Spacer(modifier = Modifier.weight(1f))
+                SquareDrawerItem(
+                  label = "Claw",
+                  description = "AI phone agent",
+                  icon = Icons.Rounded.TouchApp,
+                  onClick = {
+                    scope.launch { drawerState.close() }
+                    scope.launch {
+                      delay(50)
+                      onClawClicked()
+                    }
+                  },
+                  modifier = Modifier.weight(1f),
+                  iconBrush =
+                    linearGradient(
+                      colors =
+                        listOf(
+                          MaterialTheme.customColors.taskBgGradientColors[2][0],
+                          MaterialTheme.customColors.taskBgGradientColors[2][1],
+                        )
+                    ),
+                )
               }
             }
           }

@@ -147,6 +147,19 @@
             android:exported="false"
             android:foregroundServiceType="specialUse" />
 
+        <!-- Claw: On-device GUI Agent -->
+        <service
+            android:name=".claw.ClawAccessibilityService"
+            android:exported="false"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/claw_accessibility_config" />
+        </service>
+
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
