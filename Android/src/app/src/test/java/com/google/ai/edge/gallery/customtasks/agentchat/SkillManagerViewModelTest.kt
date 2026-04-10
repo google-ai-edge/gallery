@@ -41,6 +41,14 @@ class SkillManagerViewModelTest {
   }
 
   @Test
+  fun resolveSkillUrl_keepsGithubPagesSkillMdUrlStable() {
+    val resolved = resolveSkillUrl("https://orgname.github.io/skill-name/SKILL.md")
+
+    assertEquals("https://orgname.github.io/skill-name", resolved.baseUrl)
+    assertEquals("https://orgname.github.io/skill-name/SKILL.md", resolved.skillMdUrl)
+  }
+
+  @Test
   fun isLikelyHtmlResponse_detectsHtmlFromContentTypeAndBody() {
     assertTrue(isLikelyHtmlResponse("text/html; charset=utf-8", "---"))
     assertTrue(isLikelyHtmlResponse("text/plain", "<!DOCTYPE html><html></html>"))

@@ -421,6 +421,20 @@ to the app by using the skill url.
    of the file displays correctly, your URL is ready to use (excluding the
    `SKILL.md` suffix).
 
+   **Supported URL forms**:
+   - For **text-only skills**, the app accepts either the skill folder URL or
+     the direct `SKILL.md` URL, as long as the host serves the markdown file as
+     raw content. This includes GitHub repository folder URLs
+     (`https://github.com/<owner>/<repo>/tree/<ref>/<skill-path>`),
+     `raw.githubusercontent.com` URLs, and GitHub Pages URLs such as
+     `https://<owner>.github.io/<skill-path>/SKILL.md`.
+   - For **JS skills**, prefer a real static hosting URL such as GitHub Pages,
+     Cloudflare Pages, or a similar web host that serves the entire skill
+     directory with browser-friendly MIME types. GitHub repository pages and
+     `raw.githubusercontent.com` are only suitable for text-only skills because
+     they do not serve JS assets with the content types required by the
+     in-app webview.
+
 > [!IMPORTANT]
 >
 > To avoid webview loading failures, you must host your **JS skill** assets on
