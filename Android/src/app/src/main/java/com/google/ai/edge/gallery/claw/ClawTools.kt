@@ -111,22 +111,9 @@ Available tools (respond with JSON):
   private fun openApp(context: Context, args: JsonObject): String {
     val name = args.get("name")?.asString ?: return "Missing app name"
     val pm = context.packageManager
+    val nameLower = name.lowercase()
 
-    // Try to find by label
-    val apps = pm.getInstalledApplications(0)
-    val match = apps.find {
-      pm.getApplicationLabel(it).toString().equals(name, ignoreCase = true)
-    }
-    if (match != null) {
-      val intent = pm.getLaunchIntentForPackage(match.packageName)
-      if (intent != null) {
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
-        return "Opened ${pm.getApplicationLabel(match)}"
-      }
-    }
-
-    // Try common package name patterns
+    // 1. Common app name → package mapping (Chinese + English)
     val commonApps = mapOf(
       "wechat" to "com.tencent.mm",
       "微信" to "com.tencent.mm",
@@ -137,7 +124,9 @@ Available tools (respond with JSON):
       "淘宝" to "com.taobao.taobao",
       "douyin" to "com.ss.android.ugc.aweme",
       "抖音" to "com.ss.android.ugc.aweme",
+      "tiktok" to "com.ss.android.ugc.aweme",
       "bilibili" to "tv.danmaku.bili",
+      "b站" to "tv.danmaku.bili",
       "chrome" to "com.android.chrome",
       "settings" to "com.android.settings",
       "设置" to "com.android.settings",
@@ -147,6 +136,7 @@ Available tools (respond with JSON):
       "计算器" to "com.miui.calculator",
       "clock" to "com.android.deskclock",
       "时钟" to "com.android.deskclock",
+      "闹钟" to "com.android.deskclock",
       "notes" to "com.miui.notes",
       "记事本" to "com.miui.notes",
       "便签" to "com.miui.notes",
@@ -161,18 +151,74 @@ Available tools (respond with JSON):
       "map" to "com.autonavi.minimap",
       "地图" to "com.autonavi.minimap",
       "高德" to "com.autonavi.minimap",
+      "百度" to "com.baidu.searchbox",
+      "jingdong" to "com.jingdong.app.mall",
+      "京东" to "com.jingdong.app.mall",
+      "meituan" to "com.sankuai.meituan",
+      "美团" to "com.sankuai.meituan",
+      "xiaohongshu" to "com.xingin.xhs",
+      "小红书" to "com.xingin.xhs",
+      "weibo" to "com.sina.weibo",
+      "微博" to "com.sina.weibo",
+      "spotify" to "com.spotify.music",
+      "youtube" to "com.google.android.youtube",
+      "twitter" to "com.twitter.android",
+      "x" to "com.twitter.android",
+      "telegram" to "org.telegram.messenger",
+      "file manager" to "com.mi.android.globalFileexplorer",
+      "文件管理" to "com.mi.android.globalFileexplorer",
     )
-    val pkg = commonApps[name.lowercase()]
+
+    // Try common name first
+    val pkg = commonApps[nameLower]
     if (pkg != null) {
+      return tryLaunchPackage(context, pm, pkg, name)
+    }
+
+    // 2. Fuzzy match by label (contains, not exact)
+    val apps = pm.getInstalledApplications(0)
+    val match = apps.find {
+      val label = pm.getApplicationLabel(it).toString()
+      label.equals(name, ignoreCase = true) || label.contains(name, ignoreCase = true)
+    }
+    if (match != null) {
+      return tryLaunchPackage(context, pm, match.packageName, pm.getApplicationLabel(match).toString())
+    }
+
+    return "App '$name' not found on this device."
+  }
+
+  private fun tryLaunchPackage(context: Context, pm: android.content.pm.PackageManager, pkg: String, displayName: String): String {
+    try {
       val intent = pm.getLaunchIntentForPackage(pkg)
       if (intent != null) {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
-        return "Opened $name"
+        return "Opened $displayName"
       }
+    } catch (e: Exception) {
+      Log.w(TAG, "getLaunchIntent failed for $pkg: ${e.message}")
     }
 
-    return "App '$name' not found. Try using the exact app name."
+    // Fallback: try component-based launch
+    try {
+      val intent = Intent(Intent.ACTION_MAIN).apply {
+        addCategory(Intent.CATEGORY_LAUNCHER)
+        setPackage(pkg)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      }
+      val resolveInfo = pm.queryIntentActivities(intent, 0)
+      if (resolveInfo.isNotEmpty()) {
+        val activity = resolveInfo[0].activityInfo
+        intent.setClassName(activity.packageName, activity.name)
+        context.startActivity(intent)
+        return "Opened $displayName"
+      }
+    } catch (e: Exception) {
+      Log.w(TAG, "Fallback launch failed for $pkg: ${e.message}")
+    }
+
+    return "App '$displayName' ($pkg) is installed but cannot be launched."
   }
 
   private fun webSearch(context: Context, args: JsonObject): String {
