@@ -37,31 +37,23 @@ jobs:
       working-directory: Android/src
       run: ./gradlew assembleRelease --no-daemon
 
-    - name: Rename APKs for clarity
+    - name: List built APKs
       run: |
-        cd Android/src/app/build/outputs/apk/release
-        for f in *.apk; do
-          echo "Found: $f ($(du -h "$f" | cut -f1))"
-        done
-        # Rename to include ABI in filename
-        [ -f app-arm64-v8a-release.apk ] && mv app-arm64-v8a-release.apk gallery-arm64-v8a.apk || true
-        [ -f app-armeabi-v7a-release.apk ] && mv app-armeabi-v7a-release.apk gallery-armeabi-v7a.apk || true
-        [ -f app-x86_64-release.apk ] && mv app-x86_64-release.apk gallery-x86_64.apk || true
-        [ -f app-universal-release.apk ] && mv app-universal-release.apk gallery-universal.apk || true
-        ls -lh *.apk
+        echo "=== All APKs ==="
+        find Android/src/app/build/outputs/apk -name "*.apk" -exec ls -lh {} \;
 
-    - name: Upload APKs as artifacts
+    - name: Upload all APKs
       uses: actions/upload-artifact@v4
       with:
         name: apks
-        path: Android/src/app/build/outputs/apk/release/gallery-*.apk
+        path: Android/src/app/build/outputs/apk/release/*.apk
 
-    # Create GitHub Release when a tag is pushed
+    # Create GitHub Release when a v* tag is pushed
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v2
       with:
-        files: Android/src/app/build/outputs/apk/release/gallery-*.apk
+        files: Android/src/app/build/outputs/apk/release/*.apk
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
