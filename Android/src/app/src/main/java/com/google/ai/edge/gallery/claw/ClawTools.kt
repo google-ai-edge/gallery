@@ -189,6 +189,7 @@ Available tools (respond with JSON):
   }
 
   private fun tryLaunchPackage(context: Context, pm: android.content.pm.PackageManager, pkg: String, displayName: String): String {
+    // Method 1: getLaunchIntentForPackage
     try {
       val intent = pm.getLaunchIntentForPackage(pkg)
       if (intent != null) {
@@ -200,7 +201,7 @@ Available tools (respond with JSON):
       Log.w(TAG, "getLaunchIntent failed for $pkg: ${e.message}")
     }
 
-    // Fallback: try component-based launch
+    // Method 2: queryIntentActivities
     try {
       val intent = Intent(Intent.ACTION_MAIN).apply {
         addCategory(Intent.CATEGORY_LAUNCHER)
@@ -215,10 +216,34 @@ Available tools (respond with JSON):
         return "Opened $displayName"
       }
     } catch (e: Exception) {
-      Log.w(TAG, "Fallback launch failed for $pkg: ${e.message}")
+      Log.w(TAG, "queryIntentActivities failed for $pkg: ${e.message}")
     }
 
-    return "App '$displayName' ($pkg) is installed but cannot be launched."
+    // Method 3: Known main activities for popular apps
+    val knownActivities = mapOf(
+      "com.tencent.mm" to "com.tencent.mm.ui.LauncherUI",
+      "com.tencent.mobileqq" to "com.tencent.mobileqq.activity.SplashActivity",
+      "com.ss.android.ugc.aweme" to "com.ss.android.ugc.aweme.splash.SplashActivity",
+      "com.eg.android.AlipayGphone" to "com.eg.android.AlipayGphone.AlipayLogin",
+      "com.ss.android.lark" to "com.ss.android.lark.main.app.MainActivity",
+      "com.sina.weibo" to "com.sina.weibo.SplashActivity",
+      "com.taobao.taobao" to "com.taobao.tao.welcome.Welcome",
+    )
+    val activityName = knownActivities[pkg]
+    if (activityName != null) {
+      try {
+        val intent = Intent().apply {
+          setClassName(pkg, activityName)
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+        return "Opened $displayName"
+      } catch (e: Exception) {
+        Log.w(TAG, "Known activity launch failed for $pkg/$activityName: ${e.message}")
+      }
+    }
+
+    return "App '$displayName' ($pkg) is installed but cannot be launched. Check app permissions."
   }
 
   private fun webSearch(context: Context, args: JsonObject): String {
