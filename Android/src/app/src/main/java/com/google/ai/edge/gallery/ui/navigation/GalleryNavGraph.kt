@@ -186,54 +186,56 @@ fun GalleryNavHost(
     onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
   }
 
-  // Auto-initialize the first downloaded model on app launch.
-  // This makes Claw and Edge Server work without manually entering AI Chat.
+  // Auto-initialize model once model list is ready.
+  // Remembers the last used model via SharedPreferences.
   val autoInitContext = LocalContext.current
-  LaunchedEffect(Unit) {
+  val navUiState by modelManagerViewModel.uiState.collectAsState()
+  var autoInitDone by remember { mutableStateOf(false) }
+  val prefs = remember { autoInitContext.getSharedPreferences("claw_prefs", android.content.Context.MODE_PRIVATE) }
+
+  LaunchedEffect(navUiState.modelDownloadStatus) {
+    if (autoInitDone) return@LaunchedEffect
     val downloaded = modelManagerViewModel.getAllDownloadedModels()
-    if (downloaded.isNotEmpty()) {
-      val model = downloaded.first()
-      if (model.instance == null) {
-        // Find a non-agent task (AgentChat requires SkillManagerViewModel which isn't ready yet)
-        val task = modelManagerViewModel.uiState.value.tasks.find { t ->
-          t.models.any { it.name == model.name } && t.id != com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_AGENT_CHAT
-        }
-        if (task != null) {
-          Log.i(TAG, "Auto-initializing model '${model.name}' with task '${task.id}'")
-          try {
-            modelManagerViewModel.initializeModel(
-              context = autoInitContext,
-              task = task,
-              model = model,
-              onDone = {
-                // Re-fetch the model from ViewModel (initializeModel may update the instance)
-                val freshModel = modelManagerViewModel.getModelByName(model.name) ?: model
-                Log.i(TAG, "Auto-initialized '${freshModel.name}', instance=${freshModel.instance != null}")
-                com.google.ai.edge.gallery.claw.ClawAgent.activeModel = freshModel
-                com.google.ai.edge.gallery.claw.ClawAgent.activeModelHelper = freshModel.runtimeHelper
-                EdgeServerManager.bindModel(
-                  model = freshModel,
-                  helper = freshModel.runtimeHelper,
-                  displayName = freshModel.displayName.ifEmpty { freshModel.name },
-                )
-              },
-            )
-          } catch (e: Exception) {
-            Log.e(TAG, "Auto-init failed: ${e.message}", e)
-          }
-        }
-      } else {
-        // Model already initialized — just bind
-        val freshModel = modelManagerViewModel.getModelByName(model.name) ?: model
-        Log.i(TAG, "Model '${freshModel.name}' already initialized, instance=${freshModel.instance != null}")
-        com.google.ai.edge.gallery.claw.ClawAgent.activeModel = freshModel
-        com.google.ai.edge.gallery.claw.ClawAgent.activeModelHelper = freshModel.runtimeHelper
-        EdgeServerManager.bindModel(
-          model = freshModel,
-          helper = freshModel.runtimeHelper,
-          displayName = freshModel.displayName.ifEmpty { freshModel.name },
-        )
+    if (downloaded.isEmpty()) return@LaunchedEffect
+
+    autoInitDone = true
+
+    // Pick the remembered model, or fall back to the first downloaded one
+    val savedModelName = prefs.getString("last_model", null)
+    val model = downloaded.find { it.name == savedModelName } ?: downloaded.first()
+
+    // Save for next launch
+    prefs.edit().putString("last_model", model.name).apply()
+
+    fun bindModel(m: com.google.ai.edge.gallery.data.Model) {
+      val fresh = modelManagerViewModel.getModelByName(m.name) ?: m
+      Log.i(TAG, "Binding model '${fresh.name}', instance=${fresh.instance != null}")
+      com.google.ai.edge.gallery.claw.ClawAgent.activeModel = fresh
+      com.google.ai.edge.gallery.claw.ClawAgent.activeModelHelper = fresh.runtimeHelper
+      EdgeServerManager.bindModel(
+        model = fresh,
+        helper = fresh.runtimeHelper,
+        displayName = fresh.displayName.ifEmpty { fresh.name },
+      )
+    }
+
+    if (model.instance == null) {
+      val task = navUiState.tasks.find { t ->
+        t.models.any { it.name == model.name } && t.id != com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_AGENT_CHAT
       }
+      if (task != null) {
+        Log.i(TAG, "Auto-initializing model '${model.name}' with task '${task.id}'")
+        try {
+          modelManagerViewModel.initializeModel(
+            context = autoInitContext, task = task, model = model,
+            onDone = { bindModel(model) },
+          )
+        } catch (e: Exception) {
+          Log.e(TAG, "Auto-init failed: ${e.message}", e)
+        }
+      }
+    } else {
+      bindModel(model)
     }
   }
 
