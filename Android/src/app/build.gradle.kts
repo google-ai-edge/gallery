@@ -39,9 +39,6 @@ android {
     versionCode = 23
     versionName = "1.0.11"
 
-    ndk {
-      abiFilters += listOf("arm64-v8a")
-    }
 
 
     // Needed for HuggingFace auth workflows.
@@ -71,6 +68,15 @@ android {
   buildFeatures {
     compose = true
     buildConfig = true
+  }
+
+  splits {
+    abi {
+      isEnable = true
+      reset()
+      include("arm64-v8a", "armeabi-v7a", "x86_64")
+      isUniversalApk = true  // Also build a fat APK containing all ABIs
+    }
   }
 }
 
