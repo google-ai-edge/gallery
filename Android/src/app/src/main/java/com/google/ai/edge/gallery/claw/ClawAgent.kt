@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.claw
 
+import android.content.Context
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonObject
@@ -72,26 +73,15 @@ object ClawAgent {
   /** Delay between steps to let UI settle after an action. */
   private const val STEP_DELAY_MS = 1500L
 
-  private const val SYSTEM_PROMPT = """You are Claw, an AI agent controlling an Android phone by reading screen elements and performing actions.
+  private val SYSTEM_PROMPT = """You are Claw, a helpful AI assistant on an Android phone. You can use tools to help the user.
 
-IMPORTANT: After each action, you will see the NEW screen state. Check if your action actually worked before saying done. Do NOT assume success — verify by reading the updated screen.
-
-Reply with exactly ONE JSON action:
-{"action":"tap","x":540,"y":1200}
-{"action":"swipe","x1":540,"y1":1500,"x2":540,"y2":500}
-{"action":"type","text":"Hello"}
-{"action":"back"}
-{"action":"home"}
-{"action":"scroll_down"}
-{"action":"scroll_up"}
-{"action":"wait"}
-{"action":"done","message":"Describe what was accomplished"}
+${ClawTools.toolDescriptions}
 
 Rules:
-- ONE action per response, nothing else
-- Use coordinates from screen elements marked with *
-- Only say "done" when you can CONFIRM the task is complete from the screen
-- If the screen hasn't changed after an action, try a different approach"""
+- Respond with ONE JSON tool call, or use "reply" to answer the user
+- If the user asks a question that doesn't need a tool, use {"tool":"reply","args":{"message":"your answer"}}
+- If the user asks to do something, pick the best tool
+- Keep responses short and helpful"""
 
   // ───────────────────────────────────────────────────────────────────────
   // Public API
@@ -100,7 +90,7 @@ Rules:
   /**
    * Start the agent loop for the given user task.
    */
-  suspend fun runTask(task: String, edgeServerUrl: String = "http://127.0.0.1:8888") {
+  suspend fun runTask(task: String, context: Context, edgeServerUrl: String = "http://127.0.0.1:8888") {
     val a11y = ClawAccessibilityService.instance.value
     if (a11y == null) {
       addMessage("assistant", "Accessibility Service is not enabled. Please enable it in Settings → Accessibility → Claw.")
@@ -114,7 +104,7 @@ Rules:
     )
 
     try {
-      agentLoop(task, a11y, edgeServerUrl)
+      agentLoop(task, context, edgeServerUrl)
     } catch (e: Exception) {
       Log.e(TAG, "Agent loop error", e)
       addMessage("assistant", "Error: ${e.message}")
@@ -138,69 +128,55 @@ Rules:
   // Agent loop
   // ───────────────────────────────────────────────────────────────────────
 
-  private suspend fun agentLoop(task: String, a11y: ClawAccessibilityService, baseUrl: String) {
-    for (step in 1..MAX_STEPS) {
-      if (!_state.value.isRunning) break
+  private suspend fun agentLoop(task: String, context: Context, baseUrl: String) {
+    // Build prompt with user request
+    val prompt = buildPrompt(task)
 
-      // 1. Read screen
-      val screenText = withContext(Dispatchers.Main) {
-        a11y.describeScreenAsText()
-      }
-
-      // 2. Build prompt (only keep last few messages to stay within 4000 tokens)
-      val prompt = buildPrompt(task, screenText, step)
-
-      // 3. Call Edge Server
-      _state.value = _state.value.copy(stepCount = step)
-      val response = callEdgeServer(baseUrl, prompt)
-      if (response == null) {
-        addMessage("assistant", "Cannot run inference. Please make sure:\n1. Edge Server is ON\n2. A model is loaded in AI Chat\nThen try again.")
-        return
-      }
-
-      // 4. Parse response
-      val action = parseAction(response)
-
-      if (action != null) {
-        // Execute action
-        val actionDesc = executeAction(a11y, action)
-        _state.value = _state.value.copy(lastAction = actionDesc)
-        addMessage("assistant", "[$actionDesc]")
-
-        // Check if done
-        if (action.get("action")?.asString == "done") {
-          val msg = action.get("message")?.asString ?: "Task completed"
-          addMessage("assistant", msg)
-          return
-        }
-
-        // Wait for UI to settle
-        delay(STEP_DELAY_MS)
-      } else {
-        // Model responded with text (not an action) — show to user
-        addMessage("assistant", response)
-        // If model is just talking, stop the loop and wait for user
-        return
-      }
+    // Call model
+    _state.value = _state.value.copy(stepCount = 1)
+    val response = callEdgeServer(baseUrl, prompt)
+    if (response == null) {
+      addMessage("assistant", "Cannot run inference. Please make sure a model is loaded.")
+      return
     }
 
-    addMessage("assistant", "Reached maximum steps ($MAX_STEPS). Stopping.")
+    // Parse tool call
+    val toolCall = parseToolCall(response)
+    if (toolCall != null) {
+      val toolName = toolCall.get("tool")?.asString ?: "unknown"
+      val args = toolCall.getAsJsonObject("args") ?: JsonObject()
+
+      if (toolName == "reply") {
+        // Model just wants to reply, no tool needed
+        val msg = args.get("message")?.asString ?: response
+        addMessage("assistant", msg)
+        return
+      }
+
+      // Execute tool
+      addMessage("assistant", "🔧 $toolName")
+      val result = withContext(Dispatchers.Main) {
+        ClawTools.execute(context, toolName, args)
+      }
+      addMessage("assistant", result)
+      _state.value = _state.value.copy(lastAction = "$toolName → $result")
+    } else {
+      // Model responded with plain text
+      addMessage("assistant", response)
+    }
   }
 
   // ───────────────────────────────────────────────────────────────────────
   // Prompt builder
   // ───────────────────────────────────────────────────────────────────────
 
-  private fun buildPrompt(task: String, screenText: String, step: Int): String {
+  private fun buildPrompt(task: String): String {
     return buildString {
       append("<start_of_turn>system\n")
       append(SYSTEM_PROMPT)
       append("<end_of_turn>\n")
       append("<start_of_turn>user\n")
-      append("Task: $task\n\n")
-      append("Step $step. Current screen:\n")
-      append(screenText)
-      append("\n\nWhat should I do next?")
+      append(task)
       append("<end_of_turn>\n")
       append("<start_of_turn>model\n")
     }
@@ -331,89 +307,25 @@ Rules:
   }
 
   // ───────────────────────────────────────────────────────────────────────
-  // Action parser
+  // Tool call parser
   // ───────────────────────────────────────────────────────────────────────
 
-  /**
-   * Try to extract a JSON action from the model's response.
-   * Returns null if the response is plain text (not an action).
-   */
-  private fun parseAction(response: String): JsonObject? {
-    // Look for JSON in the response — it might be wrapped in text
+  private fun parseToolCall(response: String): JsonObject? {
     val trimmed = response.trim()
-
     // Try direct parse
     try {
       val json = JsonParser.parseString(trimmed).asJsonObject
-      if (json.has("action")) return json
+      if (json.has("tool")) return json
     } catch (_: Exception) {}
 
-    // Try to find JSON within the text (model might wrap it in markdown)
-    val jsonPattern = Regex("""\{[^{}]*"action"[^{}]*\}""")
+    // Try to find JSON within text
+    val jsonPattern = Regex("""\{[^{}]*"tool"\s*:\s*"[^"]*"[^}]*\}""")
     val match = jsonPattern.find(trimmed) ?: return null
     return try {
       val json = JsonParser.parseString(match.value).asJsonObject
-      if (json.has("action")) json else null
+      if (json.has("tool")) json else null
     } catch (_: Exception) {
       null
-    }
-  }
-
-  // ───────────────────────────────────────────────────────────────────────
-  // Action executor
-  // ───────────────────────────────────────────────────────────────────────
-
-  private suspend fun executeAction(a11y: ClawAccessibilityService, action: JsonObject): String {
-    val type = action.get("action")?.asString ?: return "unknown action"
-
-    return withContext(Dispatchers.Main) {
-      when (type) {
-        "tap" -> {
-          val x = action.get("x")?.asInt ?: 0
-          val y = action.get("y")?.asInt ?: 0
-          a11y.tap(x, y)
-          "tap($x, $y)"
-        }
-        "swipe" -> {
-          val x1 = action.get("x1")?.asInt ?: 0
-          val y1 = action.get("y1")?.asInt ?: 0
-          val x2 = action.get("x2")?.asInt ?: 0
-          val y2 = action.get("y2")?.asInt ?: 0
-          a11y.swipe(x1, y1, x2, y2)
-          "swipe($x1,$y1 → $x2,$y2)"
-        }
-        "type" -> {
-          val text = action.get("text")?.asString ?: ""
-          a11y.typeText(text)
-          "type(\"$text\")"
-        }
-        "back" -> {
-          a11y.pressBack()
-          "back"
-        }
-        "home" -> {
-          a11y.pressHome()
-          "home"
-        }
-        "scroll_down" -> {
-          // Swipe up to scroll down (center of screen)
-          a11y.swipe(540, 1500, 540, 500)
-          "scroll_down"
-        }
-        "scroll_up" -> {
-          a11y.swipe(540, 500, 540, 1500)
-          "scroll_up"
-        }
-        "wait" -> {
-          delay(2000)
-          "wait"
-        }
-        "done" -> {
-          val msg = action.get("message")?.asString ?: "done"
-          "done: $msg"
-        }
-        else -> "unknown: $type"
-      }
     }
   }
 

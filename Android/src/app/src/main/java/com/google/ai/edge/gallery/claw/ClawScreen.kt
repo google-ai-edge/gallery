@@ -307,7 +307,7 @@ fun ClawScreen(
                 val task = inputText.trim()
                 inputText = ""
                 scope.launch {
-                  ClawAgent.runTask(task)
+                  ClawAgent.runTask(task, context)
                 }
               }
             },
