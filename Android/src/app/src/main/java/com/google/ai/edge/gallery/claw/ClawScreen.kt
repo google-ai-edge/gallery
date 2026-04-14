@@ -18,6 +18,8 @@ package com.google.ai.edge.gallery.claw
 
 import android.content.Intent
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.google.ai.edge.gallery.runtime.runtimeHelper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +34,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -39,6 +42,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -48,6 +52,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -86,6 +91,20 @@ fun ClawScreen(
   val context = LocalContext.current
   var inputText by remember { mutableStateOf("") }
   val listState = rememberLazyListState()
+
+  // Speech recognition launcher
+  val speechLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.StartActivityForResult()
+  ) { result ->
+    if (result.resultCode == android.app.Activity.RESULT_OK) {
+      val spoken = result.data
+        ?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+        ?.firstOrNull()
+      if (!spoken.isNullOrBlank()) {
+        inputText = spoken
+      }
+    }
+  }
 
   // Model selection
   val downloadedModels = remember(modelManagerViewModel) {
@@ -269,6 +288,33 @@ fun ClawScreen(
         )
       }
 
+      // Suggestion chips (show when no messages yet)
+      if (agentState.messages.isEmpty()) {
+        val suggestions = listOf(
+          "Open WeChat",
+          "What time is it?",
+          "Set an alarm for 8:00 AM",
+          "Search for nearby restaurants",
+          "Create a note: grocery list",
+          "How much battery left?",
+          "Open camera",
+          "Set a 5 min timer",
+        )
+        LazyRow(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          items(suggestions.size) { i ->
+            SuggestionChip(
+              onClick = { inputText = suggestions[i] },
+              label = { Text(suggestions[i], fontSize = 12.sp) },
+            )
+          }
+        }
+      }
+
       // Input bar
       Row(
         modifier = Modifier
@@ -276,6 +322,25 @@ fun ClawScreen(
           .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
+        // Voice input button
+        IconButton(
+          onClick = {
+            val speechIntent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+              putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+              putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Say a command...")
+            }
+            speechLauncher.launch(speechIntent)
+          },
+          enabled = !agentState.isRunning,
+          modifier = Modifier.size(40.dp),
+        ) {
+          Icon(
+            Icons.Rounded.Mic,
+            contentDescription = "Voice input",
+            tint = MaterialTheme.colorScheme.primary,
+          )
+        }
+        Spacer(Modifier.width(4.dp))
         OutlinedTextField(
           value = inputText,
           onValueChange = { inputText = it },

@@ -60,6 +60,8 @@ object ClawTools {
         "take_photo" -> takePhoto(context)
         "create_calendar_event" -> createCalendarEvent(context, args)
         "open_contacts" -> openContacts(context)
+        "app_search" -> appSearch(context, args)
+        "web_fetch" -> webFetch(args)
         "set_volume" -> "Volume control requires system permissions. Please adjust manually."
         else -> "Unknown tool: $tool"
       }
@@ -87,6 +89,8 @@ Available tools (respond with JSON):
 - {"tool":"take_photo"} → open camera
 - {"tool":"create_calendar_event","args":{"title":"Meeting","begin":"2026-04-15 14:00","end":"2026-04-15 15:00"}} → calendar event
 - {"tool":"open_contacts"} → open contacts
+- {"tool":"app_search","args":{"app":"dianping","query":"bbq nearby"}} → search in an app (dianping/meituan/taobao/jd/bilibili/xiaohongshu/douyin/weibo/amap)
+- {"tool":"web_fetch","args":{"query":"weather in Chengdu"}} → fetch web search results and return text
 - {"tool":"reply","args":{"message":"Here is my answer"}} → reply to user without using a tool""".trimIndent()
 
   // ─── Tool implementations ─────────────────────────────────────────
@@ -388,5 +392,90 @@ Available tools (respond with JSON):
     }
     context.startActivity(intent)
     return "Contacts opened"
+  }
+
+  /**
+   * Search within a specific app using deep links.
+   * Supports: dianping, meituan, taobao, jd, map, bilibili, xiaohongshu, douyin
+   */
+  private fun appSearch(context: Context, args: JsonObject): String {
+    val app = args.get("app")?.asString?.lowercase() ?: return "Missing app name"
+    val query = args.get("query")?.asString ?: return "Missing search query"
+
+    val deepLinks = mapOf(
+      "dianping" to "dianping://searchshoplist?keyword=${Uri.encode(query)}",
+      "大众点评" to "dianping://searchshoplist?keyword=${Uri.encode(query)}",
+      "meituan" to "imeituan://www.meituan.com/search?query=${Uri.encode(query)}",
+      "美团" to "imeituan://www.meituan.com/search?query=${Uri.encode(query)}",
+      "taobao" to "taobao://s.taobao.com/search?q=${Uri.encode(query)}",
+      "淘宝" to "taobao://s.taobao.com/search?q=${Uri.encode(query)}",
+      "jd" to "openapp.jdmobile://virtual?params={\"category\":\"jump\",\"des\":\"productList\",\"keyWord\":\"${query}\"}",
+      "京东" to "openapp.jdmobile://virtual?params={\"category\":\"jump\",\"des\":\"productList\",\"keyWord\":\"${query}\"}",
+      "amap" to "amapuri://route/plan/?keyword=${Uri.encode(query)}",
+      "高德" to "amapuri://poi?keyword=${Uri.encode(query)}",
+      "地图" to "amapuri://poi?keyword=${Uri.encode(query)}",
+      "bilibili" to "bilibili://search?keyword=${Uri.encode(query)}",
+      "b站" to "bilibili://search?keyword=${Uri.encode(query)}",
+      "xiaohongshu" to "xhsdiscover://search?keyword=${Uri.encode(query)}",
+      "小红书" to "xhsdiscover://search?keyword=${Uri.encode(query)}",
+      "douyin" to "snssdk1128://search?keyword=${Uri.encode(query)}",
+      "抖音" to "snssdk1128://search?keyword=${Uri.encode(query)}",
+      "weibo" to "sinaweibo://searchall?q=${Uri.encode(query)}",
+      "微博" to "sinaweibo://searchall?q=${Uri.encode(query)}",
+    )
+
+    val uri = deepLinks[app]
+    if (uri != null) {
+      try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+        return "Searching '$query' in $app"
+      } catch (e: Exception) {
+        Log.w(TAG, "Deep link failed for $app: ${e.message}")
+      }
+    }
+
+    // Fallback: open browser search
+    val browserUrl = "https://www.google.com/search?q=${Uri.encode("$app $query")}"
+    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(browserUrl)).apply {
+      addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    })
+    return "Searching '$query' for $app in browser (app deep link not available)"
+  }
+
+  /**
+   * Fetch web content and return a text summary.
+   * Uses a simple HTTP GET to fetch search results.
+   */
+  private fun webFetch(args: JsonObject): String {
+    val query = args.get("query")?.asString ?: return "Missing query"
+    return try {
+      val url = java.net.URL("https://www.google.com/search?q=${Uri.encode(query)}&hl=zh-CN")
+      val conn = url.openConnection() as java.net.HttpURLConnection
+      conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36")
+      conn.connectTimeout = 10000
+      conn.readTimeout = 10000
+      val html = conn.inputStream.bufferedReader().readText()
+      conn.disconnect()
+
+      // Extract text snippets from search results (very basic)
+      val snippets = Regex("""<span[^>]*>([^<]{20,200})</span>""")
+        .findAll(html)
+        .map { it.groupValues[1].replace(Regex("<[^>]+>"), "").trim() }
+        .filter { it.length > 30 && !it.contains("javascript", ignoreCase = true) }
+        .take(3)
+        .joinToString("\n")
+
+      if (snippets.isNotEmpty()) {
+        "Search results for '$query':\n$snippets"
+      } else {
+        "Searched for '$query' but couldn't extract results. Try web_search to open in browser."
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "Web fetch failed: ${e.message}")
+      "Web search failed: ${e.message}. Try web_search to open in browser instead."
+    }
   }
 }
