@@ -88,6 +88,8 @@ object LlmChatModelHelper : LlmModelHelper {
         Accelerator.GPU.label -> Backend.GPU()
         Accelerator.NPU.label ->
           Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
+        Accelerator.TPU.label ->
+          Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
         else -> Backend.GPU()
       }
     val shouldEnableImage = supportImage
@@ -97,6 +99,8 @@ object LlmChatModelHelper : LlmModelHelper {
         Accelerator.CPU.label -> Backend.CPU()
         Accelerator.GPU.label -> Backend.GPU()
         Accelerator.NPU.label ->
+          Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
+        Accelerator.TPU.label ->
           Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
         else -> Backend.CPU()
       }
@@ -184,7 +188,7 @@ object LlmChatModelHelper : LlmModelHelper {
         engine.createConversation(
           ConversationConfig(
             samplerConfig =
-              if (accelerator == Accelerator.NPU.label) {
+              if (accelerator == Accelerator.NPU.label || accelerator == Accelerator.TPU.label) {
                 null
               } else {
                 SamplerConfig(

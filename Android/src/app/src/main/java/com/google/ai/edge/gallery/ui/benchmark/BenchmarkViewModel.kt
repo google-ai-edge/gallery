@@ -135,7 +135,8 @@ constructor(
       val backend: Backend =
         when (accelerator.lowercase()) {
           "gpu" -> Backend.GPU()
-          "npu" -> Backend.NPU(nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir)
+          "npu",
+          "tpu" -> Backend.NPU(nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir)
           else -> Backend.CPU()
         }
       val modelPath = model.getPath(context = appContext)
