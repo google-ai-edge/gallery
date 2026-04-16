@@ -102,14 +102,23 @@ data class AllowedModel(
     var llmMaxContextLength: Int? = null
     var accelerators: List<Accelerator> = DEFAULT_ACCELERATORS
     var visionAccelerator: Accelerator = DEFAULT_VISION_ACCELERATOR
+
+    var finalDescription = description
+    var acceleratorsStr = defaultConfig.accelerators
+
+    if (isPixel10()) {
+      finalDescription = description.replace(Regex("\\bNPU\\b"), "TPU")
+      acceleratorsStr = acceleratorsStr?.replace(Regex("\\bnpu\\b"), "tpu")
+    }
+
     if (isLlmModel) {
       val defaultTopK: Int = defaultConfig.topK ?: DEFAULT_TOPK
       val defaultTopP: Float = defaultConfig.topP ?: DEFAULT_TOPP
       val defaultTemperature: Float = defaultConfig.temperature ?: DEFAULT_TEMPERATURE
       llmMaxToken = defaultConfig.maxTokens ?: 1024
       llmMaxContextLength = defaultConfig.maxContextLength
-      if (defaultConfig.accelerators != null) {
-        val items = defaultConfig.accelerators.split(",")
+      if (acceleratorsStr != null) {
+        val items = acceleratorsStr.split(",")
         accelerators = mutableListOf()
         for (item in items) {
           if (item == "cpu") {
@@ -118,6 +127,8 @@ data class AllowedModel(
             accelerators.add(Accelerator.GPU)
           } else if (item == "npu") {
             accelerators.add(Accelerator.NPU)
+          } else if (item == "tpu") {
+            accelerators.add(Accelerator.TPU)
           }
         }
         // Remove GPU from pixel 10 devices.
@@ -135,7 +146,9 @@ data class AllowedModel(
           visionAccelerator = Accelerator.NPU
         }
       }
-      val npuOnly = accelerators.size == 1 && accelerators[0] == Accelerator.NPU
+      val npuOnly =
+        accelerators.size == 1 &&
+          (accelerators[0] == Accelerator.NPU || accelerators[0] == Accelerator.TPU)
       configs =
         (if (runtimeType == RuntimeType.AICORE) {
             createAICoreConfigs(
@@ -180,7 +193,7 @@ data class AllowedModel(
     return Model(
       name = name,
       version = version,
-      info = description,
+      info = finalDescription,
       url = downloadUrl,
       sizeInBytes = sizeInBytes,
       minDeviceMemoryInGb = minDeviceMemoryInGb,
