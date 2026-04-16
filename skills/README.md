@@ -406,6 +406,13 @@ from this list, follow the steps below:
 For easier sharing, you can host your skill on a web server, and add the skill
 to the app by using the skill url.
 
+> [!NOTE]
+>
+> The URL-loading behavior documented below reflects the Android client source
+> in this repository. If the iOS or macOS app needs equivalent handling for the
+> same URL forms, that client must implement the corresponding update
+> separately.
+
 **Steps:**
 
 1. Enter the Agent Skills use case with your selected model, and navigate to the
