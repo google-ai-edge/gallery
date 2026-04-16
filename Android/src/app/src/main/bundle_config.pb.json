@@ -2,6 +2,9 @@
 // See: https://developer.android.com/studio/build/building-cmdline#bundleconfig
 {
   "optimizations": {
+    "uncompress_native_libraries": {
+      "enabled": false
+    },
     "splitsConfig": {
       "splitDimension": [
         {
@@ -12,6 +15,13 @@
         },
         {
           "value": "LANGUAGE"
+        },
+        {
+          "value": "DEVICE_GROUP",
+          "suffix_stripping": {
+            "enabled": true,
+            "default_suffix": "other"
+          }
         }
       ]
     }
