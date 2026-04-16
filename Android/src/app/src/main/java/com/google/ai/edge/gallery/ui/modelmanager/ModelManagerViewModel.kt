@@ -196,7 +196,7 @@ constructor(
 ) : ViewModel() {
   private val externalFilesDir = context.getExternalFilesDir(null)
   protected val _uiState = MutableStateFlow(createEmptyUiState())
-  val uiState = _uiState.asStateFlow()
+  open val uiState = _uiState.asStateFlow()
 
   val authService = AuthorizationService(context)
   var curAccessToken: String = ""

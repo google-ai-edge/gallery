@@ -117,44 +117,66 @@ fun ModelList(
         }
       }
     }
+  val modelVariants by
+    remember(task) {
+      derivedStateOf {
+        val trigger = task.updateTrigger.value
+        if (trigger >= 0) {
+          task.models
+            .toList()
+            .filter { it.parentModelName != null }
+            .groupBy { it.parentModelName!! }
+        } else {
+          mapOf()
+        }
+      }
+    }
 
   val listState = rememberLazyListState()
 
   val taskIconProgress =
-    if (!enableAnimation) 1f
-    else
+    if (!enableAnimation) {
+      1f
+    } else {
       rememberDelayedAnimationProgress(
         initialDelay = ANIMATION_INIT_DELAY,
         animationDurationMs = TASK_ICON_ANIMATION_DURATION,
         animationLabel = "task icon",
       )
+    }
 
   val taskLabelProgress =
-    if (!enableAnimation) 1f
-    else
+    if (!enableAnimation) {
+      1f
+    } else {
       rememberDelayedAnimationProgress(
         initialDelay = ANIMATION_INIT_DELAY + 300,
         animationDurationMs = TASK_ICON_ANIMATION_DURATION,
         animationLabel = "task label",
       )
+    }
 
   val descriptionProgress =
-    if (!enableAnimation) 1f
-    else
+    if (!enableAnimation) {
+      1f
+    } else {
       rememberDelayedAnimationProgress(
         initialDelay = ANIMATION_INIT_DELAY + TASK_DESCRIPTION_SECTION_ANIMATION_START,
         animationDurationMs = DEFAULT_ANIMATION_DURATION,
         animationLabel = "description",
       )
+    }
 
   val modelListProgress =
-    if (!enableAnimation) 1f
-    else
+    if (!enableAnimation) {
+      1f
+    } else {
       rememberDelayedAnimationProgress(
         initialDelay = ANIMATION_INIT_DELAY + MODEL_LIST_ANIMATION_START,
         animationDurationMs = DEFAULT_ANIMATION_DURATION,
         animationLabel = "model_list",
       )
+    }
   val modelItemExpandedStates = remember { mutableStateMapOf<String, Boolean>() }
 
   Box(
@@ -286,7 +308,7 @@ fun ModelList(
       }
 
       // Title for recommended models.
-      if (!models.isEmpty())
+      if (!models.isEmpty()) {
         item(key = "recommendedModelsTitle") {
           Text(
             stringResource(R.string.model_list_recommended_models_title),
@@ -299,24 +321,29 @@ fun ModelList(
               },
           )
         }
+      }
 
       // List of models within a task.
       items(items = models) { model ->
-        val expanded = modelItemExpandedStates.getOrDefault(model.name, null)
-        ModelItem(
-          model = model,
-          task = task,
-          modelManagerViewModel = modelManagerViewModel,
-          onModelClicked = onModelClicked,
-          onBenchmarkClicked = onBenchmarkClicked,
-          expanded = expanded,
-          onExpanded = { modelItemExpandedStates[model.name] = it },
-          modifier =
-            Modifier.graphicsLayer {
-              alpha = modelListProgress
-              translationY = (CONTENT_ANIMATION_OFFSET * (1 - modelListProgress)).toPx()
-            },
-        )
+        if (model.parentModelName.isNullOrEmpty()) {
+          val expanded = modelItemExpandedStates.getOrDefault(model.name, null)
+          ModelItem(
+            model = model,
+            modelVariants = modelVariants.getOrDefault(model.name, listOf()),
+            task = task,
+            modelManagerViewModel = modelManagerViewModel,
+            onModelClicked = onModelClicked,
+            onBenchmarkClicked = onBenchmarkClicked,
+            expanded = expanded,
+            onExpanded = { modelItemExpandedStates[model.name] = it },
+            showBenchmarkButton = true,
+            modifier =
+              Modifier.graphicsLayer {
+                alpha = modelListProgress
+                translationY = (CONTENT_ANIMATION_OFFSET * (1 - modelListProgress)).toPx()
+              },
+          )
+        }
       }
 
       // Title for imported models.
@@ -346,6 +373,7 @@ fun ModelList(
             modelManagerViewModel = modelManagerViewModel,
             onModelClicked = onModelClicked,
             onBenchmarkClicked = onBenchmarkClicked,
+            showBenchmarkButton = true,
             modifier =
               Modifier.graphicsLayer {
                 alpha = modelListProgress

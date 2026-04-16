@@ -25,19 +25,19 @@ import javax.inject.Inject
 @HiltViewModel
 open class TosViewModel @Inject constructor(private val dataStoreRepository: DataStoreRepository) :
   ViewModel() {
-  fun getIsTosAccepted(): Boolean {
+  open fun getIsTosAccepted(): Boolean {
     return dataStoreRepository.isTosAccepted()
   }
 
-  fun acceptTos() {
+  open fun acceptTos() {
     dataStoreRepository.acceptTos()
   }
 
-  fun getIsGemmaTermsOfUseAccepted(): Boolean {
+  open fun getIsGemmaTermsOfUseAccepted(): Boolean {
     return dataStoreRepository.isGemmaTermsOfUseAccepted()
   }
 
-  fun acceptGemmaTermsOfUse() {
+  open fun acceptGemmaTermsOfUse() {
     dataStoreRepository.acceptGemmaTermsOfUse()
   }
 }

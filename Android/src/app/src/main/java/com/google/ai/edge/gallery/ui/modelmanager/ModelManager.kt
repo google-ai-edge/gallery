@@ -47,6 +47,7 @@ fun ModelManager(
   navigateUp: () -> Unit,
   onModelClicked: (Model) -> Unit,
   modifier: Modifier = Modifier,
+  onBenchmarkClicked: (Model) -> Unit = {},
 ) {
   // Set title based on the task.
   val title = task.label
@@ -87,23 +88,8 @@ fun ModelManager(
       contentPadding = innerPadding,
       enableAnimation = enableAnimation,
       onModelClicked = onModelClicked,
-      onBenchmarkClicked = {},
+      onBenchmarkClicked = onBenchmarkClicked,
       modifier = Modifier.fillMaxSize(),
     )
   }
 }
-
-// @Preview
-// @Composable
-// fun ModelManagerPreview() {
-//   val context = LocalContext.current
-
-//   GalleryTheme {
-//     ModelManager(
-//       viewModel = PreviewModelManagerViewModel(context = context),
-//       onModelClicked = {},
-//       task = TASK_TEST1,
-//       navigateUp = {},
-//     )
-//   }
-// }

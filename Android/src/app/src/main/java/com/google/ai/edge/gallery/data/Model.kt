@@ -176,6 +176,17 @@ data class Model(
   /** The preference of the AICore model. */
   val aicorePreference: AICoreModelPreference? = null,
 
+  /**
+   * The name of the parent model that this model is a variant of.
+   *
+   * If set, this model will be displayed as a variant (an item in a list) of the parent model's
+   * model card,
+   */
+  val parentModelName: String? = null,
+
+  /** The label of the model variant. */
+  val variantLabel: String? = null,
+
   // End of model download related fields.
   //////////////////////////////////////////////////////////////////////////////////////////////////
 

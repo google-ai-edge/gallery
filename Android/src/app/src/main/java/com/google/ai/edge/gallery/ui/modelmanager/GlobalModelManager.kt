@@ -67,6 +67,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -173,6 +174,15 @@ fun GlobalModelManager(
     importedModels.addAll(sortedModels.filter { it.imported })
   }
 
+  // Calculate model variants by grouping models with a parentModelName.
+  val modelVariants by
+    remember(uiState.modelImportingUpdateTrigger) {
+      derivedStateOf {
+        val allModels = uiState.tasks.flatMap { it.models }
+        allModels.filter { it.parentModelName != null }.groupBy { it.parentModelName!! }
+      }
+    }
+
   val handleClickModel: (Model) -> Unit = { model ->
     val tasks = viewModel.uiState.value.tasks
     val tasksForModel = tasks.filter { task -> task.models.any { it.name == model.name } }
@@ -274,6 +284,7 @@ fun GlobalModelManager(
           val expanded = modelItemExpandedStates.getOrDefault(model.name, true)
           ModelItem(
             model = model,
+            modelVariants = modelVariants.getOrDefault(model.name, listOf()),
             task = null,
             modelManagerViewModel = viewModel,
             onModelClicked = handleClickModel,
