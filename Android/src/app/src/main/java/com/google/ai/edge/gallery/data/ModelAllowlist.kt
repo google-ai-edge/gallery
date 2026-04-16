@@ -65,6 +65,8 @@ data class AllowedModel(
   val runtimeType: RuntimeType? = null,
   val aicoreReleaseStage: AICoreModelReleaseStage? = null,
   val aicorePreference: AICoreModelPreference? = null,
+  val parentModelName: String? = null,
+  val variantLabel: String? = null,
 ) {
   fun toModel(): Model {
     // Construct HF download url.
@@ -216,6 +218,8 @@ data class AllowedModel(
       runtimeType = runtimeType ?: RuntimeType.LITERT_LM,
       aicoreReleaseStage = aicoreReleaseStage,
       aicorePreference = aicorePreference,
+      parentModelName = parentModelName,
+      variantLabel = variantLabel,
     )
   }
 

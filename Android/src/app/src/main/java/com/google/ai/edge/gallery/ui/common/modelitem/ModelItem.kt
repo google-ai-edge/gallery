@@ -30,11 +30,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.rounded.UnfoldLess
 import androidx.compose.material.icons.rounded.UnfoldMore
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -50,14 +59,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.MarkdownText
+import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import com.google.ai.edge.gallery.ui.theme.bodyMediumMedium
 import com.google.ai.edge.gallery.ui.theme.customColors
 
 /**
@@ -81,6 +95,8 @@ fun ModelItem(
   canExpand: Boolean = true,
   showBenchmarkButton: Boolean = false,
   onExpanded: (Boolean) -> Unit = {},
+  modelVariants: List<Model> = listOf(),
+  tosViewModel: TosViewModel? = null,
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val downloadStatus by remember {
@@ -128,16 +144,21 @@ fun ModelItem(
           downloadStatus = downloadStatus,
           isExpanded = isExpanded,
           modifier = Modifier.fillMaxWidth(),
+          showModelSizeAndDownloadProgressLabel = modelVariants.isEmpty(),
         )
-        // Button to delete model and expand/collapse button at the right.
+        // Model action menu (benchmark, delete), and button to expand/collapse button at the right.
         Row(verticalAlignment = Alignment.Top, modifier = Modifier.align(Alignment.TopEnd)) {
-          if (model.localFileRelativeDirPathOverride.isEmpty()) {
-            DeleteModelButton(
+          if (
+            modelVariants.isEmpty() && downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+          ) {
+            ModelItemActionMenu(
               model = model,
               modelManagerViewModel = modelManagerViewModel,
-              downloadStatus = downloadStatus,
-              modifier = Modifier.offset(y = (-12).dp, x = if (model.imported) 12.dp else 0.dp),
-              showDeleteButton = showDeleteButton && !isAicore,
+              showBenchmarkButton = showBenchmarkButton,
+              showDeleteButton =
+                showDeleteButton && model.localFileRelativeDirPathOverride.isEmpty() && !isAicore,
+              onBenchmarkClicked = { onBenchmarkClicked(model) },
+              modifier = Modifier.offset(y = (-12).dp),
             )
           }
           if (!model.imported) {
@@ -172,27 +193,239 @@ fun ModelItem(
         }
       }
       SharedTransitionLayout {
-        AnimatedContent(isExpanded, label = "item_layout_transition") { targetState ->
-          DownloadModelPanel(
-            task = task,
-            model = model,
-            downloadStatus = downloadStatus,
-            animatedVisibilityScope = this@AnimatedContent,
-            sharedTransitionScope = this@SharedTransitionLayout,
-            modifier =
-              Modifier.sharedElement(
-                  sharedContentState = rememberSharedContentState(key = "download_panel"),
-                  animatedVisibilityScope = this@AnimatedContent,
-                )
-                .padding(top = if (targetState) 12.dp else 0.dp),
-            modelManagerViewModel = modelManagerViewModel,
-            isExpanded = targetState,
-            onTryItClicked = { onModelClicked(model) },
-            onBenchmarkClicked = { onBenchmarkClicked(model) },
-            showBenchmarkButton = showBenchmarkButton,
-          )
+        AnimatedContent(isExpanded, label = "item_layout_transition") { curIsExpanded ->
+          // Show a single download panel if there are no variants.
+          if (modelVariants.isEmpty()) {
+            DownloadModelPanel(
+              task = task,
+              model = model,
+              downloadStatus = downloadStatus,
+              animatedVisibilityScope = this@AnimatedContent,
+              sharedTransitionScope = this@SharedTransitionLayout,
+              modifier = Modifier.fillMaxWidth().padding(top = if (curIsExpanded) 12.dp else 0.dp),
+              modelManagerViewModel = modelManagerViewModel,
+              isExpanded = curIsExpanded,
+              onTryItClicked = { onModelClicked(model) },
+              tosViewModel = tosViewModel,
+            )
+          }
+          // Show a list of variants with their name, status, and download panels.
+          else {
+            Column(
+              modifier = Modifier.padding(top = if (curIsExpanded) 12.dp else 0.dp),
+              verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              for (variantModel in listOf(model) + modelVariants) {
+                val variantDownloadStatus by remember {
+                  derivedStateOf { modelManagerUiState.modelDownloadStatus[variantModel.name] }
+                }
+
+                val isNotDownloaded =
+                  variantDownloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED
+
+                val isDownloaded =
+                  variantDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+
+                val showColumnLayout = (!isNotDownloaded && !isDownloaded) || curIsExpanded
+
+                @Composable
+                fun VariantHeader(modifier: Modifier = Modifier) {
+                  ModelVariantHeader(
+                    variantModel = variantModel,
+                    task = task,
+                    downloadStatus = variantDownloadStatus,
+                    isExpanded = curIsExpanded,
+                    modelManagerViewModel = modelManagerViewModel,
+                    showBenchmarkButton = showBenchmarkButton,
+                    showDeleteButton = showDeleteButton,
+                    onBenchmarkClicked = onBenchmarkClicked,
+                    modifier = modifier,
+                    labelModifier =
+                      Modifier.sharedElement(
+                        sharedContentState =
+                          rememberSharedContentState(key = "variant_label_${variantModel.name}"),
+                        animatedVisibilityScope = this@AnimatedContent,
+                      ),
+                    menuModifier =
+                      Modifier.offset(y = if (showColumnLayout) 0.dp else 12.dp)
+                        .sharedElement(
+                          sharedContentState =
+                            rememberSharedContentState(key = "variant_menu_${variantModel.name}"),
+                          animatedVisibilityScope = this@AnimatedContent,
+                        ),
+                  )
+                }
+
+                @Composable
+                fun VariantDownloadPanel(modifier: Modifier = Modifier) {
+                  DownloadModelPanel(
+                    task = task,
+                    model = variantModel,
+                    downloadStatus = variantDownloadStatus,
+                    animatedVisibilityScope = this@AnimatedContent,
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    modifier = modifier,
+                    modelManagerViewModel = modelManagerViewModel,
+                    isExpanded = curIsExpanded,
+                    onTryItClicked = { onModelClicked(variantModel) },
+                    downloadButtonBackgroundColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                  )
+                }
+
+                val containerModifier =
+                  Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                    .padding(vertical = 12.dp, horizontal = 16.dp)
+
+                if (showColumnLayout) {
+                  Column(modifier = containerModifier) {
+                    VariantHeader(modifier = Modifier.fillMaxWidth())
+                    VariantDownloadPanel(modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                  }
+                } else {
+                  Row(
+                    modifier = containerModifier,
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                  ) {
+                    VariantHeader(modifier = Modifier.weight(1f))
+                    VariantDownloadPanel(modifier = Modifier.padding(start = 8.dp))
+                  }
+                }
+              }
+            }
+          }
         }
       }
+    }
+  }
+}
+
+/**
+ * Composable for displaying the header of a model variant item, including name, status, and action
+ * menu.
+ */
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+fun ModelVariantHeader(
+  variantModel: Model,
+  task: Task?,
+  downloadStatus: ModelDownloadStatus?,
+  isExpanded: Boolean,
+  modelManagerViewModel: ModelManagerViewModel,
+  showBenchmarkButton: Boolean,
+  showDeleteButton: Boolean,
+  onBenchmarkClicked: (Model) -> Unit,
+  modifier: Modifier = Modifier,
+  labelModifier: Modifier = Modifier,
+  menuModifier: Modifier = Modifier,
+) {
+  Row(
+    modifier = modifier.fillMaxWidth(),
+    horizontalArrangement = Arrangement.SpaceBetween,
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Column(modifier = labelModifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+      // Name.
+      Text(
+        text = variantModel.variantLabel ?: variantModel.name,
+        style = bodyMediumMedium,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 14.sp, stepSize = 1.sp),
+      )
+      // Status.
+      ModelStatusDetails(
+        model = variantModel,
+        task = task,
+        downloadStatus = downloadStatus,
+        isExpanded = isExpanded,
+      )
+    }
+    // Model action menu (benchmark, delete)
+    if (downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED) {
+      ModelItemActionMenu(
+        model = variantModel,
+        modelManagerViewModel = modelManagerViewModel,
+        showBenchmarkButton = showBenchmarkButton,
+        showDeleteButton =
+          showDeleteButton &&
+            variantModel.localFileRelativeDirPathOverride.isEmpty() &&
+            variantModel.runtimeType != RuntimeType.AICORE,
+        onBenchmarkClicked = { onBenchmarkClicked(variantModel) },
+        modifier = menuModifier.offset(y = (-12).dp),
+      )
+    }
+  }
+}
+
+/** A reusable composable for displaying an action menu for a model item. */
+@Composable
+fun ModelItemActionMenu(
+  model: Model,
+  modelManagerViewModel: ModelManagerViewModel,
+  showBenchmarkButton: Boolean,
+  onBenchmarkClicked: () -> Unit,
+  showDeleteButton: Boolean,
+  modifier: Modifier = Modifier,
+) {
+  var showMenu by remember { mutableStateOf(false) }
+  var showConfirmDeleteDialog by remember { mutableStateOf(false) }
+
+  Box(modifier = modifier) {
+    IconButton(onClick = { showMenu = true }) {
+      Icon(
+        Icons.Default.MoreVert,
+        contentDescription = stringResource(R.string.cd_more_options),
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+      if (showBenchmarkButton) {
+        DropdownMenuItem(
+          text = {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Icon(Icons.Outlined.BarChart, contentDescription = null)
+              Text(stringResource(R.string.benchmark))
+            }
+          },
+          onClick = {
+            onBenchmarkClicked()
+            showMenu = false
+          },
+        )
+      }
+      if (showDeleteButton) {
+        DropdownMenuItem(
+          text = {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Icon(Icons.Outlined.Delete, contentDescription = null)
+              Text(stringResource(R.string.delete))
+            }
+          },
+          onClick = {
+            showMenu = false
+            showConfirmDeleteDialog = true
+          },
+        )
+      }
+    }
+    if (showConfirmDeleteDialog) {
+      ConfirmDeleteModelDialog(
+        model = model,
+        onConfirm = {
+          modelManagerViewModel.deleteModel(model = model)
+          showConfirmDeleteDialog = false
+        },
+        onDismiss = { showConfirmDeleteDialog = false },
+      )
     }
   }
 }

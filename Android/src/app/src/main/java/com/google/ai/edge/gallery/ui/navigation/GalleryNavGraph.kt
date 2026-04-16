@@ -274,6 +274,13 @@ fun GalleryNavHost(
           onModelClicked = { model ->
             navController.navigate("$ROUTE_MODEL/${it.id}/${model.name}")
           },
+          onBenchmarkClicked = { model ->
+            firebaseAnalytics?.logEvent(
+              GalleryEvent.CAPABILITY_SELECT.id,
+              Bundle().apply { putString("capability_name", "benchmark_${model.name}") },
+            )
+            navController.navigate("$ROUTE_BENCHMARK/${model.name}")
+          },
           navigateUp = {
             enableHomeScreenAnimation = false
             navController.navigateUp()

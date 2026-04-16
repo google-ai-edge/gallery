@@ -136,6 +136,7 @@ fun DownloadAndTryButton(
   modifierWhenExpanded: Modifier = Modifier,
   compact: Boolean = false,
   canShowTryIt: Boolean = true,
+  downloadButtonBackgroundColor: Color = MaterialTheme.colorScheme.surfaceContainer,
 ) {
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
@@ -359,8 +360,7 @@ fun DownloadAndTryButton(
               (!downloadSucceeded || !canShowTryIt) &&
                 model.localFileRelativeDirPathOverride.isEmpty()
             ) {
-
-              MaterialTheme.colorScheme.surfaceContainer
+              downloadButtonBackgroundColor
             } else if (task != null) {
               getTaskBgGradientColors(task = task)[1]
             } else {
