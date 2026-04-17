@@ -39,6 +39,7 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.DownloadAndTryButton
+import com.google.ai.edge.gallery.ui.common.modelitem.calculateDownloadProgress
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 
 @Composable
@@ -86,7 +87,8 @@ fun ModelDownloadStatusInfoPanel(
       task = task,
       model = model,
       enabled = true,
-      downloadStatus = curStatus,
+      downloadStatus = curStatus?.status,
+      downloadProgress = calculateDownloadProgress(downloadStatus = curStatus),
       modelManagerViewModel = modelManagerViewModel,
       modifier = Modifier.padding(horizontal = 32.dp).padding(top = 4.dp, bottom = 16.dp),
       onClicked = {},

@@ -73,6 +73,7 @@ import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.bodyMediumMedium
 import com.google.ai.edge.gallery.ui.theme.customColors
+import kotlin.text.toFloat
 
 /**
  * Composable function to display a model item in the model manager list.
@@ -193,48 +194,63 @@ fun ModelItem(
         }
       }
       SharedTransitionLayout {
-        AnimatedContent(isExpanded, label = "item_layout_transition") { curIsExpanded ->
-          // Show a single download panel if there are no variants.
-          if (modelVariants.isEmpty()) {
+        // Show a single download panel if there are no variants.
+        if (modelVariants.isEmpty()) {
+          AnimatedContent(isExpanded) { targetIsExpanded ->
             DownloadModelPanel(
               task = task,
               model = model,
-              downloadStatus = downloadStatus,
+              downloadStatus = downloadStatus?.status,
+              downloadProgress = calculateDownloadProgress(downloadStatus = downloadStatus),
               animatedVisibilityScope = this@AnimatedContent,
               sharedTransitionScope = this@SharedTransitionLayout,
-              modifier = Modifier.fillMaxWidth().padding(top = if (curIsExpanded) 12.dp else 0.dp),
+              modifier =
+                Modifier.fillMaxWidth().padding(top = if (targetIsExpanded) 12.dp else 0.dp),
               modelManagerViewModel = modelManagerViewModel,
-              isExpanded = curIsExpanded,
+              isExpanded = targetIsExpanded,
               onTryItClicked = { onModelClicked(model) },
               tosViewModel = tosViewModel,
             )
           }
-          // Show a list of variants with their name, status, and download panels.
-          else {
-            Column(
-              modifier = Modifier.padding(top = if (curIsExpanded) 12.dp else 0.dp),
-              verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-              for (variantModel in listOf(model) + modelVariants) {
-                val variantDownloadStatus by remember {
-                  derivedStateOf { modelManagerUiState.modelDownloadStatus[variantModel.name] }
+        }
+        // Show a list of variants with their name, status, and download panels.
+        else {
+          Column(
+            modifier = Modifier.padding(top = if (isExpanded) 12.dp else 0.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            for (variantModel in listOf(model) + modelVariants) {
+              val variantDownloadStatus by remember {
+                derivedStateOf { modelManagerUiState.modelDownloadStatus[variantModel.name] }
+              }
+
+              val isNotDownloaded =
+                variantDownloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED
+
+              val isDownloaded = variantDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+
+              val showColumnLayout = (!isNotDownloaded && !isDownloaded) || isExpanded
+
+              // Combine the state variables that affect the layout into a single object
+              // to be used as the targetState for AnimatedContent below.
+              val layoutState =
+                remember(showColumnLayout, isExpanded, variantDownloadStatus?.status) {
+                  Triple(showColumnLayout, isExpanded, variantDownloadStatus)
                 }
 
-                val isNotDownloaded =
-                  variantDownloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED
-
-                val isDownloaded =
-                  variantDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
-
-                val showColumnLayout = (!isNotDownloaded && !isDownloaded) || curIsExpanded
-
+              AnimatedContent(targetState = layoutState) {
+                (targetShowColumnLayout, targetIsExpanded, targetVariantDownloadStatus) ->
                 @Composable
                 fun VariantHeader(modifier: Modifier = Modifier) {
                   ModelVariantHeader(
                     variantModel = variantModel,
                     task = task,
+                    // Use variantDownloadStatus instead of targetVariantDownloadStatus to update
+                    // the download progress because targetVariantDownloadStatus is only updated
+                    // when the download status is updated, not when the download progress is
+                    // updated.
                     downloadStatus = variantDownloadStatus,
-                    isExpanded = curIsExpanded,
+                    isExpanded = targetIsExpanded,
                     modelManagerViewModel = modelManagerViewModel,
                     showBenchmarkButton = showBenchmarkButton,
                     showDeleteButton = showDeleteButton,
@@ -247,7 +263,7 @@ fun ModelItem(
                         animatedVisibilityScope = this@AnimatedContent,
                       ),
                     menuModifier =
-                      Modifier.offset(y = if (showColumnLayout) 0.dp else 12.dp)
+                      Modifier.offset(y = if (targetShowColumnLayout) 0.dp else 12.dp)
                         .sharedElement(
                           sharedContentState =
                             rememberSharedContentState(key = "variant_menu_${variantModel.name}"),
@@ -261,12 +277,18 @@ fun ModelItem(
                   DownloadModelPanel(
                     task = task,
                     model = variantModel,
-                    downloadStatus = variantDownloadStatus,
+                    downloadStatus = targetVariantDownloadStatus?.status,
+                    // Use variantDownloadStatus instead of targetVariantDownloadStatus to update
+                    // the download progress because targetVariantDownloadStatus is only updated
+                    // when the download status is updated, not when the download progress is
+                    // updated.
+                    downloadProgress =
+                      calculateDownloadProgress(downloadStatus = variantDownloadStatus),
                     animatedVisibilityScope = this@AnimatedContent,
                     sharedTransitionScope = this@SharedTransitionLayout,
                     modifier = modifier,
                     modelManagerViewModel = modelManagerViewModel,
-                    isExpanded = curIsExpanded,
+                    isExpanded = targetIsExpanded,
                     onTryItClicked = { onModelClicked(variantModel) },
                     downloadButtonBackgroundColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                   )
@@ -274,14 +296,28 @@ fun ModelItem(
 
                 val containerModifier =
                   Modifier.fillMaxWidth()
+                    .sharedElement(
+                      sharedContentState =
+                        rememberSharedContentState(key = "variant_container_${variantModel.name}"),
+                      animatedVisibilityScope = this,
+                    )
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceContainerLow)
                     .padding(vertical = 12.dp, horizontal = 16.dp)
 
-                if (showColumnLayout) {
+                if (targetShowColumnLayout) {
                   Column(modifier = containerModifier) {
                     VariantHeader(modifier = Modifier.fillMaxWidth())
-                    VariantDownloadPanel(modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                    VariantDownloadPanel(
+                      modifier =
+                        Modifier.fillMaxWidth()
+                          .padding(top = 8.dp)
+                          .sharedElement(
+                            sharedContentState =
+                              rememberSharedContentState(key = "panel_${variantModel.name}"),
+                            animatedVisibilityScope = this@AnimatedContent,
+                          )
+                    )
                   }
                 } else {
                   Row(
@@ -290,7 +326,15 @@ fun ModelItem(
                     horizontalArrangement = Arrangement.SpaceBetween,
                   ) {
                     VariantHeader(modifier = Modifier.weight(1f))
-                    VariantDownloadPanel(modifier = Modifier.padding(start = 8.dp))
+                    VariantDownloadPanel(
+                      modifier =
+                        Modifier.padding(start = 8.dp)
+                          .sharedElement(
+                            sharedContentState =
+                              rememberSharedContentState(key = "panel_${variantModel.name}"),
+                            animatedVisibilityScope = this@AnimatedContent,
+                          )
+                    )
                   }
                 }
               }
@@ -428,4 +472,11 @@ fun ModelItemActionMenu(
       )
     }
   }
+}
+
+fun calculateDownloadProgress(downloadStatus: ModelDownloadStatus?): Float {
+  val receivedBytes = downloadStatus?.receivedBytes ?: 0L
+  val totalBytes = downloadStatus?.totalBytes ?: 0L
+  if (totalBytes == 0L) return 0f
+  return receivedBytes.toFloat() / totalBytes.toFloat()
 }
