@@ -161,13 +161,24 @@ fun GlobalModelManager(
     }
 
   LaunchedEffect(uiState.modelImportingUpdateTrigger) {
-    val allModelsSet = mutableSetOf<Model>()
-    for (task in uiState.tasks) {
-      for (model in task.models) {
-        allModelsSet.add(model)
-      }
-    }
-    val sortedModels = allModelsSet.toList().sortedBy { it.displayName.ifEmpty { it.name } }
+    val allowlistModels = viewModel.allowlistModels
+    val allowlistOrderMap = allowlistModels.withIndex().associate { it.value.name to it.index }
+
+    val sortedModels =
+      viewModel
+        .getAllModels()
+        // Filter to include only top-level models (those without a parent).
+        .filter { it.parentModelName.isNullOrEmpty() }
+        .sortedWith(
+          compareBy<Model> { model ->
+              // Sort by the index in allowlistModels. Models not in the allowlist come last.
+              allowlistOrderMap[model.name] ?: Int.MAX_VALUE
+            }
+            .thenBy { model ->
+              // If not in the allowlist, sort by their names.
+              model.name
+            }
+        )
     builtInModels.clear()
     builtInModels.addAll(sortedModels.filter { !it.imported })
     importedModels.clear()
