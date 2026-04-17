@@ -28,7 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
@@ -42,7 +41,8 @@ fun DownloadModelPanel(
   model: Model,
   task: Task?,
   modelManagerViewModel: ModelManagerViewModel,
-  downloadStatus: ModelDownloadStatus?,
+  downloadStatus: ModelDownloadStatusType?,
+  downloadProgress: Float,
   isExpanded: Boolean,
   sharedTransitionScope: SharedTransitionScope,
   animatedVisibilityScope: AnimatedVisibilityScope,
@@ -57,8 +57,8 @@ fun DownloadModelPanel(
       horizontalArrangement = Arrangement.End,
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      fun isDownloadButtonEnabled(downloadStatus: ModelDownloadStatus?, model: Model): Boolean {
-        val downloadFailed = downloadStatus?.status == ModelDownloadStatusType.FAILED
+      fun isDownloadButtonEnabled(downloadStatus: ModelDownloadStatusType?, model: Model): Boolean {
+        val downloadFailed = downloadStatus == ModelDownloadStatusType.FAILED
         val isLitertLm = model.runtimeType == RuntimeType.LITERT_LM
         return !downloadFailed || isLitertLm
       }
@@ -67,6 +67,7 @@ fun DownloadModelPanel(
         task = task,
         model = model,
         downloadStatus = downloadStatus,
+        downloadProgress = downloadProgress,
         enabled = isDownloadButtonEnabled(downloadStatus, model),
         modelManagerViewModel = modelManagerViewModel,
         onClicked = onTryItClicked,
