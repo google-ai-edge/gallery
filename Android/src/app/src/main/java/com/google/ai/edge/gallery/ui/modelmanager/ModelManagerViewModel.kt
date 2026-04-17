@@ -198,6 +198,10 @@ constructor(
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   open val uiState = _uiState.asStateFlow()
 
+  private var _allowlistModels: MutableList<Model> = mutableListOf()
+  val allowlistModels: List<Model>
+    get() = _allowlistModels
+
   val authService = AuthorizationService(context)
   var curAccessToken: String = ""
 
@@ -874,6 +878,9 @@ constructor(
 
     viewModelScope.launch(Dispatchers.IO) {
       try {
+        // Clear existing allowlist models.
+        _allowlistModels.clear()
+
         // Load model allowlist json.
         var modelAllowlist: ModelAllowlist? = null
 
@@ -960,6 +967,7 @@ constructor(
           }
 
           val model = allowedModel.toModel()
+          _allowlistModels.add(model)
           nameToModel.put(model.name, model)
           for (taskType in allowedModel.taskTypes) {
             val task = curTasks.find { it.id == taskType }
