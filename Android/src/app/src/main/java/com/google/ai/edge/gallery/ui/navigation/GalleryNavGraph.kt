@@ -80,6 +80,7 @@ import com.google.ai.edge.gallery.ui.benchmark.BenchmarkScreen
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
 import com.google.ai.edge.gallery.ui.common.chat.ModelDownloadStatusInfoPanel
+import com.google.ai.edge.gallery.ui.edgeai.EdgeAiEntryPoint
 import com.google.ai.edge.gallery.ui.home.HomeScreen
 import com.google.ai.edge.gallery.ui.home.PromoScreenGm4
 import com.google.ai.edge.gallery.ui.modelmanager.GlobalModelManager
@@ -91,6 +92,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGGalleryNavGraph"
+private const val ROUTE_EDGE_AI_HOME = "edge_ai_home"
 private const val ROUTE_HOMESCREEN = "homepage"
 private const val ROUTE_MODEL_LIST = "model_list"
 private const val ROUTE_MODEL = "route_model"
@@ -182,10 +184,15 @@ fun GalleryNavHost(
 
   NavHost(
     navController = navController,
-    startDestination = ROUTE_HOMESCREEN,
+    startDestination = ROUTE_EDGE_AI_HOME,
     enterTransition = { EnterTransition.None },
     exitTransition = { ExitTransition.None },
   ) {
+    // Edge AI home (new redesigned UI).
+    composable(route = ROUTE_EDGE_AI_HOME) {
+      EdgeAiEntryPoint(modelManagerViewModel = modelManagerViewModel)
+    }
+
     // Home screen.
     composable(route = ROUTE_HOMESCREEN) {
       // Create a state to trigger PromoScreen fade in animation.
