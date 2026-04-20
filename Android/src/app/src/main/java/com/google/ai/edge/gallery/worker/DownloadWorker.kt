@@ -146,7 +146,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             // Prepare output file's dir.
             val outputDir =
               File(
-                applicationContext.getExternalFilesDir(null),
+                externalFilesDir,
                 listOf(modelDir, version).joinToString(separator = File.separator),
               )
             if (!outputDir.exists()) {
@@ -155,11 +155,14 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
             // Read the tmp file and see if it is partially downloaded.
             val outputTmpFile =
-              File(
-                applicationContext.getExternalFilesDir(null),
-                listOf(modelDir, version, "${file.fileName}.$TMP_FILE_EXT")
-                  .joinToString(separator = File.separator),
-              )
+              File(externalFilesDir, modelDir)
+                .resolve(version)
+                .resolve("${file.fileName}.$TMP_FILE_EXT")
+            outputTmpFile.parentFile?.let { parent ->
+              if (!parent.exists()) {
+                parent.mkdirs()
+              }
+            }
             val outputFileBytes = outputTmpFile.length()
             if (outputFileBytes > 0) {
               Log.d(
@@ -257,8 +260,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             inputStream.close()
 
             // Rename the tmp file to the original file name by removing the tmp file ext.
-            val originalFilePath = outputTmpFile.absolutePath.replace(".$TMP_FILE_EXT", "")
-            val originalFile = File(originalFilePath)
+            val originalFile = File(outputTmpFile.parentFile, file.fileName)
             if (originalFile.exists()) {
               originalFile.delete()
             }
