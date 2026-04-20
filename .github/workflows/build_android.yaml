@@ -27,3 +27,11 @@ jobs:
           java-version: '21'
       - name: Build
         run: ./gradlew assembleRelease
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          files: Android/src/app/build/outputs/apk/release/*.apk
+          tag_name: v${{ github.run_number }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
