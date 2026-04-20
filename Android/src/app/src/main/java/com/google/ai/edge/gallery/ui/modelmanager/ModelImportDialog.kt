@@ -405,53 +405,76 @@ private fun importModel(
   onProgress: (Float) -> Unit,
   onError: (String) -> Unit,
 ) {
-  // TODO: handle error.
   coroutineScope.launch(Dispatchers.IO) {
-    // Get the last component of the uri path as the imported file name.
     val decodedUri = URLDecoder.decode(uri.toString(), StandardCharsets.UTF_8.name())
-    Log.d(TAG, "importing model from $decodedUri. File name: $fileName. File size: $fileSize")
+    val safeFileName = File(fileName).name
+    Log.d(TAG, "importing model from $decodedUri. File name: $safeFileName. File size: $fileSize")
 
-    // Create <app_external_dir>/imports if not exist.
-    val importsDir = File(context.getExternalFilesDir(null), IMPORTS_DIR)
-    if (!importsDir.exists()) {
-      importsDir.mkdirs()
+    val externalFilesDir = context.getExternalFilesDir(null)
+    val baseDir = when {
+      externalFilesDir != null && (externalFilesDir.exists() || externalFilesDir.mkdirs()) -> externalFilesDir
+      else -> context.filesDir
     }
 
-    // Import by copying the file over.
-    val outputFile = File(context.getExternalFilesDir(null), "$IMPORTS_DIR/$fileName")
-    val outputStream = FileOutputStream(outputFile)
-    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-    var bytesRead: Int
-    var lastSetProgressTs: Long = 0
-    var importedBytes = 0L
-    val inputStream = context.contentResolver.openInputStream(uri)
-    try {
-      if (inputStream != null) {
-        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-          outputStream.write(buffer, 0, bytesRead)
-          importedBytes += bytesRead
+    var importsDir = File(baseDir, IMPORTS_DIR)
+    if (!importsDir.exists() && !importsDir.mkdirs()) {
+      importsDir = File(context.filesDir, IMPORTS_DIR)
+      if (!importsDir.exists() && !importsDir.mkdirs()) {
+        onError("Failed to create imports directory")
+        return@launch
+      }
+      Log.w(TAG, "Falling back to internal files directory for imports: ${importsDir.absolutePath}")
+    }
 
-          // Report progress every 200 ms.
-          val curTs = System.currentTimeMillis()
-          if (curTs - lastSetProgressTs > 200) {
-            Log.d(TAG, "importing progress: $importedBytes, $fileSize")
-            lastSetProgressTs = curTs
-            if (fileSize != 0L) {
-              onProgress(importedBytes.toFloat() / fileSize.toFloat())
+    val outputFile = File(importsDir, safeFileName)
+    val parentDir = outputFile.parentFile
+    if (parentDir != null && !parentDir.exists() && !parentDir.mkdirs()) {
+      onError("Failed to create parent directory for imported model")
+      return@launch
+    }
+
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    var importedBytes = 0L
+    var lastSetProgressTs: Long = 0
+
+    val inputStream = context.contentResolver.openInputStream(uri)
+    if (inputStream == null) {
+      onError("Failed to open imported model file")
+      return@launch
+    }
+
+    try {
+      inputStream.use { input ->
+        FileOutputStream(outputFile).use { output ->
+          var bytesRead: Int
+          while (input.read(buffer).also { bytesRead = it } != -1) {
+            output.write(buffer, 0, bytesRead)
+            importedBytes += bytesRead
+
+            val curTs = System.currentTimeMillis()
+            if (curTs - lastSetProgressTs > 200) {
+              Log.d(TAG, "importing progress: $importedBytes, $fileSize")
+              lastSetProgressTs = curTs
+              if (fileSize > 0L) {
+                onProgress(importedBytes.toFloat() / fileSize.toFloat())
+              }
             }
           }
         }
       }
     } catch (e: Exception) {
       e.printStackTrace()
+      if (outputFile.exists()) {
+        outputFile.delete()
+      }
       onError(e.message ?: "Failed to import")
       return@launch
-    } finally {
-      inputStream?.close()
-      outputStream.close()
     }
+
     Log.d(TAG, "import done")
-    onProgress(1f)
+    if (fileSize > 0L) {
+      onProgress(1f)
+    }
     onDone()
   }
 }

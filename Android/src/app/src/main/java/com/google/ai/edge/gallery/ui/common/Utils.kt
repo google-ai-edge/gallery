@@ -155,6 +155,7 @@ fun Context.createTempPictureUri(
   fileName: String = "picture_${System.currentTimeMillis()}",
   fileExtension: String = ".png",
 ): Uri {
+  cacheDir.mkdirs()
   val tempFile = File.createTempFile(fileName, fileExtension, cacheDir).apply { createNewFile() }
 
   return FileProvider.getUriForFile(

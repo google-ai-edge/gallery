@@ -27,7 +27,7 @@ data class ModelDataFile(
   val sizeInBytes: Long,
 )
 
-const val IMPORTS_DIR = "__imports"
+const val IMPORTS_DIR = "imports"
 private val NORMALIZE_NAME_REGEX = Regex("[^a-zA-Z0-9]")
 
 data class PromptTemplate(val title: String, val description: String, val prompt: String)

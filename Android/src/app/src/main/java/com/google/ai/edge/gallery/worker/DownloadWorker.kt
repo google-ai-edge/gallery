@@ -66,7 +66,14 @@ private var channelCreated = false
 
 class DownloadWorker(context: Context, params: WorkerParameters) :
   CoroutineWorker(context, params) {
-  private val externalFilesDir = context.getExternalFilesDir(null)
+  private val externalFilesDir: File = run {
+    val extDir = context.getExternalFilesDir(null)
+    if (extDir != null && (extDir.exists() || extDir.mkdirs())) {
+      extDir
+    } else {
+      context.filesDir
+    }
+  }
 
   private val notificationManager =
     context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
