@@ -169,7 +169,11 @@ class MainActivity : ComponentActivity() {
       }
     }
 
-    enableEdgeToEdge()
+    try {
+      enableEdgeToEdge()
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to enable edge-to-edge: ${e.message}")
+    }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       // Fix for three-button nav not properly going edge-to-edge.
       // See: https://issuetracker.google.com/issues/298296168
