@@ -200,6 +200,17 @@
   <string name="unknown_error" translatable="false">Unknown error</string>
   <string name="view" translatable="false">View</string>
   <string name="view_in_full_screen" translatable="false">View in full screen</string>
+  <string name="artranslator_identifying" translatable="false">Identifying, please keep the camera steady...</string>
+  <string name="artranslator_waiting" translatable="false">Waiting for identification...</string>
+  <string name="artranslator_result" translatable="false">Word: %1$s\nTranslation: %2$s\nDefinition: %3$s</string>
+  <string name="artranslator_add_to_vocab" translatable="false">Add to Vocabulary</string>
+  <string name="artranslator_scan_another" translatable="false">Scan Another Object</string>
+  <string name="artranslator_added_to_vocab" translatable="false">word added to Vocabulary</string>
+  <string name="artranslator_main_lang" translatable="false">My Main Language:</string>
+  <string name="artranslator_learn_lang" translatable="false">Language I Want to Learn:</string>
+  <string name="artranslator_dict_translation" translatable="false">Translation: %1$s</string>
+  <string name="artranslator_dict_definition" translatable="false">Definition: %1$s</string>
+  <string name="artranslator_study_mode" translatable="false">Vocabulary Study Mode</string>
 
   <plurals name="parameter" translatable="false">
     <item quantity="one">Parameter</item>
