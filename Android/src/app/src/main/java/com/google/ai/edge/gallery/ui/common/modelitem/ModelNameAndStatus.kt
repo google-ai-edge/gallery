@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.ui.common.modelitem
 
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,11 +26,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -69,6 +77,8 @@ fun ModelNameAndStatus(
   modifier: Modifier = Modifier,
   showModelSizeAndDownloadProgressLabel: Boolean = true,
 ) {
+  var showUpdateDialog by remember { mutableStateOf(false) }
+
   Column(modifier = modifier) {
     // Show "best overall" only for the first model if it is indeed the best for this task.
     if (task != null && model.bestForTaskIds.contains(task.id) && task.models[0] == model) {
@@ -90,6 +100,49 @@ fun ModelNameAndStatus(
           modifier = Modifier.alpha(0.6f),
         )
       }
+    }
+
+    // Show "Update available" info message label if the model is updatable.
+    // Tap to show the detailed update info in a dialog.
+    if (model.updatable) {
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier =
+          Modifier.padding(bottom = 10.dp)
+            .then(
+              if (model.updateInfo.isNotEmpty()) {
+                Modifier.clickable { showUpdateDialog = true }
+              } else {
+                Modifier
+              }
+            ),
+      ) {
+        Icon(
+          Icons.Filled.Info,
+          tint = MaterialTheme.colorScheme.primary,
+          contentDescription = null,
+          modifier = Modifier.size(18.dp),
+        )
+        Text(
+          stringResource(R.string.update_available),
+          style = MaterialTheme.typography.labelMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+    }
+
+    if (showUpdateDialog) {
+      AlertDialog(
+        onDismissRequest = { showUpdateDialog = false },
+        title = { Text(stringResource(R.string.about_this_update)) },
+        text = { Text(model.updateInfo) },
+        confirmButton = {
+          TextButton(onClick = { showUpdateDialog = false }) {
+            Text(stringResource(android.R.string.ok))
+          }
+        },
+      )
     }
 
     // Model name and action buttons.

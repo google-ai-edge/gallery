@@ -68,6 +68,8 @@ data class AllowedModel(
   val parentModelName: String? = null,
   val variantLabel: String? = null,
   val capabilityToTaskTypes: Map<ModelCapability, List<String>>? = null,
+  val updatableModelFiles: List<ModelFile>? = null,
+  val updateInfo: String? = null,
 ) {
   fun toModel(): Model {
     // Construct HF download url.
@@ -222,6 +224,9 @@ data class AllowedModel(
       parentModelName = parentModelName,
       variantLabel = variantLabel,
       capabilityToTaskTypes = capabilityToTaskTypes ?: emptyMap(),
+      updatableModelFiles = updatableModelFiles ?: listOf(),
+      updateInfo = updateInfo ?: "",
+      latestModelFile = ModelFile(fileName = downloadedFileName, commitHash = version),
     )
   }
 
