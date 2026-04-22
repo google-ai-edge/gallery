@@ -41,6 +41,7 @@ import com.google.ai.edge.gallery.data.EMPTY_MODEL
 import com.google.ai.edge.gallery.data.IMPORTS_DIR
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelAllowlist
+import com.google.ai.edge.gallery.data.ModelCapability
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.NumberSliderConfig
@@ -1202,7 +1203,21 @@ constructor(
         llmSupportAudio = llmSupportAudio,
         llmSupportTinyGarden = llmSupportTinyGarden,
         llmSupportMobileActions = llmSupportMobileActions,
-        llmSupportThinking = llmSupportThinking,
+        capabilities =
+          if (llmSupportThinking) listOf(ModelCapability.LLM_THINKING) else emptyList(),
+        capabilityToTaskTypes =
+          if (llmSupportThinking) {
+            mapOf(
+              ModelCapability.LLM_THINKING to
+                listOf(
+                  BuiltInTaskId.LLM_CHAT,
+                  BuiltInTaskId.LLM_ASK_IMAGE,
+                  BuiltInTaskId.LLM_ASK_AUDIO,
+                )
+            )
+          } else {
+            emptyMap()
+          },
         llmMaxToken = llmMaxToken,
         accelerators = accelerators,
         // We assume all imported models are LLM for now.
