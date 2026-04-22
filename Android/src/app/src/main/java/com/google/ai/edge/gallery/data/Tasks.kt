@@ -128,10 +128,8 @@ data class Task(
   var index: Int = -1,
   val updateTrigger: MutableState<Long> = mutableLongStateOf(0),
 ) {
-  fun allowThinking(): Boolean {
-    return id == BuiltInTaskId.LLM_CHAT ||
-      id == BuiltInTaskId.LLM_ASK_IMAGE ||
-      id == BuiltInTaskId.LLM_ASK_AUDIO
+  fun allowCapability(capability: ModelCapability, model: Model): Boolean {
+    return model.capabilityToTaskTypes[capability]?.contains(id) == true
   }
 }
 

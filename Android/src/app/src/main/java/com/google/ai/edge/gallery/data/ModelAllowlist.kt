@@ -56,7 +56,7 @@ data class AllowedModel(
   val llmSupportAudio: Boolean? = null,
   val llmSupportTinyGarden: Boolean? = null,
   val llmSupportMobileActions: Boolean? = null,
-  val llmSupportThinking: Boolean? = null,
+  val capabilities: List<ModelCapability>? = null,
   val minDeviceMemoryInGb: Int? = null,
   val bestForTaskTypes: List<String>? = null,
   val localModelFilePathOverride: String? = null,
@@ -67,6 +67,7 @@ data class AllowedModel(
   val aicorePreference: AICoreModelPreference? = null,
   val parentModelName: String? = null,
   val variantLabel: String? = null,
+  val capabilityToTaskTypes: Map<ModelCapability, List<String>>? = null,
 ) {
   fun toModel(): Model {
     // Construct HF download url.
@@ -172,7 +173,7 @@ data class AllowedModel(
               defaultMaxToken = llmMaxToken,
               defaultMaxContextLength = llmMaxContextLength,
               accelerators = accelerators,
-              supportThinking = llmSupportThinking == true,
+              supportThinking = capabilities?.contains(ModelCapability.LLM_THINKING) == true,
             )
           })
           .toMutableList()
@@ -208,7 +209,7 @@ data class AllowedModel(
       llmSupportAudio = llmSupportAudio == true,
       llmSupportTinyGarden = llmSupportTinyGarden == true,
       llmSupportMobileActions = llmSupportMobileActions == true,
-      llmSupportThinking = llmSupportThinking == true,
+      capabilities = capabilities ?: emptyList(),
       llmMaxToken = llmMaxToken,
       accelerators = accelerators,
       visionAccelerator = visionAccelerator,
@@ -220,6 +221,7 @@ data class AllowedModel(
       aicorePreference = aicorePreference,
       parentModelName = parentModelName,
       variantLabel = variantLabel,
+      capabilityToTaskTypes = capabilityToTaskTypes ?: emptyMap(),
     )
   }
 

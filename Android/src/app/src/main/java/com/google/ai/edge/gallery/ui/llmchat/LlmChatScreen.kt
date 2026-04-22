@@ -38,6 +38,7 @@ import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.ModelCapability
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
@@ -190,7 +191,6 @@ fun ChatViewWrapper(
 ) {
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
-  val allowThinking = task.allowThinking()
 
   ChatView(
     task = task,
@@ -235,7 +235,7 @@ fun ChatViewWrapper(
               modelManagerViewModel = modelManagerViewModel,
             )
           },
-          allowThinking = allowThinking,
+          allowThinking = task.allowCapability(ModelCapability.LLM_THINKING, model),
         )
 
         firebaseAnalytics?.logEvent(
@@ -258,7 +258,7 @@ fun ChatViewWrapper(
               modelManagerViewModel = modelManagerViewModel,
             )
           },
-          allowThinking = allowThinking,
+          allowThinking = task.allowCapability(ModelCapability.LLM_THINKING, model),
         )
       }
     },
