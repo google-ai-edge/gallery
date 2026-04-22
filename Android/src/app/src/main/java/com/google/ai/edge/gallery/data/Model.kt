@@ -52,6 +52,11 @@ enum class AICoreModelPreference {
   @SerializedName("full") FULL,
 }
 
+data class ModelFile(
+  @SerializedName("fileName") val fileName: String,
+  @SerializedName("commitHash") val commitHash: String,
+)
+
 /**
  * A model for a task (see [Task]).
  *
@@ -152,7 +157,7 @@ data class Model(
    * It will be used to define the file path on local device to store the downloaded model.
    * {context.getExternalFilesDir}/{normalizedName}/{version}/{downloadFileName}
    */
-  val downloadFileName: String = "_",
+  var downloadFileName: String = "_",
 
   /**
    * (optional)
@@ -162,7 +167,7 @@ data class Model(
    * It will be used to define the file path on local device to store the downloaded model.
    * {context.getExternalFilesDir}/{normalizedName}/{version}/{downloadFileName}
    */
-  val version: String = "_",
+  var version: String = "_",
 
   /**
    * (optional, experimental)
@@ -190,6 +195,22 @@ data class Model(
 
   /** The label of the model variant. */
   val variantLabel: String? = null,
+
+  /**
+   * The model files that this model can be upgraded from.
+   *
+   * If a model with the same name is already downloaded, and its information matches one of the
+   * [ModelFile] entries in this list, the UI will show users some extra UI elements (e.g., an
+   * update button or update info) for them to choose to update.
+   */
+  val updatableModelFiles: List<ModelFile> = listOf(),
+
+  /**
+   * The information about the model update.
+   *
+   * If set, the UI will show users this information when they tap on the update info.
+   */
+  val updateInfo: String = "",
 
   // End of model download related fields.
   //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -275,6 +296,9 @@ data class Model(
   /** Whether the model is imported or not. */
   val imported: Boolean = false,
 
+  /** A map of model capability to the task type ids that the model capability is allowed for. */
+  val capabilityToTaskTypes: Map<ModelCapability, List<String>> = mapOf(),
+
   // The following fields are managed by the app. Don't need to set manually.
   //
   var normalizedName: String = "",
@@ -287,8 +311,26 @@ data class Model(
   var totalBytes: Long = 0L,
   var accessToken: String? = null,
 
-  /** A map of model capability to the task type ids that the model capability is allowed for. */
-  val capabilityToTaskTypes: Map<ModelCapability, List<String>> = mapOf(),
+  /**
+   * Indicates whether the model currently on the device is an older version that can be updated.
+   *
+   * This field is managed by the app. It is set to true when the app detects that one of the
+   * [updatableModelFiles] (a previous version of the model) is already downloaded on the device
+   * instead of the latest one.
+   */
+  var updatable: Boolean = false,
+
+  /**
+   * Stores the latest model file details (such as filename and commit hash) corresponding to this
+   * model as available in the allowlist.
+   *
+   * This field is populated when the [Model] object is created from the allowlist data. Its primary
+   * purpose is to enable resetting the model to its latest version (for example, if an older
+   * updatable version was previously downloaded and is subsequently deleted). It is also used when
+   * the "Update" button is clicked in the UI to set the correct `version` and `downloadFileName`
+   * for the update.
+   */
+  var latestModelFile: ModelFile? = null,
 ) {
   init {
     normalizedName = NORMALIZE_NAME_REGEX.replace(name, "_")

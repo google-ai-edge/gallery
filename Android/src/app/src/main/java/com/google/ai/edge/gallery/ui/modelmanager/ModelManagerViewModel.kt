@@ -283,7 +283,7 @@ constructor(
     }
   }
 
-  fun downloadModel(task: Task?, model: Model) {
+  open fun downloadModel(task: Task?, model: Model) {
     // Update status.
     setDownloadStatus(
       curModel = model,
@@ -353,6 +353,16 @@ constructor(
   }
 
   fun deleteModel(model: Model) {
+    // If the currently downloaded model is an updatable version, reset the model to its latest
+    // version and mark it as not updatable upon deletion.
+    if (model.updatable) {
+      model.updatable = false
+      model.latestModelFile?.let {
+        model.version = it.commitHash
+        model.downloadFileName = it.fileName
+      }
+    }
+
     if (model.imported) {
       deleteFilesFromImportDir(model.downloadFileName)
     } else {
@@ -1407,12 +1417,37 @@ constructor(
     _uiState.update { newUiState }
   }
 
-  private fun isModelDownloaded(model: Model): Boolean {
+  @androidx.annotation.VisibleForTesting
+  fun isModelDownloaded(model: Model): Boolean {
+    model.updatable = false
+    // First, check if the model with the current (latest) version has been downloaded.
+    if (checkIfModelDownloaded(model, model.version)) return true
+
+    // If not, check if any updatable model file (previous version) has been downloaded.
+    for (updatableFile in model.updatableModelFiles) {
+      if (updatableFile.commitHash.isEmpty()) continue
+      if (checkIfModelDownloaded(model, updatableFile.commitHash, updatableFile.fileName)) {
+        // If an updatable version is found on the device, update the model's version and file name
+        // to match the downloaded one, and mark it as updatable.
+        model.version = updatableFile.commitHash
+        model.downloadFileName = updatableFile.fileName
+        model.updatable = true
+        return true
+      }
+    }
+
+    return false
+  }
+
+  private fun checkIfModelDownloaded(
+    model: Model,
+    version: String,
+    fileName: String = model.downloadFileName,
+  ): Boolean {
     val modelRelativePath =
-      listOf(model.normalizedName, model.version, model.downloadFileName)
-        .joinToString(File.separator)
+      listOf(model.normalizedName, version, fileName).joinToString(File.separator)
     val downloadedFileExists =
-      model.downloadFileName.isNotEmpty() &&
+      fileName.isNotEmpty() &&
         ((model.localModelFilePathOverride.isEmpty() &&
           isFileInExternalFilesDir(modelRelativePath)) ||
           (model.localModelFilePathOverride.isNotEmpty() &&
@@ -1422,7 +1457,7 @@ constructor(
       model.isZip &&
         model.unzipDir.isNotEmpty() &&
         isFileInExternalFilesDir(
-          listOf(model.normalizedName, model.version, model.unzipDir).joinToString(File.separator)
+          listOf(model.normalizedName, version, model.unzipDir).joinToString(File.separator)
         )
 
     return downloadedFileExists || unzippedDirectoryExists

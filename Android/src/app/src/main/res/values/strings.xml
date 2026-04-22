@@ -16,6 +16,7 @@
 
 <resources>
   <!-- TODO(jingjin): Add translation support when i18n is ready. -->
+  <string name="about_this_update" translatable="false">About this update</string>
   <string name="all" translatable="false">All</string>
   <string name="add" translatable="false">Add</string>
   <string name="added" translatable="false">Added</string>
@@ -192,6 +193,8 @@
   <string name="mobile_actions_supported_actions" translatable="false">Supported sample actions:</string>
   <string name="mobile_actions_tab_model_response" translatable="false">Model response</string>
   <string name="mobile_actions_tab_function_called" translatable="false">Function(s) called</string>
+  <string name="update" translatable="false">Update</string>
+  <string name="update_available" translatable="false">Update available</string>
   <string name="view_results" translatable="false">View results</string>
   <string name="view_console_logs" translatable="false">View console logs</string>
   <string name="warming_up" translatable="false">warming up…</string>
