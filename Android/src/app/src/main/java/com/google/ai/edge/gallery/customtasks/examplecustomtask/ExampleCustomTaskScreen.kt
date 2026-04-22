@@ -38,6 +38,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.google.ai.edge.gallery.R
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -63,9 +65,9 @@ data class ExampleCustomTaskModelInstance(val content: String)
  * These keys are used to uniquely identify and retrieve values for configurable parameters within a
  * model.
  */
-val EXAMPLE_CUSTOM_TASK_CONFIG_KEY_FONT_SIZE = ConfigKey(id = "font_size", label = "Font size")
+val EXAMPLE_CUSTOM_TASK_CONFIG_KEY_FONT_SIZE = ConfigKey(id = "font_size", label = "Font size", labelResId = R.string.config_label_font_size)
 val EXAMPLE_CUSTOM_TASK_CONFIG_KEY_MAX_CHAR_COUNT =
-  ConfigKey(id = "max_char_count", label = "Max character count")
+  ConfigKey(id = "max_char_count", label = "Max character count", labelResId = R.string.config_label_max_char_count)
 
 /**
  * A list of configurable parameters for the `ExampleCustomTask`'s models.
@@ -132,7 +134,10 @@ fun ExampleCustomTaskScreen(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(16.dp),
       ) {
-        Text("Text color: ")
+        Text(
+          stringResource(R.string.text_color_label),
+          color = MaterialTheme.colorScheme.onSurface,
+        )
         for (color in colors) {
           Box(
             modifier =

@@ -90,7 +90,7 @@ fun SkillTesterBottomSheet(agentTools: AgentTools, skill: Skill, onDismiss: () -
       OutlinedTextField(
         value = inputData,
         onValueChange = { inputData = it },
-        label = { Text("Input Data") },
+        label = { Text(stringResource(R.string.input_data)) },
         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
       )
 
@@ -98,7 +98,7 @@ fun SkillTesterBottomSheet(agentTools: AgentTools, skill: Skill, onDismiss: () -
       OutlinedTextField(
         value = customData,
         onValueChange = { customData = it },
-        label = { Text("Custom Data") },
+        label = { Text(stringResource(R.string.custom_data)) },
         modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
       )
 

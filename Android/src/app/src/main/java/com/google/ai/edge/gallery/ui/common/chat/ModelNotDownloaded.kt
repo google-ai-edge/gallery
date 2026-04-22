@@ -27,6 +27,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.google.ai.edge.gallery.R
 
 /**
  * Composable function to display a button to download model if the model has not been downloaded.
@@ -38,7 +40,7 @@ fun ModelNotDownloaded(modifier: Modifier = Modifier, onClicked: () -> Unit) {
     verticalArrangement = Arrangement.Center,
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
-    Button(onClick = onClicked) { Text("Download & Try it", maxLines = 1) }
+    Button(onClick = onClicked) { Text(stringResource(R.string.download_and_try_it), maxLines = 1) }
   }
 }
 

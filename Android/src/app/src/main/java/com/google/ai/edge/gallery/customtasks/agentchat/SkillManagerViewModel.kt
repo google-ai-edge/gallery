@@ -42,6 +42,7 @@ import com.google.ai.edge.gallery.data.AllowedSkill
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.SkillAllowlist
 import com.google.ai.edge.gallery.proto.Skill
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.litertlm.Contents
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -69,30 +70,35 @@ val TRYOUT_CHIPS: List<SkillTryOutChip> =
       label = "Interactive Map",
       prompt = "Show me Googleplex on interactive map.",
       skillName = "interactive-map",
+      labelResId = R.string.skill_chip_interactive_map,
     ),
     SkillTryOutChip(
       icon = Icons.Outlined.Kitchen,
       label = "Kitchen Adventure",
       prompt = "Start kitchen adventure",
       skillName = "kitchen-adventure",
+      labelResId = R.string.skill_chip_kitchen_adventure,
     ),
     SkillTryOutChip(
       icon = Icons.Outlined.Tag,
       label = "Calculate Hash",
       prompt = "What is the sha1 hash of \"gemma\"?",
       skillName = "calculate-hash",
+      labelResId = R.string.skill_chip_calculate_hash,
     ),
     SkillTryOutChip(
       icon = Icons.Outlined.ScreenRotation,
       label = "Text Spinner",
       prompt = "Spin \"Gemma\" on my head",
       skillName = "text-spinner",
+      labelResId = R.string.skill_chip_text_spinner,
     ),
     SkillTryOutChip(
       icon = Icons.Outlined.Email,
       label = "Send Email",
       prompt = "Send email 'Good morning' to abc@example.com. Content: 'Any plans for tonight?'",
       skillName = "send-email",
+      labelResId = R.string.skill_chip_send_email,
     ),
     SkillTryOutChip(
       icon = Icons.Outlined.SentimentVerySatisfied,
@@ -100,18 +106,21 @@ val TRYOUT_CHIPS: List<SkillTryOutChip> =
       prompt =
         "Log yesterday's mood as 2 because it was raining quite heavily, and log today's mood as 9 because I had a great time playing pickleball again. Then show me my mood dashboard.",
       skillName = "mood-tracker",
+      labelResId = R.string.skill_chip_track_mood,
     ),
     SkillTryOutChip(
       icon = Icons.Outlined.LocalLibrary,
       label = "Query Wikipedia",
       prompt = "Check Wikipedia about Oscars 2026. Tell me who won the best picture.",
       skillName = "query-wikipedia",
+      labelResId = R.string.skill_chip_query_wikipedia,
     ),
     SkillTryOutChip(
       icon = Icons.Outlined.QrCode,
       label = "Generate QR code",
       prompt = "Generate QR code for https://deepmind.google/models/gemma/",
       skillName = "qr-code",
+      labelResId = R.string.skill_chip_generate_qr_code,
     ),
   )
 

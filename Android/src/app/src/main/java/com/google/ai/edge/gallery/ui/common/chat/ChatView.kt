@@ -114,6 +114,9 @@ fun ChatView(
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val selectedModel = modelManagerUiState.selectedModel
 
+  // Pre-fetch string resources for use in lambdas
+  val liveCameraSessionEndedText = stringResource(R.string.live_camera_session_ended)
+
   // Image viewer related.
   var selectedImageIndex by remember { mutableIntStateOf(-1) }
   var allImageViewerImages by remember { mutableStateOf<List<Bitmap>>(listOf()) }
@@ -230,7 +233,7 @@ fun ChatView(
                     model = selectedModel,
                     message =
                       ChatMessageInfo(
-                        content = "Live camera session ended. Average FPS: $averageFps"
+                        content = liveCameraSessionEndedText.format(averageFps)
                       ),
                   )
                 },

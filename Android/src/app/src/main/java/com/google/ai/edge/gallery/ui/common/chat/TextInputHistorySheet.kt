@@ -176,8 +176,8 @@ private fun SheetContent(
   if (showConfirmDeleteDialog) {
     AlertDialog(
       onDismissRequest = { showConfirmDeleteDialog = false },
-      title = { Text("Clear history?") },
-      text = { Text("Are you sure you want to clear the history? This action cannot be undone.") },
+      title = { Text(stringResource(R.string.clear_history_title)) },
+      text = { Text(stringResource(R.string.clear_history_content)) },
       confirmButton = {
         Button(
           onClick = {
