@@ -18,10 +18,6 @@ package com.google.ai.edge.gallery.ui.llmsingleturn
 
 import androidx.hilt.navigation.compose.hiltViewModel
 
-// import androidx.compose.ui.tooling.preview.Preview
-// import com.google.ai.edge.gallery.ui.preview.PreviewLlmSingleTurnViewModel
-// import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
-// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -48,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.core.os.bundleOf
@@ -158,18 +155,6 @@ fun LlmSingleTurnScreen(
         )
     ) {
       val modelDownloaded = curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
-      AnimatedVisibility(
-        visible = !modelDownloaded,
-        enter = scaleIn(initialScale = 0.9f) + fadeIn(),
-        exit = scaleOut(targetScale = 0.9f) + fadeOut(),
-      ) {
-        ModelDownloadStatusInfoPanel(
-          model = selectedModel,
-          task = task,
-          modelManagerViewModel = modelManagerViewModel,
-        )
-      }
-
       // Main UI after model is downloaded.
       var mainUiVisible by remember { mutableStateOf(modelDownloaded) }
       LaunchedEffect(modelDownloaded) { mainUiVisible = modelDownloaded }
@@ -222,6 +207,23 @@ fun LlmSingleTurnScreen(
         )
       }
 
+      // Download button for the selected model when the model is not downloaded.
+      //
+      // Put this after the main UI so that it's layered on top.
+      AnimatedVisibility(
+        visible = !modelDownloaded,
+        // Block pointer input to prevent user from interacting with the main UI below.
+        modifier = Modifier.pointerInput(Unit) {},
+        enter = scaleIn(initialScale = 0.9f) + fadeIn(),
+        exit = scaleOut(targetScale = 0.9f) + fadeOut(),
+      ) {
+        ModelDownloadStatusInfoPanel(
+          model = selectedModel,
+          task = task,
+          modelManagerViewModel = modelManagerViewModel,
+        )
+      }
+
       if (showErrorDialog) {
         ErrorDialog(
           error = modelInitializationStatus?.error ?: "",
@@ -231,16 +233,3 @@ fun LlmSingleTurnScreen(
     }
   }
 }
-
-// @Preview(showBackground = true)
-// @Composable
-// fun LlmSingleTurnScreenPreview() {
-//   val context = LocalContext.current
-//   GalleryTheme {
-//     LlmSingleTurnScreen(
-//       modelManagerViewModel = PreviewModelManagerViewModel(context = context),
-//       viewModel = PreviewLlmSingleTurnViewModel(),
-//       navigateUp = {},
-//     )
-//   }
-// }
