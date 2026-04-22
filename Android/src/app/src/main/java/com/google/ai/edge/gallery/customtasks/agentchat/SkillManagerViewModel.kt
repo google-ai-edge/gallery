@@ -20,6 +20,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Bundle
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.compose.material.icons.Icons
@@ -27,7 +28,6 @@ import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Kitchen
 import androidx.compose.material.icons.outlined.LocalLibrary
 import androidx.compose.material.icons.outlined.Map
-import androidx.compose.material.icons.outlined.Password
 import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.ScreenRotation
 import androidx.compose.material.icons.outlined.SentimentVerySatisfied
@@ -35,12 +35,14 @@ import androidx.compose.material.icons.outlined.Tag
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.common.LOCAL_URL_BASE
 import com.google.ai.edge.gallery.common.SkillTryOutChip
 import com.google.ai.edge.gallery.common.getJsonResponse
 import com.google.ai.edge.gallery.data.AllowedSkill
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.SkillAllowlist
+import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.Skill
 import com.google.ai.edge.litertlm.Contents
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -337,6 +339,16 @@ constructor(
           // 6. Add to ui states and data store.
           addSkill(skill = skill, addToDataStore = true)
           Log.d(TAG, "Successfully added skill from URL: ${skill.name}")
+          firebaseAnalytics?.logEvent(
+            GalleryEvent.SKILL_MANAGEMENT.id,
+            Bundle().apply {
+              putString("action", "add")
+              putString("source", "remote_url")
+              putString("skill_name", getSkillNameForLogging(skill))
+              putBoolean("is_built_in", skill.builtIn)
+              putString("remote_url", url)
+            },
+          )
           onSuccess()
         }
       } finally {
@@ -518,6 +530,15 @@ constructor(
           val skillWithDir = it.toBuilder().setImportDirName(newImportDirName).build()
           addSkill(skill = skillWithDir, addToDataStore = true)
           Log.d(TAG, "Successfully added skill from local import: ${skillWithDir.name}")
+          firebaseAnalytics?.logEvent(
+            GalleryEvent.SKILL_MANAGEMENT.id,
+            Bundle().apply {
+              putString("action", "add")
+              putString("source", "local_import")
+              putString("skill_name", getSkillNameForLogging(skillWithDir))
+              putBoolean("is_built_in", skillWithDir.builtIn)
+            },
+          )
           onSuccess()
         }
           ?: run {
@@ -582,6 +603,17 @@ constructor(
       return
     }
 
+    val skillNameToLog = getSkillNameForLogging(skill)
+    Log.d(TAG, "Analytics: skill_management, action=delete, skill_name=${skillNameToLog}")
+    firebaseAnalytics?.logEvent(
+      GalleryEvent.SKILL_MANAGEMENT.id,
+      Bundle().apply {
+        putString("action", "delete")
+        putString("skill_name", skillNameToLog)
+        putBoolean("is_built_in", skill.builtIn)
+      },
+    )
+
     // Update state.
     _uiState.update { currentState ->
       currentState.copy(skills = currentState.skills.filter { it.skill.name != name })
@@ -610,6 +642,21 @@ constructor(
       return
     }
 
+    for (skill in skillsToDelete) {
+      Log.d(
+        TAG,
+        "Analytics: skill_management, action=delete, skill_name=${getSkillNameForLogging(skill)}",
+      )
+      firebaseAnalytics?.logEvent(
+        GalleryEvent.SKILL_MANAGEMENT.id,
+        Bundle().apply {
+          putString("action", "delete")
+          putString("skill_name", getSkillNameForLogging(skill))
+          putBoolean("is_built_in", skill.builtIn)
+        },
+      )
+    }
+
     // Update state.
     _uiState.update { currentState ->
       currentState.copy(skills = currentState.skills.filter { !names.contains(it.skill.name) })
@@ -636,6 +683,15 @@ constructor(
   fun setSkillSelected(skill: SkillState, selected: Boolean) {
     // Update state.
     val updatedSkill = skill.skill.toBuilder().setSelected(selected).build()
+
+    firebaseAnalytics?.logEvent(
+      GalleryEvent.SKILL_MANAGEMENT.id,
+      Bundle().apply {
+        putString("action", if (selected) "enable" else "disable")
+        putString("skill_name", getSkillNameForLogging(skill.skill))
+        putBoolean("is_built_in", skill.skill.builtIn)
+      },
+    )
     val updatedSkills =
       _uiState.value.skills.map { curSkill ->
         if (curSkill.skill.name == skill.skill.name) {
@@ -661,6 +717,15 @@ constructor(
         }
       currentState.copy(skills = updatedSkills)
     }
+
+    Log.d(
+      TAG,
+      "Analytics: skill_management, action=${if (selected) "enable_all" else "disable_all"}",
+    )
+    firebaseAnalytics?.logEvent(
+      GalleryEvent.SKILL_MANAGEMENT.id,
+      Bundle().apply { putString("action", if (selected) "enable_all" else "disable_all") },
+    )
 
     // Update data store.
     viewModelScope.launch(Dispatchers.IO) { dataStoreRepository.setAllSkillsSelected(selected) }
@@ -1099,6 +1164,17 @@ constructor(
     val allSkills = dataStoreRepository.getAllSkills()
     val updatedList = allSkills.map { if (it.name == oldName) updatedSkill else it }
     dataStoreRepository.setSkills(updatedList)
+  }
+
+  private fun getSkillNameForLogging(skill: Skill): String {
+    val isFeatured =
+      skill.skillUrl.isNotEmpty() &&
+        _uiState.value.featuredSkills.any { it.skillUrl == skill.skillUrl }
+    return if (skill.builtIn || isFeatured) {
+      skill.name
+    } else {
+      "custom_skill"
+    }
   }
 
   private fun getSkillDestinationDir(originalImportDirName: String): File {

@@ -40,4 +40,6 @@ enum class GalleryEvent(val id: String) {
   MODEL_DOWNLOAD(id = "model_download"),
   GENERATE_ACTION(id = "generate_action"),
   BUTTON_CLICKED(id = "button_clicked"),
+  SKILL_MANAGEMENT(id = "skill_management"),
+  SKILL_EXECUTION(id = "skill_execution"),
 }

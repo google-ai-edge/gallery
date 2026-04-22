@@ -75,6 +75,7 @@ import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.AskInfoAgentAction
 import com.google.ai.edge.gallery.common.CallJsAgentAction
+import com.google.ai.edge.gallery.common.LOCAL_URL_BASE
 import com.google.ai.edge.gallery.common.SkillProgressAgentAction
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
@@ -200,6 +201,11 @@ fun AgentChatScreen(
     onSkillClicked = { showSkillManagerBottomSheet = true },
     showImagePicker = true,
     showAudioPicker = true,
+    getActiveSkills = {
+      skillManagerViewModel.getSelectedSkills().map { skill ->
+        if (skill.builtIn) skill.name else "custom_skill"
+      }
+    },
     composableBelowMessageList = { model ->
       val actionChannel = agentTools.actionChannel
       val doneIcon = ImageVector.vectorResource(R.drawable.skill)
@@ -222,12 +228,32 @@ fun AgentChatScreen(
               )
             }
             is CallJsAgentAction -> {
+              val skillName =
+                if (action.url.contains("/skills/")) {
+                  action.url.substringAfter("/skills/").substringBefore("/")
+                } else if (action.url.startsWith(LOCAL_URL_BASE + "/")) {
+                  action.url.substringAfter(LOCAL_URL_BASE + "/").substringBefore("/")
+                } else {
+                  action.url
+                }
               try {
                 // Set up a safety net timeout so we NEVER hang the chat or tool execution
                 launch {
                   delay(60000L) // 60 seconds max
                   if (!action.result.isCompleted) {
                     Log.e(TAG, "JS Execution timed out, completing with error.")
+                    Log.d(
+                      TAG,
+                      "Analytics: skill_execution, skill_name=$skillName, success=false, error_type=timeout",
+                    )
+                    firebaseAnalytics?.logEvent(
+                      GalleryEvent.SKILL_EXECUTION.id,
+                      Bundle().apply {
+                        putString("skill_name", skillName)
+                        putBoolean("success", false)
+                        putString("error_type", "timeout")
+                      },
+                    )
                     action.result.complete(
                       "{\"error\": \"Skill execution timed out. Please check network connection.\"}"
                     )
@@ -249,6 +275,20 @@ fun AgentChatScreen(
                 chatViewJavascriptInterface.onResultListener = { result ->
                   Log.d(TAG, "Got result:\n$result")
                   action.result.complete(result)
+                  val isSuccess = !result.contains("\"error\":")
+                  val errorType = if (isSuccess) "" else "js_error"
+                  Log.d(
+                    TAG,
+                    "Analytics: skill_execution, skill_name=$skillName, success=$isSuccess, error_type=$errorType",
+                  )
+                  firebaseAnalytics?.logEvent(
+                    GalleryEvent.SKILL_EXECUTION.id,
+                    Bundle().apply {
+                      putString("skill_name", skillName)
+                      putBoolean("success", isSuccess)
+                      putString("error_type", errorType)
+                    },
+                  )
                 }
 
                 val safeData = JSONObject.quote(action.data)
@@ -275,6 +315,18 @@ fun AgentChatScreen(
                     .trimIndent()
                 webViewRef?.evaluateJavascript(script, null)
               } catch (e: Exception) {
+                Log.d(
+                  TAG,
+                  "Analytics: skill_execution, skill_name=$skillName, success=false, error_type=exception",
+                )
+                firebaseAnalytics?.logEvent(
+                  GalleryEvent.SKILL_EXECUTION.id,
+                  Bundle().apply {
+                    putString("skill_name", skillName)
+                    putBoolean("success", false)
+                    putString("error_type", "exception")
+                  },
+                )
                 action.result.completeExceptionally(e)
               }
             }
