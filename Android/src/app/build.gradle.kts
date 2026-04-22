@@ -30,12 +30,13 @@ plugins {
 
 android {
   namespace = "com.google.ai.edge.gallery"
-  compileSdk = 35
+  compileSdk = 36
+  buildToolsVersion = "36.0.0"
 
   defaultConfig {
     applicationId = "com.google.aiedge.gallery"
     minSdk = 31
-    targetSdk = 35
+    targetSdk = 36
     versionCode = 26
     versionName = "1.0.12"
 
@@ -66,6 +67,10 @@ android {
   buildFeatures {
     compose = true
     buildConfig = true
+  }
+  lint {
+    disable += "Instantiatable"
+    disable += "UnusedContentLambdaTargetStateParameter"
   }
 }
 
