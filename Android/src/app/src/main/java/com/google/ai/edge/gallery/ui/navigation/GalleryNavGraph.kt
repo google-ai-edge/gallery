@@ -86,6 +86,10 @@ import com.google.ai.edge.gallery.ui.modelmanager.GlobalModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import com.google.ai.edge.gallery.edgeserver.EdgeServerManager
+import com.google.ai.edge.gallery.edgeserver.EdgeServerScreen
+import com.google.ai.edge.gallery.claw.ClawScreen
+import com.google.ai.edge.gallery.runtime.runtimeHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -96,6 +100,8 @@ private const val ROUTE_MODEL_LIST = "model_list"
 private const val ROUTE_MODEL = "route_model"
 private const val ROUTE_BENCHMARK = "benchmark"
 private const val ROUTE_MODEL_MANAGER = "model_manager"
+private const val ROUTE_EDGE_SERVER = "edge_server"
+private const val ROUTE_CLAW = "claw"
 private const val ENTER_ANIMATION_DURATION_MS = 500
 private val ENTER_ANIMATION_EASING = EaseOutExpo
 private const val ENTER_ANIMATION_DELAY_MS = 100
@@ -180,6 +186,59 @@ fun GalleryNavHost(
     onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
   }
 
+  // Auto-initialize model once model list is ready.
+  // Remembers the last used model via SharedPreferences.
+  val autoInitContext = LocalContext.current
+  val navUiState by modelManagerViewModel.uiState.collectAsState()
+  var autoInitDone by remember { mutableStateOf(false) }
+  val prefs = remember { autoInitContext.getSharedPreferences("claw_prefs", android.content.Context.MODE_PRIVATE) }
+
+  LaunchedEffect(navUiState.modelDownloadStatus) {
+    if (autoInitDone) return@LaunchedEffect
+    val downloaded = modelManagerViewModel.getAllDownloadedModels()
+    if (downloaded.isEmpty()) return@LaunchedEffect
+
+    autoInitDone = true
+
+    // Pick the remembered model, or fall back to the first downloaded one
+    val savedModelName = prefs.getString("last_model", null)
+    val model = downloaded.find { it.name == savedModelName } ?: downloaded.first()
+
+    // Save for next launch
+    prefs.edit().putString("last_model", model.name).apply()
+
+    fun bindModel(m: com.google.ai.edge.gallery.data.Model) {
+      val fresh = modelManagerViewModel.getModelByName(m.name) ?: m
+      Log.i(TAG, "Binding model '${fresh.name}', instance=${fresh.instance != null}")
+      com.google.ai.edge.gallery.claw.ClawAgent.activeModel = fresh
+      com.google.ai.edge.gallery.claw.ClawAgent.activeModelHelper = fresh.runtimeHelper
+      EdgeServerManager.bindModel(
+        model = fresh,
+        helper = fresh.runtimeHelper,
+        displayName = fresh.displayName.ifEmpty { fresh.name },
+      )
+    }
+
+    if (model.instance == null) {
+      val task = navUiState.tasks.find { t ->
+        t.models.any { it.name == model.name } && t.id != com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_AGENT_CHAT
+      }
+      if (task != null) {
+        Log.i(TAG, "Auto-initializing model '${model.name}' with task '${task.id}'")
+        try {
+          modelManagerViewModel.initializeModel(
+            context = autoInitContext, task = task, model = model,
+            onDone = { bindModel(model) },
+          )
+        } catch (e: Exception) {
+          Log.e(TAG, "Auto-init failed: ${e.message}", e)
+        }
+      }
+    } else {
+      bindModel(model)
+    }
+  }
+
   NavHost(
     navController = navController,
     startDestination = ROUTE_HOMESCREEN,
@@ -208,6 +267,8 @@ fun GalleryNavHost(
               )
             },
             onModelsClicked = { navController.navigate(ROUTE_MODEL_MANAGER) },
+            onEdgeServerClicked = { navController.navigate(ROUTE_EDGE_SERVER) },
+            onClawClicked = { navController.navigate(ROUTE_CLAW) },
             gm4 = true,
           )
         }
@@ -437,6 +498,35 @@ fun GalleryNavHost(
         )
       }
     }
+
+    // Edge Server page.
+    composable(
+      route = ROUTE_EDGE_SERVER,
+      enterTransition = { slideUpEnter() },
+      exitTransition = { slideDownExit() },
+    ) {
+      EdgeServerScreen(
+        onBack = {
+          enableHomeScreenAnimation = false
+          navController.navigateUp()
+        },
+      )
+    }
+
+    // Claw: On-device GUI Agent.
+    composable(
+      route = ROUTE_CLAW,
+      enterTransition = { slideUpEnter() },
+      exitTransition = { slideDownExit() },
+    ) {
+      ClawScreen(
+        onBack = {
+          enableHomeScreenAnimation = false
+          navController.navigateUp()
+        },
+        modelManagerViewModel = modelManagerViewModel,
+      )
+    }
   }
 
   // Handle incoming intents for deep links
@@ -504,6 +594,16 @@ private fun CustomTaskScreen(
   val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
   LaunchedEffect(modelInitializationStatus) {
     showErrorDialog = modelInitializationStatus?.status == ModelInitializationStatusType.ERROR
+    // Auto-bind model to Edge Server and Claw when initialized.
+    if (modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZED && selectedModel.instance != null) {
+      EdgeServerManager.bindModel(
+        model = selectedModel,
+        helper = selectedModel.runtimeHelper,
+        displayName = selectedModel.displayName.ifEmpty { selectedModel.name },
+      )
+      com.google.ai.edge.gallery.claw.ClawAgent.activeModel = selectedModel
+      com.google.ai.edge.gallery.claw.ClawAgent.activeModelHelper = selectedModel.runtimeHelper
+    }
   }
 
   Scaffold(

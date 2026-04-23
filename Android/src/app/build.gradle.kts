@@ -39,6 +39,8 @@ android {
     versionCode = 28
     versionName = "1.0.12"
 
+
+
     // Needed for HuggingFace auth workflows.
     // Use the scheme of the "Redirect URLs" in HuggingFace app.
     manifestPlaceholders["appAuthRedirectScheme"] =
@@ -66,6 +68,15 @@ android {
   buildFeatures {
     compose = true
     buildConfig = true
+  }
+
+  splits {
+    abi {
+      isEnable = true
+      reset()
+      include("arm64-v8a", "armeabi-v7a", "x86_64")
+      isUniversalApk = true  // Also build a fat APK containing all ABIs
+    }
   }
 }
 
@@ -120,6 +131,7 @@ dependencies {
   debugImplementation(libs.androidx.ui.test.manifest)
   ksp(libs.moshi.kotlin.codegen)
   implementation(libs.mlkit.genai.prompt)
+  implementation(libs.nanohttpd)
 }
 
 protobuf {
