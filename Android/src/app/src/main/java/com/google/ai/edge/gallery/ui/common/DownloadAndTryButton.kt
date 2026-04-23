@@ -93,7 +93,7 @@ private const val TAG = "AGDownloadAndTryButton"
 private const val SYSTEM_RESERVED_MEMORY_IN_BYTES = 3 * (1L shl 30)
 
 private val MODEL_NAMES_TO_SHOW_GEMMA_LICENSES =
-  setOf("Gemma-3n-E2B-it", "Gemma-3n-E4B-it", "Gemma3-1B-IT")
+  setOf("Gemma-3n-E2B-it", "Gemma-3n-E4B-it", "Gemma3-1B-IT", "Gemma3-1B-IT NPU")
 
 /**
  * Handles the "Download & Try it" button click, managing the model download process based on
