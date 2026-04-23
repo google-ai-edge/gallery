@@ -16,11 +16,56 @@
 
 package com.google.ai.edge.gallery
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.rounded.ChatBubbleOutline
+import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Forum
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.google.ai.edge.gallery.openai.OpenAiServerState
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.navigation.GalleryNavHost
+import com.google.ai.edge.gallery.ui.server.ServerScreen
+
+private data class BottomNavItem(
+    val label: String,
+    val icon: ImageVector,
+    val selectedIcon: ImageVector,
+)
+
+private val bottomNavItems = listOf(
+    BottomNavItem(
+        label = "Chat",
+        icon = Icons.Rounded.ChatBubbleOutline,
+        selectedIcon = Icons.Rounded.Forum,
+    ),
+    BottomNavItem(
+        label = "Server",
+        icon = Icons.Outlined.Dns,
+        selectedIcon = Icons.Rounded.Dns,
+    ),
+)
 
 /** Top level composable representing the main screen of the application. */
 @Composable
@@ -28,5 +73,50 @@ fun GalleryApp(
   navController: NavHostController = rememberNavController(),
   modelManagerViewModel: ModelManagerViewModel,
 ) {
-  GalleryNavHost(navController = navController, modelManagerViewModel = modelManagerViewModel)
+  var selectedTab by remember { mutableIntStateOf(0) }
+  val isServerRunning by OpenAiServerState.isRunning.collectAsState()
+
+  Scaffold(
+      bottomBar = {
+          NavigationBar(
+              containerColor = MaterialTheme.colorScheme.surface,
+              contentColor = MaterialTheme.colorScheme.onSurface,
+          ) {
+              bottomNavItems.forEachIndexed { index, item ->
+                  NavigationBarItem(
+                      selected = selectedTab == index,
+                      onClick = { selectedTab = index },
+                      icon = {
+                          Icon(
+                              imageVector = if (selectedTab == index) item.selectedIcon else item.icon,
+                              contentDescription = item.label,
+                          )
+                      },
+                      label = { Text(item.label) },
+                      colors = NavigationBarItemDefaults.colors(
+                          selectedIconColor = MaterialTheme.colorScheme.primary,
+                          selectedTextColor = MaterialTheme.colorScheme.primary,
+                          indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                          unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                          unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                      ),
+                  )
+              }
+          }
+      }
+  ) { innerPadding ->
+      AnimatedContent(
+          targetState = selectedTab,
+          label = "TabContent",
+          transitionSpec = { fadeIn() togetherWith fadeOut() },
+      ) { tab ->
+          when (tab) {
+              0 -> GalleryNavHost(
+                  navController = navController,
+                  modelManagerViewModel = modelManagerViewModel,
+              )
+              1 -> ServerScreen(modifier = Modifier.padding(innerPadding))
+          }
+      }
+  }
 }

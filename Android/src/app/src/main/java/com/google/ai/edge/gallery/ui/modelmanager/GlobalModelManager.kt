@@ -62,6 +62,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -79,6 +80,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -86,11 +88,13 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.openai.OpenAiServerService
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.ui.common.TaskIcon
 import com.google.ai.edge.gallery.ui.common.modelitem.ModelItem
@@ -276,6 +280,9 @@ fun GlobalModelManager(
         contentPadding =
           PaddingValues(top = 16.dp, bottom = innerPadding.calculateBottomPadding() + 80.dp),
       ) {
+        item(key = "openai_server_panel") {
+          OpenAiServerPanel()
+        }
         item(key = "promo") {
           AnimatedVisibility(
             visible = showPromo,
@@ -534,3 +541,96 @@ private fun getFileName(context: Context, uri: Uri): String? {
   }
   return null
 }
+
+@Composable
+fun OpenAiServerPanel() {
+  val context = LocalContext.current
+  val isRunning by OpenAiServerService.isRunning.collectAsState()
+  val localUrl by OpenAiServerService.localUrl.collectAsState()
+  val publicUrl by OpenAiServerService.publicUrl.collectAsState()
+  val clipboardManager = LocalClipboardManager.current
+  var useTunnel by remember { mutableStateOf(false) }
+
+  Column(
+    modifier =
+      Modifier.fillMaxWidth()
+        .padding(bottom = 16.dp)
+        .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.medium)
+        .padding(16.dp),
+    verticalArrangement = Arrangement.spacedBy(8.dp),
+  ) {
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Column {
+        Text("OpenAI API Server", style = MaterialTheme.typography.titleMedium)
+        Text(
+          if (isRunning) "Status: Running" else "Status: Stopped",
+          style = MaterialTheme.typography.bodySmall,
+          color =
+            if (isRunning) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+      Switch(
+        checked = isRunning,
+        onCheckedChange = { checked ->
+          if (checked) {
+            OpenAiServerService.startService(context, useTunnel)
+          } else {
+            OpenAiServerService.stopService(context)
+          }
+        },
+      )
+    }
+
+    if (isRunning) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text("Local URL: $localUrl", style = MaterialTheme.typography.bodySmall)
+        Button(
+          onClick = { localUrl?.let { clipboardManager.setText(AnnotatedString(it)) } },
+          contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+          modifier = Modifier.height(32.dp),
+        ) {
+          Text("Copy", style = MaterialTheme.typography.labelSmall)
+        }
+      }
+
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Column {
+          Text("Internet Access (Tunnel)", style = MaterialTheme.typography.bodyMedium)
+          if (publicUrl != null) {
+            Text("Public URL: $publicUrl", style = MaterialTheme.typography.bodySmall)
+          }
+        }
+        Switch(
+          checked = useTunnel,
+          onCheckedChange = { checked ->
+            useTunnel = checked
+            // Restart service with tunnel option
+            OpenAiServerService.startService(context, useTunnel)
+          },
+        )
+      }
+
+      if (publicUrl != null) {
+        Button(
+          onClick = { publicUrl?.let { clipboardManager.setText(AnnotatedString(it)) } },
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Text("Copy Public URL")
+        }
+      }
+    }
+  }
+}
+

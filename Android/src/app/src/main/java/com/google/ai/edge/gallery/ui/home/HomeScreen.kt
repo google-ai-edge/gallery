@@ -437,6 +437,7 @@ fun HomeScreen(
                   } else {
                     AppTitle(enableAnimation = enableAnimation)
                   }
+
                   IntroText(enableAnimation = enableAnimation, gm4 = gm4)
                   if (gm4) {
                     TryGm4IntroText(enableAnimation = enableAnimation)

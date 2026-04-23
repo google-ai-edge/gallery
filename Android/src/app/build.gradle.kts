@@ -67,6 +67,10 @@ android {
     compose = true
     buildConfig = true
   }
+
+  packagingOptions.pickFirsts.add("META-INF/INDEX.LIST")
+  packagingOptions.pickFirsts.add("META-INF/io.netty.versions.properties")
+  packagingOptions.pickFirsts.add("META-INF/okio.kotlin_module")
 }
 
 dependencies {
@@ -109,6 +113,11 @@ dependencies {
   implementation(libs.firebase.messaging)
   implementation(libs.androidx.exifinterface)
   implementation(libs.moshi.kotlin)
+  implementation(libs.ktor.server.core)
+  implementation(libs.ktor.server.netty)
+  implementation(libs.ktor.server.content.negotiation)
+  implementation(libs.ktor.serialization.kotlinx.json)
+  implementation(libs.ktor.server.cors)
   kapt(libs.hilt.android.compiler)
   testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.junit)
