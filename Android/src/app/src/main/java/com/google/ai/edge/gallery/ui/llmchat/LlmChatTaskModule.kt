@@ -256,9 +256,9 @@ class LlmAskAudioTask @Inject constructor() : CustomTask {
 @Module
 @InstallIn(SingletonComponent::class) // Or another component that fits your scope
 internal object LlmAskAudioModule {
-  @Provides
-  @IntoSet
-  fun provideTask(): CustomTask {
-    return LlmAskAudioTask()
-  }
+//  @Provides
+//  @IntoSet
+//  fun provideTask(): CustomTask {
+//    return LlmAskAudioTask()
+//  }
 }
