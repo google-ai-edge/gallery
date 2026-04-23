@@ -80,6 +80,7 @@ class LlmChatTask @Inject constructor() : CustomTask {
     model.runtimeHelper.initialize(
       context = context,
       model = model,
+      taskId = task.id,
       supportImage = false,
       supportAudio = false,
       onDone = onDone,
@@ -162,6 +163,7 @@ class LlmAskImageTask @Inject constructor() : CustomTask {
     model.runtimeHelper.initialize(
       context = context,
       model = model,
+      taskId = task.id,
       supportImage = true,
       supportAudio = false,
       onDone = onDone,
@@ -227,6 +229,7 @@ class LlmAskAudioTask @Inject constructor() : CustomTask {
     model.runtimeHelper.initialize(
       context = context,
       model = model,
+      taskId = task.id,
       supportImage = false,
       supportAudio = true,
       onDone = onDone,
