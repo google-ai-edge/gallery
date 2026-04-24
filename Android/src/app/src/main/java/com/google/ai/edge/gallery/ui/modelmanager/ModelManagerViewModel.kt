@@ -694,6 +694,63 @@ constructor(
     dataStoreRepository.saveImportedModels(importedModels = importedModels)
   }
 
+  fun addCustomRemoteLlmModel(model: Model) {
+    Log.d(TAG, "adding custom remote llm model: ${model.name}")
+
+    val setOfTasks =
+      mutableSetOf(
+        BuiltInTaskId.LLM_CHAT,
+        BuiltInTaskId.LLM_ASK_IMAGE,
+        BuiltInTaskId.LLM_ASK_AUDIO,
+        BuiltInTaskId.LLM_PROMPT_LAB,
+        BuiltInTaskId.LLM_TINY_GARDEN,
+        BuiltInTaskId.LLM_MOBILE_ACTIONS,
+        BuiltInTaskId.LLM_AGENT_CHAT,
+      )
+    for (task in getTasksByIds(ids = setOfTasks)) {
+      val modelIndex = task.models.indexOfFirst { model.name == it.name }
+      if (modelIndex >= 0) {
+        Log.d(TAG, "duplicated custom remote model found in task. Removing it first")
+        task.models.removeAt(modelIndex)
+      }
+      if (
+        (task.id == BuiltInTaskId.LLM_ASK_IMAGE && model.llmSupportImage) ||
+          (task.id == BuiltInTaskId.LLM_ASK_AUDIO && model.llmSupportAudio) ||
+          (task.id == BuiltInTaskId.LLM_TINY_GARDEN && model.llmSupportTinyGarden) ||
+          (task.id == BuiltInTaskId.LLM_MOBILE_ACTIONS && model.llmSupportMobileActions) ||
+          (task.id != BuiltInTaskId.LLM_ASK_IMAGE &&
+            task.id != BuiltInTaskId.LLM_ASK_AUDIO &&
+            task.id != BuiltInTaskId.LLM_TINY_GARDEN &&
+            task.id != BuiltInTaskId.LLM_MOBILE_ACTIONS)
+      ) {
+        task.models.add(model)
+        if (task.id == BuiltInTaskId.LLM_TINY_GARDEN) {
+          val newConfigs = model.configs.toMutableList()
+          newConfigs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
+          model.configs = newConfigs
+          model.preProcess()
+        }
+      }
+      task.updateTrigger.value = System.currentTimeMillis()
+    }
+
+    val modelDownloadStatus = uiState.value.modelDownloadStatus.toMutableMap()
+    val modelInstances = uiState.value.modelInitializationStatus.toMutableMap()
+    modelDownloadStatus[model.name] =
+      getModelDownloadStatus(model = model)
+    modelInstances[model.name] =
+      ModelInitializationStatus(status = ModelInitializationStatusType.NOT_INITIALIZED)
+
+    _uiState.update {
+      uiState.value.copy(
+        tasks = uiState.value.tasks.toList(),
+        modelDownloadStatus = modelDownloadStatus,
+        modelInitializationStatus = modelInstances,
+        modelImportingUpdateTrigger = System.currentTimeMillis(),
+      )
+    }
+  }
+
   fun getTokenStatusAndData(): TokenStatusAndData {
     // Try to load token data from DataStore.
     var tokenStatus = TokenStatus.NOT_STORED
@@ -846,7 +903,7 @@ constructor(
     downloadRepository.cancelAll {
       Log.d(TAG, "All workers are cancelled.")
 
-      viewModelScope.launch(Dispatchers.Main) {
+      viewModelScope.launch(Dispatchers.IO) {
         val checkedModelNames = mutableSetOf<String>()
         val tokenStatusAndData = getTokenStatusAndData()
         for (task in uiState.value.tasks) {

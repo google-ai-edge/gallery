@@ -1,0 +1,55 @@
+/* Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+syntax = "proto3";
+
+package com.google.ai.edge.gallery.proto;
+
+option java_multiple_files = true;
+option java_outer_classname = "SkillProto";
+option java_package = "com.google.ai.edge.gallery.proto";
+
+message Skills {
+  repeated Skill skill = 1;
+}
+
+message Skill {
+  string name = 1;
+  string description = 2;
+  string instructions = 3;
+
+  // Whether the skill is built-in or not.
+  bool built_in = 4;
+
+  // The url where the SKILL.md is hosted.
+  // Only used when the skill is added through a remote url.
+  string skill_url = 5;
+
+  // The dir name of the imported skill in app's private files dir.
+  // Only used when the skill is imported.
+  string import_dir_name = 6;
+
+  // Whether the skill is selected.
+  bool selected = 7;
+
+  // Whether the skill requires a secret (API key, token, etc).
+  bool require_secret = 8;
+
+  // The description about the secret (e.g. how to get it).
+  string require_secret_description = 10;
+
+  // The homepage of the skill (source, doc).
+  string homepage = 9;
+}
