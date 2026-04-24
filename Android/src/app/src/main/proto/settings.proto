@@ -59,6 +59,7 @@ message LlmConfig {
   bool support_tiny_garden = 8;
   bool support_mobile_actions = 9;
   bool support_thinking = 10;
+  bool support_speculative_decoding = 11;
 }
 
 message Settings {
