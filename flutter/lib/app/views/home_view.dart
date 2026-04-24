@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:get/get.dart';
 
 import '../controllers/home_controller.dart';
@@ -54,33 +56,43 @@ class HomeView extends GetView<HomeController> {
           ),
         ),
         bottomNavigationBar: Obx(
-          () => NavigationBar(
-            selectedIndex: controller.tabIndex.value,
-            onDestinationSelected: controller.setTab,
-            backgroundColor: Colors.white,
-            indicatorColor: const Color(0xFFE8E6FF),
-            destinations: const <NavigationDestination>[
-              NavigationDestination(
-                icon: Icon(Icons.chat_bubble_outline_rounded),
-                selectedIcon: Icon(Icons.chat_bubble_rounded),
-                label: 'Chats',
+          () => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                top: BorderSide(color: Color(0xFFEAECF2), width: 1),
               ),
-              NavigationDestination(
-                icon: Icon(Icons.widgets_outlined),
-                selectedIcon: Icon(Icons.widgets_rounded),
-                label: 'Models',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.dns_outlined),
-                selectedIcon: Icon(Icons.dns_rounded),
-                label: 'Server',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.settings_outlined),
-                selectedIcon: Icon(Icons.settings_rounded),
-                label: 'Settings',
-              ),
-            ],
+            ),
+            child: NavigationBar(
+              selectedIndex: controller.tabIndex.value,
+              onDestinationSelected: controller.setTab,
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              indicatorColor: const Color(0xFFE8E6FF),
+              destinations: const <NavigationDestination>[
+                NavigationDestination(
+                  icon: Icon(Icons.chat_bubble_outline_rounded),
+                  selectedIcon: Icon(Icons.chat_bubble_rounded),
+                  label: 'Chats',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.widgets_outlined),
+                  selectedIcon: Icon(Icons.widgets_rounded),
+                  label: 'Models',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.dns_outlined),
+                  selectedIcon: Icon(Icons.dns_rounded),
+                  label: 'Server',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  selectedIcon: Icon(Icons.settings_rounded),
+                  label: 'Settings',
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -88,8 +100,55 @@ class HomeView extends GetView<HomeController> {
   }
 }
 
-class _ChatTab extends GetView<HomeController> {
+class _ChatTab extends StatefulWidget {
   const _ChatTab();
+
+  @override
+  State<_ChatTab> createState() => _ChatTabState();
+}
+
+class _ChatTabState extends State<_ChatTab> {
+  final ScrollController _scrollController = ScrollController();
+  final HomeController controller = Get.find<HomeController>();
+  bool _userScrolledUp = false;
+  Worker? _messageWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    // Watch messages list for changes and auto-scroll
+    _messageWorker = ever(controller.messages, (_) => _autoScroll());
+  }
+
+  @override
+  void dispose() {
+    _messageWorker?.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+    // User is "at bottom" if within 80px of the end
+    _userScrolledUp = (maxScroll - currentScroll) > 80;
+  }
+
+  void _autoScroll() {
+    if (_userScrolledUp || !_scrollController.hasClients) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -135,6 +194,7 @@ class _ChatTab extends GetView<HomeController> {
               return const _EmptyChatState();
             }
             return ListView.separated(
+              controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
               itemCount: controller.messages.length,
               separatorBuilder: (_, index) => const SizedBox(height: 12),
@@ -245,6 +305,13 @@ class _ServerTab extends GetView<HomeController> {
     final theme = Theme.of(context);
     return Obx(() {
       final server = controller.serverStatus.value;
+      final tunnelIsStarting =
+          (server?.isRunning ?? false) &&
+          (server?.tunnelEnabled ?? controller.useTunnel.value) &&
+          (server?.publicUrl?.isNotEmpty ?? false) == false;
+      final externalTestDisabled =
+          controller.externalServerTestInProgress.value ||
+          (server?.publicUrl?.isNotEmpty ?? false) == false;
       return ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: <Widget>[
@@ -298,7 +365,11 @@ class _ServerTab extends GetView<HomeController> {
                   ),
                   _ServerField(
                     label: 'Public URL',
-                    value: server?.publicUrl ?? 'Tunnel disabled',
+                    value:
+                        server?.publicUrl ??
+                        (tunnelIsStarting
+                            ? 'Starting tunnel, connecting to Cloudflare...'
+                            : 'Tunnel disabled'),
                   ),
                   const SizedBox(height: 18),
                   SizedBox(
@@ -362,7 +433,7 @@ class _ServerTab extends GetView<HomeController> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: controller.externalServerTestInProgress.value
+                      onPressed: externalTestDisabled
                           ? null
                           : controller.testExternalServerHealth,
                       style: OutlinedButton.styleFrom(
@@ -554,18 +625,24 @@ class _ChatHistoryDrawer extends GetView<HomeController> {
   @override
   Widget build(BuildContext context) {
     return Drawer(
+      backgroundColor: const Color(0xFFF7F8FC),
       child: SafeArea(
         child: Obx(
           () => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Padding(
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+                padding: const EdgeInsets.fromLTRB(24, 24, 20, 16),
                 child: Row(
                   children: <Widget>[
                     Expanded(
                       child: Text(
-                        'Chat history',
-                        style: Theme.of(context).textTheme.titleLarge,
+                        'Chat History',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.ink,
+                            ),
                       ),
                     ),
                     FilledButton.icon(
@@ -573,44 +650,124 @@ class _ChatHistoryDrawer extends GetView<HomeController> {
                         Navigator.of(context).pop();
                         controller.resetConversation();
                       },
-                      icon: const Icon(Icons.add),
-                      label: const Text('New'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTheme.violet,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        elevation: 0,
+                      ),
+                      icon: const Icon(Icons.add_rounded, size: 20),
+                      label: const Text(
+                        'New',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 1),
+              const SizedBox(height: 8),
               Expanded(
                 child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                   itemCount: controller.chatSessions.length,
-                  separatorBuilder: (_, index) => const Divider(height: 1),
+                  separatorBuilder: (_, index) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final session = controller.chatSessions[index];
                     final selected =
                         controller.currentChatId.value == session.id;
-                    return ListTile(
-                      selected: selected,
-                      title: Text(
-                        session.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        session.modelName?.isNotEmpty == true
-                            ? session.modelName!
-                            : _formatChatDate(session.updatedAt),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: IconButton(
-                        onPressed: () =>
-                            controller.deleteChatSession(session.id),
-                        icon: const Icon(Icons.delete_outline_rounded),
-                      ),
+
+                    return InkWell(
                       onTap: () {
                         Navigator.of(context).pop();
                         controller.openChatSession(session.id);
                       },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? AppTheme.violet.withAlpha(20)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: selected
+                                ? AppTheme.violet.withAlpha(50)
+                                : const Color(0xFFE8EAF2),
+                            width: selected ? 1.5 : 1.0,
+                          ),
+                          boxShadow: selected
+                              ? null
+                              : <BoxShadow>[
+                                  BoxShadow(
+                                    color: Colors.black.withAlpha(5),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    session.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontWeight: selected
+                                          ? FontWeight.w700
+                                          : FontWeight.w600,
+                                      color: selected
+                                          ? AppTheme.violet
+                                          : AppTheme.ink,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    session.modelName?.isNotEmpty == true
+                                        ? session.modelName!
+                                        : _formatChatDate(session.updatedAt),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: selected
+                                          ? AppTheme.violet.withAlpha(180)
+                                          : AppTheme.slate,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: () =>
+                                  controller.deleteChatSession(session.id),
+                              style: IconButton.styleFrom(
+                                backgroundColor: selected
+                                    ? Colors.white.withAlpha(150)
+                                    : const Color(0xFFF7F8FC),
+                                padding: const EdgeInsets.all(8),
+                              ),
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                size: 18,
+                                color: AppTheme.coral,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -780,33 +937,44 @@ class _AttachmentTray extends GetView<HomeController> {
       if (!hasAnything) {
         return const SizedBox.shrink();
       }
-      return SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: <Widget>[
-            ...controller.attachedImagePaths.map(
-              (path) => _AttachmentChip(
-                label: _basename(path),
-                icon: Icons.image_outlined,
-                onDeleted: controller.clearImages,
-              ),
+      return Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: <Widget>[
+          if (controller.attachedImagePaths.isNotEmpty)
+            _AttachmentChip(
+              label: controller.attachedImagePaths.length == 1
+                  ? _basename(controller.attachedImagePaths.first)
+                  : '${controller.attachedImagePaths.length} images attached',
+              subtitle: controller.attachedImagePaths.length == 1
+                  ? 'Ready to analyze'
+                  : 'Gallery bundle ready',
+              icon: Icons.image_outlined,
+              accent: const Color(0xFF77C0FF),
+              previewPath: controller.attachedImagePaths.first,
+              onDeleted: controller.clearImages,
             ),
-            ...controller.attachedAudioPaths.map(
-              (path) => _AttachmentChip(
-                label: _basename(path),
-                icon: Icons.mic_none_rounded,
-                onDeleted: controller.clearAudio,
-              ),
+          if (controller.attachedAudioPaths.isNotEmpty)
+            _AttachmentChip(
+              label: controller.attachedAudioPaths.length == 1
+                  ? _basename(controller.attachedAudioPaths.first)
+                  : '${controller.attachedAudioPaths.length} recordings attached',
+              subtitle: controller.isRecording.value
+                  ? 'Listening now'
+                  : 'Voice context ready',
+              icon: Icons.graphic_eq_rounded,
+              accent: const Color(0xFFFFA56E),
+              onDeleted: controller.clearAudio,
             ),
-            if (controller.hasAttachedDocument)
-              _AttachmentChip(
-                label: controller.attachedDocumentName.value,
-                icon: Icons.description_outlined,
-                onDeleted: controller.clearDocument,
-              ),
-          ],
-        ),
+          if (controller.hasAttachedDocument)
+            _AttachmentChip(
+              label: controller.attachedDocumentName.value,
+              subtitle: 'Document context ready',
+              icon: Icons.description_outlined,
+              accent: const Color(0xFF8FD2A9),
+              onDeleted: controller.clearDocument,
+            ),
+        ],
       );
     });
   }
@@ -817,184 +985,143 @@ class _ChatComposerPanel extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
-    final hasModel = controller.activeModelName != null;
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 6, 14, 14),
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[Color(0xFF2B2D33), Color(0xFF1F2127)],
-        ),
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: const Color(0xFF343844)),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x22000000),
-            blurRadius: 30,
-            offset: Offset(0, 18),
-          ),
-        ],
-      ),
+      color: const Color(0xFFF7F8FD),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Container(
-            width: double.infinity,
-            constraints: const BoxConstraints(minHeight: 112),
-            child: TextField(
-              controller: controller.inputController,
-              onChanged: controller.updateComposer,
-              minLines: 3,
-              maxLines: 7,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w500,
-                height: 1.28,
-              ),
-              decoration: const InputDecoration(
-                hintText: 'Ask anything, describe an image, or use a document',
-                hintStyle: TextStyle(
-                  color: Color(0xFF9EA4B5),
-                  fontSize: 19,
-                  fontWeight: FontWeight.w500,
-                  height: 1.3,
-                ),
-                fillColor: Colors.transparent,
-                filled: true,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
           const _AttachmentTray(),
-          const SizedBox(height: 10),
-          Row(
-            children: <Widget>[
-              _ComposerSecondaryIcon(
-                icon: Icons.add_rounded,
-                onTap: controller.pickDocument,
-              ),
-              const SizedBox(width: 10),
-              _ComposerSecondaryIcon(
-                icon: Icons.tune_rounded,
-                onTap: () => controller.setTab(1),
-              ),
-              const SizedBox(width: 10),
-              _ComposerSecondaryIcon(
-                icon: Icons.image_outlined,
-                onTap: controller.pickImages,
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Row(
-                    children: <Widget>[
-                      _ComposerModeChip(
-                        label: hasModel ? 'Native ready' : 'Pick model',
-                        active: hasModel,
-                      ),
-                      const SizedBox(width: 10),
-                      Obx(
-                        () => _ComposerModeChip(
-                          label: controller.isRecording.value
-                              ? 'Listening'
-                              : controller.attachedAudioPaths.isNotEmpty
-                              ? 'Voice ready'
-                              : 'Voice',
-                          active:
-                              controller.isRecording.value ||
-                              controller.attachedAudioPaths.isNotEmpty,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Obx(
-                () => _ComposerSecondaryIcon(
-                  icon: controller.isRecording.value
-                      ? Icons.stop_rounded
-                      : Icons.mic_none_rounded,
-                  highlighted: controller.isRecording.value,
-                  onTap: controller.toggleRecording,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Obx(
-                () => InkWell(
-                  borderRadius: BorderRadius.circular(24),
-                  onTap: controller.chatInProgress.value
-                      ? controller.stopGeneration
-                      : controller.sendMessage,
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: const Color(0xFFE0E3EB)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                // + button for attachments
+                GestureDetector(
+                  onTap: () => _showAttachMenu(context),
                   child: Container(
-                    width: 62,
-                    height: 62,
-                    decoration: BoxDecoration(
-                      color: controller.chatInProgress.value
-                          ? AppTheme.coral
-                          : AppTheme.violet,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: const <BoxShadow>[
-                        BoxShadow(
-                          color: Color(0x336766F4),
-                          blurRadius: 20,
-                          offset: Offset(0, 10),
-                        ),
-                      ],
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF3F4F8),
+                      shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      controller.chatInProgress.value
-                          ? Icons.stop_rounded
-                          : Icons.send_rounded,
-                      color: Colors.white,
-                      size: 28,
+                    child: const Icon(
+                      Icons.add,
+                      color: Color(0xFF5B6478),
+                      size: 20,
                     ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 10),
+                // Text field
+                Expanded(
+                  child: TextField(
+                    controller: controller.inputController,
+                    onChanged: controller.updateComposer,
+                    minLines: 1,
+                    maxLines: 4,
+                    textInputAction: TextInputAction.newline,
+                    style: const TextStyle(
+                      color: Color(0xFF1A2035),
+                      fontSize: 15,
+                      height: 1.35,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'Ask anything...',
+                      hintStyle: TextStyle(
+                        color: Color(0xFFB0B7C8),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      isCollapsed: true,
+                      contentPadding: EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Action button
+                Obx(() {
+                  final hasText = controller.composerText.value
+                      .trim()
+                      .isNotEmpty;
+                  final inProgress = controller.chatInProgress.value;
+                  final isRecording = controller.isRecording.value;
+
+                  if (inProgress) {
+                    return _ActionCircle(
+                      icon: Icons.stop_rounded,
+                      onTap: controller.stopGeneration,
+                    );
+                  }
+                  if (hasText) {
+                    return _ActionCircle(
+                      icon: Icons.arrow_upward_rounded,
+                      onTap: controller.sendMessage,
+                    );
+                  }
+                  return _ActionCircle(
+                    icon: isRecording ? Icons.stop_rounded : Icons.mic_rounded,
+                    onTap: controller.toggleRecording,
+                    highlighted: isRecording,
+                  );
+                }),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
-}
 
-class _AttachmentChip extends StatelessWidget {
-  const _AttachmentChip({
-    required this.label,
-    required this.icon,
-    required this.onDeleted,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onDeleted;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: Chip(
-        avatar: Icon(icon, size: 18),
-        label: Text(label),
-        deleteIcon: const Icon(Icons.close, size: 18),
-        onDeleted: onDeleted,
+  void _showAttachMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.image_outlined),
+                title: const Text('Add Images'),
+                onTap: () {
+                  Navigator.pop(context);
+                  controller.pickImages();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.description_outlined),
+                title: const Text('Add Document'),
+                onTap: () {
+                  Navigator.pop(context);
+                  controller.pickDocument();
+                },
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-class _ComposerSecondaryIcon extends StatelessWidget {
-  const _ComposerSecondaryIcon({
+class _ActionCircle extends StatelessWidget {
+  const _ActionCircle({
     required this.icon,
     required this.onTap,
     this.highlighted = false,
@@ -1006,63 +1133,139 @@ class _ComposerSecondaryIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Ink(
-        width: 54,
-        height: 54,
+      child: Container(
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
-          color: highlighted ? AppTheme.coral : const Color(0xFF2F3238),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: highlighted
-                ? const Color(0xFFFFB2AD)
-                : const Color(0xFF3A3E46),
-          ),
+          color: highlighted ? const Color(0xFFEF5350) : AppTheme.violet,
+          shape: BoxShape.circle,
         ),
-        child: Icon(icon, color: const Color(0xFFE4E6EC), size: 26),
+        child: Icon(icon, color: Colors.white, size: 20),
       ),
     );
   }
 }
 
-class _ComposerModeChip extends StatelessWidget {
-  const _ComposerModeChip({required this.label, required this.active});
+class _AttachmentChip extends StatelessWidget {
+  const _AttachmentChip({
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    required this.accent,
+    required this.onDeleted,
+    this.previewPath,
+  });
 
   final String label;
-  final bool active;
+  final String subtitle;
+  final IconData icon;
+  final Color accent;
+  final VoidCallback onDeleted;
+  final String? previewPath;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      width: 188,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: active ? const Color(0xFF353A46) : const Color(0xFF292C33),
+        color: const Color(0xFF343842),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: active ? const Color(0xFF4A4F5C) : const Color(0xFF3A3E46),
-        ),
+        border: Border.all(color: const Color(0xFF454A56)),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: active ? Colors.white : const Color(0xFFD5D8E1),
-          fontWeight: FontWeight.w700,
-        ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: accent.withAlpha(38),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: previewPath != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.file(File(previewPath!), fit: BoxFit.cover),
+                  )
+                : Icon(icon, color: accent, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFADB3C2),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          InkWell(
+            onTap: onDeleted,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2D34),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.close_rounded,
+                color: Colors.white70,
+                size: 18,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ChatBubble extends StatelessWidget {
+class _ChatBubble extends StatefulWidget {
   const _ChatBubble({required this.message});
 
   final ChatMessageItem message;
 
   @override
+  State<_ChatBubble> createState() => _ChatBubbleState();
+}
+
+class _ChatBubbleState extends State<_ChatBubble> {
+  @override
   Widget build(BuildContext context) {
+    final controller = Get.find<HomeController>();
+    final message = widget.message;
     final isUser = message.role == 'user';
+    final thinkingText = message.thinking.trim();
+    final showThinkingUi =
+        !isUser && message.isStreaming && thinkingText.isNotEmpty;
+    final visibleText =
+        !isUser && message.isStreaming && controller.activeModelSupportsThinking
+        ? ''
+        : message.text.trim();
     final bubbleColor = isUser ? AppTheme.violet : Colors.white;
     final textColor = isUser ? Colors.white : AppTheme.ink;
 
@@ -1121,34 +1324,100 @@ class _ChatBubble extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (message.thinking.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isUser
-                        ? Colors.white.withAlpha(36)
-                        : const Color(0xFFF8F0DA),
-                    borderRadius: BorderRadius.circular(18),
+              // Thinking section — collapsible, collapsed by default
+              if (showThinkingUi)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F0E3),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const <Widget>[
+                            Icon(
+                              Icons.psychology_rounded,
+                              size: 16,
+                              color: Color(0xFFA08832),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Thinking',
+                              style: TextStyle(
+                                color: Color(0xFFA08832),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        margin: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFAF6EC),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE8DFC6)),
+                        ),
+                        child: Text(
+                          thinkingText,
+                          style: const TextStyle(
+                            color: Color(0xFF8A6A11),
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: Text(
-                    message.thinking,
-                    style: TextStyle(
-                      color: isUser ? Colors.white : const Color(0xFF8A6A11),
-                      fontSize: 13,
+                ),
+              visibleText.isEmpty && message.isStreaming
+                  ? Text(
+                      'Thinking...',
+                      style: TextStyle(
+                        color: textColor,
+                        height: 1.4,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    )
+                  : MarkdownBody(
+                      data: visibleText,
+                      selectable: true,
+                      styleSheet: MarkdownStyleSheet(
+                        p: TextStyle(
+                          color: message.isError ? AppTheme.coral : textColor,
+                          height: 1.4,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        code: TextStyle(
+                          color: isUser ? Colors.white : AppTheme.ink,
+                          backgroundColor: isUser
+                              ? Colors.white.withAlpha(20)
+                              : const Color(0xFFF3F4F8),
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                        ),
+                        codeblockDecoration: BoxDecoration(
+                          color: isUser
+                              ? Colors.white.withAlpha(20)
+                              : const Color(0xFFF3F4F8),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        listBullet: TextStyle(
+                          color: message.isError ? AppTheme.coral : textColor,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              Text(
-                message.text.isEmpty && message.isStreaming
-                    ? 'Thinking...'
-                    : message.text,
-                style: TextStyle(
-                  color: message.isError ? AppTheme.coral : textColor,
-                  height: 1.4,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
             ],
           ),
         ),
@@ -1247,11 +1516,13 @@ class _ModelCard extends GetView<HomeController> {
                   label: _statusLabel(model),
                   color: model.isDownloaded || model.isActive
                       ? AppTheme.mint
+                      : model.isPartiallyDownloaded
+                      ? AppTheme.amber
                       : AppTheme.slate,
                 ),
               ],
             ),
-            if (model.isDownloading) ...<Widget>[
+            if (model.isDownloading || model.isPartiallyDownloaded) ...<Widget>[
               const SizedBox(height: 12),
               Row(
                 children: <Widget>[
@@ -1279,14 +1550,18 @@ class _ModelCard extends GetView<HomeController> {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                      model.bytesPerSecond > 0
+                      model.isPartiallyDownloaded
+                          ? 'Paused'
+                          : model.bytesPerSecond > 0
                           ? '${_humanBytes(model.bytesPerSecond)}/s'
                           : 'Calculating speed...',
                       style: const TextStyle(color: AppTheme.slate),
                     ),
                   ),
                   Text(
-                    model.remainingMs > 0
+                    model.isPartiallyDownloaded
+                        ? 'Resume anytime'
+                        : model.remainingMs > 0
                         ? _formatRemaining(model.remainingMs)
                         : 'Estimating time left...',
                     style: const TextStyle(color: AppTheme.slate),
@@ -1355,6 +1630,12 @@ class _ModelCard extends GetView<HomeController> {
     required bool isLoadPending,
     required bool isUnloadPending,
   }) {
+    final activeDownload = controller.activeDownloadingModelName;
+    final anotherDownloadActive =
+        activeDownload != null &&
+        activeDownload != model.name &&
+        !model.isDownloading &&
+        !isDownloadPending;
     if (isDownloadPending) {
       return FilledButton(
         onPressed: null,
@@ -1386,7 +1667,41 @@ class _ModelCard extends GetView<HomeController> {
         child: const _DotsLoader(label: 'Loading model'),
       );
     }
+    if (model.isPartiallyDownloaded) {
+      if (anotherDownloadActive) {
+        return FilledButton(
+          onPressed: null,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFD7DCEA),
+            foregroundColor: AppTheme.slate,
+            padding: const EdgeInsets.symmetric(vertical: 18),
+          ),
+          child: const Text('Another model is downloading'),
+        );
+      }
+      return FilledButton.icon(
+        onPressed: () => controller.downloadModel(model.name),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppTheme.amber,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 18),
+        ),
+        icon: const Icon(Icons.download_for_offline_rounded),
+        label: const Text('Resume Download'),
+      );
+    }
     if (!model.isDownloaded) {
+      if (anotherDownloadActive) {
+        return FilledButton(
+          onPressed: null,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFD7DCEA),
+            foregroundColor: AppTheme.slate,
+            padding: const EdgeInsets.symmetric(vertical: 18),
+          ),
+          child: const Text('Another model is downloading'),
+        );
+      }
       return FilledButton.icon(
         onPressed: () => controller.downloadModel(model.name),
         style: FilledButton.styleFrom(
@@ -1448,6 +1763,9 @@ class _ModelCard extends GetView<HomeController> {
     }
     if (model.isDownloading) {
       return 'Downloading';
+    }
+    if (model.isPartiallyDownloaded) {
+      return 'Paused download';
     }
     if (model.isDownloaded) {
       return 'Downloaded';
@@ -1544,6 +1862,12 @@ class _ServerField extends StatelessWidget {
   final String label;
   final String value;
 
+  bool get _isCopyable =>
+      value.isNotEmpty &&
+      value != 'Not available' &&
+      value != 'Tunnel disabled' &&
+      !value.startsWith('Starting tunnel');
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -1555,13 +1879,38 @@ class _ServerField extends StatelessWidget {
           const SizedBox(height: 6),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
             decoration: BoxDecoration(
               color: const Color(0xFFF7F8FC),
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: const Color(0xFFE2E6F0)),
             ),
-            child: Text(value),
+            child: Row(
+              children: <Widget>[
+                Expanded(child: Text(value)),
+                if (_isCopyable)
+                  GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: value));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('$label copied'),
+                          duration: const Duration(seconds: 1),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.copy_rounded,
+                        size: 18,
+                        color: AppTheme.slate,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),

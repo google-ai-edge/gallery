@@ -241,7 +241,7 @@ class DefaultDownloadRepository(
             } else {
               sendNotification(
                 title = context.getString(R.string.notification_title_fail),
-                text = context.getString(R.string.notification_content_success).format(model.name),
+                text = context.getString(R.string.notification_content_fail).format(model.name),
                 taskId = "",
                 modelName = "",
               )

@@ -5,6 +5,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 class AppStorage {
   AppStorage._();
 
+  static const String _defaultHfToken = '';
+
   static const String _boxName = 'edge_gallery_flutter';
   static const String _customModelsKey = 'custom_models';
   static const String _serverUrlKey = 'server_url';
@@ -125,7 +127,8 @@ class AppStorage {
     _box.put(_maxTokensKey, value);
   }
 
-  String get huggingFaceToken => (_box.get(_hfTokenKey) as String?) ?? '';
+  String get huggingFaceToken =>
+      (_box.get(_hfTokenKey) as String?) ?? _defaultHfToken;
 
   set huggingFaceToken(String value) {
     if (value.trim().isEmpty) {

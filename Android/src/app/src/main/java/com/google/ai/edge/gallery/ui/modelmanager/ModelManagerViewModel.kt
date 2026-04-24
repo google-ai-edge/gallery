@@ -903,30 +903,17 @@ constructor(
     downloadRepository.cancelAll {
       Log.d(TAG, "All workers are cancelled.")
 
-      viewModelScope.launch(Dispatchers.IO) {
+      viewModelScope.launch(Dispatchers.Main) {
         val checkedModelNames = mutableSetOf<String>()
-        val tokenStatusAndData = getTokenStatusAndData()
         for (task in uiState.value.tasks) {
           for (model in task.models) {
             if (checkedModelNames.contains(model.name)) {
               continue
             }
 
-            // Start download for partially downloaded models.
             val downloadStatus = uiState.value.modelDownloadStatus[model.name]?.status
             if (downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED) {
-              if (
-                tokenStatusAndData.status == TokenStatus.NOT_EXPIRED &&
-                  tokenStatusAndData.data != null
-              ) {
-                model.accessToken = tokenStatusAndData.data.accessToken
-              }
-              Log.d(TAG, "Sending a new download request for '${model.name}'")
-              downloadRepository.downloadModel(
-                task = task,
-                model = model,
-                onStatusUpdated = this@ModelManagerViewModel::setDownloadStatus,
-              )
+              Log.d(TAG, "Keeping partially downloaded model '${model.name}' paused until user resumes it.")
             }
 
             checkedModelNames.add(model.name)

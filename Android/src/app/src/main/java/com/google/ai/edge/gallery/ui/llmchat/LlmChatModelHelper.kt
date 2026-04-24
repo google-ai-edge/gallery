@@ -284,7 +284,30 @@ object LlmChatModelHelper : LlmModelHelper {
       Contents.of(contents),
       object : MessageCallback {
         override fun onMessage(message: Message) {
-          resultListener(message.toString(), false, message.channels["thought"])
+          val thought = message.channels["thought"]
+          val visibleContentsText =
+            message.contents.contents
+              .mapNotNull { content -> (content as? Content.Text)?.text }
+              .joinToString("")
+          val visibleChannelText =
+            message.channels
+              .filterKeys { it != "thought" }
+              .values
+              .joinToString("")
+          val visibleText =
+            when {
+              visibleContentsText.isNotEmpty() -> visibleContentsText
+              visibleChannelText.isNotEmpty() -> visibleChannelText
+              !thought.isNullOrEmpty() ->
+                message
+                  .toString()
+                  .replace(thought, "")
+                  .replace("<think>", "")
+                  .replace("</think>", "")
+                  
+              else -> message.toString()
+            }
+          resultListener(visibleText, false, thought)
         }
 
         override fun onDone() {

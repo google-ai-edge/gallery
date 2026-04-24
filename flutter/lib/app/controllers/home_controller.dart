@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' hide Response;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -66,9 +66,24 @@ class HomeController extends GetxController {
   Timer? _poller;
   StreamSubscription<Map<String, dynamic>>? _eventSubscription;
   String? _streamingMessageId;
+  final Map<String, String> _streamingRawText = <String, String>{};
 
   String? get activeModelName =>
       inventory.value?.activeModelName ?? serverStatus.value?.activeModelName;
+
+  bool get activeModelSupportsThinking {
+    final name = activeModelName;
+    if (name == null || name.isEmpty) {
+      return false;
+    }
+    for (final model
+        in inventory.value?.models ?? const <NativeModelSummary>[]) {
+      if (model.name == name) {
+        return model.supportsThinking;
+      }
+    }
+    return false;
+  }
 
   bool get hasAttachedDocument => attachedDocumentContent.isNotEmpty;
 
@@ -102,7 +117,7 @@ class HomeController extends GetxController {
     await _syncSavedCustomModels();
     await refreshRuntime();
     _poller = Timer.periodic(
-      const Duration(seconds: 2),
+      const Duration(seconds: 1),
       (_) => refreshRuntime(silent: true),
     );
     bootstrapping.value = false;
@@ -119,6 +134,16 @@ class HomeController extends GetxController {
       ]);
       inventory.value = results[0] as NativeModelInventory;
       serverStatus.value = results[1] as NativeServerStatus;
+      for (final model
+          in inventory.value?.models ?? const <NativeModelSummary>[]) {
+        if (model.isDownloading ||
+            model.isDownloaded ||
+            model.isPartiallyDownloaded ||
+            model.downloadStatus == 'FAILED' ||
+            model.downloadStatus == 'NOT_DOWNLOADED') {
+          pendingDownloadModels.remove(model.name);
+        }
+      }
       _applyFilter();
       _storage.serverUrl = serverStatus.value?.localUrl;
       _storage.lastRefreshAt = DateTime.now();
@@ -181,6 +206,22 @@ class HomeController extends GetxController {
       _testServerHealth(local: false, url: serverStatus.value?.publicUrl ?? '');
 
   Future<void> downloadModel(String name) async {
+    final activeDownload = activeDownloadingModelName;
+    if (activeDownload != null && activeDownload != name) {
+      String label = activeDownload;
+      final models = inventory.value?.models ?? const <NativeModelSummary>[];
+      for (final model in models) {
+        if (model.name == activeDownload) {
+          label = model.displayName.isEmpty ? model.name : model.displayName;
+          break;
+        }
+      }
+      Get.snackbar(
+        'One download at a time',
+        '$label is already downloading. Finish or stop it before starting another model.',
+      );
+      return;
+    }
     pendingDownloadModels.add(name);
     await _syncWakelock();
     try {
@@ -425,6 +466,19 @@ class HomeController extends GetxController {
   bool isUnloadPending(String modelName) =>
       pendingUnloadModels.contains(modelName);
 
+  String? get activeDownloadingModelName {
+    final models = inventory.value?.models ?? const <NativeModelSummary>[];
+    for (final model in models) {
+      if (model.isDownloading) {
+        return model.name;
+      }
+    }
+    if (pendingDownloadModels.isNotEmpty) {
+      return pendingDownloadModels.first;
+    }
+    return null;
+  }
+
   Future<void> importLocalModel() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -623,6 +677,10 @@ class HomeController extends GetxController {
         );
         unawaited(_syncWakelock());
         break;
+      case 'model_download_requested':
+      case 'model_download_progress':
+        unawaited(refreshRuntime(silent: true));
+        break;
       default:
         final modelName = event['modelName'] as String?;
         if (modelName != null) {
@@ -648,23 +706,68 @@ class HomeController extends GetxController {
       return;
     }
     final current = messages[index];
+
+    final nativeOutput =
+        chunk + (thinking.isNotEmpty ? '\n<think>\n$thinking\n</think>\n' : '');
+
+    final currentRaw = _streamingRawText[id] ?? '';
+    final newRaw = currentRaw + nativeOutput;
+    _streamingRawText[id] = newRaw;
+
+    final parsed = _parseFullRawText(newRaw);
+
     messages[index] = current.copyWith(
-      text: current.text + chunk,
-      thinking: current.thinking + thinking,
+      text: parsed.text,
+      thinking: parsed.thinking,
       isStreaming: !done,
     );
   }
 
   void _finalizeStreamingMessage() {
     final id = _streamingMessageId;
-    if (id == null) {
-      return;
-    }
+    _streamingRawText.remove(id);
+    _streamingMessageId = null;
+
     final index = messages.indexWhere((message) => message.id == id);
     if (index >= 0) {
-      messages[index] = messages[index].copyWith(isStreaming: false);
+      final current = messages[index];
+      messages[index] = current.copyWith(
+        text: current.text.trim(),
+        thinking: current.thinking.trim(),
+        isStreaming: false,
+      );
+      _persistCurrentChat(
+        sessionId: currentChatId.value!,
+        modelName: activeModelName,
+      );
     }
-    _streamingMessageId = null;
+  }
+
+  ({String text, String thinking}) _parseFullRawText(String rawText) {
+    var remaining = rawText;
+    final thinkingParts = <String>[];
+
+    final completePattern = RegExp(r'<think>(.*?)</think>', dotAll: true);
+    for (final match in completePattern.allMatches(remaining)) {
+      final part = match.group(1);
+      if (part != null && part.trim().isNotEmpty) {
+        thinkingParts.add(part);
+      }
+    }
+    remaining = remaining.replaceAll(completePattern, '');
+
+    final openIdx = remaining.lastIndexOf('<think>');
+    if (openIdx >= 0) {
+      final trailing = remaining.substring(openIdx + 7);
+      if (trailing.trim().isNotEmpty) {
+        thinkingParts.add(trailing);
+      }
+      remaining = remaining.substring(0, openIdx);
+    }
+
+    remaining = remaining.replaceAll('</think>', '');
+
+    return (text: remaining, thinking: thinkingParts.join('\n\n'));
   }
 
   void _replaceStreamingMessageWithError(String message) {
@@ -832,7 +935,10 @@ class HomeController extends GetxController {
     succeeded.value = false;
     message.value = '';
     try {
-      final response = await _dio.get<dynamic>('${_normalizeUrl(url)}/health');
+      final response = await _getHealthWithRetry(
+        '${_normalizeUrl(url)}/health',
+        attempts: local ? 1 : 8,
+      );
       succeeded.value = true;
       message.value =
           '${local ? 'Local' : 'External'} health endpoint is live. Status ${response.statusCode}.';
@@ -843,6 +949,26 @@ class HomeController extends GetxController {
     } finally {
       inProgress.value = false;
     }
+  }
+
+  Future<Response<dynamic>> _getHealthWithRetry(
+    String url, {
+    required int attempts,
+  }) async {
+    Object? lastError;
+    for (var attempt = 0; attempt < attempts; attempt++) {
+      try {
+        return await _dio.get<dynamic>(url);
+      } catch (error) {
+        lastError = error;
+        if (attempt == attempts - 1) {
+          break;
+        }
+        await Future<void>.delayed(Duration(seconds: 2 + attempt));
+        await refreshRuntime(silent: true);
+      }
+    }
+    throw lastError ?? StateError('Health check failed.');
   }
 
   Future<void> _syncWakelock() async {
@@ -886,6 +1012,11 @@ class HomeController extends GetxController {
       return 'The current model does not support voice input. Load a voice-capable model first.';
     }
     if (error is DioException) {
+      final message = error.message ?? raw;
+      if (message.toLowerCase().contains('failed host lookup') &&
+          message.toLowerCase().contains('trycloudflare.com')) {
+        return 'The tunnel is connected, but this phone cannot resolve the Cloudflare hostname right now. Try the public URL from another device/network, or switch the phone DNS to automatic/1.1.1.1 and test again.';
+      }
       return error.message ?? raw;
     }
     if (lower.startsWith('platformexception(')) {

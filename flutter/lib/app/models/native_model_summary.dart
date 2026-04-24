@@ -50,6 +50,7 @@ class NativeModelSummary {
   final String url;
 
   bool get isDownloaded => downloadStatus == 'SUCCEEDED';
+  bool get isPartiallyDownloaded => downloadStatus == 'PARTIALLY_DOWNLOADED';
   bool get isDownloading =>
       downloadStatus == 'IN_PROGRESS' || downloadStatus == 'UNZIPPING';
   double get progress {

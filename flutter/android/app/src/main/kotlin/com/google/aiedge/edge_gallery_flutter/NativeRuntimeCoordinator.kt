@@ -28,7 +28,9 @@ import java.io.FileOutputStream
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class NativeRuntimeCoordinator private constructor(
@@ -49,9 +51,12 @@ class NativeRuntimeCoordinator private constructor(
     private var allowlistRequested = false
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val activeLoadedModelName = AtomicReference<String?>(null)
     private val activeSupportsImage = AtomicReference(false)
     private val activeSupportsAudio = AtomicReference(false)
+    @Volatile
+    private var downloadMonitorJob: Job? = null
 
     @Volatile
     private var currentOperationStatus: String = "idle"
@@ -176,8 +181,11 @@ class NativeRuntimeCoordinator private constructor(
                 "Model download could not start. Remote server responded with HTTP $responseCode.",
             )
         }
-        modelManager.downloadModel(task = task, model = model)
-        emitEvent("model_download_requested", mapOf("modelName" to modelName))
+        mainScope.launch {
+            modelManager.downloadModel(task = task, model = model)
+            emitEvent("model_download_requested", mapOf("modelName" to modelName))
+            startDownloadProgressMonitor(modelName)
+        }
     }
 
     fun saveManualAccessToken(accessToken: String) {
@@ -197,6 +205,7 @@ class NativeRuntimeCoordinator private constructor(
     fun cancelDownloadModel(modelName: String) {
         val modelManager = getModelManager()
         val model = requireModel(modelName)
+        stopDownloadProgressMonitor()
         modelManager.cancelDownloadModel(model)
         emitEvent("model_download_cancelled", mapOf("modelName" to modelName))
     }
@@ -204,6 +213,7 @@ class NativeRuntimeCoordinator private constructor(
     fun deleteModel(modelName: String) {
         val modelManager = getModelManager()
         val model = requireModel(modelName)
+        stopDownloadProgressMonitor()
         if (activeLoadedModelName.get() == model.name) {
             activeLoadedModelName.set(null)
         }
@@ -665,6 +675,34 @@ class NativeRuntimeCoordinator private constructor(
                 "modelName" to modelName,
             ),
         )
+    }
+
+    private fun startDownloadProgressMonitor(modelName: String) {
+        downloadMonitorJob?.cancel()
+        downloadMonitorJob =
+            scope.launch {
+                while (true) {
+                    val status =
+                        getModelManager().uiState.value.modelDownloadStatus[modelName]?.status
+                    if (status == null) {
+                        emitEvent("model_download_progress", mapOf("modelName" to modelName))
+                        break
+                    }
+                    emitEvent("model_download_progress", mapOf("modelName" to modelName))
+                    if (
+                        status != ModelDownloadStatusType.IN_PROGRESS &&
+                            status != ModelDownloadStatusType.UNZIPPING
+                    ) {
+                        break
+                    }
+                    delay(800)
+                }
+            }
+    }
+
+    private fun stopDownloadProgressMonitor() {
+        downloadMonitorJob?.cancel()
+        downloadMonitorJob = null
     }
 
     private fun beginModelInitialization(

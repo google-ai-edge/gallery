@@ -8,8 +8,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.net.HttpURLConnection
 import java.net.URL
+import java.net.HttpURLConnection
+import java.util.concurrent.atomic.AtomicBoolean
 import org.json.JSONObject
 
 private const val TAG = "AGCloudflareTunnel"
@@ -18,6 +19,10 @@ private const val QUICK_TUNNEL_API_URL = "https://api.trycloudflare.com/tunnel"
 private const val CLOUDFLARE_DOH_URL = "https://1.1.1.1/dns-query"
 private const val QUICK_TUNNEL_TIMEOUT_MS = 15000
 private const val EDGE_DISCOVERY_TIMEOUT_MS = 10000
+private const val TUNNEL_READY_TIMEOUT_MS = 45000L
+private const val TUNNEL_READY_RETRY_DELAY_MS = 500L
+private const val MAX_TUNNEL_START_ATTEMPTS = 3
+private const val TUNNEL_CONNECTED_LOG = "Registered tunnel connection"
 private const val EDGE_SRV_NAME = "_v2-origintunneld._tcp.argotunnel.com"
 
 class CloudflareTunnel(private val context: Context) {
@@ -26,52 +31,130 @@ class CloudflareTunnel(private val context: Context) {
     val publicUrl = _publicUrl.asStateFlow()
 
     suspend fun start(localPort: Int) = withContext(Dispatchers.IO) {
+        stop()
         try {
             val binary = resolveBinary() ?: return@withContext
-            val quickTunnel = requestQuickTunnel() ?: return@withContext
             val edgeAddresses = discoverEdgeAddresses()
             if (edgeAddresses.isEmpty()) {
                 Log.e(TAG, "Unable to discover Cloudflare edge addresses for tunnel startup")
                 return@withContext
             }
 
-            Log.i(TAG, "Starting cloudflared tunnel for port $localPort")
-            val args = mutableListOf(
-                binary.absolutePath,
-                "tunnel",
-                "--no-autoupdate",
-                "--protocol",
-                "http2",
-                "--edge-ip-version",
-                "4",
-            )
-            edgeAddresses.forEach { edge ->
-                args += "--edge"
-                args += edge
-            }
-            args += listOf(
-                "run",
-                "--url",
-                "http://localhost:$localPort",
-            )
-            val pb = ProcessBuilder(args)
-            // On Android, the child process can inherit an unusable HOME or cwd.
-            // Point both at the app sandbox so cloudflared can resolve its temp/config paths.
-            pb.directory(context.filesDir)
-            pb.environment()["HOME"] = context.filesDir.parentFile?.absolutePath ?: context.filesDir.absolutePath
-            pb.environment()["TUNNEL_TOKEN"] = quickTunnel.token
-            pb.redirectErrorStream(true)
-            _publicUrl.value = quickTunnel.url
-            process = pb.start()
-
-            process?.inputStream?.bufferedReader()?.use { reader ->
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    Log.d(TAG, "cloudflared: $line")
+            repeat(MAX_TUNNEL_START_ATTEMPTS) { attempt ->
+                val quickTunnel = requestQuickTunnel() ?: return@repeat
+                Log.i(TAG, "Starting cloudflared tunnel attempt ${attempt + 1} for port $localPort")
+                val tunnelConnected = AtomicBoolean(false)
+                val startedProcess = startCloudflaredProcess(
+                    binary = binary,
+                    localPort = localPort,
+                    token = quickTunnel.token,
+                    edgeAddresses = edgeAddresses,
+                )
+                process = startedProcess
+                startLogReader(startedProcess) {
+                    tunnelConnected.set(true)
                 }
+
+                if (waitForTunnelConnection(startedProcess, tunnelConnected)) {
+                    _publicUrl.value = quickTunnel.url
+                    Log.i(TAG, "Cloudflare tunnel is ready at ${quickTunnel.url}")
+                    startedProcess.waitFor()
+                    if (_publicUrl.value == quickTunnel.url) {
+                        _publicUrl.value = null
+                    }
+                    Log.w(TAG, "cloudflared exited for ${quickTunnel.url}")
+                    return@withContext
+                }
+
+                Log.w(TAG, "Tunnel ${quickTunnel.url} did not register a Cloudflare connection; retrying")
+                startedProcess.destroy()
+                _publicUrl.value = null
             }
+            Log.e(TAG, "Unable to start a reachable Cloudflare tunnel after $MAX_TUNNEL_START_ATTEMPTS attempts")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start cloudflared tunnel", e)
+            _publicUrl.value = null
+        }
+    }
+
+    private fun startCloudflaredProcess(
+        binary: File,
+        localPort: Int,
+        token: String,
+        edgeAddresses: List<String>,
+    ): Process {
+        val args = mutableListOf(
+            binary.absolutePath,
+            "tunnel",
+            "--no-autoupdate",
+            "--protocol",
+            "http2",
+            "--edge-ip-version",
+            "4",
+        )
+        edgeAddresses.forEach { edge ->
+            args += "--edge"
+            args += edge
+        }
+        args += listOf(
+            "run",
+            "--url",
+            "http://localhost:$localPort",
+        )
+        return ProcessBuilder(args).apply {
+            // On Android, the child process can inherit an unusable HOME or cwd.
+            // Point both at the app sandbox so cloudflared can resolve its temp/config paths.
+            directory(context.filesDir)
+            environment()["HOME"] = context.filesDir.parentFile?.absolutePath ?: context.filesDir.absolutePath
+            environment()["TUNNEL_TOKEN"] = token
+            redirectErrorStream(true)
+        }.start()
+    }
+
+    private fun startLogReader(startedProcess: Process, onTunnelConnected: () -> Unit) {
+        Thread {
+            try {
+                startedProcess.inputStream.bufferedReader().use { reader ->
+                    var line: String?
+                    while (reader.readLine().also { line = it } != null) {
+                        val output = line.orEmpty()
+                        Log.d(TAG, "cloudflared: $output")
+                        if (output.contains(TUNNEL_CONNECTED_LOG)) {
+                            onTunnelConnected()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "cloudflared log reader stopped: ${e.message}")
+            }
+        }.apply {
+            name = "cloudflared-log-reader"
+            isDaemon = true
+            start()
+        }
+    }
+
+    private fun waitForTunnelConnection(startedProcess: Process, tunnelConnected: AtomicBoolean): Boolean {
+        val deadline = System.currentTimeMillis() + TUNNEL_READY_TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            if (processHasExited(startedProcess)) {
+                Log.w(TAG, "cloudflared exited before registering a tunnel connection")
+                return false
+            }
+            if (tunnelConnected.get()) {
+                return true
+            }
+            Thread.sleep(TUNNEL_READY_RETRY_DELAY_MS)
+        }
+        return false
+    }
+
+    private fun processHasExited(activeProcess: Process): Boolean {
+        return try {
+            activeProcess.exitValue()
+            true
+        } catch (_: IllegalThreadStateException) {
+            false
         }
     }
 
