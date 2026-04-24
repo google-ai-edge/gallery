@@ -966,11 +966,25 @@ constructor(
             Log.d(TAG, "Done: loading model allowlist from internet")
             saveModelAllowlistToDisk(modelAllowlistContent = data?.textContent ?: "{}")
           }
+
+          if (modelAllowlist == null) {
+            Log.w(TAG, "Failed to load from disk. Trying to load from assets")
+            try {
+              val assetContent =
+                context.assets.open(MODEL_ALLOWLIST_FILENAME).bufferedReader().use { it.readText() }
+              modelAllowlist = Gson().fromJson(assetContent, ModelAllowlist::class.java)
+            } catch (e: Exception) {
+              Log.e(TAG, "Failed to load from assets", e)
+            }
+          }
         }
 
         if (modelAllowlist == null) {
           _uiState.update {
-            uiState.value.copy(loadingModelAllowlistError = "Failed to load model list")
+            uiState.value.copy(
+              loadingModelAllowlist = false,
+              loadingModelAllowlistError = "Failed to load model list"
+            )
           }
           return@launch
         }
@@ -1066,7 +1080,13 @@ constructor(
         // Wait for AICore models statuses and update download indicators
         checkAICoreModelStatuses()
       } catch (e: Exception) {
-        e.printStackTrace()
+        Log.e(TAG, "Error loading model allowlist", e)
+        _uiState.update {
+          uiState.value.copy(
+            loadingModelAllowlist = false,
+            loadingModelAllowlistError = "Failed to load models: ${e.message}"
+          )
+        }
       }
     }
   }

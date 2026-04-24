@@ -70,9 +70,13 @@ class NativeBridge {
     return NativeModelInventory.fromMap(map);
   }
 
-  Future<void> startNativeServer({required bool useTunnel}) async {
+  Future<void> startNativeServer({
+    required bool useTunnel,
+    required String tunnelProvider,
+  }) async {
     await _channel.invokeMethod<void>('startNativeServer', <String, dynamic>{
       'useTunnel': useTunnel,
+      'tunnelProvider': tunnelProvider,
     });
   }
 
@@ -144,6 +148,34 @@ class NativeBridge {
     });
   }
 
+  Future<void> startApiChatCompletion({
+    required String requestId,
+    required String modelName,
+    required String prompt,
+    double? temperature,
+    double? topP,
+    int? topK,
+    int? maxTokens,
+  }) async {
+    await _channel
+        .invokeMethod<void>('startApiChatCompletion', <String, dynamic>{
+          'requestId': requestId,
+          'modelName': modelName,
+          'prompt': prompt,
+          'temperature': temperature,
+          'topP': topP,
+          'topK': topK,
+          'maxTokens': maxTokens,
+        });
+  }
+
+  Future<void> stopApiChatCompletion(String modelName) async {
+    await _channel.invokeMethod<void>(
+      'stopApiChatCompletion',
+      <String, dynamic>{'modelName': modelName},
+    );
+  }
+
   Future<void> saveAccessToken(String accessToken) async {
     await _channel.invokeMethod<void>('saveAccessToken', <String, dynamic>{
       'accessToken': accessToken,
@@ -152,6 +184,26 @@ class NativeBridge {
 
   Future<void> clearAccessToken() async {
     await _channel.invokeMethod<void>('clearAccessToken');
+  }
+
+  Future<void> saveCloudflareTunnelConfig({
+    required String tunnelToken,
+    required String publicUrl,
+  }) async {
+    await _channel.invokeMethod<void>(
+      'saveCloudflareTunnelConfig',
+      <String, dynamic>{'tunnelToken': tunnelToken, 'publicUrl': publicUrl},
+    );
+  }
+
+  Future<void> saveNgrokConfig({
+    required String authToken,
+    required String domain,
+  }) async {
+    await _channel.invokeMethod<void>(
+      'saveNgrokConfig',
+      <String, dynamic>{'authToken': authToken, 'domain': domain},
+    );
   }
 
   Future<void> importLocalModel({

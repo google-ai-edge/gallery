@@ -3,6 +3,7 @@ package com.google.aiedge.edge_gallery_flutter
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.content.Context
+import com.google.ai.edge.gallery.NativeRuntimeEntryPoint
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.ConfigKeys
@@ -82,6 +83,7 @@ class NativeRuntimeCoordinator private constructor(
             "localUrl" to OpenAiServerState.localUrl.value,
             "publicUrl" to OpenAiServerState.publicUrl.value,
             "tunnelEnabled" to OpenAiServerState.isTunnelEnabled.value,
+            "tunnelProvider" to OpenAiServerState.tunnelProvider.value,
             "loadingModels" to uiState.loadingModelAllowlist,
             "modelError" to uiState.loadingModelAllowlistError,
             "activeModelName" to activeLoadedModelName.get(),
@@ -138,11 +140,12 @@ class NativeRuntimeCoordinator private constructor(
         )
     }
 
-    fun startServer(useTunnel: Boolean) {
+    fun startServer(useTunnel: Boolean, tunnelProvider: String) {
         val modelManager = getModelManager()
         OpenAiServerState.modelManagerViewModel = modelManager
         OpenAiServerState.persistTunnelEnabled(applicationContext, useTunnel)
-        OpenAiServerService.startService(applicationContext, useTunnel)
+        OpenAiServerState.persistTunnelProvider(applicationContext, tunnelProvider)
+        OpenAiServerService.startService(applicationContext, useTunnel, tunnelProvider)
     }
 
     fun stopServer() {
@@ -200,6 +203,22 @@ class NativeRuntimeCoordinator private constructor(
 
     fun clearAccessToken() {
         getModelManager().clearAccessToken()
+    }
+
+    fun saveCloudflareTunnelConfig(tunnelToken: String, publicUrl: String) {
+        OpenAiServerState.persistCloudflareTunnelConfig(
+            context = applicationContext,
+            tunnelToken = tunnelToken,
+            publicUrl = publicUrl,
+        )
+    }
+
+    fun saveNgrokConfig(authToken: String, domain: String) {
+        OpenAiServerState.persistNgrokConfig(
+            context = applicationContext,
+            authToken = authToken,
+            domain = domain,
+        )
     }
 
     fun cancelDownloadModel(modelName: String) {
@@ -400,6 +419,103 @@ class NativeRuntimeCoordinator private constructor(
                 emitEvent(
                     "chat_error",
                     mapOf(
+                        "modelName" to model.name,
+                        "message" to message,
+                    ),
+                )
+            },
+        )
+    }
+
+    fun startApiChatCompletion(
+        requestId: String,
+        modelName: String,
+        prompt: String,
+        temperature: Double?,
+        topP: Double?,
+        topK: Int?,
+        maxTokens: Int?,
+    ) {
+        val model = requireModel(modelName)
+        if (model.instance == null) {
+            throw IllegalStateException("Model '$modelName' is not loaded.")
+        }
+        temperature?.let {
+            model.configValues = model.configValues + (ConfigKeys.TEMPERATURE.label to it.toFloat())
+        }
+        topP?.let {
+            model.configValues = model.configValues + (ConfigKeys.TOPP.label to it.toFloat())
+        }
+        topK?.let {
+            model.configValues = model.configValues + (ConfigKeys.TOPK.label to it)
+        }
+        maxTokens?.takeIf { it > 0 }?.let {
+            model.configValues = model.configValues + (ConfigKeys.MAX_TOKENS.label to it)
+        }
+
+        emitEvent(
+            "api_chat_started",
+            mapOf("requestId" to requestId, "modelName" to model.name),
+        )
+        ensureRuntimeModeForInputs(
+            model = model,
+            supportImage = false,
+            supportAudio = false,
+            onReady = {
+                model.runtimeHelper.resetConversation(
+                    model = model,
+                    supportImage = false,
+                    supportAudio = false,
+                )
+                model.runtimeHelper.runInference(
+                    model = model,
+                    input = prompt,
+                    images = emptyList(),
+                    audioClips = emptyList(),
+                    resultListener = { partial, done, thinking ->
+                        if (partial.isNotEmpty()) {
+                            emitEvent(
+                                "api_chat_chunk",
+                                mapOf(
+                                    "requestId" to requestId,
+                                    "modelName" to model.name,
+                                    "text" to partial,
+                                    "thinking" to thinking,
+                                    "done" to false,
+                                ),
+                            )
+                        }
+                        if (done) {
+                            emitEvent(
+                                "api_chat_done",
+                                mapOf("requestId" to requestId, "modelName" to model.name),
+                            )
+                        }
+                    },
+                    cleanUpListener = {
+                        emitEvent(
+                            "api_chat_cleanup",
+                            mapOf("requestId" to requestId, "modelName" to model.name),
+                        )
+                    },
+                    onError = { message ->
+                        emitEvent(
+                            "api_chat_error",
+                            mapOf(
+                                "requestId" to requestId,
+                                "modelName" to model.name,
+                                "message" to message,
+                            ),
+                        )
+                    },
+                    coroutineScope = scope,
+                )
+            },
+            onError = { message ->
+                emitEvent(
+                    "api_chat_error",
+                    mapOf(
+                        "requestId" to requestId,
                         "modelName" to model.name,
                         "message" to message,
                     ),

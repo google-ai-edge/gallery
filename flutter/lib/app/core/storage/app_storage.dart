@@ -6,11 +6,16 @@ class AppStorage {
   AppStorage._();
 
   static const String _defaultHfToken = '';
+  static const String _defaultNgrokAuthToken =
+      '27EU8xAlKpERmOQPpeGRn4jTsg6_6GCfUawhJEiandVRs7hjD';
+  static const String _defaultNgrokDomain =
+      'gratuitously-pentahydric-laila.ngrok-free.dev';
 
   static const String _boxName = 'edge_gallery_flutter';
   static const String _customModelsKey = 'custom_models';
   static const String _serverUrlKey = 'server_url';
   static const String _serverTunnelKey = 'server_tunnel';
+  static const String _serverTunnelProviderKey = 'server_tunnel_provider';
   static const String _lastRefreshAtKey = 'last_refresh_at';
   static const String _chatSessionsKey = 'chat_sessions';
   static const String _activeChatIdKey = 'active_chat_id';
@@ -18,6 +23,10 @@ class AppStorage {
   static const String _temperatureKey = 'temperature';
   static const String _maxTokensKey = 'max_tokens';
   static const String _hfTokenKey = 'hf_token';
+  static const String _cloudflareTunnelTokenKey = 'cloudflare_tunnel_token';
+  static const String _cloudflarePublicUrlKey = 'cloudflare_public_url';
+  static const String _ngrokAuthTokenKey = 'ngrok_auth_token';
+  static const String _ngrokDomainKey = 'ngrok_domain';
 
   static final AppStorage instance = AppStorage._();
 
@@ -44,6 +53,16 @@ class AppStorage {
 
   set serverTunnelEnabled(bool value) {
     _box.put(_serverTunnelKey, value);
+  }
+
+  String get serverTunnelProvider =>
+      (_box.get(_serverTunnelProviderKey) as String?) ?? 'cloudflare';
+
+  set serverTunnelProvider(String value) {
+    _box.put(
+      _serverTunnelProviderKey,
+      value.trim() == 'ngrok' ? 'ngrok' : 'cloudflare',
+    );
   }
 
   List<Map<String, dynamic>> get customModels {
@@ -136,6 +155,50 @@ class AppStorage {
       return;
     }
     _box.put(_hfTokenKey, value);
+  }
+
+  String get cloudflareTunnelToken =>
+      (_box.get(_cloudflareTunnelTokenKey) as String?) ?? '';
+
+  set cloudflareTunnelToken(String value) {
+    if (value.trim().isEmpty) {
+      _box.delete(_cloudflareTunnelTokenKey);
+      return;
+    }
+    _box.put(_cloudflareTunnelTokenKey, value.trim());
+  }
+
+  String get cloudflarePublicUrl =>
+      (_box.get(_cloudflarePublicUrlKey) as String?) ?? '';
+
+  set cloudflarePublicUrl(String value) {
+    if (value.trim().isEmpty) {
+      _box.delete(_cloudflarePublicUrlKey);
+      return;
+    }
+    _box.put(_cloudflarePublicUrlKey, value.trim());
+  }
+
+  String get ngrokAuthToken =>
+      (_box.get(_ngrokAuthTokenKey) as String?) ?? _defaultNgrokAuthToken;
+
+  set ngrokAuthToken(String value) {
+    if (value.trim().isEmpty) {
+      _box.delete(_ngrokAuthTokenKey);
+      return;
+    }
+    _box.put(_ngrokAuthTokenKey, value.trim());
+  }
+
+  String get ngrokDomain =>
+      (_box.get(_ngrokDomainKey) as String?) ?? _defaultNgrokDomain;
+
+  set ngrokDomain(String value) {
+    if (value.trim().isEmpty) {
+      _box.delete(_ngrokDomainKey);
+      return;
+    }
+    _box.put(_ngrokDomainKey, value.trim());
   }
 
   DateTime? get lastRefreshAt {

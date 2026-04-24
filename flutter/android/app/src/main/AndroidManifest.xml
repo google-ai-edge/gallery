@@ -30,6 +30,7 @@
         android:label="Edge Gallery Flutter"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Gallery">
         <activity
             android:name="com.google.aiedge.edge_gallery_flutter.MainActivity"

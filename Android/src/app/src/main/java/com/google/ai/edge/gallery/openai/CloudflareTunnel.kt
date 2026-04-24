@@ -25,12 +25,12 @@ private const val MAX_TUNNEL_START_ATTEMPTS = 3
 private const val TUNNEL_CONNECTED_LOG = "Registered tunnel connection"
 private const val EDGE_SRV_NAME = "_v2-origintunneld._tcp.argotunnel.com"
 
-class CloudflareTunnel(private val context: Context) {
+class CloudflareTunnel(private val context: Context) : PublicTunnel {
     private var process: Process? = null
     private val _publicUrl = MutableStateFlow<String?>(null)
-    val publicUrl = _publicUrl.asStateFlow()
+    override val publicUrl = _publicUrl.asStateFlow()
 
-    suspend fun start(localPort: Int) = withContext(Dispatchers.IO) {
+    override suspend fun start(localPort: Int) = withContext(Dispatchers.IO) {
         stop()
         try {
             val binary = resolveBinary() ?: return@withContext
@@ -39,36 +39,32 @@ class CloudflareTunnel(private val context: Context) {
                 Log.e(TAG, "Unable to discover Cloudflare edge addresses for tunnel startup")
                 return@withContext
             }
+            val namedTunnel = getNamedTunnelLaunchData()
+            if (namedTunnel != null) {
+                if (startTunnelAttempt(
+                        binary = binary,
+                        localPort = localPort,
+                        launchData = namedTunnel,
+                        edgeAddresses = edgeAddresses,
+                    )
+                ) {
+                    return@withContext
+                }
+                Log.e(TAG, "Configured Cloudflare named tunnel did not start")
+                return@withContext
+            }
 
             repeat(MAX_TUNNEL_START_ATTEMPTS) { attempt ->
                 val quickTunnel = requestQuickTunnel() ?: return@repeat
                 Log.i(TAG, "Starting cloudflared tunnel attempt ${attempt + 1} for port $localPort")
-                val tunnelConnected = AtomicBoolean(false)
-                val startedProcess = startCloudflaredProcess(
+                if (startTunnelAttempt(
                     binary = binary,
                     localPort = localPort,
-                    token = quickTunnel.token,
+                    launchData = quickTunnel,
                     edgeAddresses = edgeAddresses,
-                )
-                process = startedProcess
-                startLogReader(startedProcess) {
-                    tunnelConnected.set(true)
-                }
-
-                if (waitForTunnelConnection(startedProcess, tunnelConnected)) {
-                    _publicUrl.value = quickTunnel.url
-                    Log.i(TAG, "Cloudflare tunnel is ready at ${quickTunnel.url}")
-                    startedProcess.waitFor()
-                    if (_publicUrl.value == quickTunnel.url) {
-                        _publicUrl.value = null
-                    }
-                    Log.w(TAG, "cloudflared exited for ${quickTunnel.url}")
+                )) {
                     return@withContext
                 }
-
-                Log.w(TAG, "Tunnel ${quickTunnel.url} did not register a Cloudflare connection; retrying")
-                startedProcess.destroy()
-                _publicUrl.value = null
             }
             Log.e(TAG, "Unable to start a reachable Cloudflare tunnel after $MAX_TUNNEL_START_ATTEMPTS attempts")
         } catch (e: Exception) {
@@ -77,10 +73,45 @@ class CloudflareTunnel(private val context: Context) {
         }
     }
 
+    private fun startTunnelAttempt(
+        binary: File,
+        localPort: Int,
+        launchData: CloudflareTunnelLaunchData,
+        edgeAddresses: List<String>,
+    ): Boolean {
+        val tunnelConnected = AtomicBoolean(false)
+        val startedProcess = startCloudflaredProcess(
+            binary = binary,
+            localPort = localPort,
+            launchData = launchData,
+            edgeAddresses = edgeAddresses,
+        )
+        process = startedProcess
+        startLogReader(startedProcess) {
+            tunnelConnected.set(true)
+        }
+
+        if (waitForTunnelConnection(startedProcess, tunnelConnected)) {
+            _publicUrl.value = launchData.url
+            Log.i(TAG, "Cloudflare tunnel is ready at ${launchData.url}")
+            startedProcess.waitFor()
+            if (_publicUrl.value == launchData.url) {
+                _publicUrl.value = null
+            }
+            Log.w(TAG, "cloudflared exited for ${launchData.url}")
+            return true
+        }
+
+        Log.w(TAG, "Tunnel ${launchData.url} did not register a Cloudflare connection; retrying")
+        startedProcess.destroy()
+        _publicUrl.value = null
+        return false
+    }
+
     private fun startCloudflaredProcess(
         binary: File,
         localPort: Int,
-        token: String,
+        launchData: CloudflareTunnelLaunchData,
         edgeAddresses: List<String>,
     ): Process {
         val args = mutableListOf(
@@ -96,17 +127,23 @@ class CloudflareTunnel(private val context: Context) {
             args += "--edge"
             args += edge
         }
-        args += listOf(
-            "run",
-            "--url",
-            "http://localhost:$localPort",
-        )
+        args += if (launchData.namedTunnel) {
+            listOf("run", "--token", launchData.token)
+        } else {
+            listOf(
+                "run",
+                "--url",
+                "http://localhost:$localPort",
+            )
+        }
         return ProcessBuilder(args).apply {
             // On Android, the child process can inherit an unusable HOME or cwd.
             // Point both at the app sandbox so cloudflared can resolve its temp/config paths.
             directory(context.filesDir)
             environment()["HOME"] = context.filesDir.parentFile?.absolutePath ?: context.filesDir.absolutePath
-            environment()["TUNNEL_TOKEN"] = token
+            if (!launchData.namedTunnel) {
+                environment()["TUNNEL_TOKEN"] = launchData.token
+            }
             redirectErrorStream(true)
         }.start()
     }
@@ -228,7 +265,7 @@ class CloudflareTunnel(private val context: Context) {
         }
     }
 
-    private fun requestQuickTunnel(): QuickTunnelLaunchData? {
+    private fun requestQuickTunnel(): CloudflareTunnelLaunchData? {
         val connection = (URL(QUICK_TUNNEL_API_URL).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = QUICK_TUNNEL_TIMEOUT_MS
@@ -273,13 +310,28 @@ class CloudflareTunnel(private val context: Context) {
             val token = Base64.encodeToString(tokenPayload.toByteArray(), Base64.NO_WRAP)
             val url = if (hostname.startsWith("https://")) hostname else "https://$hostname"
             Log.i(TAG, "Quick tunnel prepared for $url")
-            QuickTunnelLaunchData(url = url, token = token)
+            CloudflareTunnelLaunchData(url = url, token = token, namedTunnel = false)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to request quick tunnel", e)
             null
         } finally {
             connection.disconnect()
         }
+    }
+
+    private fun getNamedTunnelLaunchData(): CloudflareTunnelLaunchData? {
+        val token = OpenAiServerState.cloudflareTunnelToken(context)
+        val publicUrl = OpenAiServerState.cloudflarePublicUrl(context)
+        if (token.isBlank() || publicUrl.isBlank()) {
+            return null
+        }
+        val url = if (publicUrl.startsWith("https://") || publicUrl.startsWith("http://")) {
+            publicUrl.trimEnd('/')
+        } else {
+            "https://${publicUrl.trimEnd('/')}"
+        }
+        Log.i(TAG, "Using configured Cloudflare named tunnel for $url")
+        return CloudflareTunnelLaunchData(url = url, token = token, namedTunnel = true)
     }
 
     private fun resolveBinary(): File? {
@@ -295,7 +347,7 @@ class CloudflareTunnel(private val context: Context) {
         return null
     }
 
-    fun stop() {
+    override fun stop() {
         process?.destroy()
         process = null
         _publicUrl.value = null
@@ -303,7 +355,8 @@ class CloudflareTunnel(private val context: Context) {
     }
 }
 
-private data class QuickTunnelLaunchData(
+private data class CloudflareTunnelLaunchData(
     val url: String,
     val token: String,
+    val namedTunnel: Boolean,
 )

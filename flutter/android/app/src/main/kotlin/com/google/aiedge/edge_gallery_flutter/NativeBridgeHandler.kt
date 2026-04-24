@@ -48,7 +48,8 @@ class NativeBridgeHandler(
                 "getModelInventory" -> result.success(runtimeCoordinator.getModelInventory())
                 "startNativeServer" -> {
                     val useTunnel = call.argument<Boolean>("useTunnel") ?: true
-                    runtimeCoordinator.startServer(useTunnel)
+                    val tunnelProvider = call.argument<String>("tunnelProvider") ?: "cloudflare"
+                    runtimeCoordinator.startServer(useTunnel, tunnelProvider)
                     result.success(true)
                 }
                 "stopNativeServer" -> {
@@ -119,6 +120,24 @@ class NativeBridgeHandler(
                     )
                     result.success(true)
                 }
+                "startApiChatCompletion" -> {
+                    runtimeCoordinator.startApiChatCompletion(
+                        requestId = call.argument<String>("requestId") ?: error("Missing requestId"),
+                        modelName = call.argument<String>("modelName") ?: error("Missing modelName"),
+                        prompt = call.argument<String>("prompt") ?: "",
+                        temperature = call.argument<Double>("temperature"),
+                        topP = call.argument<Double>("topP"),
+                        topK = call.argument<Int>("topK"),
+                        maxTokens = call.argument<Int>("maxTokens"),
+                    )
+                    result.success(true)
+                }
+                "stopApiChatCompletion" -> {
+                    runtimeCoordinator.stopChatGeneration(
+                        call.argument<String>("modelName") ?: error("Missing modelName"),
+                    )
+                    result.success(true)
+                }
                 "saveAccessToken" -> {
                     runtimeCoordinator.saveManualAccessToken(
                         call.argument<String>("accessToken") ?: error("Missing accessToken"),
@@ -127,6 +146,20 @@ class NativeBridgeHandler(
                 }
                 "clearAccessToken" -> {
                     runtimeCoordinator.clearAccessToken()
+                    result.success(true)
+                }
+                "saveCloudflareTunnelConfig" -> {
+                    runtimeCoordinator.saveCloudflareTunnelConfig(
+                        tunnelToken = call.argument<String>("tunnelToken") ?: "",
+                        publicUrl = call.argument<String>("publicUrl") ?: "",
+                    )
+                    result.success(true)
+                }
+                "saveNgrokConfig" -> {
+                    runtimeCoordinator.saveNgrokConfig(
+                        authToken = call.argument<String>("authToken") ?: "",
+                        domain = call.argument<String>("domain") ?: "",
+                    )
                     result.success(true)
                 }
                 "importLocalModel" -> {

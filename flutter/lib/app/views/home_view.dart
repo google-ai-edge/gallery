@@ -273,14 +273,68 @@ class _ModelsTab extends GetView<HomeController> {
         const SizedBox(height: 12),
         Expanded(
           child: Obx(
-            () => ListView.separated(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-              itemCount: controller.visibleModels.length,
-              separatorBuilder: (_, index) => const SizedBox(height: 16),
-              itemBuilder: (context, index) {
-                return _ModelCard(model: controller.visibleModels[index]);
-              },
-            ),
+            () {
+              if (controller.visibleModels.isEmpty) {
+                final error = controller.inventory.value?.error ?? '';
+                final isLoading =
+                    controller.inventory.value?.isLoading ?? false;
+
+                if (isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Icon(
+                          Icons.cloud_off_rounded,
+                          size: 64,
+                          color: AppTheme.slate.withOpacity(0.3),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          error.isNotEmpty
+                              ? 'Could not load model list'
+                              : 'No models found',
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        if (error.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 8),
+                          Text(
+                            error,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: AppTheme.coral,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        FilledButton.icon(
+                          onPressed: () => controller.refreshRuntime(),
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Retry'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppTheme.violet,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              return ListView.separated(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                itemCount: controller.visibleModels.length,
+                separatorBuilder: (_, index) => const SizedBox(height: 16),
+                itemBuilder: (context, index) {
+                  return _ModelCard(model: controller.visibleModels[index]);
+                },
+              );
+            },
           ),
         ),
       ],
@@ -305,6 +359,13 @@ class _ServerTab extends GetView<HomeController> {
     final theme = Theme.of(context);
     return Obx(() {
       final server = controller.serverStatus.value;
+      final selectedProvider = controller.tunnelProvider.value;
+      final effectiveProvider = (server?.isRunning ?? false)
+          ? server?.tunnelProvider ?? selectedProvider
+          : selectedProvider;
+      final providerLabel = effectiveProvider == 'ngrok'
+          ? 'ngrok'
+          : 'Cloudflare';
       final tunnelIsStarting =
           (server?.isRunning ?? false) &&
           (server?.tunnelEnabled ?? controller.useTunnel.value) &&
@@ -318,7 +379,7 @@ class _ServerTab extends GetView<HomeController> {
           Text('Server', style: theme.textTheme.headlineMedium),
           const SizedBox(height: 6),
           Text(
-            'Control the native OpenAI-compatible server exposed from the Android runtime.',
+            'Control the Flutter-owned OpenAI-compatible server and expose it through Cloudflare or ngrok.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 18),
@@ -359,6 +420,15 @@ class _ServerTab extends GetView<HomeController> {
                       'Expose the server with a public URL.',
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Text('Tunnel provider', style: theme.textTheme.labelLarge),
+                  const SizedBox(height: 10),
+                  _TunnelProviderTabs(
+                    selectedProvider: selectedProvider,
+                    onChanged: controller.selectTunnelProvider,
+                  ),
+                  const SizedBox(height: 14),
+                  _TunnelProviderSummary(provider: selectedProvider),
                   _ServerField(
                     label: 'Local URL',
                     value: server?.localUrl ?? 'Not available',
@@ -368,9 +438,16 @@ class _ServerTab extends GetView<HomeController> {
                     value:
                         server?.publicUrl ??
                         (tunnelIsStarting
-                            ? 'Starting tunnel, connecting to Cloudflare...'
+                            ? 'Starting tunnel, connecting to $providerLabel...'
                             : 'Tunnel disabled'),
                   ),
+                  if (controller.tunnelStatusMessage.value.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 14),
+                    _StatusMessageCard(
+                      success: !controller.tunnelStatusIsError.value,
+                      message: controller.tunnelStatusMessage.value,
+                    ),
+                  ],
                   const SizedBox(height: 18),
                   SizedBox(
                     width: double.infinity,
@@ -473,7 +550,7 @@ class _ServerTab extends GetView<HomeController> {
                   Text('Endpoint examples', style: theme.textTheme.titleMedium),
                   const SizedBox(height: 8),
                   Text(
-                    'You can call this server from another app on the phone, another device on the same network, or a computer using the tunnel URL.',
+                    'You can call this server from another app on the phone, another device on the same network, or a computer using the $providerLabel URL.',
                     style: theme.textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 16),
@@ -530,6 +607,19 @@ class _SettingsTab extends GetView<HomeController> {
     );
     final tokenController = TextEditingController(
       text: controller.huggingFaceToken.value,
+    );
+    final selectedTunnelProvider = controller.tunnelProvider.value;
+    final cloudflareTokenController = TextEditingController(
+      text: controller.cloudflareTunnelToken.value,
+    );
+    final cloudflareUrlController = TextEditingController(
+      text: controller.cloudflarePublicUrl.value,
+    );
+    final ngrokTokenController = TextEditingController(
+      text: controller.ngrokAuthToken.value,
+    );
+    final ngrokDomainController = TextEditingController(
+      text: controller.ngrokDomain.value,
     );
 
     return ListView(
@@ -589,6 +679,51 @@ class _SettingsTab extends GetView<HomeController> {
                         'Needed for gated model downloads. Leave blank to clear it.',
                   ),
                 ),
+                const SizedBox(height: 14),
+                Text('Tunnel defaults', style: theme.textTheme.titleSmall),
+                const SizedBox(height: 10),
+                _TunnelProviderTabs(
+                  selectedProvider: selectedTunnelProvider,
+                  onChanged: controller.selectTunnelProvider,
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: cloudflareTokenController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Cloudflare named tunnel token',
+                    helperText:
+                        'Use a named tunnel token for a stable public URL. Leave blank to use quick tunnel fallback.',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: cloudflareUrlController,
+                  decoration: const InputDecoration(
+                    labelText: 'Cloudflare public URL',
+                    helperText:
+                        'Example: https://api.yourdomain.com. Used when named tunnel token is set.',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: ngrokTokenController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'ngrok authtoken',
+                    helperText:
+                        'Used to start an ngrok tunnel from the phone. Leave blank to disable ngrok startup.',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: ngrokDomainController,
+                  decoration: const InputDecoration(
+                    labelText: 'ngrok reserved domain',
+                    helperText:
+                        'Optional. Example: https://my-api.ngrok.app. Leave blank for a random ngrok URL.',
+                  ),
+                ),
                 const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
@@ -602,6 +737,11 @@ class _SettingsTab extends GetView<HomeController> {
                           int.tryParse(maxTokensController.text.trim()) ??
                           controller.maxTokens.value,
                       nextHuggingFaceToken: tokenController.text,
+                      nextTunnelProvider: controller.tunnelProvider.value,
+                      nextCloudflareTunnelToken: cloudflareTokenController.text,
+                      nextCloudflarePublicUrl: cloudflareUrlController.text,
+                      nextNgrokAuthToken: ngrokTokenController.text,
+                      nextNgrokDomain: ngrokDomainController.text,
                     ),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.violet,
@@ -2111,6 +2251,93 @@ class _ImportModelSheetState extends State<_ImportModelSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _TunnelProviderTabs extends StatelessWidget {
+  const _TunnelProviderTabs({
+    required this.selectedProvider,
+    required this.onChanged,
+  });
+
+  final String selectedProvider;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <({String value, String label})>[
+      (value: 'cloudflare', label: 'Cloudflare'),
+      (value: 'ngrok', label: 'ngrok'),
+    ];
+
+    return Row(
+      children: items
+          .map(
+            (item) => Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  right: item.value == 'cloudflare' ? 8 : 0,
+                  left: item.value == 'ngrok' ? 8 : 0,
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => onChanged(item.value),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: selectedProvider == item.value
+                          ? const Color(0xFFE8E6FF)
+                          : const Color(0xFFF7F8FC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: selectedProvider == item.value
+                            ? AppTheme.violet
+                            : const Color(0xFFE2E6F0),
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        item.label,
+                        style: TextStyle(
+                          color: selectedProvider == item.value
+                              ? AppTheme.violet
+                              : AppTheme.slate,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _TunnelProviderSummary extends StatelessWidget {
+  const _TunnelProviderSummary({required this.provider});
+
+  final String provider;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = provider == 'ngrok'
+        ? 'ngrok is the easier no-domain option. It can use a random HTTPS URL today, or a reserved ngrok domain later if your account has one.'
+        : 'Cloudflare stays available. Named tunnels need a real domain in Cloudflare; otherwise the app falls back to quick tunnels.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8FC),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E6F0)),
+      ),
+      child: Text(text),
     );
   }
 }

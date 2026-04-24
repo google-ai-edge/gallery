@@ -10,6 +10,7 @@ import 'package:record/record.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../core/native/native_bridge.dart';
+import '../core/server/openai_api_server.dart';
 import '../core/storage/app_storage.dart';
 import '../models/chat_message_item.dart';
 import '../models/chat_session_item.dart';
@@ -18,6 +19,13 @@ import '../models/native_model_summary.dart';
 import '../models/native_server_status.dart';
 
 class HomeController extends GetxController {
+  HomeController() {
+    _apiServer = OpenAiApiServer(
+      nativeBridge: _nativeBridge,
+      inventoryProvider: _nativeBridge.fetchModelInventory,
+    );
+  }
+
   final NativeBridge _nativeBridge = Get.find<NativeBridge>();
   final AppStorage _storage = Get.find<AppStorage>();
   final Dio _dio = Dio(
@@ -38,8 +46,10 @@ class HomeController extends GetxController {
   final RxBool externalServerTestInProgress = false.obs;
   final RxBool localServerTestSucceeded = false.obs;
   final RxBool externalServerTestSucceeded = false.obs;
+  final RxBool tunnelStatusIsError = false.obs;
   final RxString localServerTestMessage = ''.obs;
   final RxString externalServerTestMessage = ''.obs;
+  final RxString tunnelStatusMessage = ''.obs;
   final RxString modelFilter = 'All'.obs;
   final RxString composerText = ''.obs;
   final RxString attachedDocumentName = ''.obs;
@@ -49,6 +59,11 @@ class HomeController extends GetxController {
   final RxInt maxTokens = 2048.obs;
   final RxString systemPrompt = ''.obs;
   final RxString huggingFaceToken = ''.obs;
+  final RxString tunnelProvider = 'cloudflare'.obs;
+  final RxString cloudflareTunnelToken = ''.obs;
+  final RxString cloudflarePublicUrl = ''.obs;
+  final RxString ngrokAuthToken = ''.obs;
+  final RxString ngrokDomain = ''.obs;
   final RxList<NativeModelSummary> visibleModels = <NativeModelSummary>[].obs;
   final RxList<ChatMessageItem> messages = <ChatMessageItem>[].obs;
   final RxList<ChatSessionItem> chatSessions = <ChatSessionItem>[].obs;
@@ -63,9 +78,11 @@ class HomeController extends GetxController {
 
   final TextEditingController inputController = TextEditingController();
 
+  late final OpenAiApiServer _apiServer;
   Timer? _poller;
   StreamSubscription<Map<String, dynamic>>? _eventSubscription;
   String? _streamingMessageId;
+  DateTime? _tunnelRequestedAt;
   final Map<String, String> _streamingRawText = <String, String>{};
 
   String? get activeModelName =>
@@ -95,6 +112,11 @@ class HomeController extends GetxController {
     maxTokens.value = _storage.maxTokens;
     systemPrompt.value = _storage.systemPrompt;
     huggingFaceToken.value = _storage.huggingFaceToken;
+    tunnelProvider.value = _storage.serverTunnelProvider;
+    cloudflareTunnelToken.value = _storage.cloudflareTunnelToken;
+    cloudflarePublicUrl.value = _storage.cloudflarePublicUrl;
+    ngrokAuthToken.value = _storage.ngrokAuthToken;
+    ngrokDomain.value = _storage.ngrokDomain;
     _loadSavedChats();
     _eventSubscription = _nativeBridge.events.listen(_handleNativeEvent);
     unawaited(_bootstrap());
@@ -104,6 +126,7 @@ class HomeController extends GetxController {
   void onClose() {
     _poller?.cancel();
     _eventSubscription?.cancel();
+    unawaited(_apiServer.stop());
     inputController.dispose();
     unawaited(_audioRecorder.dispose());
     unawaited(WakelockPlus.disable());
@@ -114,6 +137,14 @@ class HomeController extends GetxController {
     if (huggingFaceToken.value.isNotEmpty) {
       await _nativeBridge.saveAccessToken(huggingFaceToken.value);
     }
+    await _nativeBridge.saveCloudflareTunnelConfig(
+      tunnelToken: cloudflareTunnelToken.value,
+      publicUrl: cloudflarePublicUrl.value,
+    );
+    await _nativeBridge.saveNgrokConfig(
+      authToken: ngrokAuthToken.value,
+      domain: ngrokDomain.value,
+    );
     await _syncSavedCustomModels();
     await refreshRuntime();
     _poller = Timer.periodic(
@@ -147,6 +178,7 @@ class HomeController extends GetxController {
       _applyFilter();
       _storage.serverUrl = serverStatus.value?.localUrl;
       _storage.lastRefreshAt = DateTime.now();
+      _syncTunnelStatusMessage();
       await _syncWakelock();
     } catch (error) {
       Get.snackbar('Runtime error', _friendlyErrorText(error));
@@ -174,9 +206,18 @@ class HomeController extends GetxController {
     externalServerTestMessage.value = '';
     try {
       _storage.serverTunnelEnabled = useTunnel.value;
-      await _nativeBridge.startNativeServer(useTunnel: useTunnel.value);
+      _storage.serverTunnelProvider = tunnelProvider.value;
+      _tunnelRequestedAt = useTunnel.value ? DateTime.now() : null;
+      tunnelStatusIsError.value = false;
+      tunnelStatusMessage.value = '';
+      await _apiServer.start(port: 8080);
+      await _nativeBridge.startNativeServer(
+        useTunnel: useTunnel.value,
+        tunnelProvider: tunnelProvider.value,
+      );
       await _waitForServerState(true);
     } catch (error) {
+      await _apiServer.stop();
       Get.snackbar('Server error', _friendlyErrorText(error));
     } finally {
       serverActionInProgress.value = false;
@@ -188,7 +229,11 @@ class HomeController extends GetxController {
     serverActionInProgress.value = true;
     localServerTestMessage.value = '';
     externalServerTestMessage.value = '';
+    tunnelStatusMessage.value = '';
+    tunnelStatusIsError.value = false;
+    _tunnelRequestedAt = null;
     try {
+      await _apiServer.stop();
       await _nativeBridge.stopNativeServer();
       await _waitForServerState(false);
     } catch (error) {
@@ -532,24 +577,53 @@ class HomeController extends GetxController {
     required double nextTemperature,
     required int nextMaxTokens,
     required String nextHuggingFaceToken,
+    required String nextTunnelProvider,
+    required String nextCloudflareTunnelToken,
+    required String nextCloudflarePublicUrl,
+    required String nextNgrokAuthToken,
+    required String nextNgrokDomain,
   }) async {
     systemPrompt.value = nextSystemPrompt.trim();
     temperature.value = nextTemperature;
     maxTokens.value = nextMaxTokens;
     huggingFaceToken.value = nextHuggingFaceToken.trim();
+    tunnelProvider.value =
+        nextTunnelProvider.trim() == 'ngrok' ? 'ngrok' : 'cloudflare';
+    cloudflareTunnelToken.value = nextCloudflareTunnelToken.trim();
+    cloudflarePublicUrl.value = nextCloudflarePublicUrl.trim();
+    ngrokAuthToken.value = nextNgrokAuthToken.trim();
+    ngrokDomain.value = nextNgrokDomain.trim();
 
     _storage.systemPrompt = systemPrompt.value;
     _storage.temperature = temperature.value;
     _storage.maxTokens = maxTokens.value;
     _storage.huggingFaceToken = huggingFaceToken.value;
+    _storage.serverTunnelProvider = tunnelProvider.value;
+    _storage.cloudflareTunnelToken = cloudflareTunnelToken.value;
+    _storage.cloudflarePublicUrl = cloudflarePublicUrl.value;
+    _storage.ngrokAuthToken = ngrokAuthToken.value;
+    _storage.ngrokDomain = ngrokDomain.value;
 
     if (huggingFaceToken.value.isEmpty) {
       await _nativeBridge.clearAccessToken();
     } else {
       await _nativeBridge.saveAccessToken(huggingFaceToken.value);
     }
+    await _nativeBridge.saveCloudflareTunnelConfig(
+      tunnelToken: cloudflareTunnelToken.value,
+      publicUrl: cloudflarePublicUrl.value,
+    );
+    await _nativeBridge.saveNgrokConfig(
+      authToken: ngrokAuthToken.value,
+      domain: ngrokDomain.value,
+    );
 
     Get.snackbar('Settings saved', 'Runtime preferences updated.');
+  }
+
+  void selectTunnelProvider(String provider) {
+    tunnelProvider.value = provider == 'ngrok' ? 'ngrok' : 'cloudflare';
+    _storage.serverTunnelProvider = tunnelProvider.value;
   }
 
   void createNewChat({bool persistEmptyChat = true}) {
@@ -648,6 +722,10 @@ class HomeController extends GetxController {
 
   void _handleNativeEvent(Map<String, dynamic> event) {
     final type = event['type'] as String? ?? '';
+    _apiServer.handleNativeEvent(event);
+    if (type.startsWith('api_chat_')) {
+      return;
+    }
     switch (type) {
       case 'chat_chunk':
         _appendAssistantChunk(
@@ -897,6 +975,7 @@ class HomeController extends GetxController {
       await Future<void>.delayed(const Duration(seconds: 1));
       final nextStatus = await _nativeBridge.fetchServerStatus();
       serverStatus.value = nextStatus;
+      _syncTunnelStatusMessage();
       if (nextStatus.isRunning == shouldBeRunning) {
         await refreshRuntime(silent: true);
         return;
@@ -981,6 +1060,50 @@ class HomeController extends GetxController {
         pendingLoadModels.isNotEmpty ||
         models.any((model) => model.isDownloading || model.isInitializing);
     await WakelockPlus.toggle(enable: keepAwake);
+  }
+
+  void _syncTunnelStatusMessage() {
+    final server = serverStatus.value;
+    final isRunning = server?.isRunning ?? false;
+    final tunnelEnabled = server?.tunnelEnabled ?? useTunnel.value;
+    final publicUrl = server?.publicUrl ?? '';
+    final provider = server?.tunnelProvider ?? tunnelProvider.value;
+
+    if (!isRunning || !tunnelEnabled) {
+      tunnelStatusMessage.value = '';
+      tunnelStatusIsError.value = false;
+      _tunnelRequestedAt = null;
+      return;
+    }
+
+    if (publicUrl.isNotEmpty) {
+      tunnelStatusMessage.value = '';
+      tunnelStatusIsError.value = false;
+      return;
+    }
+
+    _tunnelRequestedAt ??= DateTime.now();
+    final elapsed = DateTime.now().difference(_tunnelRequestedAt!);
+    if (elapsed < const Duration(seconds: 18)) {
+      tunnelStatusIsError.value = false;
+      tunnelStatusMessage.value = provider == 'ngrok'
+          ? 'Connecting to ngrok...'
+          : 'Connecting to Cloudflare...';
+      return;
+    }
+
+    tunnelStatusIsError.value = true;
+    tunnelStatusMessage.value = provider == 'ngrok'
+        ? _ngrokTunnelHint()
+        : 'Cloudflare tunnel is still not ready. This usually means tunnel startup or DNS failed before a public URL could be published.';
+  }
+
+  String _ngrokTunnelHint() {
+    final hasReservedDomain = ngrokDomain.value.trim().isNotEmpty;
+    final reservedDomainHint = hasReservedDomain
+        ? ' Also make sure the ngrok reserved domain really exists in your ngrok dashboard; otherwise leave that field blank.'
+        : '';
+    return 'ngrok is still not ready. Common causes are a bad authtoken, broken DNS on the phone, or an invalid reserved domain.$reservedDomainHint';
   }
 
   String _normalizeUrl(String value) {

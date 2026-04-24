@@ -4,6 +4,7 @@ class NativeServerStatus {
     required this.localUrl,
     required this.publicUrl,
     required this.tunnelEnabled,
+    required this.tunnelProvider,
     required this.loadingModels,
     required this.modelError,
     required this.activeModelName,
@@ -15,6 +16,7 @@ class NativeServerStatus {
   final String? localUrl;
   final String? publicUrl;
   final bool tunnelEnabled;
+  final String tunnelProvider;
   final bool loadingModels;
   final String modelError;
   final String? activeModelName;
@@ -27,6 +29,7 @@ class NativeServerStatus {
       localUrl: map['localUrl'] as String?,
       publicUrl: map['publicUrl'] as String?,
       tunnelEnabled: map['tunnelEnabled'] as bool? ?? false,
+      tunnelProvider: map['tunnelProvider'] as String? ?? 'cloudflare',
       loadingModels: map['loadingModels'] as bool? ?? false,
       modelError: map['modelError'] as String? ?? '',
       activeModelName: map['activeModelName'] as String?,
