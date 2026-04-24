@@ -132,7 +132,7 @@ fun SettingsDialog(
           )
           // Subtitle.
           Text(
-            "App version: ${BuildConfig.VERSION_NAME}",
+            "App version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
             style = labelSmallNarrow,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.offset(y = (-6).dp),
