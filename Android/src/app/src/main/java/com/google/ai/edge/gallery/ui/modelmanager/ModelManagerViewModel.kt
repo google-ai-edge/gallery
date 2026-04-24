@@ -355,7 +355,7 @@ constructor(
     if (model.updatable) {
       model.updatable = false
       model.latestModelFile?.let {
-        model.version = it.commitHash
+        model.version = it.commitHash ?: "-"
         model.downloadFileName = it.fileName
       }
     }
@@ -1486,7 +1486,7 @@ constructor(
 
     // If not, check if any updatable model file (previous version) has been downloaded.
     for (updatableFile in model.updatableModelFiles) {
-      if (updatableFile.commitHash.isEmpty()) continue
+      if (updatableFile.commitHash.isNullOrEmpty()) continue
       if (checkIfModelDownloaded(model, updatableFile.commitHash, updatableFile.fileName)) {
         // If an updatable version is found on the device, update the model's version and file name
         // to match the downloaded one, and mark it as updatable.

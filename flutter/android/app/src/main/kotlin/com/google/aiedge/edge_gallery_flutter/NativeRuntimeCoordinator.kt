@@ -3,6 +3,9 @@ package com.google.aiedge.edge_gallery_flutter
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.content.Context
+import android.content.Intent
+import androidx.core.content.ContextCompat
+import com.google.ai.edge.gallery.worker.ModelKeepAliveService
 import com.google.ai.edge.gallery.NativeRuntimeEntryPoint
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.BuiltInTaskId
@@ -290,6 +293,9 @@ class NativeRuntimeCoordinator private constructor(
                 }
                 activeSupportsImage.set(false)
                 activeSupportsAudio.set(false)
+                applicationContext.stopService(
+                    Intent(applicationContext, ModelKeepAliveService::class.java)
+                )
                 updateOperation(status = "idle", message = "", modelName = model.name)
                 emitEvent("model_unloaded", mapOf("modelName" to model.name))
             },
@@ -605,6 +611,12 @@ class NativeRuntimeCoordinator private constructor(
                                 status = "idle",
                                 message = "",
                                 modelName = model.name,
+                            )
+                            ContextCompat.startForegroundService(
+                                applicationContext,
+                                Intent(applicationContext, ModelKeepAliveService::class.java).apply {
+                                    putExtra(ModelKeepAliveService.EXTRA_MODEL_NAME, model.displayName.ifEmpty { model.name })
+                                }
                             )
                             onReady()
                         }

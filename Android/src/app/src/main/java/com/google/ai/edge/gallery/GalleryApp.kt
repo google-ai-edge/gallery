@@ -113,6 +113,7 @@ fun GalleryApp(
           when (tab) {
               0 -> GalleryNavHost(
                   navController = navController,
+                  modifier = Modifier.padding(innerPadding),
                   modelManagerViewModel = modelManagerViewModel,
               )
               1 -> ServerScreen(modifier = Modifier.padding(innerPadding))

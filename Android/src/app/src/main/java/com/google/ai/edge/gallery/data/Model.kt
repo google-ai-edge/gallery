@@ -54,7 +54,7 @@ enum class AICoreModelPreference {
 
 data class ModelFile(
   @SerializedName("fileName") val fileName: String,
-  @SerializedName("commitHash") val commitHash: String,
+  @SerializedName("commitHash") val commitHash: String? = null,
 )
 
 /**

@@ -146,6 +146,11 @@
             android:foregroundServiceType="dataSync"
             android:exported="false" />
 
+        <service
+            android:name=".worker.ModelKeepAliveService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="gallery_high_priority_push_channel" />

@@ -46,7 +46,7 @@ data class AllowedModel(
   val name: String,
   val modelId: String,
   val modelFile: String,
-  val commitHash: String,
+  val commitHash: String? = null,
   val description: String,
   val sizeInBytes: Long,
   val defaultConfig: DefaultConfig,
@@ -73,10 +73,10 @@ data class AllowedModel(
 ) {
   fun toModel(): Model {
     // Construct HF download url.
-    var version = commitHash
+    var version = commitHash ?: "-"
     var downloadedFileName = modelFile
     var downloadUrl =
-      url ?: "https://huggingface.co/$modelId/resolve/$commitHash/$modelFile?download=true"
+      url ?: "https://huggingface.co/$modelId/resolve/${commitHash ?: "main"}/$modelFile?download=true"
     var sizeInBytes = sizeInBytes
 
     // Handle per-soc model files.
@@ -88,7 +88,7 @@ data class AllowedModel(
           downloadedFileName = info.modelFile ?: "-"
           downloadUrl =
             info.url
-              ?: "https://huggingface.co/$modelId/resolve/${info.commitHash}/${info.modelFile}?download=true"
+              ?: "https://huggingface.co/$modelId/resolve/${info.commitHash ?: "main"}/${info.modelFile}?download=true"
           sizeInBytes = info.sizeInBytes ?: -1
         }
       }

@@ -236,22 +236,24 @@ fun ServerScreen(modifier: Modifier = Modifier) {
                 )
 
                 // Local endpoint
-                if (localUrl != null) {
+                val safeLocalUrl = localUrl
+                if (safeLocalUrl != null) {
                     EndpointCard(
                         icon = Icons.Outlined.Wifi,
                         label = "Local Network",
-                        url = localUrl!!,
+                        url = safeLocalUrl,
                         description = "Accessible from devices on same Wi-Fi",
                         context = context,
                     )
                 }
 
                 // Public endpoint
-                if (publicUrl != null) {
+                val safePublicUrl = publicUrl
+                if (safePublicUrl != null) {
                     EndpointCard(
                         icon = Icons.Outlined.Cloud,
                         label = "Internet (Cloudflare Tunnel)",
-                        url = publicUrl!!,
+                        url = safePublicUrl,
                         description = "Accessible from anywhere on the internet",
                         context = context,
                     )

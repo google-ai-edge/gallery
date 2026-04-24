@@ -93,9 +93,9 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
   override suspend fun doWork(): Result {
     val fileUrl = inputData.getString(KEY_MODEL_URL)
     val modelName = inputData.getString(KEY_MODEL_NAME) ?: "Model"
-    val version = inputData.getString(KEY_MODEL_COMMIT_HASH)!!
+    val version = inputData.getString(KEY_MODEL_COMMIT_HASH) ?: "-"
     val fileName = inputData.getString(KEY_MODEL_DOWNLOAD_FILE_NAME)
-    val modelDir = inputData.getString(KEY_MODEL_DOWNLOAD_MODEL_DIR)!!
+    val modelDir = inputData.getString(KEY_MODEL_DOWNLOAD_MODEL_DIR) ?: ""
     val isZip = inputData.getBoolean(KEY_MODEL_IS_ZIP, false)
     val unzippedDir = inputData.getString(KEY_MODEL_UNZIPPED_DIR)
     val extraDataFileUrls = inputData.getString(KEY_MODEL_EXTRA_DATA_URLS)?.split(",") ?: listOf()

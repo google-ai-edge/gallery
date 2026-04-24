@@ -292,7 +292,7 @@ class _ModelsTab extends GetView<HomeController> {
                         Icon(
                           Icons.cloud_off_rounded,
                           size: 64,
-                          color: AppTheme.slate.withOpacity(0.3),
+                          color: AppTheme.slate.withValues(alpha: 0.3),
                         ),
                         const SizedBox(height: 16),
                         Text(
