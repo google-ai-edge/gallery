@@ -6,10 +6,6 @@ class AppStorage {
   AppStorage._();
 
   static const String _defaultHfToken = '';
-  static const String _defaultNgrokAuthToken =
-      '27EU8xAlKpERmOQPpeGRn4jTsg6_6GCfUawhJEiandVRs7hjD';
-  static const String _defaultNgrokDomain =
-      'gratuitously-pentahydric-laila.ngrok-free.dev';
 
   static const String _boxName = 'edge_gallery_flutter';
   static const String _customModelsKey = 'custom_models';
@@ -179,8 +175,7 @@ class AppStorage {
     _box.put(_cloudflarePublicUrlKey, value.trim());
   }
 
-  String get ngrokAuthToken =>
-      (_box.get(_ngrokAuthTokenKey) as String?) ?? _defaultNgrokAuthToken;
+  String get ngrokAuthToken => (_box.get(_ngrokAuthTokenKey) as String?) ?? '';
 
   set ngrokAuthToken(String value) {
     if (value.trim().isEmpty) {
@@ -190,8 +185,7 @@ class AppStorage {
     _box.put(_ngrokAuthTokenKey, value.trim());
   }
 
-  String get ngrokDomain =>
-      (_box.get(_ngrokDomainKey) as String?) ?? _defaultNgrokDomain;
+  String get ngrokDomain => (_box.get(_ngrokDomainKey) as String?) ?? '';
 
   set ngrokDomain(String value) {
     if (value.trim().isEmpty) {
