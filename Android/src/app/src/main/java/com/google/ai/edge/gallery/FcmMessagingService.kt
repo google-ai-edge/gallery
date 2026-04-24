@@ -71,12 +71,10 @@ class GalleryFcmMessagingService : FirebaseMessagingService() {
     imageUrl: android.net.Uri?,
     deeplink: String? = null,
   ) {
-    val intent =
-      if (!deeplink.isNullOrEmpty()) {
-        Intent(Intent.ACTION_VIEW, deeplink.toUri()).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
-      } else {
-        Intent(this, MainActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP) }
-      }
+    // Always open the launcher activity (Flutter UI).
+    val intent = packageManager.getLaunchIntentForPackage(packageName)
+      ?: Intent().apply { addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP) }
+    intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
     val requestCode = 0
     val pendingIntent =
       PendingIntent.getActivity(

@@ -28,7 +28,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.edit
-import androidx.core.net.toUri
 import androidx.core.os.bundleOf
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
@@ -288,26 +287,10 @@ class DefaultDownloadRepository(
       context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     notificationManager.createNotificationChannel(channel)
 
-    val intent: Intent
-    if (taskId.isEmpty()) {
-      // If taskId is empty, it's a failed download. Just open the app's main screen.
-      intent = context.packageManager.getLaunchIntentForPackage(context.packageName)!!
-    }
-    // Download from global model manager. Open the global model manager screen.
-    else if (taskId == DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID) {
-      intent =
-        Intent(Intent.ACTION_VIEW, "com.google.ai.edge.gallery://global_model_manager".toUri())
-          .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
-    } else {
-
-      // Otherwise, create the deep link as before.
-      intent =
-        Intent(
-            Intent.ACTION_VIEW,
-            "com.google.ai.edge.gallery://model/$taskId/${modelName}".toUri(),
-          )
-          .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
-    }
+    // Always open the launcher activity (Flutter UI), not the native Compose one.
+    val intent: Intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+      ?: Intent().apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+    intent.flags = intent.flags or Intent.FLAG_ACTIVITY_SINGLE_TOP
 
     // Create a PendingIntent
     val pendingIntent: PendingIntent =

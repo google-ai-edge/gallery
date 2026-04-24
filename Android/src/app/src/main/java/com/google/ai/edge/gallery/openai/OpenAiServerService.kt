@@ -7,7 +7,6 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.google.ai.edge.gallery.MainActivity
 import com.google.ai.edge.gallery.R
 import java.net.Inet4Address
 import java.net.NetworkInterface
@@ -126,10 +125,11 @@ class OpenAiServerService : Service() {
     }
 
     private fun createNotification(content: String): Notification {
-        val notificationIntent = Intent(this, MainActivity::class.java)
+        val notificationIntent = packageManager.getLaunchIntentForPackage(packageName)
+            ?: Intent()
         val pendingIntent = PendingIntent.getActivity(
             this, 0, notificationIntent,
-            PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)

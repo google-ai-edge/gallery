@@ -1,7 +1,7 @@
 name: edge_gallery_flutter
 description: "Hybrid Flutter shell for AI Edge Gallery."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.12+12
 
 environment:
   sdk: ^3.11.4

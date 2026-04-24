@@ -159,13 +159,6 @@ class _ChatTabState extends State<_ChatTab> {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
           child: Row(
             children: <Widget>[
-              Builder(
-                builder: (context) => IconButton(
-                  onPressed: () => Scaffold.of(context).openDrawer(),
-                  icon: const Icon(Icons.menu_rounded),
-                ),
-              ),
-              const SizedBox(width: 4),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,6 +177,12 @@ class _ChatTabState extends State<_ChatTab> {
               IconButton(
                 onPressed: controller.resetConversation,
                 icon: const Icon(Icons.edit_square),
+              ),
+              Builder(
+                builder: (context) => IconButton(
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                  icon: const Icon(Icons.menu_rounded),
+                ),
               ),
             ],
           ),
@@ -1647,11 +1646,8 @@ class _ModelCard extends GetView<HomeController> {
               runSpacing: 8,
               children: <Widget>[
                 _MetaText(label: _humanBytes(model.sizeInBytes)),
-                _MetaText(
-                  label: model.minRamGb == null
-                      ? 'RAM unknown'
-                      : 'Min ${model.minRamGb} GB RAM',
-                ),
+                if (model.minRamGb != null)
+                  _MetaText(label: 'Min ${model.minRamGb} GB RAM'),
                 _MetaText(
                   label: _statusLabel(model),
                   color: model.isDownloaded || model.isActive

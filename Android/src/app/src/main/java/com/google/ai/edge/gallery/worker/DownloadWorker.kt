@@ -339,9 +339,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
     val content = "Downloading in progress: $progress%"
 
     val intent =
-      Intent(applicationContext, Class.forName("com.google.ai.edge.gallery.MainActivity")).apply {
-        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-      }
+      applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName)
+        ?: Intent().apply {
+          flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+    intent.flags = intent.flags or Intent.FLAG_ACTIVITY_SINGLE_TOP
     val pendingIntent =
       PendingIntent.getActivity(
         applicationContext,

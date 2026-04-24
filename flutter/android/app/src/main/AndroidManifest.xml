@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="com.google.android.apps.aicore.service.BIND_SERVICE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
@@ -102,6 +103,10 @@
         </service>
         <service
             android:name="com.google.ai.edge.gallery.openai.OpenAiServerService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+        <service
+            android:name="com.google.ai.edge.gallery.worker.ModelKeepAliveService"
             android:foregroundServiceType="dataSync"
             android:exported="false" />
 
