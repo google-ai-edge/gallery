@@ -406,19 +406,22 @@ fun DownloadAndTryButton(
         val isInitialized = uiState.isModelInitialized(model)
         val isInitializing = uiState.isModelInitializing(model)
         
-        Icon(
+        val leadingIcon =
           if (needToDownloadFirst) {
             Icons.Outlined.FileDownload
-          } else if (isInitialized) {
-            Icons.Outlined.Close
           } else if (isInitializing) {
-            androidx.compose.material.icons.Icons.Default.Refresh
+            Icons.Default.Refresh
           } else {
-            Icons.AutoMirrored.Rounded.ArrowForward
-          },
-          contentDescription = null,
-          tint = textColor,
-        )
+            null
+          }
+
+        if (leadingIcon != null) {
+          Icon(
+            leadingIcon,
+            contentDescription = null,
+            tint = textColor,
+          )
+        }
 
         if (!useCompactActionButton) {
           if (needToDownloadFirst) {
@@ -428,7 +431,14 @@ fun DownloadAndTryButton(
               style = MaterialTheme.typography.titleMedium,
             )
           } else if (canShowTryIt) {
-            val buttonText = if (isInitialized) "Unload" else if (isInitializing) "Loading..." else "Load Model"
+            val buttonText =
+              if (isInitialized) {
+                "Unload Model"
+              } else if (isInitializing) {
+                "Loading..."
+              } else {
+                "Load Model"
+              }
             Text(
               buttonText,
               color = textColor,

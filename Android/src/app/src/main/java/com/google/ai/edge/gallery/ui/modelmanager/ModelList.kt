@@ -148,6 +148,22 @@ fun ModelList(
   // Get download statuses from ViewModel for "Downloaded" filter
   val uiState by modelManagerViewModel.uiState.collectAsState()
   val downloadStatuses = uiState.modelDownloadStatus
+  val defaultExpandedModelName by remember(uiState.selectedModel, uiState.modelInitializationStatus, task) {
+    derivedStateOf {
+      val selectedModel = uiState.selectedModel
+      when {
+        task.models.any { it.name == selectedModel.name } &&
+          selectedModel.name != com.google.ai.edge.gallery.data.EMPTY_MODEL.name -> selectedModel.name
+        else ->
+          task.models
+            .firstOrNull {
+              uiState.modelInitializationStatus[it.name]?.status ==
+                ModelInitializationStatusType.INITIALIZED
+            }
+            ?.name
+      }
+    }
+  }
 
   // Apply filter to models
   val filteredModels = remember(models, importedModels, activeFilter, downloadStatuses) {
@@ -379,6 +395,8 @@ fun ModelList(
         items(items = models) { model ->
           if (model.parentModelName.isNullOrEmpty()) {
             val expanded = modelItemExpandedStates.getOrDefault(model.name, false)
+            val resolvedExpanded =
+              modelItemExpandedStates.getOrDefault(model.name, model.name == defaultExpandedModelName)
             ModelItem(
               model = model,
               modelVariants = modelVariants.getOrDefault(model.name, listOf()),
@@ -386,9 +404,9 @@ fun ModelList(
               modelManagerViewModel = modelManagerViewModel,
               onModelClicked = onModelClicked,
               onBenchmarkClicked = onBenchmarkClicked,
-              expanded = expanded,
+              expanded = resolvedExpanded,
               onExpanded = { modelItemExpandedStates[model.name] = it },
-              showBenchmarkButton = true,
+              showBenchmarkButton = false,
               modifier =
                 Modifier.graphicsLayer {
                   alpha = modelListProgress
@@ -425,9 +443,13 @@ fun ModelList(
               modelManagerViewModel = modelManagerViewModel,
               onModelClicked = onModelClicked,
               onBenchmarkClicked = onBenchmarkClicked,
-              expanded = modelItemExpandedStates.getOrDefault(model.name, false),
+              expanded =
+                modelItemExpandedStates.getOrDefault(
+                  model.name,
+                  model.name == defaultExpandedModelName,
+                ),
               onExpanded = { modelItemExpandedStates[model.name] = it },
-              showBenchmarkButton = true,
+              showBenchmarkButton = false,
               modifier =
                 Modifier.graphicsLayer {
                   alpha = modelListProgress
@@ -441,6 +463,8 @@ fun ModelList(
         items(items = filteredModels, key = { it.name }) { model ->
           if (model.parentModelName.isNullOrEmpty()) {
             val expanded = modelItemExpandedStates.getOrDefault(model.name, false)
+            val resolvedExpanded =
+              modelItemExpandedStates.getOrDefault(model.name, model.name == defaultExpandedModelName)
             ModelItem(
               model = model,
               modelVariants = if (!model.imported) modelVariants.getOrDefault(model.name, listOf()) else listOf(),
@@ -448,9 +472,9 @@ fun ModelList(
               modelManagerViewModel = modelManagerViewModel,
               onModelClicked = onModelClicked,
               onBenchmarkClicked = onBenchmarkClicked,
-              expanded = expanded,
+              expanded = resolvedExpanded,
               onExpanded = { modelItemExpandedStates[model.name] = it },
-              showBenchmarkButton = true,
+              showBenchmarkButton = false,
               modifier =
                 Modifier.graphicsLayer {
                   alpha = modelListProgress

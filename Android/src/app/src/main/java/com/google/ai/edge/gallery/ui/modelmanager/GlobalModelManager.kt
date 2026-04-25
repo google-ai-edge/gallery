@@ -246,6 +246,20 @@ fun GlobalModelManager(
     }
   }
 
+  val defaultExpandedModelName by remember(uiState.selectedModel, uiState.modelInitializationStatus) {
+    derivedStateOf {
+      val selectedModel = uiState.selectedModel
+      when {
+        selectedModel.name.isNotEmpty() &&
+          selectedModel.name != com.google.ai.edge.gallery.data.EMPTY_MODEL.name -> selectedModel.name
+        else ->
+          uiState.modelInitializationStatus.entries
+            .firstOrNull { it.value.status == ModelInitializationStatusType.INITIALIZED }
+            ?.key
+      }
+    }
+  }
+
   val handleClickModel: (Model) -> Unit = { model ->
     val uiState = viewModel.uiState.value
     val isInitialized = uiState.modelInitializationStatus[model.name]?.status == com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType.INITIALIZED
@@ -354,7 +368,8 @@ fun GlobalModelManager(
         }
 
         items(filteredBuiltInModels) { model ->
-          val expanded = modelItemExpandedStates.getOrDefault(model.name, false)
+          val expanded =
+            modelItemExpandedStates.getOrDefault(model.name, model.name == defaultExpandedModelName)
           ModelItem(
             model = model,
             modelVariants = modelVariants.getOrDefault(model.name, listOf()),
@@ -363,7 +378,7 @@ fun GlobalModelManager(
             onModelClicked = handleClickModel,
             onBenchmarkClicked = onBenchmarkClicked,
             expanded = expanded,
-            showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
+            showBenchmarkButton = false,
             onExpanded = { modelItemExpandedStates[model.name] = it },
           )
         }
@@ -386,8 +401,12 @@ fun GlobalModelManager(
             modelManagerViewModel = viewModel,
             onModelClicked = handleClickModel,
             onBenchmarkClicked = onBenchmarkClicked,
-            expanded = modelItemExpandedStates.getOrDefault(model.name, false),
-            showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
+            expanded =
+              modelItemExpandedStates.getOrDefault(
+                model.name,
+                model.name == defaultExpandedModelName,
+              ),
+            showBenchmarkButton = false,
             onExpanded = { modelItemExpandedStates[model.name] = it },
           )
         }

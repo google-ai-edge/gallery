@@ -31,15 +31,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.outlined.BarChart
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.rounded.UnfoldLess
 import androidx.compose.material.icons.rounded.UnfoldMore
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -181,16 +176,13 @@ fun ModelItem(
         )
         // Model action menu (benchmark, delete), and button to expand/collapse button at the right.
         Row(verticalAlignment = Alignment.Top, modifier = Modifier.align(Alignment.TopEnd)) {
-          if (
-            modelVariants.isEmpty() && downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
-          ) {
-            ModelItemActionMenu(
+          if (modelVariants.isEmpty()) {
+            DeleteModelButton(
               model = model,
               modelManagerViewModel = modelManagerViewModel,
-              showBenchmarkButton = showBenchmarkButton,
+              downloadStatus = downloadStatus,
               showDeleteButton =
                 showDeleteButton && model.localFileRelativeDirPathOverride.isEmpty() && !isAicore,
-              onBenchmarkClicked = { onBenchmarkClicked(model) },
               modifier = Modifier.offset(y = (-12).dp),
             )
           }
@@ -448,90 +440,16 @@ fun ModelVariantHeader(
         isExpanded = isExpanded,
       )
     }
-    // Model action menu (benchmark, delete)
-    if (downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED) {
-      ModelItemActionMenu(
-        model = variantModel,
-        modelManagerViewModel = modelManagerViewModel,
-        showBenchmarkButton = showBenchmarkButton,
-        showDeleteButton =
-          showDeleteButton &&
-            variantModel.localFileRelativeDirPathOverride.isEmpty() &&
-            variantModel.runtimeType != RuntimeType.AICORE,
-        onBenchmarkClicked = { onBenchmarkClicked(variantModel) },
-        modifier = menuModifier.offset(y = (-12).dp),
-      )
-    }
-  }
-}
-
-/** A reusable composable for displaying an action menu for a model item. */
-@Composable
-fun ModelItemActionMenu(
-  model: Model,
-  modelManagerViewModel: ModelManagerViewModel,
-  showBenchmarkButton: Boolean,
-  onBenchmarkClicked: () -> Unit,
-  showDeleteButton: Boolean,
-  modifier: Modifier = Modifier,
-) {
-  var showMenu by remember { mutableStateOf(false) }
-  var showConfirmDeleteDialog by remember { mutableStateOf(false) }
-
-  Box(modifier = modifier) {
-    IconButton(onClick = { showMenu = true }) {
-      Icon(
-        Icons.Default.MoreVert,
-        contentDescription = stringResource(R.string.cd_more_options),
-        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-      )
-    }
-    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-      if (showBenchmarkButton) {
-        DropdownMenuItem(
-          text = {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-              Icon(Icons.Outlined.BarChart, contentDescription = null)
-              Text(stringResource(R.string.benchmark))
-            }
-          },
-          onClick = {
-            onBenchmarkClicked()
-            showMenu = false
-          },
-        )
-      }
-      if (showDeleteButton) {
-        DropdownMenuItem(
-          text = {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-              Icon(Icons.Outlined.Delete, contentDescription = null)
-              Text(stringResource(R.string.delete))
-            }
-          },
-          onClick = {
-            showMenu = false
-            showConfirmDeleteDialog = true
-          },
-        )
-      }
-    }
-    if (showConfirmDeleteDialog) {
-      ConfirmDeleteModelDialog(
-        model = model,
-        onConfirm = {
-          modelManagerViewModel.deleteModel(model = model)
-          showConfirmDeleteDialog = false
-        },
-        onDismiss = { showConfirmDeleteDialog = false },
-      )
-    }
+    DeleteModelButton(
+      model = variantModel,
+      modelManagerViewModel = modelManagerViewModel,
+      downloadStatus = downloadStatus,
+      showDeleteButton =
+        showDeleteButton &&
+          variantModel.localFileRelativeDirPathOverride.isEmpty() &&
+          variantModel.runtimeType != RuntimeType.AICORE,
+      modifier = menuModifier.offset(y = (-12).dp),
+    )
   }
 }
 
