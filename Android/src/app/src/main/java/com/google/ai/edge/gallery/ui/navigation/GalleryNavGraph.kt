@@ -441,11 +441,15 @@ private fun CustomTaskScreen(
   LaunchedEffect(curDownloadStatus, selectedModel.name) {
     if (!navigatingUp) {
       if (curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED) {
-        Log.d(
-          TAG,
-          "Initializing model '${selectedModel.name}' from CustomTaskScreen launched effect",
-        )
-        modelManagerViewModel.initializeModel(context, task = task, model = selectedModel)
+        if (modelManagerViewModel.wasExplicitlyUnloaded(selectedModel)) {
+          Log.d(TAG, "Skipping auto initialization for explicitly unloaded model '${selectedModel.name}'")
+        } else {
+          Log.d(
+            TAG,
+            "Initializing model '${selectedModel.name}' from CustomTaskScreen launched effect",
+          )
+          modelManagerViewModel.initializeModel(context, task = task, model = selectedModel)
+        }
       }
     }
   }

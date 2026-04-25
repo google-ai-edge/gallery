@@ -72,6 +72,14 @@ class MainActivity : ComponentActivity() {
     // and forces the app to start cleanly on the Home Screen after an OS kill.
     super.onCreate(null)
     com.google.ai.edge.gallery.openai.OpenAiServerState.modelManagerViewModel = modelManagerViewModel
+    if (
+      intent.getBooleanExtra(
+        com.google.ai.edge.gallery.openai.OpenAiServerService.EXTRA_OPEN_SERVER_SCREEN,
+        false,
+      )
+    ) {
+      com.google.ai.edge.gallery.openai.OpenAiServerState.requestOpenServerScreen()
+    }
 
     // Debug: Dump all intent extras to see what FCM unloads
     intent.extras?.let { extras ->
@@ -186,6 +194,14 @@ class MainActivity : ComponentActivity() {
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
+    if (
+      intent.getBooleanExtra(
+        com.google.ai.edge.gallery.openai.OpenAiServerService.EXTRA_OPEN_SERVER_SCREEN,
+        false,
+      )
+    ) {
+      com.google.ai.edge.gallery.openai.OpenAiServerState.requestOpenServerScreen()
+    }
 
     // Debug: Dump all intent extras to see what FCM unloads
     intent.extras?.let { extras ->

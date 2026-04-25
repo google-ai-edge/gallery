@@ -115,7 +115,14 @@ fun ChatView(
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val selectedModel = modelManagerUiState.selectedModel
-  val hasSelectedModel = selectedModel.name != EMPTY_MODEL.name
+  val selectedModelInitializationStatus =
+    modelManagerUiState.modelInitializationStatus[selectedModel.name]
+  val isSelectedModelInitialized = modelManagerUiState.isModelInitialized(selectedModel)
+  val isSelectedModelInitializing =
+    selectedModelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
+  val chatModel =
+    if (isSelectedModelInitialized || isSelectedModelInitializing) selectedModel else EMPTY_MODEL
+  val hasChatModel = chatModel.name != EMPTY_MODEL.name
 
   // Image viewer related.
   var selectedImageIndex by remember { mutableIntStateOf(-1) }
@@ -138,13 +145,13 @@ fun ChatView(
     }
   }
 
-  // Initialize model when model/download state changes.
+  // Do not initialize from the chat screen. Loading should only happen from an explicit user action
+  // such as tapping "Load Model" in the Models section or selecting a model flow that calls it.
   val curDownloadStatus = modelManagerUiState.modelDownloadStatus[selectedModel.name]
-  LaunchedEffect(curDownloadStatus, selectedModel.name, hasSelectedModel) {
-    if (!navigatingUp && hasSelectedModel) {
+  LaunchedEffect(curDownloadStatus, selectedModel.name, hasChatModel) {
+    if (!navigatingUp && selectedModel.name != EMPTY_MODEL.name) {
       if (curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED) {
-        Log.d(TAG, "Initializing model '${selectedModel.name}' from ChatView launched effect")
-        modelManagerViewModel.initializeModel(context, task = task, model = selectedModel)
+        Log.d(TAG, "Skipping chat-screen auto initialization for model '${selectedModel.name}'")
       }
     }
   }
@@ -156,7 +163,7 @@ fun ChatView(
   // Handle system's edge swipe.
   BackHandler {
     val modelInitializationStatus =
-      modelManagerUiState.modelInitializationStatus[selectedModel.name]
+      modelManagerUiState.modelInitializationStatus[chatModel.name]
     val isModelInitializing =
       modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
     if (!isModelInitializing && !uiState.inProgress) {
@@ -167,13 +174,13 @@ fun ChatView(
   Scaffold(
     modifier = modifier,
     topBar = {
-      ModelPageAppBar(
-        task = task,
-        model = selectedModel,
-        modelManagerViewModel = modelManagerViewModel,
-        navigationIcon = navigationIcon,
-        canShowResetSessionButton = hasSelectedModel,
-        hideModelSelector = !hasSelectedModel,
+        ModelPageAppBar(
+          task = task,
+          model = chatModel,
+          modelManagerViewModel = modelManagerViewModel,
+          navigationIcon = navigationIcon,
+          canShowResetSessionButton = hasChatModel,
+          hideModelSelector = !hasChatModel,
         isResettingSession = uiState.isResettingSession,
         inProgress = uiState.inProgress,
         modelPreparing = uiState.preparing,
@@ -191,7 +198,7 @@ fun ChatView(
           viewModel.addConfigChangedMessage(
             oldConfigValues = filteredOld,
             newConfigValues = filteredNew,
-            model = selectedModel,
+            model = chatModel,
           )
         },
         onBackClicked = { handleNavigateUp() },
@@ -210,12 +217,13 @@ fun ChatView(
     Box {
       val curModelDownloadStatus = modelManagerUiState.modelDownloadStatus[selectedModel.name]
 
-      composableBelowMessageList(selectedModel)
+      composableBelowMessageList(chatModel)
 
       Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         AnimatedContent(
           targetState =
-            !hasSelectedModel || curModelDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+            selectedModel.name == EMPTY_MODEL.name ||
+              curModelDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
         ) { targetState ->
           when (targetState) {
             // Main UI when model is downloaded, or when no model is selected yet.
@@ -223,24 +231,30 @@ fun ChatView(
               ChatPanel(
                 modelManagerViewModel = modelManagerViewModel,
                 task = task,
-                selectedModel = selectedModel,
+                selectedModel = chatModel,
                 viewModel = viewModel,
                 innerPadding = innerPadding,
                 navigateUp = navigateUp,
-                onSendMessage = { model, messages -> onSendMessage(model, messages) },
+                onSendMessage = { model, messages ->
+                  if (modelManagerViewModel.uiState.value.isModelInitialized(model)) {
+                    onSendMessage(model, messages)
+                  } else {
+                    Log.d(TAG, "Ignoring send because model '${model.name}' is not initialized")
+                  }
+                },
                 onRunAgainClicked = onRunAgainClicked,
                 onBenchmarkClicked = onBenchmarkClicked,
                 onStreamImageMessage = onStreamImageMessage,
                 onStreamEnd = { averageFps ->
                   viewModel.addMessage(
-                    model = selectedModel,
+                    model = chatModel,
                     message =
                       ChatMessageInfo(
                         content = "Live camera session ended. Average FPS: $averageFps"
                       ),
                   )
                 },
-                onStopButtonClicked = { onStopButtonClicked(selectedModel) },
+                onStopButtonClicked = { onStopButtonClicked(chatModel) },
                 onImageSelected = { bitmaps, selectedBitmapIndex ->
                   selectedImageIndex = selectedBitmapIndex
                   allImageViewerImages = bitmaps
@@ -252,7 +266,7 @@ fun ChatView(
                 showImagePicker = showImagePicker,
                 showAudioPicker = showAudioPicker,
                 emptyStateComposable = emptyStateComposable,
-                inputEnabled = hasSelectedModel,
+                inputEnabled = hasChatModel && isSelectedModelInitialized,
               )
             // Model download
             false ->

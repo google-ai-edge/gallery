@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.google.ai.edge.gallery.openai.OpenAiServerState
 import com.google.ai.edge.gallery.ui.modelmanager.GlobalModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.navigation.GalleryNavHost
@@ -90,6 +91,13 @@ fun GalleryApp(
   modelManagerViewModel: ModelManagerViewModel,
 ) {
   var selectedTab by remember { mutableIntStateOf(0) }
+  val openServerScreenRequest by OpenAiServerState.openServerScreenRequest.collectAsState()
+
+  LaunchedEffect(openServerScreenRequest) {
+      if (openServerScreenRequest != 0L) {
+          selectedTab = 2
+      }
+  }
 
   Scaffold(
       bottomBar = {

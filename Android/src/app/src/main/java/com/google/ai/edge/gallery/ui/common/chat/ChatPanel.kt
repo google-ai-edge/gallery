@@ -240,6 +240,7 @@ fun ChatPanel(
   }
 
   val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
+  val isSelectedModelInitialized = modelManagerUiState.isModelInitialized(selectedModel)
 
   LaunchedEffect(modelInitializationStatus) {
     showErrorDialog = modelInitializationStatus?.status == ModelInitializationStatusType.ERROR
@@ -551,10 +552,12 @@ fun ChatPanel(
         textFieldPlaceHolderRes = task.textInputPlaceHolderRes,
         onValueChanged = { curMessage = it },
         onSendMessage = {
-          onSendMessage(selectedModel, it)
-          curMessage = ""
-          // Hide software keyboard.
-          focusManager.clearFocus()
+          if (isSelectedModelInitialized) {
+            onSendMessage(selectedModel, it)
+            curMessage = ""
+            // Hide software keyboard.
+            focusManager.clearFocus()
+          }
         },
         onOpenPromptTemplatesClicked = {
           onSendMessage(
@@ -584,7 +587,7 @@ fun ChatPanel(
         showAudioPicker = inputEnabled && selectedModel.llmSupportAudio && showAudioPicker,
         showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
         onImageLimitExceeded = { showImageLimitBanner = true },
-        inputEnabled = inputEnabled,
+        inputEnabled = inputEnabled && isSelectedModelInitialized,
       )
     }
   }

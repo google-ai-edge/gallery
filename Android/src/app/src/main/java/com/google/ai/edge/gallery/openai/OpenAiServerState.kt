@@ -34,6 +34,13 @@ object OpenAiServerState {
     private val _tunnelProvider = MutableStateFlow(TUNNEL_PROVIDER_NGROK)
     val tunnelProvider = _tunnelProvider.asStateFlow()
 
+    private val _openServerScreenRequest = MutableStateFlow(0L)
+    val openServerScreenRequest = _openServerScreenRequest.asStateFlow()
+
+    fun requestOpenServerScreen() {
+        _openServerScreenRequest.value = System.currentTimeMillis()
+    }
+
     fun setRunning(running: Boolean, local: String? = null, public: String? = null) {
         _isRunning.value = running
         _localUrl.value = local

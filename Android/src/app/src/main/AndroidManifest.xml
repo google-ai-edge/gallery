@@ -31,6 +31,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="com.google.android.apps.aicore.service.BIND_SERVICE" />
 
@@ -71,6 +72,7 @@
         <activity
             android:name="com.google.ai.edge.gallery.MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.Gallery.SplashScreen"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize"

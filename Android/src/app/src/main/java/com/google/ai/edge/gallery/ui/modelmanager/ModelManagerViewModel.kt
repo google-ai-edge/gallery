@@ -55,6 +55,7 @@ import com.google.ai.edge.gallery.proto.AccessTokenData
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.proto.Theme
 import com.google.ai.edge.gallery.runtime.aicore.AICoreModelHelper
+import com.google.ai.edge.gallery.worker.ModelKeepAliveService
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -193,6 +194,7 @@ constructor(
   @ApplicationContext private val context: Context,
 ) : ViewModel() {
   private val externalFilesDir = context.getExternalFilesDir(null)
+  private val explicitlyUnloadedModelNames = mutableSetOf<String>()
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   open val uiState = _uiState.asStateFlow()
 
@@ -406,6 +408,7 @@ constructor(
     force: Boolean = false,
     onDone: () -> Unit = {},
   ) {
+    explicitlyUnloadedModelNames.remove(model.name)
     viewModelScope.launch(Dispatchers.Default) {
       // Skip if initialized already.
       if (
@@ -443,6 +446,7 @@ constructor(
             model = model,
             status = ModelInitializationStatusType.INITIALIZED,
           )
+          ModelKeepAliveService.startService(context.applicationContext, model.name)
           if (model.cleanUpAfterInit) {
             Log.d(TAG, "Model '${model.name}' needs cleaning up after init.")
             cleanupModel(context = context, task = task, model = model)
@@ -474,8 +478,16 @@ constructor(
     task: Task,
     model: Model,
     instanceToCleanUp: Any? = model.instance,
+    explicitUserUnload: Boolean = false,
     onDone: () -> Unit = {},
   ) {
+    if (explicitUserUnload) {
+      explicitlyUnloadedModelNames.add(model.name)
+      if (uiState.value.selectedModel.name == model.name) {
+        _uiState.update { uiState.value.copy(selectedModel = EMPTY_MODEL) }
+      }
+    }
+
     if (instanceToCleanUp != null && instanceToCleanUp !== model.instance) {
       Log.d(TAG, "Stale cleanup request for ${model.name}. Aborting.")
       onDone()
@@ -492,6 +504,9 @@ constructor(
           model = model,
           status = ModelInitializationStatusType.NOT_INITIALIZED,
         )
+        if (!hasAnyLoadedModel()) {
+          ModelKeepAliveService.stopService(context.applicationContext)
+        }
         Log.d(TAG, "Clean up model '${model.name}' done")
         onDone()
       }
@@ -506,6 +521,9 @@ constructor(
       // When model is being initialized and we are trying to clean it up at same time, we mark it
       // to clean up and it will be cleaned up after initialization is done.
       if (model.initializing) {
+        if (explicitUserUnload) {
+          explicitlyUnloadedModelNames.add(model.name)
+        }
         Log.d(
           TAG,
           "Model '${model.name}' is still initializing.. Will clean up after it is done initializing",
@@ -513,6 +531,31 @@ constructor(
         model.cleanUpAfterInit = true
       }
     }
+  }
+
+  fun wasExplicitlyUnloaded(model: Model): Boolean = explicitlyUnloadedModelNames.contains(model.name)
+
+  fun unloadLoadedModels(context: Context) {
+    val loadedModels =
+      uiState.value.tasks
+        .flatMap { task -> task.models.map { model -> task to model } }
+        .filter { (_, model) -> model.instance != null || model.initializing }
+        .distinctBy { (_, model) -> model.name }
+    loadedModels.forEach { (task, model) ->
+      cleanupModel(
+        context = context,
+        task = task,
+        model = model,
+        explicitUserUnload = true,
+      )
+    }
+    if (loadedModels.isEmpty()) {
+      ModelKeepAliveService.stopService(context.applicationContext)
+    }
+  }
+
+  private fun hasAnyLoadedModel(): Boolean {
+    return uiState.value.tasks.any { task -> task.models.any { model -> model.instance != null } }
   }
 
   fun setDownloadStatus(curModel: Model, status: ModelDownloadStatus) {

@@ -3,10 +3,12 @@ package com.google.ai.edge.gallery.openai
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.google.ai.edge.gallery.MainActivity
 import com.google.ai.edge.gallery.R
 import java.net.Inet4Address
 import java.net.NetworkInterface
@@ -16,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 private const val TAG = "AGOpenAiServerService"
 private const val CHANNEL_ID = "openai_server_channel"
 private const val NOTIFICATION_ID = 1001
+private const val ACTION_STOP_SERVER = "com.google.ai.edge.gallery.openai.STOP_SERVER"
 
 class OpenAiServerService : Service() {
 
@@ -30,6 +33,7 @@ class OpenAiServerService : Service() {
         val localUrl: StateFlow<String?> = OpenAiServerState.localUrl
         val publicUrl: StateFlow<String?> = OpenAiServerState.publicUrl
         val tunnelProvider: StateFlow<String> = OpenAiServerState.tunnelProvider
+        const val EXTRA_OPEN_SERVER_SCREEN = "open_server_screen"
 
         fun startService(
             context: Context,
@@ -59,24 +63,41 @@ class OpenAiServerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP_SERVER) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         val useTunnel = intent?.getBooleanExtra("use_tunnel", OpenAiServerState.isTunnelEnabled.value)
             ?: OpenAiServerState.isTunnelEnabled.value
         val requestedProvider =
             intent?.getStringExtra("tunnel_provider")
                 ?: OpenAiServerState.tunnelProvider.value
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, createNotification("Starting server..."))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                createNotification("Starting server..."),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, createNotification("Starting server..."))
+        }
 
         serviceScope.launch {
             val local = getReachableLocalUrl() ?: "http://localhost:8080"
 
-            val modelManagerVm = OpenAiServerState.modelManagerViewModel
-            if (modelManagerVm != null) {
-                server = OpenAiServer(applicationContext, modelManagerVm)
-                server?.start(8080)
-                Log.i(TAG, "OpenAI API Server started on port 8080")
+            if (server == null) {
+                val modelManagerVm = OpenAiServerState.modelManagerViewModel
+                if (modelManagerVm != null) {
+                    server = OpenAiServer(applicationContext, modelManagerVm)
+                    server?.start(8080)
+                    Log.i(TAG, "OpenAI API Server started on port 8080")
+                } else {
+                    Log.w(TAG, "ModelManagerViewModel not available; server cannot start")
+                }
             } else {
-                Log.w(TAG, "ModelManagerViewModel not available; server cannot start")
+                Log.d(TAG, "OpenAI API Server already running; skipping restart")
             }
 
             OpenAiServerState.setRunning(true, local = local)
@@ -108,7 +129,7 @@ class OpenAiServerService : Service() {
             }
         }
 
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     override fun onDestroy() {
@@ -138,10 +159,21 @@ class OpenAiServerService : Service() {
     }
 
     private fun createNotification(content: String): Notification {
-        val notificationIntent = packageManager.getLaunchIntentForPackage(packageName)
-            ?: Intent()
+        val notificationIntent = Intent(this, MainActivity::class.java).apply {
+            action = Intent.ACTION_MAIN
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            putExtra(EXTRA_OPEN_SERVER_SCREEN, true)
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
         val pendingIntent = PendingIntent.getActivity(
             this, 0, notificationIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val stopIntent = Intent(this, OpenAiServerService::class.java).apply {
+            action = ACTION_STOP_SERVER
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this, 1, stopIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -150,6 +182,9 @@ class OpenAiServerService : Service() {
             .setContentText(content)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)
             .build()
     }
 

@@ -208,6 +208,9 @@ fun ChatViewWrapper(
     modelManagerViewModel = modelManagerViewModel,
     navigationIcon = navigationIcon,
     onSendMessage = { model, messages ->
+      if (!modelManagerViewModel.uiState.value.isModelInitialized(model)) {
+        return@ChatView
+      }
       for (message in messages) {
         viewModel.addMessage(model = model, message = message)
       }

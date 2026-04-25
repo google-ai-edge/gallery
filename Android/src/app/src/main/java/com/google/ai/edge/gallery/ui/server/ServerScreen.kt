@@ -3,6 +3,10 @@ package com.google.ai.edge.gallery.ui.server
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -205,6 +209,7 @@ fun ServerScreen(modifier: Modifier = Modifier) {
                     checked = isRunning,
                     onCheckedChange = { checked ->
                         if (checked) {
+                            requestIgnoreBatteryOptimizations(context)
                             OpenAiServerState.persistTunnelEnabled(context, enableTunnel)
                             OpenAiServerService.startService(context, useTunnel = enableTunnel)
                         } else {
@@ -854,6 +859,18 @@ private suspend fun testHealthEndpoint(url: String): Pair<Boolean, String> {
             Pair(false, "Health test failed: ${e.message ?: "Unknown error"}")
         }
     }
+}
+
+private fun requestIgnoreBatteryOptimizations(context: Context) {
+    val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    if (powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
+        return
+    }
+    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+        data = Uri.parse("package:${context.packageName}")
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    runCatching { context.startActivity(intent) }
 }
 
 @Composable

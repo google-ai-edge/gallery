@@ -267,7 +267,12 @@ fun GlobalModelManager(
     val tasksForModel = tasks.filter { task -> task.models.any { it.name == model.name } }
     if (tasksForModel.isNotEmpty()) {
       if (isInitialized) {
-        viewModel.cleanupModel(context, tasksForModel[0], model)
+        viewModel.cleanupModel(
+          context = context,
+          task = tasksForModel[0],
+          model = model,
+          explicitUserUnload = true,
+        )
       } else {
         viewModel.selectModel(model)
         viewModel.initializeModel(context, tasksForModel[0], model)
