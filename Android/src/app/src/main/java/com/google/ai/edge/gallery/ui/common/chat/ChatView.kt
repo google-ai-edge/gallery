@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.ConfigKeys
+import com.google.ai.edge.gallery.data.EMPTY_MODEL
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
@@ -114,6 +115,7 @@ fun ChatView(
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val selectedModel = modelManagerUiState.selectedModel
+  val hasSelectedModel = selectedModel.name != EMPTY_MODEL.name
 
   // Image viewer related.
   var selectedImageIndex by remember { mutableIntStateOf(-1) }
@@ -138,8 +140,8 @@ fun ChatView(
 
   // Initialize model when model/download state changes.
   val curDownloadStatus = modelManagerUiState.modelDownloadStatus[selectedModel.name]
-  LaunchedEffect(curDownloadStatus, selectedModel.name) {
-    if (!navigatingUp) {
+  LaunchedEffect(curDownloadStatus, selectedModel.name, hasSelectedModel) {
+    if (!navigatingUp && hasSelectedModel) {
       if (curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED) {
         Log.d(TAG, "Initializing model '${selectedModel.name}' from ChatView launched effect")
         modelManagerViewModel.initializeModel(context, task = task, model = selectedModel)
@@ -170,7 +172,8 @@ fun ChatView(
         model = selectedModel,
         modelManagerViewModel = modelManagerViewModel,
         navigationIcon = navigationIcon,
-        canShowResetSessionButton = true,
+        canShowResetSessionButton = hasSelectedModel,
+        hideModelSelector = !hasSelectedModel,
         isResettingSession = uiState.isResettingSession,
         inProgress = uiState.inProgress,
         modelPreparing = uiState.preparing,
@@ -211,10 +214,11 @@ fun ChatView(
 
       Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         AnimatedContent(
-          targetState = curModelDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+          targetState =
+            !hasSelectedModel || curModelDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
         ) { targetState ->
           when (targetState) {
-            // Main UI when model is downloaded.
+            // Main UI when model is downloaded, or when no model is selected yet.
             true ->
               ChatPanel(
                 modelManagerViewModel = modelManagerViewModel,
@@ -248,6 +252,7 @@ fun ChatView(
                 showImagePicker = showImagePicker,
                 showAudioPicker = showAudioPicker,
                 emptyStateComposable = emptyStateComposable,
+                inputEnabled = hasSelectedModel,
               )
             // Model download
             false ->

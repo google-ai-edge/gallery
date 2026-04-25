@@ -26,6 +26,7 @@ import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
+import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.tool
 import dagger.Module
 import dagger.Provides
@@ -77,21 +78,31 @@ class AgentChatTask @Inject constructor() : CustomTask {
     model: Model,
     onDone: (String) -> Unit,
   ) {
-    agentTools.skillManagerViewModel.loadSkills {
+    val initializeAgentModel: (Contents?) -> Unit = { systemInstruction ->
       LlmChatModelHelper.initialize(
         context = context,
         model = model,
         supportImage = true,
         supportAudio = true,
         onDone = onDone,
-        systemInstruction =
-          if (agentTools.skillManagerViewModel.getSelectedSkills().isEmpty()) {
-            null
-          } else {
-            agentTools.skillManagerViewModel.getSystemPrompt(task.defaultSystemPrompt)
-          },
+        systemInstruction = systemInstruction,
         tools = listOf(tool(agentTools)),
         enableConversationConstrainedDecoding = true,
+      )
+    }
+
+    if (!agentTools.hasSkillManagerViewModel()) {
+      initializeAgentModel(null)
+      return
+    }
+
+    agentTools.skillManagerViewModel.loadSkills {
+      initializeAgentModel(
+        if (agentTools.skillManagerViewModel.getSelectedSkills().isEmpty()) {
+          null
+        } else {
+          agentTools.skillManagerViewModel.getSystemPrompt(task.defaultSystemPrompt)
+        }
       )
     }
   }

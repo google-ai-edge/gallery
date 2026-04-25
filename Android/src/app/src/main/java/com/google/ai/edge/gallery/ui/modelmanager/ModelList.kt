@@ -378,7 +378,7 @@ fun ModelList(
         // List of models within a task.
         items(items = models) { model ->
           if (model.parentModelName.isNullOrEmpty()) {
-            val expanded = modelItemExpandedStates.getOrDefault(model.name, null)
+            val expanded = modelItemExpandedStates.getOrDefault(model.name, false)
             ModelItem(
               model = model,
               modelVariants = modelVariants.getOrDefault(model.name, listOf()),
@@ -425,6 +425,8 @@ fun ModelList(
               modelManagerViewModel = modelManagerViewModel,
               onModelClicked = onModelClicked,
               onBenchmarkClicked = onBenchmarkClicked,
+              expanded = modelItemExpandedStates.getOrDefault(model.name, false),
+              onExpanded = { modelItemExpandedStates[model.name] = it },
               showBenchmarkButton = true,
               modifier =
                 Modifier.graphicsLayer {
@@ -438,7 +440,7 @@ fun ModelList(
         // Filtered view — flat list of matching models
         items(items = filteredModels, key = { it.name }) { model ->
           if (model.parentModelName.isNullOrEmpty()) {
-            val expanded = modelItemExpandedStates.getOrDefault(model.name, null)
+            val expanded = modelItemExpandedStates.getOrDefault(model.name, false)
             ModelItem(
               model = model,
               modelVariants = if (!model.imported) modelVariants.getOrDefault(model.name, listOf()) else listOf(),

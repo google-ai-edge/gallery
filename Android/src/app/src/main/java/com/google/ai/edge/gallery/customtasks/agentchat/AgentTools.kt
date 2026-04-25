@@ -46,6 +46,10 @@ class AgentTools() : ToolSet {
   var resultImageToShow: CallJsSkillResultImage? = null
   var resultWebviewToShow: CallJsSkillResultWebview? = null
 
+  fun hasSkillManagerViewModel(): Boolean {
+    return ::skillManagerViewModel.isInitialized
+  }
+
   /** Loads skill. */
   @Tool(description = "Loads a skill.")
   fun loadSkill(

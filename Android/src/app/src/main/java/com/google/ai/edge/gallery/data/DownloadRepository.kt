@@ -23,12 +23,15 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.edit
 import androidx.core.os.bundleOf
+import androidx.lifecycle.Observer
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -164,7 +167,15 @@ class DefaultDownloadRepository(
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
-    workManager.getWorkInfoByIdLiveData(workerId).observeForever { workInfo ->
+    val workInfoLiveData = workManager.getWorkInfoByIdLiveData(workerId)
+    val mainHandler = Handler(Looper.getMainLooper())
+    lateinit var observer: Observer<WorkInfo?>
+
+    fun removeObserver() {
+      mainHandler.post { workInfoLiveData.removeObserver(observer) }
+    }
+
+    observer = Observer { workInfo ->
       if (workInfo != null) {
         when (workInfo.state) {
           WorkInfo.State.ENQUEUED -> {
@@ -225,6 +236,7 @@ class DefaultDownloadRepository(
               ),
             )
             downloadStartTimeSharedPreferences.edit { remove(model.name) }
+            removeObserver()
           }
 
           WorkInfo.State.FAILED,
@@ -262,12 +274,15 @@ class DefaultDownloadRepository(
               ),
             )
             downloadStartTimeSharedPreferences.edit { remove(model.name) }
+            removeObserver()
           }
 
           else -> {}
         }
       }
     }
+
+    mainHandler.post { workInfoLiveData.observeForever(observer) }
   }
 
   private fun sendNotification(title: String, text: String, taskId: String, modelName: String) {

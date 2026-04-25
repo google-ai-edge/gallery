@@ -293,8 +293,8 @@ fun GlobalModelManager(
           Button(
             onClick = { showImportModelSheet = true },
             colors = ButtonDefaults.buttonColors(
-              containerColor = Color(0xFF34A853),
-              contentColor = Color.White,
+              containerColor = MaterialTheme.colorScheme.primary,
+              contentColor = MaterialTheme.colorScheme.onPrimary,
             ),
             shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -354,7 +354,7 @@ fun GlobalModelManager(
         }
 
         items(filteredBuiltInModels) { model ->
-          val expanded = modelItemExpandedStates.getOrDefault(model.name, true)
+          val expanded = modelItemExpandedStates.getOrDefault(model.name, false)
           ModelItem(
             model = model,
             modelVariants = modelVariants.getOrDefault(model.name, listOf()),
@@ -386,8 +386,9 @@ fun GlobalModelManager(
             modelManagerViewModel = viewModel,
             onModelClicked = handleClickModel,
             onBenchmarkClicked = onBenchmarkClicked,
-            expanded = true,
+            expanded = modelItemExpandedStates.getOrDefault(model.name, false),
             showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
+            onExpanded = { modelItemExpandedStates[model.name] = it },
           )
         }
       }

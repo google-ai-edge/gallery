@@ -121,6 +121,7 @@ fun ChatPanel(
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
   emptyStateComposable: @Composable (Model) -> Unit = {},
+  inputEnabled: Boolean = true,
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -579,10 +580,11 @@ fun ChatPanel(
         onPickedAudioClipsChanged = { pickedAudioClipsCount = it.size },
         showPromptTemplatesInMenu = false,
         showSkillsPicker = task.id === BuiltInTaskId.LLM_AGENT_CHAT,
-        showImagePicker = selectedModel.llmSupportImage && showImagePicker,
-        showAudioPicker = selectedModel.llmSupportAudio && showAudioPicker,
+        showImagePicker = inputEnabled && selectedModel.llmSupportImage && showImagePicker,
+        showAudioPicker = inputEnabled && selectedModel.llmSupportAudio && showAudioPicker,
         showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
         onImageLimitExceeded = { showImageLimitBanner = true },
+        inputEnabled = inputEnabled,
       )
     }
   }

@@ -160,6 +160,7 @@ fun DownloadAndTryButton(
   val isPartiallyDownloaded = downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
   val showDownloadProgress =
     !downloadSucceeded && (downloadStarted || checkingToken || inProgress || isPartiallyDownloaded)
+  val useCompactActionButton = compact && downloadSucceeded && canShowTryIt
 
   // A launcher for requesting notification permission.
   val permissionLauncher =
@@ -349,7 +350,7 @@ fun DownloadAndTryButton(
 
   if (!showDownloadProgress) {
     var buttonModifier: Modifier = modifier.height(42.dp)
-    if (!compact) {
+    if (!useCompactActionButton) {
       buttonModifier = buttonModifier.then(modifierWhenExpanded)
     }
     Button(
@@ -419,7 +420,7 @@ fun DownloadAndTryButton(
           tint = textColor,
         )
 
-        if (!compact) {
+        if (!useCompactActionButton) {
           if (needToDownloadFirst) {
             Text(
               stringResource(R.string.download),

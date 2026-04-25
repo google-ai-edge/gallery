@@ -20,8 +20,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,12 +27,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.rounded.UnfoldLess
 import androidx.compose.material.icons.rounded.UnfoldMore
 import androidx.compose.material3.DropdownMenu
@@ -42,8 +43,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -62,6 +63,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
@@ -72,7 +74,6 @@ import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.bodyMediumMedium
 import com.google.ai.edge.gallery.ui.theme.customColors
-import kotlin.text.toFloat
 
 /**
  * Composable function to display a model item in the model manager list.
@@ -99,12 +100,9 @@ fun ModelItem(
   tosViewModel: TosViewModel? = null,
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
-  val downloadStatus by remember {
-    derivedStateOf { modelManagerUiState.modelDownloadStatus[model.name] }
-  }
+  val downloadStatus = modelManagerUiState.modelDownloadStatus[model.name]
 
-  val isBestOverall = model.bestForTaskIds.contains(task?.id ?: "")
-  var isExpanded by remember { mutableStateOf(expanded ?: isBestOverall) }
+  var isExpanded by remember(model.name) { mutableStateOf(expanded ?: false) }
 
   val isDownloadFailed = downloadStatus?.status == ModelDownloadStatusType.FAILED
   val isAicore = model.runtimeType == RuntimeType.AICORE
@@ -115,64 +113,56 @@ fun ModelItem(
   var boxModifier =
     modifier
       .fillMaxWidth()
-      .clip(RoundedCornerShape(size = 12.dp))
+      .clip(RoundedCornerShape(size = 16.dp))
       .then(
         if (isModelLoaded) {
           Modifier.background(color = MaterialTheme.customColors.taskCardBgColor)
             .then(
-              Modifier.clip(RoundedCornerShape(size = 12.dp))
+              Modifier.clip(RoundedCornerShape(size = 16.dp))
                 .background(color = MaterialTheme.customColors.taskCardBgColor)
             )
         } else {
           Modifier.background(color = MaterialTheme.customColors.taskCardBgColor)
         }
       )
-  boxModifier =
-    if (canExpand) {
-      boxModifier.clickable(
-        onClick = {
-          if (!model.imported) {
-            isExpanded = !isExpanded
-            onExpanded(isExpanded)
-          } else if (!showBenchmarkButton) {
-            onModelClicked(model)
-          }
-        },
-        interactionSource = remember { MutableInteractionSource() },
-        indication = ripple(bounded = true, radius = 1000.dp),
-      )
-    } else {
-      boxModifier
-    }
 
   Box(modifier = boxModifier) {
-    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
       // Capability badges row
       val tasks = modelManagerUiState.tasks
-      val supportsImage = tasks.any { t -> t.id == com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_ASK_IMAGE && t.models.any { it.name == model.name } }
-      val supportsVoice = tasks.any { t -> t.id == com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_ASK_AUDIO && t.models.any { it.name == model.name } }
+      val supportsImage =
+        model.llmSupportImage ||
+          tasks.any { t -> t.id == BuiltInTaskId.LLM_ASK_IMAGE && t.models.any { it.name == model.name } }
+      val supportsVoice =
+        model.llmSupportAudio ||
+          tasks.any { t -> t.id == BuiltInTaskId.LLM_ASK_AUDIO && t.models.any { it.name == model.name } }
       val initStatus = modelManagerUiState.modelInitializationStatus[model.name]
       val isLoaded = initStatus?.status == com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType.INITIALIZED
-      
-      val badges = mutableListOf<Pair<String, androidx.compose.ui.graphics.Color>>()
-      if (isLoaded) badges.add("LOADED" to androidx.compose.ui.graphics.Color(0xFF34A853))
-      if (supportsImage) badges.add("IMAGE" to MaterialTheme.colorScheme.primary)
-      if (supportsVoice) badges.add("VOICE" to androidx.compose.ui.graphics.Color(0xFFEA4335))
-      
-      if (badges.isNotEmpty()) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 4.dp)) {
-          badges.forEach { (label, color) ->
-            androidx.compose.material3.Surface(
-              color = color.copy(alpha = 0.12f),
-              shape = RoundedCornerShape(6.dp),
-            ) {
-              Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
-                color = color,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-              )
-            }
+
+      if (isLoaded || supportsImage || supportsVoice) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          if (isLoaded) {
+            CapabilityChip(
+              label = "Loaded",
+              containerColor = MaterialTheme.colorScheme.secondaryContainer,
+              contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+          }
+          if (supportsImage) {
+            CapabilityChip(
+              label = "Image",
+              icon = Icons.Outlined.Image,
+              containerColor = MaterialTheme.colorScheme.primaryContainer,
+              contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+          }
+          if (supportsVoice) {
+            CapabilityChip(
+              label = "Voice",
+              icon = Icons.Outlined.GraphicEq,
+              containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+              contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
           }
         }
       }
@@ -204,16 +194,24 @@ fun ModelItem(
               modifier = Modifier.offset(y = (-12).dp),
             )
           }
-          if (!model.imported) {
-            Icon(
-              if (isExpanded) Icons.Rounded.UnfoldLess else Icons.Rounded.UnfoldMore,
-              contentDescription =
-                stringResource(
-                  if (isExpanded) R.string.cd_collapse_icon else R.string.cd_expand_icon
-                ),
-              tint = MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier = Modifier.alpha(0.6f),
-            )
+          if (canExpand) {
+            IconButton(
+              onClick = {
+                isExpanded = !isExpanded
+                onExpanded(isExpanded)
+              },
+              modifier = Modifier.offset(x = 8.dp, y = (-8).dp),
+            ) {
+              Icon(
+                if (isExpanded) Icons.Rounded.UnfoldLess else Icons.Rounded.UnfoldMore,
+                contentDescription =
+                  stringResource(
+                    if (isExpanded) R.string.cd_collapse_icon else R.string.cd_expand_icon
+                  ),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.alpha(0.8f),
+              )
+            }
           }
         }
       }
@@ -384,6 +382,27 @@ fun ModelItem(
           }
         }
       }
+    }
+  }
+}
+
+@Composable
+private fun CapabilityChip(
+  label: String,
+  containerColor: androidx.compose.ui.graphics.Color,
+  contentColor: androidx.compose.ui.graphics.Color,
+  icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+) {
+  Surface(color = containerColor, contentColor = contentColor, shape = RoundedCornerShape(8.dp)) {
+    Row(
+      modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+      if (icon != null) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp))
+      }
+      Text(label, style = MaterialTheme.typography.labelMedium)
     }
   }
 }

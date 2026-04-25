@@ -17,15 +17,12 @@
 package com.google.ai.edge.gallery.ui.common.modelitem
 
 import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
@@ -43,20 +40,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.data.MODEL_INFO_ICON_SIZE
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.ui.common.ClickableLink
 import com.google.ai.edge.gallery.ui.common.humanReadableSize
-import com.google.ai.edge.gallery.ui.theme.customColors
-import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
 
 /**
  * Composable function to display the model name and its download status information.
@@ -103,20 +95,11 @@ fun ModelNameAndStatus(
     }
 
     // Show "Update available" info message label if the model is updatable.
-    // Tap to show the detailed update info in a dialog.
     if (model.updatable) {
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier =
-          Modifier.padding(bottom = 10.dp)
-            .then(
-              if (model.updateInfo.isNotEmpty()) {
-                Modifier.clickable { showUpdateDialog = true }
-              } else {
-                Modifier
-              }
-            ),
+        modifier = Modifier.padding(bottom = 10.dp),
       ) {
         Icon(
           Icons.Filled.Info,
@@ -165,22 +148,6 @@ fun ModelNameAndStatus(
       )
     }
 
-    // Learn more url.
-    if (!model.imported && model.learnMoreUrl.isNotEmpty()) {
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-          Icons.AutoMirrored.Outlined.OpenInNew,
-          tint = MaterialTheme.customColors.modelInfoIconColor,
-          contentDescription = null,
-          modifier = Modifier.size(MODEL_INFO_ICON_SIZE).offset(y = 1.dp),
-        )
-        ClickableLink(
-          model.learnMoreUrl,
-          linkText = stringResource(R.string.learn_more),
-          textAlign = TextAlign.Left,
-        )
-      }
-    }
   }
 }
 
@@ -195,17 +162,18 @@ fun ModelStatusDetails(
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
   val isDownloaded = downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
-  val isNotDownloaded = downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED
   val isFailed = downloadStatus?.status == ModelDownloadStatusType.FAILED
 
   Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+    val detailStyle = MaterialTheme.typography.bodySmall
+
     // Size
     val sizeText = model.totalBytes.humanReadableSize()
     if (sizeText.isNotEmpty() && sizeText != "0 B") {
       Text(
         sizeText,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        style = MaterialTheme.typography.bodySmall,
+        style = detailStyle,
       )
     }
 
@@ -214,7 +182,7 @@ fun ModelStatusDetails(
       Text(
         "    Min ${model.minDeviceMemoryInGb} GB RAM",
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        style = MaterialTheme.typography.bodySmall,
+        style = detailStyle,
       )
     }
 
@@ -237,7 +205,7 @@ fun ModelStatusDetails(
       }
       isDownloaded -> {
         statusText = "Downloaded"
-        statusColor = androidx.compose.ui.graphics.Color(0xFF34A853)
+        statusColor = MaterialTheme.colorScheme.secondary
       }
       else -> {
         statusText = "Not downloaded"
@@ -248,7 +216,7 @@ fun ModelStatusDetails(
     Text(
       "    $statusText",
       color = statusColor,
-      style = MaterialTheme.typography.bodySmall.copy(
+      style = detailStyle.copy(
         fontWeight = if (isDownloaded) androidx.compose.ui.text.font.FontWeight.SemiBold else null,
       ),
     )

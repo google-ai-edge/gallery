@@ -232,6 +232,10 @@
   <!-- Strings for skills -->
   <string name="aichat_emptystate_title" translatable="false">AI Chat</string>
   <string name="aichat_emptystate_content" translatable="false">Chat with on-device large language models.</string>
+  <string name="aichat_no_model_title" translatable="false">How can I help you?</string>
+  <string name="aichat_no_model_content" translatable="false">Select and load a native model first, then chat with text, images, documents, or voice.</string>
+  <string name="load_model_first_dialog_title" translatable="false">Load model first</string>
+  <string name="load_model_first_dialog_content" translatable="false">Please load a model first to start chatting.</string>
   <string name="add_script" translatable="false">Add script</string>
   <string name="add_default_script" translatable="false">Add default script</string>
   <string name="add_skill" translatable="false">Add skill</string>
