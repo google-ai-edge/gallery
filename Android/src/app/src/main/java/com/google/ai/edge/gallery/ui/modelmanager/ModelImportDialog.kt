@@ -407,25 +407,33 @@ private fun importModel(
 ) {
   // TODO: handle error.
   coroutineScope.launch(Dispatchers.IO) {
-    // Get the last component of the uri path as the imported file name.
-    val decodedUri = URLDecoder.decode(uri.toString(), StandardCharsets.UTF_8.name())
-    Log.d(TAG, "importing model from $decodedUri. File name: $fileName. File size: $fileSize")
-
-    // Create <app_external_dir>/imports if not exist.
-    val importsDir = File(context.getExternalFilesDir(null), IMPORTS_DIR)
-    if (!importsDir.exists()) {
-      importsDir.mkdirs()
-    }
-
-    // Import by copying the file over.
-    val outputFile = File(context.getExternalFilesDir(null), "$IMPORTS_DIR/$fileName")
-    val outputStream = FileOutputStream(outputFile)
-    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-    var bytesRead: Int
-    var lastSetProgressTs: Long = 0
-    var importedBytes = 0L
-    val inputStream = context.contentResolver.openInputStream(uri)
     try {
+      // Get the last component of the uri path as the imported file name.
+      val decodedUri = URLDecoder.decode(uri.toString(), StandardCharsets.UTF_8.name())
+      Log.d(TAG, "importing model from $decodedUri. File name: $fileName. File size: $fileSize")
+
+      // Check if external files directory is accessible
+      val externalFilesDir = context.getExternalFilesDir(null)
+      if (externalFilesDir == null) {
+        throw IOException("External storage directory is not accessible. Ensure you have storage permissions and sufficient space.")
+      }
+
+      // Create <app_external_dir>/imports if not exist.
+      val importsDir = File(externalFilesDir, IMPORTS_DIR)
+      if (!importsDir.exists()) {
+        if (!importsDir.mkdirs()) {
+          throw IOException("The folder ${importsDir.absolutePath} could not be created. Check storage permissions and available space.")
+        }
+      }
+
+      // Import by copying the file over.
+      val outputFile = File(externalFilesDir, "$IMPORTS_DIR/$fileName")
+      val outputStream = FileOutputStream(outputFile)
+      val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+      var bytesRead: Int
+      var lastSetProgressTs: Long = 0
+      var importedBytes = 0L
+      val inputStream = context.contentResolver.openInputStream(uri)
       if (inputStream != null) {
         while (inputStream.read(buffer).also { bytesRead = it } != -1) {
           outputStream.write(buffer, 0, bytesRead)
@@ -442,17 +450,15 @@ private fun importModel(
           }
         }
       }
+      inputStream?.close()
+      outputStream.close()
+      Log.d(TAG, "import done")
+      onProgress(1f)
+      onDone()
     } catch (e: Exception) {
       e.printStackTrace()
       onError(e.message ?: "Failed to import")
-      return@launch
-    } finally {
-      inputStream?.close()
-      outputStream.close()
     }
-    Log.d(TAG, "import done")
-    onProgress(1f)
-    onDone()
   }
 }
 
