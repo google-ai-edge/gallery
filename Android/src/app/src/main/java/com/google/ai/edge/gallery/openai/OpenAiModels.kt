@@ -11,6 +11,7 @@ data class ChatCompletionRequest(
     val top_k: Int? = null,
     val max_tokens: Int? = null,
     val stream: Boolean = false,
+    val tools: List<OpenAiTool>? = null,
 )
 
 @Serializable
@@ -77,4 +78,78 @@ data class ModelData(
     val `object`: String = "model",
     val created: Long = 0,
     val owned_by: String = "local"
+)
+
+// --- Tool definitions ---
+
+@Serializable
+data class OpenAiTool(
+    val type: String = "function",
+    val function: OpenAiToolFunction
+)
+
+@Serializable
+data class OpenAiToolFunction(
+    val name: String,
+    val description: String? = null,
+    val parameters: OpenAiToolParameters? = null
+)
+
+@Serializable
+data class OpenAiToolParameters(
+    val type: String = "object",
+    val properties: Map<String, OpenAiToolProperty>? = null,
+    val required: List<String>? = null
+)
+
+@Serializable
+data class OpenAiToolProperty(
+    val type: String,
+    val description: String? = null
+)
+
+// --- Legacy completions API ---
+
+@Serializable
+data class CompletionRequest(
+    val model: String,
+    val prompt: String,
+    val temperature: Float? = null,
+    val top_p: Float? = null,
+    val top_k: Int? = null,
+    val max_tokens: Int? = null,
+    val stream: Boolean = false,
+)
+
+@Serializable
+data class CompletionResponse(
+    val id: String,
+    val `object`: String = "text_completion",
+    val created: Long,
+    val model: String,
+    val choices: List<CompletionChoice>,
+    val usage: Usage? = null
+)
+
+@Serializable
+data class CompletionChoice(
+    val index: Int,
+    val text: String,
+    val finish_reason: String? = null
+)
+
+@Serializable
+data class CompletionChunk(
+    val id: String,
+    val `object`: String = "text_completion",
+    val created: Long,
+    val model: String,
+    val choices: List<CompletionChunkChoice>
+)
+
+@Serializable
+data class CompletionChunkChoice(
+    val index: Int,
+    val text: String,
+    val finish_reason: String? = null
 )

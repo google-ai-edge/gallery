@@ -70,7 +70,7 @@ fun LlmSingleTurnScreen(
   modifier: Modifier = Modifier,
   viewModel: LlmSingleTurnViewModel = hiltViewModel(),
 ) {
-  val task = modelManagerViewModel.getTaskById(id = BuiltInTaskId.LLM_PROMPT_LAB)!!
+  val task = modelManagerViewModel.getTaskById(id = BuiltInTaskId.LLM_PROMPT_LAB) ?: return
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val uiState by viewModel.uiState.collectAsState()
   val selectedModel = modelManagerUiState.selectedModel

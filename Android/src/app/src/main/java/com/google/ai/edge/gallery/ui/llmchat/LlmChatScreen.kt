@@ -200,7 +200,7 @@ fun ChatViewWrapper(
   onMessagesUpdated: (Model) -> Unit = {},
 ) {
   val context = LocalContext.current
-  val task = modelManagerViewModel.getTaskById(id = taskId)!!
+  val task = modelManagerViewModel.getTaskById(id = taskId) ?: return
 
   ChatView(
     task = task,

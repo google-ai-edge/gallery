@@ -868,9 +868,9 @@ private fun TaskList(
           BuiltInTaskId.LLM_AGENT_CHAT to "Have Gemma 4 complete agentic tasks for\u00A0you",
         )
       for (task in
-        listOf(
-          modelManagerViewModel.getTaskById(BuiltInTaskId.LLM_CHAT)!!,
-          modelManagerViewModel.getTaskById(BuiltInTaskId.LLM_AGENT_CHAT)!!,
+        listOfNotNull(
+          modelManagerViewModel.getTaskById(BuiltInTaskId.LLM_CHAT),
+          modelManagerViewModel.getTaskById(BuiltInTaskId.LLM_AGENT_CHAT),
         )) {
         TaskCard(
           task = task,
