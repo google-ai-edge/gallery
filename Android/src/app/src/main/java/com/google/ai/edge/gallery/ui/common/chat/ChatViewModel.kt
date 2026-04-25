@@ -52,6 +52,15 @@ abstract class ChatViewModel() : ViewModel() {
   private val _uiState = MutableStateFlow(createUiState())
   val uiState = _uiState.asStateFlow()
 
+  var currentSessionId: String? = null
+
+  fun setMessages(model: Model, messages: List<ChatMessage>) {
+    android.util.Log.d("AGChatViewModel", "setMessages: model=${model.name}, count=${messages.size}")
+    val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
+    newMessagesByModel[model.name] = messages.toMutableList()
+    _uiState.update { _uiState.value.copy(messagesByModel = newMessagesByModel) }
+  }
+
   fun addMessage(model: Model, message: ChatMessage) {
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
     val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()

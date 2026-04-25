@@ -75,6 +75,7 @@ fun LlmChatScreen(
   showAudioPicker: Boolean = false,
   getActiveSkills: () -> List<String> = { emptyList() },
   navigationIcon: @Composable (() -> Unit)? = null,
+  onMessagesUpdated: (Model) -> Unit = {},
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -96,6 +97,7 @@ fun LlmChatScreen(
     showAudioPicker = showAudioPicker,
     getActiveSkills = getActiveSkills,
     navigationIcon = navigationIcon,
+    onMessagesUpdated = onMessagesUpdated,
   )
 }
 
@@ -195,6 +197,7 @@ fun ChatViewWrapper(
   showAudioPicker: Boolean = false,
   getActiveSkills: () -> List<String> = { emptyList() },
   navigationIcon: @Composable (() -> Unit)? = null,
+  onMessagesUpdated: (Model) -> Unit = {},
 ) {
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
@@ -208,6 +211,7 @@ fun ChatViewWrapper(
       for (message in messages) {
         viewModel.addMessage(model = model, message = message)
       }
+      onMessagesUpdated(model)
 
       var text = ""
       val images: MutableList<Bitmap> = mutableListOf()
@@ -233,7 +237,10 @@ fun ChatViewWrapper(
           images = images,
           audioMessages = audioMessages,
           onFirstToken = onFirstToken,
-          onDone = { onGenerateResponseDone(model) },
+          onDone = {
+            onGenerateResponseDone(model)
+            onMessagesUpdated(model)
+          },
           onError = { errorMessage ->
             viewModel.handleError(
               context = context,
@@ -242,6 +249,7 @@ fun ChatViewWrapper(
               errorMessage = errorMessage,
               modelManagerViewModel = modelManagerViewModel,
             )
+            onMessagesUpdated(model)
           },
           allowThinking = task.allowCapability(ModelCapability.LLM_THINKING, model),
         )
@@ -279,6 +287,7 @@ fun ChatViewWrapper(
               errorMessage = errorMessage,
               modelManagerViewModel = modelManagerViewModel,
             )
+            onMessagesUpdated(model)
           },
           allowThinking = task.allowCapability(ModelCapability.LLM_THINKING, model),
         )
