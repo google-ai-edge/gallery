@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>essay-polisher</title>
+</head>
+<body>
+  <script>
+    function normalizeInput(data) {
+      if (typeof data !== "string") return {};
+      try {
+        const parsed = JSON.parse(data);
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch (_) {
+        return { text: data };
+      }
+    }
+
+    function polishText(text) {
+      if (!text || typeof text !== "string") return "";
+
+      const replacements = [
+        [/\bfurthermore\b/gi, "also"],
+        [/\bmoreover\b/gi, "also"],
+        [/\bin conclusion\b/gi, "ultimately"],
+        [/\bin summary\b/gi, "overall"],
+        [/\bto summarize\b/gi, "overall"],
+        [/\bit is worth noting\b/gi, ""],
+        [/\bit is important to note\b/gi, ""],
+        [/\bneedless to say\b/gi, ""],
+        [/\btapestry\b/gi, "story"],
+        [/\bsynergy\b/gi, "collaboration"],
+        [/\bmultifaceted\b/gi, "practical"],
+        [/\bholistic\b/gi, "whole"],
+        [/\bdelve into\b/gi, "study"],
+        [/\bembark on\b/gi, "begin"],
+      ];
+
+      let out = text;
+      for (const [pattern, repl] of replacements) out = out.replace(pattern, repl);
+      out = out.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+      return out;
+    }
+
+    window["ai_edge_gallery_get_result"] = async (data) => {
+      try {
+        const input = normalizeInput(data);
+        const text =
+          typeof input.text === "string" ? input.text :
+          typeof input.essay === "string" ? input.essay :
+          typeof input.content === "string" ? input.content :
+          "";
+
+        if (!text) {
+          return JSON.stringify({
+            result:
+              "essay-polisher is ready. Please pass JSON with one of: text, essay, or content.",
+          });
+        }
+
+        const polished = polishText(text);
+        return JSON.stringify({ result: polished });
+      } catch (e) {
+        return JSON.stringify({ error: `Failed: ${e && e.message ? e.message : String(e)}` });
+      }
+    };
+  </script>
+</body>
+</html>
