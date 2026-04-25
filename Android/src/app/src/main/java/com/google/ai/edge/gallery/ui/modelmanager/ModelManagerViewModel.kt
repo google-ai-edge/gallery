@@ -554,6 +554,18 @@ constructor(
     }
   }
 
+  fun syncModelKeepAliveService(context: Context) {
+    val loadedModel =
+      uiState.value.tasks
+        .flatMap { task -> task.models }
+        .firstOrNull { model -> model.instance != null }
+    if (loadedModel != null) {
+      ModelKeepAliveService.startService(context.applicationContext, loadedModel.name)
+    } else {
+      ModelKeepAliveService.stopService(context.applicationContext)
+    }
+  }
+
   private fun hasAnyLoadedModel(): Boolean {
     return uiState.value.tasks.any { task -> task.models.any { model -> model.instance != null } }
   }

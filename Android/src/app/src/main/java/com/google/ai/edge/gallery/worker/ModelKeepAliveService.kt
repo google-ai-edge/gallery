@@ -40,6 +40,7 @@ class ModelKeepAliveService : Service() {
             val modelManagerViewModel = OpenAiServerState.modelManagerViewModel
             if (modelManagerViewModel != null) {
                 modelManagerViewModel.unloadLoadedModels(applicationContext)
+                modelManagerViewModel.syncModelKeepAliveService(applicationContext)
             } else {
                 stopSelf()
             }
@@ -88,6 +89,22 @@ class ModelKeepAliveService : Service() {
             startForeground(201, notification)
         }
         return START_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        OpenAiServerState.modelManagerViewModel?.syncModelKeepAliveService(applicationContext)
+            ?: stopSelf()
+    }
+
+    override fun onDestroy() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
+        super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

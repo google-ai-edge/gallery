@@ -72,6 +72,7 @@ class MainActivity : ComponentActivity() {
     // and forces the app to start cleanly on the Home Screen after an OS kill.
     super.onCreate(null)
     com.google.ai.edge.gallery.openai.OpenAiServerState.modelManagerViewModel = modelManagerViewModel
+    modelManagerViewModel.syncModelKeepAliveService(applicationContext)
     if (
       intent.getBooleanExtra(
         com.google.ai.edge.gallery.openai.OpenAiServerService.EXTRA_OPEN_SERVER_SCREEN,
@@ -223,6 +224,7 @@ class MainActivity : ComponentActivity() {
 
   override fun onResume() {
     super.onResume()
+    modelManagerViewModel.syncModelKeepAliveService(applicationContext)
 
     firebaseAnalytics?.logEvent(
       FirebaseAnalytics.Event.APP_OPEN,
