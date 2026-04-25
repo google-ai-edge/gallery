@@ -49,6 +49,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.InputStreamReader
+import java.net.URI
 import java.net.URL
 import javax.inject.Inject
 import kotlin.collections.joinToString
@@ -63,6 +64,87 @@ import kotlinx.coroutines.withContext
 private const val TAG = "AGSkillManagerVM"
 
 private const val SKILL_ALLOWLIST_URL = ""
+private val UNSUPPORTED_JS_SKILL_HOSTS = setOf("github.com", "raw.githubusercontent.com")
+
+internal data class ResolvedSkillUrl(val baseUrl: String, val skillMdUrl: String)
+
+internal fun resolveSkillUrl(rawUrl: String): ResolvedSkillUrl {
+  val normalizedUrl = convertGithubSkillUrlToRawBase(rawUrl.trim()) ?: rawUrl.trim()
+  val baseUrl = normalizedUrl.removeSuffix("/").removeSuffix("/SKILL.md")
+  return ResolvedSkillUrl(baseUrl = baseUrl, skillMdUrl = "$baseUrl/SKILL.md")
+}
+
+internal fun convertGithubSkillUrlToRawBase(url: String): String? {
+  val uri =
+    try {
+      URI(url)
+    } catch (_: Exception) {
+      return null
+    }
+
+  val host = uri.host?.lowercase() ?: return null
+  val pathSegments = uri.path.split("/").filter { it.isNotEmpty() }
+
+  return when (host) {
+    "github.com" -> {
+      if (pathSegments.size < 5) {
+        return null
+      }
+      val mode = pathSegments[2]
+      if (mode != "blob" && mode != "tree") {
+        return null
+      }
+      val owner = pathSegments[0]
+      val repo = pathSegments[1]
+      val ref = pathSegments[3]
+      val skillPathSegments =
+        pathSegments.drop(4).let { segments ->
+          if (segments.lastOrNull() == "SKILL.md") segments.dropLast(1) else segments
+        }
+      if (skillPathSegments.isEmpty()) {
+        return null
+      }
+      "https://raw.githubusercontent.com/$owner/$repo/$ref/${skillPathSegments.joinToString("/")}"
+    }
+    "raw.githubusercontent.com" -> {
+      if (pathSegments.size < 4) {
+        return null
+      }
+      val baseSegments =
+        if (pathSegments.lastOrNull() == "SKILL.md") pathSegments.dropLast(1) else pathSegments
+      "https://raw.githubusercontent.com/${baseSegments.joinToString("/")}"
+    }
+    else -> null
+  }
+}
+
+internal fun isLikelyHtmlResponse(contentType: String?, body: String): Boolean {
+  if (contentType?.contains("text/html", ignoreCase = true) == true) {
+    return true
+  }
+  if (contentType?.contains("application/xhtml", ignoreCase = true) == true) {
+    return true
+  }
+
+  val trimmed = body.trimStart()
+  return trimmed.startsWith("<!doctype html", ignoreCase = true) ||
+    trimmed.startsWith("<html", ignoreCase = true)
+}
+
+internal fun usesRunJs(instructions: String): Boolean {
+  return instructions.contains("run_js")
+}
+
+internal fun hasUnsupportedJsSkillHost(skillUrl: String): Boolean {
+  val uri =
+    try {
+      URI(skillUrl)
+    } catch (_: Exception) {
+      return false
+    }
+  val host = uri.host?.lowercase() ?: return false
+  return host in UNSUPPORTED_JS_SKILL_HOSTS
+}
 
 val TRYOUT_CHIPS: List<SkillTryOutChip> =
   listOf(
@@ -279,25 +361,29 @@ constructor(
       try {
         Log.d(TAG, "Validating skill from URL: $url")
 
-        // 1. Normalize the URL: remove trailing "/SKILL.md" or "/".
-        var normalizedUrl = url
-        if (normalizedUrl.endsWith("/SKILL.md")) {
-          normalizedUrl = normalizedUrl.dropLast("/SKILL.md".length)
-        }
-        if (normalizedUrl.endsWith("/")) {
-          normalizedUrl = normalizedUrl.dropLast(1)
-        }
-        val skillMdUrl = "$normalizedUrl/SKILL.md"
+        // Normalize common GitHub URLs into a fetchable skill folder URL.
+        val resolvedUrl = resolveSkillUrl(url)
+        val skillMdUrl = resolvedUrl.skillMdUrl
         Log.d(TAG, "Fetching SKILL.md from: $skillMdUrl")
 
         // 2. Read url/SKILL.md.
-        val mdContent =
+        val connection =
           try {
-            val connection = URL(skillMdUrl).openConnection()
-            InputStreamReader(connection.getInputStream()).use { reader -> reader.readText() }
+            URL(skillMdUrl).openConnection()
           } catch (e: Exception) {
             Log.e(TAG, "Error fetching SKILL.md from $skillMdUrl", e)
             val error = "Failed to fetch SKILL.md: ${e.message}"
+            setValidationError(error)
+            onValidationError(error)
+            return@launch
+          }
+        val contentType = connection.contentType
+        val mdContent =
+          try {
+            InputStreamReader(connection.getInputStream()).use { reader -> reader.readText() }
+          } catch (e: Exception) {
+            Log.e(TAG, "Error reading SKILL.md from $skillMdUrl", e)
+            val error = "Failed to read SKILL.md: ${e.message}"
             setValidationError(error)
             onValidationError(error)
             return@launch
@@ -310,13 +396,21 @@ constructor(
           return@launch
         }
 
+        if (isLikelyHtmlResponse(contentType, mdContent)) {
+          val error =
+            "The URL did not return a raw SKILL.md file. If you are using GitHub, paste the skill folder URL or the raw SKILL.md URL."
+          setValidationError(error)
+          onValidationError(error)
+          return@launch
+        }
+
         // 3. If it exists, read and convert it to proto.
         val (skillProto, errors) =
           convertSkillMdToProto(
             mdContent,
             builtIn = false,
             selected = true,
-            skillUrl = normalizedUrl,
+            skillUrl = resolvedUrl.baseUrl,
           )
 
         // 4. If conversion failed, report error.
@@ -328,6 +422,14 @@ constructor(
         }
 
         skillProto?.let { skill ->
+          if (usesRunJs(skill.instructions) && hasUnsupportedJsSkillHost(skill.skillUrl)) {
+            val error =
+              "This skill uses run_js, but GitHub repository URLs and raw.githubusercontent.com cannot host runnable JS assets. Host the skill on a web server such as GitHub Pages instead."
+            setValidationError(error)
+            onValidationError(error)
+            return@launch
+          }
+
           // 5. Check if the name already exists. If so, report error.
           if (_uiState.value.skills.any { curSkill -> curSkill.skill.name == skill.name }) {
             val error = "A skill with the name '${skill.name}' already exists."
