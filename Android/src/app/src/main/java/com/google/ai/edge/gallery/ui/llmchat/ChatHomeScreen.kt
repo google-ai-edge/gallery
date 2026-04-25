@@ -63,7 +63,6 @@ fun ChatHomeScreen(
   var sessions by remember { mutableStateOf(repository.loadSessions()) }
   var activeSessionId by remember { mutableStateOf(repository.getActiveChatId()) }
   var allowNextSessionRestoreForModelSelection by remember { mutableStateOf(false) }
-  var lastInitializedModelName by remember { mutableStateOf<String?>(null) }
 
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val selectedModel = modelManagerUiState.selectedModel
@@ -82,14 +81,14 @@ fun ChatHomeScreen(
 
   LaunchedEffect(selectedModel.name, isSelectedModelInitialized) {
     if (!isSelectedModelInitialized) {
-      if (lastInitializedModelName == selectedModel.name) {
-        lastInitializedModelName = null
+      if (viewModel.lastInitializedModelName == selectedModel.name) {
+        viewModel.lastInitializedModelName = null
       }
       return@LaunchedEffect
     }
 
-    if (lastInitializedModelName == selectedModel.name) return@LaunchedEffect
-    lastInitializedModelName = selectedModel.name
+    if (viewModel.lastInitializedModelName == selectedModel.name) return@LaunchedEffect
+    viewModel.lastInitializedModelName = selectedModel.name
 
     if (allowNextSessionRestoreForModelSelection) {
       Log.d(TAG, "Keeping requested chat history for selected model ${selectedModel.name}")

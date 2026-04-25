@@ -54,6 +54,9 @@ abstract class ChatViewModel() : ViewModel() {
 
   var currentSessionId: String? = null
 
+  /** Tracks the last model that was initialized to avoid resetting chat on tab switches. */
+  var lastInitializedModelName: String? = null
+
   fun setMessages(model: Model, messages: List<ChatMessage>) {
     android.util.Log.d("AGChatViewModel", "setMessages: model=${model.name}, count=${messages.size}")
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
