@@ -63,6 +63,7 @@ private const val TAG = "AGDownloadWorker"
 data class UrlAndFileName(val url: String, val fileName: String)
 
 private const val FOREGROUND_NOTIFICATION_CHANNEL_ID = "model_download_channel_foreground"
+private const val NOTIFICATION_UPDATE_INTERVAL_MS = 1000L
 private var channelCreated = false
 
 class DownloadWorker(context: Context, params: WorkerParameters) :
@@ -129,6 +130,8 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           var downloadedBytes = 0L
           val bytesReadSizeBuffer: MutableList<Long> = mutableListOf()
           val bytesReadLatencyBuffer: MutableList<Long> = mutableListOf()
+          var lastNotifiedProgress = 0
+          var lastNotificationUpdateTs = 0L
           for (file in allFiles) {
             val url = URL(file.url)
 
@@ -238,8 +241,14 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                     .build()
                 )
                 val progress = calculateProgress(downloadedBytes = downloadedBytes, totalBytes = totalBytes)
-                setForeground(createForegroundInfo(progress = progress, modelName = modelName))
-                updateDownloadNotification(progress = progress, modelName = modelName)
+                val shouldUpdateNotification =
+                  progress != lastNotifiedProgress &&
+                    curTs - lastNotificationUpdateTs >= NOTIFICATION_UPDATE_INTERVAL_MS
+                if (shouldUpdateNotification) {
+                  updateDownloadNotification(progress = progress, modelName = modelName)
+                  lastNotifiedProgress = progress
+                  lastNotificationUpdateTs = curTs
+                }
                 Log.d(TAG, "downloadedBytes: $downloadedBytes")
                 lastSetProgressTs = curTs
               }
@@ -247,7 +256,12 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
             outputStream.close()
             inputStream.close()
-            updateDownloadNotification(progress = calculateProgress(downloadedBytes, totalBytes), modelName = modelName)
+            val progress = calculateProgress(downloadedBytes, totalBytes)
+            if (progress != lastNotifiedProgress) {
+              updateDownloadNotification(progress = progress, modelName = modelName)
+              lastNotifiedProgress = progress
+              lastNotificationUpdateTs = System.currentTimeMillis()
+            }
 
             // Rename the tmp file to the original file name by removing the tmp file ext.
             val originalFilePath = outputTmpFile.absolutePath.replace(".$TMP_FILE_EXT", "")

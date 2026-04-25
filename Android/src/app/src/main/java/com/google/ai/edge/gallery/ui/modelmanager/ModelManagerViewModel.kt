@@ -74,11 +74,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationRequest
 import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
 import net.openid.appauth.ResponseTypeValues
+import kotlin.coroutines.resume
 
 private const val TAG = "AGModelManagerViewModel"
 private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
@@ -433,7 +435,11 @@ constructor(
         return@launch
       }
 
-      // Clean up.
+      // Keep only one model resident at a time. Large LLMs can otherwise overlap during load and
+      // trigger Android's low-memory killer before the previous model finishes releasing memory.
+      cleanupLoadedModelsExcept(context = context, modelToKeep = model)
+
+      // Clean up the target model if it is being force-reinitialized.
       cleanupModel(context = context, task = task, model = model)
 
       // Start initialization.
@@ -574,6 +580,32 @@ constructor(
 
   private fun hasAnyLoadedModel(): Boolean {
     return uiState.value.tasks.any { task -> task.models.any { model -> model.instance != null } }
+  }
+
+  private suspend fun cleanupLoadedModelsExcept(context: Context, modelToKeep: Model) {
+    val loadedModels =
+      uiState.value.tasks
+        .flatMap { task -> task.models.map { model -> task to model } }
+        .filter { (_, model) ->
+          model.name != modelToKeep.name && (model.instance != null || model.initializing)
+        }
+        .distinctBy { (_, model) -> model.name }
+
+    for ((task, model) in loadedModels) {
+      Log.d(TAG, "Cleaning up loaded model '${model.name}' before loading '${modelToKeep.name}'")
+      suspendCancellableCoroutine { continuation ->
+        cleanupModel(
+          context = context,
+          task = task,
+          model = model,
+          onDone = {
+            if (continuation.isActive) {
+              continuation.resume(Unit)
+            }
+          },
+        )
+      }
+    }
   }
 
   private fun requestIgnoreBatteryOptimizations(context: Context) {
