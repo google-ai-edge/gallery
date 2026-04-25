@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.ui.modelmanager
 
 import android.content.Context
 import android.content.Intent
+import android.app.ActivityManager
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
@@ -74,13 +75,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationRequest
 import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
 import net.openid.appauth.ResponseTypeValues
-import kotlin.coroutines.resume
 
 private const val TAG = "AGModelManagerViewModel"
 private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
@@ -416,6 +415,7 @@ constructor(
     onDone: () -> Unit = {},
   ) {
     explicitlyUnloadedModelNames.remove(model.name)
+    logMemoryWarningIfNeeded(context, model)
     requestIgnoreBatteryOptimizations(context)
     viewModelScope.launch(Dispatchers.Default) {
       // Skip if initialized already.
@@ -435,10 +435,6 @@ constructor(
         return@launch
       }
 
-      // Keep only one model resident at a time. Large LLMs can otherwise overlap during load and
-      // trigger Android's low-memory killer before the previous model finishes releasing memory.
-      cleanupLoadedModelsExcept(context = context, modelToKeep = model)
-
       // Clean up the target model if it is being force-reinitialized.
       cleanupModel(context = context, task = task, model = model)
 
@@ -450,7 +446,7 @@ constructor(
         status = ModelInitializationStatusType.INITIALIZING,
       )
 
-      val onDoneFn: (error: String) -> Unit = { error ->
+      val onDoneFn: (error: String) -> Unit = onDoneFn@{ error ->
         model.initializing = false
         if (model.instance != null) {
           Log.d(TAG, "Model '${model.name}' initialized successfully")
@@ -465,6 +461,9 @@ constructor(
           }
           onDone()
         } else if (error.isNotEmpty()) {
+          if (retryInitializationOnCpu(context = context, task = task, model = model, error = error)) {
+            return@onDoneFn
+          }
           Log.d(TAG, "Model '${model.name}' failed to initialize")
           updateModelInitializationStatus(
             model = model,
@@ -483,6 +482,28 @@ constructor(
           onDone = onDoneFn,
         )
     }
+  }
+
+  private fun retryInitializationOnCpu(
+    context: Context,
+    task: Task,
+    model: Model,
+    error: String,
+  ): Boolean {
+    val accelerator =
+      model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
+    if (accelerator != Accelerator.GPU.label || !model.accelerators.contains(Accelerator.CPU)) {
+      return false
+    }
+
+    Log.w(
+      TAG,
+      "GPU initialization failed for '${model.name}'. Retrying on CPU. Error: $error",
+    )
+    model.prevConfigValues = model.configValues
+    model.configValues = model.configValues + (ConfigKeys.ACCELERATOR.label to Accelerator.CPU.label)
+    initializeModel(context = context, task = task, model = model, force = true)
+    return true
   }
 
   fun cleanupModel(
@@ -582,29 +603,19 @@ constructor(
     return uiState.value.tasks.any { task -> task.models.any { model -> model.instance != null } }
   }
 
-  private suspend fun cleanupLoadedModelsExcept(context: Context, modelToKeep: Model) {
-    val loadedModels =
-      uiState.value.tasks
-        .flatMap { task -> task.models.map { model -> task to model } }
-        .filter { (_, model) ->
-          model.name != modelToKeep.name && (model.instance != null || model.initializing)
-        }
-        .distinctBy { (_, model) -> model.name }
-
-    for ((task, model) in loadedModels) {
-      Log.d(TAG, "Cleaning up loaded model '${model.name}' before loading '${modelToKeep.name}'")
-      suspendCancellableCoroutine { continuation ->
-        cleanupModel(
-          context = context,
-          task = task,
-          model = model,
-          onDone = {
-            if (continuation.isActive) {
-              continuation.resume(Unit)
-            }
-          },
-        )
-      }
+  private fun logMemoryWarningIfNeeded(context: Context, model: Model) {
+    val requiredGb = model.minDeviceMemoryInGb ?: return
+    val activityManager =
+      context.applicationContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    val memoryInfo = ActivityManager.MemoryInfo()
+    activityManager.getMemoryInfo(memoryInfo)
+    val totalGb = memoryInfo.totalMem.toDouble() / (1024.0 * 1024.0 * 1024.0)
+    if (totalGb < requiredGb) {
+      Log.w(
+        TAG,
+        "Loading ${model.name} on a device with ${"%.1f".format(totalGb)}GB RAM. " +
+          "Recommended minimum is ${requiredGb}GB; Android may kill the app under memory pressure.",
+      )
     }
   }
 
