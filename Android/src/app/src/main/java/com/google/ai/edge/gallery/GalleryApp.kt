@@ -23,9 +23,13 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Widgets
+import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.Dns
-import androidx.compose.material.icons.rounded.Forum
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -34,6 +38,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -43,10 +48,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.google.ai.edge.gallery.openai.OpenAiServerState
+import com.google.ai.edge.gallery.ui.modelmanager.GlobalModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.navigation.GalleryNavHost
 import com.google.ai.edge.gallery.ui.server.ServerScreen
+import com.google.ai.edge.gallery.ui.home.SettingsScreen
 
 private data class BottomNavItem(
     val label: String,
@@ -56,14 +62,24 @@ private data class BottomNavItem(
 
 private val bottomNavItems = listOf(
     BottomNavItem(
-        label = "Chat",
+        label = "Chats",
         icon = Icons.Rounded.ChatBubbleOutline,
-        selectedIcon = Icons.Rounded.Forum,
+        selectedIcon = Icons.Rounded.ChatBubble,
+    ),
+    BottomNavItem(
+        label = "Models",
+        icon = Icons.Outlined.Widgets,
+        selectedIcon = Icons.Rounded.Widgets,
     ),
     BottomNavItem(
         label = "Server",
         icon = Icons.Outlined.Dns,
         selectedIcon = Icons.Rounded.Dns,
+    ),
+    BottomNavItem(
+        label = "Settings",
+        icon = Icons.Outlined.Settings,
+        selectedIcon = Icons.Rounded.Settings,
     ),
 )
 
@@ -74,7 +90,6 @@ fun GalleryApp(
   modelManagerViewModel: ModelManagerViewModel,
 ) {
   var selectedTab by remember { mutableIntStateOf(0) }
-  val isServerRunning by OpenAiServerState.isRunning.collectAsState()
 
   Scaffold(
       bottomBar = {
@@ -115,8 +130,23 @@ fun GalleryApp(
                   navController = navController,
                   modifier = Modifier.padding(innerPadding),
                   modelManagerViewModel = modelManagerViewModel,
+                  onGoToModels = { selectedTab = 1 },
               )
-              1 -> ServerScreen(modifier = Modifier.padding(innerPadding))
+              1 -> {
+                  // Models tab — render GlobalModelManager directly
+                  GlobalModelManager(
+                      viewModel = modelManagerViewModel,
+                      navigateUp = { selectedTab = 0 },
+                      onModelSelected = { task, model -> /* handled internally */ },
+                      onBenchmarkClicked = { model -> /* optional */ },
+                      modifier = Modifier.padding(innerPadding),
+                  )
+              }
+              2 -> ServerScreen(modifier = Modifier.padding(innerPadding))
+              3 -> SettingsScreen(
+                  modelManagerViewModel = modelManagerViewModel,
+                  modifier = Modifier.padding(innerPadding),
+              )
           }
       }
   }

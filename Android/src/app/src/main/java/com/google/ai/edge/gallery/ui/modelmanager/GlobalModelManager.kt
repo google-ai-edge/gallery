@@ -34,6 +34,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -42,17 +43,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.NoteAdd
 import androidx.compose.material.icons.automirrored.rounded.ListAlt
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -133,6 +139,10 @@ fun GlobalModelManager(
   val snackbarHostState = remember { SnackbarHostState() }
   val modelItemExpandedStates = remember { mutableStateMapOf<String, Boolean>() }
 
+  var searchQuery by remember { mutableStateOf("") }
+  var selectedFilter by remember { mutableStateOf("All") }
+  val filterOptions = listOf("All", "Downloaded", "Media", "Custom")
+
   val promoId = "gm4_banner"
   var showPromo by remember { mutableStateOf(false) }
   LaunchedEffect(Unit) {
@@ -198,74 +208,106 @@ fun GlobalModelManager(
       }
     }
 
-  val handleClickModel: (Model) -> Unit = { model ->
-    val tasks = viewModel.uiState.value.tasks
-    val tasksForModel = tasks.filter { task -> task.models.any { it.name == model.name } }
-    // If there is only one task for the model, navigate to the model directly.
-    if (tasksForModel.size == 1) {
-      onModelSelected(tasksForModel[0], model)
-    }
-    // If there are multiple tasks for the model, show a bottom sheet for the user to choose which
-    // task to use.
-    else if (tasksForModel.size > 1) {
-      taskCandidates.clear()
-      taskCandidates.addAll(tasksForModel)
-      modelForTaskCandidate = model
-      showTaskSelectorBottomSheet = true
+  val filteredBuiltInModels by remember(searchQuery, selectedFilter, builtInModels, uiState.modelDownloadStatus) {
+    derivedStateOf {
+      builtInModels.filter { model ->
+        val matchesSearch = searchQuery.isEmpty() || model.name.contains(searchQuery, ignoreCase = true) || 
+                            model.info.contains(searchQuery, ignoreCase = true) == true
+        val matchesFilter = when (selectedFilter) {
+          "Downloaded" -> uiState.modelDownloadStatus[model.name]?.status == com.google.ai.edge.gallery.data.ModelDownloadStatusType.SUCCEEDED
+          "Media" -> uiState.tasks.any { task -> 
+            (task.id == com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_ASK_IMAGE || task.id == com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_ASK_AUDIO) && 
+            task.models.any { it.name == model.name } 
+          }
+          "Custom" -> false // Built-in models are never custom/imported
+          else -> true
+        }
+        matchesSearch && matchesFilter
+      }
     }
   }
 
-  // Handle system's edge swipe.
-  BackHandler { navigateUp() }
+  val filteredImportedModels by remember(searchQuery, selectedFilter, importedModels, uiState.modelDownloadStatus) {
+    derivedStateOf {
+      importedModels.filter { model ->
+        val matchesSearch = searchQuery.isEmpty() || model.name.contains(searchQuery, ignoreCase = true) || 
+                            model.info.contains(searchQuery, ignoreCase = true) == true
+        val matchesFilter = when (selectedFilter) {
+          "Downloaded" -> true // Imported models are already downloaded
+          "Media" -> uiState.tasks.any { task -> 
+            (task.id == com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_ASK_IMAGE || task.id == com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_ASK_AUDIO) && 
+            task.models.any { it.name == model.name } 
+          }
+          "Custom" -> true // All imported models are custom
+          else -> true
+        }
+        matchesSearch && matchesFilter
+      }
+    }
+  }
+
+  val handleClickModel: (Model) -> Unit = { model ->
+    val uiState = viewModel.uiState.value
+    val isInitialized = uiState.modelInitializationStatus[model.name]?.status == com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType.INITIALIZED
+    val tasks = uiState.tasks
+    val tasksForModel = tasks.filter { task -> task.models.any { it.name == model.name } }
+    if (tasksForModel.isNotEmpty()) {
+      if (isInitialized) {
+        viewModel.cleanupModel(context, tasksForModel[0], model)
+      } else {
+        viewModel.selectModel(model)
+        viewModel.initializeModel(context, tasksForModel[0], model)
+      }
+    }
+  }
+
+  // No BackHandler needed since this is now rendered as a tab, not a dialog.
 
   Scaffold(
     modifier = modifier,
     topBar = {
-      CenterAlignedTopAppBar(
-        title = {
-          Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-              Icon(
-                Icons.AutoMirrored.Rounded.ListAlt,
-                modifier = Modifier.size(20.dp),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface,
-              )
-              Text(
-                text =
-                  "${stringResource(R.string.drawer_models_label)} (${builtInModels.size + importedModels.size})",
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.titleMedium,
-              )
-            }
-          }
-        },
-        // The "action" component at the right.
-        actions = {
-          IconButton(onClick = { navigateUp() }) {
-            Icon(
-              imageVector = Icons.Rounded.Close,
-              contentDescription = stringResource(R.string.cd_close_icon),
-              tint = MaterialTheme.colorScheme.onSurface,
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .background(MaterialTheme.colorScheme.surface)
+          .padding(horizontal = 20.dp, vertical = 12.dp)
+          .padding(top = 8.dp)
+      ) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.Top,
+        ) {
+          Column {
+            Text(
+              text = "Models",
+              style = MaterialTheme.typography.headlineLarge,
+              color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+              text = "Download, import, and load native\nmodels into memory.",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
-        },
-        modifier = modifier,
-      )
-    },
-    floatingActionButton = {
-      // A floating action button to show "import model" bottom sheet.
-      val cdImportModelFab = stringResource(R.string.cd_import_model_button)
-      SmallFloatingActionButton(
-        onClick = { showImportModelSheet = true },
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.secondary,
-        modifier = Modifier.semantics { contentDescription = cdImportModelFab },
-      ) {
-        Icon(Icons.Filled.Add, contentDescription = null)
+          Button(
+            onClick = { showImportModelSheet = true },
+            colors = ButtonDefaults.buttonColors(
+              containerColor = Color(0xFF34A853),
+              contentColor = Color.White,
+            ),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+          ) {
+            Icon(
+              imageVector = Icons.Filled.Add,
+              contentDescription = null,
+              modifier = Modifier.size(18.dp),
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("Import", style = MaterialTheme.typography.labelLarge)
+          }
+        }
       }
     },
   ) { innerPadding ->
@@ -280,25 +322,38 @@ fun GlobalModelManager(
         contentPadding =
           PaddingValues(top = 16.dp, bottom = innerPadding.calculateBottomPadding() + 80.dp),
       ) {
-        item(key = "openai_server_panel") {
-          OpenAiServerPanel()
-        }
-        item(key = "promo") {
-          AnimatedVisibility(
-            visible = showPromo,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { -it / 2 }) + expandVertically(),
-            exit = fadeOut() + shrinkVertically(),
+        item(key = "filter_chips") {
+          Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
           ) {
-            PromoBannerGm4(
-              onDismiss = {
-                showPromo = false
-                viewModel.dataStoreRepository.addViewedPromoId(promoId = promoId)
-              }
-            )
+            filterOptions.forEach { option ->
+              val isSelected = selectedFilter == option
+              androidx.compose.material3.FilterChip(
+                selected = isSelected,
+                onClick = { selectedFilter = option },
+                label = { Text(option, style = MaterialTheme.typography.labelLarge) },
+                leadingIcon = if (isSelected) {
+                  { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                } else null,
+                shape = RoundedCornerShape(20.dp),
+                colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                  selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                  selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
+                border = if (!isSelected) {
+                  androidx.compose.material3.FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = false,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                  )
+                } else null,
+              )
+            }
           }
         }
 
-        items(builtInModels) { model ->
+        items(filteredBuiltInModels) { model ->
           val expanded = modelItemExpandedStates.getOrDefault(model.name, true)
           ModelItem(
             model = model,
@@ -314,7 +369,7 @@ fun GlobalModelManager(
         }
 
         // Imported models.
-        if (importedModels.isNotEmpty()) {
+        if (filteredImportedModels.isNotEmpty()) {
           item(key = "imported_models_label") {
             Text(
               stringResource(R.string.model_list_imported_models_title),
@@ -324,7 +379,7 @@ fun GlobalModelManager(
             )
           }
         }
-        items(importedModels) { model ->
+        items(filteredImportedModels) { model ->
           ModelItem(
             model = model,
             task = null,
@@ -403,6 +458,7 @@ fun GlobalModelManager(
   }
 
   // Import model bottom sheet.
+  var showRemoteImportDialog by remember { mutableStateOf(false) }
   if (showImportModelSheet) {
     ModalBottomSheet(onDismissRequest = { showImportModelSheet = false }, sheetState = sheetState) {
       Text(
@@ -444,6 +500,33 @@ fun GlobalModelManager(
           Text("From local model file", modifier = Modifier.clearAndSetSemantics {})
         }
       }
+      // From remote URL option
+      Box(
+        modifier =
+          Modifier.clickable {
+              scope.launch {
+                delay(200)
+                showImportModelSheet = false
+                showRemoteImportDialog = true
+              }
+            }
+            .semantics {
+              role = Role.Button
+              contentDescription = "Import model from remote URL"
+            }
+      ) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+          modifier = Modifier.fillMaxWidth().padding(16.dp),
+        ) {
+          Icon(
+            Icons.Outlined.Link,
+            contentDescription = null,
+          )
+          Text("From remote URL", modifier = Modifier.clearAndSetSemantics {})
+        }
+      }
     }
   }
 
@@ -460,6 +543,20 @@ fun GlobalModelManager(
         },
       )
     }
+  }
+
+  // Remote URL import dialog
+  if (showRemoteImportDialog) {
+    ModelRemoteImportDialog(
+      onDismiss = { showRemoteImportDialog = false },
+      onDone = { info, url ->
+        // For URL-based imports, we register the model metadata directly
+        // The actual download will happen through the normal download flow
+        viewModel.addImportedLlmModel(info = info)
+        showRemoteImportDialog = false
+        scope.launch { snackbarHostState.showSnackbar("Model registered from URL") }
+      },
+    )
   }
 
   // Importing in progress dialog.

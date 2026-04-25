@@ -77,6 +77,7 @@ fun ModelPageAppBar(
   canShowResetSessionButton: Boolean = false,
   hideModelSelector: Boolean = false,
   useThemeColor: Boolean = false,
+  navigationIcon: @Composable (() -> Unit)? = null,
   onConfigChanged: (oldConfigValues: Map<String, Any>, newConfigValues: Map<String, Any>) -> Unit =
     { _, _ ->
     },
@@ -131,14 +132,18 @@ fun ModelPageAppBar(
       }
     },
     modifier = modifier,
-    // The back button.
+    // The back button or custom navigation icon.
     navigationIcon = {
-      val enableBackButton = !isModelInitializing && !inProgress
-      IconButton(onClick = onBackClicked, enabled = enableBackButton) {
-        Icon(
-          imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-          contentDescription = stringResource(R.string.cd_navigate_back_icon),
-        )
+      if (navigationIcon != null) {
+        navigationIcon()
+      } else {
+        val enableBackButton = !isModelInitializing && !inProgress
+        IconButton(onClick = onBackClicked, enabled = enableBackButton) {
+          Icon(
+            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+            contentDescription = stringResource(R.string.cd_navigate_back_icon),
+          )
+        }
       }
     },
     // The config button for the model (if existed).

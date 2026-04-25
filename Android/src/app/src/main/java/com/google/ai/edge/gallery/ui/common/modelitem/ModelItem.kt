@@ -109,11 +109,24 @@ fun ModelItem(
   val isDownloadFailed = downloadStatus?.status == ModelDownloadStatusType.FAILED
   val isAicore = model.runtimeType == RuntimeType.AICORE
 
+  val isModelLoaded = modelManagerUiState.modelInitializationStatus[model.name]?.status == 
+    com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType.INITIALIZED
+
   var boxModifier =
     modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(size = 12.dp))
-      .background(color = MaterialTheme.customColors.taskCardBgColor)
+      .then(
+        if (isModelLoaded) {
+          Modifier.background(color = MaterialTheme.customColors.taskCardBgColor)
+            .then(
+              Modifier.clip(RoundedCornerShape(size = 12.dp))
+                .background(color = MaterialTheme.customColors.taskCardBgColor)
+            )
+        } else {
+          Modifier.background(color = MaterialTheme.customColors.taskCardBgColor)
+        }
+      )
   boxModifier =
     if (canExpand) {
       boxModifier.clickable(
@@ -134,6 +147,36 @@ fun ModelItem(
 
   Box(modifier = boxModifier) {
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      // Capability badges row
+      val tasks = modelManagerUiState.tasks
+      val supportsImage = tasks.any { t -> t.id == com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_ASK_IMAGE && t.models.any { it.name == model.name } }
+      val supportsVoice = tasks.any { t -> t.id == com.google.ai.edge.gallery.data.BuiltInTaskId.LLM_ASK_AUDIO && t.models.any { it.name == model.name } }
+      val initStatus = modelManagerUiState.modelInitializationStatus[model.name]
+      val isLoaded = initStatus?.status == com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType.INITIALIZED
+      
+      val badges = mutableListOf<Pair<String, androidx.compose.ui.graphics.Color>>()
+      if (isLoaded) badges.add("LOADED" to androidx.compose.ui.graphics.Color(0xFF34A853))
+      if (supportsImage) badges.add("IMAGE" to MaterialTheme.colorScheme.primary)
+      if (supportsVoice) badges.add("VOICE" to androidx.compose.ui.graphics.Color(0xFFEA4335))
+      
+      if (badges.isNotEmpty()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 4.dp)) {
+          badges.forEach { (label, color) ->
+            androidx.compose.material3.Surface(
+              color = color.copy(alpha = 0.12f),
+              shape = RoundedCornerShape(6.dp),
+            ) {
+              Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                color = color,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+              )
+            }
+          }
+        }
+      }
+
       Box(
         modifier = Modifier.semantics { isTraversalGroup = true },
         contentAlignment = Alignment.CenterStart,

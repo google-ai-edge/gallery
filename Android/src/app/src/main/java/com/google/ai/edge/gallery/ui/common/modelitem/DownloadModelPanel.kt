@@ -27,14 +27,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Update
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -127,6 +135,42 @@ fun DownloadModelPanel(
         }
 
         Spacer(modifier = Modifier.width(8.dp))
+      }
+
+      var showConfirmDeleteDialog by remember { mutableStateOf(false) }
+      if (downloadStatus == com.google.ai.edge.gallery.data.ModelDownloadStatusType.SUCCEEDED &&
+          model.localFileRelativeDirPathOverride.isEmpty() &&
+          model.runtimeType != RuntimeType.AICORE) {
+        
+        IconButton(
+          onClick = { showConfirmDeleteDialog = true },
+          modifier = Modifier.padding(end = 8.dp).background(MaterialTheme.colorScheme.surfaceVariant, androidx.compose.foundation.shape.CircleShape)
+        ) {
+          Icon(Icons.Outlined.Delete, contentDescription = "Delete Model", tint = MaterialTheme.colorScheme.error)
+        }
+
+        if (showConfirmDeleteDialog) {
+          androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showConfirmDeleteDialog = false },
+            title = { Text("Delete Model") },
+            text = { Text("Are you sure you want to delete ${model.name}? This action cannot be undone.") },
+            confirmButton = {
+              androidx.compose.material3.TextButton(
+                onClick = {
+                  modelManagerViewModel.deleteModel(model)
+                  showConfirmDeleteDialog = false
+                }
+              ) {
+                Text("Delete")
+              }
+            },
+            dismissButton = {
+              androidx.compose.material3.TextButton(onClick = { showConfirmDeleteDialog = false }) {
+                Text("Cancel")
+              }
+            },
+          )
+        }
       }
 
       DownloadAndTryButton(

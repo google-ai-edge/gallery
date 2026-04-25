@@ -109,6 +109,7 @@ fun ChatView(
   curSystemPrompt: String = "",
   onSystemPromptChanged: (String) -> Unit = {},
   sendMessageTrigger: SendMessageTrigger? = null,
+  navigationIcon: @Composable (() -> Unit)? = null,
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -168,6 +169,7 @@ fun ChatView(
         task = task,
         model = selectedModel,
         modelManagerViewModel = modelManagerViewModel,
+        navigationIcon = navigationIcon,
         canShowResetSessionButton = true,
         isResettingSession = uiState.isResettingSession,
         inProgress = uiState.inProgress,

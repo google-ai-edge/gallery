@@ -329,6 +329,185 @@ fun SettingsDialog(
               modifier = Modifier.padding(top = 8.dp),
             )
           }
+
+          // Tunnel Configuration
+          Column(
+            modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Text(
+              "Tunnel Configuration",
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+            )
+            Text(
+              "Configure tokens for Cloudflare and ngrok tunnels. These are used when the server is started with a tunnel enabled.",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            var cfToken by remember {
+              mutableStateOf(
+                com.google.ai.edge.gallery.openai.OpenAiServerState.cloudflareTunnelToken(context)
+              )
+            }
+            var cfUrl by remember {
+              mutableStateOf(
+                com.google.ai.edge.gallery.openai.OpenAiServerState.cloudflarePublicUrl(context)
+              )
+            }
+            var ngrokToken by remember {
+              mutableStateOf(
+                com.google.ai.edge.gallery.openai.OpenAiServerState.ngrokAuthToken(context)
+              )
+            }
+            var ngrokDomain by remember {
+              mutableStateOf(
+                com.google.ai.edge.gallery.openai.OpenAiServerState.ngrokDomain(context)
+              )
+            }
+
+            BasicTextField(
+              value = cfToken,
+              singleLine = true,
+              keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+              modifier = Modifier.fillMaxWidth(),
+              onValueChange = { cfToken = it },
+              textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
+              cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
+            ) { innerTextField ->
+              Box(
+                modifier =
+                  Modifier.border(
+                      width = 1.dp,
+                      color = MaterialTheme.colorScheme.outline,
+                      shape = RoundedCornerShape(8.dp),
+                    )
+                    .height(40.dp),
+                contentAlignment = Alignment.CenterStart,
+              ) {
+                Box(modifier = Modifier.padding(horizontal = 12.dp)) {
+                  if (cfToken.isEmpty()) {
+                    Text(
+                      "Cloudflare tunnel token",
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      style = MaterialTheme.typography.bodySmall,
+                    )
+                  }
+                  innerTextField()
+                }
+              }
+            }
+
+            BasicTextField(
+              value = cfUrl,
+              singleLine = true,
+              keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+              modifier = Modifier.fillMaxWidth(),
+              onValueChange = { cfUrl = it },
+              textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
+              cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
+            ) { innerTextField ->
+              Box(
+                modifier =
+                  Modifier.border(
+                      width = 1.dp,
+                      color = MaterialTheme.colorScheme.outline,
+                      shape = RoundedCornerShape(8.dp),
+                    )
+                    .height(40.dp),
+                contentAlignment = Alignment.CenterStart,
+              ) {
+                Box(modifier = Modifier.padding(horizontal = 12.dp)) {
+                  if (cfUrl.isEmpty()) {
+                    Text(
+                      "Cloudflare public URL (e.g. https://api.yourdomain.com)",
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      style = MaterialTheme.typography.bodySmall,
+                    )
+                  }
+                  innerTextField()
+                }
+              }
+            }
+
+            BasicTextField(
+              value = ngrokToken,
+              singleLine = true,
+              keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+              modifier = Modifier.fillMaxWidth(),
+              onValueChange = { ngrokToken = it },
+              textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
+              cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
+            ) { innerTextField ->
+              Box(
+                modifier =
+                  Modifier.border(
+                      width = 1.dp,
+                      color = MaterialTheme.colorScheme.outline,
+                      shape = RoundedCornerShape(8.dp),
+                    )
+                    .height(40.dp),
+                contentAlignment = Alignment.CenterStart,
+              ) {
+                Box(modifier = Modifier.padding(horizontal = 12.dp)) {
+                  if (ngrokToken.isEmpty()) {
+                    Text(
+                      "ngrok authtoken",
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      style = MaterialTheme.typography.bodySmall,
+                    )
+                  }
+                  innerTextField()
+                }
+              }
+            }
+
+            BasicTextField(
+              value = ngrokDomain,
+              singleLine = true,
+              keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+              modifier = Modifier.fillMaxWidth(),
+              onValueChange = { ngrokDomain = it },
+              textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
+              cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
+            ) { innerTextField ->
+              Box(
+                modifier =
+                  Modifier.border(
+                      width = 1.dp,
+                      color = MaterialTheme.colorScheme.outline,
+                      shape = RoundedCornerShape(8.dp),
+                    )
+                    .height(40.dp),
+                contentAlignment = Alignment.CenterStart,
+              ) {
+                Box(modifier = Modifier.padding(horizontal = 12.dp)) {
+                  if (ngrokDomain.isEmpty()) {
+                    Text(
+                      "ngrok reserved domain (optional)",
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      style = MaterialTheme.typography.bodySmall,
+                    )
+                  }
+                  innerTextField()
+                }
+              }
+            }
+
+            OutlinedButton(
+              onClick = {
+                com.google.ai.edge.gallery.openai.OpenAiServerState.persistCloudflareTunnelConfig(
+                  context, cfToken, cfUrl
+                )
+                com.google.ai.edge.gallery.openai.OpenAiServerState.persistNgrokConfig(
+                  context, ngrokToken, ngrokDomain
+                )
+                android.widget.Toast.makeText(context, "Tunnel configuration saved", android.widget.Toast.LENGTH_SHORT).show()
+              }
+            ) {
+              Text("Save tunnel config")
+            }
+          }
         }
 
         // Button row.

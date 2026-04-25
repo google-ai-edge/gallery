@@ -480,3 +480,209 @@ private fun getFileSizeAndDisplayNameFromUri(context: Context, uri: Uri): Pair<L
 
   return Pair(fileSize, displayName)
 }
+
+/**
+ * Dialog for registering a model via a remote URL (e.g. HuggingFace link).
+ * This provides feature parity with Flutter's custom remote model registration.
+ */
+@Composable
+fun ModelRemoteImportDialog(
+  onDismiss: () -> Unit,
+  onDone: (ImportedModel, String) -> Unit,
+) {
+  var modelUrl by remember { mutableStateOf("") }
+  var modelName by remember { mutableStateOf("") }
+  var fileSizeText by remember { mutableStateOf("") }
+
+  val initialValues: Map<String, Any> = remember {
+    mutableMapOf<String, Any>().apply {
+      for (config in IMPORT_CONFIGS_LLM) {
+        put(config.key.label, config.defaultValue)
+      }
+      put(ConfigKeys.NAME.label, "")
+      put(ConfigKeys.MODEL_TYPE.label, "LLM")
+    }
+  }
+  val values: SnapshotStateMap<String, Any> = remember {
+    mutableStateMapOf<String, Any>().apply { putAll(initialValues) }
+  }
+  val interactionSource = remember { MutableInteractionSource() }
+
+  Dialog(onDismissRequest = onDismiss) {
+    val focusManager = LocalFocusManager.current
+    Card(
+      modifier =
+        Modifier.fillMaxWidth().clickable(
+          interactionSource = interactionSource,
+          indication = null,
+        ) {
+          focusManager.clearFocus()
+        },
+      shape = RoundedCornerShape(16.dp),
+    ) {
+      Column(
+        modifier = Modifier.padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
+        // Title.
+        Text(
+          "Import from URL",
+          style = MaterialTheme.typography.titleLarge,
+          modifier = Modifier.padding(bottom = 4.dp),
+        )
+
+        Column(
+          modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
+          verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+          // Model URL
+          Text(
+            "Model URL",
+            style = MaterialTheme.typography.labelMedium,
+          )
+          androidx.compose.material3.OutlinedTextField(
+            value = modelUrl,
+            onValueChange = {
+              modelUrl = it
+              // Auto-derive name from URL if name is still empty
+              if (modelName.isEmpty() && it.isNotEmpty()) {
+                val lastPart = it.trimEnd('/').substringAfterLast('/')
+                if (lastPart.isNotEmpty()) {
+                  modelName = lastPart
+                  values[ConfigKeys.NAME.label] = lastPart
+                }
+              }
+            },
+            label = { Text("HuggingFace URL or direct download link") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+          )
+
+          // Display name
+          Text(
+            "Display Name",
+            style = MaterialTheme.typography.labelMedium,
+          )
+          androidx.compose.material3.OutlinedTextField(
+            value = modelName,
+            onValueChange = {
+              modelName = it
+              values[ConfigKeys.NAME.label] = it
+            },
+            label = { Text("Model name") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+          )
+
+          // File size (optional)
+          Text(
+            "File size (bytes, optional)",
+            style = MaterialTheme.typography.labelMedium,
+          )
+          androidx.compose.material3.OutlinedTextField(
+            value = fileSizeText,
+            onValueChange = { fileSizeText = it.filter { c -> c.isDigit() } },
+            label = { Text("e.g. 2147483648 for ~2 GB") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+          )
+
+          // LLM config editors
+          ConfigEditorsPanel(
+            configs = IMPORT_CONFIGS_LLM.filter {
+              it.key != ConfigKeys.NAME && it.key != ConfigKeys.MODEL_TYPE
+            },
+            values = values,
+          )
+        }
+
+        // Button row.
+        Row(
+          modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+          horizontalArrangement = Arrangement.End,
+        ) {
+          TextButton(onClick = { onDismiss() }) { Text("Cancel") }
+          Button(
+            onClick = {
+              val fileSize = fileSizeText.toLongOrNull() ?: 0L
+              val supportedAccelerators =
+                (convertValueToTargetType(
+                    value = values[ConfigKeys.COMPATIBLE_ACCELERATORS.label]!!,
+                    valueType = ValueType.STRING,
+                  ) as String).split(",")
+              val defaultMaxTokens =
+                convertValueToTargetType(
+                  value = values[ConfigKeys.DEFAULT_MAX_TOKENS.label]!!,
+                  valueType = ValueType.INT,
+                ) as Int
+              val defaultTopk =
+                convertValueToTargetType(
+                  value = values[ConfigKeys.DEFAULT_TOPK.label]!!,
+                  valueType = ValueType.INT,
+                ) as Int
+              val defaultTopp =
+                convertValueToTargetType(
+                  value = values[ConfigKeys.DEFAULT_TOPP.label]!!,
+                  valueType = ValueType.FLOAT,
+                ) as Float
+              val defaultTemperature =
+                convertValueToTargetType(
+                  value = values[ConfigKeys.DEFAULT_TEMPERATURE.label]!!,
+                  valueType = ValueType.FLOAT,
+                ) as Float
+              val supportImage =
+                convertValueToTargetType(
+                  value = values[ConfigKeys.SUPPORT_IMAGE.label]!!,
+                  valueType = ValueType.BOOLEAN,
+                ) as Boolean
+              val supportAudio =
+                convertValueToTargetType(
+                  value = values[ConfigKeys.SUPPORT_AUDIO.label]!!,
+                  valueType = ValueType.BOOLEAN,
+                ) as Boolean
+              val supportTinyGarden =
+                convertValueToTargetType(
+                  value = values[ConfigKeys.SUPPORT_TINY_GARDEN.label]!!,
+                  valueType = ValueType.BOOLEAN,
+                ) as Boolean
+              val supportMobileActions =
+                convertValueToTargetType(
+                  value = values[ConfigKeys.SUPPORT_MOBILE_ACTIONS.label]!!,
+                  valueType = ValueType.BOOLEAN,
+                ) as Boolean
+              val supportThinking =
+                convertValueToTargetType(
+                  value = values[ConfigKeys.SUPPORT_THINKING.label]!!,
+                  valueType = ValueType.BOOLEAN,
+                ) as Boolean
+
+              val importedModel: ImportedModel =
+                ImportedModel.newBuilder()
+                  .setFileName(modelName.ifEmpty { "remote_model" })
+                  .setFileSize(fileSize)
+                  .setLlmConfig(
+                    LlmConfig.newBuilder()
+                      .addAllCompatibleAccelerators(supportedAccelerators)
+                      .setDefaultMaxTokens(defaultMaxTokens)
+                      .setDefaultTopk(defaultTopk)
+                      .setDefaultTopp(defaultTopp)
+                      .setDefaultTemperature(defaultTemperature)
+                      .setSupportImage(supportImage)
+                      .setSupportAudio(supportAudio)
+                      .setSupportMobileActions(supportMobileActions)
+                      .setSupportThinking(supportThinking)
+                      .setSupportTinyGarden(supportTinyGarden)
+                      .build()
+                  )
+                  .build()
+              onDone(importedModel, modelUrl)
+            },
+            enabled = modelUrl.isNotEmpty() && modelName.isNotEmpty(),
+          ) {
+            Text("Register")
+          }
+        }
+      }
+    }
+  }
+}

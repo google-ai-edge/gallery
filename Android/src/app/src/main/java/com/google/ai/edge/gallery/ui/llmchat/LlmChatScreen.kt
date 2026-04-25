@@ -74,6 +74,7 @@ fun LlmChatScreen(
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
   getActiveSkills: () -> List<String> = { emptyList() },
+  navigationIcon: @Composable (() -> Unit)? = null,
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -94,6 +95,7 @@ fun LlmChatScreen(
     showImagePicker = showImagePicker,
     showAudioPicker = showAudioPicker,
     getActiveSkills = getActiveSkills,
+    navigationIcon = navigationIcon,
   )
 }
 
@@ -192,6 +194,7 @@ fun ChatViewWrapper(
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
   getActiveSkills: () -> List<String> = { emptyList() },
+  navigationIcon: @Composable (() -> Unit)? = null,
 ) {
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
@@ -200,6 +203,7 @@ fun ChatViewWrapper(
     task = task,
     viewModel = viewModel,
     modelManagerViewModel = modelManagerViewModel,
+    navigationIcon = navigationIcon,
     onSendMessage = { model, messages ->
       for (message in messages) {
         viewModel.addMessage(model = model, message = message)

@@ -194,85 +194,86 @@ fun ModelStatusDetails(
 ) {
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
-  var curDownloadProgress = 0f
+  val isDownloaded = downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+  val isNotDownloaded = downloadStatus?.status == ModelDownloadStatusType.NOT_DOWNLOADED
+  val isFailed = downloadStatus?.status == ModelDownloadStatusType.FAILED
 
   Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
-    // Status icon.
-    StatusIcon(
-      task = task,
-      model = model,
-      downloadStatus = downloadStatus,
-      modifier = Modifier.padding(end = 4.dp),
-    )
+    // Size
+    val sizeText = model.totalBytes.humanReadableSize()
+    if (sizeText.isNotEmpty() && sizeText != "0 B") {
+      Text(
+        sizeText,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = MaterialTheme.typography.bodySmall,
+      )
+    }
 
-    // Failure message.
-    if (downloadStatus != null && downloadStatus.status == ModelDownloadStatusType.FAILED) {
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-          downloadStatus.errorMessage,
-          color = MaterialTheme.colorScheme.error,
-          style = labelSmallNarrow,
-          overflow = TextOverflow.Ellipsis,
-        )
+    // Min RAM
+    if (model.minDeviceMemoryInGb != null) {
+      Text(
+        "    Min ${model.minDeviceMemoryInGb} GB RAM",
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = MaterialTheme.typography.bodySmall,
+      )
+    }
+
+    // Status text
+    val statusText: String
+    val statusColor: androidx.compose.ui.graphics.Color
+
+    when {
+      isFailed -> {
+        statusText = downloadStatus?.errorMessage ?: "Failed"
+        statusColor = MaterialTheme.colorScheme.error
+      }
+      inProgress || isPartiallyDownloaded -> {
+        statusText = "Downloading"
+        statusColor = MaterialTheme.colorScheme.primary
+      }
+      downloadStatus?.status == ModelDownloadStatusType.UNZIPPING -> {
+        statusText = "Unzipping..."
+        statusColor = MaterialTheme.colorScheme.primary
+      }
+      isDownloaded -> {
+        statusText = "Downloaded"
+        statusColor = androidx.compose.ui.graphics.Color(0xFF34A853)
+      }
+      else -> {
+        statusText = "Not downloaded"
+        statusColor = MaterialTheme.colorScheme.onSurfaceVariant
       }
     }
-    // Status label
-    else {
-      var sizeLabel = model.totalBytes.humanReadableSize()
-      if (model.localFileRelativeDirPathOverride.isNotEmpty()) {
-        sizeLabel = "{ext_files_dir}/${model.localFileRelativeDirPathOverride}"
-      }
 
-      // Populate the status label.
-      if (downloadStatus != null) {
-        // For in-progress model, show {receivedSize} / {totalSize} - {rate} - {remainingTime}
-        if (inProgress || isPartiallyDownloaded) {
-          var totalSize = downloadStatus.totalBytes
-          if (totalSize == 0L) {
-            totalSize = model.totalBytes
-          }
-          sizeLabel =
-            "${downloadStatus.receivedBytes.humanReadableSize(extraDecimalForGbAndAbove = true)} of ${totalSize.humanReadableSize()}"
-          if (downloadStatus.bytesPerSecond > 0) {
-            sizeLabel = "$sizeLabel · ${downloadStatus.bytesPerSecond.humanReadableSize()} / s"
-            // if (downloadStatus.remainingMs >= 0) {
-            //   sizeLabel =
-            //     "$sizeLabel\n${downloadStatus.remainingMs.formatToHourMinSecond()} left"
-            // }
-          }
-          if (isPartiallyDownloaded) {
-            sizeLabel = "$sizeLabel (resuming...)"
-          }
-          curDownloadProgress =
-            downloadStatus.receivedBytes.toFloat() / downloadStatus.totalBytes.toFloat()
-          if (curDownloadProgress.isNaN()) {
-            curDownloadProgress = 0f
-          }
-        }
-        // Status for unzipping.
-        else if (downloadStatus.status == ModelDownloadStatusType.UNZIPPING) {
-          sizeLabel = "Unzipping..."
-        }
-      }
+    Text(
+      "    $statusText",
+      color = statusColor,
+      style = MaterialTheme.typography.bodySmall.copy(
+        fontWeight = if (isDownloaded) androidx.compose.ui.text.font.FontWeight.SemiBold else null,
+      ),
+    )
+  }
 
-      Column(
-        horizontalAlignment = if (isExpanded) Alignment.CenterHorizontally else Alignment.Start
-      ) {
-        for ((index, line) in sizeLabel.split("\n").withIndex()) {
-          Text(
-            line,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            style =
-              MaterialTheme.typography.bodyMedium.copy(
-                // This stops numbers from "jumping around" when being updated.
-                fontFeatureSettings = "tnum"
-              ),
-            overflow = TextOverflow.Visible,
-            modifier = Modifier.offset(y = if (index == 0) 0.dp else (-1).dp),
-          )
+  // Download progress details (for in-progress)
+  if (inProgress || isPartiallyDownloaded) {
+    downloadStatus?.let { ds ->
+      var totalSize = ds.totalBytes
+      if (totalSize == 0L) totalSize = model.totalBytes
+      val progressText = buildString {
+        append("${ds.receivedBytes.humanReadableSize(extraDecimalForGbAndAbove = true)} of ${totalSize.humanReadableSize()}")
+        if (ds.bytesPerSecond > 0) {
+          append(" · ${ds.bytesPerSecond.humanReadableSize()} / s")
+        }
+        if (isPartiallyDownloaded) {
+          append(" (resuming...)")
         }
       }
+      Text(
+        progressText,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+        modifier = Modifier.padding(top = 2.dp),
+      )
     }
   }
 }

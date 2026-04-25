@@ -40,6 +40,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -57,6 +58,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -399,9 +401,17 @@ fun DownloadAndTryButton(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
       ) {
+        val uiState = modelManagerViewModel.uiState.collectAsState().value
+        val isInitialized = uiState.isModelInitialized(model)
+        val isInitializing = uiState.isModelInitializing(model)
+        
         Icon(
           if (needToDownloadFirst) {
             Icons.Outlined.FileDownload
+          } else if (isInitialized) {
+            Icons.Outlined.Close
+          } else if (isInitializing) {
+            androidx.compose.material.icons.Icons.Default.Refresh
           } else {
             Icons.AutoMirrored.Rounded.ArrowForward
           },
@@ -417,13 +427,12 @@ fun DownloadAndTryButton(
               style = MaterialTheme.typography.titleMedium,
             )
           } else if (canShowTryIt) {
+            val buttonText = if (isInitialized) "Unload" else if (isInitializing) "Loading..." else "Load Model"
             Text(
-              stringResource(R.string.try_it),
+              buttonText,
               color = textColor,
               style = MaterialTheme.typography.titleMedium,
               maxLines = 1,
-              autoSize =
-                TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
             )
           }
         }

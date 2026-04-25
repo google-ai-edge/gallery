@@ -27,6 +27,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,13 +42,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -83,6 +89,7 @@ private const val DEFAULT_ANIMATION_DURATION = 700
 private const val TASK_ICON_ANIMATION_DURATION = 1100
 
 /** The list of models in the model manager. */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ModelList(
   task: Task,
@@ -133,6 +140,27 @@ fun ModelList(
     }
 
   val listState = rememberLazyListState()
+
+  // Filter state for model categories
+  var activeFilter by remember { mutableStateOf("All") }
+  val filterOptions = listOf("All", "Downloaded", "Media", "Custom")
+
+  // Get download statuses from ViewModel for "Downloaded" filter
+  val uiState by modelManagerViewModel.uiState.collectAsState()
+  val downloadStatuses = uiState.modelDownloadStatus
+
+  // Apply filter to models
+  val filteredModels = remember(models, importedModels, activeFilter, downloadStatuses) {
+    val allModels = models + importedModels
+    when (activeFilter) {
+      "Downloaded" -> allModels.filter {
+        downloadStatuses[it.name]?.status == com.google.ai.edge.gallery.data.ModelDownloadStatusType.SUCCEEDED
+      }
+      "Media" -> allModels.filter { it.llmSupportImage || it.llmSupportAudio }
+      "Custom" -> allModels.filter { it.imported }
+      else -> allModels
+    }
+  }
 
   val taskIconProgress =
     if (!enableAnimation) {
@@ -307,79 +335,127 @@ fun ModelList(
         }
       }
 
-      // Title for recommended models.
-      if (!models.isEmpty()) {
-        item(key = "recommendedModelsTitle") {
-          Text(
-            stringResource(R.string.model_list_recommended_models_title),
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.labelLarge,
-            modifier =
-              Modifier.padding(horizontal = 16.dp, vertical = 8.dp).graphicsLayer {
-                alpha = modelListProgress
-                translationY = (CONTENT_ANIMATION_OFFSET * (1 - modelListProgress)).toPx()
-              },
-          )
+      // Filter chips
+      item(key = "filterChips") {
+        FlowRow(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp)
+            .graphicsLayer {
+              alpha = modelListProgress
+              translationY = (CONTENT_ANIMATION_OFFSET * (1 - modelListProgress)).toPx()
+            },
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          filterOptions.forEach { filter ->
+            FilterChip(
+              selected = activeFilter == filter,
+              onClick = { activeFilter = filter },
+              label = { Text(filter) },
+            )
+          }
         }
       }
 
-      // List of models within a task.
-      items(items = models) { model ->
-        if (model.parentModelName.isNullOrEmpty()) {
-          val expanded = modelItemExpandedStates.getOrDefault(model.name, null)
-          ModelItem(
-            model = model,
-            modelVariants = modelVariants.getOrDefault(model.name, listOf()),
-            task = task,
-            modelManagerViewModel = modelManagerViewModel,
-            onModelClicked = onModelClicked,
-            onBenchmarkClicked = onBenchmarkClicked,
-            expanded = expanded,
-            onExpanded = { modelItemExpandedStates[model.name] = it },
-            showBenchmarkButton = true,
-            modifier =
-              Modifier.graphicsLayer {
-                alpha = modelListProgress
-                translationY = (CONTENT_ANIMATION_OFFSET * (1 - modelListProgress)).toPx()
-              },
-          )
-        }
-      }
-
-      // Title for imported models.
-      if (importedModels.isNotEmpty()) {
-        item(key = "importedModelsTitle") {
-          Text(
-            stringResource(R.string.model_list_imported_models_title),
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.labelLarge,
-            modifier =
-              Modifier.padding(horizontal = 16.dp)
-                .padding(top = 32.dp, bottom = 8.dp)
-                .graphicsLayer {
+      // When filter is "All", show the original two-section layout
+      if (activeFilter == "All") {
+        // Title for recommended models.
+        if (models.isNotEmpty()) {
+          item(key = "recommendedModelsTitle") {
+            Text(
+              stringResource(R.string.model_list_recommended_models_title),
+              color = MaterialTheme.colorScheme.onSurface,
+              style = MaterialTheme.typography.labelLarge,
+              modifier =
+                Modifier.padding(horizontal = 16.dp, vertical = 8.dp).graphicsLayer {
                   alpha = modelListProgress
                   translationY = (CONTENT_ANIMATION_OFFSET * (1 - modelListProgress)).toPx()
                 },
-          )
+            )
+          }
         }
-      }
 
-      // List of imported models within a task.
-      items(items = importedModels, key = { it.name }) { model ->
-        Box {
-          ModelItem(
-            model = model,
-            task = task,
-            modelManagerViewModel = modelManagerViewModel,
-            onModelClicked = onModelClicked,
-            onBenchmarkClicked = onBenchmarkClicked,
-            showBenchmarkButton = true,
-            modifier =
-              Modifier.graphicsLayer {
-                alpha = modelListProgress
-                translationY = (CONTENT_ANIMATION_OFFSET * (1 - modelListProgress)).toPx()
-              },
-          )
+        // List of models within a task.
+        items(items = models) { model ->
+          if (model.parentModelName.isNullOrEmpty()) {
+            val expanded = modelItemExpandedStates.getOrDefault(model.name, null)
+            ModelItem(
+              model = model,
+              modelVariants = modelVariants.getOrDefault(model.name, listOf()),
+              task = task,
+              modelManagerViewModel = modelManagerViewModel,
+              onModelClicked = onModelClicked,
+              onBenchmarkClicked = onBenchmarkClicked,
+              expanded = expanded,
+              onExpanded = { modelItemExpandedStates[model.name] = it },
+              showBenchmarkButton = true,
+              modifier =
+                Modifier.graphicsLayer {
+                  alpha = modelListProgress
+                  translationY = (CONTENT_ANIMATION_OFFSET * (1 - modelListProgress)).toPx()
+                },
+            )
+          }
+        }
+
+        // Title for imported models.
+        if (importedModels.isNotEmpty()) {
+          item(key = "importedModelsTitle") {
+            Text(
+              stringResource(R.string.model_list_imported_models_title),
+              color = MaterialTheme.colorScheme.onSurface,
+              style = MaterialTheme.typography.labelLarge,
+              modifier =
+                Modifier.padding(horizontal = 16.dp)
+                  .padding(top = 32.dp, bottom = 8.dp)
+                  .graphicsLayer {
+                    alpha = modelListProgress
+                    translationY = (CONTENT_ANIMATION_OFFSET * (1 - modelListProgress)).toPx()
+                  },
+            )
+          }
+        }
+
+        // List of imported models within a task.
+        items(items = importedModels, key = { it.name }) { model ->
+          Box {
+            ModelItem(
+              model = model,
+              task = task,
+              modelManagerViewModel = modelManagerViewModel,
+              onModelClicked = onModelClicked,
+              onBenchmarkClicked = onBenchmarkClicked,
+              showBenchmarkButton = true,
+              modifier =
+                Modifier.graphicsLayer {
+                  alpha = modelListProgress
+                  translationY = (CONTENT_ANIMATION_OFFSET * (1 - modelListProgress)).toPx()
+                },
+            )
+          }
+        }
+      } else {
+        // Filtered view — flat list of matching models
+        items(items = filteredModels, key = { it.name }) { model ->
+          if (model.parentModelName.isNullOrEmpty()) {
+            val expanded = modelItemExpandedStates.getOrDefault(model.name, null)
+            ModelItem(
+              model = model,
+              modelVariants = if (!model.imported) modelVariants.getOrDefault(model.name, listOf()) else listOf(),
+              task = task,
+              modelManagerViewModel = modelManagerViewModel,
+              onModelClicked = onModelClicked,
+              onBenchmarkClicked = onBenchmarkClicked,
+              expanded = expanded,
+              onExpanded = { modelItemExpandedStates[model.name] = it },
+              showBenchmarkButton = true,
+              modifier =
+                Modifier.graphicsLayer {
+                  alpha = modelListProgress
+                  translationY = (CONTENT_ANIMATION_OFFSET * (1 - modelListProgress)).toPx()
+                },
+            )
+          }
         }
       }
     }

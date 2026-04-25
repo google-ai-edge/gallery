@@ -54,13 +54,13 @@
         android:name="${applicationName}"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:extractNativeLibs="true"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="Edge Gallery"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.Gallery"
+        android:networkSecurityConfig="@xml/network_security_config"
         tools:targetApi="31">
         <!--
           android:configChanges="uiMode" tells the system don't destroy and
