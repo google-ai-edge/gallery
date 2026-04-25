@@ -13,6 +13,6 @@
         <domain includeSubdomains="true">172.17.0.0</domain>
         <domain includeSubdomains="true">172.18.0.0</domain>
     </domain-config>
-    <!-- All other traffic (internet) remains secure by default -->
-    <base-config cleartextTrafficPermitted="false" />
+    <!-- Allow cleartext for local API server health checks and any IP address -->
+    <base-config cleartextTrafficPermitted="true" />
 </network-security-config>

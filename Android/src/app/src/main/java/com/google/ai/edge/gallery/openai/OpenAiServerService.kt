@@ -19,6 +19,7 @@ private const val NOTIFICATION_ID = 1001
 
 class OpenAiServerService : Service() {
 
+    private var server: OpenAiServer? = null
     private var tunnel: PublicTunnel? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var tunnelUrlJob: Job? = null
@@ -68,6 +69,16 @@ class OpenAiServerService : Service() {
 
         serviceScope.launch {
             val local = getReachableLocalUrl() ?: "http://localhost:8080"
+
+            val modelManagerVm = OpenAiServerState.modelManagerViewModel
+            if (modelManagerVm != null) {
+                server = OpenAiServer(applicationContext, modelManagerVm)
+                server?.start(8080)
+                Log.i(TAG, "OpenAI API Server started on port 8080")
+            } else {
+                Log.w(TAG, "ModelManagerViewModel not available; server cannot start")
+            }
+
             OpenAiServerState.setRunning(true, local = local)
             updateNotification("Server running at $local")
 
@@ -106,6 +117,8 @@ class OpenAiServerService : Service() {
         tunnelProcessJob?.cancel()
         serviceScope.cancel()
         tunnel?.stop()
+        server?.stop()
+        server = null
         OpenAiServerState.setRunning(false)
         Log.i(TAG, "OpenAI API Server Service stopped")
     }

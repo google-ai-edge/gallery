@@ -31,7 +31,7 @@ object OpenAiServerState {
     private val _isTunnelEnabled = MutableStateFlow(false)
     val isTunnelEnabled = _isTunnelEnabled.asStateFlow()
 
-    private val _tunnelProvider = MutableStateFlow(TUNNEL_PROVIDER_CLOUDFLARE)
+    private val _tunnelProvider = MutableStateFlow(TUNNEL_PROVIDER_NGROK)
     val tunnelProvider = _tunnelProvider.asStateFlow()
 
     fun setRunning(running: Boolean, local: String? = null, public: String? = null) {
@@ -55,9 +55,9 @@ object OpenAiServerState {
         val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         _isTunnelEnabled.value = prefs.getBoolean(KEY_TUNNEL_ENABLED, true)
         _tunnelProvider.value =
-            prefs.getString(KEY_TUNNEL_PROVIDER, TUNNEL_PROVIDER_CLOUDFLARE)
+            prefs.getString(KEY_TUNNEL_PROVIDER, TUNNEL_PROVIDER_NGROK)
                 ?.takeIf { it == TUNNEL_PROVIDER_CLOUDFLARE || it == TUNNEL_PROVIDER_NGROK }
-                ?: TUNNEL_PROVIDER_CLOUDFLARE
+                ?: TUNNEL_PROVIDER_NGROK
     }
 
     fun persistTunnelEnabled(context: Context, enabled: Boolean) {
@@ -115,14 +115,14 @@ object OpenAiServerState {
     fun ngrokAuthToken(context: Context): String {
         return context.applicationContext
             .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(KEY_NGROK_AUTH_TOKEN, "")
+            .getString(KEY_NGROK_AUTH_TOKEN, "27EU8xAlKpERmOQPpeGRn4jTsg6_6GCfUawhJEiandVRs7hjD")
             .orEmpty()
     }
 
     fun ngrokDomain(context: Context): String {
         return context.applicationContext
             .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(KEY_NGROK_DOMAIN, "")
+            .getString(KEY_NGROK_DOMAIN, "gratuitously-pentahydric-laila.ngrok-free.dev")
             .orEmpty()
     }
 }
