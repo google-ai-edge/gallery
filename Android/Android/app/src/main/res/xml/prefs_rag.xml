@@ -1,0 +1,8 @@
+<preferences>
+  <!-- bool -->   <preference key="use_external_rag"/>
+  <!-- string --> <preference key="rag_base_url"/>
+  <!-- string --> <preference key="rag_api_key"/>
+  <!-- string --> <preference key="rag_collection"/>
+  <!-- int    --> <preference key="rag_topk"/>
+  <!-- list   --> <preference key="rag_query_mode"/> <!-- text | vector -->
+</preferences>
