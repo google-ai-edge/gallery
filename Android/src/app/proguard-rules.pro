@@ -64,6 +64,9 @@
 -keep class com.google.mediapipe.** { *; }
 -dontwarn org.tensorflow.**
 
+# LiteRT-LM JNI calls GetMethodID on these classes; keep names & methods.
+-keep class com.google.ai.edge.litertlm.** { *; }
+
 # ---- Moshi (used in some serialisation) ----
 -keep class com.squareup.moshi.** { *; }
 -dontwarn com.squareup.moshi.**
@@ -90,6 +93,8 @@
 }
 
 # ---- Netty (Ktor dependencies) ----
+# Netty uses extensive reflection (e.g. toLeakAwareBuffer). Must keep names.
+-keep class io.netty.** { *; }
 -dontwarn io.netty.**
 -dontwarn org.eclipse.jetty.**
 -dontwarn reactor.blockhound.**
