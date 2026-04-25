@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regex Tester</title>
+    <style>
+        body { font-family: monospace; background: #2d2d2d; color: #fff; padding: 20px; margin: 0; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #aaa; }
+        input, textarea { width: 100%; box-sizing: border-box; padding: 10px; background: #1e1e1e; border: 1px solid #555; color: #fff; font-family: monospace; font-size: 14px; }
+        textarea { height: 100px; resize: vertical; }
+        #result { margin-top: 15px; padding: 15px; background: #1e1e1e; border: 1px solid #555; white-space: pre-wrap; word-break: break-all; }
+        .match { background-color: rgba(255, 235, 59, 0.4); border-radius: 2px; outline: 1px solid #ffeb3b; }
+    </style>
+</head>
+<body>
+    <div class="input-group">
+        <label>Regular Expression</label>
+        <input type="text" id="regexInput" value="">
+    </div>
+    <div class="input-group">
+        <label>Test String</label>
+        <textarea id="testInput"></textarea>
+    </div>
+    <div class="input-group">
+        <label>Matches</label>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const regexInput = document.getElementById('regexInput');
+        const testInput = document.getElementById('testInput');
+        const resultDiv = document.getElementById('result');
+
+        function updateResult() {
+            try {
+                const patternStr = regexInput.value;
+                if (!patternStr) { resultDiv.innerHTML = testInput.value; return; }
+                
+                let p = patternStr, f = 'g';
+                if (p.startsWith('/') && p.lastIndexOf('/') > 0) {
+                    const lastSlash = p.lastIndexOf('/');
+                    f = p.substring(lastSlash + 1);
+                    if (!f.includes('g')) f += 'g';
+                    p = p.substring(1, lastSlash);
+                }
+
+                const regex = new RegExp(p, f);
+                const text = testInput.value;
+                
+                let lastIndex = 0;
+                let html = '';
+                let match;
+                
+                if (new RegExp(p, f).test('')) {
+                    resultDiv.innerHTML = "Error: Regex matches empty string (could cause infinite loop).";
+                    return;
+                }
+
+                while ((match = regex.exec(text)) !== null) {
+                    html += escapeHtml(text.substring(lastIndex, match.index));
+                    html += `<span class="match">${escapeHtml(match[0])}</span>`;
+                    lastIndex = regex.lastIndex;
+                }
+                html += escapeHtml(text.substring(lastIndex));
+                resultDiv.innerHTML = html;
+            } catch (e) {
+                resultDiv.innerHTML = `<span style="color: #ff5555">${e.message}</span>`;
+            }
+        }
+
+        function escapeHtml(unsafe) {
+            return (unsafe || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        regexInput.addEventListener('input', updateResult);
+        testInput.addEventListener('input', updateResult);
+
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('data')) {
+            const data = JSON.parse(params.get('data'));
+            let flags = data.flags || 'g';
+            if (!flags.includes('g')) flags += 'g';
+            regexInput.value = \`/\${data.regex || ''}/\${flags}\`;
+            testInput.value = data.testString || '';
+            updateResult();
+        }
+    </script>
+</body>
+</html>
