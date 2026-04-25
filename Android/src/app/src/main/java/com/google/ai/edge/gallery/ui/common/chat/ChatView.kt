@@ -117,7 +117,8 @@ fun ChatView(
   val selectedModel = modelManagerUiState.selectedModel
   val selectedModelInitializationStatus =
     modelManagerUiState.modelInitializationStatus[selectedModel.name]
-  val isSelectedModelInitialized = modelManagerUiState.isModelInitialized(selectedModel)
+  val isSelectedModelInitialized =
+    selectedModel.instance != null || modelManagerUiState.isModelInitialized(selectedModel)
   val isSelectedModelInitializing =
     selectedModelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
   val chatModel =

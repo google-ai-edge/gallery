@@ -17,6 +17,10 @@
 package com.google.ai.edge.gallery.ui.modelmanager
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.result.ActivityResult
 import androidx.core.net.toUri
@@ -149,8 +153,9 @@ data class ModelManagerUiState(
   val modelImportingUpdateTrigger: Long = 0L,
 ) {
   fun isModelInitialized(model: Model): Boolean {
-    return modelInitializationStatus[model.name]?.status ==
-      ModelInitializationStatusType.INITIALIZED
+    return model.instance != null ||
+      modelInitializationStatus[model.name]?.status ==
+        ModelInitializationStatusType.INITIALIZED
   }
 
   fun isModelInitializing(model: Model): Boolean {
@@ -409,6 +414,7 @@ constructor(
     onDone: () -> Unit = {},
   ) {
     explicitlyUnloadedModelNames.remove(model.name)
+    requestIgnoreBatteryOptimizations(context)
     viewModelScope.launch(Dispatchers.Default) {
       // Skip if initialized already.
       if (
@@ -568,6 +574,23 @@ constructor(
 
   private fun hasAnyLoadedModel(): Boolean {
     return uiState.value.tasks.any { task -> task.models.any { model -> model.instance != null } }
+  }
+
+  private fun requestIgnoreBatteryOptimizations(context: Context) {
+    if (!lifecycleProvider.isAppInForeground) {
+      return
+    }
+    val appContext = context.applicationContext
+    val powerManager = appContext.getSystemService(Context.POWER_SERVICE) as PowerManager
+    if (powerManager.isIgnoringBatteryOptimizations(appContext.packageName)) {
+      return
+    }
+    val intent =
+      Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+        data = Uri.parse("package:${appContext.packageName}")
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      }
+    runCatching { appContext.startActivity(intent) }
   }
 
   fun setDownloadStatus(curModel: Model, status: ModelDownloadStatus) {

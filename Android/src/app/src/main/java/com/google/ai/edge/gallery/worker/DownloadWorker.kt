@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery.worker
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.Notification
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -111,6 +112,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
         return@withContext try {
           // Set the worker as a foreground service immediately.
           setForeground(createForegroundInfo(progress = 0, modelName = modelName))
+          updateDownloadNotification(progress = 0, modelName = modelName)
 
           // Collect data for all files.
           val allFiles: MutableList<UrlAndFileName> = mutableListOf()
@@ -235,12 +237,9 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                     .putLong(KEY_MODEL_DOWNLOAD_REMAINING_MS, remainingMs.toLong())
                     .build()
                 )
-                setForeground(
-                  createForegroundInfo(
-                    progress = (downloadedBytes * 100 / totalBytes).toInt(),
-                    modelName = modelName,
-                  )
-                )
+                val progress = calculateProgress(downloadedBytes = downloadedBytes, totalBytes = totalBytes)
+                setForeground(createForegroundInfo(progress = progress, modelName = modelName))
+                updateDownloadNotification(progress = progress, modelName = modelName)
                 Log.d(TAG, "downloadedBytes: $downloadedBytes")
                 lastSetProgressTs = curTs
               }
@@ -248,6 +247,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
             outputStream.close()
             inputStream.close()
+            updateDownloadNotification(progress = calculateProgress(downloadedBytes, totalBytes), modelName = modelName)
 
             // Rename the tmp file to the original file name by removing the tmp file ext.
             val originalFilePath = outputTmpFile.absolutePath.replace(".$TMP_FILE_EXT", "")
@@ -309,6 +309,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               zipFile.delete()
             }
           }
+          updateDownloadNotification(progress = 100, modelName = modelName)
           Result.success()
         } catch (e: IOException) {
           Log.e(TAG, e.message, e)
@@ -331,12 +332,32 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
    * an active download is in progress.
    */
   private fun createForegroundInfo(progress: Int, modelName: String? = null): ForegroundInfo {
+    return ForegroundInfo(
+      notificationId,
+      createNotification(progress = progress, modelName = modelName),
+      ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+    )
+  }
+
+  private fun updateDownloadNotification(progress: Int, modelName: String? = null) {
+    notificationManager.notify(notificationId, createNotification(progress = progress, modelName = modelName))
+  }
+
+  private fun calculateProgress(downloadedBytes: Long, totalBytes: Long): Int {
+    if (totalBytes <= 0L) {
+      return 0
+    }
+    return ((downloadedBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
+  }
+
+  private fun createNotification(progress: Int, modelName: String? = null): Notification {
     // Create a notification for the foreground service
     var title = "Downloading model"
     if (modelName != null) {
       title = "Downloading \"$modelName\""
     }
-    val content = "Downloading in progress: $progress%"
+    val safeProgress = progress.coerceIn(0, 100)
+    val content = "Downloading in progress: $safeProgress%"
 
     val intent =
       applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName)
@@ -358,14 +379,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
         .setContentText(content)
         .setSmallIcon(android.R.drawable.ic_dialog_info)
         .setOngoing(true) // Makes the notification non-dismissable
-        .setProgress(100, progress, false) // Show progress
+        .setOnlyAlertOnce(true)
+        .setProgress(100, safeProgress, false) // Show progress
         .setContentIntent(pendingIntent)
         .build()
 
-    return ForegroundInfo(
-      notificationId,
-      notification,
-      ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
-    )
+    return notification
   }
 }

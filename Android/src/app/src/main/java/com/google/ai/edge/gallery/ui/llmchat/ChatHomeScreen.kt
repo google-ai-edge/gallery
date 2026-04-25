@@ -62,9 +62,13 @@ fun ChatHomeScreen(
 
   var sessions by remember { mutableStateOf(repository.loadSessions()) }
   var activeSessionId by remember { mutableStateOf(repository.getActiveChatId()) }
+  var allowNextSessionRestoreForModelSelection by remember { mutableStateOf(false) }
+  var lastInitializedModelName by remember { mutableStateOf<String?>(null) }
 
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val selectedModel = modelManagerUiState.selectedModel
+  val isSelectedModelInitialized =
+    selectedModel.name != EMPTY_MODEL.name && modelManagerUiState.isModelInitialized(selectedModel)
 
   Log.d(TAG, "Compose: sessions=${sessions.size}, activeSessionId=$activeSessionId, selectedModel=${selectedModel.name}")
 
@@ -76,7 +80,31 @@ fun ChatHomeScreen(
     }
   }
 
-  LaunchedEffect(activeSessionId) {
+  LaunchedEffect(selectedModel.name, isSelectedModelInitialized) {
+    if (!isSelectedModelInitialized) {
+      if (lastInitializedModelName == selectedModel.name) {
+        lastInitializedModelName = null
+      }
+      return@LaunchedEffect
+    }
+
+    if (lastInitializedModelName == selectedModel.name) return@LaunchedEffect
+    lastInitializedModelName = selectedModel.name
+
+    if (allowNextSessionRestoreForModelSelection) {
+      Log.d(TAG, "Keeping requested chat history for selected model ${selectedModel.name}")
+      allowNextSessionRestoreForModelSelection = false
+      return@LaunchedEffect
+    }
+
+    Log.d(TAG, "Starting a new chat for freshly loaded model ${selectedModel.name}")
+    activeSessionId = null
+    repository.setActiveChatId(null)
+    viewModel.currentSessionId = null
+    viewModel.clearAllMessages(selectedModel)
+  }
+
+  LaunchedEffect(activeSessionId, selectedModel.name, modelManagerUiState.modelInitializationStatus) {
     Log.d(TAG, "LaunchedEffect activeSessionId=$activeSessionId")
     repository.setActiveChatId(activeSessionId)
     if (activeSessionId != null) {
@@ -84,6 +112,19 @@ fun ChatHomeScreen(
       if (session != null) {
         val task = modelManagerViewModel.getTaskById(id = BuiltInTaskId.LLM_CHAT)
         val sessionModel = task?.models?.find { it.name == session.modelName }
+        val hasLoadedSelectedModel =
+          selectedModel.name != com.google.ai.edge.gallery.data.EMPTY_MODEL.name &&
+            modelManagerUiState.isModelInitialized(selectedModel)
+
+        if (hasLoadedSelectedModel && session.modelName != selectedModel.name) {
+          Log.d(
+            TAG,
+            "Keeping loaded selected model ${selectedModel.name}; not switching to session model ${session.modelName}",
+          )
+          viewModel.currentSessionId = null
+          return@LaunchedEffect
+        }
+
         val targetModel = sessionModel ?: selectedModel
         Log.d(TAG, "Loading session ${session.id}, model=${session.modelName}, sessionModel=${sessionModel?.name}, targetModel=${targetModel.name}, msgs=${session.messages.size}")
         if (sessionModel != null && sessionModel.name != selectedModel.name) {
@@ -171,6 +212,7 @@ fun ChatHomeScreen(
           },
           onOpenSession = { sessionId ->
             Log.d(TAG, "onOpenSession: $sessionId")
+            allowNextSessionRestoreForModelSelection = true
             activeSessionId = sessionId
             scope.launch { drawerState.close() }
           },
