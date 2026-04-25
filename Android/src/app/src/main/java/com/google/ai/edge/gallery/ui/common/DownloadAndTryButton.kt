@@ -160,7 +160,7 @@ fun DownloadAndTryButton(
   val isPartiallyDownloaded = downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
   val showDownloadProgress =
     !downloadSucceeded && (downloadStarted || checkingToken || inProgress || isPartiallyDownloaded)
-  val useCompactActionButton = compact && downloadSucceeded && canShowTryIt
+  val useCompactActionButton = false
 
   // A launcher for requesting notification permission.
   val permissionLauncher =
@@ -454,16 +454,15 @@ fun DownloadAndTryButton(
   else {
     val animatedProgress = remember { Animatable(0f) }
 
-    var downloadProgressModifier: Modifier = modifier
-    if (!compact) {
-      downloadProgressModifier = downloadProgressModifier.fillMaxWidth()
+    var downloadProgressModifier: Modifier = modifier.height(42.dp)
+    if (!useCompactActionButton) {
+      downloadProgressModifier = downloadProgressModifier.then(modifierWhenExpanded)
     }
     downloadProgressModifier =
       downloadProgressModifier
         .clip(CircleShape)
         .background(MaterialTheme.colorScheme.surfaceContainer)
         .padding(horizontal = 8.dp)
-        .height(42.dp)
     Row(modifier = downloadProgressModifier, verticalAlignment = Alignment.CenterVertically) {
       if (checkingToken) {
         Text(
@@ -471,7 +470,7 @@ fun DownloadAndTryButton(
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurface,
           textAlign = TextAlign.Center,
-          modifier = if (!compact) Modifier.fillMaxWidth() else Modifier.padding(horizontal = 4.dp),
+          modifier = if (!useCompactActionButton) Modifier.fillMaxWidth() else Modifier.padding(horizontal = 4.dp),
         )
       } else {
         Text(
@@ -482,9 +481,9 @@ fun DownloadAndTryButton(
               fontFeatureSettings = "tnum"
             ),
           color = MaterialTheme.colorScheme.onSurface,
-          modifier = Modifier.padding(start = 12.dp).width(if (compact) 32.dp else 44.dp),
+          modifier = Modifier.padding(start = 12.dp).width(if (useCompactActionButton) 32.dp else 44.dp),
         )
-        if (!compact) {
+        if (!useCompactActionButton) {
           val color =
             if (task != null) getTaskBgGradientColors(task = task)[1]
             else MaterialTheme.colorScheme.primary
