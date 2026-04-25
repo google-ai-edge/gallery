@@ -82,6 +82,7 @@ import com.google.ai.edge.gallery.proto.LlmConfig
 import com.google.ai.edge.gallery.ui.common.ConfigEditorsPanel
 import com.google.ai.edge.gallery.ui.common.ensureValidFileName
 import com.google.ai.edge.gallery.ui.common.humanReadableSize
+import com.google.android.libraries.security.content.SafeContentResolver
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URLDecoder
@@ -424,7 +425,7 @@ private fun importModel(
     var bytesRead: Int
     var lastSetProgressTs: Long = 0
     var importedBytes = 0L
-    val inputStream = context.contentResolver.openInputStream(uri)
+    val inputStream = SafeContentResolver.openInputStream(context, uri)
     try {
       if (inputStream != null) {
         while (inputStream.read(buffer).also { bytesRead = it } != -1) {

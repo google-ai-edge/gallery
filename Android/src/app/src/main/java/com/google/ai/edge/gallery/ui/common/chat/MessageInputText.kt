@@ -133,6 +133,7 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.getTaskIconColor
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
+import com.google.android.libraries.security.content.SafeContentResolver
 import java.io.FileInputStream
 import java.util.concurrent.Executors
 import kotlinx.coroutines.Dispatchers
@@ -914,7 +915,7 @@ private fun handleImagesSelected(
           if (uri.scheme == null || uri.scheme == "file") {
             FileInputStream(uri.path ?: "")
           } else {
-            context.contentResolver.openInputStream(uri)
+            SafeContentResolver.openInputStream(context, uri)
           }
         if (inputStream != null) {
           // Read the EXIF metadata from the picture and rotate it correctly.
