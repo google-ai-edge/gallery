@@ -1,22 +1,8 @@
-/*
- * Copyright 2025 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.google.ai.edge.gallery
 
 import android.animation.ObjectAnimator
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.net.wifi.WifiManager
@@ -162,19 +148,56 @@ class MainActivity : ComponentActivity() {
   }
 
   private fun startApiServer() {
-    apiServer = LiteRtApiServer(this, 8080)
-    apiServer?.startServer()
+    try {
+      apiServer = LiteRtApiServer(this, 8080)
+      apiServer?.startServer()
 
-    val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-    val ipAddress = wifiManager?.connectionInfo?.ipAddress?.let {
-      (it and 0xFF).toString() + "." + (it shr 8 and 0xFF) + "." + (it shr 16 and 0xFF) + "." + (it shr 24 and 0xFF)
+      var ipAddress = "无法获取IP"
+      try {
+        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        ipAddress = wifiManager?.connectionInfo?.ipAddress?.let {
+          (it and 0xFF).toString() + "." + (it shr 8 and 0xFF) + "." + (it shr 16 and 0xFF) + "." + (it shr 24 and 0xFF)
+        } ?: "无法获取IP"
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to get IP: ${e.message}")
+      }
+
+      val serverUrl = "http://$ipAddress:8080/health"
+      Log.d(TAG, "LiteRT API Server running at $serverUrl")
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val channel = NotificationChannel(
+          "api_server",
+          "API Server",
+          NotificationManager.IMPORTANCE_LOW
+        )
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        notificationManager.createNotificationChannel(channel)
+
+        val notification = android.app.Notification.Builder(this, "api_server")
+          .setContentTitle("API Server 运行中")
+          .setContentText(serverUrl)
+          .setSmallIcon(android.R.drawable.ic_dialog_info)
+          .setOngoing(true)
+          .build()
+
+        notificationManager.notify(1, notification)
+      }
+
+      android.widget.Toast.makeText(this, "API Server 已启动", android.widget.Toast.LENGTH_SHORT).show()
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to start API Server: ${e.message}")
+      android.widget.Toast.makeText(this, "API Server 启动失败", android.widget.Toast.LENGTH_SHORT).show()
     }
-    Log.d(TAG, "LiteRT API Server running at http://$ipAddress:8080")
   }
 
   override fun onDestroy() {
     super.onDestroy()
-    apiServer?.stopServer()
+    try {
+      apiServer?.stopServer()
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to stop API Server: ${e.message}")
+    }
   }
 
   override fun onNewIntent(intent: Intent) {
