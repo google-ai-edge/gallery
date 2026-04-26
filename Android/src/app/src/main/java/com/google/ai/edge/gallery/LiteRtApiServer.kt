@@ -7,9 +7,9 @@ import kotlinx.coroutines.*
 import java.io.IOException
 
 class LiteRtApiServer(
-    private val context: Context,
-    private val serverPort: Int = 8080
-) : NanoHTTPD(serverPort) {
+    context: Context,
+    port: Int = 8080
+) : NanoHTTPD(port) {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var isRunning = false
@@ -20,9 +20,9 @@ class LiteRtApiServer(
             try {
                 start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
                 isRunning = true
-                Log.d(TAG, "API Server started on port $serverPort")
+                Log.d("LiteRtApiServer", "API Server started on port 8080")
             } catch (e: IOException) {
-                Log.e(TAG, "Failed to start server: ${e.message}")
+                Log.e("LiteRtApiServer", "Failed to start server: ${e.message}")
             }
         }
     }
@@ -32,25 +32,19 @@ class LiteRtApiServer(
         stop()
         isRunning = false
         scope.cancel()
-        Log.d(TAG, "API Server stopped")
+        Log.d("LiteRtApiServer", "API Server stopped")
     }
 
     override fun serve(session: IHTTPSession?): Response {
         session ?: return newFixedLengthResponse(
-            Response.Status.BAD_REQUEST,
-            MIME_PLAINTEXT,
-            "Empty request"
+            Response.Status.BAD_REQUEST, MIME_PLAINTEXT, "Empty request"
         )
 
         return when (session.uri) {
             "/v1/chat/completions" -> handleChatCompletions(session)
             "/v1/models" -> handleListModels()
             "/health" -> handleHealth()
-            else -> newFixedLengthResponse(
-                Response.Status.NOT_FOUND,
-                MIME_PLAINTEXT,
-                "Not found"
-            )
+            else -> newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Not found")
         }
     }
 
@@ -68,18 +62,14 @@ class LiteRtApiServer(
                     "index": 0,
                     "message": {
                         "role": "assistant",
-                        "content": "This is a sample response from LiteRT API Server. Please connect the actual inference engine for real replies."
+                        "content": "Hello from LiteRT API Server!"
                     },
                     "finish_reason": "stop"
                 }]
             }
         """.trimIndent()
 
-        return newFixedLengthResponse(
-            Response.Status.OK,
-            "application/json",
-            response
-        )
+        return newFixedLengthResponse(Response.Status.OK, "application/json", response)
     }
 
     private fun handleListModels(): Response {
@@ -95,22 +85,10 @@ class LiteRtApiServer(
             }
         """.trimIndent()
 
-        return newFixedLengthResponse(
-            Response.Status.OK,
-            "application/json",
-            response
-        )
+        return newFixedLengthResponse(Response.Status.OK, "application/json", response)
     }
 
     private fun handleHealth(): Response {
-        return newFixedLengthResponse(
-            Response.Status.OK,
-            "application/json",
-            """{"status": "ok"}"""
-        )
-    }
-
-    companion object {
-        private const val TAG = "LiteRtApiServer"
+        return newFixedLengthResponse(Response.Status.OK, "application/json", """{"status": "ok"}""")
     }
 }
