@@ -15,11 +15,11 @@ limitations under the License.
 
 syntax = "proto3";
 
-package com.google.ai.edge.gallery.proto;
+package com.server.edge.gallery.proto;
 
 option java_multiple_files = true;
 option java_outer_classname = "Benchmark";
-option java_package = "com.google.ai.edge.gallery.proto";
+option java_package = "com.server.edge.gallery.proto";
 
 message BenchmarkResults {
   repeated BenchmarkResult result = 1;
@@ -69,3 +69,4 @@ message ValueSeries {
   double pct25 = 7;
   double pct75 = 8;
 }
+

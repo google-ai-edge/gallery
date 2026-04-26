@@ -15,9 +15,9 @@ limitations under the License.
 
 syntax = "proto3";
 
-package com.google.ai.edge.gallery.proto;
+package com.server.edge.gallery.proto;
 
-option java_package = "com.google.ai.edge.gallery.proto";
+option java_package = "com.server.edge.gallery.proto";
 option java_multiple_files = true;
 
 enum Theme {
@@ -133,3 +133,4 @@ message Cutout {
 message CutoutCollection {
   repeated Cutout cutout = 1;
 }
+

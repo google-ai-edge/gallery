@@ -17,22 +17,22 @@
 }
 
 # Keep proto-generated inner classes (enum & message types)
--keep class com.google.ai.edge.gallery.proto.** { *; }
+-keep class com.server.edge.gallery.proto.** { *; }
 
 # ---- Gson serialisation (for ChatSession, Model, etc.) ----
 # Use -keep (not just -keepclassmembers) so class names and no-arg constructors
 # are preserved for Gson reflection-based instantiation.
--keep class com.google.ai.edge.gallery.data.ChatMessage { *; }
--keep class com.google.ai.edge.gallery.data.ChatSession { *; }
--keep class com.google.ai.edge.gallery.data.Model { *; }
--keep class com.google.ai.edge.gallery.data.ModelDownloadStatus { *; }
--keep class com.google.ai.edge.gallery.data.ModelAllowlist { *; }
--keep class com.google.ai.edge.gallery.data.AllowedModel { *; }
--keep class com.google.ai.edge.gallery.data.DefaultConfig { *; }
--keep class com.google.ai.edge.gallery.data.SocModelFile { *; }
--keep class com.google.ai.edge.gallery.data.NamedDeviceGroup { *; }
--keep class com.google.ai.edge.gallery.data.DeviceRequirements { *; }
--keep class com.google.ai.edge.gallery.data.ModelFile { *; }
+-keep class com.server.edge.gallery.data.ChatMessage { *; }
+-keep class com.server.edge.gallery.data.ChatSession { *; }
+-keep class com.server.edge.gallery.data.Model { *; }
+-keep class com.server.edge.gallery.data.ModelDownloadStatus { *; }
+-keep class com.server.edge.gallery.data.ModelAllowlist { *; }
+-keep class com.server.edge.gallery.data.AllowedModel { *; }
+-keep class com.server.edge.gallery.data.DefaultConfig { *; }
+-keep class com.server.edge.gallery.data.SocModelFile { *; }
+-keep class com.server.edge.gallery.data.NamedDeviceGroup { *; }
+-keep class com.server.edge.gallery.data.DeviceRequirements { *; }
+-keep class com.server.edge.gallery.data.ModelFile { *; }
 
 # Keep all @SerializedName annotated fields
 -keepclassmembers,allowobfuscation class * {
@@ -40,7 +40,7 @@
 }
 
 # Keep enums used in Gson-serialized data classes
--keepclassmembers enum com.google.ai.edge.gallery.data.* {
+-keepclassmembers enum com.server.edge.gallery.data.* {
     public static **[] values();
     public static ** valueOf(java.lang.String);
 }

@@ -15,11 +15,11 @@ limitations under the License.
 
 syntax = "proto3";
 
-package com.google.ai.edge.gallery.proto;
+package com.server.edge.gallery.proto;
 
 option java_multiple_files = true;
 option java_outer_classname = "SkillProto";
-option java_package = "com.google.ai.edge.gallery.proto";
+option java_package = "com.server.edge.gallery.proto";
 
 message Skills {
   repeated Skill skill = 1;
@@ -53,3 +53,4 @@ message Skill {
   // The homepage of the skill (source, doc).
   string homepage = 9;
 }
+
