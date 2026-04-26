@@ -74,6 +74,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationRequest
@@ -433,6 +434,26 @@ constructor(
         model.cleanUpAfterInit = false
         Log.d(TAG, "Model '${model.name}' is being initialized. Skipping.")
         return@launch
+      }
+
+      // Unload any other loaded or initializing models before loading this one.
+      // Only one model should be in memory at a time to avoid OOM crashes.
+      val otherLoadedOrInitializingModels =
+        uiState.value.tasks
+          .flatMap { t -> t.models.map { m -> t to m } }
+          .filter { (_, m) -> m.name != model.name && (m.instance != null || m.initializing) }
+          .distinctBy { (_, m) -> m.name }
+      otherLoadedOrInitializingModels.forEach { (otherTask, otherModel) ->
+        Log.d(TAG, "Unloading model '${otherModel.name}' before initializing '${model.name}'")
+        cleanupModel(context = context, task = otherTask, model = otherModel)
+      }
+
+      // Give the system time to reclaim native memory from the unloaded model.
+      // This prevents OOM crashes when loading large models back-to-back.
+      if (otherLoadedOrInitializingModels.isNotEmpty()) {
+        System.gc()
+        delay(500)
+        Log.d(TAG, "Memory cleanup delay complete. Proceeding to initialize '${model.name}'")
       }
 
       // Clean up the target model if it is being force-reinitialized.

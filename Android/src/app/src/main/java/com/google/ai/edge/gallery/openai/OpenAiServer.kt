@@ -52,6 +52,7 @@ class OpenAiServer(
                 anyHost()
                 allowHeader(HttpHeaders.ContentType)
                 allowHeader(HttpHeaders.Authorization)
+                allowHeader("ngrok-skip-browser-warning")
             }
 
             routing {
