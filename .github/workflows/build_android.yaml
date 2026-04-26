@@ -27,3 +27,8 @@ jobs:
           java-version: '21'
       - name: Build
         run: ./gradlew assembleRelease
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: Android/src/app/build/outputs/apk/release/app-release-unsigned.apk
