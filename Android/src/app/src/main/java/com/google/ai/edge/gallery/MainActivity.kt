@@ -17,7 +17,9 @@
 package com.google.ai.edge.gallery
 
 import android.animation.ObjectAnimator
+import android.content.Context
 import android.content.Intent
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -65,21 +67,17 @@ class MainActivity : ComponentActivity() {
   private val modelManagerViewModel: ModelManagerViewModel by viewModels()
   private var splashScreenAboutToExit: Boolean = false
   private var contentSet: Boolean = false
+  private var apiServer: LiteRtApiServer? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
-    // We intentionally pass null to discard the saved instance state bundle.
-    // This prevents Jetpack Compose from automatically restoring the previous screen
-    // and forces the app to start cleanly on the Home Screen after an OS kill.
     super.onCreate(null)
 
-    // Debug: Dump all intent extras to see what FCM unloads
     intent.extras?.let { extras ->
       for (key in extras.keySet()) {
         Log.d(TAG, "onCreate Extra -> Key: $key, Value: ${extras.get(key)}")
       }
     }
 
-    // Convert FCM Console data extras to intent data for GalleryNavGraph to pick up
     intent.getStringExtra("deeplink")?.let { link ->
       Log.d(TAG, "onCreate: Found deeplink extra: $link")
       if (link.startsWith("http://") || link.startsWith("https://")) {
@@ -100,8 +98,6 @@ class MainActivity : ComponentActivity() {
           Surface(modifier = Modifier.fillMaxSize()) {
             GalleryApp(modelManagerViewModel = modelManagerViewModel)
 
-            // Fade out a "mask" that has the same color as the background of the splash screen
-            // to reveal the actual app content.
             var startMaskFadeout by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { startMaskFadeout = true }
             AnimatedVisibility(
@@ -126,13 +122,11 @@ class MainActivity : ComponentActivity() {
 
     modelManagerViewModel.loadModelAllowlist()
 
-    // Show splash screen.
+    // Start LiteRT API Server
+    startApiServer()
+
     val splashScreen = installSplashScreen()
 
-    // Set the content when the system-provided splash screen is not shown.
-    //
-    // This is necessary on some Android versions where the splash screen is optimized away (e.g.,
-    // after a force-quit) to ensure the main content is displayed immediately and correctly.
     lifecycleScope.launch {
       delay(1000)
       if (!splashScreenAboutToExit) {
@@ -140,18 +134,6 @@ class MainActivity : ComponentActivity() {
       }
     }
 
-    // Cross-fade transition from the splash screen to the main content.
-    //
-    // The logic performs the following key actions:
-    // 1. Synchronizes Timing: It calculates the remaining duration of the default icon
-    //    animation. It then delays its own animations to ensure the custom fade-out begins just
-    //    before the original icon animation would have finished.
-    // 2. Initiates a cross-fade:
-    //    - Fade out the splash screen.
-    //    - Fade in the main content.
-    // 3. Cleans up: An `onEnd` listener on the fade-out animator calls
-    //    `splashScreenView.remove()` to properly remove the splash screen from the view hierarchy
-    //    once it's fully transparent.
     splashScreen.setOnExitAnimationListener { splashScreenView ->
       splashScreenAboutToExit = true
 
@@ -174,19 +156,31 @@ class MainActivity : ComponentActivity() {
 
     enableEdgeToEdge()
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      // Fix for three-button nav not properly going edge-to-edge.
-      // See: https://issuetracker.google.com/issues/298296168
       window.isNavigationBarContrastEnforced = false
     }
-    // Keep the screen on while the app is running for better demo experience.
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+  }
+
+  private fun startApiServer() {
+    apiServer = LiteRtApiServer(this, 8080)
+    apiServer?.startServer()
+
+    val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+    val ipAddress = wifiManager?.connectionInfo?.ipAddress?.let {
+      (it and 0xFF).toString() + "." + (it shr 8 and 0xFF) + "." + (it shr 16 and 0xFF) + "." + (it shr 24 and 0xFF)
+    }
+    Log.d(TAG, "LiteRT API Server running at http://$ipAddress:8080")
+  }
+
+  override fun onDestroy() {
+    super.onDestroy()
+    apiServer?.stopServer()
   }
 
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
 
-    // Debug: Dump all intent extras to see what FCM unloads
     intent.extras?.let { extras ->
       for (key in extras.keySet()) {
         Log.d(TAG, "onNewIntent Extra -> Key: $key, Value: ${extras.get(key)}")
