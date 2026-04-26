@@ -8,8 +8,8 @@ import java.io.IOException
 
 class LiteRtApiServer(
     private val context: Context,
-    port: Int = 8080
-) : NanoHTTPD(port) {
+    private val serverPort: Int = 8080
+) : NanoHTTPD(serverPort) {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var isRunning = false
@@ -20,7 +20,7 @@ class LiteRtApiServer(
             try {
                 start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
                 isRunning = true
-                Log.d(TAG, "API Server started on port $port")
+                Log.d(TAG, "API Server started on port $serverPort")
             } catch (e: IOException) {
                 Log.e(TAG, "Failed to start server: ${e.message}")
             }
@@ -57,7 +57,6 @@ class LiteRtApiServer(
     private fun handleChatCompletions(session: IHTTPSession): Response {
         val body = mutableMapOf<String, String>()
         session.parseBody(body)
-        val jsonBody = body["postData"] ?: "{}"
 
         val response = """
             {
