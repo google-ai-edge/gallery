@@ -16,8 +16,6 @@
 
 package com.google.ai.edge.gallery.customtasks.examplecustomtask
 
-import androidx.hilt.navigation.compose.hiltViewModel
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -64,120 +62,115 @@ data class ExampleCustomTaskModelInstance(val content: String)
  * model.
  */
 val EXAMPLE_CUSTOM_TASK_CONFIG_KEY_FONT_SIZE = ConfigKey(id = "font_size", label = "Font size")
-val EXAMPLE_CUSTOM_TASK_CONFIG_KEY_MAX_CHAR_COUNT =
-  ConfigKey(id = "max_char_count", label = "Max character count")
+val EXAMPLE_CUSTOM_TASK_CONFIG_KEY_MAX_CHAR_COUNT = ConfigKey(id = "max_char_count", label = "Max character count")
 
 /**
  * A list of configurable parameters for the `ExampleCustomTask`'s models.
  *
  * This list defines two user-adjustable settings that appear in the model configuration dialog:
  * 1. Font size: A `NumberSliderConfig` that allows the user to change the text font size.
- *    `needReinitialization = false` indicates that changing this value **does not** require the
- *    model to be reloaded, as it's a simple UI change.
+ * `needReinitialization = false` indicates that changing this value **does not** require the
+ * model to be reloaded, as it's a simple UI change.
  * 2. Max character count: A `NumberSliderConfig` to cap the amount of text displayed.
- *    `needReinitialization = true` indicates that changing this value **does** require the
- *    `initializeModelFn` to be called again to re-read and truncate the model file content.
+ * `needReinitialization = true` indicates that changing this value **does** require the
+ * `initializeModelFn` to be called again to re-read and truncate the model file content.
  */
-val EXAMPLE_CUSTOM_TASK_CONFIGS =
-  listOf(
+val EXAMPLE_CUSTOM_TASK_CONFIGS = listOf(
     NumberSliderConfig(
-      key = EXAMPLE_CUSTOM_TASK_CONFIG_KEY_FONT_SIZE,
-      sliderMin = 8f,
-      sliderMax = 24f,
-      defaultValue = 14f,
-      valueType = ValueType.INT,
-      needReinitialization = false,
+        key = EXAMPLE_CUSTOM_TASK_CONFIG_KEY_FONT_SIZE,
+        sliderMin = 8f,
+        sliderMax = 24f,
+        defaultValue = 14f,
+        valueType = ValueType.INT,
+        needReinitialization = false,
     ),
     NumberSliderConfig(
-      key = EXAMPLE_CUSTOM_TASK_CONFIG_KEY_MAX_CHAR_COUNT,
-      sliderMin = 100f,
-      sliderMax = 2000f,
-      defaultValue = 2000f,
-      valueType = ValueType.INT,
-      needReinitialization = true,
+        key = EXAMPLE_CUSTOM_TASK_CONFIG_KEY_MAX_CHAR_COUNT,
+        sliderMin = 100f,
+        sliderMax = 2000f,
+        defaultValue = 2000f,
+        valueType = ValueType.INT,
+        needReinitialization = true,
     ),
-  )
+)
 
 /** The main screen of the example custom task. */
 @Composable
 fun ExampleCustomTaskScreen(
-  modelManagerViewModel: ModelManagerViewModel,
-  viewModel: ExampleCustomTaskViewModel = hiltViewModel(),
+    modelManagerViewModel: ModelManagerViewModel,
+    viewModel: ExampleCustomTaskViewModel = hiltViewModel(),
 ) {
-  val colors = listOf(MaterialTheme.colorScheme.onSurface, Color.Red, Color.Green, Color.Blue)
-  val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
-  val model = modelManagerUiState.selectedModel
-  val uiState by viewModel.uiState.collectAsState()
-  val textColor = uiState.textColor
+    val colors = listOf(MaterialTheme.colorScheme.onSurface, Color.Red, Color.Green, Color.Blue)
+    val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+    val model = modelManagerUiState.selectedModel
+    val uiState by viewModel.uiState.collectAsState()
+    val textColor = uiState.textColor
 
-  // Get the current font size value from config.
-  //
-  // `modelManagerUiState.configValuesUpdateTrigger` will be updated and trigger a recomposition
-  // when a config value is updated. Use it as the key here to read the font size from the config
-  // whenever it is changed.
-  var fontSize by
-    remember(modelManagerUiState.configValuesUpdateTrigger) {
-      mutableIntStateOf(model.getIntConfigValue(EXAMPLE_CUSTOM_TASK_CONFIG_KEY_FONT_SIZE))
+    // Get the current font size value from config.
+    //
+    // `modelManagerUiState.configValuesUpdateTrigger` will be updated and trigger a recomposition
+    // when a config value is updated. Use it as the key here to read the font size from the config
+    // whenever it is changed.
+    var fontSize by remember(modelManagerUiState.configValuesUpdateTrigger) { mutableIntStateOf(model.getIntConfigValue(EXAMPLE_CUSTOM_TASK_CONFIG_KEY_FONT_SIZE)) }
+
+    // Set initial text color.
+    LaunchedEffect(Unit) {
+        viewModel.updateTextColor(color = colors[0])
     }
 
-  // Set initial text color.
-  LaunchedEffect(Unit) { viewModel.updateTextColor(color = colors[0]) }
-
-  if (modelManagerUiState.isModelInitialized(model = model)) {
-    val instance = model.instance as ExampleCustomTaskModelInstance
-    Column {
-      // A list of colors user can click to set the text color.
-      Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(16.dp),
-      ) {
-        Text("Text color: ")
-        for (color in colors) {
-          Box(
-            modifier =
-              Modifier.size(16.dp).clip(CircleShape).background(color = color).clickable {
-                viewModel.updateTextColor(color = color)
-              },
-            contentAlignment = Alignment.Center,
-          ) {
-            if (color == textColor) {
-              Icon(
-                Icons.Outlined.Check,
-                tint = MaterialTheme.colorScheme.onPrimary,
-                contentDescription = null,
-                modifier = Modifier.size(12.dp),
-              )
+    if (modelManagerUiState.isModelInitialized(model = model)) {
+        val instance = model.instance as ExampleCustomTaskModelInstance
+        Column {
+            // A list of colors user can click to set the text color.
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(16.dp),
+            ) {
+                Text("Text color: ")
+                for (color in colors) {
+                    Box(
+                        modifier = Modifier.size(16.dp)
+                            .clip(CircleShape)
+                            .background(color = color)
+                            .clickable {
+                                viewModel.updateTextColor(color = color)
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (color == textColor) {
+                            Icon(
+                                Icons.Outlined.Check,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                            )
+                        }
+                    }
+                }
             }
-          }
+            HorizontalDivider()
+            // Content.
+            Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                Text(
+                    instance.content,
+                    color = textColor,
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = fontSize.sp,
+                        lineHeight = (fontSize * 1.3).sp,
+                    ),
+                )
+            }
         }
-      }
-
-      HorizontalDivider()
-
-      // Content.
-      Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-        Text(
-          instance.content,
-          color = textColor,
-          modifier = Modifier.padding(16.dp),
-          style =
-            MaterialTheme.typography.bodyMedium.copy(
-              fontSize = fontSize.sp,
-              lineHeight = (fontSize * 1.3).sp,
-            ),
-        )
-      }
+    } else {
+        // Loading spinner.
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                strokeWidth = 3.dp,
+            )
+        }
     }
-  }
-  // Loading spinner.
-  else {
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-      CircularProgressIndicator(
-        modifier = Modifier.size(24.dp),
-        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        strokeWidth = 3.dp,
-      )
-    }
-  }
 }
