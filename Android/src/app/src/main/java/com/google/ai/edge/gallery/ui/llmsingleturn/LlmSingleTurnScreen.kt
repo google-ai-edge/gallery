@@ -16,8 +16,7 @@
 
 package com.google.ai.edge.gallery.ui.llmsingleturn
 
-import androidx.hilt.navigation.compose.hiltViewModel
-
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -65,171 +64,169 @@ private const val TAG = "AGLlmSingleTurnScreen"
 
 @Composable
 fun LlmSingleTurnScreen(
-  modelManagerViewModel: ModelManagerViewModel,
-  navigateUp: () -> Unit,
-  modifier: Modifier = Modifier,
-  viewModel: LlmSingleTurnViewModel = hiltViewModel(),
+    modelManagerViewModel: ModelManagerViewModel,
+    navigateUp: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: LlmSingleTurnViewModel = hiltViewModel(),
 ) {
-  val task = modelManagerViewModel.getTaskById(id = BuiltInTaskId.LLM_PROMPT_LAB)!!
-  val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
-  val uiState by viewModel.uiState.collectAsState()
-  val selectedModel = modelManagerUiState.selectedModel
-  val scope = rememberCoroutineScope()
-  val context = LocalContext.current
-  var navigatingUp by remember { mutableStateOf(false) }
-  var showErrorDialog by remember { mutableStateOf(false) }
+    val task = modelManagerViewModel.getTaskById(id = BuiltInTaskId.LLM_PROMPT_LAB)!!
+    val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val selectedModel = modelManagerUiState.selectedModel
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var navigatingUp by remember { mutableStateOf(false) }
+    var showErrorDialog by remember { mutableStateOf(false) }
 
-  val handleNavigateUp = {
-    navigatingUp = true
-    navigateUp()
-
-    // clean up all models.
-    scope.launch(Dispatchers.Default) {
-      for (model in task.models) {
-        modelManagerViewModel.cleanupModel(context = context, task = task, model = model)
-      }
-    }
-  }
-
-  // Handle system's edge swipe.
-  BackHandler {
-    val modelInitializationStatus =
-      modelManagerUiState.modelInitializationStatus[selectedModel.name]
-    val isModelInitializing =
-      modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
-    if (!isModelInitializing && !uiState.inProgress) {
-      handleNavigateUp()
-    }
-  }
-
-  // Initialize model when model/download state changes.
-  val curDownloadStatus = modelManagerUiState.modelDownloadStatus[selectedModel.name]
-  LaunchedEffect(curDownloadStatus, selectedModel.name) {
-    if (!navigatingUp) {
-      if (curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED) {
-        Log.d(
-          TAG,
-          "Initializing model '${selectedModel.name}' from LlmsingleTurnScreen launched effect",
-        )
-        modelManagerViewModel.initializeModel(context, task = task, model = selectedModel)
-      }
-    }
-  }
-
-  val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
-  LaunchedEffect(modelInitializationStatus) {
-    showErrorDialog = modelInitializationStatus?.status == ModelInitializationStatusType.ERROR
-  }
-
-  Scaffold(
-    modifier = modifier,
-    topBar = {
-      ModelPageAppBar(
-        task = task,
-        model = selectedModel,
-        modelManagerViewModel = modelManagerViewModel,
-        inProgress = uiState.inProgress,
-        modelPreparing = uiState.preparing,
-        onConfigChanged = { _, _ -> },
-        onBackClicked = { handleNavigateUp() },
-        onModelSelected = { prevModel, newSelectedModel ->
-          scope.launch(Dispatchers.Default) {
-            if (prevModel.name != newSelectedModel.name) {
-              // Clean up prev model.
-              modelManagerViewModel.cleanupModel(context = context, task = task, model = prevModel)
+    val handleNavigateUp = {
+        navigatingUp = true
+        navigateUp()
+        // clean up all models.
+        scope.launch(Dispatchers.Default) {
+            for (model in task.models) {
+                modelManagerViewModel.cleanupModel(context = context, task = task, model = model)
             }
+        }
+    }
 
-            // Update selected model.
-            modelManagerViewModel.selectModel(model = newSelectedModel)
-          }
-        },
-      )
-    },
-  ) { innerPadding ->
-    Box(
-      modifier =
-        Modifier.padding(
-          top = innerPadding.calculateTopPadding(),
-          start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
-          end = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
-        )
-    ) {
-      val modelDownloaded = curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
-      // Main UI after model is downloaded.
-      var mainUiVisible by remember { mutableStateOf(modelDownloaded) }
-      LaunchedEffect(modelDownloaded) { mainUiVisible = modelDownloaded }
-      val animatedAlpha by animateFloatAsState(targetValue = if (mainUiVisible) 1.0f else 0f)
-      Box(
-        contentAlignment = Alignment.BottomCenter,
-        modifier =
-          Modifier.fillMaxSize()
-            // Just hide the UI without removing it from the screen so that the scroll syncing
-            // from ResponsePanel still works.
-            .graphicsLayer { alpha = animatedAlpha },
-      ) {
-        VerticalSplitView(
-          modifier = Modifier.fillMaxSize(),
-          topView = {
-            PromptTemplatesPanel(
-              model = selectedModel,
-              viewModel = viewModel,
-              modelManagerViewModel = modelManagerViewModel,
-              onSend = { fullPrompt ->
-                viewModel.generateResponse(task = task, model = selectedModel, input = fullPrompt)
+    // Handle system's edge swipe.
+    BackHandler {
+        val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
+        val isModelInitializing = modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
+        if (!isModelInitializing && !uiState.inProgress) {
+            handleNavigateUp()
+        }
+    }
 
-                firebaseAnalytics?.logEvent(
-                  GalleryEvent.GENERATE_ACTION.id,
-                  bundleOf("capability_name" to task.id, "model_id" to selectedModel.name),
+    // Initialize model when model/download state changes.
+    val curDownloadStatus = modelManagerUiState.modelDownloadStatus[selectedModel.name]
+    LaunchedEffect(curDownloadStatus, selectedModel.name) {
+        if (!navigatingUp) {
+            if (curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED) {
+                Log.d(
+                    TAG,
+                    "Initializing model '${selectedModel.name}' from LlmsingleTurnScreen launched effect",
                 )
-              },
-              onStopButtonClicked = { model -> viewModel.stopResponse(model = model) },
-              modifier = Modifier.fillMaxSize(),
+                modelManagerViewModel.initializeModel(context, task = task, model = selectedModel)
+            }
+        }
+    }
+
+    val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
+    LaunchedEffect(modelInitializationStatus) {
+        showErrorDialog = modelInitializationStatus?.status == ModelInitializationStatusType.ERROR
+    }
+
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            ModelPageAppBar(
+                task = task,
+                model = selectedModel,
+                modelManagerViewModel = modelManagerViewModel,
+                inProgress = uiState.inProgress,
+                modelPreparing = uiState.preparing,
+                onConfigChanged = { _, _ -> },
+                onBackClicked = { handleNavigateUp() },
+                onModelSelected = { prevModel, newSelectedModel ->
+                    scope.launch(Dispatchers.Default) {
+                        if (prevModel.name != newSelectedModel.name) {
+                            // Clean up prev model.
+                            modelManagerViewModel.cleanupModel(context = context, task = task, model = prevModel)
+                        }
+                        // Update selected model.
+                        modelManagerViewModel.selectModel(model = newSelectedModel)
+                    }
+                },
             )
-          },
-          bottomView = {
-            Box(
-              contentAlignment = Alignment.BottomCenter,
-              modifier =
-                Modifier.fillMaxSize().background(MaterialTheme.customColors.agentBubbleBgColor),
-            ) {
-              if (task.models.indexOf(selectedModel) >= 0) {
-                ResponsePanel(
-                  task = task,
-                  model = selectedModel,
-                  viewModel = viewModel,
-                  modelManagerViewModel = modelManagerViewModel,
-                  modifier =
-                    Modifier.fillMaxSize().padding(bottom = innerPadding.calculateBottomPadding()),
-                )
-              }
+        },
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier.padding(
+                top = innerPadding.calculateTopPadding(),
+                start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
+                end = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
+            )
+        ) {
+            val modelDownloaded = curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+            // Main UI after model is downloaded.
+            var mainUiVisible by remember { mutableStateOf(modelDownloaded) }
+            LaunchedEffect(modelDownloaded) {
+                mainUiVisible = modelDownloaded
             }
-          },
-        )
-      }
+            val animatedAlpha by animateFloatAsState(targetValue = if (mainUiVisible) 1.0f else 0f)
 
-      // Download button for the selected model when the model is not downloaded.
-      //
-      // Put this after the main UI so that it's layered on top.
-      AnimatedVisibility(
-        visible = !modelDownloaded,
-        // Block pointer input to prevent user from interacting with the main UI below.
-        modifier = Modifier.pointerInput(Unit) {},
-        enter = scaleIn(initialScale = 0.9f) + fadeIn(),
-        exit = scaleOut(targetScale = 0.9f) + fadeOut(),
-      ) {
-        ModelDownloadStatusInfoPanel(
-          model = selectedModel,
-          task = task,
-          modelManagerViewModel = modelManagerViewModel,
-        )
-      }
+            Box(
+                contentAlignment = Alignment.BottomCenter,
+                modifier = Modifier.fillMaxSize()
+                    // Just hide the UI without removing it from the screen so that the scroll syncing
+                    // from ResponsePanel still works.
+                    .graphicsLayer { alpha = animatedAlpha },
+            ) {
+                VerticalSplitView(
+                    modifier = Modifier.fillMaxSize(),
+                    topView = {
+                        PromptTemplatesPanel(
+                            model = selectedModel,
+                            viewModel = viewModel,
+                            modelManagerViewModel = modelManagerViewModel,
+                            onSend = { fullPrompt ->
+                                viewModel.generateResponse(task = task, model = selectedModel, input = fullPrompt)
+                                firebaseAnalytics?.logEvent(
+                                    GalleryEvent.GENERATE_ACTION.id,
+                                    bundleOf("capability_name" to task.id, "model_id" to selectedModel.name),
+                                )
+                            },
+                            onStopButtonClicked = { model ->
+                                viewModel.stopResponse(model = model)
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    },
+                    bottomView = {
+                        Box(
+                            contentAlignment = Alignment.BottomCenter,
+                            modifier = Modifier.fillMaxSize()
+                                .background(MaterialTheme.customColors.agentBubbleBgColor),
+                        ) {
+                            if (task.models.indexOf(selectedModel) >= 0) {
+                                ResponsePanel(
+                                    task = task,
+                                    model = selectedModel,
+                                    viewModel = viewModel,
+                                    modelManagerViewModel = modelManagerViewModel,
+                                    modifier = Modifier.fillMaxSize()
+                                        .padding(bottom = innerPadding.calculateBottomPadding()),
+                                )
+                            }
+                        }
+                    },
+                )
+            }
 
-      if (showErrorDialog) {
-        ErrorDialog(
-          error = modelInitializationStatus?.error ?: "",
-          onDismiss = { showErrorDialog = false },
-        )
-      }
+            // Download button for the selected model when the model is not downloaded.
+            //
+            // Put this after the main UI so that it's layered on top.
+            AnimatedVisibility(
+                visible = !modelDownloaded,
+                // Block pointer input to prevent user from interacting with the main UI below.
+                modifier = Modifier.pointerInput(Unit) {},
+                enter = scaleIn(initialScale = 0.9f) + fadeIn(),
+                exit = scaleOut(targetScale = 0.9f) + fadeOut(),
+            ) {
+                ModelDownloadStatusInfoPanel(
+                    model = selectedModel,
+                    task = task,
+                    modelManagerViewModel = modelManagerViewModel,
+                )
+            }
+
+            if (showErrorDialog) {
+                ErrorDialog(
+                    error = modelInitializationStatus?.error ?: "",
+                    onDismiss = { showErrorDialog = false },
+                )
+            }
+        }
     }
-  }
 }
