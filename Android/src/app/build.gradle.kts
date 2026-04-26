@@ -62,7 +62,12 @@ android {
   }
   kotlinOptions {
     jvmTarget = "11"
-    freeCompilerArgs += "-Xcontext-receivers"
+    // 修复1: 将 -Xcontext-receivers 替换为 -Xcontext-parameters
+    // 修复2: 添加 -Xannotation-default-target=param-property 消除注解警告
+    freeCompilerArgs += listOf(
+      "-Xcontext-parameters",
+      "-Xannotation-default-target=param-property"
+    )
   }
   buildFeatures {
     compose = true
