@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sobriety Counter</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .card {
+      background: rgba(255,255,255,0.07);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 24px 20px;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+    .emoji    { font-size: 44px; margin-bottom: 8px; }
+    .name     { font-size: 18px; font-weight: 700; color: #c9b8ff; margin-bottom: 4px; }
+    .headline { font-size: 13px; color: rgba(255,255,255,0.55); margin-bottom: 18px; }
+    .days-big {
+      font-size: 64px;
+      font-weight: 900;
+      letter-spacing: -2px;
+      background: linear-gradient(90deg, #a78bfa, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .days-label { font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 16px; }
+    .breakdown {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .unit { text-align: center; }
+    .unit-num   { font-size: 22px; font-weight: 700; }
+    .unit-label { font-size: 10px; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 1px; }
+    .divider    { border: none; border-top: 1px solid rgba(255,255,255,0.12); margin: 12px 0; }
+    .chips-label { font-size: 11px; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .chip {
+      background: rgba(167,139,250,0.2);
+      border: 1px solid rgba(167,139,250,0.4);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: #c4b5fd;
+    }
+    .next {
+      background: rgba(96,165,250,0.1);
+      border: 1px solid rgba(96,165,250,0.3);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #93c5fd;
+    }
+    .next strong { color: #60a5fa; }
+    .quote {
+      margin-top: 14px;
+      font-size: 11px;
+      font-style: italic;
+      color: rgba(255,255,255,0.35);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="emoji">🌟</div>
+    <div class="name"    id="name">--</div>
+    <div class="headline" id="headline">Clean since --</div>
+    <div class="days-big"  id="daysBig">0</div>
+    <div class="days-label">days of freedom</div>
+    <div class="breakdown">
+      <div class="unit"><div class="unit-num" id="years">0</div><div class="unit-label">Years</div></div>
+      <div class="unit"><div class="unit-num" id="months">0</div><div class="unit-label">Months</div></div>
+      <div class="unit"><div class="unit-num" id="days">0</div><div class="unit-label">Days</div></div>
+    </div>
+    <hr class="divider" />
+    <div class="chips-label">Chips Earned</div>
+    <div class="chips" id="chips"></div>
+    <div class="next" id="next"></div>
+    <div class="quote">"One day at a time." 🤍</div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const d = JSON.parse(decodeURIComponent(params.get("data") || "{}"));
+
+    document.getElementById("name").textContent = d.displayName || "Friend";
+    document.getElementById("headline").textContent = `Clean since ${d.sobriety_date || "--"}`;
+    document.getElementById("daysBig").textContent = (d.totalDays || 0).toLocaleString();
+    document.getElementById("years").textContent  = d.years  || 0;
+    document.getElementById("months").textContent = d.months || 0;
+    document.getElementById("days").textContent   = d.days   || 0;
+
+    const chipsEl = document.getElementById("chips");
+    (d.earned || []).slice(-8).forEach(label => {
+      const el = document.createElement("div");
+      el.className = "chip";
+      el.textContent = "🏅 " + label;
+      chipsEl.appendChild(el);
+    });
+    if ((d.earned || []).length === 0) {
+      const el = document.createElement("div");
+      el.className = "chip";
+      el.textContent = "Keep going — first chip is coming!";
+      chipsEl.appendChild(el);
+    }
+
+    const nextEl = document.getElementById("next");
+    if (d.daysToNext) {
+      nextEl.innerHTML = `Next milestone: <strong>${d.nextMilestone}</strong> — only <strong>${d.daysToNext}</strong> day${d.daysToNext === 1 ? "" : "s"} away!`;
+    } else {
+      nextEl.textContent = `🏆 ${d.nextMilestone} — you're a legend.`;
+    }
+  </script>
+</body>
+</html>
