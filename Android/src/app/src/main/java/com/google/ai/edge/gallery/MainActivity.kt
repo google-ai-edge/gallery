@@ -1,6 +1,5 @@
 package com.google.ai.edge.gallery
 
-import android.widget.Toast
 import android.animation.ObjectAnimator
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -13,6 +12,7 @@ import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -50,180 +50,193 @@ import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private val modelManagerViewModel: ModelManagerViewModel by viewModels()
-    private var splashScreenAboutToExit: Boolean = false
-    private var contentSet: Boolean = false
-    private var apiServer: LiteRtApiServer? = null
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(null)
-        intent.extras?.let { extras ->
-            for (key in extras.keySet()) {
-                // 修复：使用 getString() 或其他类型安全的方法替代已弃用的 get()
-                Log.d(TAG, "onCreate Extra -> Key: $key, Value: ${extras.getString(key)}")
-            }
-        }
-        intent.getStringExtra("deeplink")?.let { link ->
-            Log.d(TAG, "onCreate: Found deeplink extra: $link")
-            if (link.startsWith("http://") || link.startsWith("https://")) {
-                val browserIntent = Intent(Intent.ACTION_VIEW, link.toUri())
-                startActivity(browserIntent)
-            } else {
-                intent.data = link.toUri()
-            }
-        }
+  private val modelManagerViewModel: ModelManagerViewModel by viewModels()
+  private var splashScreenAboutToExit: Boolean = false
+  private var contentSet: Boolean = false
+  private var apiServer: LiteRtApiServer? = null
 
-        fun setContent() {
-            if (contentSet) {
-                return
-            }
-            setContent {
-                GalleryTheme {
-                    Surface(modifier = Modifier.fillMaxSize()) {
-                        GalleryApp(modelManagerViewModel = modelManagerViewModel)
-                        var startMaskFadeout by remember { mutableStateOf(false) }
-                        LaunchedEffect(Unit) {
-                            startMaskFadeout = true
-                        }
-                        AnimatedVisibility(
-                            !startMaskFadeout,
-                            enter = fadeIn(animationSpec = snap(0)),
-                            exit = fadeOut(animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)),
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize()
-                                    .background(MaterialTheme.colorScheme.background)
-                            )
-                        }
-                    }
-                }
-            }
-            @OptIn(ExperimentalApi::class)
-            ExperimentalFlags.enableBenchmark = false
-            contentSet = true
-        }
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(null)
 
-        modelManagerViewModel.loadModelAllowlist()
-        startApiServer()
-        val splashScreen = installSplashScreen()
-        lifecycleScope.launch {
-            delay(1000)
-            if (!splashScreenAboutToExit) {
-                setContent()
-            }
-        }
-        splashScreen.setOnExitAnimationListener { splashScreenView ->
-            splashScreenAboutToExit = true
-            val now = System.currentTimeMillis()
-            val iconAnimationStartMs = splashScreenView.iconAnimationStartMillis
-            val duration = splashScreenView.iconAnimationDurationMillis
-            val fadeOut = ObjectAnimator.ofFloat(splashScreenView.view, View.ALPHA, 1f, 0f)
-            fadeOut.interpolator = DecelerateInterpolator()
-            fadeOut.duration = 300L
-            fadeOut.doOnEnd {
-                splashScreenView.remove()
-            }
-            lifecycleScope.launch {
-                val setContentDelay = duration - (now - iconAnimationStartMs) - 300
-                if (setContentDelay > 0) {
-                    delay(setContentDelay)
-                }
-                setContent()
-                fadeOut.start()
-            }
-        }
-        enableEdgeToEdge()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isNavigationBarContrastEnforced = false
-        }
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    intent.extras?.let { extras ->
+      for (key in extras.keySet()) {
+        Log.d(TAG, "onCreate Extra -> Key: $key, Value: ${extras.get(key)}")
+      }
     }
 
-    private fun startApiServer() {
-        try {
-            apiServer = LiteRtApiServer(this, 8080)
-            apiServer?.startServer()
-            var ipAddress = "N/A"
-            try {
-                val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
-                while (interfaces.hasMoreElements()) {
-                    val ni = interfaces.nextElement()
-                    if (ni.isLoopback || !ni.isUp) continue
-                    val addrs = ni.inetAddresses
-                    while (addrs.hasMoreElements()) {
-                        val addr = addrs.nextElement()
-                        if (addr is java.net.Inet4Address && !addr.isLoopbackAddress) {
-                            ipAddress = addr.hostAddress ?: "N/A"
-                            break
-                        }
-                    }
-                    if (ipAddress != "N/A") break
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to get IP: ${e.message}")
-            }
-            val serverUrl = "http://$ipAddress:8080/health"
-            Log.d(TAG, "LiteRT API Server running at $serverUrl")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val channel = NotificationChannel("api_server", "API Server", NotificationManager.IMPORTANCE_LOW)
-                val nm = getSystemService(NotificationManager::class.java)
-                nm.createNotificationChannel(channel)
-                val notification = android.app.Notification.Builder(this, "api_server")
-                    .setContentTitle("API Server Running")
-                    .setContentText(serverUrl)
-                    .setSmallIcon(android.R.drawable.ic_dialog_info)
-                    .setOngoing(true)
-                    .build()
-                nm.notify(1, notification)
-            }
-            Toast.makeText(this, "API Server started:\n$serverUrl", Toast.LENGTH_LONG).show()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start API Server: ${e.message}")
-            Toast.makeText(this, "API Server failed", Toast.LENGTH_SHORT).show()
-        }
+    intent.getStringExtra("deeplink")?.let { link ->
+      Log.d(TAG, "onCreate: Found deeplink extra: $link")
+      if (link.startsWith("http://") || link.startsWith("https://")) {
+        val browserIntent = Intent(Intent.ACTION_VIEW, link.toUri())
+        startActivity(browserIntent)
+      } else {
+        intent.data = link.toUri()
+      }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        try {
-            apiServer?.stopServer()
-        } catch (e: Exception) {
-            Log.e(TAG, "stop error: ${e.message}")
-        }
-    }
+    fun setContent() {
+      if (contentSet) {
+        return
+      }
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        intent.extras?.let { extras ->
-            for (key in extras.keySet()) {
-                // 修复：使用 getString() 替代已弃用的 get()
-                Log.d(TAG, "onNewIntent Extra -> Key: $key, Value: ${extras.getString(key)}")
+      setContent {
+        GalleryTheme {
+          Surface(modifier = Modifier.fillMaxSize()) {
+            GalleryApp(modelManagerViewModel = modelManagerViewModel)
+
+            var startMaskFadeout by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) { startMaskFadeout = true }
+            AnimatedVisibility(
+              !startMaskFadeout,
+              enter = fadeIn(animationSpec = snap(0)),
+              exit =
+                fadeOut(animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)),
+            ) {
+              Box(
+                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+              )
             }
+          }
         }
-        intent.getStringExtra("deeplink")?.let { link ->
-            Log.d(TAG, "onNewIntent: Found deeplink extra: $link")
-            if (link.startsWith("http://") || link.startsWith("https://")) {
-                startActivity(Intent(Intent.ACTION_VIEW, link.toUri()))
-            } else {
-                intent.data = link.toUri()
+      }
+
+      @OptIn(ExperimentalApi::class)
+      ExperimentalFlags.enableBenchmark = false
+
+      contentSet = true
+    }
+
+    modelManagerViewModel.loadModelAllowlist()
+
+    startApiServer()
+
+    val splashScreen = installSplashScreen()
+
+    lifecycleScope.launch {
+      delay(1000)
+      if (!splashScreenAboutToExit) {
+        setContent()
+      }
+    }
+
+    splashScreen.setOnExitAnimationListener { splashScreenView ->
+      splashScreenAboutToExit = true
+
+      val now = System.currentTimeMillis()
+      val iconAnimationStartMs = splashScreenView.iconAnimationStartMillis
+      val duration = splashScreenView.iconAnimationDurationMillis
+      val fadeOut = ObjectAnimator.ofFloat(splashScreenView.view, View.ALPHA, 1f, 0f)
+      fadeOut.interpolator = DecelerateInterpolator()
+      fadeOut.duration = 300L
+      fadeOut.doOnEnd { splashScreenView.remove() }
+      lifecycleScope.launch {
+        val setContentDelay = duration - (now - iconAnimationStartMs) - 300
+        if (setContentDelay > 0) {
+          delay(setContentDelay)
+        }
+        setContent()
+        fadeOut.start()
+      }
+    }
+
+    enableEdgeToEdge()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      window.isNavigationBarContrastEnforced = false
+    }
+    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+  }
+
+  private fun startApiServer() {
+    try {
+      apiServer = LiteRtApiServer(this, 8088)
+      apiServer?.startServer()
+
+      var ipAddress = "N/A"
+      try {
+        val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+        while (interfaces.hasMoreElements()) {
+          val ni = interfaces.nextElement()
+          if (ni.isLoopback || !ni.isUp) continue
+          val addrs = ni.inetAddresses
+          while (addrs.hasMoreElements()) {
+            val addr = addrs.nextElement()
+            if (addr is java.net.Inet4Address && !addr.isLoopbackAddress) {
+              ipAddress = addr.hostAddress ?: "N/A"
+              break
             }
+          }
+          if (ipAddress != "N/A") break
         }
-    }
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to get IP: ${e.message}")
+      }
 
-    override fun onResume() {
-        super.onResume()
-        firebaseAnalytics?.logEvent(
-            FirebaseAnalytics.Event.APP_OPEN,
-            bundleOf(
-                "app_version" to BuildConfig.VERSION_NAME,
-                "os_version" to Build.VERSION.SDK_INT.toString(),
-                "device_model" to Build.MODEL,
-            ),
-        )
-    }
+      val serverUrl = "http://$ipAddress:8088/health"
+      Log.d(TAG, "LiteRT API Server running at $serverUrl")
 
-    companion object {
-        private const val TAG = "AGMainActivity"
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val channel = NotificationChannel("api_server", "API Server", NotificationManager.IMPORTANCE_LOW)
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(channel)
+
+        val notification = android.app.Notification.Builder(this, "api_server")
+          .setContentTitle("API Server Running")
+          .setContentText(serverUrl)
+          .setSmallIcon(android.R.drawable.ic_dialog_info)
+          .setOngoing(true)
+          .build()
+
+        nm.notify(1, notification)
+      }
+
+      Toast.makeText(this, "API Server started:\n$serverUrl", Toast.LENGTH_LONG).show()
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to start API Server: ${e.message}")
+      Toast.makeText(this, "API Server failed", Toast.LENGTH_SHORT).show()
     }
+  }
+
+  override fun onDestroy() {
+    super.onDestroy()
+    try {
+      apiServer?.stopServer()
+    } catch (e: Exception) {
+      Log.e(TAG, "stop error: ${e.message}")
+    }
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    intent.extras?.let { extras ->
+      for (key in extras.keySet()) {
+        Log.d(TAG, "onNewIntent Extra -> Key: $key, Value: ${extras.get(key)}")
+      }
+    }
+    intent.getStringExtra("deeplink")?.let { link ->
+      Log.d(TAG, "onNewIntent: Found deeplink extra: $link")
+      if (link.startsWith("http://") || link.startsWith("https://")) {
+        startActivity(Intent(Intent.ACTION_VIEW, link.toUri()))
+      } else {
+        intent.data = link.toUri()
+      }
+    }
+  }
+
+  override fun onResume() {
+    super.onResume()
+    firebaseAnalytics?.logEvent(
+      FirebaseAnalytics.Event.APP_OPEN,
+      bundleOf(
+        "app_version" to BuildConfig.VERSION_NAME,
+        "os_version" to Build.VERSION.SDK_INT.toString(),
+        "device_model" to Build.MODEL,
+      ),
+    )
+  }
+
+  companion object {
+    private const val TAG = "AGMainActivity"
+  }
 }
