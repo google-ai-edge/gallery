@@ -53,7 +53,7 @@ import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.ValueType
-import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 data class ExampleCustomTaskModelInstance(val content: String)
 
