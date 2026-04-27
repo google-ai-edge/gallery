@@ -45,37 +45,37 @@ enum class ValueType {
 data class ConfigKey(val id: String, val label: String)
 
 object ConfigKeys {
-  val MAX_TOKENS = ConfigKey("max_tokens", "Max tokens")
+  val MAX_TOKENS = ConfigKey("max_tokens", "最大 Token")
   val TOPK = ConfigKey("topk", "TopK")
   val TOPP = ConfigKey("topp", "TopP")
-  val TEMPERATURE = ConfigKey("temperature", "Temperature")
-  val DEFAULT_MAX_TOKENS = ConfigKey("default_max_tokens", "Default max tokens")
-  val DEFAULT_TOPK = ConfigKey("default_topk", "Default TopK")
-  val DEFAULT_TOPP = ConfigKey("default_topp", "Default TopP")
-  val DEFAULT_TEMPERATURE = ConfigKey("default_temperature", "Default temperature")
-  val SUPPORT_IMAGE = ConfigKey("support_image", "Support image")
-  val SUPPORT_AUDIO = ConfigKey("support_audio", "Support audio")
-  val SUPPORT_TINY_GARDEN = ConfigKey("support_tiny_garden", "Support tiny garden")
-  val SUPPORT_MOBILE_ACTIONS = ConfigKey("support_mobile_actions", "Support mobile actions")
-  val SUPPORT_THINKING = ConfigKey("support_thinking", "Support thinking")
-  val ENABLE_THINKING = ConfigKey("enable_thinking", "Enable thinking")
-  val MAX_RESULT_COUNT = ConfigKey("max_result_count", "Max result count")
-  val USE_GPU = ConfigKey("use_gpu", "Use GPU")
-  val ACCELERATOR = ConfigKey("accelerator", "Accelerator")
-  val VISION_ACCELERATOR = ConfigKey("vision_accelerator", "Vision accelerator")
-  val COMPATIBLE_ACCELERATORS = ConfigKey("compatible_accelerators", "Compatible accelerators")
-  val WARM_UP_ITERATIONS = ConfigKey("warm_up_iterations", "Warm up iterations")
-  val BENCHMARK_ITERATIONS = ConfigKey("benchmark_iterations", "Benchmark iterations")
-  val ITERATIONS = ConfigKey("iterations", "Iterations")
-  val THEME = ConfigKey("theme", "Theme")
-  val NAME = ConfigKey("name", "Name")
-  val MODEL_TYPE = ConfigKey("model_type", "Model type")
-  val MODEL = ConfigKey("model", "Model")
+  val TEMPERATURE = ConfigKey("temperature", "温度")
+  val DEFAULT_MAX_TOKENS = ConfigKey("default_max_tokens", "默认最大 Token")
+  val DEFAULT_TOPK = ConfigKey("default_topk", "默认 TopK")
+  val DEFAULT_TOPP = ConfigKey("default_topp", "默认 TopP")
+  val DEFAULT_TEMPERATURE = ConfigKey("default_temperature", "默认温度")
+  val SUPPORT_IMAGE = ConfigKey("support_image", "支持图片")
+  val SUPPORT_AUDIO = ConfigKey("support_audio", "支持音频")
+  val SUPPORT_TINY_GARDEN = ConfigKey("support_tiny_garden", "支持微型花园")
+  val SUPPORT_MOBILE_ACTIONS = ConfigKey("support_mobile_actions", "支持移动操作")
+  val SUPPORT_THINKING = ConfigKey("support_thinking", "支持思考")
+  val ENABLE_THINKING = ConfigKey("enable_thinking", "启用思考")
+  val MAX_RESULT_COUNT = ConfigKey("max_result_count", "最大结果数")
+  val USE_GPU = ConfigKey("use_gpu", "使用 GPU")
+  val ACCELERATOR = ConfigKey("accelerator", "加速器")
+  val VISION_ACCELERATOR = ConfigKey("vision_accelerator", "视觉加速器")
+  val COMPATIBLE_ACCELERATORS = ConfigKey("compatible_accelerators", "兼容加速器")
+  val WARM_UP_ITERATIONS = ConfigKey("warm_up_iterations", "预热迭代")
+  val BENCHMARK_ITERATIONS = ConfigKey("benchmark_iterations", "基准测试迭代")
+  val ITERATIONS = ConfigKey("iterations", "迭代次数")
+  val THEME = ConfigKey("theme", "主题")
+  val NAME = ConfigKey("name", "名称")
+  val MODEL_TYPE = ConfigKey("model_type", "模型类型")
+  val MODEL = ConfigKey("model", "模型")
   val RESET_CONVERSATION_TURN_COUNT =
-    ConfigKey("reset_conversation_turn_count", "Number of turns before the conversation resets")
-  val PREFILL_TOKENS = ConfigKey("prefill_tokens", "Prefill tokens")
-  val DECODE_TOKENS = ConfigKey("decode_tokens", "Decode tokens")
-  val NUMBER_OF_RUNS = ConfigKey("number_of_runs", "Number of runs")
+    ConfigKey("reset_conversation_turn_count", "对话重置前的轮次数")
+  val PREFILL_TOKENS = ConfigKey("prefill_tokens", "预填充 Token")
+  val DECODE_TOKENS = ConfigKey("decode_tokens", "解码 Token")
+  val NUMBER_OF_RUNS = ConfigKey("number_of_runs", "运行次数")
 }
 
 /**
@@ -120,26 +120,24 @@ class NumberSliderConfig(
   override val defaultValue: Float,
   override val valueType: ValueType,
   override val needReinitialization: Boolean = true,
-) :
-  Config(
-    type = ConfigEditorType.NUMBER_SLIDER,
-    key = key,
-    defaultValue = defaultValue,
-    valueType = valueType,
-  )
+) : Config(
+  type = ConfigEditorType.NUMBER_SLIDER,
+  key = key,
+  defaultValue = defaultValue,
+  valueType = valueType,
+)
 
 /** Configuration setting for a boolean switch. */
 class BooleanSwitchConfig(
   override val key: ConfigKey,
   override val defaultValue: Boolean,
   override val needReinitialization: Boolean = true,
-) :
-  Config(
-    type = ConfigEditorType.BOOLEAN_SWITCH,
-    key = key,
-    defaultValue = defaultValue,
-    valueType = ValueType.BOOLEAN,
-  )
+) : Config(
+  type = ConfigEditorType.BOOLEAN_SWITCH,
+  key = key,
+  defaultValue = defaultValue,
+  valueType = ValueType.BOOLEAN,
+)
 
 /** Configuration setting for a segmented button. */
 class SegmentedButtonConfig(
@@ -147,14 +145,13 @@ class SegmentedButtonConfig(
   override val defaultValue: String,
   val options: List<String>,
   val allowMultiple: Boolean = false,
-) :
-  Config(
-    type = ConfigEditorType.SEGMENTED_BUTTON,
-    key = key,
-    defaultValue = defaultValue,
-    // The emitted value will be comma-separated labels when allowMultiple=true.
-    valueType = ValueType.STRING,
-  )
+) : Config(
+  type = ConfigEditorType.SEGMENTED_BUTTON,
+  key = key,
+  defaultValue = defaultValue,
+  // The emitted value will be comma-separated labels when allowMultiple=true.
+  valueType = ValueType.STRING,
+)
 
 /** Configuration setting for a bottom sheet selector. */
 class BottomSheetSelectorConfig(
@@ -162,13 +159,12 @@ class BottomSheetSelectorConfig(
   override val defaultValue: String,
   val options: List<BottomSheetSelectorItem>,
   @StringRes val bottomSheetTitleResId: Int? = null,
-) :
-  Config(
-    type = ConfigEditorType.BOTTOMSHEET_SELECTOR,
-    key = key,
-    defaultValue = defaultValue,
-    valueType = ValueType.STRING,
-  )
+) : Config(
+  type = ConfigEditorType.BOTTOMSHEET_SELECTOR,
+  key = key,
+  defaultValue = defaultValue,
+  valueType = ValueType.STRING,
+)
 
 data class BottomSheetSelectorItem(val label: String)
 
@@ -183,7 +179,6 @@ fun convertValueToTargetType(value: Any, valueType: ValueType): Any {
         is Boolean -> if (value) 1 else 0
         else -> ""
       }
-
     ValueType.FLOAT ->
       when (value) {
         is Int -> value.toFloat()
@@ -193,7 +188,6 @@ fun convertValueToTargetType(value: Any, valueType: ValueType): Any {
         is Boolean -> if (value) 1f else 0f
         else -> ""
       }
-
     ValueType.DOUBLE ->
       when (value) {
         is Int -> value.toDouble()
@@ -203,7 +197,6 @@ fun convertValueToTargetType(value: Any, valueType: ValueType): Any {
         is Boolean -> if (value) 1.0 else 0.0
         else -> ""
       }
-
     ValueType.BOOLEAN ->
       when (value) {
         is Int -> value == 0
@@ -213,7 +206,6 @@ fun convertValueToTargetType(value: Any, valueType: ValueType): Any {
         is String -> value.isNotEmpty()
         else -> false
       }
-
     ValueType.STRING -> value.toString()
   }
 }
@@ -270,9 +262,10 @@ fun createLlmChatConfigs(
         ),
       )
       .toMutableList()
-
   if (supportThinking) {
-    configs.add(BooleanSwitchConfig(key = ConfigKeys.ENABLE_THINKING, defaultValue = false))
+    configs.add(
+      BooleanSwitchConfig(key = ConfigKeys.ENABLE_THINKING, defaultValue = false)
+    )
   }
   return configs
 }
