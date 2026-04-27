@@ -248,22 +248,26 @@ fun ArTranslatorScreen(
                 try {
                   val startTime = System.currentTimeMillis()
                   val responseMessage = newConversation.sendMessage(Contents.of(contents))
-                  identificationResult = responseMessage.toString()
+                  if (isRunning) {
+                    identificationResult = responseMessage.toString()
 
-                  val duration = System.currentTimeMillis() - startTime
-                  Log.d(TAG, "Inference completed successfully in $duration ms")
-                  Log.d(TAG, "Inference result: $identificationResult")
+                    val duration = System.currentTimeMillis() - startTime
+                    Log.d(TAG, "Inference completed successfully in $duration ms")
+                    Log.d(TAG, "Inference result: $identificationResult")
 
-                  val entry = parseResponse(identificationResult, mainLanguage, learnLanguage)
-                  parsedEntry = entry
+                    val entry = parseResponse(identificationResult, mainLanguage, learnLanguage)
+                    parsedEntry = entry
 
-                  isRunning = false
-                  onRunningStateChanged(false)
+                    isRunning = false
+                    onRunningStateChanged(false)
+                  }
                 } catch (throwable: Throwable) {
                   Log.e(TAG, "Inference error", throwable)
-                  identificationResult = "Error: ${throwable.message}"
-                  isRunning = false
-                  onRunningStateChanged(false)
+                  if (isRunning) {
+                    identificationResult = "Error: ${throwable.message}"
+                    isRunning = false
+                    onRunningStateChanged(false)
+                  }
                 } finally {
                   try {
                     if (newConversation.isAlive) {
@@ -275,9 +279,11 @@ fun ArTranslatorScreen(
                   }
                 }
               } catch (e: Exception) {
-                identificationResult = "Error: ${e.message}"
-                isRunning = false
-                onRunningStateChanged(false)
+                if (isRunning) {
+                  identificationResult = "Error: ${e.message}"
+                  isRunning = false
+                  onRunningStateChanged(false)
+                }
               }
             }
           }
@@ -328,6 +334,30 @@ fun ArTranslatorScreen(
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
               )
+              if (isRunning) {
+                Button(
+                  onClick = {
+                    val instance = model.instance as? LlmModelInstance
+                    if (instance != null && instance.conversation.isAlive) {
+                      try {
+                        instance.conversation.cancelProcess()
+                      } catch (e: Exception) {
+                        Log.e(TAG, "Failed to cancel inference", e)
+                      }
+                    }
+                    identificationResult = ""
+                    parsedEntry = null
+
+                    capturedImageBytes = null
+                    shouldTriggerInference = true
+                    isRunning = false
+                    onRunningStateChanged(false)
+                    triggerRequestTime = System.currentTimeMillis()
+                  }
+                ) {
+                  Text(stringResource(R.string.artranslator_cancel))
+                }
+              }
             }
           }
         }
