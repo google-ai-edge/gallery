@@ -165,7 +165,7 @@ class MainActivity : ComponentActivity() {
   private fun startApiServer() {
     try {
       apiServer = LiteRtApiServer(this, 8088)
-      apiServer?.setModelManager(modelManagerViewModel)
+    
       apiServer?.startServer()
 
       var ipAddress = "N/A"
