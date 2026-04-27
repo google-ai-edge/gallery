@@ -7,9 +7,9 @@ import kotlinx.coroutines.*
 import java.io.IOException
 
 class LiteRtApiServer(
-    context: Context,
-    port: Int = 8080
-) : NanoHTTPD(port) {
+    private val context: Context,
+    private val serverPort: Int = 8088
+) : NanoHTTPD(serverPort) {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var isRunning = false
@@ -20,9 +20,9 @@ class LiteRtApiServer(
             try {
                 start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
                 isRunning = true
-                Log.d("LiteRtApiServer", "API Server started on port 8080")
+                Log.d(TAG, "API Server started on port $serverPort")
             } catch (e: IOException) {
-                Log.e("LiteRtApiServer", "Failed to start server: ${e.message}")
+                Log.e(TAG, "Failed to start server: ${e.message}")
             }
         }
     }
@@ -32,7 +32,7 @@ class LiteRtApiServer(
         stop()
         isRunning = false
         scope.cancel()
-        Log.d("LiteRtApiServer", "API Server stopped")
+        Log.d(TAG, "API Server stopped")
     }
 
     override fun serve(session: IHTTPSession?): Response {
@@ -90,5 +90,9 @@ class LiteRtApiServer(
 
     private fun handleHealth(): Response {
         return newFixedLengthResponse(Response.Status.OK, "application/json", """{"status": "ok"}""")
+    }
+
+    companion object {
+        private const val TAG = "LiteRtApiServer"
     }
 }
