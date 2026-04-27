@@ -15,12 +15,14 @@ jobs:
   build_apk:
     name: Build Android APK
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     defaults:
       run:
         working-directory: ./Android/src
     steps:
       - name: Checkout the source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
