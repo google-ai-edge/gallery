@@ -117,6 +117,23 @@ val TRYOUT_CHIPS: List<SkillTryOutChip> =
     ),
   )
 
+enum class SkillSource(val sourceName: String) {
+  BUILTIN("builtin"),
+  FEATURED("featured"),
+  REMOTE_URL("remote_url"),
+  LOCAL_IMPORT("local_import"),
+  UNKNOWN("unknown"),
+}
+
+enum class SkillAction(val value: String) {
+  ADD("add"),
+  DELETE("delete"),
+  ENABLE("enable"),
+  DISABLE("disable"),
+  ENABLE_ALL("enable_all"),
+  DISABLE_ALL("disable_all"),
+}
+
 data class SkillState(val skill: Skill)
 
 data class SkillManagerUiState(
@@ -341,13 +358,7 @@ constructor(
           Log.d(TAG, "Successfully added skill from URL: ${skill.name}")
           firebaseAnalytics?.logEvent(
             GalleryEvent.SKILL_MANAGEMENT.id,
-            Bundle().apply {
-              putString("action", "add")
-              putString("source", "remote_url")
-              putString("skill_name", getSkillNameForLogging(skill))
-              putBoolean("is_built_in", skill.builtIn)
-              putString("remote_url", url)
-            },
+            getSkillLoggingParams(skill).apply { putString("action", SkillAction.ADD.value) },
           )
           onSuccess()
         }
@@ -532,12 +543,7 @@ constructor(
           Log.d(TAG, "Successfully added skill from local import: ${skillWithDir.name}")
           firebaseAnalytics?.logEvent(
             GalleryEvent.SKILL_MANAGEMENT.id,
-            Bundle().apply {
-              putString("action", "add")
-              putString("source", "local_import")
-              putString("skill_name", getSkillNameForLogging(skillWithDir))
-              putBoolean("is_built_in", skillWithDir.builtIn)
-            },
+            getSkillLoggingParams(skillWithDir).apply { putString("action", SkillAction.ADD.value) },
           )
           onSuccess()
         }
@@ -603,15 +609,14 @@ constructor(
       return
     }
 
-    val skillNameToLog = getSkillNameForLogging(skill)
-    Log.d(TAG, "Analytics: skill_management, action=delete, skill_name=${skillNameToLog}")
+    val loggingParams = getSkillLoggingParams(skill)
+    Log.d(
+      TAG,
+      "Analytics: skill_management, action=${SkillAction.DELETE.value}, params=$loggingParams",
+    )
     firebaseAnalytics?.logEvent(
       GalleryEvent.SKILL_MANAGEMENT.id,
-      Bundle().apply {
-        putString("action", "delete")
-        putString("skill_name", skillNameToLog)
-        putBoolean("is_built_in", skill.builtIn)
-      },
+      loggingParams.apply { putString("action", SkillAction.DELETE.value) },
     )
 
     // Update state.
@@ -643,17 +648,14 @@ constructor(
     }
 
     for (skill in skillsToDelete) {
+      val loggingParams = getSkillLoggingParams(skill)
       Log.d(
         TAG,
-        "Analytics: skill_management, action=delete, skill_name=${getSkillNameForLogging(skill)}",
+        "Analytics: skill_management, action=${SkillAction.DELETE.value}, params=$loggingParams",
       )
       firebaseAnalytics?.logEvent(
         GalleryEvent.SKILL_MANAGEMENT.id,
-        Bundle().apply {
-          putString("action", "delete")
-          putString("skill_name", getSkillNameForLogging(skill))
-          putBoolean("is_built_in", skill.builtIn)
-        },
+        loggingParams.apply { putString("action", SkillAction.DELETE.value) },
       )
     }
 
@@ -686,10 +688,8 @@ constructor(
 
     firebaseAnalytics?.logEvent(
       GalleryEvent.SKILL_MANAGEMENT.id,
-      Bundle().apply {
-        putString("action", if (selected) "enable" else "disable")
-        putString("skill_name", getSkillNameForLogging(skill.skill))
-        putBoolean("is_built_in", skill.skill.builtIn)
+      getSkillLoggingParams(skill.skill).apply {
+        putString("action", if (selected) SkillAction.ENABLE.value else SkillAction.DISABLE.value)
       },
     )
     val updatedSkills =
@@ -720,11 +720,16 @@ constructor(
 
     Log.d(
       TAG,
-      "Analytics: skill_management, action=${if (selected) "enable_all" else "disable_all"}",
+      "Analytics: skill_management, action=${if (selected) SkillAction.ENABLE_ALL.value else SkillAction.DISABLE_ALL.value}",
     )
     firebaseAnalytics?.logEvent(
       GalleryEvent.SKILL_MANAGEMENT.id,
-      Bundle().apply { putString("action", if (selected) "enable_all" else "disable_all") },
+      Bundle().apply {
+        putString(
+          "action",
+          if (selected) SkillAction.ENABLE_ALL.value else SkillAction.DISABLE_ALL.value,
+        )
+      },
     )
 
     // Update data store.
@@ -1166,15 +1171,36 @@ constructor(
     dataStoreRepository.setSkills(updatedList)
   }
 
-  private fun getSkillNameForLogging(skill: Skill): String {
+  private fun getSkillSource(skill: Skill): SkillSource {
     val isFeatured =
       skill.skillUrl.isNotEmpty() &&
         _uiState.value.featuredSkills.any { it.skillUrl == skill.skillUrl }
-    return if (skill.builtIn || isFeatured) {
-      skill.name
-    } else {
-      "custom_skill"
+    return when {
+      skill.builtIn -> SkillSource.BUILTIN
+      isFeatured -> SkillSource.FEATURED
+      skill.skillUrl.isNotEmpty() -> SkillSource.REMOTE_URL
+      skill.importDirName.isNotEmpty() -> SkillSource.LOCAL_IMPORT
+      else -> SkillSource.UNKNOWN
     }
+  }
+
+  private fun getSkillLoggingParams(skill: Skill): Bundle {
+    val source = getSkillSource(skill)
+    val skillName =
+      if (source == SkillSource.BUILTIN || source == SkillSource.FEATURED) skill.name
+      else "custom_skill"
+    val bundle =
+      Bundle().apply {
+        putString("source", source.sourceName)
+        putString("skill_name", skillName)
+      }
+    if (
+      skill.skillUrl.isNotEmpty() &&
+        (source == SkillSource.REMOTE_URL || source == SkillSource.FEATURED)
+    ) {
+      bundle.putString("remote_url", skill.skillUrl)
+    }
+    return bundle
   }
 
   private fun getSkillDestinationDir(originalImportDirName: String): File {
