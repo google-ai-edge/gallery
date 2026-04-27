@@ -1,14 +1,14 @@
 package com.google.ai.edge.gallery
 
 import android.content.Context
+import android.os.Environment
 import android.util.Log
-import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import com.google.ai.edge.litertlm.Conversation
-import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.*
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.io.IOException
 
 class LiteRtApiServer(
@@ -18,11 +18,8 @@ class LiteRtApiServer(
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var isRunning = false
-    private var modelManagerViewModel: ModelManagerViewModel? = null
-
-    fun setModelManager(viewModel: ModelManagerViewModel) {
-        this.modelManagerViewModel = viewModel
-    }
+    private var engine: Engine? = null
+    private var currentModelName = ""
 
     fun startServer() {
         if (isRunning) return
@@ -41,6 +38,8 @@ class LiteRtApiServer(
         if (!isRunning) return
         stop()
         isRunning = false
+        engine?.close()
+        engine = null
         scope.cancel()
         Log.d(TAG, "API Server stopped")
     }
@@ -65,7 +64,7 @@ class LiteRtApiServer(
             val jsonBody = body["postData"] ?: "{}"
 
             val requestJson = JSONObject(jsonBody)
-            val modelId = requestJson.optString("model", "litert-community/gemma-4-E2B-it-litert-lm")
+            val modelName = requestJson.optString("model", "gemma-4-E2B-it")
             val messagesArray = requestJson.optJSONArray("messages") ?: JSONArray()
 
             val prompt = extractLastUserMessage(messagesArray)
@@ -74,7 +73,7 @@ class LiteRtApiServer(
                     """{"error": "No user message found"}""")
             }
 
-            val result = runInference(modelId, prompt)
+            val result = runInference(modelName, prompt)
 
             jsonResponse(Response.Status.OK, result)
         } catch (e: Exception) {
@@ -94,26 +93,37 @@ class LiteRtApiServer(
         return null
     }
 
-    private suspend fun runInference(modelId: String, userPrompt: String): String {
-        val viewModel = modelManagerViewModel
-            ?: throw IllegalStateException("ModelManager not initialized")
+    private fun runInference(modelName: String, userPrompt: String): String {
+        if (engine == null || currentModelName != modelName) {
+            engine?.close()
+            val modelPath = findModelFile(modelName)
 
-        // Use Gallery's built-in inference API
-        val result = withContext(Dispatchers.IO) {
-            viewModel.runChatInference(modelId, userPrompt)
+            val config = EngineConfig(
+                modelPath = modelPath,
+                backend = Backend.CPU(),
+                cacheDir = context.cacheDir.absolutePath
+            )
+            engine = Engine(config)
+            engine?.initialize()
+            currentModelName = modelName
         }
+
+        val conversation = engine!!.createConversation()
+        val response = conversation.sendMessage(userPrompt)
+        val responseText = response.toString()
+        conversation.close()
 
         return """
             {
                 "id": "chatcmpl-${System.currentTimeMillis()}",
                 "object": "chat.completion",
                 "created": ${System.currentTimeMillis() / 1000},
-                "model": "$modelId",
+                "model": "$modelName",
                 "choices": [{
                     "index": 0,
                     "message": {
                         "role": "assistant",
-                        "content": ${JSONObject.quote(result ?: "(empty response)")}
+                        "content": ${JSONObject.quote(responseText)}
                     },
                     "finish_reason": "stop"
                 }]
@@ -121,9 +131,76 @@ class LiteRtApiServer(
         """.trimIndent()
     }
 
+    private fun findModelFile(modelName: String): String {
+        // Search in Download folder first
+        val downloadDir = Environment.getExternalStoragePublicDirectory(
+            Environment.DIRECTORY_DOWNLOADS
+        )
+
+        val exactFile = File(downloadDir, "$modelName.litertlm")
+        if (exactFile.exists()) {
+            Log.d(TAG, "Found model in Download: ${exactFile.absolutePath}")
+            return exactFile.absolutePath
+        }
+
+        // Search all files in Download for partial match
+        val files = downloadDir.listFiles()
+        if (files != null) {
+            for (file in files) {
+                if (file.name.contains(modelName, ignoreCase = true) &&
+                    file.name.endsWith(".litertlm")) {
+                    Log.d(TAG, "Found model in Download (fuzzy): ${file.absolutePath}")
+                    return file.absolutePath
+                }
+            }
+        }
+
+        // Also search in app's external files dir (where Gallery downloads models)
+        val extDir = context.getExternalFilesDir(null)
+        if (extDir != null && extDir.exists()) {
+            val found = findFileRecursive(extDir, modelName)
+            if (found != null) {
+                Log.d(TAG, "Found model in app files: $found")
+                return found
+            }
+        }
+
+        throw IllegalStateException(
+            "Model '$modelName' not found. Please download it in the Gallery app first."
+        )
+    }
+
+    private fun findFileRecursive(dir: File, modelName: String): String? {
+        val files = dir.listFiles() ?: return null
+        for (file in files) {
+            if (file.isFile &&
+                file.name.contains(modelName, ignoreCase = true) &&
+                file.name.endsWith(".litertlm")) {
+                return file.absolutePath
+            }
+            if (file.isDirectory) {
+                val found = findFileRecursive(file, modelName)
+                if (found != null) return found
+            }
+        }
+        return null
+    }
+
     private fun handleListModels(): Response {
-        val viewModel = modelManagerViewModel
-        val models = viewModel?.getAvailableModels() ?: emptyList()
+        val models = mutableListOf<String>()
+
+        // Scan Download folder
+        val downloadDir = Environment.getExternalStoragePublicDirectory(
+            Environment.DIRECTORY_DOWNLOADS
+        )
+        val files = downloadDir.listFiles()
+        if (files != null) {
+            for (file in files) {
+                if (file.name.endsWith(".litertlm")) {
+                    models.add(file.nameWithoutExtension)
+                }
+            }
+        }
 
         val jsonArray = JSONArray()
         for (model in models) {
