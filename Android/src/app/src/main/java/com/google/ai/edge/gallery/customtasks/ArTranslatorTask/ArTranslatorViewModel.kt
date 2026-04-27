@@ -20,6 +20,8 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.ai.edge.gallery.GalleryEvent
+import com.google.ai.edge.gallery.common.logErrorToFirebase
 import com.google.ai.edge.gallery.proto.Dictionary
 import com.google.ai.edge.gallery.proto.DictionaryEntry
 import com.google.ai.edge.gallery.proto.Language
@@ -118,6 +120,7 @@ constructor(
           file.writeBytes(imageBytes)
         } catch (e: Exception) {
           e.printStackTrace()
+          logErrorToFirebase(GalleryEvent.BUTTON_CLICKED, "io_error", e.message)
         }
       }
 

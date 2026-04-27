@@ -58,7 +58,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.common.logErrorToFirebase
 import com.google.ai.edge.gallery.proto.DictionaryEntry
 import com.google.ai.edge.gallery.proto.Language
 import com.google.ai.edge.gallery.ui.common.LiveCameraView
@@ -263,6 +265,11 @@ fun ArTranslatorScreen(
                   }
                 } catch (throwable: Throwable) {
                   Log.e(TAG, "Inference error", throwable)
+                  logErrorToFirebase(
+                    GalleryEvent.GENERATE_ACTION,
+                    "inference_error",
+                    throwable.message,
+                  )
                   if (isRunning) {
                     identificationResult = "Error: ${throwable.message}"
                     isRunning = false
@@ -279,6 +286,7 @@ fun ArTranslatorScreen(
                   }
                 }
               } catch (e: Exception) {
+                logErrorToFirebase(GalleryEvent.GENERATE_ACTION, "setup_error", e.message)
                 if (isRunning) {
                   identificationResult = "Error: ${e.message}"
                   isRunning = false
@@ -343,6 +351,7 @@ fun ArTranslatorScreen(
                         instance.conversation.cancelProcess()
                       } catch (e: Exception) {
                         Log.e(TAG, "Failed to cancel inference", e)
+                        logErrorToFirebase(GalleryEvent.GENERATE_ACTION, "cancel_error", e.message)
                       }
                     }
                     identificationResult = ""
@@ -485,6 +494,7 @@ private fun parseResponse(
     }
   } catch (e: Exception) {
     Log.e(TAG, "parseResponse error reading JSON", e)
+    logErrorToFirebase(GalleryEvent.GENERATE_ACTION, "parse_error", e.message)
   }
   return null
 }
