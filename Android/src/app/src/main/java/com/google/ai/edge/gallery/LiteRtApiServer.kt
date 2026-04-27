@@ -18,7 +18,7 @@ class LiteRtApiServer(
         if (isRunning) return
         scope.launch {
             try {
-                start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
+                start(NanoHTTPD.SOCKET_READ_TIMEOUT, true)
                 isRunning = true
                 Log.d(TAG, "API Server started on port $serverPort")
             } catch (e: IOException) {
