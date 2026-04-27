@@ -1,12 +1,14 @@
 package com.google.ai.edge.gallery
 
 import android.content.Context
+import android.os.Environment
 import android.util.Log
 import com.google.ai.edge.litertlm.*
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.io.IOException
 
 class LiteRtApiServer(
@@ -17,6 +19,7 @@ class LiteRtApiServer(
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var isRunning = false
     private var engine: Engine? = null
+    private var currentModelName = ""
 
     fun startServer() {
         if (isRunning) return
@@ -61,17 +64,15 @@ class LiteRtApiServer(
             val jsonBody = body["postData"] ?: "{}"
 
             val requestJson = JSONObject(jsonBody)
-            val modelName = requestJson.optString("model", "gemma3-1b-it")
+            val modelName = requestJson.optString("model", "gemma-4-E2B-it")
             val messagesArray = requestJson.optJSONArray("messages") ?: JSONArray()
 
-            // Extract the last user message as the prompt
             val prompt = extractLastUserMessage(messagesArray)
             if (prompt.isNullOrBlank()) {
                 return jsonResponse(Response.Status.BAD_REQUEST,
                     """{"error": "No user message found"}""")
             }
 
-            // Run inference
             val result = runInference(modelName, prompt)
 
             jsonResponse(Response.Status.OK, result)
@@ -93,12 +94,11 @@ class LiteRtApiServer(
     }
 
     private fun runInference(modelName: String, userPrompt: String): String {
-        // Determine model path based on model name
-        // We rely on Gallery's built-in model manager to get the actual path
-        val modelPath = getModelPath(modelName)
+        val modelPath = findModelPath(modelName)
 
-        // Create or reuse engine
-        if (engine == null) {
+        if (engine == null || currentModelName != modelName) {
+            engine?.close()
+
             val engineConfig = EngineConfig(
                 modelPath = modelPath,
                 backend = Backend.CPU(),
@@ -106,13 +106,13 @@ class LiteRtApiServer(
             )
             engine = Engine(engineConfig)
             engine?.initialize()
+            currentModelName = modelName
         }
 
         val conversation = engine!!.createConversation()
         val response = conversation.sendMessage(userPrompt)
-        conversation.close()
-
         val responseText = response.toString()
+        conversation.close()
 
         return """
             {
@@ -132,47 +132,61 @@ class LiteRtApiServer(
         """.trimIndent()
     }
 
-    private fun getModelPath(modelName: String): String {
-        // Gallery stores models in the app's files directory
-        val modelsDir = context.filesDir.resolve("models")
-        val modelFile = modelsDir.resolve("$modelName.litertlm")
-        if (modelFile.exists()) {
-            return modelFile.absolutePath
+    private fun findModelPath(modelName: String): String {
+        val downloadDir = Environment.getExternalStoragePublicDirectory(
+            Environment.DIRECTORY_DOWNLOADS
+        )
+
+        val exactFile = File(downloadDir, "$modelName.litertlm")
+        if (exactFile.exists()) {
+            return exactFile.absolutePath
         }
-        // Fallback: try common locations
-        val fallbackFile = context.filesDir.resolve("$modelName.litertlm")
-        if (fallbackFile.exists()) {
-            return fallbackFile.absolutePath
+
+        val files = downloadDir.listFiles()
+        if (files != null) {
+            for (file in files) {
+                if (file.name.contains(modelName, ignoreCase = true) &&
+                    file.name.endsWith(".litertlm")
+                ) {
+                    return file.absolutePath
+                }
+            }
         }
+
         throw IllegalStateException(
-            "Model '$modelName' not found. Please download it first in Gallery App (Models tab)."
+            "Model '$modelName' not found in Download folder. Please keep the .litertlm file in your Download directory."
         )
     }
 
     private fun handleListModels(): Response {
+        val downloadDir = Environment.getExternalStoragePublicDirectory(
+            Environment.DIRECTORY_DOWNLOADS
+        )
+        val models = mutableListOf<String>()
+
+        val files = downloadDir.listFiles()
+        if (files != null) {
+            for (file in files) {
+                if (file.name.endsWith(".litertlm")) {
+                    models.add(file.nameWithoutExtension)
+                }
+            }
+        }
+
+        val jsonArray = JSONArray()
+        for (model in models) {
+            val obj = JSONObject()
+            obj.put("id", model)
+            obj.put("object", "model")
+            obj.put("created", System.currentTimeMillis() / 1000)
+            obj.put("owned_by", "user")
+            jsonArray.put(obj)
+        }
+
         val response = """
             {
                 "object": "list",
-                "data": [
-                    {
-                        "id": "gemma3-1b-it",
-                        "object": "model",
-                        "created": ${System.currentTimeMillis() / 1000},
-                        "owned_by": "google"
-                    },
-                    {
-                        "id": "gemma3-4b-it",
-                        "object": "model",
-                        "created": ${System.currentTimeMillis() / 1000},
-                        "owned_by": "google"
-                    },
-                    {
-                        "id": "qwen3-0.6b",
-                        "object": "model",
-                        "created": ${System.currentTimeMillis() / 1000},
-                        "owned_by": "litert-community"
-                    }
-                ]
+                "data": $jsonArray
             }
         """.trimIndent()
 
@@ -180,7 +194,8 @@ class LiteRtApiServer(
     }
 
     private fun handleHealth(): Response {
-        return jsonResponse(Response.Status.OK, """{"status": "ok"}""")
+        return jsonResponse(Response.Status.OK,
+            """{"status": "ok", "models_loaded": ${engine != null}}""")
     }
 
     private fun jsonResponse(status: Response.IStatus, json: String): Response {
