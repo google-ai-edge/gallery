@@ -523,6 +523,7 @@ constructor(
               }
             } else if (source.isFile) {
               try {
+                Log.d(TAG, "Copying file ${source.name} to ${dest.path}")
                 context.contentResolver.openInputStream(source.uri)?.use { inputStream ->
                   dest.outputStream().use { outputStream -> inputStream.copyTo(outputStream) }
                 }
