@@ -1,5 +1,20 @@
-package com.google.ai.edge.gallery
+/*
+ * Copyright 2025 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
+package com.google.ai.edge.gallery
 
 import android.animation.ObjectAnimator
 import android.app.NotificationChannel
@@ -76,39 +91,53 @@ class MainActivity : ComponentActivity() {
     }
 
     fun setContent() {
-      if (contentSet) return
+      if (contentSet) {
+        return
+      }
+
       setContent {
         GalleryTheme {
           Surface(modifier = Modifier.fillMaxSize()) {
             GalleryApp(modelManagerViewModel = modelManagerViewModel)
+
             var startMaskFadeout by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { startMaskFadeout = true }
             AnimatedVisibility(
               !startMaskFadeout,
               enter = fadeIn(animationSpec = snap(0)),
-              exit = fadeOut(animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)),
+              exit =
+                fadeOut(animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)),
             ) {
-              Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+              Box(
+                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+              )
             }
           }
         }
       }
+
       @OptIn(ExperimentalApi::class)
       ExperimentalFlags.enableBenchmark = false
+
       contentSet = true
     }
 
     modelManagerViewModel.loadModelAllowlist()
+
     startApiServer()
 
     val splashScreen = installSplashScreen()
+
     lifecycleScope.launch {
       delay(1000)
-      if (!splashScreenAboutToExit) setContent()
+      if (!splashScreenAboutToExit) {
+        setContent()
+      }
     }
 
     splashScreen.setOnExitAnimationListener { splashScreenView ->
       splashScreenAboutToExit = true
+
       val now = System.currentTimeMillis()
       val iconAnimationStartMs = splashScreenView.iconAnimationStartMillis
       val duration = splashScreenView.iconAnimationDurationMillis
@@ -118,7 +147,9 @@ class MainActivity : ComponentActivity() {
       fadeOut.doOnEnd { splashScreenView.remove() }
       lifecycleScope.launch {
         val setContentDelay = duration - (now - iconAnimationStartMs) - 300
-        if (setContentDelay > 0) delay(setContentDelay)
+        if (setContentDelay > 0) {
+          delay(setContentDelay)
+        }
         setContent()
         fadeOut.start()
       }
@@ -133,7 +164,7 @@ class MainActivity : ComponentActivity() {
 
   private fun startApiServer() {
     try {
-      apiServer = LiteRtApiServer(8088)
+      apiServer = LiteRtApiServer(this, 8088)
       apiServer?.startServer()
 
       var ipAddress = "N/A"
@@ -163,12 +194,14 @@ class MainActivity : ComponentActivity() {
         val channel = NotificationChannel("api_server", "API Server", NotificationManager.IMPORTANCE_LOW)
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(channel)
+
         val notification = android.app.Notification.Builder(this, "api_server")
           .setContentTitle("API Server Running")
           .setContentText(serverUrl)
           .setSmallIcon(android.R.drawable.ic_dialog_info)
           .setOngoing(true)
           .build()
+
         nm.notify(1, notification)
       }
 
@@ -181,28 +214,41 @@ class MainActivity : ComponentActivity() {
 
   override fun onDestroy() {
     super.onDestroy()
-    try { apiServer?.stopServer() } catch (e: Exception) { Log.e(TAG, "stop error: ${e.message}") }
+    try {
+      apiServer?.stopServer()
+    } catch (e: Exception) {
+      Log.e(TAG, "stop error: ${e.message}")
+    }
   }
 
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
     intent.extras?.let { extras ->
-      for (key in extras.keySet()) Log.d(TAG, "onNewIntent Extra -> Key: $key, Value: ${extras.get(key)}")
+      for (key in extras.keySet()) {
+        Log.d(TAG, "onNewIntent Extra -> Key: $key, Value: ${extras.get(key)}")
+      }
     }
     intent.getStringExtra("deeplink")?.let { link ->
-      if (link.startsWith("http://") || link.startsWith("https://")) startActivity(Intent(Intent.ACTION_VIEW, link.toUri()))
-      else intent.data = link.toUri()
+      Log.d(TAG, "onNewIntent: Found deeplink extra: $link")
+      if (link.startsWith("http://") || link.startsWith("https://")) {
+        startActivity(Intent(Intent.ACTION_VIEW, link.toUri()))
+      } else {
+        intent.data = link.toUri()
+      }
     }
   }
 
   override fun onResume() {
     super.onResume()
-    firebaseAnalytics?.logEvent(FirebaseAnalytics.Event.APP_OPEN, bundleOf(
-      "app_version" to BuildConfig.VERSION_NAME,
-      "os_version" to Build.VERSION.SDK_INT.toString(),
-      "device_model" to Build.MODEL,
-    ))
+    firebaseAnalytics?.logEvent(
+      FirebaseAnalytics.Event.APP_OPEN,
+      bundleOf(
+        "app_version" to BuildConfig.VERSION_NAME,
+        "os_version" to Build.VERSION.SDK_INT.toString(),
+        "device_model" to Build.MODEL,
+      ),
+    )
   }
 
   companion object {
