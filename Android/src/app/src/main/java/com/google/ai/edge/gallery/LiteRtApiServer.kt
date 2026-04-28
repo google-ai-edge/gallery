@@ -83,7 +83,7 @@ class LiteRtApiServer(
                 )
             }
 
-            val result = withContext(Dispatchers.IO) {
+            val result = runBlocking(Dispatchers.IO) {
                 val config = EngineConfig(
                     modelPath = modelFile.absolutePath,
                     backend = Backend.CPU(),
