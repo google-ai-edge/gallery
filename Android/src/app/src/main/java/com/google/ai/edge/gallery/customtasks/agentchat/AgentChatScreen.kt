@@ -203,7 +203,7 @@ fun AgentChatScreen(
     showAudioPicker = true,
     getActiveSkills = {
       skillManagerViewModel.getSelectedSkills().map { skill ->
-        if (skill.builtIn) skill.name else "custom_skill"
+        skillManagerViewModel.getSkillShortId(skill)
       }
     },
     composableBelowMessageList = { model ->
@@ -236,6 +236,8 @@ fun AgentChatScreen(
                 } else {
                   action.url
                 }
+              val skill = skillManagerViewModel.getSkill(name = skillName)
+              val skillId = skill?.let { skillManagerViewModel.getSkillShortId(it) } ?: "xxxx"
               try {
                 // Set up a safety net timeout so we NEVER hang the chat or tool execution
                 launch {
@@ -250,6 +252,7 @@ fun AgentChatScreen(
                       GalleryEvent.SKILL_EXECUTION.id,
                       Bundle().apply {
                         putString("skill_name", skillName)
+                        putString("skill_id", skillId)
                         putBoolean("success", false)
                         putString("error_type", "timeout")
                       },
@@ -285,6 +288,7 @@ fun AgentChatScreen(
                     GalleryEvent.SKILL_EXECUTION.id,
                     Bundle().apply {
                       putString("skill_name", skillName)
+                      putString("skill_id", skillId)
                       putBoolean("success", isSuccess)
                       putString("error_type", errorType)
                     },
@@ -323,6 +327,7 @@ fun AgentChatScreen(
                   GalleryEvent.SKILL_EXECUTION.id,
                   Bundle().apply {
                     putString("skill_name", skillName)
+                    putString("skill_id", skillId)
                     putBoolean("success", false)
                     putString("error_type", "exception")
                   },
