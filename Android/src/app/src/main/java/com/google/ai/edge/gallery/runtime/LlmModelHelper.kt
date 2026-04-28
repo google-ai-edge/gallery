@@ -39,6 +39,7 @@ interface LlmModelHelper {
    *
    * @param context the application context.
    * @param model the model to be initialized.
+   * @param taskId the task id where the model is being used.
    * @param supportImage whether to support image input.
    * @param supportAudio whether to support audio input.
    * @param onDone callback invoked when initialization is completed successfully.
@@ -51,6 +52,7 @@ interface LlmModelHelper {
   fun initialize(
     context: Context,
     model: Model,
+    taskId: String,
     supportImage: Boolean,
     supportAudio: Boolean,
     onDone: (String) -> Unit,

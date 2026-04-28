@@ -62,6 +62,7 @@ object AICoreModelHelper : LlmModelHelper {
   override fun initialize(
     context: Context,
     model: Model,
+    taskId: String,
     supportImage: Boolean,
     supportAudio: Boolean,
     onDone: (String) -> Unit,
