@@ -3,6 +3,9 @@ package com.google.ai.edge.gallery
 import android.content.Context
 import android.os.Environment
 import android.util.Log
+import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.EngineConfig
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.coroutines.*
 import org.json.JSONArray
@@ -22,7 +25,7 @@ class LiteRtApiServer(
         if (isRunning) return
         scope.launch {
             try {
-                start(NanoHTTPD.SOCKET_READ_TIMEOUT, true)
+                start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
                 isRunning = true
                 Log.d("LiteRtApiServer", "API Server started on port $serverPort")
             } catch (e: IOException) {
@@ -40,6 +43,7 @@ class LiteRtApiServer(
     }
 
     override fun serve(session: IHTTPSession?): Response {
+        Log.d("LiteRtApiServer", "Request received: ${session?.uri}")
         session ?: return newFixedLengthResponse(
             Response.Status.BAD_REQUEST, MIME_PLAINTEXT, "Empty request"
         )
@@ -70,10 +74,7 @@ class LiteRtApiServer(
                 )
             }
 
-            // Find model file
-            val downloadDir = Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOWNLOADS
-            )
+            val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             val modelFile = File(downloadDir, "$modelName.litertlm")
             if (!modelFile.exists()) {
                 return newFixedLengthResponse(
@@ -82,10 +83,40 @@ class LiteRtApiServer(
                 )
             }
 
-            // Run inference
-            val result = runInference(modelFile.absolutePath, prompt)
+            val result = withContext(Dispatchers.IO) {
+                val config = EngineConfig(
+                    modelPath = modelFile.absolutePath,
+                    backend = Backend.CPU(),
+                    cacheDir = context.cacheDir.absolutePath
+                )
+                val engine = Engine(config)
+                engine.initialize()
+                val conversation = engine.createConversation()
+                val response = conversation.sendMessage(prompt)
+                val text = response.toString()
+                conversation.close()
+                engine.close()
+                text
+            }
 
-            newFixedLengthResponse(Response.Status.OK, "application/json", result)
+            val responseJson = """
+                {
+                    "id": "chatcmpl-${System.currentTimeMillis()}",
+                    "object": "chat.completion",
+                    "created": ${System.currentTimeMillis() / 1000},
+                    "model": "$modelName",
+                    "choices": [{
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": ${JSONObject.quote(result)}
+                        },
+                        "finish_reason": "stop"
+                    }]
+                }
+            """.trimIndent()
+
+            newFixedLengthResponse(Response.Status.OK, "application/json", responseJson)
         } catch (e: Exception) {
             Log.e("LiteRtApiServer", "Inference error: ${e.message}", e)
             newFixedLengthResponse(
@@ -105,56 +136,23 @@ class LiteRtApiServer(
         return null
     }
 
-    private fun runInference(modelPath: String, userPrompt: String): String {
-        val engineConfig = com.google.ai.edge.litertlm.EngineConfig(
-            modelPath = modelPath,
-            backend = com.google.ai.edge.litertlm.Backend.CPU(),
-            cacheDir = context.cacheDir.absolutePath
-        )
-        val engine = com.google.ai.edge.litertlm.Engine(engineConfig)
-        engine.initialize()
-        val conversation = engine.createConversation()
-        val response = conversation.sendMessage(userPrompt)
-        val responseText = response.toString()
-        conversation.close()
-        engine.close()
-
-        return """
-            {
-                "id": "chatcmpl-${System.currentTimeMillis()}",
-                "object": "chat.completion",
-                "created": ${System.currentTimeMillis() / 1000},
-                "model": "gemma-4-E2B-it",
-                "choices": [{
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": ${JSONObject.quote(responseText)}
-                    },
-                    "finish_reason": "stop"
-                }]
-            }
-        """.trimIndent()
-    }
-
     private fun handleListModels(): Response {
-        val response = """
-            {
-                "object": "list",
-                "data": [{
-                    "id": "gemma-4-E2B-it",
-                    "object": "model",
-                    "created": ${System.currentTimeMillis() / 1000},
-                    "owned_by": "user"
-                }]
-            }
-        """.trimIndent()
-
+        val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val files = downloadDir.listFiles()?.filter { it.name.endsWith(".litertlm") } ?: emptyList()
+        val jsonArray = JSONArray()
+        for (file in files) {
+            val obj = JSONObject()
+            obj.put("id", file.nameWithoutExtension)
+            obj.put("object", "model")
+            obj.put("created", System.currentTimeMillis() / 1000)
+            obj.put("owned_by", "user")
+            jsonArray.put(obj)
+        }
+        val response = """{"object":"list","data":$jsonArray}"""
         return newFixedLengthResponse(Response.Status.OK, "application/json", response)
     }
 
     private fun handleHealth(): Response {
-        return newFixedLengthResponse(Response.Status.OK, "application/json",
-            """{"status": "ok"}""")
+        return newFixedLengthResponse(Response.Status.OK, "application/json", """{"status":"ok"}""")
     }
 }
