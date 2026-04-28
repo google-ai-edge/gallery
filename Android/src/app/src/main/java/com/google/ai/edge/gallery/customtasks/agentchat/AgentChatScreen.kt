@@ -203,7 +203,7 @@ fun AgentChatScreen(
     showAudioPicker = true,
     getActiveSkills = {
       skillManagerViewModel.getSelectedSkills().map { skill ->
-        if (skill.builtIn) skill.name else "custom_skill"
+        skillManagerViewModel.getSkillShortId(skill)
       }
     },
     composableBelowMessageList = { model ->
