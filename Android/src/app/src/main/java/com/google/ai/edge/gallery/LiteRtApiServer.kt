@@ -18,7 +18,7 @@ class LiteRtApiServer(
             try {
                 start(NanoHTTPD.SOCKET_READ_TIMEOUT, true)
                 isRunning = true
-                Log.d("LiteRtApiServer", "API Server started on port $port")
+                Log.d("LiteRtApiServer", "API Server started")
             } catch (e: IOException) {
                 Log.e("LiteRtApiServer", "Failed: ${e.message}")
             }
