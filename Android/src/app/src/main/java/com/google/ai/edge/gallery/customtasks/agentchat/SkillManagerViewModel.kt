@@ -1184,6 +1184,42 @@ constructor(
     }
   }
 
+  /**
+   * Generates a short 4-character hash to act as a stable ID. This solves the 100-character limit
+   * for list logging in GA4 AND allows us to distinguish between different custom skills in
+   * reports. Note: When we migrate to Cleancut or a similar service that doesn't have severe
+   * character limits, we can drop the human-readable skill_name from setup events and rely purely
+   * on this hash ID.
+   */
+  fun getSkillShortId(skill: Skill): String {
+    val source = getSkillSource(skill)
+    val identifier =
+      when (source) {
+        SkillSource.BUILTIN,
+        SkillSource.FEATURED -> skill.name
+        SkillSource.LOCAL_IMPORT -> skill.importDirName
+        else -> skill.skillUrl
+      }
+    if (identifier.isEmpty()) return "xxxx"
+
+    val prefix =
+      when (source) {
+        SkillSource.BUILTIN -> "b_"
+        SkillSource.FEATURED -> "f_"
+        SkillSource.LOCAL_IMPORT -> "l_"
+        else -> "c_"
+      }
+
+    return try {
+      val digest = java.security.MessageDigest.getInstance("SHA-256")
+      val hashBytes = digest.digest(identifier.toByteArray())
+      val hexString = hashBytes.joinToString("") { "%02x".format(it) }
+      prefix + hexString.take(4)
+    } catch (e: Exception) {
+      prefix + "fail"
+    }
+  }
+
   private fun getSkillLoggingParams(skill: Skill): Bundle {
     val source = getSkillSource(skill)
     val skillName =
@@ -1193,6 +1229,7 @@ constructor(
       Bundle().apply {
         putString("source", source.sourceName)
         putString("skill_name", skillName)
+        putString("skill_id", getSkillShortId(skill))
       }
     if (
       skill.skillUrl.isNotEmpty() &&
