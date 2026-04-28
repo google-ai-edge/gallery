@@ -33,7 +33,8 @@ private val NORMALIZE_NAME_REGEX = Regex("[^a-zA-Z0-9]")
 data class PromptTemplate(val title: String, val description: String, val prompt: String)
 
 enum class ModelCapability {
-  @SerializedName("llm_thinking") LLM_THINKING
+  @SerializedName("llm_thinking") LLM_THINKING,
+  @SerializedName("speculative_decoding") SPECULATIVE_DECODING,
 }
 
 enum class RuntimeType {
