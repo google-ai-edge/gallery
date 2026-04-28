@@ -1198,7 +1198,7 @@ constructor(
       skill.skillUrl.isNotEmpty() &&
         (source == SkillSource.REMOTE_URL || source == SkillSource.FEATURED)
     ) {
-      bundle.putString("remote_url", skill.skillUrl)
+      bundle.putString("remote_url", skill.skillUrl.take(100))
     }
     return bundle
   }
