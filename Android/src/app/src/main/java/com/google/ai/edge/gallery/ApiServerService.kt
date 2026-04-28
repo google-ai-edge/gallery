@@ -1,4 +1,4 @@
-package com.google.ai.edge.gallery
+package com.google.ai.edge.ga
 
 import android.app.Notification
 import android.app.NotificationChannel
