@@ -21,6 +21,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
@@ -168,6 +169,7 @@ constructor(
           LlmChatModelHelper.initialize(
             context = context,
             model = model,
+            taskId = BuiltInTaskId.LLM_TINY_GARDEN,
             supportImage = false,
             supportAudio = false,
             onDone = { error ->

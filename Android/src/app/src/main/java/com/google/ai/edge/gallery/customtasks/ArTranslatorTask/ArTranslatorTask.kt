@@ -72,6 +72,7 @@ class ArTranslatorTask @Inject constructor(private val context: Context) : Custo
     LlmChatModelHelper.initialize(
       context = context,
       model = model,
+      taskId = task.id,
       supportImage = true,
       supportAudio = false,
       onDone = onDone,
