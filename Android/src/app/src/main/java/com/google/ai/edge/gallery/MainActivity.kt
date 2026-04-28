@@ -177,4 +177,15 @@ class MainActivity : ComponentActivity() {
     // ================================
     // ✅ DeepLink 处理
     // ================================
-    private fun handleDeepLink(int
+    override fun onResume() {
+    super.onResume()
+
+    firebaseAnalytics?.logEvent(
+        FirebaseAnalytics.Event.APP_OPEN,
+        bundleOf(
+            "app_version" to BuildConfig.VERSION_NAME,
+            "os_version" to Build.VERSION.SDK_INT.toString(),
+            "device_model" to Build.MODEL
+        )
+    )
+}
