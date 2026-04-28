@@ -62,8 +62,8 @@ import kotlinx.coroutines.withContext
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DictionaryScreen(entries: List<DictionaryEntry>, onDelete: (String) -> Unit) {
-  val languages =
-    listOf(
+  val languageNames =
+    mapOf(
       Language.LANGUAGE_ENGLISH to stringResource(R.string.artranslator_language_english),
       Language.LANGUAGE_CHINESE to stringResource(R.string.artranslator_language_chinese),
       Language.LANGUAGE_FRENCH to stringResource(R.string.artranslator_language_french),
@@ -80,50 +80,49 @@ fun DictionaryScreen(entries: List<DictionaryEntry>, onDelete: (String) -> Unit)
       Language.LANGUAGE_RUSSIAN to stringResource(R.string.artranslator_language_russian),
     )
 
+  val groupedEntries = entries.groupBy {
+    if (it.learnLanguage == Language.LANGUAGE_UNSPECIFIED) Language.LANGUAGE_CHINESE
+    else it.learnLanguage
+  }
+
   // Track expanded state for each language. Defaults to true (expanded).
   val expandedStates = remember { mutableStateMapOf<Language, Boolean>() }
 
   Column(modifier = Modifier.fillMaxSize()) {
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-      for ((lang, name) in languages) {
-        val filteredEntries = entries.filter {
-          it.learnLanguage == lang ||
-            (it.learnLanguage == Language.LANGUAGE_UNSPECIFIED && lang == Language.LANGUAGE_CHINESE)
+      for ((lang, filteredEntries) in groupedEntries) {
+        val name = languageNames[lang] ?: lang.name
+        item {
+          val isExpanded = expandedStates[lang] ?: true
+          Card(
+            modifier =
+              Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
+                expandedStates[lang] = !isExpanded
+              }
+          ) {
+            Row(
+              modifier = Modifier.padding(16.dp),
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Text(
+                text = name,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+              )
+              Icon(
+                imageVector =
+                  if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = if (isExpanded) "Collapse" else "Expand",
+              )
+            }
+          }
+          Spacer(modifier = Modifier.height(4.dp))
         }
 
-        if (filteredEntries.isNotEmpty()) {
-          item {
-            val isExpanded = expandedStates[lang] ?: true
-            Card(
-              modifier =
-                Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
-                  expandedStates[lang] = !isExpanded
-                }
-            ) {
-              Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-              ) {
-                Text(
-                  text = name,
-                  style = MaterialTheme.typography.titleMedium,
-                  modifier = Modifier.weight(1f),
-                )
-                Icon(
-                  imageVector =
-                    if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                  contentDescription = if (isExpanded) "Collapse" else "Expand",
-                )
-              }
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-          }
-
-          if (expandedStates[lang] ?: true) {
-            items(filteredEntries) { entry ->
-              DictionaryEntryItem(entry = entry, onDelete = { onDelete(entry.word) })
-              Spacer(modifier = Modifier.height(8.dp))
-            }
+        if (expandedStates[lang] ?: true) {
+          items(filteredEntries) { entry ->
+            DictionaryEntryItem(entry = entry, onDelete = { onDelete(entry.word) })
+            Spacer(modifier = Modifier.height(8.dp))
           }
         }
       }
