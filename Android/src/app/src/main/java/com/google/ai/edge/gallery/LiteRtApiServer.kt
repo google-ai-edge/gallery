@@ -28,7 +28,7 @@ class LiteRtApiServer(
                 start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
                 isRunning = true
 
-                // 延迟一小会儿等监听生效
+                // 等待监听生效
                 delay(500)
 
                 val listenStatus = checkPortListeningByProc()
@@ -54,26 +54,21 @@ class LiteRtApiServer(
         }
     }
 
-    /**
-     * 通过读取 /proc/net/tcp 检查端口是否在 LISTEN 状态
-     */
     private fun checkPortListeningByProc(): Boolean {
         try {
             val hexPort = String.format("%04X", serverPort)
-            val reader = BufferedReader(InputStreamReader(Runtime.getRuntime().exec("cat /proc/net/tcp").inputStream))
-            reader.use { r ->
-                r.forEachLine { line ->
-                    // 每行格式：  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
-                    // 例如：0: 0100007F:1F98 00000000:0000 0A ...
-                    // local_address 包含十六进制端口，如 1F98 = 8088，且 st 为 0A (LISTEN)
-                    val parts = line.trim().split("\\s+".toRegex())
-                    if (parts.size > 3) {
-                        val local = parts[1] // 格式 hex:hexport
-                        val state = parts[3] // 状态码，0A = LISTEN
-                        val localPort = local.substringAfter(':')
-                        if (localPort.equals(hexPort, ignoreCase = true) && state.equals("0A", ignoreCase = true)) {
-                            return true
-                        }
+            val process = Runtime.getRuntime().exec("cat /proc/net/tcp")
+            val reader = BufferedReader(InputStreamReader(process.inputStream))
+            val lines = reader.readLines()
+            reader.close()
+            for (line in lines) {
+                val parts = line.trim().split("\\s+".toRegex())
+                if (parts.size > 3) {
+                    val local = parts[1]
+                    val state = parts[3]
+                    val localPort = local.substringAfter(':')
+                    if (localPort.equals(hexPort, ignoreCase = true) && state.equals("0A", ignoreCase = true)) {
+                        return true
                     }
                 }
             }
