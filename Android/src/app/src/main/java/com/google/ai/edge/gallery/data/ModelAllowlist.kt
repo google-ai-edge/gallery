@@ -176,6 +176,8 @@ data class AllowedModel(
               defaultMaxContextLength = llmMaxContextLength,
               accelerators = accelerators,
               supportThinking = capabilities?.contains(ModelCapability.LLM_THINKING) == true,
+              supportSpeculativeDecoding =
+                capabilities?.contains(ModelCapability.SPECULATIVE_DECODING) == true,
             )
           })
           .toMutableList()
