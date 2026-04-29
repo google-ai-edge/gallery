@@ -162,17 +162,17 @@ fun ModelImportDialog(
         put(config.key.label, config.defaultValue)
       }
       put(ConfigKeys.NAME.label, fileName)
-      // TODO: support other types.
       put(ConfigKeys.MODEL_TYPE.label, "LLM")
-
       for ((key, value) in defaultValues) {
         put(key.label, value)
       }
     }
   }
+
   val values: SnapshotStateMap<String, Any> = remember {
     mutableStateMapOf<String, Any>().apply { putAll(initialValues) }
   }
+
   val interactionSource = remember { MutableInteractionSource() }
 
   Dialog(onDismissRequest = onDismiss) {
@@ -181,10 +181,8 @@ fun ModelImportDialog(
       modifier =
         Modifier.fillMaxWidth().clickable(
           interactionSource = interactionSource,
-          indication = null, // Disable the ripple effect
-        ) {
-          focusManager.clearFocus()
-        },
+          indication = null,
+        ) { focusManager.clearFocus() },
       shape = RoundedCornerShape(16.dp),
     ) {
       Column(
@@ -193,16 +191,16 @@ fun ModelImportDialog(
       ) {
         // Title.
         Text(
-          "Import Model",
+          "导入模型",
           style = MaterialTheme.typography.titleLarge,
           modifier = Modifier.padding(bottom = 8.dp),
         )
 
         Column(
-          modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
+          modifier =
+            Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
           verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-          // Default configs for users to set.
           ConfigEditorsPanel(configs = IMPORT_CONFIGS_LLM, values = values)
         }
 
@@ -211,73 +209,62 @@ fun ModelImportDialog(
           modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
           horizontalArrangement = Arrangement.End,
         ) {
-          // Cancel button.
-          TextButton(onClick = { onDismiss() }) { Text("Cancel") }
-
-          // Import button
+          TextButton(onClick = { onDismiss() }) { Text("取消") }
           Button(
             onClick = {
               val supportedAccelerators =
-                (convertValueToTargetType(
+                (
+                  convertValueToTargetType(
                     value = values.get(ConfigKeys.COMPATIBLE_ACCELERATORS.label)!!,
                     valueType = ValueType.STRING,
-                  )
-                    as String)
+                  ) as String
+                )
                   .split(",")
               val defaultMaxTokens =
                 convertValueToTargetType(
                   value = values.get(ConfigKeys.DEFAULT_MAX_TOKENS.label)!!,
                   valueType = ValueType.INT,
-                )
-                  as Int
+                ) as Int
               val defaultTopk =
                 convertValueToTargetType(
                   value = values.get(ConfigKeys.DEFAULT_TOPK.label)!!,
                   valueType = ValueType.INT,
-                )
-                  as Int
+                ) as Int
               val defaultTopp =
                 convertValueToTargetType(
                   value = values.get(ConfigKeys.DEFAULT_TOPP.label)!!,
                   valueType = ValueType.FLOAT,
-                )
-                  as Float
+                ) as Float
               val defaultTemperature =
                 convertValueToTargetType(
                   value = values.get(ConfigKeys.DEFAULT_TEMPERATURE.label)!!,
                   valueType = ValueType.FLOAT,
-                )
-                  as Float
+                ) as Float
               val supportImage =
                 convertValueToTargetType(
                   value = values.get(ConfigKeys.SUPPORT_IMAGE.label)!!,
                   valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
+                ) as Boolean
               val supportAudio =
                 convertValueToTargetType(
                   value = values.get(ConfigKeys.SUPPORT_AUDIO.label)!!,
                   valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
+                ) as Boolean
               val supportTinyGarden =
                 convertValueToTargetType(
                   value = values.get(ConfigKeys.SUPPORT_TINY_GARDEN.label)!!,
                   valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
+                ) as Boolean
               val supportMobileActions =
                 convertValueToTargetType(
                   value = values.get(ConfigKeys.SUPPORT_MOBILE_ACTIONS.label)!!,
                   valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
+                ) as Boolean
               val supportThinking =
                 convertValueToTargetType(
                   value = values.get(ConfigKeys.SUPPORT_THINKING.label)!!,
                   valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
+                ) as Boolean
               val importedModel: ImportedModel =
                 ImportedModel.newBuilder()
                   .setFileName(fileName)
@@ -300,7 +287,7 @@ fun ModelImportDialog(
               onDone(importedModel)
             }
           ) {
-            Text("Import")
+            Text("导入")
           }
         }
       }
@@ -321,7 +308,6 @@ fun ModelImportingDialog(
   var progress by remember { mutableFloatStateOf(0f) }
 
   LaunchedEffect(Unit) {
-    // Import.
     importModel(
       context = context,
       coroutineScope = coroutineScope,
@@ -343,16 +329,13 @@ fun ModelImportingDialog(
         modifier = Modifier.padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
       ) {
-        // Title.
         Text(
-          "Import Model",
+          "导入模型",
           style = MaterialTheme.typography.titleLarge,
           modifier = Modifier.padding(bottom = 8.dp),
         )
 
-        // No error.
         if (error.isEmpty()) {
-          // Progress bar.
           Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
               "${info.fileName} (${info.fileSize.humanReadableSize()})",
@@ -367,9 +350,7 @@ fun ModelImportingDialog(
               animatedProgress.animateTo(progress, animationSpec = tween(150))
             }
           }
-        }
-        // Has error.
-        else {
+        } else {
           Row(
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -386,8 +367,11 @@ fun ModelImportingDialog(
               modifier = Modifier.padding(top = 4.dp),
             )
           }
-          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Button(onClick = { onDismiss() }) { Text("Close") }
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+          ) {
+            Button(onClick = { onDismiss() }) { Text("关闭") }
           }
         }
       }
@@ -405,19 +389,15 @@ private fun importModel(
   onProgress: (Float) -> Unit,
   onError: (String) -> Unit,
 ) {
-  // TODO: handle error.
   coroutineScope.launch(Dispatchers.IO) {
-    // Get the last component of the uri path as the imported file name.
     val decodedUri = URLDecoder.decode(uri.toString(), StandardCharsets.UTF_8.name())
     Log.d(TAG, "importing model from $decodedUri. File name: $fileName. File size: $fileSize")
 
-    // Create <app_external_dir>/imports if not exist.
     val importsDir = File(context.getExternalFilesDir(null), IMPORTS_DIR)
     if (!importsDir.exists()) {
       importsDir.mkdirs()
     }
 
-    // Import by copying the file over.
     val outputFile = File(context.getExternalFilesDir(null), "$IMPORTS_DIR/$fileName")
     val outputStream = FileOutputStream(outputFile)
     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
@@ -430,8 +410,6 @@ private fun importModel(
         while (inputStream.read(buffer).also { bytesRead = it } != -1) {
           outputStream.write(buffer, 0, bytesRead)
           importedBytes += bytesRead
-
-          // Report progress every 200 ms.
           val curTs = System.currentTimeMillis()
           if (curTs - lastSetProgressTs > 200) {
             Log.d(TAG, "importing progress: $importedBytes, $fileSize")
@@ -444,7 +422,7 @@ private fun importModel(
       }
     } catch (e: Exception) {
       e.printStackTrace()
-      onError(e.message ?: "Failed to import")
+      onError(e.message ?: "导入失败")
       return@launch
     } finally {
       inputStream?.close()
@@ -460,15 +438,19 @@ private fun getFileSizeAndDisplayNameFromUri(context: Context, uri: Uri): Pair<L
   val contentResolver = context.contentResolver
   var fileSize = 0L
   var displayName = ""
-
   try {
     contentResolver
-      .query(uri, arrayOf(OpenableColumns.SIZE, OpenableColumns.DISPLAY_NAME), null, null, null)
+      .query(
+        uri,
+        arrayOf(OpenableColumns.SIZE, OpenableColumns.DISPLAY_NAME),
+        null,
+        null,
+        null
+      )
       ?.use { cursor ->
         if (cursor.moveToFirst()) {
           val sizeIndex = cursor.getColumnIndexOrThrow(OpenableColumns.SIZE)
           fileSize = cursor.getLong(sizeIndex)
-
           val nameIndex = cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)
           displayName = cursor.getString(nameIndex)
         }
@@ -477,6 +459,5 @@ private fun getFileSizeAndDisplayNameFromUri(context: Context, uri: Uri): Pair<L
     e.printStackTrace()
     return Pair(0L, "")
   }
-
   return Pair(fileSize, displayName)
 }

@@ -16,9 +16,6 @@
 
 package com.google.ai.edge.gallery.ui.home
 
-// import androidx.compose.ui.tooling.preview.Preview
-// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
-// import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -172,68 +169,67 @@ fun HomeScreen(
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
   val isDevBuild = context.packageName.endsWith(".dev")
-
   var tasks = uiState.tasks
-
-  val categoryMap: Map<String, CategoryInfo> =
-    remember(tasks) { tasks.associateBy { it.category.id }.mapValues { it.value.category } }
-  val sortedCategories =
-    remember(categoryMap) {
-      categoryMap.keys
-        .toList()
-        .sortedWith { a, b ->
-          val indexA = PREDEFINED_CATEGORY_ORDER.indexOf(a)
-          val indexB = PREDEFINED_CATEGORY_ORDER.indexOf(b)
-          // Check if both categories are in the predefined order
-          if (indexA != -1 && indexB != -1) {
-            indexA.compareTo(indexB)
-          }
-          // Check if only category 'a' is in the predefined order
-          else if (indexA != -1) {
-            -1
-          }
-          // Check if only category 'b' is in the predefined order
-          else if (indexB != -1) {
-            1
-          }
-          // If neither is in the predefined order, sort by label
-          else {
-            val ca = categoryMap[a]!!
-            val cb = categoryMap[b]!!
-            val caLabel = getCategoryLabel(context = context, category = ca)
-            val cbLabel = getCategoryLabel(context = context, category = cb)
-            caLabel.compareTo(cbLabel)
-          }
+  val categoryMap: Map<String, CategoryInfo> = remember(tasks) {
+    tasks.associateBy { it.category.id }.mapValues { it.value.category }
+  }
+  val sortedCategories = remember(categoryMap) {
+    categoryMap.keys
+      .toList()
+      .sortedWith { a, b ->
+        val indexA = PREDEFINED_CATEGORY_ORDER.indexOf(a)
+        val indexB = PREDEFINED_CATEGORY_ORDER.indexOf(b)
+        // Check if both categories are in predefined order
+        if (indexA != -1 && indexB != -1) {
+          indexA.compareTo(indexB)
         }
-        .map { categoryMap[it]!! }
-    }
+        // Check if only category 'a' is in predefined order
+        else if (indexA != -1) {
+          -1
+        }
+        // Check if only category 'b' is in predefined order
+        else if (indexB != -1) {
+          1
+        }
+        // If neither are in predefined order, sort by label
+        else {
+          val ca = categoryMap[a]!!
+          val cb = categoryMap[b]!!
+          val caLabel = getCategoryLabel(context = context, category = ca)
+          val cbLabel = getCategoryLabel(context = context, category = cb)
+          caLabel.compareTo(cbLabel)
+        }
+      }
+      .map { categoryMap[it]!! }
+  }
 
-  // Show home screen content when TOS has been accepted.
+  // Show the main screen content after accepting the TOS.
   if (!showTosDialog) {
-    // The code below manages the display of the model allowlist loading indicator with a debounced
-    // delay. It ensures that a progress indicator is only shown if the loading operation
-    // (represented by `uiState.loadingModelAllowlist`) takes longer than 200 milliseconds.
-    // If the loading completes within 200ms, the indicator is never shown,
-    // preventing a "flicker" and improving the perceived responsiveness of the UI.
+    // The following code manages the display of the model allowlist loading indicator using a
+    // debounce delay. It ensures that the progress indicator is shown only if the loading
+    // operation (as indicated by `uiState.loadingModelAllowlist`) takes longer than 200
+    // milliseconds. If the loading finishes within 200 milliseconds, the indicator is never
+    // shown, preventing a "flicker" and improving the perceived responsiveness of the UI.
     // The `loadingModelAllowlistDelayed` state is used to control the actual
-    // visibility of the indicator based on this debounced logic.
+    // visibility of the indicator based on this debounce logic.
     var loadingModelAllowlistDelayed by remember { mutableStateOf(false) }
-    // This effect runs whenever uiState.loadingModelAllowlist changes
+
+    // This effect runs when uiState.loadingModelAllowlist changes.
     LaunchedEffect(uiState.loadingModelAllowlist) {
       if (uiState.loadingModelAllowlist) {
-        // If loading starts, wait for 200ms
+        // If loading starts, wait for 200 milliseconds.
         delay(200)
-        // After 200ms, check if loadingModelAllowlist is still true
+        // After 200ms, check if loadingModelAllowlist is still true.
         if (uiState.loadingModelAllowlist) {
           loadingModelAllowlistDelayed = true
         }
       } else {
-        // If loading finishes, immediately hide the indicator
+        // If loading finishes, immediately hide the indicator.
         loadingModelAllowlistDelayed = false
       }
     }
 
-    // Label and spinner to show when in the process of loading model allowlist.
+    // A label and spinner shown while the model allowlist is loading.
     if (loadingModelAllowlistDelayed) {
       Row(
         modifier = Modifier.fillMaxSize(),
@@ -251,18 +247,17 @@ fun HomeScreen(
         )
       }
     }
-    // Main UI when allowlist is done loading.
+
+    // The main interface after the allowlist loading has completed.
     if (!loadingModelAllowlistDelayed && !uiState.loadingModelAllowlist) {
       val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-
       val requestPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-          isGranted: Boolean ->
+            isGranted: Boolean ->
           if (isGranted) {
             // FCM SDK (and your app) can post notifications.
           }
         }
-
       LaunchedEffect(Unit) {
         delay(2000)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -275,8 +270,10 @@ fun HomeScreen(
         }
       }
 
-      // Close the menu when back button is pressed.
-      BackHandler(drawerState.isOpen) { scope.launch { drawerState.close() } }
+      // Close the menu when the back button is pressed.
+      BackHandler(drawerState.isOpen) {
+        scope.launch { drawerState.close() }
+      }
 
       ModalNavigationDrawer(
         drawerState = drawerState,
@@ -335,7 +332,7 @@ fun HomeScreen(
           topBar = {
             // Top bar animation:
             //
-            // Fade in and move down at the same time.
+            // Fade-in and move downward simultaneously.
             val progress =
               if (!enableAnimation) 1f
               else
@@ -357,14 +354,16 @@ fun HomeScreen(
                   AppBarAction(
                     actionType = AppBarActionType.MENU,
                     actionFn = {
-                      scope.launch { drawerState.apply { if (isClosed) open() else close() } }
+                      scope.launch {
+                        drawerState.apply { if (isClosed) open() else close() }
+                      }
                     },
                   ),
               )
             }
           },
         ) { innerPadding ->
-          // Outer box for coloring the background edge to edge.
+          // Outer box for coloring the background, edge to edge.
           Box(
             contentAlignment = Alignment.TopCenter,
             modifier =
@@ -377,7 +376,7 @@ fun HomeScreen(
                   }
                 ),
           ) {
-            // Inner box to hold content.
+            // Inner box for holding the content.
             Box(
               contentAlignment = Alignment.TopCenter,
               modifier =
@@ -385,7 +384,7 @@ fun HomeScreen(
                   .padding(top = innerPadding.calculateTopPadding())
                   .verticalScroll(rememberScrollState()),
             ) {
-              // Background star at top.
+              // Top background star.
               if (gm4) {
                 val progress =
                   if (!enableAnimation) {
@@ -443,10 +442,10 @@ fun HomeScreen(
                   }
                 }
 
-                // Tab header for categories.
+                // Category tab header.
                 //
-                // synchronizes the `pagerState` and the `selectedCategoryIndex` to ensure that
-                //  both the tab header and the task list always show the correct category and page.
+                // `pagerState` and `selectedCategoryIndex` are synchronized to ensure that the
+                // tab header and task list always display the correct category and page.
                 val pagerState = rememberPagerState(pageCount = { sortedCategories.size })
                 LaunchedEffect(pagerState.settledPage) {
                   selectedCategoryIndex = pagerState.settledPage
@@ -463,7 +462,7 @@ fun HomeScreen(
                   )
                 }
 
-                // Task list in a horizontal pager. Each page shows the list of tasks for the
+                // Horizontal paging task list. Each page shows the list of tasks for that
                 // category.
                 val grid = gm4
                 TaskList(
@@ -476,12 +475,11 @@ fun HomeScreen(
                   gm4 = gm4,
                   grid = grid,
                 )
-
                 Spacer(modifier = Modifier.height(innerPadding.calculateBottomPadding() + 10.dp))
               }
             }
 
-            // Gradient overlay at the bottom.
+            // Add a gradient overlay at the bottom.
             Box(
               modifier =
                 Modifier.fillMaxWidth()
@@ -499,7 +497,7 @@ fun HomeScreen(
     }
   }
 
-  // Show TOS dialog for users to accept.
+  // Show the Terms of Service dialog for user acceptance.
   if (showTosDialog) {
     AppTosDialog(
       onTosAccepted = {
@@ -528,7 +526,7 @@ fun HomeScreen(
         )
       },
       title = { Text(uiState.loadingModelAllowlistError) },
-      text = { Text("Please check your internet connection and try again later.") },
+      text = { Text("Please check your network connection and try again.") },
       onDismissRequest = { modelManagerViewModel.loadModelAllowlist() },
       confirmButton = {
         TextButton(onClick = { modelManagerViewModel.loadModelAllowlist() }) { Text("Retry") }
@@ -551,13 +549,13 @@ private fun AppTitle(enableAnimation: Boolean) {
   val fontSize = with(LocalDensity.current) { (screenWidthInDp.toPx() * 0.12f).toSp() }
   val titleStyle = homePageTitleStyle.copy(fontSize = fontSize, lineHeight = fontSize)
 
-  // First line text "Google AI" and its animation.
+  // The first line of text "Google AI" and its animation.
   //
-  // The animation starts with the first line of text swiping in from left to right, progressively
-  // revealing itself in the title color (blue). Then, after a brief delay, the exact same text, but
-  // in the onSurface color (which is black in light mode), begins its own left-to-right swiping
-  // animation. This second animation is positioned directly on top of the first, appearing just as
-  // the initial reveal is finishing or has just completed, creating a layered and dynamic visual
+  // The first line of text progressively reveals itself, sliding in from left to right, in the
+  // title color (blue) as the animation begins. Then, after a short delay, the exact same text, but
+  // in the onSurface color (black in light mode), begins sliding from left to right in a second
+  // animation. The second animation sits directly on top of the first, appearing as if the
+  // initial reveal is just finishing or has just finished, creating a layered and dynamic visual
   // effect.
   Box(modifier = Modifier.clearAndSetSemantics {}) {
     var delay = ANIMATION_INIT_DELAY
@@ -579,10 +577,11 @@ private fun AppTitle(enableAnimation: Boolean) {
       animationDurationMs = if (enableAnimation) TITLE_FIRST_LINE_ANIMATION_DURATION else 0,
     )
   }
-  // Second line text "Edge Gallery" and its animation.
+
+  // The second line of text "Edge Gallery" and its animation.
   //
-  // The initial animation is the same as the first line text. Right before it is done, the final
-  // text with a gradient is revealed.
+  // The initial animation is the same as the first line. Before the animation ends, the final
+  // text that has the gradient effect reveals itself.
   Box(modifier = Modifier.clearAndSetSemantics {}) {
     var delay = TITLE_SECOND_LINE_ANIMATION_START
     if (enableAnimation) {
@@ -608,9 +607,7 @@ private fun AppTitle(enableAnimation: Boolean) {
     RevealingText(
       text = secondLineText,
       style =
-        titleStyle.copy(
-          brush = linearGradient(colors = MaterialTheme.customColors.appTitleGradientColors)
-        ),
+        titleStyle.copy(brush = linearGradient(colors = MaterialTheme.customColors.appTitleGradientColors)),
       modifier = Modifier.offset(x = (-16).dp, y = (-16).dp),
       animationDelay = if (enableAnimation) delay else 0,
       animationDurationMs = if (enableAnimation) TITLE_SECOND_LINE_ANIMATION_DURATION2 else 0,
@@ -627,7 +624,6 @@ fun AppTitleGm4(enableAnimation: Boolean) {
     append(" ")
     withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary)) { append(text2) }
   }
-
   RevealingText(
     text = "",
     annotatedText = annotatedText,
@@ -649,7 +645,7 @@ private fun IntroText(enableAnimation: Boolean, gm4: Boolean) {
 
   // Intro text animation:
   //
-  // fade in + slide up.
+  // Fade-in + slide up.
   val progress =
     if (!enableAnimation) {
       1f
@@ -664,9 +660,9 @@ private fun IntroText(enableAnimation: Boolean, gm4: Boolean) {
   val introText = buildAnnotatedString {
     val gemma4Url = "https://ai.google.dev/gemma"
     if (gm4) {
-      append("Discover the power of on-device AI models from the ")
+      append("Explore the power of on-device AI models from the ")
       append(buildTrackableUrlAnnotatedString(url = litertUrl, linkText = "LiteRT community"))
-      append(", featuring the all-new ")
+      append(", featuring the new ")
       append(buildTrackableUrlAnnotatedString(url = gemma4Url, linkText = "Gemma 4"))
       append(".")
     } else {
@@ -679,6 +675,7 @@ private fun IntroText(enableAnimation: Boolean, gm4: Boolean) {
       )
     }
   }
+
   Text(
     introText,
     style = MaterialTheme.typography.bodyMedium,
@@ -692,7 +689,7 @@ private fun IntroText(enableAnimation: Boolean, gm4: Boolean) {
 
 @Composable
 private fun TryGm4IntroText(enableAnimation: Boolean) {
-  // fade in + slide up.
+  // Fade-in + slide up.
   val progress =
     if (!enableAnimation) {
       1f
@@ -703,6 +700,7 @@ private fun TryGm4IntroText(enableAnimation: Boolean) {
         animationLabel = "intro text animation",
       )
     }
+
   Row(
     modifier =
       Modifier.padding(top = 24.dp).graphicsLayer {
@@ -719,7 +717,7 @@ private fun TryGm4IntroText(enableAnimation: Boolean) {
       tint = MaterialTheme.colorScheme.primary,
     )
     Text(
-      text = "Try Gemma 4 today",
+      text = "Try Gemma 4 now",
       style =
         MaterialTheme.typography.headlineSmall.copy(
           fontWeight = FontWeight.Medium,
@@ -729,9 +727,8 @@ private fun TryGm4IntroText(enableAnimation: Boolean) {
       color = MaterialTheme.colorScheme.onSurface,
     )
   }
-
   Text(
-    "Gemma 4 E2B & E4B are here! Try them in AI Chat, Agent Skills, or the use cases below.",
+    "Gemma 4 E2B and E4B are available now! You can try them in AI Chat, Agent Skills, or from the use cases below.",
     style = MaterialTheme.typography.bodyMedium,
     modifier =
       Modifier.graphicsLayer {
@@ -771,6 +768,7 @@ private fun CategoryTabHeader(
     horizontalArrangement = Arrangement.spacedBy(16.dp),
   ) {
     item(key = "spacer_start") { Spacer(modifier = Modifier.width(8.dp)) }
+
     itemsIndexed(items = sortedCategories) { index, category ->
       Row(
         modifier =
@@ -783,18 +781,19 @@ private fun CategoryTabHeader(
             )
             .clickable {
               onCategorySelected(index)
-
-              // Scroll to clicked item when the item is not fully inside view.
+              // Scroll to the clicked item when item is not fully shown in the view.
               scope.launch {
                 val visibleItems = listState.layoutInfo.visibleItemsInfo
-                val targetItem = visibleItems.find {
-                  // +1 because the first item is the item keyed at spacer_start.
-                  it.index == index + 1
-                }
+                val targetItem =
+                  visibleItems.find {
+                    // +1 because the first item is the one with key = spacer_start.
+                    it.index == index + 1
+                  }
                 if (
                   targetItem == null ||
                     targetItem.offset < 0 ||
-                    targetItem.offset + targetItem.size > listState.layoutInfo.viewportSize.width
+                    targetItem.offset + targetItem.size >
+                      listState.layoutInfo.viewportSize.width
                 ) {
                   listState.animateScrollToItem(index = index)
                 }
@@ -812,6 +811,7 @@ private fun CategoryTabHeader(
         )
       }
     }
+
     item(key = "spacer_end") { Spacer(modifier = Modifier.width(8.dp)) }
   }
 }
@@ -829,8 +829,8 @@ private fun TaskList(
 ) {
   // Model list animation:
   //
-  // 1.  Slide Up: The entire column of task cards translates upwards,
-  // 2.  Fade in one by one: The task card fade in one by one. See TaskCard for details.
+  // 1. Slide up: the entire column of task cards translates upwards,
+  // 2. Staggered fade-in: task cards fade in one by one. See the "Task Card" section for detail.
   val progress =
     if (!enableAnimation) 1f
     else
@@ -840,16 +840,17 @@ private fun TaskList(
         animationLabel = "task card animation",
       )
 
-  // Tracks when the initial animation is done.
-  //
+  // Track when the initial animation is done.
   var initialAnimationDone by remember { mutableStateOf(false) }
   LaunchedEffect(Unit) {
-    // Use 5 iterations to make sure all visible task cards are animated.
-    delay(((TASK_CARD_ANIMATION_DURATION + TASK_CARD_ANIMATION_DELAY_OFFSET) * 5).toLong())
+    // Use an iteration of 5, to animate all visible task cards.
+    delay(
+      ((TASK_CARD_ANIMATION_DURATION + TASK_CARD_ANIMATION_DELAY_OFFSET) * 5).toLong()
+    )
     initialAnimationDone = true
   }
 
-  // The highlighted tiles at the top.
+  // Top highlighted tiles.
   if (gm4) {
     Column(
       verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -861,10 +862,10 @@ private fun TaskList(
     ) {
       val chatToDescription =
         mapOf(
-          BuiltInTaskId.LLM_CHAT to "Chat with the latest Gemma 4 model today",
-          // use "\u00a0" to make sure the word before and after it should always be together when
-          // wrapping lines.
-          BuiltInTaskId.LLM_AGENT_CHAT to "Have Gemma 4 complete agentic tasks for\u00A0you",
+          BuiltInTaskId.LLM_CHAT to "Chat with the latest Gemma 4 models now",
+          // Using "\u00a0" ensures the two words before and after it will always stay together in
+          // word wrap.
+          BuiltInTaskId.LLM_AGENT_CHAT to "Let Gemma 4 complete agentic\u00a0tasks for you",
         )
       for (task in
         listOf(
@@ -880,7 +881,6 @@ private fun TaskList(
           description = chatToDescription[task.id]!!,
         )
       }
-
       Text(
         text = "Explore other use cases",
         style =
@@ -901,6 +901,7 @@ private fun TaskList(
     contentPadding = PaddingValues(horizontal = 20.dp),
   ) { pageIndex ->
     val tasks = tasksByCategories[sortedCategories[pageIndex].id]!!
+
     if (grid) {
       Column(
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -924,8 +925,7 @@ private fun TaskList(
               modifier = Modifier.weight(1f),
               square = true,
             )
-
-            // Second item in the row, if it exists
+            // Second item in the row if it exists
             if (i + 1 < tasks.size) {
               TaskCard(
                 task = tasks[i + 1],
@@ -937,7 +937,7 @@ private fun TaskList(
                 square = true,
               )
             } else {
-              // Add a spacer to fill the remaining space if there's only one item in the last row
+              // Add a spacer to fill the remaining space if the last row has only one item
               Spacer(modifier = Modifier.weight(1f))
             }
           }
@@ -977,7 +977,7 @@ private fun TaskCard(
   description: String = "",
   square: Boolean = false,
 ) {
-  // Observes the model count and updates the model count label with a fade-in/fade-out animation
+  // Monitor model count, and update the model count label with a fade-in/out animation
   // whenever the count changes.
   val modelCount by remember {
     derivedStateOf {
@@ -992,14 +992,13 @@ private fun TaskCard(
   val modelCountLabel by remember {
     derivedStateOf {
       when (modelCount) {
-        1 -> "1 Model"
-        else -> "%d Models".format(modelCount)
+        1 -> "1 model"
+        else -> "%d models".format(modelCount)
       }
     }
   }
   var curModelCountLabel by remember { mutableStateOf("") }
   var modelCountLabelVisible by remember { mutableStateOf(true) }
-
   LaunchedEffect(modelCountLabel) {
     if (curModelCountLabel.isEmpty()) {
       curModelCountLabel = modelCountLabel
@@ -1013,8 +1012,8 @@ private fun TaskCard(
 
   // Task card animation:
   //
-  // This animation makes the task cards appear with a delayed fade-in effect. Each card will become
-  // visible sequentially, starting after an initial delay and then with an additional offset for
+  // This animation makes the task cards appear with a staggered fade-in effect. Each card becomes
+  // visible in sequence, starting after an initial delay, with an additional offset increment for
   // subsequent cards.
   val progress =
     if (animate)
@@ -1026,6 +1025,7 @@ private fun TaskCard(
     else 1f
 
   val cbTask = stringResource(R.string.cd_task_card, task.label, task.models.size)
+
   Card(
     modifier =
       modifier
@@ -1039,7 +1039,6 @@ private fun TaskCard(
           if (description.isNotEmpty() || square) {
             MaterialTheme.colorScheme.surfaceContainer
           } else {
-
             MaterialTheme.customColors.taskCardBgColor
           }
       ),
@@ -1050,7 +1049,7 @@ private fun TaskCard(
         verticalArrangement = Arrangement.spacedBy(16.dp),
       ) {
         TaskIcon(task = task, width = 40.dp)
-        Column() {
+        Column {
           Text(
             curModelCountLabel,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1065,7 +1064,8 @@ private fun TaskCard(
           Text(
             task.shortDescription,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 14.sp),
+            style =
+              MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 14.sp),
             modifier = Modifier.clearAndSetSemantics {},
             minLines = 2,
             maxLines = 2,
@@ -1107,7 +1107,7 @@ private fun TaskCard(
                   contentAlignment = Alignment.Center,
                 ) {
                   Text(
-                    "New",
+                    "NEW",
                     color = MaterialTheme.customColors.newFeatureTextColor,
                     style = MaterialTheme.typography.labelLarge,
                   )
@@ -1134,7 +1134,7 @@ private fun TaskCard(
               if (task.experimental) {
                 Icon(
                   painter = painterResource(R.drawable.ic_experiment),
-                  contentDescription = "Experimental",
+                  contentDescription = "experimental",
                   modifier = Modifier.size(20.dp).padding(start = 4.dp),
                   tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
