@@ -71,12 +71,12 @@ android {
         buildConfig = true
     }
 
-    // 修复点：将 packagingOptions 改为 packaging
-    packaging {
+    // 这里是修复的核心：使用最显式的 API 调用，避开 DSL 冲突
+    packagingOptions {
         resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            excludes += "/META-INF/INDEX.LIST"
-            excludes += "/META-INF/io.netty.versions.properties"
+            excludes.add("/META-INF/{AL2.0,LGPL2.1}")
+            excludes.add("/META-INF/INDEX.LIST")
+            excludes.add("/META-INF/io.netty.versions.properties")
         }
     }
 }
