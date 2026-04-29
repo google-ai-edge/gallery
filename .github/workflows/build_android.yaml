@@ -22,7 +22,6 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      # 可选：缓存 Gradle 依赖，加速后续构建
       - name: Cache Gradle packages
         uses: actions/cache@v4
         with:
@@ -33,19 +32,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # 赋予 gradlew 执行权限（文件在 Android/src/ 下）
       - name: Grant execute permission for gradlew
         run: chmod +x Android/src/gradlew
 
-      # 构建 Release APK
       - name: Build Release APK
         working-directory: Android/src
-        run: ./gradlew :app:assembleRelease
+        run: ./gradlew :src:app:assembleRelease
 
-      # 上传构建产物
       - name: Upload Release APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-release-unsigned
-          path: Android/src/app/build/outputs/apk/release/*.apk
+          path: Android/src/src/app/build/outputs/apk/release/*.apk
