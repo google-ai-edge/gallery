@@ -5,7 +5,6 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  # 允许手动触发
   workflow_dispatch:
 
 jobs:
@@ -14,18 +13,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 检出代码
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. 设置 JDK 环境（项目要求 Java 11）
       - name: Set up JDK 11
         uses: actions/setup-java@v4
         with:
           java-version: '11'
           distribution: 'temurin'
 
-      # 3. 缓存 Gradle 依赖，加速后续构建
+      # 可选：缓存 Gradle 依赖，加速后续构建
       - name: Cache Gradle packages
         uses: actions/cache@v4
         with:
@@ -36,16 +33,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # 4. 赋予 Gradlew 执行权限（如果检出后没有自动添加）
+      # 赋予 gradlew 执行权限（文件在 Android/src/ 下）
       - name: Grant execute permission for gradlew
-        run: chmod +x ./Android/gradlew
+        run: chmod +x Android/src/gradlew
 
-      # 5. 构建 Release APK（你提供的步骤）
+      # 构建 Release APK
       - name: Build Release APK
-        working-directory: Android
-        run: ./gradlew :src:app:assembleRelease
+        working-directory: Android/src
+        run: ./gradlew :app:assembleRelease
 
-      # 6. 上传 APK 作为工作流产物（可选）
+      # 上传构建产物
       - name: Upload Release APK
         if: success()
         uses: actions/upload-artifact@v4
