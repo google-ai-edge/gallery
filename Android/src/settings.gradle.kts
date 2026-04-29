@@ -46,4 +46,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "AI Edge Gallery"
 
-include(":app")
+include(":src:app")

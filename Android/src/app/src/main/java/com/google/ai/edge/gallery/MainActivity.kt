@@ -1,22 +1,9 @@
-/*
- * Copyright 2025 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.google.ai.edge.gallery
 
 import android.animation.ObjectAnimator
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -24,6 +11,7 @@ import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -62,162 +50,161 @@ import kotlinx.coroutines.launch
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-  private val modelManagerViewModel: ModelManagerViewModel by viewModels()
-  private var splashScreenAboutToExit: Boolean = false
-  private var contentSet: Boolean = false
+    private val modelManagerViewModel: ModelManagerViewModel by viewModels()
+    private var splashScreenAboutToExit: Boolean = false
+    private var contentSet: Boolean = false
+    private var apiServer: LiteRtApiServer? = null
 
-  override fun onCreate(savedInstanceState: Bundle?) {
-    // We intentionally pass null to discard the saved instance state bundle.
-    // This prevents Jetpack Compose from automatically restoring the previous screen
-    // and forces the app to start cleanly on the Home Screen after an OS kill.
-    super.onCreate(null)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(null)
 
-    // Debug: Dump all intent extras to see what FCM unloads
-    intent.extras?.let { extras ->
-      for (key in extras.keySet()) {
-        Log.d(TAG, "onCreate Extra -> Key: $key, Value: ${extras.get(key)}")
-      }
-    }
-
-    // Convert FCM Console data extras to intent data for GalleryNavGraph to pick up
-    intent.getStringExtra("deeplink")?.let { link ->
-      Log.d(TAG, "onCreate: Found deeplink extra: $link")
-      if (link.startsWith("http://") || link.startsWith("https://")) {
-        val browserIntent = Intent(Intent.ACTION_VIEW, link.toUri())
-        startActivity(browserIntent)
-      } else {
-        intent.data = link.toUri()
-      }
-    }
-
-    fun setContent() {
-      if (contentSet) {
-        return
-      }
-
-      setContent {
-        GalleryTheme {
-          Surface(modifier = Modifier.fillMaxSize()) {
-            GalleryApp(modelManagerViewModel = modelManagerViewModel)
-
-            // Fade out a "mask" that has the same color as the background of the splash screen
-            // to reveal the actual app content.
-            var startMaskFadeout by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) { startMaskFadeout = true }
-            AnimatedVisibility(
-              !startMaskFadeout,
-              enter = fadeIn(animationSpec = snap(0)),
-              exit =
-                fadeOut(animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)),
-            ) {
-              Box(
-                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
-              )
+        intent.extras?.let { extras ->
+            for (key in extras.keySet()) {
+                Log.d(TAG, "onCreate Extra -> Key: $key, Value: ${extras.get(key)}")
             }
-          }
         }
-      }
 
-      @OptIn(ExperimentalApi::class)
-      ExperimentalFlags.enableBenchmark = false
-
-      contentSet = true
-    }
-
-    modelManagerViewModel.loadModelAllowlist()
-
-    // Show splash screen.
-    val splashScreen = installSplashScreen()
-
-    // Set the content when the system-provided splash screen is not shown.
-    //
-    // This is necessary on some Android versions where the splash screen is optimized away (e.g.,
-    // after a force-quit) to ensure the main content is displayed immediately and correctly.
-    lifecycleScope.launch {
-      delay(1000)
-      if (!splashScreenAboutToExit) {
-        setContent()
-      }
-    }
-
-    // Cross-fade transition from the splash screen to the main content.
-    //
-    // The logic performs the following key actions:
-    // 1. Synchronizes Timing: It calculates the remaining duration of the default icon
-    //    animation. It then delays its own animations to ensure the custom fade-out begins just
-    //    before the original icon animation would have finished.
-    // 2. Initiates a cross-fade:
-    //    - Fade out the splash screen.
-    //    - Fade in the main content.
-    // 3. Cleans up: An `onEnd` listener on the fade-out animator calls
-    //    `splashScreenView.remove()` to properly remove the splash screen from the view hierarchy
-    //    once it's fully transparent.
-    splashScreen.setOnExitAnimationListener { splashScreenView ->
-      splashScreenAboutToExit = true
-
-      val now = System.currentTimeMillis()
-      val iconAnimationStartMs = splashScreenView.iconAnimationStartMillis
-      val duration = splashScreenView.iconAnimationDurationMillis
-      val fadeOut = ObjectAnimator.ofFloat(splashScreenView.view, View.ALPHA, 1f, 0f)
-      fadeOut.interpolator = DecelerateInterpolator()
-      fadeOut.duration = 300L
-      fadeOut.doOnEnd { splashScreenView.remove() }
-      lifecycleScope.launch {
-        val setContentDelay = duration - (now - iconAnimationStartMs) - 300
-        if (setContentDelay > 0) {
-          delay(setContentDelay)
+        intent.getStringExtra("deeplink")?.let { link ->
+            Log.d(TAG, "onCreate: Found deeplink extra: $link")
+            if (link.startsWith("http://") || link.startsWith("https://")) {
+                val browserIntent = Intent(Intent.ACTION_VIEW, link.toUri())
+                startActivity(browserIntent)
+            } else {
+                intent.data = link.toUri()
+            }
         }
-        setContent()
-        fadeOut.start()
-      }
+
+        fun setContent() {
+            if (contentSet) return
+            setContent {
+                GalleryTheme {
+                    Surface(modifier = Modifier.fillMaxSize()) {
+                        GalleryApp(modelManagerViewModel = modelManagerViewModel)
+                        var startMaskFadeout by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) { startMaskFadeout = true }
+                        AnimatedVisibility(
+                            !startMaskFadeout,
+                            enter = fadeIn(animationSpec = snap(0)),
+                            exit = fadeOut(animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)),
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+                        }
+                    }
+                }
+            }
+            @OptIn(ExperimentalApi::class)
+            ExperimentalFlags.enableBenchmark = false
+            contentSet = true
+        }
+
+        modelManagerViewModel.loadModelAllowlist()
+        startApiServer()
+
+        val splashScreen = installSplashScreen()
+        lifecycleScope.launch {
+            delay(1000)
+            if (!splashScreenAboutToExit) setContent()
+        }
+
+        splashScreen.setOnExitAnimationListener { splashScreenView ->
+            splashScreenAboutToExit = true
+            val now = System.currentTimeMillis()
+            val iconAnimationStartMs = splashScreenView.iconAnimationStartMillis
+            val duration = splashScreenView.iconAnimationDurationMillis
+            val fadeOut = ObjectAnimator.ofFloat(splashScreenView.view, View.ALPHA, 1f, 0f)
+            fadeOut.interpolator = DecelerateInterpolator()
+            fadeOut.duration = 300L
+            fadeOut.doOnEnd { splashScreenView.remove() }
+            lifecycleScope.launch {
+                val setContentDelay = duration - (now - iconAnimationStartMs) - 300
+                if (setContentDelay > 0) delay(setContentDelay)
+                setContent()
+                fadeOut.start()
+            }
+        }
+
+        enableEdgeToEdge()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
-    enableEdgeToEdge()
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      // Fix for three-button nav not properly going edge-to-edge.
-      // See: https://issuetracker.google.com/issues/298296168
-      window.isNavigationBarContrastEnforced = false
+    private fun startApiServer() {
+        try {
+            apiServer = LiteRtApiServer(this, 8088)
+            apiServer?.startServer()
+
+            var ipAddress = "N/A"
+            try {
+                val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+                while (interfaces.hasMoreElements()) {
+                    val ni = interfaces.nextElement()
+                    if (ni.isLoopback || !ni.isUp) continue
+                    val addrs = ni.inetAddresses
+                    while (addrs.hasMoreElements()) {
+                        val addr = addrs.nextElement()
+                        if (addr is java.net.Inet4Address && !addr.isLoopbackAddress) {
+                            ipAddress = addr.hostAddress ?: "N/A"
+                            break
+                        }
+                    }
+                    if (ipAddress != "N/A") break
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to get IP: ${e.message}")
+            }
+
+            val serverUrl = "http://$ipAddress:8088/health"
+            Log.d(TAG, "LiteRT API Server running at $serverUrl")
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel("api_server", "API Server", NotificationManager.IMPORTANCE_LOW)
+                val nm = getSystemService(NotificationManager::class.java)
+                nm.createNotificationChannel(channel)
+                val notification = android.app.Notification.Builder(this, "api_server")
+                    .setContentTitle("API Server Running")
+                    .setContentText(serverUrl)
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setOngoing(true)
+                    .build()
+                nm.notify(1, notification)
+            }
+
+            Toast.makeText(this, "API Server started:\n$serverUrl", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start API Server: ${e.message}")
+            Toast.makeText(this, "API Server failed", Toast.LENGTH_SHORT).show()
+        }
     }
-    // Keep the screen on while the app is running for better demo experience.
-    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-  }
 
-  override fun onNewIntent(intent: Intent) {
-    super.onNewIntent(intent)
-    setIntent(intent)
-
-    // Debug: Dump all intent extras to see what FCM unloads
-    intent.extras?.let { extras ->
-      for (key in extras.keySet()) {
-        Log.d(TAG, "onNewIntent Extra -> Key: $key, Value: ${extras.get(key)}")
-      }
+    override fun onDestroy() {
+        super.onDestroy()
+        try { apiServer?.stopServer() } catch (e: Exception) { Log.e(TAG, "stop error: ${e.message}") }
     }
 
-    intent.getStringExtra("deeplink")?.let { link ->
-      Log.d(TAG, "onNewIntent: Found deeplink extra: $link")
-      if (link.startsWith("http://") || link.startsWith("https://")) {
-        val browserIntent = Intent(Intent.ACTION_VIEW, link.toUri())
-        startActivity(browserIntent)
-      } else {
-        intent.data = link.toUri()
-      }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent.extras?.let { extras ->
+            for (key in extras.keySet()) Log.d(TAG, "onNewIntent Extra -> Key: $key, Value: ${extras.get(key)}")
+        }
+        intent.getStringExtra("deeplink")?.let { link ->
+            if (link.startsWith("http://") || link.startsWith("https://")) startActivity(Intent(Intent.ACTION_VIEW, link.toUri()))
+            else intent.data = link.toUri()
+        }
     }
-  }
 
-  override fun onResume() {
-    super.onResume()
+    override fun onResume() {
+        super.onResume()
+        firebaseAnalytics?.logEvent(FirebaseAnalytics.Event.APP_OPEN, bundleOf(
+            "app_version" to BuildConfig.VERSION_NAME,
+            "os_version" to Build.VERSION.SDK_INT.toString(),
+            "device_model" to Build.MODEL,
+        ))
+    }
 
-    firebaseAnalytics?.logEvent(
-      FirebaseAnalytics.Event.APP_OPEN,
-      bundleOf(
-        "app_version" to BuildConfig.VERSION_NAME,
-        "os_version" to Build.VERSION.SDK_INT.toString(),
-        "device_model" to Build.MODEL,
-      ),
-    )
-  }
-
-  companion object {
-    private const val TAG = "AGMainActivity"
-  }
+    companion object {
+        private const val TAG = "AGMainActivity"
+    }
 }
