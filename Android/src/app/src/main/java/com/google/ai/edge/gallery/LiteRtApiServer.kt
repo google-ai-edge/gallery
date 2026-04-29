@@ -1,3 +1,7 @@
+package io.ktor.server.engine
+// 这是一个必须的内部引用声明，不要删除
+typealias ApplicationEngine = io.ktor.server.engine.ApplicationEngine
+
 package com.google.ai.edge.gallery
 
 import android.app.NotificationChannel
@@ -6,159 +10,85 @@ import android.content.Context
 import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
-import fi.iki.elonen.NanoHTTPD
+import io.ktor.server.application.*
+import io.ktor.server.engine.*
+import io.ktor.server.netty.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
 import kotlinx.coroutines.*
-import java.io.BufferedReader
-import java.io.IOException
-import java.io.InputStreamReader
+import java.util.concurrent.TimeUnit
 
 class LiteRtApiServer(
     private val context: Context,
-    port: Int = 8088
-) : NanoHTTPD(port) {
-
-    private val serverPort = port
+    private val port: Int = 8088
+) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var isRunning = false
+    private var server: ApplicationEngine? = null
 
     fun startServer() {
-        if (isRunning) return
         scope.launch {
             try {
-                start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
-                isRunning = true
+                server = embeddedServer(Netty, port = port, host = "0.0.0.0") {
+                    routing {
+                        get("/health") {
+                            call.respond(mapOf("status" to "ok"))
+                        }
+                        get("/v1/models") {
+                            call.respond(mapOf("object" to "list", "data" to listOf(mapOf("id" to "placeholder", "object" to "model"))))
+                        }
+                        post("/v1/chat/completions") {
+                            call.respond(mapOf(
+                                "id" to "chatcmpl-${System.currentTimeMillis()}",
+                                "object" to "chat.completion",
+                                "model" to "placeholder",
+                                "choices" to listOf(mapOf(
+                                    "index" to 0,
+                                    "message" to mapOf("role" to "assistant", "content" to "Ktor API Server is running."),
+                                    "finish_reason" to "stop"
+                                ))
+                            ))
+                        }
+                    }
+                }.start(wait = false)
 
-                // 等待监听生效
-                delay(500)
-
-                val listenStatus = checkPortListeningByProc()
-                val msg = if (listenStatus) {
-                    "✅ 端口 $serverPort 监听正常 (系统确认)"
-                } else {
-                    "❌ 端口 $serverPort 未在系统监听！"
-                }
-
-                Log.d("LiteRtApiServer", msg)
+                Log.d("LiteRtApiServer", "Ktor Server 启动成功，端口 $port")
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                    updateNotification(msg)
+                    Toast.makeText(context, "服务已启动 (Ktor)", Toast.LENGTH_SHORT).show()
+                    updateNotification("Ktor Server 运行中 :$port")
                 }
             } catch (e: Exception) {
-                val msg = "启动异常: ${e.javaClass.simpleName} - ${e.message}"
-                Log.e("LiteRtApiServer", msg, e)
+                Log.e("LiteRtApiServer", "Ktor 启动失败: ${e.message}", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                    updateNotification(msg)
+                    Toast.makeText(context, "启动失败: ${e.message}", Toast.LENGTH_LONG).show()
+                    updateNotification("服务启动失败")
                 }
             }
         }
     }
 
-    private fun checkPortListeningByProc(): Boolean {
-        try {
-            val hexPort = String.format("%04X", serverPort)
-            val process = Runtime.getRuntime().exec("cat /proc/net/tcp")
-            val reader = BufferedReader(InputStreamReader(process.inputStream))
-            val lines = reader.readLines()
-            reader.close()
-            for (line in lines) {
-                val parts = line.trim().split("\\s+".toRegex())
-                if (parts.size > 3) {
-                    val local = parts[1]
-                    val state = parts[3]
-                    val localPort = local.substringAfter(':')
-                    if (localPort.equals(hexPort, ignoreCase = true) && state.equals("0A", ignoreCase = true)) {
-                        return true
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("LiteRtApiServer", "检查端口失败: ${e.message}")
-        }
-        return false
+    fun stopServer() {
+        server?.stop(0, 0, TimeUnit.SECONDS)
+        scope.cancel()
+        Log.d("LiteRtApiServer", "Ktor Server 已停止")
     }
 
     private fun updateNotification(message: String) {
         try {
             val channelId = "api_server"
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                 val channel = NotificationChannel(channelId, "API Server", NotificationManager.IMPORTANCE_LOW)
                 nm.createNotificationChannel(channel)
             }
-
             val notification = NotificationCompat.Builder(context, channelId)
                 .setContentTitle("API Server 状态")
                 .setContentText(message)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setOngoing(true)
                 .build()
-
             nm.notify(1, notification)
         } catch (e: Exception) {
             Log.e("LiteRtApiServer", "无法更新通知: ${e.message}")
         }
-    }
-
-    fun stopServer() {
-        if (!isRunning) return
-        stop()
-        isRunning = false
-        scope.cancel()
-        Log.d("LiteRtApiServer", "服务器已停止")
-    }
-
-    override fun serve(session: IHTTPSession?): Response {
-        session ?: return newFixedLengthResponse(
-            Response.Status.BAD_REQUEST, MIME_PLAINTEXT, "请求为空"
-        )
-
-        return when (session.uri) {
-            "/v1/chat/completions" -> handleChatCompletions(session)
-            "/v1/models" -> handleListModels()
-            "/health" -> handleHealth()
-            else -> newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "未找到")
-        }
-    }
-
-    private fun handleChatCompletions(session: IHTTPSession): Response {
-        val response = """
-            {
-                "id": "chatcmpl-${System.currentTimeMillis()}",
-                "object": "chat.completion",
-                "created": ${System.currentTimeMillis() / 1000},
-                "model": "placeholder",
-                "choices": [{
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": "API 服务正在运行。"
-                    },
-                    "finish_reason": "stop"
-                }]
-            }
-        """.trimIndent()
-        return newFixedLengthResponse(Response.Status.OK, "application/json", response)
-    }
-
-    private fun handleListModels(): Response {
-        val response = """
-            {
-                "object": "list",
-                "data": [{
-                    "id": "placeholder",
-                    "object": "model",
-                    "created": ${System.currentTimeMillis() / 1000},
-                    "owned_by": "google"
-                }]
-            }
-        """.trimIndent()
-        return newFixedLengthResponse(Response.Status.OK, "application/json", response)
-    }
-
-    private fun handleHealth(): Response {
-        return newFixedLengthResponse(Response.Status.OK, "application/json",
-            """{"status":"ok"}""")
     }
 }
