@@ -100,6 +100,8 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -173,7 +175,7 @@ fun SkillManagerBottomSheet(
   var addSkillOptionTypeToConfirm by remember { mutableStateOf<AddSkillOptionType?>(null) }
   var skillToEditIndex by remember { mutableIntStateOf(-1) }
   var searchQuery by remember { mutableStateOf("") }
-  var savedSelectedSkillsNamesAndDescriptions = remember { "" }
+  var savedSelectedSkillsNamesAndDescriptions by remember { mutableStateOf("") }
   var filteredSkills by remember { mutableStateOf(uiState.skills) }
   val listState = rememberLazyListState()
   val uriHandler = LocalUriHandler.current
@@ -860,7 +862,8 @@ private fun SkillItemRow(
         Switch(
           checked = skill.selected,
           onCheckedChange = onSkillEnabledChange,
-          modifier = Modifier.offset(y = (-4).dp),
+          modifier =
+            Modifier.offset(y = (-4).dp).semantics { contentDescription = "Toggle ${skill.name}" },
           enabled = !inMultiSelectMode,
         )
       }
