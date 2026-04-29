@@ -1,4 +1,4 @@
-name: Build Android APK
+Name: Build Android APK
 
 on:
   workflow_dispatch:
@@ -17,18 +17,28 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      # 增加 Gradle 内存设置，确保在 no-daemon 模式下运行稳定
+      GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g"
     defaults:
       run:
         working-directory: ./Android/src
     steps:
       - name: Checkout the source code
         uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+        
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
-      - name: Build
-        run: ./gradlew clean assembleRelease
+          # 启用缓存以加快后续编译速度
+          cache: 'gradle'
+
+      - name: Build with Gradle
+        # 核心修复点：添加 --no-daemon 参数
+        # 这样每次编译都会启动全新的 JVM 进程，彻底避免 AgpDecorated_Decorated 类加载冲突
+        run: ./gradlew clean assembleRelease --no-daemon
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
