@@ -68,19 +68,11 @@ android {
         buildConfig = true
     }
 
-    // ✅ AGP 8.x 正确的新语法 —— 替换掉了过时的 packagingOptions
-    packaging {
-        resources {
-            excludes += listOf(
-                "/META-INF/{AL2.0,LGPL2.1}",
-                "/META-INF/INDEX.LIST",
-                "/META-INF/io.netty.versions.properties"
-            )
-        }
-        // 项目包含原生库（例如 litertlm），开启旧版打包避免 .so 冲突
-        jniLibs {
-            useLegacyPackaging = true
-        }
+    // 稳定可用的旧语法，AGP 8.7.3 完全支持
+    packagingOptions {
+        exclude("/META-INF/{AL2.0,LGPL2.1}")
+        exclude("/META-INF/INDEX.LIST")
+        exclude("/META-INF/io.netty.versions.properties")
     }
 }
 
