@@ -16,7 +16,6 @@
 
 plugins {
     alias(libs.plugins.android.application)
-    // Note: set apply to true to enable google-services (requires google-services.json).
     alias(libs.plugins.google.services) apply false
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
@@ -39,8 +38,6 @@ android {
         versionCode = 29
         versionName = "1.0.12"
 
-        // Required for the HuggingFace authentication workflow.
-        // Use the "Redirect URL" scheme in the HuggingFace app.
         manifestPlaceholders["appAuthRedirectScheme"] = "REPLACE_WITH_YOUR_REDIRECT_SCHEME_IN_HUGGINGFACE_APP"
         manifestPlaceholders["applicationName"] = "com.google.ai.edge.gallery.GalleryApplication"
         manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
@@ -71,13 +68,12 @@ android {
         buildConfig = true
     }
 
-    // 这里是修复的核心：使用最显式的 API 调用，避开 DSL 冲突
+    // 终极修复方案：撤掉 resources {} 闭包，改用直接调用方法。
+    // 这是绕过 ClassCastException 最彻底的方法，因为它不再依赖 Gradle 内部的装饰器转换。
     packagingOptions {
-        resources {
-            excludes.add("/META-INF/{AL2.0,LGPL2.1}")
-            excludes.add("/META-INF/INDEX.LIST")
-            excludes.add("/META-INF/io.netty.versions.properties")
-        }
+        exclude("/META-INF/{AL2.0,LGPL2.1}")
+        exclude("/META-INF/INDEX.LIST")
+        exclude("/META-INF/io.netty.versions.properties")
     }
 }
 
@@ -158,3 +154,4 @@ protobuf {
         }
     }
 }
+
