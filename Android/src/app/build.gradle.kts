@@ -62,12 +62,7 @@ android {
   }
   kotlinOptions {
     jvmTarget = "11"
-    // 修复1: 将 -Xcontext-receivers 替换为 -Xcontext-parameters
-    // 修复2: 添加 -Xannotation-default-target=param-property 消除注解警告
-    freeCompilerArgs += listOf(
-      "-Xcontext-parameters",
-      "-Xannotation-default-target=param-property"
-    )
+    freeCompilerArgs += "-Xcontext-receivers"
   }
   buildFeatures {
     compose = true
@@ -115,7 +110,16 @@ dependencies {
   implementation(libs.firebase.messaging)
   implementation(libs.androidx.exifinterface)
   implementation(libs.moshi.kotlin)
+
+  // Ktor Server (替代 NanoHTTPD)
+  implementation("io.ktor:ktor-server-core:2.3.7")
+  implementation("io.ktor:ktor-server-netty:2.3.7")
+  implementation("io.ktor:ktor-server-content-negotiation:2.3.7")
+  implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
+
+  // NanoHTTPD (保留以备必要时使用)
   implementation("org.nanohttpd:nanohttpd:2.3.1")
+
   kapt(libs.hilt.android.compiler)
   testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.junit)
