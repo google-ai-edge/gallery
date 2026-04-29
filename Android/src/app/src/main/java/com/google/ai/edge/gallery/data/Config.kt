@@ -58,7 +58,11 @@ object ConfigKeys {
   val SUPPORT_TINY_GARDEN = ConfigKey("support_tiny_garden", "Support tiny garden")
   val SUPPORT_MOBILE_ACTIONS = ConfigKey("support_mobile_actions", "Support mobile actions")
   val SUPPORT_THINKING = ConfigKey("support_thinking", "Support thinking")
+  val SUPPORT_SPECULATIVE_DECODING =
+    ConfigKey("support_speculative_decoding", "Support speculative decoding")
   val ENABLE_THINKING = ConfigKey("enable_thinking", "Enable thinking")
+  val ENABLE_SPECULATIVE_DECODING =
+    ConfigKey("enable_speculative_decoding", "Enable speculative decoding")
   val MAX_RESULT_COUNT = ConfigKey("max_result_count", "Max result count")
   val USE_GPU = ConfigKey("use_gpu", "Use GPU")
   val ACCELERATOR = ConfigKey("accelerator", "Accelerator")
@@ -226,6 +230,7 @@ fun createLlmChatConfigs(
   defaultTemperature: Float = DEFAULT_TEMPERATURE,
   accelerators: List<Accelerator> = DEFAULT_ACCELERATORS,
   supportThinking: Boolean = false,
+  supportSpeculativeDecoding: Boolean = false,
 ): List<Config> {
   var maxTokensConfig: Config =
     LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken")
@@ -273,6 +278,11 @@ fun createLlmChatConfigs(
 
   if (supportThinking) {
     configs.add(BooleanSwitchConfig(key = ConfigKeys.ENABLE_THINKING, defaultValue = false))
+  }
+  if (supportSpeculativeDecoding) {
+    configs.add(
+      BooleanSwitchConfig(key = ConfigKeys.ENABLE_SPECULATIVE_DECODING, defaultValue = false)
+    )
   }
   return configs
 }
