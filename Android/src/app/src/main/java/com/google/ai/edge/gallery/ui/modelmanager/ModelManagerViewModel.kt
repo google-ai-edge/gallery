@@ -1189,6 +1189,7 @@ constructor(
     val llmSupportTinyGarden = info.llmConfig.supportTinyGarden
     val llmSupportMobileActions = info.llmConfig.supportMobileActions
     val llmSupportThinking = info.llmConfig.supportThinking
+    val llmSupportSpeculativeDecoding = info.llmConfig.supportSpeculativeDecoding
     val configs: MutableList<Config> =
       createLlmChatConfigs(
           defaultMaxToken = llmMaxToken,
@@ -1197,8 +1198,30 @@ constructor(
           defaultTemperature = info.llmConfig.defaultTemperature,
           accelerators = accelerators,
           supportThinking = llmSupportThinking,
+          supportSpeculativeDecoding = llmSupportSpeculativeDecoding,
         )
         .toMutableList()
+    val capabilities: MutableList<ModelCapability> = mutableListOf()
+    val capabilityToTaskTypes: MutableMap<ModelCapability, List<String>> = mutableMapOf()
+    if (llmSupportThinking) {
+      capabilities.add(ModelCapability.LLM_THINKING)
+      capabilityToTaskTypes[ModelCapability.LLM_THINKING] =
+        listOf(
+          BuiltInTaskId.LLM_CHAT,
+          BuiltInTaskId.LLM_ASK_IMAGE,
+          BuiltInTaskId.LLM_ASK_AUDIO,
+        )
+    }
+    if (llmSupportSpeculativeDecoding) {
+      capabilities.add(ModelCapability.SPECULATIVE_DECODING)
+      capabilityToTaskTypes[ModelCapability.SPECULATIVE_DECODING] =
+        listOf(
+          BuiltInTaskId.LLM_CHAT,
+          BuiltInTaskId.LLM_ASK_IMAGE,
+          BuiltInTaskId.LLM_ASK_AUDIO,
+          BuiltInTaskId.LLM_PROMPT_LAB,
+        )
+    }
     val model =
       Model(
         name = info.fileName,
@@ -1213,21 +1236,8 @@ constructor(
         llmSupportAudio = llmSupportAudio,
         llmSupportTinyGarden = llmSupportTinyGarden,
         llmSupportMobileActions = llmSupportMobileActions,
-        capabilities =
-          if (llmSupportThinking) listOf(ModelCapability.LLM_THINKING) else emptyList(),
-        capabilityToTaskTypes =
-          if (llmSupportThinking) {
-            mapOf(
-              ModelCapability.LLM_THINKING to
-                listOf(
-                  BuiltInTaskId.LLM_CHAT,
-                  BuiltInTaskId.LLM_ASK_IMAGE,
-                  BuiltInTaskId.LLM_ASK_AUDIO,
-                )
-            )
-          } else {
-            emptyMap()
-          },
+        capabilities = capabilities.toList(),
+        capabilityToTaskTypes = capabilityToTaskTypes.toMap(),
         llmMaxToken = llmMaxToken,
         accelerators = accelerators,
         // We assume all imported models are LLM for now.
