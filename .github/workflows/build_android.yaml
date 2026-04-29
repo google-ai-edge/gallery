@@ -1,4 +1,4 @@
-Name: Build Android APK
+name: Build Android APK
 
 on:
   workflow_dispatch:
@@ -31,12 +31,10 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-          # 启用缓存以加快后续编译速度
           cache: 'gradle'
 
       - name: Build with Gradle
-        # 核心修复点：添加 --no-daemon 参数
-        # 这样每次编译都会启动全新的 JVM 进程，彻底避免 AgpDecorated_Decorated 类加载冲突
+        # 使用 --no-daemon 彻底解决 ClassCastException 类加载冲突
         run: ./gradlew clean assembleRelease --no-daemon
 
       - name: Upload APK
