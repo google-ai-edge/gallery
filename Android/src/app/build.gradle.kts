@@ -68,12 +68,19 @@ android {
         buildConfig = true
     }
 
-    // 终极修复方案：撤掉 resources {} 闭包，改用直接调用方法。
-    // 这是绕过 ClassCastException 最彻底的方法，因为它不再依赖 Gradle 内部的装饰器转换。
-    packagingOptions {
-        exclude("/META-INF/{AL2.0,LGPL2.1}")
-        exclude("/META-INF/INDEX.LIST")
-        exclude("/META-INF/io.netty.versions.properties")
+    // ✅ AGP 8.x 正确的新语法 —— 替换掉了过时的 packagingOptions
+    packaging {
+        resources {
+            excludes += listOf(
+                "/META-INF/{AL2.0,LGPL2.1}",
+                "/META-INF/INDEX.LIST",
+                "/META-INF/io.netty.versions.properties"
+            )
+        }
+        // 项目包含原生库（例如 litertlm），开启旧版打包避免 .so 冲突
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 }
 
@@ -154,4 +161,3 @@ protobuf {
         }
     }
 }
-
