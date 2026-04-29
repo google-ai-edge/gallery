@@ -1,4 +1,4 @@
-name: build Android APK
+name: Build Android APK
 
 on:
   workflow_dispatch:
@@ -17,26 +17,21 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      # 增加 Gradle 内存设置，确保在 no-daemon 模式下运行稳定
-      GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g"
+      GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=2G"'
     defaults:
       run:
         working-directory: ./Android/src
     steps:
       - name: Checkout the source code
         uses: actions/checkout@v4
-        
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
           cache: 'gradle'
-
       - name: Build with Gradle
-        # 使用 --no-daemon 彻底解决 ClassCastException 类加载冲突
         run: ./gradlew clean assembleRelease --no-daemon
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
