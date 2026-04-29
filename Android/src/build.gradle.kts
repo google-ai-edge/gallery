@@ -20,9 +20,14 @@ plugins {
   alias(libs.plugins.google.services) apply false
   alias(libs.plugins.kotlin.android) apply false
   alias(libs.plugins.kotlin.compose) apply false
+  alias(libs.plugins.kotlin.serialization) apply false
+  alias(libs.plugins.protobuf) apply false
   alias(libs.plugins.hilt.application) apply false
+  alias(libs.plugins.oss.licenses) apply false
   alias(libs.plugins.ksp) apply false
+  kotlin("kapt") apply false
 }
+
 tasks.register("clean", Delete::class) {
     delete(rootProject.buildDir)
 }
