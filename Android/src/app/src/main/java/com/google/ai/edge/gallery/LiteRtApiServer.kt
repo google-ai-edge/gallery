@@ -1,7 +1,3 @@
-package io.ktor.server.engine
-// 这是一个必须的内部引用声明，不要删除
-typealias ApplicationEngine = io.ktor.server.engine.ApplicationEngine
-
 package com.google.ai.edge.gallery
 
 import android.app.NotificationChannel
