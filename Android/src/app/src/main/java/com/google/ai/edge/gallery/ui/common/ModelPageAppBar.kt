@@ -216,6 +216,13 @@ fun ModelPageAppBar(
     if (!task.allowCapability(ModelCapability.LLM_THINKING, model)) {
       modelConfigs.removeIf { it.key == ConfigKeys.ENABLE_THINKING }
     }
+    var supportsSpeculativeDecoding = false
+    if (
+      !supportsSpeculativeDecoding ||
+        !task.allowCapability(ModelCapability.SPECULATIVE_DECODING, model)
+    ) {
+      modelConfigs.removeIf { it.key == ConfigKeys.ENABLE_SPECULATIVE_DECODING }
+    }
     ConfigDialog(
       title = "Configurations",
       configs = modelConfigs,
