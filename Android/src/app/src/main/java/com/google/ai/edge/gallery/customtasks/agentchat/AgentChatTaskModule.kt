@@ -81,6 +81,7 @@ class AgentChatTask @Inject constructor() : CustomTask {
       LlmChatModelHelper.initialize(
         context = context,
         model = model,
+        taskId = task.id,
         supportImage = true,
         supportAudio = true,
         onDone = onDone,
