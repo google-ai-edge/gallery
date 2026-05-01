@@ -29,7 +29,9 @@ import com.google.ai.edge.gallery.proto.LlmBenchmarkStats
 import com.google.ai.edge.gallery.proto.ValueSeries
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.ExperimentalApi
+import com.google.ai.edge.litertlm.PerformanceMode
 import com.google.ai.edge.litertlm.benchmark
+import com.google.ai.edge.litertlm.setPerformanceMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -140,30 +142,41 @@ constructor(
           else -> Backend.CPU()
         }
       val modelPath = model.getPath(context = appContext)
-      for (i in 0 until runCount) {
-        Log.d(TAG, "Start running #$i...")
-        val benchmarkInfo =
-          benchmark(
-            modelPath = modelPath,
-            backend = backend,
-            prefillTokens = prefillTokens,
-            decodeTokens = decodeTokens,
-            cacheDir = cacheDirPath,
-          )
-        Log.d(TAG, "Done #$i")
 
-        val initTimeMs = benchmarkInfo.initTimeInSecond * 1000.0
-        if (i == 0) {
-          firstInitTime = initTimeMs
-        } else {
-          nonFirstInitTimes.add(initTimeMs)
+      try {
+        setPerformanceMode(PerformanceMode.SUSTAINED_PERFORMANCE)
+        for (i in 0 until runCount) {
+          Log.d(TAG, "Start running #$i...")
+          val runStartTimeNanos = System.nanoTime()
+
+          val benchmarkInfo =
+            benchmark(
+              modelPath = modelPath,
+              backend = backend,
+              prefillTokens = prefillTokens,
+              decodeTokens = decodeTokens,
+              cacheDir = cacheDirPath,
+            )
+
+          val executionDurationNanos = System.nanoTime() - runStartTimeNanos
+          Log.d(TAG, "Done #$i (duration: ${executionDurationNanos / 1_000_000L}ms)")
+
+          val initTimeMs = benchmarkInfo.initTimeInSecond * 1000.0
+          if (i == 0) {
+            firstInitTime = initTimeMs
+          } else {
+            nonFirstInitTimes.add(initTimeMs)
+          }
+          prefillSpeeds.add(benchmarkInfo.lastPrefillTokensPerSecond)
+          decodeSpeeds.add(benchmarkInfo.lastDecodeTokensPerSecond)
+          timesToFirstToken.add(benchmarkInfo.timeToFirstTokenInSecond)
+
+          // Mark finish for this run.
+          setRunProgress(completedRunCount = i + 1)
         }
-        prefillSpeeds.add(benchmarkInfo.lastPrefillTokensPerSecond)
-        decodeSpeeds.add(benchmarkInfo.lastDecodeTokensPerSecond)
-        timesToFirstToken.add(benchmarkInfo.timeToFirstTokenInSecond)
-
-        // Mark finish for this run.
-        setRunProgress(completedRunCount = i + 1)
+      } finally {
+        setPerformanceMode(PerformanceMode.BALANCED)
+        Log.d(TAG, "Restored performance mode to original state.")
       }
       val endMs = System.currentTimeMillis()
       if (needCleanUpCacheDir) {
