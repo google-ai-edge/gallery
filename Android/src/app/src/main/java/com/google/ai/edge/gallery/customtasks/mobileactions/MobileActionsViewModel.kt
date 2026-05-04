@@ -27,6 +27,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.gallery.ui.llmchat.LlmModelInstance
@@ -211,6 +212,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
           LlmChatModelHelper.initialize(
             context = context,
             model = model,
+            taskId = BuiltInTaskId.LLM_MOBILE_ACTIONS,
             supportImage = false,
             supportAudio = false,
             onDone = { error ->
