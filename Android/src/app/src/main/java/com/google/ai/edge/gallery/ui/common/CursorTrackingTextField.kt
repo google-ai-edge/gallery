@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.google.ai.edge.gallery.customtasks.agentchat
+package com.google.ai.edge.gallery.ui.common
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -37,27 +37,36 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.coerceIn
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
+/**
+ * A [BasicTextField] that automatically tracks the cursor position and ensures it remains visible
+ * within the scrollable area, especially useful for multi-line text fields.
+ */
 @Composable
 fun CursorTrackingTextField(
-  @StringRes labelResId: Int? = null,
-  @StringRes supportingTextResId: Int? = null,
   initialValue: String,
   onValueChange: (String) -> Unit,
   modifier: Modifier = Modifier,
+  @StringRes labelResId: Int? = null,
+  @StringRes supportingTextResId: Int? = null,
+  @StringRes placeholderResId: Int? = null,
   enabled: Boolean = true,
   minLines: Int = 1,
   extraOffset: Dp = 56.dp,
   monoFont: Boolean = false,
   extraBottomComposable: @Composable () -> Unit = {},
+  trailingIcon: @Composable () -> Unit = {},
 ) {
   val interactionSource = remember { MutableInteractionSource() }
   var textFieldValue by remember { mutableStateOf(TextFieldValue(initialValue)) }
@@ -119,9 +128,31 @@ fun CursorTrackingTextField(
         innerTextField = innerTextField,
         enabled = true,
         singleLine = false,
+        placeholder =
+          if (placeholderResId != null) {
+            {
+              Text(
+                text =
+                  buildAnnotatedString {
+                    withStyle(
+                      style = SpanStyle(fontSize = MaterialTheme.typography.bodyMedium.fontSize)
+                    ) {
+                      append(stringResource(placeholderResId))
+                    }
+                  }
+              )
+            }
+          } else {
+            null
+          },
         visualTransformation = VisualTransformation.None,
         interactionSource = interactionSource,
-        label = { if (labelResId != null) Text(stringResource(labelResId)) },
+        label =
+          if (labelResId != null) {
+            { Text(stringResource(labelResId)) }
+          } else {
+            null
+          },
         supportingText = {
           if (supportingTextResId != null) {
             Column() {
@@ -130,6 +161,7 @@ fun CursorTrackingTextField(
             }
           }
         },
+        trailingIcon = trailingIcon,
         // The ContainerBox draws the actual border/outline
         container = {
           OutlinedTextFieldDefaults.Container(
