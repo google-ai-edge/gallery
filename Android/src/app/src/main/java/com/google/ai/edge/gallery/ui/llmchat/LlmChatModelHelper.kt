@@ -28,6 +28,7 @@ import com.google.ai.edge.gallery.data.DEFAULT_TOPK
 import com.google.ai.edge.gallery.data.DEFAULT_TOPP
 import com.google.ai.edge.gallery.data.DEFAULT_VISION_ACCELERATOR
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.ModelCapability
 import com.google.ai.edge.gallery.runtime.CleanUpListener
 import com.google.ai.edge.gallery.runtime.LlmModelHelper
 import com.google.ai.edge.gallery.runtime.ResultListener
@@ -60,6 +61,7 @@ object LlmChatModelHelper : LlmModelHelper {
   override fun initialize(
     context: Context,
     model: Model,
+    taskId: String,
     supportImage: Boolean,
     supportAudio: Boolean,
     onDone: (String) -> Unit,
@@ -120,10 +122,29 @@ object LlmChatModelHelper : LlmModelHelper {
           else null,
       )
 
+    // Check if the model file supports speculative decoding.
+    var supportsSpeculativeDecoding = false
     // Create an instance of LiteRT LM engine and conversation.
     try {
+      var speculativeDecoding = false
+      // Check if the model supports speculative decoding for the given task type and if the
+      // speculative decoding is enabled in the settings.
+      if (
+        supportsSpeculativeDecoding &&
+          model.capabilityToTaskTypes[ModelCapability.SPECULATIVE_DECODING]?.contains(taskId) ==
+            true
+      ) {
+        speculativeDecoding =
+          model.getBooleanConfigValue(
+            key = ConfigKeys.ENABLE_SPECULATIVE_DECODING,
+            defaultValue = false,
+          )
+      }
+      ExperimentalFlags.enableSpeculativeDecoding = speculativeDecoding
+      Log.d(TAG, "Speculative decoding enabled: $speculativeDecoding")
       val engine = Engine(engineConfig)
       engine.initialize()
+      ExperimentalFlags.enableSpeculativeDecoding = false
 
       ExperimentalFlags.enableConversationConstrainedDecoding =
         enableConversationConstrainedDecoding
