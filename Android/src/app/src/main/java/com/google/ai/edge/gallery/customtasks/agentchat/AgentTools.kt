@@ -37,7 +37,7 @@ import kotlinx.coroutines.runBlocking
 
 private const val TAG = "AGAgentTools"
 
-class AgentTools() : ToolSet {
+open class AgentTools() : ToolSet {
   lateinit var context: Context
   lateinit var skillManagerViewModel: SkillManagerViewModel
 
