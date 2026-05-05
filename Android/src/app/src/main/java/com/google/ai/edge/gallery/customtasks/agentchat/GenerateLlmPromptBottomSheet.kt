@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.ui.common.CursorTrackingTextField
 import kotlinx.coroutines.launch
 
 private val PROMPT_TEMPLATE =
