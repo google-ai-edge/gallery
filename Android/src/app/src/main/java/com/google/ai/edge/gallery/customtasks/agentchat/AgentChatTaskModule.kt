@@ -26,6 +26,7 @@ import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
+import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.tool
 import dagger.Module
 import dagger.Provides
@@ -75,8 +76,10 @@ class AgentChatTask @Inject constructor() : CustomTask {
     context: Context,
     coroutineScope: CoroutineScope,
     model: Model,
+    systemInstruction: Contents?,
     onDone: (String) -> Unit,
   ) {
+    val systemPrompt = systemInstruction?.toString() ?: task.defaultSystemPrompt
     agentTools.skillManagerViewModel.loadSkills {
       LlmChatModelHelper.initialize(
         context = context,
@@ -85,12 +88,7 @@ class AgentChatTask @Inject constructor() : CustomTask {
         supportImage = true,
         supportAudio = true,
         onDone = onDone,
-        systemInstruction =
-          if (agentTools.skillManagerViewModel.getSelectedSkills().isEmpty()) {
-            null
-          } else {
-            agentTools.skillManagerViewModel.getSystemPrompt(task.defaultSystemPrompt)
-          },
+        systemInstruction = agentTools.skillManagerViewModel.injectSkills(systemPrompt),
         tools = listOf(tool(agentTools)),
         enableConversationConstrainedDecoding = true,
       )

@@ -20,6 +20,7 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.litertlm.Contents
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -67,13 +68,15 @@ interface CustomTask {
   val task: Task
 
   /**
-   * Called to initialize and prepare a model for use.
+   * Called to initialize and prepare a model for use with an optional system instruction.
    *
    * This function will be called from a coroutine with Dispatchers.Default dispatcher.
    *
    * @param context The application context.
    * @param coroutineScope The coroutine scope for asynchronous operations.
    * @param model The `Model` object containing information about the model to be initialized.
+   * @param systemInstruction The optional system instruction to be used by the model, or `null` if
+   *   no system instruction is needed.
    * @param onDone A callback function to be invoked when initialization is complete. Pass an empty
    *   string on success, or an error message on failure.
    */
@@ -81,6 +84,7 @@ interface CustomTask {
     context: Context,
     coroutineScope: CoroutineScope,
     model: Model,
+    systemInstruction: Contents?,
     onDone: (error: String) -> Unit,
   )
 

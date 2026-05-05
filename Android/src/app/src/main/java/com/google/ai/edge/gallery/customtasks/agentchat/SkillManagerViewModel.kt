@@ -740,20 +740,21 @@ constructor(
     return _uiState.value.skills.filter { it.skill.selected }.map { it.skill }
   }
 
-  fun getSystemPrompt(baseSystemPrompt: String): Contents {
+  fun injectSkills(baseSystemPrompt: String): Contents {
     // Replace ___SKILLS___ with the following skills list:
     //
-    // # Skill name: skill_name_1
-    // ##Description: skill_description_1
-    // ------
-    // Skill name: skill_name_2
-    // Description: skill_description_2
-    // ------
-    // Skill name: skill_name_3
-    // Description: skill_description_3
-    // ------
+    // - skill_name_1: skill_description_1
+    // - skill_name_2: skill_description_2
+    // - skill_name_3: skill_description_3
     val selectedSkillsNamesAndDescriptions = getSelectedSkillsNamesAndDescriptions()
-    val systemPrompt = baseSystemPrompt.replace("___SKILLS___", selectedSkillsNamesAndDescriptions)
+    val systemPrompt =
+      if (selectedSkillsNamesAndDescriptions.isBlank()) {
+        // If no skills are selected, silently discard the system prompt entirely.
+        // TODO: b/509944016 - Improve this fallback behavior.
+        ""
+      } else {
+        baseSystemPrompt.replace("___SKILLS___", selectedSkillsNamesAndDescriptions)
+      }
     Log.d(TAG, "System prompt:\n$systemPrompt")
     return Contents.of(systemPrompt)
   }

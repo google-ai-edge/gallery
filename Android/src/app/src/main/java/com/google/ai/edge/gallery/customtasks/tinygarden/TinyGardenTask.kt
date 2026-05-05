@@ -97,12 +97,14 @@ class TinyGardenTask @Inject constructor() : CustomTask {
       models = mutableListOf(),
       handleModelConfigChangesInTask = true,
       experimental = true,
+      defaultSystemPrompt = SYSTEM_PROMPT,
     )
 
   override fun initializeModelFn(
     context: Context,
     coroutineScope: CoroutineScope,
     model: Model,
+    systemInstruction: Contents?,
     onDone: (String) -> Unit,
   ) {
     clearQueue()
