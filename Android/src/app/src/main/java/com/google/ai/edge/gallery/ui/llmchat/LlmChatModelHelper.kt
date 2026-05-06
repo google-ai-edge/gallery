@@ -143,6 +143,7 @@ object LlmChatModelHelper : LlmModelHelper {
       ExperimentalFlags.enableSpeculativeDecoding = speculativeDecoding
       Log.d(TAG, "Speculative decoding enabled: $speculativeDecoding")
       val engine = Engine(engineConfig)
+      ExperimentalFlags.enableSpeculativeDecoding = false
       engine.initialize()
       ExperimentalFlags.enableSpeculativeDecoding = false
 
