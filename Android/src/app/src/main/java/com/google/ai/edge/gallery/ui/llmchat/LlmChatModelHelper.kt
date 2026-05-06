@@ -124,6 +124,14 @@ object LlmChatModelHelper : LlmModelHelper {
 
     // Check if the model file supports speculative decoding.
     var supportsSpeculativeDecoding = false
+    // Check if the model file supports speculative decoding.
+    try {
+      com.google.ai.edge.litertlm.Capabilities(modelPath).use {
+        supportsSpeculativeDecoding = it.hasSpeculativeDecodingSupport()
+      }
+    } catch (e: Exception) {
+      // Ignore exceptions and assume not supported.
+    }
     // Create an instance of LiteRT LM engine and conversation.
     try {
       var speculativeDecoding = false

@@ -218,6 +218,14 @@ fun ModelPageAppBar(
       modelConfigs.removeIf { it.key == ConfigKeys.ENABLE_THINKING }
     }
     var supportsSpeculativeDecoding = false
+    // Check if the model file supports speculative decoding.
+    try {
+      com.google.ai.edge.litertlm.Capabilities(model.getPath(context)).use {
+        supportsSpeculativeDecoding = it.hasSpeculativeDecodingSupport()
+      }
+    } catch (e: Exception) {
+      // Ignore exceptions and assume not supported.
+    }
     if (
       !supportsSpeculativeDecoding ||
         !task.allowCapability(ModelCapability.SPECULATIVE_DECODING, model)
