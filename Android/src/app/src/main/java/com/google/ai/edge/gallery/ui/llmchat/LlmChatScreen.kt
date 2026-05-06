@@ -51,6 +51,7 @@ import com.google.ai.edge.gallery.ui.common.chat.SendMessageTrigger
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.emptyStateContent
 import com.google.ai.edge.gallery.ui.theme.emptyStateTitle
+import com.google.ai.edge.litertlm.Contents
 
 private const val TAG = "AGLlmChatScreen"
 
@@ -103,6 +104,9 @@ fun LlmAskImageScreen(
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
   viewModel: LlmAskImageViewModel = hiltViewModel(),
+  allowEditingSystemPrompt: Boolean = false,
+  curSystemPrompt: String = "",
+  onSystemPromptChanged: (String) -> Unit = {},
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -110,6 +114,9 @@ fun LlmAskImageScreen(
     taskId = BuiltInTaskId.LLM_ASK_IMAGE,
     navigateUp = navigateUp,
     modifier = modifier,
+    allowEditingSystemPrompt = allowEditingSystemPrompt,
+    curSystemPrompt = curSystemPrompt,
+    onSystemPromptChanged = onSystemPromptChanged,
     showImagePicker = true,
     showAudioPicker = false,
     emptyStateComposable = { model ->
@@ -122,8 +129,11 @@ fun LlmAskImageScreen(
         ) {
           Text(stringResource(R.string.askimage_emptystate_title), style = emptyStateTitle)
           val contentRes =
-            if (model.runtimeType == RuntimeType.AICORE) R.string.askimage_emptystate_content_aicore
-            else R.string.askimage_emptystate_content
+            if (model.runtimeType == RuntimeType.AICORE) {
+              R.string.askimage_emptystate_content_aicore
+            } else {
+              R.string.askimage_emptystate_content
+            }
           Text(
             stringResource(contentRes),
             style = emptyStateContent,
@@ -142,6 +152,9 @@ fun LlmAskAudioScreen(
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
   viewModel: LlmAskAudioViewModel = hiltViewModel(),
+  allowEditingSystemPrompt: Boolean = false,
+  curSystemPrompt: String = "",
+  onSystemPromptChanged: (String) -> Unit = {},
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -149,6 +162,9 @@ fun LlmAskAudioScreen(
     taskId = BuiltInTaskId.LLM_ASK_AUDIO,
     navigateUp = navigateUp,
     modifier = modifier,
+    allowEditingSystemPrompt = allowEditingSystemPrompt,
+    curSystemPrompt = curSystemPrompt,
+    onSystemPromptChanged = onSystemPromptChanged,
     showImagePicker = false,
     showAudioPicker = true,
     emptyStateComposable = {
@@ -288,6 +304,7 @@ fun ChatViewWrapper(
         viewModel.resetSession(
           task = task,
           model = model,
+          systemInstruction = Contents.of(curSystemPrompt),
           supportImage = showImagePicker,
           supportAudio = showAudioPicker,
         )

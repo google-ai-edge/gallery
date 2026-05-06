@@ -86,7 +86,6 @@ import com.google.ai.edge.gallery.ui.common.GalleryWebView
 import com.google.ai.edge.gallery.ui.common.buildTrackableUrlAnnotatedString
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageCollapsableProgressPanel
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
-import com.google.ai.edge.gallery.ui.common.chat.ChatMessageInfo
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageType
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageWebView
@@ -136,6 +135,9 @@ fun AgentChatScreen(
   var sendMessageTrigger by remember { mutableStateOf<SendMessageTrigger?>(null) }
   var showAlertForDisabledSkill by remember { mutableStateOf(false) }
   var disabledSkillName by remember { mutableStateOf("") }
+  LaunchedEffect(task) { viewModel.loadSystemPrompt(task) }
+  val uiSystemPrompt by viewModel.uiSystemPrompt.collectAsState()
+  LaunchedEffect(uiSystemPrompt) { curSystemPrompt = uiSystemPrompt }
 
   LlmChatScreen(
     modelManagerViewModel = modelManagerViewModel,
@@ -384,19 +386,11 @@ fun AgentChatScreen(
     curSystemPrompt = curSystemPrompt,
     onSystemPromptChanged = { newPrompt ->
       curSystemPrompt = newPrompt
-      resetSessionWithCurrentSkills(
-        viewModel,
-        modelManagerViewModel,
-        skillManagerViewModel,
-        task,
-        curSystemPrompt,
-        agentTools,
-        onDone = { model ->
-          viewModel.addMessage(
-            model = model,
-            message = ChatMessageInfo(content = systemPromptUpdatedMessage),
-          )
-        },
+      viewModel.applySystemPromptChange(
+        task = task,
+        model = modelManagerViewModel.uiState.value.selectedModel,
+        newPrompt = newPrompt,
+        systemPromptUpdatedMessage = systemPromptUpdatedMessage,
       )
     },
     emptyStateComposable = { model ->
@@ -604,13 +598,10 @@ private fun resetSessionWithCurrentSkills(
   onDone: (Model) -> Unit = {},
 ) {
   val model = modelManagerViewModel.uiState.value.selectedModel
-  val newSelectedSkills = skillManagerViewModel.getSelectedSkills()
   viewModel.resetSession(
     task = task,
     model = model,
-    systemInstruction =
-      if (newSelectedSkills.isEmpty()) null
-      else skillManagerViewModel.injectSkills(curSystemPrompt),
+    systemInstruction = skillManagerViewModel.injectSkills(curSystemPrompt),
     tools = listOf(tool(agentTools)),
     supportImage = true,
     supportAudio = true,
