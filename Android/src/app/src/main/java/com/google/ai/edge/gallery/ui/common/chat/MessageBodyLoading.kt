@@ -68,7 +68,7 @@ fun MessageBodyLoading(message: ChatMessageLoading? = null) {
     verticalAlignment = Alignment.CenterVertically,
     modifier = Modifier.fillMaxWidth(),
   ) {
-    RotationalLoader(size = 32.dp)
+    RotationalLoader(size = 24.dp)
 
     if (message?.extraProgressLabel?.isNotEmpty() == true) {
       AnimatedContent(

@@ -16,9 +16,6 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
-// import com.google.ai.edge.gallery.ui.theme.GalleryTheme
-// import androidx.compose.ui.tooling.preview.Preview
-
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
@@ -31,42 +28,49 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.ui.common.BufferedFadingMarkdownText
 import com.google.ai.edge.gallery.ui.common.MarkdownText
 
 /** Composable function to display the text content of a ChatMessageText. */
 @Composable
-fun MessageBodyText(message: ChatMessageText, inProgress: Boolean) {
-  SelectionContainer {
-    if (message.side == ChatSide.USER) {
+fun MessageBodyText(message: ChatMessageText, inProgress: Boolean, horizontalPadding: Dp = 12.dp) {
+  if (message.side == ChatSide.USER) {
+    SelectionContainer {
       MarkdownText(
         text = message.content,
-        modifier = Modifier.padding(12.dp),
+        modifier = Modifier.padding(vertical = 12.dp).padding(horizontal = horizontalPadding),
         textColor = Color.White,
         linkColor = Color.White,
       )
-    } else if (message.side == ChatSide.AGENT) {
-      val cdResponse = stringResource(R.string.cd_model_response_text)
-      if (message.isMarkdown) {
-        MarkdownText(
-          text = message.content,
-          modifier =
-            Modifier.padding(12.dp).semantics(mergeDescendants = true) {
-              contentDescription = cdResponse
-              // Only announce when message is complete.
-              if (!inProgress) {
-                liveRegion = LiveRegionMode.Polite
-              }
-            },
-        )
-      } else {
+    }
+  } else if (message.side == ChatSide.AGENT) {
+    val cdResponse = stringResource(R.string.cd_model_response_text)
+    if (message.isMarkdown) {
+      BufferedFadingMarkdownText(
+        text = message.content,
+        inProgress = inProgress,
+        modifier =
+          Modifier.padding(vertical = 12.dp).padding(horizontal = horizontalPadding).semantics(
+            mergeDescendants = true
+          ) {
+            contentDescription = cdResponse
+            // Only announce when message is complete.
+            if (!inProgress) {
+              liveRegion = LiveRegionMode.Polite
+            }
+          },
+      )
+    } else {
+      SelectionContainer {
         Text(
           message.content,
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurface,
           modifier =
-            Modifier.padding(12.dp).semantics {
+            Modifier.padding(vertical = 12.dp).padding(horizontal = horizontalPadding).semantics {
               contentDescription = cdResponse
               // Only announce when message is complete.
               if (!inProgress) {
@@ -78,20 +82,3 @@ fun MessageBodyText(message: ChatMessageText, inProgress: Boolean) {
     }
   }
 }
-
-// @Preview(showBackground = true)
-// @Composable
-// fun MessageBodyTextPreview() {
-//   GalleryTheme {
-//     Column {
-//       Row(modifier = Modifier.padding(16.dp).background(MaterialTheme.colorScheme.primary)) {
-//         MessageBodyText(ChatMessageText(content = "Hello world", side = ChatSide.USER))
-//       }
-//       Row(
-//         modifier = Modifier.padding(16.dp).background(MaterialTheme.colorScheme.surfaceContainer)
-//       ) {
-//         MessageBodyText(ChatMessageText(content = "yes hello world", side = ChatSide.AGENT))
-//       }
-//     }
-//   }
-// }

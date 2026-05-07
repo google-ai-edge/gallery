@@ -421,6 +421,8 @@
   <string name="cd_help">Help</string>
   <!-- Content description spoken when the "menu" icon is focused. [CHAR_LIMIT=NONE] -->
   <string name="cd_menu">Menu</string>
+  <!-- Content description spoken when the "scroll to bottom" button is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_scroll_to_bottom">Scroll to bottom</string>
   <!-- Content description spoken when the "chat history" icon is focused. [CHAR_LIMIT=NONE] -->
   <string name="cd_chat_history">Chat history</string>
 

@@ -18,11 +18,14 @@ package com.google.ai.edge.gallery.ui.llmsingleturn
 
 import android.content.ClipData
 import android.util.Log
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
@@ -42,9 +45,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -60,9 +65,12 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.ui.common.MarkdownText
+import com.google.ai.edge.gallery.ui.common.BufferedFadingMarkdownText
+import com.google.ai.edge.gallery.ui.common.ScrollToBottomButton
 import com.google.ai.edge.gallery.ui.common.chat.MessageBodyLoading
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGResponsePanel"
@@ -117,13 +125,6 @@ fun ResponsePanel(
     val response =
       uiState.responsesByModel[curPageModel.name]?.get(selectedPromptTemplateType.label) ?: ""
 
-    // Scroll to bottom when response changes.
-    LaunchedEffect(response) {
-      if (inProgress && responseScrollState.maxValue - responseScrollState.value < 80) {
-        responseScrollState.animateScrollTo(1000000)
-      }
-    }
-
     if (initializing) {
       Box(
         contentAlignment = Alignment.TopStart,
@@ -148,12 +149,32 @@ fun ResponsePanel(
       }
       // Response markdown.
       else {
+        // Stores if the list is at the scrollable area's bottom.
+        //
+        // It will only be updated when the state holds for at least 500ms to improve user
+        // experience.
+        var isAtBottom by remember { mutableStateOf(true) }
+        LaunchedEffect(responseScrollState) {
+          snapshotFlow {
+              // Read the raw scroll state here
+              !responseScrollState.canScrollForward
+            }
+            .collectLatest { rawAtBottom ->
+              if (!rawAtBottom) {
+                delay(500)
+              }
+              // Update the actual state that drives your AnimatedVisibility
+              isAtBottom = rawAtBottom
+            }
+        }
+
         Column(modifier = modifier.padding(horizontal = 16.dp).padding(bottom = 4.dp)) {
           if (selectedOptionIndex == 0) {
             Box(contentAlignment = Alignment.BottomEnd, modifier = Modifier.weight(1f)) {
               Column(modifier = Modifier.fillMaxSize().verticalScroll(responseScrollState)) {
-                MarkdownText(
+                BufferedFadingMarkdownText(
                   text = response,
+                  inProgress = uiState.inProgress,
                   modifier =
                     Modifier.padding(top = 8.dp, bottom = 40.dp).semantics {
                       // Only announce when message is complete.
@@ -182,6 +203,27 @@ fun ResponsePanel(
                   Icons.Outlined.ContentCopy,
                   contentDescription = stringResource(R.string.cd_copy_to_clipboard_icon),
                   modifier = Modifier.size(20.dp),
+                )
+              }
+
+              // "Scroll to bottom" button, only shown when the list is not at the bottom.
+              Column(
+                modifier =
+                  Modifier.align(alignment = Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(bottom = 0.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+              ) {
+                ScrollToBottomButton(
+                  isAtBottom = isAtBottom,
+                  onClick = {
+                    scope.launch {
+                      responseScrollState.animateScrollTo(
+                        responseScrollState.maxValue,
+                        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+                      )
+                    }
+                  },
                 )
               }
             }
