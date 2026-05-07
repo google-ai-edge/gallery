@@ -84,6 +84,10 @@
 -keep class net.openid.appauth.** { *; }
 -dontwarn net.openid.appauth.**
 
+# --- Updraft SDK (in-app update + feedback) ---
+-keep class com.appswithlove.updraft.** { *; }
+-dontwarn com.appswithlove.updraft.**
+
 # --- WorkManager ---
 -keep class * extends androidx.work.ListenableWorker {
     public <init>(android.content.Context, androidx.work.WorkerParameters);

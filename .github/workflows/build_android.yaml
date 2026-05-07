@@ -36,6 +36,8 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          UPDRAFT_APP_KEY: ${{ secrets.UPDRAFT_APP_KEY }}
+          UPDRAFT_SDK_KEY: ${{ secrets.UPDRAFT_SDK_KEY }}
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4

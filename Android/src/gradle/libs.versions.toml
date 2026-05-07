@@ -45,6 +45,7 @@ material3Expressive = "1.5.0-alpha02"
 documentfile = "1.0.1"
 guava = "33.3.1-android"
 appfunctions = "1.0.0-alpha08"
+updraftSdk = "1.1.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -105,6 +106,7 @@ guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 androidx-appfunctions = { group = "androidx.appfunctions", name = "appfunctions", version.ref = "appfunctions" }
 androidx-appfunctions-service = { group = "androidx.appfunctions", name = "appfunctions-service", version.ref = "appfunctions" }
 androidx-appfunctions-compiler = { group = "androidx.appfunctions", name = "appfunctions-compiler", version.ref = "appfunctions" }
+updraft-sdk = { group = "com.appswithlove.updraft", name = "updraft-sdk", version.ref = "updraftSdk" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

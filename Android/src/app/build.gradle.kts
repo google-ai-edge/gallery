@@ -53,6 +53,11 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
     buildConfigField("String", "HF_TOKEN", "\"${localProperties.getProperty("hf.token", "")}\"")
+
+    // Updraft SDK keys are injected via env vars (CI secrets). Empty when building locally,
+    // which disables the in-app update check at runtime.
+    buildConfigField("String", "UPDRAFT_APP_KEY", "\"${System.getenv("UPDRAFT_APP_KEY") ?: ""}\"")
+    buildConfigField("String", "UPDRAFT_SDK_KEY", "\"${System.getenv("UPDRAFT_SDK_KEY") ?: ""}\"")
   }
 
   signingConfigs {
@@ -139,6 +144,7 @@ dependencies {
   implementation(libs.guava)
   implementation(libs.androidx.appfunctions)
   implementation(libs.androidx.appfunctions.service)
+  implementation(libs.updraft.sdk)
   ksp(libs.androidx.appfunctions.compiler)
   ksp(libs.room.compiler)
   ksp(libs.hilt.android.compiler)

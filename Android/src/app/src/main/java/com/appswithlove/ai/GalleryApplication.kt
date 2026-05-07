@@ -24,6 +24,8 @@ import com.appswithlove.ai.customtasks.insurancecard.InsuranceCardAppFunction
 import com.appswithlove.ai.data.DataStoreRepository
 import com.appswithlove.ai.ui.theme.LocaleSettings
 import com.appswithlove.ai.ui.theme.ThemeSettings
+import com.appswithlove.updraft.Settings
+import com.appswithlove.updraft.Updraft
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 import javax.inject.Provider
@@ -49,5 +51,23 @@ class GalleryApplication : Application(), AppFunctionConfiguration.Provider {
     LocaleSettings.languageTag.value = dataStoreRepository.readLanguageTag()
 
     JournalSummarizationWorker.schedule(this)
+
+    initUpdraft()
+  }
+
+  private fun initUpdraft() {
+    val appKey = BuildConfig.UPDRAFT_APP_KEY
+    val sdkKey = BuildConfig.UPDRAFT_SDK_KEY
+    if (appKey.isEmpty() || sdkKey.isEmpty()) return
+
+    val settings = Settings().apply {
+      this.appKey = appKey
+      this.sdkKey = sdkKey
+      logLevel = Settings.LOG_LEVEL_ERROR
+      showFeedbackAlert = false
+      feedbackEnabled = false
+    }
+    Updraft.initialize(this, settings)
+    Updraft.getInstance()?.start()
   }
 }
