@@ -19,12 +19,14 @@ package com.google.ai.edge.gallery.ui.llmchat
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import androidx.datastore.core.DataStore
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.common.SystemPromptHelper
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.SystemPromptRepository
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.proto.UserData
 import com.google.ai.edge.gallery.runtime.runtimeHelper
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageError
@@ -52,8 +54,9 @@ private const val TAG = "AGLlmChatViewModel"
 
 @OptIn(ExperimentalApi::class)
 open class LlmChatViewModelBase(
-  private val systemPromptRepository: SystemPromptRepository? = null
-) : ChatViewModel() {
+  private val systemPromptRepository: SystemPromptRepository? = null,
+  userDataDataStore: DataStore<UserData>? = null,
+) : ChatViewModel(userDataDataStore) {
   private val _uiSystemPrompt = MutableStateFlow("")
   val uiSystemPrompt = _uiSystemPrompt.asStateFlow()
 
@@ -409,13 +412,25 @@ open class LlmChatViewModelBase(
 }
 
 @HiltViewModel
-class LlmChatViewModel @Inject constructor(systemPromptRepository: SystemPromptRepository) :
-  LlmChatViewModelBase(systemPromptRepository)
+class LlmChatViewModel
+@Inject
+constructor(
+  systemPromptRepository: SystemPromptRepository,
+  userDataDataStore: DataStore<UserData>,
+) : LlmChatViewModelBase(systemPromptRepository, userDataDataStore)
 
 @HiltViewModel
-class LlmAskImageViewModel @Inject constructor(systemPromptRepository: SystemPromptRepository) :
-  LlmChatViewModelBase(systemPromptRepository)
+class LlmAskImageViewModel
+@Inject
+constructor(
+  systemPromptRepository: SystemPromptRepository,
+  userDataDataStore: DataStore<UserData>,
+) : LlmChatViewModelBase(systemPromptRepository, userDataDataStore)
 
 @HiltViewModel
-class LlmAskAudioViewModel @Inject constructor(systemPromptRepository: SystemPromptRepository) :
-  LlmChatViewModelBase(systemPromptRepository)
+class LlmAskAudioViewModel
+@Inject
+constructor(
+  systemPromptRepository: SystemPromptRepository,
+  userDataDataStore: DataStore<UserData>,
+) : LlmChatViewModelBase(systemPromptRepository, userDataDataStore)
