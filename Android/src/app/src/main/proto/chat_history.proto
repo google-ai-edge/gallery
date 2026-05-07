@@ -1,0 +1,67 @@
+/* Copyright 2026 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+package com.google.ai.edge.gallery.proto;
+
+option java_package = "com.google.ai.edge.gallery.proto";
+option java_outer_classname = "ChatHistory";
+option java_multiple_files = true;
+
+// Represents the sender of a message in a chat session.
+enum ChatSideProto {
+  CHAT_SIDE_UNSPECIFIED = 0;
+  CHAT_SIDE_USER = 1;
+  CHAT_SIDE_MODEL = 2;
+  CHAT_SIDE_SYSTEM = 3;
+}
+
+// Represents a single message in a chat session.
+message ChatMessageProto {
+  // Type of message (e.g., "TEXT", "THINKING", "INFO", "WARNING", "ERROR").
+  string message_type = 1;
+  // The text or content of the message.
+  string content = 2;
+  // The sender of the message.
+  ChatSideProto side = 3;
+  // Latency in milliseconds for the model response.
+  float latency_ms = 4;
+  // Whether the message should be rendered as Markdown.
+  bool is_markdown = 5;
+  // The hardware accelerator used (e.g., "NPU", "CPU").
+  string accelerator = 6;
+  // Whether to hide the sender's label in the UI.
+  bool hide_sender_label = 7;
+  // Whether the message generation is still in progress (e.g., for thinking
+  // steps).
+  bool in_progress = 8;
+}
+
+// Represents a saved chat session containing a history of messages.
+message ChatSessionProto {
+  // Unique identifier for the session.
+  string session_id = 1;
+  // Title of the session, typically derived from the first message.
+  string title = 2;
+  // Timestamp of the session in milliseconds.
+  int64 timestamp_ms = 3;
+  // The name of the model used in this session.
+  string original_model = 4;
+  // The ID of the task associated with this session.
+  string task_id = 5;
+  // The list of messages in the session history.
+  repeated ChatMessageProto messages = 6;
+}

@@ -17,6 +17,8 @@ syntax = "proto3";
 
 package com.google.ai.edge.gallery.proto;
 
+import "chat_history.proto";
+
 option java_package = "com.google.ai.edge.gallery.proto";
 option java_multiple_files = true;
 
@@ -84,6 +86,7 @@ message Settings {
 message UserData {
   AccessTokenData access_token_data = 1;
   map<string, string> secrets = 2;
+  repeated ChatSessionProto chat_sessions = 3;
 }
 
 enum FillMode {

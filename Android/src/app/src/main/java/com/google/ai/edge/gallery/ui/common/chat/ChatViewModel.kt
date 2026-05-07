@@ -18,13 +18,26 @@ package com.google.ai.edge.gallery.ui.common.chat
 
 import android.util.Log
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.datastore.core.DataStore
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.common.processLlmResponse
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.proto.ChatMessageProto
+import com.google.ai.edge.gallery.proto.ChatSessionProto
+import com.google.ai.edge.gallery.proto.ChatSideProto
+import com.google.ai.edge.gallery.proto.UserData
+import java.util.UUID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 private const val TAG = "AGChatViewModel"
 
@@ -48,9 +61,21 @@ data class ChatUiState(
 )
 
 /** ViewModel responsible for managing the chat UI state and handling chat-related operations. */
-abstract class ChatViewModel() : ViewModel() {
+abstract class ChatViewModel(val userDataDataStore: DataStore<UserData>? = null) : ViewModel() {
+  var currentSessionId: String = UUID.randomUUID().toString()
+
   private val _uiState = MutableStateFlow(createUiState())
   val uiState = _uiState.asStateFlow()
+
+  val historySessions: StateFlow<List<ChatSessionProto>> =
+    userDataDataStore
+      ?.data
+      ?.map { userData -> userData.chatSessionsList.sortedByDescending { it.timestampMs } }
+      ?.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList(),
+      ) ?: MutableStateFlow(emptyList())
 
   fun addMessage(model: Model, message: ChatMessage) {
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
@@ -371,5 +396,113 @@ abstract class ChatViewModel() : ViewModel() {
 
   private fun createUiState(): ChatUiState {
     return ChatUiState()
+  }
+
+  /**
+   * Saves the current chat session to the data store.
+   *
+   * Extracts the first text message to use as the title, converts message models to protos, and
+   * updates the persistent storage.
+   *
+   * @param sessionId Unique identifier for the session.
+   * @param messages List of messages to save.
+   * @param originalModel The model active when the session was created.
+   * @param taskId The task associated with this session.
+   */
+  fun saveSession(
+    sessionId: String,
+    messages: List<ChatMessage>,
+    originalModel: String,
+    taskId: String,
+  ) {
+    val firstTextMessage = messages.filterIsInstance<ChatMessageText>().firstOrNull()?.content
+    val title =
+      firstTextMessage?.take(30)?.let { if (it.length == 30) "$it..." else it }
+        ?: "New Chat Session"
+
+    val protoMessages = messages.mapNotNull { msg ->
+      val builder = ChatMessageProto.newBuilder()
+      when (msg) {
+        is ChatMessageText -> {
+          builder
+            .setMessageType("TEXT")
+            .setContent(msg.content)
+            .setSide(mapChatSide(msg.side))
+            .setLatencyMs(msg.latencyMs)
+            .setAccelerator(msg.accelerator)
+            .setHideSenderLabel(msg.hideSenderLabel)
+            .setIsMarkdown(msg.isMarkdown)
+        }
+        is ChatMessageThinking -> {
+          builder
+            .setMessageType("THINKING")
+            .setContent(msg.content)
+            .setSide(mapChatSide(msg.side))
+            .setInProgress(msg.inProgress)
+            .setAccelerator(msg.accelerator)
+            .setHideSenderLabel(msg.hideSenderLabel)
+        }
+        is ChatMessageInfo -> {
+          builder.setMessageType("INFO").setContent(msg.content).setSide(mapChatSide(msg.side))
+        }
+        is ChatMessageWarning -> {
+          builder.setMessageType("WARNING").setContent(msg.content).setSide(mapChatSide(msg.side))
+        }
+        is ChatMessageError -> {
+          builder.setMessageType("ERROR").setContent(msg.content).setSide(mapChatSide(msg.side))
+        }
+        else -> return@mapNotNull null
+      }
+      builder.build()
+    }
+
+    val sessionProto =
+      ChatSessionProto.newBuilder()
+        .setSessionId(sessionId)
+        .setTitle(title)
+        .setTimestampMs(System.currentTimeMillis())
+        .setOriginalModel(originalModel)
+        .setTaskId(taskId)
+        .addAllMessages(protoMessages)
+        .build()
+
+    viewModelScope.launch(Dispatchers.IO) {
+      userDataDataStore?.updateData { userData ->
+        val currentSessions = userData.chatSessionsList.toMutableList()
+        currentSessions.removeAll { it.sessionId == sessionId }
+        currentSessions.add(sessionProto)
+        userData.toBuilder().clearChatSessions().addAllChatSessions(currentSessions).build()
+      }
+    }
+  }
+
+  /**
+   * Deletes a chat session from persistent storage by its ID.
+   *
+   * @param sessionId The ID of the session to delete.
+   */
+  fun deleteSession(sessionId: String) {
+    viewModelScope.launch(Dispatchers.IO) {
+      userDataDataStore?.updateData { userData ->
+        val currentSessions = userData.chatSessionsList.filter { it.sessionId != sessionId }
+        userData.toBuilder().clearChatSessions().addAllChatSessions(currentSessions).build()
+      }
+    }
+  }
+
+  /** Clears all saved chat sessions from persistent storage. */
+  fun clearAllSessions() {
+    viewModelScope.launch(Dispatchers.IO) {
+      userDataDataStore?.updateData { userData -> userData.toBuilder().clearChatSessions().build() }
+    }
+  }
+
+  /** Maps the domain [ChatSide] enum to its corresponding proto representation. */
+  private fun mapChatSide(side: ChatSide): ChatSideProto {
+    return when (side) {
+      ChatSide.USER -> ChatSideProto.CHAT_SIDE_USER
+      ChatSide.AGENT -> ChatSideProto.CHAT_SIDE_MODEL
+      ChatSide.SYSTEM -> ChatSideProto.CHAT_SIDE_SYSTEM
+    }
   }
 }
