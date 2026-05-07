@@ -1,7 +1,7 @@
 {
   "models": [
     {
-        "name": "gemma-4-e2b-mixed-sft-fft-litert-lm",
+        "name": "Gemma-4-E2B-it-Sunbird",
         "modelId": "yigagilbert/gemma-4-e2b-mixed-sft-fft-litert-lm",
         "modelFile": "model.litertlm",
         "commitHash": "4eabfb1",
