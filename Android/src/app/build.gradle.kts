@@ -41,8 +41,8 @@ android {
     applicationId = "com.appswithlove.ai"
     minSdk = 31
     targetSdk = 36
-    versionCode = 2
-    versionName = "1.1.0"
+    versionCode = 3
+    versionName = "1.2.0"
 
     // Needed for HuggingFace auth workflows.
     // Use the scheme of the "Redirect URLs" in HuggingFace app.

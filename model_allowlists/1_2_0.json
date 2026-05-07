@@ -1,0 +1,97 @@
+{
+  "models": [
+    {
+      "name": "Gemma-4-E2B-it",
+      "modelId": "litert-community/gemma-4-E2B-it-litert-lm",
+      "modelFile": "gemma-4-E2B-it.litertlm",
+      "commitHash": "616f4124e6ff216292f16e7f73ff33b5ba9a4dd4",
+      "description": "A variant of [Gemma 4 E2B](https://huggingface.co/google/gemma-4-E2B-it) ready for deployment on Android using [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md). Supports text, vision, and audio input with up to 32K context length.",
+      "sizeInBytes": 2583085056,
+      "minDeviceMemoryInGb": 8,
+      "llmSupportImage": true,
+      "llmSupportAudio": true,
+      "defaultConfig": {
+        "topK": 64,
+        "topP": 0.95,
+        "temperature": 1.0,
+        "maxTokens": 4096,
+        "accelerators": "cpu,gpu"
+      },
+      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_ask_image", "llm_ask_audio", "llm_agent_chat", "emoji_generator", "insurance_card_scan", "ai_journal"],
+      "bestForTaskTypes": ["llm_chat", "llm_ask_image", "llm_ask_audio", "ai_journal"]
+    },
+    {
+      "name": "Gemma-4-E4B-it",
+      "modelId": "litert-community/gemma-4-E4B-it-litert-lm",
+      "modelFile": "gemma-4-E4B-it.litertlm",
+      "commitHash": "afca9a55ba2848faee6588e46b47c3164411a903",
+      "description": "A variant of [Gemma 4 E4B](https://huggingface.co/google/gemma-4-E4B-it) ready for deployment on Android using [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md). Supports text, vision, and audio input with up to 32K context length.",
+      "sizeInBytes": 3654467584,
+      "minDeviceMemoryInGb": 12,
+      "llmSupportImage": true,
+      "llmSupportAudio": true,
+      "defaultConfig": {
+        "topK": 64,
+        "topP": 0.95,
+        "temperature": 1.0,
+        "maxTokens": 4096,
+        "accelerators": "cpu,gpu"
+      },
+      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_ask_image", "llm_ask_audio", "llm_agent_chat", "emoji_generator", "insurance_card_scan", "ai_journal"]
+    },
+    {
+      "name": "Qwen2.5-1.5B-Instruct",
+      "modelId": "litert-community/Qwen2.5-1.5B-Instruct",
+      "modelFile": "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm",
+      "commitHash": "19edb84c69a0212f29a6ef17ba0d6f278b6a1614",
+      "description": "A variant of [Qwen/Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct) ready for deployment on Android using [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md).",
+      "sizeInBytes": 1597931520,
+      "minDeviceMemoryInGb": 6,
+      "defaultConfig": {
+        "topK": 20,
+        "topP": 0.8,
+        "temperature": 0.7,
+        "maxTokens": 4096,
+        "accelerators": "gpu,cpu"
+      },
+      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_agent_chat", "emoji_generator", "insurance_card_scan", "ai_journal"]
+    },
+    {
+      "name": "Qwen3.5-0.8B",
+      "modelId": "litert-community/Qwen3.5-0.8B-LiteRT",
+      "modelFile": "model_multimodal.litertlm",
+      "commitHash": "e0fa7a5df67b382316ce63846a08deb6c56c15f7",
+      "description": "A variant of [Qwen/Qwen3.5-0.8B](https://huggingface.co/Qwen/Qwen3.5-0.8B) with multimodal vision support, ready for deployment on Android using [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md).",
+      "sizeInBytes": 1158643712,
+      "minDeviceMemoryInGb": 6,
+      "llmSupportImage": true,
+      "defaultConfig": {
+        "topK": 64,
+        "topP": 0.95,
+        "temperature": 1.0,
+        "maxTokens": 4096,
+        "accelerators": "cpu,gpu"
+      },
+      "taskTypes": ["llm_chat", "llm_prompt_lab", "llm_ask_image", "llm_agent_chat", "emoji_generator", "insurance_card_scan", "ai_journal"]
+    },
+    {
+      "name": "TinyGarden-270M",
+      "modelId": "litert-community/functiongemma-270m-ft-tiny-garden",
+      "modelFile": "tiny_garden_q8_ekv1024.litertlm",
+      "commitHash": "c205853ff82da86141a1105faa2344a8b176dfe7",
+      "url": "https://github.com/michelutke/ai-sui-gallery/releases/download/models-v1/tiny_garden_q8_ekv1024.litertlm",
+      "description": "Fine-tuned Function Gemma 270M model for Tiny Garden.",
+      "sizeInBytes": 288964608,
+      "minDeviceMemoryInGb": 6,
+      "defaultConfig": {
+        "topK": 64,
+        "topP": 0.95,
+        "temperature": 0.0,
+        "maxTokens": 1024,
+        "accelerators": "cpu"
+      },
+      "taskTypes": ["llm_tiny_garden"],
+      "bestForTaskTypes": ["llm_tiny_garden"]
+    }
+  ]
+}
