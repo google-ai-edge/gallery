@@ -78,9 +78,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.appswithlove.ai.R
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.toShape
@@ -219,13 +221,13 @@ fun AiJournalChatTab(
             ) {
               Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                  text = "AI Journal",
+                  text = stringResource(R.string.aijournal_empty_title),
                   style = MaterialTheme.typography.headlineMedium,
                   color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                  text = "Tell me about your day, or ask about past entries",
+                  text = stringResource(R.string.aijournal_empty_subtitle),
                   style = MaterialTheme.typography.bodyMedium,
                   color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
@@ -261,7 +263,7 @@ fun AiJournalChatTab(
               containerColor = MaterialTheme.colorScheme.surfaceContainer,
             ),
           ) {
-            Icon(Icons.Rounded.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.onSurface)
+            Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.aijournal_recording_cancel), tint = MaterialTheme.colorScheme.onSurface)
           }
 
           // Recording indicator + elapsed time
@@ -297,7 +299,7 @@ fun AiJournalChatTab(
                 containerColor = MaterialTheme.colorScheme.primary,
               ),
             ) {
-              Icon(Icons.Rounded.ArrowUpward, contentDescription = "Send recording", tint = Color.White)
+              Icon(Icons.Rounded.ArrowUpward, contentDescription = stringResource(R.string.aijournal_send_recording), tint = Color.White)
             }
           }
         }
@@ -315,7 +317,7 @@ fun AiJournalChatTab(
             value = inputText,
             onValueChange = { inputText = it },
             modifier = Modifier.weight(1f),
-            placeholder = { Text("Type your prompt...") },
+            placeholder = { Text(stringResource(R.string.aijournal_input_placeholder)) },
             shape = RoundedCornerShape(24.dp),
             maxLines = 4,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -334,7 +336,7 @@ fun AiJournalChatTab(
               ) {
                 Icon(
                   imageVector = Icons.Filled.Mic,
-                  contentDescription = "Voice input",
+                  contentDescription = stringResource(R.string.aijournal_voice_input),
                   tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
               }
@@ -364,7 +366,7 @@ fun AiJournalChatTab(
           ) {
             Icon(
               imageVector = Icons.AutoMirrored.Filled.Send,
-              contentDescription = "Send",
+              contentDescription = stringResource(R.string.aijournal_send),
               modifier = Modifier.size(20.dp),
               tint = if (inputText.isNotBlank() && !uiState.isProcessing)
                 MaterialTheme.colorScheme.primary
@@ -432,7 +434,7 @@ private fun ChatBubble(message: ChatMessage) {
               tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
             )
             Text(
-              text = message.audioDurationSec?.let { "%.1fs".format(it) } ?: "Voice",
+              text = message.audioDurationSec?.let { "%.1fs".format(it) } ?: stringResource(R.string.aijournal_voice_label),
               style = MaterialTheme.typography.bodyMedium,
               color = MaterialTheme.colorScheme.onPrimaryContainer,
             )
@@ -472,7 +474,7 @@ private fun ChatBubble(message: ChatMessage) {
       ) {
         if (hasProcessLog) {
           Text(
-            text = "Long-press for details",
+            text = stringResource(R.string.aijournal_long_press_for_details),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
             modifier = Modifier.padding(top = 4.dp),
@@ -523,7 +525,7 @@ private fun ProcessLogSheet(json: String) {
       .verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(16.dp),
   ) {
-    Text("AI Process Log", style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(R.string.aijournal_process_log_title), style = MaterialTheme.typography.titleMedium)
     HorizontalDivider()
 
     for (section in sections) {
@@ -533,38 +535,38 @@ private fun ProcessLogSheet(json: String) {
       when (type) {
         "system" -> ProcessSection(
           icon = Icons.Filled.Terminal,
-          label = "System Prompt",
+          label = stringResource(R.string.aijournal_log_system_prompt),
           content = content,
           containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
           maxLines = 4,
         )
         "input" -> ProcessSection(
           icon = Icons.Filled.SmartToy,
-          label = "User Input",
+          label = stringResource(R.string.aijournal_log_user_input),
           content = content,
           containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
         )
         "tool_call" -> ProcessSection(
           icon = Icons.Filled.Search,
-          label = "Tool Call",
+          label = stringResource(R.string.aijournal_log_tool_call),
           content = content,
           containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
         )
         "tool_result" -> ProcessSection(
           icon = null,
-          label = "Tool Result",
+          label = stringResource(R.string.aijournal_log_tool_result),
           content = content,
           containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
         )
         "thinking" -> ProcessSection(
           icon = Icons.Filled.Psychology,
-          label = "AI Thinking",
+          label = stringResource(R.string.aijournal_log_thinking),
           content = content,
           containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
         )
         "response" -> ProcessSection(
           icon = Icons.Filled.SmartToy,
-          label = "Final Response",
+          label = stringResource(R.string.aijournal_log_response),
           content = content,
           containerColor = MaterialTheme.colorScheme.surfaceVariant,
         )
@@ -624,7 +626,7 @@ private fun ProcessSection(
     )
     if (isTruncated) {
       Text(
-        text = "Tap to expand",
+        text = stringResource(R.string.aijournal_tap_to_expand),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.primary,
       )

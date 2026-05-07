@@ -382,11 +382,14 @@ fun SettingsDialog(
   }
 }
 
+@androidx.compose.runtime.Composable
 internal fun themeLabel(theme: Theme): String {
-  return when (theme) {
-    Theme.THEME_AUTO -> "Auto"
-    Theme.THEME_LIGHT -> "Light"
-    Theme.THEME_DARK -> "Dark"
-    else -> "Unknown"
-  }
+  return androidx.compose.ui.res.stringResource(
+    when (theme) {
+      Theme.THEME_AUTO -> com.appswithlove.ai.R.string.settings_theme_auto
+      Theme.THEME_LIGHT -> com.appswithlove.ai.R.string.settings_theme_light
+      Theme.THEME_DARK -> com.appswithlove.ai.R.string.settings_theme_dark
+      else -> com.appswithlove.ai.R.string.settings_theme_unknown
+    }
+  )
 }

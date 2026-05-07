@@ -22,13 +22,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.appswithlove.ai.R
 import com.appswithlove.ai.data.Task
 import com.appswithlove.ai.ui.modelmanager.ModelManagerViewModel
 import kotlinx.coroutines.delay
@@ -36,12 +39,6 @@ import kotlinx.coroutines.delay
 private data class BottomNavItem(
   val label: String,
   val icon: ImageVector,
-)
-
-private val bottomNavItems = listOf(
-  BottomNavItem("Use Cases", Icons.Rounded.AutoAwesome),
-  BottomNavItem("Learnings", Icons.AutoMirrored.Rounded.MenuBook),
-  BottomNavItem("Settings", Icons.Rounded.Settings),
 )
 
 @Composable
@@ -55,6 +52,14 @@ fun MainScreen(
 ) {
   var selectedTab by rememberSaveable { mutableIntStateOf(0) }
   val context = LocalContext.current
+
+  val bottomNavItems = remember(context) {
+    listOf(
+      BottomNavItem(context.getString(R.string.nav_use_cases), Icons.Rounded.AutoAwesome),
+      BottomNavItem(context.getString(R.string.nav_learnings), Icons.AutoMirrored.Rounded.MenuBook),
+      BottomNavItem(context.getString(R.string.nav_settings), Icons.Rounded.Settings),
+    )
+  }
 
   val requestPermissionLauncher =
     rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}

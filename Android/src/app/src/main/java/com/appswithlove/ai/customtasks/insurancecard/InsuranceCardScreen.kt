@@ -267,7 +267,7 @@ private fun InsuranceCardContent(
                       ocrText = text
                       Log.d(TAG, "OCR text: $text")
                       if (text.isBlank()) {
-                        errorMessage = "No text recognized from the card."
+                        errorMessage = context.getString(R.string.insurance_no_text_recognized)
                         scanState = ScanState.ERROR
                         return@recognizeText
                       }
@@ -276,7 +276,7 @@ private fun InsuranceCardContent(
                     },
                     onFailure = { e ->
                       scope.launch {
-                        errorMessage = "OCR failed: ${e.message}"
+                        errorMessage = context.getString(R.string.insurance_ocr_failed, e.message ?: "")
                         scanState = ScanState.ERROR
                       }
                     },
@@ -301,14 +301,14 @@ private fun InsuranceCardContent(
                           scanState = ScanState.RESULT
                         } else {
                           Log.w(TAG, "LLM response could not be parsed: $response")
-                          errorMessage = "Could not parse LLM response."
+                          errorMessage = context.getString(R.string.insurance_llm_parse_error)
                           scanState = ScanState.ERROR
                         }
                       }
                     } catch (e: Exception) {
                       Log.e(TAG, "LLM inference failed", e)
                       scope.launch {
-                        errorMessage = "LLM inference failed: ${e.message}"
+                        errorMessage = context.getString(R.string.insurance_llm_inference_failed, e.message ?: "")
                         scanState = ScanState.ERROR
                       }
                     }
@@ -323,7 +323,7 @@ private fun InsuranceCardContent(
                       ocrText = text
                       Log.d(TAG, "OCR text: $text")
                       if (text.isBlank()) {
-                        errorMessage = "No text recognized from the card."
+                        errorMessage = context.getString(R.string.insurance_no_text_recognized)
                         scanState = ScanState.ERROR
                         return@recognizeText
                       }
@@ -350,7 +350,7 @@ private fun InsuranceCardContent(
                     },
                     onFailure = { e ->
                       scope.launch {
-                        errorMessage = "OCR failed: ${e.message}"
+                        errorMessage = context.getString(R.string.insurance_ocr_failed, e.message ?: "")
                         scanState = ScanState.ERROR
                       }
                     },
@@ -361,7 +361,7 @@ private fun InsuranceCardContent(
           } catch (e: Exception) {
             image.close()
             scope.launch {
-              errorMessage = "Capture processing failed: ${e.message}"
+              errorMessage = context.getString(R.string.insurance_capture_processing_failed, e.message ?: "")
               scanState = ScanState.ERROR
             }
           }
@@ -370,7 +370,7 @@ private fun InsuranceCardContent(
         override fun onError(exception: ImageCaptureException) {
           Log.e(TAG, "Capture failed", exception)
           scope.launch {
-            errorMessage = "Photo capture failed: ${exception.message}"
+            errorMessage = context.getString(R.string.insurance_capture_failed, exception.message ?: "")
             scanState = ScanState.ERROR
           }
         }
@@ -562,7 +562,8 @@ private fun ResultView(
           )
           Spacer(Modifier.width(8.dp))
           Text(
-            if (validation.allValid) "Alle Pflichtfelder gültig" else "Einige Felder ungültig",
+            if (validation.allValid) stringResource(R.string.insurance_validation_all_valid)
+            else stringResource(R.string.insurance_validation_some_invalid),
             style = MaterialTheme.typography.titleSmall,
           )
         }

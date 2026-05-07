@@ -248,5 +248,110 @@
   <string name="emoji_task_description">Générer des émojis contextuels à partir de texte en temps réel</string>
   <string name="emoji_input_hint">Entrez du texte pour obtenir un émoji</string>
   <string name="emoji_loading">Génération en cours…</string>
+  <string name="emoji_model_error">Erreur du modèle. Essayez de changer de modèle.</string>
+
+  <!-- Bottom navigation -->
+  <string name="nav_use_cases">Cas d\'usage</string>
+  <string name="nav_learnings">Apprendre</string>
+  <string name="nav_settings">Paramètres</string>
+
+  <!-- Home screen -->
+  <string name="home_app_title">Apps with love AI</string>
+  <string name="home_loading_error_message">Vérifiez votre connexion Internet et réessayez plus tard.</string>
+  <string name="home_retry">Réessayer</string>
+
+  <!-- Settings screen -->
+  <string name="settings_title">Paramètres</string>
+  <string name="settings_app_version">Version de l\'application : %s</string>
+  <string name="settings_theme">Thème</string>
+  <string name="settings_theme_auto">Auto</string>
+  <string name="settings_theme_light">Clair</string>
+  <string name="settings_theme_dark">Sombre</string>
+  <string name="settings_theme_unknown">Inconnu</string>
+  <string name="settings_hf_token_title">Jeton d\'accès HuggingFace</string>
+  <string name="settings_hf_expires_at">Expire le : %s</string>
+  <string name="settings_hf_not_available">Non disponible</string>
+  <string name="settings_hf_auto_retrieve">Le jeton sera récupéré automatiquement lors du téléchargement d\'un modèle restreint.</string>
+  <string name="settings_hf_enter_manually">Saisir le jeton manuellement</string>
+  <string name="settings_third_party_libs">Bibliothèques tierces</string>
+  <string name="settings_view_licenses">Voir les licences</string>
+
+  <!-- Learnings screen -->
+  <string name="learnings_screen_title">À savoir sur l\'IA locale</string>
+  <string name="learnings_screen_subtitle">Nos enseignements et recommandations sur l\'exécution de modèles d\'IA en local</string>
+
+  <string name="learnings_tag_privacy">Confidentialité</string>
+  <string name="learnings_tag_strategy">Stratégie</string>
+  <string name="learnings_tag_framework">Framework</string>
+  <string name="learnings_tag_official">Officiel</string>
+  <string name="learnings_tag_deep_dive">Approfondissement</string>
+  <string name="learnings_tag_advanced">Avancé</string>
+
+  <string name="learnings_article0_title">Pourquoi l\'IA sur l\'appareil compte : confidentialité, vitesse et contrôle</string>
+  <string name="learnings_article0_source">AppsWithLove</string>
+  <string name="learnings_article0_description">Faire tourner l\'IA sur votre téléphone protège vos données, fonctionne hors ligne et ne coûte rien par requête. Voici pourquoi cela change la donne.</string>
+  <string name="learnings_article0_date">Avr. 2026</string>
+  <string name="learnings_article0_read_time">6 min de lecture</string>
+  <string name="learnings_article0_body">L\'IA sur l\'appareil signifie que le modèle s\'exécute directement sur votre téléphone. Rien n\'est envoyé à un serveur. Ce petit changement a de grands effets sur la confidentialité, la vitesse et le coût.\n\nLe plus grand avantage est la confidentialité. Vos photos, vos notes et vos questions restent sur l\'appareil. Aucune entreprise ne les voit. Aucun serveur ne les enregistre. Pour des sujets sensibles comme les données de santé, les entrées de journal ou les cartes d\'assurance, c\'est important. Cela rend aussi les règles de protection des données comme le RGPD beaucoup plus simples à respecter, puisqu\'il n\'y a tout simplement aucun transfert de données.\n\nLa sécurité s\'améliore aussi. L\'IA dans le cloud envoie vos données par Internet vers un serveur. Chaque étape de ce trajet est un endroit où quelqu\'un pourrait lire ou voler vos données. L\'IA sur l\'appareil supprime toutes ces étapes. Les données ne quittent jamais votre main.\n\nLa vitesse est un autre avantage clair. Il n\'y a pas d\'aller-retour réseau, donc le modèle répond tout de suite. Même avec une connexion lente, le résultat semble instantané. Les puces de téléphone modernes peuvent exécuter de petits modèles en bien moins d\'une seconde.\n\nÇa fonctionne hors ligne. Dans un avion, en montagne ou avec un mauvais signal, l\'IA continue de fonctionner de la même manière. L\'IA dans le cloud, elle, cesse simplement de répondre dans ces cas.\n\nLe coût par requête est nul. Les fournisseurs d\'IA dans le cloud facturent chaque appel, et cela monte vite pour une application avec beaucoup d\'utilisateurs. Les modèles sur l\'appareil ne coûtent rien à exécuter une fois que les utilisateurs les ont téléchargés.\n\nLa personnalisation est plus sûre. Le modèle peut s\'adapter à votre style sans envoyer ces données ailleurs. Votre téléphone garde le contexte pour lui.\n\nLe compromis, c\'est la taille. Les modèles sur l\'appareil sont plus petits et moins puissants que les plus gros modèles cloud. Mais pour la plupart des tâches du quotidien comme les résumés, la traduction, un chat simple ou l\'extraction de champs dans un document, les petits modèles sont désormais largement suffisants.</string>
+
+  <string name="learnings_article1_title">Qu\'est-ce que LiteRT et comment ça fonctionne</string>
+  <string name="learnings_article1_source">Google Developers Blog</string>
+  <string name="learnings_article1_description">LiteRT est le moteur qui fait tourner les modèles d\'IA sur votre téléphone. Voici ce qu\'il fait, et comment il choisit la meilleure puce pour la tâche.</string>
+  <string name="learnings_article1_date">Mars 2026</string>
+  <string name="learnings_article1_read_time">6 min de lecture</string>
+  <string name="learnings_article1_body">LiteRT est un environnement d\'exécution développé par Google. Un environnement d\'exécution est le logiciel qui charge un modèle d\'IA et le fait tourner sur votre appareil. LiteRT s\'appelait auparavant TensorFlow Lite. Google l\'a renommé en 2024, car il prend désormais en charge des modèles issus de nombreuses sources, et plus seulement de TensorFlow.\n\nLe rôle de LiteRT est simple à décrire. Prendre un modèle d\'IA, et le faire tourner aussi vite que possible sur la puce présente dans le téléphone.\n\nLes téléphones contiennent différents types de puces. Le CPU est polyvalent et gère les tâches courantes. Le GPU est doué pour faire les mêmes calculs sur beaucoup de nombres en même temps, exactement ce dont les modèles d\'IA ont besoin. Le NPU est une puce conçue spécifiquement pour l\'IA. C\'est l\'option la plus rapide et celle qui consomme le moins de batterie. LiteRT peut utiliser les trois.\n\nQuand vous lancez un modèle, LiteRT choisit automatiquement la meilleure puce. Il essaie d\'abord le NPU. S\'il n\'est pas disponible, il bascule sur le GPU, puis sur le CPU. L\'application n\'a pas besoin de savoir laquelle a été utilisée.\n\nLiteRT utilise des modèles dans un format particulier. Les plus courants sont .tflite et .litertlm. Une étape de conversion unique transforme un modèle d\'IA classique dans ce format. La conversion réduit la taille du modèle et le réorganise pour qu\'il s\'exécute plus rapidement sur le téléphone, avec presque aucune perte de qualité.\n\nPour les modèles de langue, Google a ajouté une couche supplémentaire appelée LiteRT-LM. Les modèles de chat ont besoin de plus de choses que les autres. Ils doivent garder le fil de la conversation, produire les mots un par un, et gérer la mémoire pendant que le modèle réfléchit. C\'est LiteRT-LM qui s\'occupe de tout cela.\n\nLiteRT ne tourne pas seulement sur Android. Le même fichier de modèle fonctionne sur iOS, Windows, Mac, Linux et le Web. C\'est pour cela qu\'un seul modèle peut alimenter des applications sur de nombreux appareils différents.\n\nEn résumé : le modèle est le cerveau. LiteRT est le moteur qui fait que ce cerveau tourne bien sur le matériel sur lequel il atterrit.</string>
+
+  <string name="learnings_article2_title">LLM sur l\'appareil en 2026 : ce qui a changé, ce qui arrive</string>
+  <string name="learnings_article2_source">Edge AI and Vision Alliance</string>
+  <string name="learnings_article2_description">Le plus grand bond en avant de l\'IA sur l\'appareil ne vient pas de puces plus rapides. Il vient de modèles plus malins.</string>
+  <string name="learnings_article2_date">Fév. 2026</string>
+  <string name="learnings_article2_read_time">10 min de lecture</string>
+  <string name="learnings_article2_body">Le plus grand bond en avant de l\'IA sur l\'appareil ne vient pas de puces plus rapides. Il vient de meilleures façons de construire, d\'entraîner et de réduire les modèles.\n\nLe vrai goulot d\'étranglement sur un téléphone, c\'est la vitesse de la mémoire, pas la puissance de calcul brute. Les téléphones peuvent déplacer environ 50 à 90 gigaoctets de données par seconde. Un GPU de centre de données en déplace 30 à 50 fois plus. C\'est pourquoi les modèles peuvent sembler plus lents sur un téléphone, même quand la puce paraît rapide sur le papier. Cela explique aussi pourquoi la quantification 4 bits aide autant. Il ne s\'agit pas seulement d\'occuper moins de stockage. Cela signifie aussi que le téléphone lit quatre fois moins de données pour chaque mot généré.\n\nLes petits modèles ont vite rattrapé leur retard. Des modèles de moins d\'un milliard de paramètres gèrent désormais de vraies tâches. De nombreux laboratoires poussent cette catégorie de taille. Llama 3.2 existe en versions 1B et 3B. Gemma 3 descend jusqu\'à 270M. Phi-4 mini fait 3,8B. SmolLM2 couvre de 135M à 1,7B. Qwen 2.5 commence à 0,5B. La leçon, c\'est qu\'à cette échelle, les données et la méthode d\'entraînement comptent plus que la taille brute. Un petit modèle bien entraîné peut battre un modèle bien plus gros mais plus ancien.\n\nLa boîte à outils est désormais mature. La quantification réduit les modèles avec très peu de perte de qualité. La gestion du cache KV permet au modèle de mener de longues conversations sans saturer la mémoire. Le décodage spéculatif rend la sortie 2 à 3 fois plus rapide. L\'élagage retire les parties du modèle qui travaillent peu.\n\nTrois tendances à surveiller. D\'abord, le mélange d\'experts sur téléphone, où seule une partie du modèle s\'exécute à la fois. Ensuite, le calcul au moment de l\'inférence, où un petit modèle réfléchit plus longtemps pour rivaliser avec un plus grand. Enfin, le réglage fin sur l\'appareil, où le modèle apprend de vous sans envoyer vos données ailleurs.\n\nConclusion : les téléphones ne sont pas devenus des centres de données. Le domaine a simplement appris à travailler avec ce que les téléphones ont déjà.</string>
+
+  <!-- AI Journal -->
+  <string name="aijournal_tab_chat">Chat</string>
+  <string name="aijournal_tab_history">Historique</string>
+  <string name="aijournal_empty_title">Journal IA</string>
+  <string name="aijournal_empty_subtitle">Parlez-moi de votre journée, ou posez une question sur les entrées passées.</string>
+  <string name="aijournal_input_placeholder">Saisissez votre prompt…</string>
+  <string name="aijournal_voice_input">Saisie vocale</string>
+  <string name="aijournal_send">Envoyer</string>
+  <string name="aijournal_send_recording">Envoyer l\'enregistrement</string>
+  <string name="aijournal_recording_cancel">Annuler</string>
+  <string name="aijournal_voice_label">Voix</string>
+  <string name="aijournal_long_press_for_details">Appui long pour les détails</string>
+  <string name="aijournal_tap_to_expand">Appuyez pour développer</string>
+  <string name="aijournal_process_log_title">Journal du processus IA</string>
+  <string name="aijournal_log_system_prompt">Prompt système</string>
+  <string name="aijournal_log_user_input">Saisie utilisateur</string>
+  <string name="aijournal_log_tool_call">Appel d\'outil</string>
+  <string name="aijournal_log_tool_result">Résultat de l\'outil</string>
+  <string name="aijournal_log_thinking">Réflexion de l\'IA</string>
+  <string name="aijournal_log_response">Réponse finale</string>
+  <string name="aijournal_search_placeholder">Rechercher dans le journal…</string>
+  <string name="aijournal_search">Rechercher</string>
+  <string name="aijournal_filters">Filtres</string>
+  <string name="aijournal_filter_person">Personne</string>
+  <string name="aijournal_filter_activity">Activité</string>
+  <string name="aijournal_filter_mood">Humeur</string>
+  <string name="aijournal_filter_location">Lieu</string>
+  <string name="aijournal_filter_any">Tous</string>
+  <string name="aijournal_clear_all_filters">Effacer tous les filtres</string>
+  <string name="aijournal_no_matching_entries">Aucune entrée correspondante</string>
+  <string name="aijournal_no_entries_yet">Aucune entrée de journal pour le moment</string>
+  <plurals name="aijournal_entries_count">
+    <item quantity="one">%d entrée</item>
+    <item quantity="other">%d entrées</item>
+  </plurals>
+
+  <!-- Insurance card extra strings -->
+  <string name="insurance_validation_all_valid">Tous les champs requis sont valides</string>
+  <string name="insurance_validation_some_invalid">Certains champs sont invalides</string>
+  <string name="insurance_no_text_recognized">Aucun texte n\'a été reconnu sur la carte.</string>
+  <string name="insurance_ocr_failed">Échec de l\'OCR : %s</string>
+  <string name="insurance_llm_parse_error">Impossible de lire la réponse du LLM.</string>
+  <string name="insurance_llm_inference_failed">Échec de l\'inférence du LLM : %s</string>
+  <string name="insurance_capture_failed">Échec de la prise de photo : %s</string>
+  <string name="insurance_capture_processing_failed">Échec du traitement de la prise : %s</string>
 
 </resources>

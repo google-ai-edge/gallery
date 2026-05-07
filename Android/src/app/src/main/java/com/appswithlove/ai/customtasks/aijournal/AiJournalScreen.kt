@@ -24,9 +24,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.appswithlove.ai.R
 import com.appswithlove.ai.ui.modelmanager.ModelManagerViewModel
 import kotlinx.coroutines.launch
 
@@ -62,14 +64,14 @@ fun AiJournalScreen(
       Tab(
         selected = pagerState.currentPage == 0,
         onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
-        text = { Text("Chat") },
-        icon = { Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = "Chat") },
+        text = { Text(stringResource(R.string.aijournal_tab_chat)) },
+        icon = { Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = stringResource(R.string.aijournal_tab_chat)) },
       )
       Tab(
         selected = pagerState.currentPage == 1,
         onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
-        text = { Text("History") },
-        icon = { Icon(Icons.Outlined.History, contentDescription = "History") },
+        text = { Text(stringResource(R.string.aijournal_tab_history)) },
+        icon = { Icon(Icons.Outlined.History, contentDescription = stringResource(R.string.aijournal_tab_history)) },
       )
     }
 

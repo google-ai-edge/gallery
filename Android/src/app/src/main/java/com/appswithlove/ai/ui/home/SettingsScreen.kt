@@ -113,12 +113,12 @@ fun SettingsScreen(
 
     Column {
       Text(
-        "Settings",
+        stringResource(R.string.settings_title),
         style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
         color = MaterialTheme.colorScheme.onSurface,
       )
       Text(
-        "App version: ${BuildConfig.VERSION_NAME}",
+        stringResource(R.string.settings_app_version, BuildConfig.VERSION_NAME),
         style = labelSmallNarrow,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
@@ -128,7 +128,7 @@ fun SettingsScreen(
     // Theme switcher
     Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
       Text(
-        "Theme",
+        stringResource(R.string.settings_theme),
         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
       )
       MultiChoiceSegmentedButtonRow {
@@ -182,7 +182,7 @@ fun SettingsScreen(
       verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
       Text(
-        "HuggingFace access token",
+        stringResource(R.string.settings_hf_token_title),
         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
       )
       val curHfToken = hfToken
@@ -193,18 +193,21 @@ fun SettingsScreen(
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-          "Expires at: ${dateFormatter.format(Instant.ofEpochMilli(curHfToken.expiresAtMs))}",
+          stringResource(
+            R.string.settings_hf_expires_at,
+            dateFormatter.format(Instant.ofEpochMilli(curHfToken.expiresAtMs)),
+          ),
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       } else {
         Text(
-          "Not available",
+          stringResource(R.string.settings_hf_not_available),
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-          "The token will be automatically retrieved when a gated model is downloaded",
+          stringResource(R.string.settings_hf_auto_retrieve),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -217,7 +220,7 @@ fun SettingsScreen(
           },
           enabled = curHfToken != null,
         ) {
-          Text("Clear")
+          Text(stringResource(R.string.clear))
         }
         val handleSaveToken = {
           modelManagerViewModel.saveAccessToken(
@@ -253,7 +256,7 @@ fun SettingsScreen(
               Box(modifier = Modifier.padding(start = 16.dp).weight(1f)) {
                 if (customHfToken.isEmpty()) {
                   Text(
-                    "Enter token manually",
+                    stringResource(R.string.settings_hf_enter_manually),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                   )
@@ -277,7 +280,7 @@ fun SettingsScreen(
     // Third-party licenses
     Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
       Text(
-        "Third-party libraries",
+        stringResource(R.string.settings_third_party_libs),
         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
       )
       OutlinedButton(
@@ -286,7 +289,7 @@ fun SettingsScreen(
           context.startActivity(intent)
         }
       ) {
-        Text("View licenses")
+        Text(stringResource(R.string.settings_view_licenses))
       }
     }
 

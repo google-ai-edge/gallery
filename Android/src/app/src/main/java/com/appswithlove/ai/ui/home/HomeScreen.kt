@@ -192,7 +192,7 @@ fun HomeScreen(
         ) {
           // Large title
           Text(
-            text = "Apps with love AI",
+            text = stringResource(R.string.home_app_title),
             style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp),
@@ -251,14 +251,16 @@ fun HomeScreen(
         )
       },
       title = { Text(uiState.loadingModelAllowlistError) },
-      text = { Text("Please check your internet connection and try again later.") },
+      text = { Text(stringResource(R.string.home_loading_error_message)) },
       onDismissRequest = { modelManagerViewModel.loadModelAllowlist() },
       confirmButton = {
-        TextButton(onClick = { modelManagerViewModel.loadModelAllowlist() }) { Text("Retry") }
+        TextButton(onClick = { modelManagerViewModel.loadModelAllowlist() }) {
+          Text(stringResource(R.string.home_retry))
+        }
       },
       dismissButton = {
         TextButton(onClick = { modelManagerViewModel.clearLoadModelAllowlistError() }) {
-          Text("Cancel")
+          Text(stringResource(R.string.cancel))
         }
       },
     )

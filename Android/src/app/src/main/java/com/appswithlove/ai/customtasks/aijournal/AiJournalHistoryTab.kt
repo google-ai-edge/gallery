@@ -49,9 +49,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.appswithlove.ai.R
 import com.appswithlove.ai.customtasks.aijournal.data.EntryWithEntities
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -103,15 +107,15 @@ fun AiJournalHistoryTab(
           viewModel.setFilter(query = it)
         },
         modifier = Modifier.weight(1f),
-        placeholder = { Text("Search journal...") },
-        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search") },
+        placeholder = { Text(stringResource(R.string.aijournal_search_placeholder)) },
+        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.aijournal_search)) },
         trailingIcon = {
           if (searchQuery.isNotBlank()) {
             IconButton(onClick = {
               searchQuery = ""
               viewModel.setFilter(query = "")
             }) {
-              Icon(Icons.Filled.Clear, contentDescription = "Clear")
+              Icon(Icons.Filled.Clear, contentDescription = stringResource(R.string.clear))
             }
           }
         },
@@ -121,7 +125,7 @@ fun AiJournalHistoryTab(
       IconButton(onClick = { showFilters = !showFilters }) {
         Icon(
           Icons.Outlined.FilterList,
-          contentDescription = "Filters",
+          contentDescription = stringResource(R.string.aijournal_filters),
           tint = if (uiState.filterPerson != null || uiState.filterActivity != null || uiState.filterMood != null || uiState.filterLocation != null)
             MaterialTheme.colorScheme.primary
           else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -136,22 +140,22 @@ fun AiJournalHistoryTab(
       exit = shrinkVertically(),
     ) {
       Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-        FilterRow("Person", uiState.availablePeople, uiState.filterPerson) {
+        FilterRow(stringResource(R.string.aijournal_filter_person), uiState.availablePeople, uiState.filterPerson) {
           viewModel.setFilter(person = it)
         }
-        FilterRow("Activity", uiState.availableActivities, uiState.filterActivity) {
+        FilterRow(stringResource(R.string.aijournal_filter_activity), uiState.availableActivities, uiState.filterActivity) {
           viewModel.setFilter(activity = it)
         }
-        FilterRow("Mood", uiState.availableMoods, uiState.filterMood) {
+        FilterRow(stringResource(R.string.aijournal_filter_mood), uiState.availableMoods, uiState.filterMood) {
           viewModel.setFilter(mood = it)
         }
-        FilterRow("Location", uiState.availableLocations, uiState.filterLocation) {
+        FilterRow(stringResource(R.string.aijournal_filter_location), uiState.availableLocations, uiState.filterLocation) {
           viewModel.setFilter(location = it)
         }
 
         if (uiState.filterPerson != null || uiState.filterActivity != null || uiState.filterMood != null || uiState.filterLocation != null) {
           TextButton(onClick = { viewModel.clearFilters() }) {
-            Text("Clear all filters")
+            Text(stringResource(R.string.aijournal_clear_all_filters))
           }
         }
         Spacer(Modifier.height(8.dp))
@@ -165,7 +169,7 @@ fun AiJournalHistoryTab(
         contentAlignment = Alignment.Center,
       ) {
         Text(
-          text = if (searchQuery.isNotBlank() || uiState.filterPerson != null) "No matching entries" else "No journal entries yet",
+          text = if (searchQuery.isNotBlank() || uiState.filterPerson != null) stringResource(R.string.aijournal_no_matching_entries) else stringResource(R.string.aijournal_no_entries_yet),
           style = MaterialTheme.typography.bodyLarge,
           color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         )
@@ -217,14 +221,15 @@ private fun FilterRow(
       modifier = Modifier.width(72.dp),
     )
 
+    val anyLabel = stringResource(R.string.aijournal_filter_any)
     Box {
       SuggestionChip(
         onClick = { expanded = true },
-        label = { Text(selected ?: "Any") },
+        label = { Text(selected ?: anyLabel) },
       )
       DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
         DropdownMenuItem(
-          text = { Text("Any") },
+          text = { Text(anyLabel) },
           onClick = { onSelect(null); expanded = false },
         )
         options.forEach { option ->
@@ -262,7 +267,7 @@ private fun DayCard(
         fontWeight = FontWeight.Bold,
       )
       Text(
-        text = "${entries.size} ${if (entries.size == 1) "entry" else "entries"}",
+        text = pluralStringResource(R.plurals.aijournal_entries_count, entries.size, entries.size),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
       )

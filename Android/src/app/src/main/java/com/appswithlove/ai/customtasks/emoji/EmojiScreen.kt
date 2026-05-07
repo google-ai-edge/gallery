@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -58,6 +59,7 @@ fun EmojiScreen(
   var errorMessage by remember { mutableStateOf<String?>(null) }
   val inputFlow = remember { MutableStateFlow("") }
   val inferenceMutex = remember { Mutex() }
+  val context = LocalContext.current
 
   // Show loading indicator before the model is initialized.
   if (!modelManagerUiState.isModelInitialized(model = model)) {
@@ -121,7 +123,7 @@ fun EmojiScreen(
             )
           } catch (e: Exception) {
             isLoading = false
-            errorMessage = "Model error. Try switching models."
+            errorMessage = context.getString(R.string.emoji_model_error)
           }
         }
       }
