@@ -309,6 +309,20 @@
   <string name="skill_instructions_input_description" translatable="false">Detailed instructions in Markdown format that LLM must follow to accomplish the task.</string>
   <string name="use_call_js_template" translatable="false">Use Call JS template</string>
 
+  <!-- Strings for ChatHistorySideSheet component (used for the chat history side bar) -->
+  <!-- Displayed as the header and section title for the user's past chats. -->
+  <string name="chat_history_title" translatable="false">Chat history</string>
+  <!-- Displayed on the button to clear and start a new chat session. -->
+  <string name="new_chat" translatable="false">New chat</string>
+  <!-- Displayed to clear all current chat history items from the list. -->
+  <string name="clear_all" translatable="false">Clear all</string>
+  <!-- Displayed as a persistent notice at the bottom of the side bar regarding demo usage. -->
+  <string name="chat_history_demo_notice" translatable="false">Chat history does not persist across demos.</string>
+  <!-- Title for warning dialog before clearing chat history. -->
+  <string name="clear_history_dialog_title" translatable="false">Clear history?</string>
+  <!-- Content descriptive text for the clear history warning dialog. -->
+  <string name="clear_history_dialog_content" translatable="false">Are you sure you want to clear the history? This action cannot be undone.</string>
+
   <!-- The following entries are for accessibility -->
 
   <!-- Content description spoken when the "add" icon is focused. [CHAR_LIMIT=NONE] -->
@@ -407,5 +421,7 @@
   <string name="cd_help">Help</string>
   <!-- Content description spoken when the "menu" icon is focused. [CHAR_LIMIT=NONE] -->
   <string name="cd_menu">Menu</string>
+  <!-- Content description spoken when the "chat history" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_chat_history">Chat history</string>
 
 </resources>
