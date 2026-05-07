@@ -239,19 +239,8 @@ open class AgentTools() : ToolSet {
           addItemDescription = "Parameters: $parameters",
         )
       )
-      if (IntentHandler.handleAction(context, intent, parameters)) {
-        return@runBlocking mapOf(
-          "action" to intent,
-          "parameters" to parameters,
-          "result" to "succeeded",
-        )
-      } else {
-        return@runBlocking mapOf(
-          "action" to intent,
-          "parameters" to parameters,
-          "result" to "failed",
-        )
-      }
+      val res = IntentHandler.handleAction(context, intent, parameters)
+      return@runBlocking mapOf("action" to intent, "parameters" to parameters, "result" to res)
     }
   }
 
