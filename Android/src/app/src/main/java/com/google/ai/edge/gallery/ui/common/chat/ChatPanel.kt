@@ -106,6 +106,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
+private const val TAG = "AGChatPanel"
 private const val SCROLL_ANIMATION_DURATION_MS = 300
 
 /** Composable function for the main chat panel, displaying messages and handling user input. */

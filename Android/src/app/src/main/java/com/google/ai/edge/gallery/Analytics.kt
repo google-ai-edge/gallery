@@ -42,4 +42,5 @@ enum class GalleryEvent(val id: String) {
   BUTTON_CLICKED(id = "button_clicked"),
   SKILL_MANAGEMENT(id = "skill_management"),
   SKILL_EXECUTION(id = "skill_execution"),
+  CHAT_HISTORY(id = "chat_history"),
 }

@@ -22,6 +22,7 @@ package com.google.ai.edge.gallery.ui.common.chat
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 
 import android.graphics.Bitmap
+import android.os.Bundle
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -68,12 +69,14 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
@@ -200,6 +203,20 @@ fun ChatView(
               onHistoryItemClicked = { sessionId ->
                 val session = historySessions.firstOrNull { it.sessionId == sessionId }
                 if (session != null) {
+                  Log.d(
+                    TAG,
+                    "Analytics: chat_history, action=load_past_chat, capability_name=${task.id}, model_id=${selectedModel.name}, model_version=${selectedModel.version}",
+                  )
+                  firebaseAnalytics?.logEvent(
+                    GalleryEvent.CHAT_HISTORY.id,
+                    Bundle().apply {
+                      putString("action", "load_past_chat")
+                      putString("capability_name", task.id)
+                      putString("model_id", selectedModel.name)
+                      putString("model_version", selectedModel.version)
+                    },
+                  )
+
                   onResetSessionClicked(selectedModel)
                   viewModel.clearAllMessages(selectedModel)
 
@@ -216,6 +233,20 @@ fun ChatView(
               onHistoryItemDeleted = { sessionId -> viewModel.deleteSession(sessionId) },
               onHistoryItemsDeleteAll = { viewModel.clearAllSessions() },
               onNewChatClicked = {
+                Log.d(
+                  TAG,
+                  "Analytics: chat_history, action=click_new_chat, capability_name=${task.id}, model_id=${selectedModel.name}, model_version=${selectedModel.version}",
+                )
+                firebaseAnalytics?.logEvent(
+                  GalleryEvent.CHAT_HISTORY.id,
+                  Bundle().apply {
+                    putString("action", "click_new_chat")
+                    putString("capability_name", task.id)
+                    putString("model_id", selectedModel.name)
+                    putString("model_version", selectedModel.version)
+                  },
+                )
+
                 onResetSessionClicked(selectedModel)
                 viewModel.currentSessionId = UUID.randomUUID().toString()
                 scope.launch { drawerState.close() }
@@ -268,7 +299,22 @@ fun ChatView(
               allowEditingSystemPrompt = allowEditingSystemPrompt,
               curSystemPrompt = curSystemPrompt,
               onSystemPromptChanged = onSystemPromptChanged,
-              onHistoryClicked = { scope.launch { drawerState.open() } },
+              onHistoryClicked = {
+                Log.d(
+                  TAG,
+                  "Analytics: chat_history, action=click_history_tab, capability_name=${task.id}, model_id=${selectedModel.name}, model_version=${selectedModel.version}",
+                )
+                firebaseAnalytics?.logEvent(
+                  GalleryEvent.CHAT_HISTORY.id,
+                  Bundle().apply {
+                    putString("action", "click_history_tab")
+                    putString("capability_name", task.id)
+                    putString("model_id", selectedModel.name)
+                    putString("model_version", selectedModel.version)
+                  },
+                )
+                scope.launch { drawerState.open() }
+              },
             )
           },
         ) { innerPadding ->
