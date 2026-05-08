@@ -94,8 +94,7 @@ private const val TAG = "AGModelImportDialog"
 
 private val SUPPORTED_ACCELERATORS: List<Accelerator> =
   if (isPixel10()) {
-    val accelerators = mutableListOf(Accelerator.CPU)
-    accelerators.toList()
+    listOf(Accelerator.CPU, Accelerator.NPU)
   } else {
     listOf(Accelerator.CPU, Accelerator.GPU, Accelerator.NPU)
   }
