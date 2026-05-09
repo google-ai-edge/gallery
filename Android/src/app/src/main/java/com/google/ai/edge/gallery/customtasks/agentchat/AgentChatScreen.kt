@@ -84,6 +84,7 @@ import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.BaseGalleryWebViewClient
 import com.google.ai.edge.gallery.ui.common.GalleryWebView
 import com.google.ai.edge.gallery.ui.common.buildTrackableUrlAnnotatedString
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageCollapsableProgressPanel
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
@@ -97,6 +98,7 @@ import com.google.ai.edge.gallery.ui.llmchat.LlmChatScreen
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.tool
 import java.lang.Exception
 import kotlin.coroutines.resume
@@ -190,7 +192,7 @@ fun AgentChatScreen(
 
       updateProgressPanel(viewModel = viewModel, model = model, agentTools = agentTools)
     },
-    onResetSessionClickedOverride = { task, model ->
+    onResetSessionClickedOverride = { task, _, initialMessages ->
       resetSessionWithCurrentSkills(
         viewModel,
         modelManagerViewModel,
@@ -198,6 +200,7 @@ fun AgentChatScreen(
         task,
         curSystemPrompt,
         agentTools,
+        initialMessages = initialMessages,
       )
     },
     onSkillClicked = { showSkillManagerBottomSheet = true },
@@ -596,8 +599,18 @@ private fun resetSessionWithCurrentSkills(
   curSystemPrompt: String,
   agentTools: AgentTools,
   onDone: (Model) -> Unit = {},
+  initialMessages: List<ChatMessage> = listOf(),
 ) {
   val model = modelManagerViewModel.uiState.value.selectedModel
+  val litertMessages = initialMessages.mapNotNull { chatMessage ->
+    if (chatMessage is ChatMessageText) {
+      if (chatMessage.side == ChatSide.USER) {
+        Message.user(chatMessage.content)
+      } else {
+        Message.model(chatMessage.content)
+      }
+    } else null
+  }
   viewModel.resetSession(
     task = task,
     model = model,
@@ -607,6 +620,7 @@ private fun resetSessionWithCurrentSkills(
     supportAudio = true,
     onDone = { onDone(model) },
     enableConversationConstrainedDecoding = true,
+    initialMessages = litertMessages,
   )
 }
 

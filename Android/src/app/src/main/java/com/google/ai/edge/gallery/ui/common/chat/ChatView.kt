@@ -82,7 +82,6 @@ import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGChatView"
@@ -108,7 +107,7 @@ fun ChatView(
   onBenchmarkClicked: (Model, ChatMessage, Int, Int) -> Unit,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
-  onResetSessionClicked: (Model) -> Unit = {},
+  onResetSessionClicked: (Model, List<ChatMessage>, () -> Unit) -> Unit = { _, _, _ -> },
   onStreamImageMessage: (Model, ChatMessageImage) -> Unit = { _, _ -> },
   onStopButtonClicked: (Model) -> Unit = {},
   onSkillClicked: () -> Unit = {},
@@ -138,7 +137,6 @@ fun ChatView(
     remember(allHistorySessions, task.id) { allHistorySessions.filter { it.taskId == task.id } }
 
   val context = LocalContext.current
-  var feedFullHistoryOnNextMessage by remember { mutableStateOf(false) }
 
   val currentMessages = uiState.messagesByModel[selectedModel.name] ?: emptyList()
   LaunchedEffect(uiState.inProgress) {
@@ -217,16 +215,14 @@ fun ChatView(
                     },
                   )
 
-                  onResetSessionClicked(selectedModel)
-                  viewModel.clearAllMessages(selectedModel)
-
                   val messages = deserializeProtoMessages(session.messagesList)
-                  for (msg in messages) {
-                    viewModel.addMessage(selectedModel, msg)
+                  onResetSessionClicked(selectedModel, messages) {
+                    for (msg in messages) {
+                      viewModel.addMessage(selectedModel, msg)
+                    }
                   }
 
                   viewModel.currentSessionId = session.sessionId
-                  feedFullHistoryOnNextMessage = true
                 }
                 scope.launch { drawerState.close() }
               },
@@ -247,7 +243,7 @@ fun ChatView(
                   },
                 )
 
-                onResetSessionClicked(selectedModel)
+                onResetSessionClicked(selectedModel, emptyList()) {}
                 viewModel.currentSessionId = UUID.randomUUID().toString()
                 scope.launch { drawerState.close() }
               },
@@ -339,38 +335,7 @@ fun ChatView(
                       viewModel = viewModel,
                       innerPadding = innerPadding,
                       navigateUp = navigateUp,
-                      // TODO(zichuanwei): Update the logic here to use the proper litertlm api.
-                      // the current logic is to be compatible with AICore logic, as AI core doesn't
-                      // support message preloading or multi-turn conversations.
-                      onSendMessage = { model, messages ->
-                        if (feedFullHistoryOnNextMessage) {
-                          feedFullHistoryOnNextMessage = false
-                          val history = uiState.messagesByModel[model.name] ?: emptyList()
-                          val originalShortMessage = messages.lastOrNull() as? ChatMessageText
-                          val combinedMessage =
-                            if (originalShortMessage != null) {
-                              buildFirstMessageWithHistory(history, originalShortMessage)
-                            } else null
-                          if (combinedMessage != null) {
-                            val modifiedList = messages.dropLast(1) + combinedMessage
-                            onSendMessage(model, modifiedList)
-
-                            // Revert the visible UI message back to the short one
-                            scope.launch(Dispatchers.Default) {
-                              delay(100)
-                              viewModel.replaceLastMessage(
-                                model,
-                                originalShortMessage!!,
-                                ChatMessageType.TEXT,
-                              )
-                            }
-                          } else {
-                            onSendMessage(model, messages)
-                          }
-                        } else {
-                          onSendMessage(model, messages)
-                        }
-                      },
+                      onSendMessage = { model, messages -> onSendMessage(model, messages) },
                       onRunAgainClicked = onRunAgainClicked,
                       onBenchmarkClicked = onBenchmarkClicked,
                       onStreamImageMessage = onStreamImageMessage,

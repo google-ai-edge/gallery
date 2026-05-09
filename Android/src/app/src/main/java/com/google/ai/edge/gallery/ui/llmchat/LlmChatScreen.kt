@@ -43,15 +43,18 @@ import com.google.ai.edge.gallery.data.ModelCapability
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
+import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.ai.edge.gallery.ui.common.chat.ChatView
 import com.google.ai.edge.gallery.ui.common.chat.SendMessageTrigger
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.emptyStateContent
 import com.google.ai.edge.gallery.ui.theme.emptyStateTitle
 import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.Message
 
 private const val TAG = "AGLlmChatScreen"
 
@@ -64,7 +67,7 @@ fun LlmChatScreen(
   onFirstToken: (Model) -> Unit = {},
   onGenerateResponseDone: (Model) -> Unit = {},
   onSkillClicked: () -> Unit = {},
-  onResetSessionClickedOverride: ((Task, Model) -> Unit)? = null,
+  onResetSessionClickedOverride: ((Task, Model, List<ChatMessage>) -> Unit)? = null,
   composableBelowMessageList: @Composable (Model) -> Unit = {},
   viewModel: LlmChatViewModel = hiltViewModel(),
   allowEditingSystemPrompt: Boolean = false,
@@ -198,7 +201,7 @@ fun ChatViewWrapper(
   onSkillClicked: () -> Unit = {},
   onFirstToken: (Model) -> Unit = {},
   onGenerateResponseDone: (Model) -> Unit = {},
-  onResetSessionClickedOverride: ((Task, Model) -> Unit)? = null,
+  onResetSessionClickedOverride: ((Task, Model, List<ChatMessage>) -> Unit)? = null,
   composableBelowMessageList: @Composable (Model) -> Unit = {},
   emptyStateComposable: @Composable (Model) -> Unit = {},
   allowEditingSystemPrompt: Boolean = false,
@@ -297,9 +300,11 @@ fun ChatViewWrapper(
       }
     },
     onBenchmarkClicked = { _, _, _, _ -> },
-    onResetSessionClicked = { model ->
+    onResetSessionClicked = { model, chatMessages, onDone ->
+      val litertMessages = chatMessages.mapNotNull { convertToLitertMessage(it) }
       if (onResetSessionClickedOverride != null) {
-        onResetSessionClickedOverride(task, model)
+        onResetSessionClickedOverride(task, model, chatMessages)
+        onDone()
       } else {
         viewModel.resetSession(
           task = task,
@@ -307,6 +312,8 @@ fun ChatViewWrapper(
           systemInstruction = Contents.of(curSystemPrompt),
           supportImage = showImagePicker,
           supportAudio = showAudioPicker,
+          initialMessages = litertMessages,
+          onDone = onDone,
         )
       }
     },
@@ -324,4 +331,16 @@ fun ChatViewWrapper(
     sendMessageTrigger = sendMessageTrigger,
     showAudioPicker = showAudioPicker,
   )
+}
+
+private fun convertToLitertMessage(chatMessage: ChatMessage): Message? {
+  if (chatMessage is ChatMessageText) {
+    return when (chatMessage.side) {
+      ChatSide.USER -> Message.user(chatMessage.content)
+      ChatSide.AGENT -> Message.model(chatMessage.content)
+      ChatSide.SYSTEM ->
+        null // TODO: Support SYSTEM role once we can decide on which system prompt to use.
+    }
+  }
+  return null
 }

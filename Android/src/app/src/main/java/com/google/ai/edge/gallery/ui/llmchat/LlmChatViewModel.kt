@@ -41,6 +41,7 @@ import com.google.ai.edge.gallery.ui.common.chat.ChatViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ExperimentalApi
+import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.ToolProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -324,6 +325,7 @@ open class LlmChatViewModelBase(
     supportAudio: Boolean = false,
     onDone: () -> Unit = {},
     enableConversationConstrainedDecoding: Boolean = false,
+    initialMessages: List<Message> = listOf(),
   ) {
     viewModelScope.launch(Dispatchers.Default) {
       setIsResettingSession(true)
@@ -339,6 +341,7 @@ open class LlmChatViewModelBase(
             systemInstruction = systemInstruction,
             tools = tools,
             enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+            initialMessages = initialMessages,
           )
           break
         } catch (e: Exception) {

@@ -30,6 +30,8 @@ import com.google.ai.edge.gallery.runtime.CleanUpListener
 import com.google.ai.edge.gallery.runtime.LlmModelHelper
 import com.google.ai.edge.gallery.runtime.ResultListener
 import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.Role
 import com.google.ai.edge.litertlm.ToolProvider
 import com.google.mlkit.genai.common.DownloadStatus
 import com.google.mlkit.genai.common.FeatureStatus
@@ -195,10 +197,16 @@ object AICoreModelHelper : LlmModelHelper {
     systemInstruction: Contents?,
     tools: List<ToolProvider>,
     enableConversationConstrainedDecoding: Boolean,
+    initialMessages: List<Message>,
   ) {
     Log.d(TAG, "Resetting conversation for model '${model.name}'")
     val instance = model.instance as? AICoreModelInstance ?: return
     instance.chatHistory.clear()
+    for (msg in initialMessages) {
+      instance.chatHistory.add(
+        AICoreChatMessage(isUser = (msg.role == Role.USER), text = msg.contents.toString())
+      )
+    }
     Log.d(TAG, "Resetting done")
   }
 
