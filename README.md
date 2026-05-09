@@ -7,6 +7,9 @@
 
 AI Edge Gallery is the premier destination for running the world's most powerful open-source Large Language Models (LLMs) on your mobile device. Experience high-performance Generative AI directly on your hardware—fully offline, private, and lightning-fast.
 
+> [!NOTE]
+> AI Edge Gallery is powered by **[LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM)**, Google's production-ready inference framework for LLMs, and **[LiteRT](https://github.com/google-ai-edge/LiteRT)**, the underlying high-performance ML runtime.
+
 **Now Featuring: Gemma 4**
 
 The latest version brings official support for the newly released Gemma 4 family. As the centerpiece of this release, Gemma 4 allows you to test the cutting edge of on-device AI. Experience advanced reasoning, logic, and creative capabilities without ever sending your data to a server.
@@ -59,10 +62,10 @@ For users without Google Play access, install the apk from the [**latest release
 3.  **Install & Explore:** For detailed installation instructions (including for corporate devices) and a full user guide, head over to our [**Project Wiki**](https://github.com/google-ai-edge/gallery/wiki)!
 
 ## 🛠️ Technology Highlights
-
-*   **Google AI Edge:** Core APIs and tools for on-device ML.
-*   **LiteRT:** Lightweight runtime for optimized model execution.
-*   **Hugging Face Integration:** For model discovery and download.
+*   **[Google AI Edge](https://ai.google.dev/edge):** Core APIs and tools for on-device ML.
+*   **[LiteRT](https://github.com/google-ai-edge/LiteRT):** The core runtime for high-performance on-device ML execution.
+*   **[LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM):** The high-performance framework optimized specifically for Large Language Models (LLMs).
+*   **[Hugging Face Integration](https://huggingface.co/litert-community):** For seamless model discovery and download.
 
 ## ⌨️ Development
 
