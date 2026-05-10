@@ -22,6 +22,7 @@ package com.google.ai.edge.gallery.ui.common.chat
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.compose.BackHandler
@@ -80,9 +81,11 @@ import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val TAG = "AGChatView"
 
@@ -107,7 +110,9 @@ fun ChatView(
   onBenchmarkClicked: (Model, ChatMessage, Int, Int) -> Unit,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
-  onResetSessionClicked: (Model, List<ChatMessage>, () -> Unit) -> Unit = { _, _, _ -> },
+  onResetSessionClicked: (Model, List<ChatMessage>, () -> Unit) -> Unit = { _, _, onDone ->
+    onDone()
+  },
   onStreamImageMessage: (Model, ChatMessageImage) -> Unit = { _, _ -> },
   onStopButtonClicked: (Model) -> Unit = {},
   onSkillClicked: () -> Unit = {},
@@ -146,6 +151,7 @@ fun ChatView(
         messages = currentMessages,
         originalModel = selectedModel.name,
         taskId = task.id,
+        context = context,
       )
     }
   }
@@ -215,19 +221,23 @@ fun ChatView(
                     },
                   )
 
-                  val messages = deserializeProtoMessages(session.messagesList)
-                  onResetSessionClicked(selectedModel, messages) {
-                    for (msg in messages) {
-                      viewModel.addMessage(selectedModel, msg)
+                  scope.launch {
+                    viewModel.setIsResettingSession(true)
+                    val messages =
+                      withContext(Dispatchers.IO) { deserializeProtoMessages(session.messagesList) }
+                    onResetSessionClicked(selectedModel, messages) {
+                      for (msg in messages) {
+                        viewModel.addMessage(selectedModel, msg)
+                      }
+                      viewModel.setIsResettingSession(false)
                     }
+                    viewModel.currentSessionId = session.sessionId
                   }
-
-                  viewModel.currentSessionId = session.sessionId
                 }
                 scope.launch { drawerState.close() }
               },
-              onHistoryItemDeleted = { sessionId -> viewModel.deleteSession(sessionId) },
-              onHistoryItemsDeleteAll = { viewModel.clearAllSessions() },
+              onHistoryItemDeleted = { sessionId -> viewModel.deleteSession(sessionId, context) },
+              onHistoryItemsDeleteAll = { viewModel.clearAllSessions(context) },
               onNewChatClicked = {
                 Log.d(
                   TAG,
@@ -506,6 +516,37 @@ private fun deserializeProtoMessages(
       "INFO" -> ChatMessageInfo(protoMsg.content)
       "WARNING" -> ChatMessageWarning(protoMsg.content)
       "ERROR" -> ChatMessageError(protoMsg.content)
+      "IMAGE" -> {
+        val bitmaps =
+          protoMsg.imageFilePathsList.mapNotNull { path -> BitmapFactory.decodeFile(path) }
+        if (bitmaps.isNotEmpty()) {
+          ChatMessageImage(
+            bitmaps = bitmaps,
+            imageBitMaps = bitmaps.map { it.asImageBitmap() },
+            side = side,
+            latencyMs = protoMsg.latencyMs,
+            accelerator = protoMsg.accelerator,
+            hideSenderLabel = protoMsg.hideSenderLabel,
+            persistedPaths = protoMsg.imageFilePathsList.toList(),
+          )
+        } else null
+      }
+      "AUDIO_CLIP" -> {
+        val firstAudio = protoMsg.audioClipsList.firstOrNull()
+        if (firstAudio != null) {
+          try {
+            ChatMessageAudioClip(
+              audioData = File(firstAudio.filePath).readBytes(),
+              sampleRate = firstAudio.sampleRate,
+              side = side,
+              latencyMs = protoMsg.latencyMs,
+              persistedPath = firstAudio.filePath,
+            )
+          } catch (e: Exception) {
+            null
+          }
+        } else null
+      }
       else -> null
     }
   }

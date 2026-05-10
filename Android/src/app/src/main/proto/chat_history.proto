@@ -48,6 +48,18 @@ message ChatMessageProto {
   // Whether the message generation is still in progress (e.g., for thinking
   // steps).
   bool in_progress = 8;
+  // A list of paths to local PNG image files associated with this message.
+  repeated string image_file_paths = 9;
+  // A list of audio recordings associated with this message.
+  repeated AudioMessageProto audio_clips = 10;
+}
+
+// Represents an audio recording associated with a chat session message.
+message AudioMessageProto {
+  // The file path to the local audio recording.
+  string file_path = 1;
+  // The sample rate of the audio data (e.g., 16000).
+  int32 sample_rate = 2;
 }
 
 // Represents a saved chat session containing a history of messages.
