@@ -19,8 +19,11 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.net.toUri
+import com.google.ai.edge.gallery.notifications.NotificationScheduleManagerEntryPoint
+import com.google.ai.edge.gallery.proto.ScheduledNotification
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
+import dagger.hilt.android.EntryPointAccessors
 import java.lang.Exception
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -48,12 +51,26 @@ enum class IntentAction(val action: String) {
   SEND_EMAIL("send_email"),
   SEND_SMS("send_sms"),
   CREATE_CALENDAR_EVENT("create_calendar_event"),
-  GET_CURRENT_DATE_AND_TIME("get_current_date_and_time");
+  GET_CURRENT_DATE_AND_TIME("get_current_date_and_time"),
+  SCHEDULE_NOTIFICATION("schedule_notification");
 
   companion object {
     fun from(action: String): IntentAction? = entries.find { it.action == action }
   }
 }
+
+@JsonClass(generateAdapter = true)
+data class ScheduleNotificationParams(
+  val title: String,
+  val message: String,
+  val hour: Int,
+  val minute: Int,
+  val year: Int? = null,
+  val month: Int? = null,
+  val day: Int? = null,
+  val repeat_daily: Boolean? = null,
+  val deeplink: String? = null,
+)
 
 object IntentHandler {
   private const val TAG = "IntentHandler"
@@ -142,7 +159,64 @@ object IntentHandler {
         )
         currentDateAndTime
       }
+      IntentAction.SCHEDULE_NOTIFICATION -> {
+        scheduleNotification(context, parameters)
+      }
       null -> "failed"
+    }
+  }
+
+  fun scheduleNotification(context: Context, parameters: String): String {
+    try {
+      val moshi = Moshi.Builder().build()
+      val jsonAdapter = moshi.adapter(ScheduleNotificationParams::class.java)
+      val params = jsonAdapter.fromJson(parameters)
+      if (params != null) {
+        val notificationProtoBuilder =
+          ScheduledNotification.newBuilder()
+            .setId(java.util.UUID.randomUUID().toString())
+            .setTitle(params.title)
+            .setMessage(params.message)
+            .setHour(params.hour)
+            .setMinute(params.minute)
+            .setChannelId("agent_skill_tasks_channel")
+            .setChannelName("Agent Skill Task")
+        if (params.year != null) {
+          notificationProtoBuilder.setYear(params.year)
+        }
+        if (params.month != null) {
+          notificationProtoBuilder.setMonth(params.month)
+        }
+        if (params.day != null) {
+          notificationProtoBuilder.setDay(params.day)
+        }
+        if (params.deeplink != null) {
+          notificationProtoBuilder.setDeeplink(params.deeplink)
+        }
+        if (params.repeat_daily != null) {
+          notificationProtoBuilder.setRepeatDaily(params.repeat_daily)
+        }
+
+        val entryPoint =
+          EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            NotificationScheduleManagerEntryPoint::class.java,
+          )
+        val success =
+          entryPoint
+            .notificationScheduleManager()
+            .scheduleNotification(notificationProtoBuilder.build())
+        if (!success) {
+          return "failed"
+        }
+        return "succeeded"
+      } else {
+        Log.e(TAG, "Failed to parse schedule_notification parameters: $parameters")
+        return "failed"
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to parse schedule_notification parameters: $parameters", e)
+      return "failed"
     }
   }
 }
