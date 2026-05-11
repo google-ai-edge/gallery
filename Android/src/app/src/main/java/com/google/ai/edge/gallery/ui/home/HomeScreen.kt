@@ -59,6 +59,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ListAlt
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -162,6 +163,7 @@ fun HomeScreen(
   tosViewModel: TosViewModel,
   navigateToTaskScreen: (Task) -> Unit,
   onModelsClicked: () -> Unit,
+  onNotificationsClicked: () -> Unit,
   enableAnimation: Boolean,
   modifier: Modifier = Modifier,
   gm4: Boolean = false,
@@ -324,6 +326,9 @@ fun HomeScreen(
                         )
                     ),
                 )
+              }
+              Spacer(modifier = Modifier.height(16.dp))
+              Row(modifier = Modifier.fillMaxWidth()) {
               }
             }
           }

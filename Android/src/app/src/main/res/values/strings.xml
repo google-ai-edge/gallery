@@ -93,6 +93,16 @@
   <string name="drawer_settings_description" translatable="false">Manage application settings</string>
   <string name="drawer_models_label" translatable="false">Models</string>
   <string name="drawer_models_description" translatable="false">Browse, try, and benchmark models</string>
+  <string name="drawer_notifications_label" translatable="false">Notifications</string>
+  <string name="drawer_notifications_description" translatable="false">View scheduled notifications</string>
+  <string name="notifications_title" translatable="false">Notifications</string>
+  <string name="notifications_empty_state" translatable="false">No scheduled notifications</string>
+  <string name="notifications_delete_dialog_title" translatable="false">Delete Notification</string>
+  <string name="notifications_delete_dialog_content" translatable="false">Are you sure you want to delete the scheduled notification \"%s\"?</string>
+  <string name="notifications_time_label" translatable="false">Time: %s</string>
+  <string name="notifications_date_label" translatable="false">Date: %s</string>
+  <string name="notifications_repeat_daily" translatable="false">Daily</string>
+  <string name="notifications_repeat_one_time" translatable="false">One-time</string>
   <string name="edit" translatable="false">Edit</string>
   <string name="edit_secret" translatable="false">Edit secret</string>
   <string name="enter_instruction" translatable="false">Enter instruction</string>
