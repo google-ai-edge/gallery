@@ -17,8 +17,10 @@
 package com.google.ai.edge.gallery.ui.common
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -139,13 +141,18 @@ fun ModelPageAppBar(
     actions = {
       val downloadSucceeded = curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
       val showConfigButton = model.configs.isNotEmpty() && downloadSucceeded
-      Row(verticalAlignment = Alignment.CenterVertically) {
+      Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
+        var configButtonOffset = 0.dp
+        if (showConfigButton && shouldShowHistoryButton) {
+          configButtonOffset = (-40).dp
+        }
         if (showConfigButton) {
           val enableConfigButton = !isModelInitializing && !inProgress && isModelInitialized
           IconButton(
             onClick = { showConfigDialog = true },
             enabled = enableConfigButton,
-            modifier = Modifier.alpha(if (!enableConfigButton) 0.5f else 1f),
+            modifier =
+              Modifier.offset(x = configButtonOffset).alpha(if (!enableConfigButton) 0.5f else 1f),
           ) {
             Icon(
               imageVector = Icons.Rounded.Tune,
