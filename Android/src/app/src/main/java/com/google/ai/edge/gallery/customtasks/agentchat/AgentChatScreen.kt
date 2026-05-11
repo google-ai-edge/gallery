@@ -119,6 +119,7 @@ fun AgentChatScreen(
   agentTools: AgentTools,
   viewModel: LlmChatViewModel = hiltViewModel(),
   skillManagerViewModel: SkillManagerViewModel = hiltViewModel(),
+  initialQuery: String? = null,
 ) {
   val context = LocalContext.current
   agentTools.context = context
@@ -140,6 +141,38 @@ fun AgentChatScreen(
   LaunchedEffect(task) { viewModel.loadSystemPrompt(task) }
   val uiSystemPrompt by viewModel.uiSystemPrompt.collectAsState()
   LaunchedEffect(uiSystemPrompt) { curSystemPrompt = uiSystemPrompt }
+
+  // Collect UI states from view models. Ensure launched effect is triggered when the UI state is
+  // updated.
+  val llmChatUiState by viewModel.uiState.collectAsState()
+  val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+  val selectedModel = modelManagerUiState.selectedModel
+  val modelInitStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
+
+  var initialQueryConsumed by remember { mutableStateOf(false) }
+
+  LaunchedEffect(
+    llmChatUiState.isResettingSession,
+    modelInitStatus?.status,
+    selectedModel.name,
+    initialQuery,
+  ) {
+    // Send the optional initial query to the model if the model is initialized and the initial
+    // query is not consumed yet.
+    if (
+      !initialQuery.isNullOrEmpty() &&
+        !initialQueryConsumed &&
+        modelInitStatus?.status == ModelInitializationStatusType.INITIALIZED &&
+        !llmChatUiState.isResettingSession
+    ) {
+      initialQueryConsumed = true
+      sendMessageTrigger =
+        SendMessageTrigger(
+          model = selectedModel,
+          messages = listOf(ChatMessageText(content = initialQuery, side = ChatSide.USER)),
+        )
+    }
+  }
 
   LlmChatScreen(
     modelManagerViewModel = modelManagerViewModel,

@@ -65,11 +65,11 @@ data class ScheduleNotificationParams(
   val message: String,
   val hour: Int,
   val minute: Int,
+  val deeplink: String? = null,
   val year: Int? = null,
   val month: Int? = null,
   val day: Int? = null,
   val repeat_daily: Boolean? = null,
-  val deeplink: String? = null,
 )
 
 object IntentHandler {
@@ -181,6 +181,19 @@ object IntentHandler {
             .setMinute(params.minute)
             .setChannelId("agent_skill_tasks_channel")
             .setChannelName("Agent Skill Task")
+        if (params.deeplink != null) {
+          notificationProtoBuilder.setDeeplink(params.deeplink)
+        } else {
+          val fallbackUri =
+            "com.google.ai.edge.gallery://llm_agent_chat/"
+              .toUri()
+              .buildUpon()
+              .appendQueryParameter("query", params.message)
+              .build()
+              .toString()
+          Log.d(TAG, "Setting fallback deeplink to: $fallbackUri")
+          notificationProtoBuilder.setDeeplink(fallbackUri)
+        }
         if (params.year != null) {
           notificationProtoBuilder.setYear(params.year)
         }
@@ -189,9 +202,6 @@ object IntentHandler {
         }
         if (params.day != null) {
           notificationProtoBuilder.setDay(params.day)
-        }
-        if (params.deeplink != null) {
-          notificationProtoBuilder.setDeeplink(params.deeplink)
         }
         if (params.repeat_daily != null) {
           notificationProtoBuilder.setRepeatDaily(params.repeat_daily)

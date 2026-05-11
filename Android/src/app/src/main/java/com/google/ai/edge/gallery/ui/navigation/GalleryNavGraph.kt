@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.ui.navigation
 
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.compose.BackHandler
@@ -72,6 +73,7 @@ import androidx.navigation.navArgument
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskData
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskDataForBuiltinTask
+import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.isLegacyTasks
@@ -158,6 +160,7 @@ fun GalleryNavHost(
   var enableHomeScreenAnimation by remember { mutableStateOf(true) }
   var enableModelListAnimation by remember { mutableStateOf(true) }
   var lastNavigatedModelName = remember { "" }
+  val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
 
   // Track whether app is in foreground.
   DisposableEffect(lifecycleOwner) {
@@ -294,17 +297,23 @@ fun GalleryNavHost(
 
     // Model page.
     composable(
-      route = "$ROUTE_MODEL/{taskId}/{modelName}",
+      route = "$ROUTE_MODEL/{taskId}/{modelName}?query={query}",
       arguments =
         listOf(
           navArgument("taskId") { type = NavType.StringType },
           navArgument("modelName") { type = NavType.StringType },
+          navArgument("query") {
+            type = NavType.StringType
+            nullable = true
+            defaultValue = null
+          },
         ),
       enterTransition = { slideEnter() },
       exitTransition = { slideExit() },
     ) { backStackEntry ->
       val modelName = backStackEntry.arguments?.getString("modelName") ?: ""
       val taskId = backStackEntry.arguments?.getString("taskId") ?: ""
+      val queryParam = backStackEntry.arguments?.getString("query")
       val scope = rememberCoroutineScope()
       val context = LocalContext.current
 
@@ -326,6 +335,7 @@ fun GalleryNavHost(
                     lastNavigatedModelName = ""
                     navController.navigateUp()
                   },
+                  initialQuery = queryParam,
                 )
             )
           } else {
@@ -454,10 +464,32 @@ fun GalleryNavHost(
   // Handle incoming intents for deep links
   val intent = androidx.activity.compose.LocalActivity.current?.intent
   val data = intent?.data
-  if (data != null) {
+  // Wait until the model manager has been initialized and the tasks are available.
+  if (data != null && modelManagerUiState.tasks.isNotEmpty()) {
     intent.data = null
     Log.d(TAG, "navigation link clicked: $data")
-    if (data.toString().startsWith("com.google.ai.edge.gallery://model/")) {
+    if (data.toString().startsWith("com.google.ai.edge.gallery://llm_agent_chat")) {
+      val queryStr = data.getQueryParameter("query")
+      val taskId = BuiltInTaskId.LLM_AGENT_CHAT
+      val task = modelManagerUiState.tasks.find { it.id == taskId }
+      val defaultModel =
+        task?.models?.firstOrNull { model ->
+          modelManagerUiState.modelDownloadStatus[model.name]?.status ==
+            ModelDownloadStatusType.SUCCEEDED
+        } ?: task?.models?.firstOrNull()
+
+      if (defaultModel != null) {
+        val route =
+          if (!queryStr.isNullOrEmpty()) {
+            "$ROUTE_MODEL/${taskId}/${defaultModel.name}?query=${Uri.encode(queryStr)}"
+          } else {
+            "$ROUTE_MODEL/${taskId}/${defaultModel.name}"
+          }
+        navController.navigate(route)
+      } else {
+        Log.e(TAG, "No available model found for task: $taskId")
+      }
+    } else if (data.toString().startsWith("com.google.ai.edge.gallery://model/")) {
       if (data.pathSegments.size >= 2) {
         val taskId = data.pathSegments.get(data.pathSegments.size - 2)
         val modelName = data.pathSegments.last()
