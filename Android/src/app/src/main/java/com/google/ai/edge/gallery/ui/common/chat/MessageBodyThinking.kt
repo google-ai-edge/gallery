@@ -48,12 +48,9 @@ import com.google.ai.edge.gallery.ui.common.MarkdownText
 
 @Composable
 fun MessageBodyThinking(thinkingText: String, inProgress: Boolean) {
-  var isExpanded by remember { mutableStateOf(false) }
-
-  // Auto-expand while thinking is in progress
-  if (inProgress) {
-    isExpanded = true
-  }
+  // Auto-expand when the thinking message first appears (which is while it's
+  // in progress), but let the user collapse it at any time.
+  var isExpanded by remember { mutableStateOf(inProgress) }
 
   Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
     Row(
