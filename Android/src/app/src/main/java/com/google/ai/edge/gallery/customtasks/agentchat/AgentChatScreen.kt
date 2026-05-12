@@ -22,6 +22,8 @@ import android.util.Log
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -76,6 +78,7 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.AskInfoAgentAction
 import com.google.ai.edge.gallery.common.CallJsAgentAction
 import com.google.ai.edge.gallery.common.LOCAL_URL_BASE
+import com.google.ai.edge.gallery.common.RequestPermissionAgentAction
 import com.google.ai.edge.gallery.common.SkillProgressAgentAction
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
@@ -138,6 +141,15 @@ fun AgentChatScreen(
   var sendMessageTrigger by remember { mutableStateOf<SendMessageTrigger?>(null) }
   var showAlertForDisabledSkill by remember { mutableStateOf(false) }
   var disabledSkillName by remember { mutableStateOf("") }
+
+  var currentPermissionAction by remember { mutableStateOf<RequestPermissionAgentAction?>(null) }
+  val permissionLauncher =
+    rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+      permissionGranted ->
+      currentPermissionAction?.result?.complete(permissionGranted)
+      currentPermissionAction = null
+    }
+
   LaunchedEffect(task) { viewModel.loadSystemPrompt(task) }
   val uiSystemPrompt by viewModel.uiSystemPrompt.collectAsState()
   LaunchedEffect(uiSystemPrompt) { curSystemPrompt = uiSystemPrompt }
@@ -377,6 +389,10 @@ fun AgentChatScreen(
               currentAskInfoAction = action
               askInfoInputValue = "" // Reset input
               showAskInfoDialog = true
+            }
+            is RequestPermissionAgentAction -> {
+              currentPermissionAction = action
+              permissionLauncher.launch(action.permission)
             }
           }
         }

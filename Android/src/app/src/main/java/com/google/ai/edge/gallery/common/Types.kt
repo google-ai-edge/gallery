@@ -54,10 +54,17 @@ class SkillProgressAgentAction(
   val customData: Any? = null,
 ) : AgentAction(name = AgentActionName.SKILL_PROGRESS)
 
+// Request Android permission to perform certain actions, e.g. read calendar events.
+class RequestPermissionAgentAction(
+  val permission: String,
+  val result: CompletableDeferred<Boolean> = CompletableDeferred(),
+) : AgentAction(name = AgentActionName.REQUEST_PERMISSION)
+
 enum class AgentActionName() {
   CALL_JS_SKILL,
   SKILL_PROGRESS,
   ASK_INFO,
+  REQUEST_PERMISSION,
 }
 
 data class SkillTryOutChip(

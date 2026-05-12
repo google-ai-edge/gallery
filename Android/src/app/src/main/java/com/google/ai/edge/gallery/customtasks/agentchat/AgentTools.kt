@@ -24,6 +24,7 @@ import com.google.ai.edge.gallery.common.CallJsSkillResult
 import com.google.ai.edge.gallery.common.CallJsSkillResultImage
 import com.google.ai.edge.gallery.common.CallJsSkillResultWebview
 import com.google.ai.edge.gallery.common.LOCAL_URL_BASE
+import com.google.ai.edge.gallery.common.RequestPermissionAgentAction
 import com.google.ai.edge.gallery.common.SkillProgressAgentAction
 import com.google.ai.edge.litertlm.Tool
 import com.google.ai.edge.litertlm.ToolParam
@@ -239,7 +240,12 @@ open class AgentTools() : ToolSet {
           addItemDescription = "Parameters: $parameters",
         )
       )
-      val res = IntentHandler.handleAction(context, intent, parameters)
+      val res =
+        IntentHandler.handleAction(context, intent, parameters) { permission ->
+          val permissionAction = RequestPermissionAgentAction(permission = permission)
+          _actionChannel.send(permissionAction)
+          permissionAction.result.await()
+        }
       return@runBlocking mapOf("action" to intent, "parameters" to parameters, "result" to res)
     }
   }
