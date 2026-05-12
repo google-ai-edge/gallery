@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+import android.content.ClipData
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -47,6 +48,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -78,6 +80,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
@@ -168,6 +172,7 @@ fun ChatPanel(
 
   var curMessage by remember { mutableStateOf("") } // Correct state
   val focusManager = LocalFocusManager.current
+  val clipboard = LocalClipboard.current
 
   // List state to control scrolling.
   val listState = rememberScrollState()
@@ -514,6 +519,26 @@ fun ChatPanel(
                       verticalAlignment = Alignment.CenterVertically,
                       horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                      // Copy button for agent text and thinking content.
+                      val copyableText: String? =
+                        when (message) {
+                          is ChatMessageText -> message.content
+                          is ChatMessageThinking -> message.content
+                          else -> null
+                        }
+                      if (copyableText != null && !uiState.inProgress) {
+                        MessageActionButton(
+                          label = stringResource(R.string.copy),
+                          icon = Icons.Outlined.ContentCopy,
+                          onClick = {
+                            scope.launch {
+                              clipboard.setClipEntry(
+                                ClipEntry(ClipData.newPlainText("chat", copyableText))
+                              )
+                            }
+                          },
+                        )
+                      }
                       LatencyText(message = message)
                     }
                   } else if (message.side == ChatSide.USER) {
