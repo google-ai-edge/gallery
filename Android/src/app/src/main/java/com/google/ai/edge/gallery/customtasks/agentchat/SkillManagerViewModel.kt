@@ -192,10 +192,6 @@ constructor(
         try {
           val skillAssetDirs = context.assets.list("skills") ?: emptyArray()
           for (dirName in skillAssetDirs) {
-            // TODO: Temporarily disable some built-in skills. Enable them when ready.
-            if (dirName == "create-calendar-event" || dirName == "schedule-notification") {
-              continue
-            }
             val skillMdPath = "skills/$dirName/SKILL.md"
             try {
               context.assets.open(skillMdPath).use { inputStream ->
