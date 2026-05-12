@@ -334,6 +334,9 @@ fun ChatViewWrapper(
 }
 
 private fun convertToLitertMessage(chatMessage: ChatMessage): Message? {
+  // TODO: Restore image and audio messages to the LLM context.
+  // We are currently bypassing them because the image and audio encoder may take
+  // too long during chat history loading, which can cause stalls or stream errors.
   if (chatMessage is ChatMessageText) {
     return when (chatMessage.side) {
       ChatSide.USER -> Message.user(chatMessage.content)
