@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.ui.common.chat
 
 import android.graphics.Bitmap
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -42,14 +43,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ThumbDown
+import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material.icons.outlined.ThumbDown
+import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -78,6 +86,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
@@ -137,8 +146,8 @@ fun ChatPanel(
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val messages = uiState.messagesByModel[selectedModel.name] ?: listOf()
   val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
-  val snackbarHostState = remember { SnackbarHostState() }
   val scope = rememberCoroutineScope()
+  val snackbarHostState = remember { SnackbarHostState() }
   val imageCountToLastConfigChange =
     remember(messages) {
       var imageCount = 0
@@ -168,6 +177,7 @@ fun ChatPanel(
 
   var curMessage by remember { mutableStateOf("") } // Correct state
   val focusManager = LocalFocusManager.current
+  val context = LocalContext.current
 
   // List state to control scrolling.
   val listState = rememberScrollState()
@@ -176,6 +186,9 @@ fun ChatPanel(
   val benchmarkMessage: MutableState<ChatMessage?> = remember { mutableStateOf(null) }
 
   var showErrorDialog by remember { mutableStateOf(false) }
+  var showFeedbackDialog by remember { mutableStateOf(false) }
+  var isPositiveFeedback by remember { mutableStateOf(true) }
+  var feedbackMessageIndex by remember { mutableIntStateOf(-1) }
 
   var showAudioRecorder by remember { mutableStateOf(false) }
   var curAmplitude by remember { mutableIntStateOf(0) }

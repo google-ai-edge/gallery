@@ -179,6 +179,7 @@
   <string name="share" translatable="false">Share</string>
   <string name="slide_up_to_cancel" translatable="false">Slide up to cancel</string>
   <string name="system_prompt_updated" translatable="false">System prompt updated</string>
+  <string name="submit" translatable="false">Submit</string>
   <string name="take_a_picture" translatable="false">Take a picture</string>
   <string name="tap_to_change_color" translatable="false">Tap to change color</string>
   <string name="tap_to_see_value" translatable="false">Tap on graph to see value</string>
