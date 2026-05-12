@@ -191,7 +191,9 @@ fun ChatView(
       modelManagerUiState.modelInitializationStatus[selectedModel.name]
     val isModelInitializing =
       modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
-    if (!isModelInitializing && !uiState.inProgress) {
+    if (drawerState.isOpen) {
+      scope.launch { drawerState.close() }
+    } else if (!isModelInitializing && !uiState.inProgress) {
       handleNavigateUp()
     }
   }
@@ -236,8 +238,19 @@ fun ChatView(
                 }
                 scope.launch { drawerState.close() }
               },
-              onHistoryItemDeleted = { sessionId -> viewModel.deleteSession(sessionId, context) },
-              onHistoryItemsDeleteAll = { viewModel.clearAllSessions(context) },
+              onHistoryItemDeleted = { sessionId ->
+                viewModel.deleteSession(sessionId, context)
+                if (sessionId == viewModel.currentSessionId) {
+                  onResetSessionClicked(selectedModel, emptyList()) {}
+                  viewModel.currentSessionId = UUID.randomUUID().toString()
+                }
+              },
+              onHistoryItemsDeleteAll = {
+                viewModel.clearAllSessions(context)
+                onResetSessionClicked(selectedModel, emptyList()) {}
+                viewModel.currentSessionId = UUID.randomUUID().toString()
+                scope.launch { drawerState.close() }
+              },
               onNewChatClicked = {
                 Log.d(
                   TAG,
