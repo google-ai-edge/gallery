@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+import android.content.ClipData
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -47,6 +48,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -78,6 +80,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
@@ -139,6 +143,7 @@ fun ChatPanel(
   val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
   val snackbarHostState = remember { SnackbarHostState() }
   val scope = rememberCoroutineScope()
+  val clipboard = LocalClipboard.current
   val imageCountToLastConfigChange =
     remember(messages) {
       var imageCount = 0
@@ -515,6 +520,22 @@ fun ChatPanel(
                       horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                       LatencyText(message = message)
+
+                      // Copy button for agent text messages: discoverable,
+                      // one-tap copy for screen reader users.
+                      if (message is ChatMessageText) {
+                        MessageActionButton(
+                          label = stringResource(R.string.copy),
+                          icon = Icons.Outlined.ContentCopy,
+                          onClick = {
+                            scope.launch {
+                              val clipData =
+                                ClipData.newPlainText("message", message.content)
+                              clipboard.setClipEntry(ClipEntry(clipData = clipData))
+                            }
+                          },
+                        )
+                      }
                     }
                   } else if (message.side == ChatSide.USER) {
                     Row(
