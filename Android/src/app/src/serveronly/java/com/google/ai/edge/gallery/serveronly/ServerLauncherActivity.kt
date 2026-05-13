@@ -281,7 +281,7 @@ private fun DefaultModelSection(
           trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
           modifier = Modifier.menuAnchor(type = ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
         )
-        androidx.compose.material3.ExposedDropdownMenu(
+        ExposedDropdownMenu(
           expanded = expanded,
           onDismissRequest = { expanded = false },
         ) {
