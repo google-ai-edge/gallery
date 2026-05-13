@@ -17,10 +17,17 @@
 package com.google.ai.edge.gallery.ui.common
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ContentResolver
+import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
+import android.provider.MediaStore
+import android.util.Log
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -56,9 +63,13 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import java.io.File
+import java.io.FileOutputStream
 import kotlin.math.ln
 import kotlin.math.pow
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 private const val TAG = "AGUtils"
 
@@ -355,4 +366,101 @@ fun rememberDelayedAnimationProgress(
     startAnimation = true
   }
   return progress
+}
+
+suspend fun Context.shareBitmap(
+  bitmap: Bitmap,
+  fileName: String = "shared_image.png",
+  dispatcher: CoroutineDispatcher = Dispatchers.IO,
+) {
+  withContext(dispatcher) {
+    try {
+      val cachePath = File(cacheDir, "images")
+      cachePath.mkdirs()
+      val tempFile = File(cachePath, fileName)
+      FileOutputStream(tempFile).use { outputStream ->
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+      }
+      val contentUri =
+        FileProvider.getUriForFile(this@shareBitmap, "$packageName.provider", tempFile)
+      val shareIntent =
+        Intent().apply {
+          action = Intent.ACTION_SEND
+          putExtra(Intent.EXTRA_STREAM, contentUri)
+          addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+          type = "image/png"
+          clipData = ClipData.newRawUri("", contentUri)
+        }
+      startActivity(Intent.createChooser(shareIntent, "Share Image"))
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to share bitmap", e)
+    }
+  }
+}
+
+suspend fun Context.copyBitmapToClipboard(
+  bitmap: Bitmap,
+  fileName: String = "copied_image.png",
+  dispatcher: CoroutineDispatcher = Dispatchers.IO,
+) {
+  withContext(dispatcher) {
+    try {
+      val cachePath = File(cacheDir, "images")
+      cachePath.mkdirs()
+      val tempFile = File(cachePath, fileName)
+      FileOutputStream(tempFile).use { outputStream ->
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+      }
+      val contentUri =
+        FileProvider.getUriForFile(this@copyBitmapToClipboard, "$packageName.provider", tempFile)
+      val clipboard =
+        getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+      val clip = ClipData.newUri(contentResolver, "Image", contentUri)
+      clipboard.setPrimaryClip(clip)
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to copy bitmap to clipboard", e)
+    }
+  }
+}
+
+suspend fun Context.saveBitmapToMediaStore(
+  bitmap: Bitmap,
+  fileName: String,
+  dispatcher: CoroutineDispatcher = Dispatchers.IO,
+): Boolean {
+  return withContext(dispatcher) {
+    val resolver: ContentResolver = contentResolver
+    val imageCollection: Uri =
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+      } else {
+        MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+      }
+
+    val contentValues =
+      ContentValues().apply {
+        put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
+        put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+        put(MediaStore.Images.Media.DATE_ADDED, System.currentTimeMillis() / 1000)
+        put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis())
+      }
+
+    var imageUri: Uri? = null
+    try {
+      imageUri = resolver.insert(imageCollection, contentValues) ?: return@withContext false
+      val success =
+        resolver.openOutputStream(imageUri)?.use { outputStream ->
+          bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+        } ?: false
+
+      if (!success) {
+        resolver.delete(imageUri, null, null)
+      }
+      success
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to save bitmap to MediaStore", e)
+      imageUri?.let { resolver.delete(it, null, null) }
+      false
+    }
+  }
 }

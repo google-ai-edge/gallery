@@ -214,6 +214,9 @@
   <string name="unknown_error" translatable="false">Unknown error</string>
   <string name="view" translatable="false">View</string>
   <string name="view_in_full_screen" translatable="false">View in full screen</string>
+  <string name="snackbar_save_to_album_success" translatable="false">Saved to photo album</string>
+  <string name="snackbar_save_to_album_failed" translatable="false">Failed to save to photo album</string>
+  <string name="snackbar_copy_to_clipboard_success" translatable="false">Copied to clipboard</string>
 
   <plurals name="parameter" translatable="false">
     <item quantity="one">Parameter</item>

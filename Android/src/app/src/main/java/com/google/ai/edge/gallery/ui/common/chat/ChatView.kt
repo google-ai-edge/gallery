@@ -27,29 +27,34 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -68,8 +73,12 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
@@ -79,6 +88,9 @@ import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
+import com.google.ai.edge.gallery.ui.common.copyBitmapToClipboard
+import com.google.ai.edge.gallery.ui.common.saveBitmapToMediaStore
+import com.google.ai.edge.gallery.ui.common.shareBitmap
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import java.io.File
@@ -134,6 +146,7 @@ fun ChatView(
   var selectedImageIndex by remember { mutableIntStateOf(-1) }
   var allImageViewerImages by remember { mutableStateOf<List<Bitmap>>(listOf()) }
   var showImageViewer by remember { mutableStateOf(false) }
+  val snackbarHostState = remember { SnackbarHostState() }
 
   // Chat history drawer.
   val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -280,6 +293,7 @@ fun ChatView(
       CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Scaffold(
           modifier = modifier,
+          snackbarHost = { SnackbarHost(snackbarHostState) },
           topBar = {
             ModelPageAppBar(
               task = task,
@@ -396,47 +410,148 @@ fun ChatView(
             }
 
             // Image viewer.
-            AnimatedVisibility(
-              visible = showImageViewer,
-              enter = slideInVertically(initialOffsetY = { fullHeight -> fullHeight }) + fadeIn(),
-              exit = slideOutVertically(targetOffsetY = { fullHeight -> fullHeight }) + fadeOut(),
-            ) {
-              val pagerState =
-                rememberPagerState(
-                  pageCount = { allImageViewerImages.size },
-                  initialPage = selectedImageIndex,
-                )
-              val scrollEnabled = remember { mutableStateOf(true) }
-              Box(
-                modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding())
+            if (showImageViewer) {
+              Dialog(
+                onDismissRequest = { showImageViewer = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false),
               ) {
-                HorizontalPager(
-                  state = pagerState,
-                  userScrollEnabled = scrollEnabled.value,
-                  modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.95f)),
-                ) { page ->
-                  allImageViewerImages[page].let { image ->
-                    ZoomableImage(
-                      bitmap = image.asImageBitmap(),
-                      pagerState = pagerState,
-                      modifier = Modifier.fillMaxSize(),
-                    )
+                val dialogSnackbarHostState = remember { SnackbarHostState() }
+                val pagerState =
+                  rememberPagerState(
+                    pageCount = { allImageViewerImages.size },
+                    initialPage = selectedImageIndex,
+                  )
+                val scrollEnabled = remember { mutableStateOf(true) }
+                Box(modifier = Modifier.fillMaxSize()) {
+                  HorizontalPager(
+                    state = pagerState,
+                    userScrollEnabled = scrollEnabled.value,
+                    modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.95f)),
+                  ) { page ->
+                    allImageViewerImages[page].let { image ->
+                      ZoomableImage(
+                        bitmap = image.asImageBitmap(),
+                        pagerState = pagerState,
+                        modifier = Modifier.fillMaxSize(),
+                      )
+                    }
                   }
-                }
 
-                // Close button.
-                IconButton(
-                  onClick = { showImageViewer = false },
-                  colors =
-                    IconButtonDefaults.iconButtonColors(
-                      containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                  modifier = Modifier.offset(x = (-8).dp, y = 8.dp).align(Alignment.TopEnd),
-                ) {
-                  Icon(
-                    Icons.Rounded.Close,
-                    contentDescription = stringResource(R.string.cd_close_image_viewer_icon),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                  val curBitmap = allImageViewerImages.getOrNull(pagerState.currentPage)
+
+                  // Top item: ArrowBack (top left).
+                  Row(
+                    modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter).padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                  ) {
+                    IconButton(onClick = { showImageViewer = false }) {
+                      Icon(
+                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = stringResource(R.string.close),
+                        tint = Color.White,
+                      )
+                    }
+                  }
+
+                  // Bottom items: Share, Copy, Save.
+                  val copySuccessMsg = stringResource(R.string.snackbar_copy_to_clipboard_success)
+                  val saveSuccessMsg = stringResource(R.string.snackbar_save_to_album_success)
+                  val saveFailedMsg = stringResource(R.string.snackbar_save_to_album_failed)
+                  Row(
+                    modifier =
+                      Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = 24.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                  ) {
+                    // Share button
+                    IconButton(
+                      onClick = {
+                        curBitmap?.let { bitmap -> scope.launch { context.shareBitmap(bitmap) } }
+                      },
+                      modifier = Modifier.size(64.dp),
+                    ) {
+                      Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                          Icons.Rounded.Share,
+                          contentDescription = stringResource(R.string.share),
+                          tint = Color.White,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                          text = stringResource(R.string.share),
+                          color = Color.White,
+                          fontSize = 12.sp,
+                          textAlign = TextAlign.Center,
+                        )
+                      }
+                    }
+
+                    // Copy button
+                    IconButton(
+                      onClick = {
+                        curBitmap?.let { bitmap ->
+                          scope.launch {
+                            context.copyBitmapToClipboard(bitmap)
+                            dialogSnackbarHostState.showSnackbar(copySuccessMsg)
+                          }
+                        }
+                      },
+                      modifier = Modifier.size(64.dp),
+                    ) {
+                      Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                          Icons.Rounded.ContentCopy,
+                          contentDescription = stringResource(R.string.copy),
+                          tint = Color.White,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                          text = stringResource(R.string.copy),
+                          color = Color.White,
+                          fontSize = 12.sp,
+                          textAlign = TextAlign.Center,
+                        )
+                      }
+                    }
+
+                    // Save button
+                    IconButton(
+                      onClick = {
+                        curBitmap?.let { bitmap ->
+                          scope.launch {
+                            val success =
+                              context.saveBitmapToMediaStore(
+                                bitmap,
+                                "chat_image_${System.currentTimeMillis()}.png",
+                              )
+                            if (success) {
+                              dialogSnackbarHostState.showSnackbar(saveSuccessMsg)
+                            } else {
+                              dialogSnackbarHostState.showSnackbar(saveFailedMsg)
+                            }
+                          }
+                        }
+                      },
+                      modifier = Modifier.size(64.dp),
+                    ) {
+                      Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                          Icons.Rounded.Download,
+                          contentDescription = stringResource(R.string.save),
+                          tint = Color.White,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                          text = stringResource(R.string.save),
+                          color = Color.White,
+                          fontSize = 12.sp,
+                          textAlign = TextAlign.Center,
+                        )
+                      }
+                    }
+                  }
+                  SnackbarHost(
+                    hostState = dialogSnackbarHostState,
+                    modifier = Modifier.align(Alignment.BottomCenter),
                   )
                 }
               }
