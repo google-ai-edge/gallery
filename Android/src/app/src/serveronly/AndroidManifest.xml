@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+ Copyright 2025 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      Request the signature-protected permission declared by the full Edge Gallery
+      app's ModelExportProvider so we can read its downloaded models.
+    -->
+    <uses-permission android:name="com.google.aiedge.gallery.permission.EXPORT_MODELS" />
+
+    <application
+        android:label="@string/server_app_name"
+        tools:replace="android:label">
+        <!--
+          ServerLauncherActivity is the only entry point for the standalone server APK.
+          It lets the user import models from the full Edge Gallery app, pick a default
+          model, and start/stop the embedded HTTP server.
+        -->
+        <activity
+            android:name="com.google.ai.edge.gallery.serveronly.ServerLauncherActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Gallery"
+            tools:ignore="LockedOrientationActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

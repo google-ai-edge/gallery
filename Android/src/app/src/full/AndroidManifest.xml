@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+ Copyright 2025 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Permissions only the full Edge Gallery app needs. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="com.google.android.apps.aicore.service.BIND_SERVICE" />
+
+    <!-- Push notification + GCM (full app's Firebase messaging only). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
+    <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES" />
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
+
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature android:name="android.hardware.camera.flash"
+        android:required="false" />
+
+    <!--
+      Signature-protected permission gating the model export ContentProvider.
+      Only apps signed with the same release/debug key as Edge Gallery may read it.
+    -->
+    <permission
+        android:name="com.google.aiedge.gallery.permission.EXPORT_MODELS"
+        android:protectionLevel="signature" />
+
+    <application>
+        <activity
+            android:name="com.google.ai.edge.gallery.MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Gallery.SplashScreen"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="uiMode"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="com.google.ai.edge.gallery" />
+            </intent-filter>
+        </activity>
+
+        <!-- OSS license viewer activities -->
+        <activity
+            android:name="com.google.android.gms.oss.licenses.OssLicensesMenuActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Gallery.OssLicenses" />
+        <activity
+            android:name="com.google.android.gms.oss.licenses.OssLicensesActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Gallery.OssLicenses" />
+
+        <!--
+          ContentProvider that exports downloaded models to the standalone server APK.
+          Both APKs must be signed with the same key to grant the signature permission.
+        -->
+        <provider
+            android:name="com.google.ai.edge.gallery.server.export.ModelExportProvider"
+            android:authorities="com.google.aiedge.gallery.models"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:readPermission="com.google.aiedge.gallery.permission.EXPORT_MODELS" />
+
+        <!-- Firebase Analytics. -->
+        <receiver
+            android:name="com.google.android.gms.measurement.AppMeasurementReceiver"
+            android:enabled="true"
+            android:exported="false" />
+        <service android:name="com.google.android.gms.measurement.AppMeasurementService"
+            android:enabled="true"
+            android:exported="false" />
+        <service
+            android:name="com.google.android.gms.measurement.AppMeasurementJobService"
+            android:enabled="true"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <service
+            android:name="com.google.ai.edge.gallery.GalleryFcmMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="gallery_high_priority_push_channel" />
+
+        <uses-native-library android:name="libvndksupport.so" android:required="false"/>
+        <uses-native-library android:name="libOpenCL.so" android:required="false"/>
+        <uses-native-library android:name="libcdsprpc.so" android:required="false" />
+    </application>
+
+</manifest>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Defaults consumed by LlmServerService. Flavor-specific overrides live in
+  app/src/{flavor}/res/values/server_resources.xml.
+-->
+<resources>
+    <!--
+      Whether LlmServerService should auto-load a default model from local
+      preferences when no model is currently active. Disabled in main since the
+      full app loads models via the chat UI.
+    -->
+    <bool name="server_auto_load_model">false</bool>
+
+    <!--
+      Fully-qualified name of the Activity launched when the user taps the
+      foreground service notification. Defaults to the full Edge Gallery
+      MainActivity; the serveronly flavor overrides this to point at
+      ServerLauncherActivity.
+    -->
+    <string name="server_tap_activity_class" translatable="false">com.google.ai.edge.gallery.MainActivity</string>
+</resources>

@@ -28,10 +28,16 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.google.ai.edge.gallery.MainActivity
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
+import java.io.File
 import java.net.Inet4Address
 import java.net.NetworkInterface
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
  * Foreground [Service] that hosts the [LlmHttpServer].
@@ -81,6 +87,7 @@ class LlmServerService : Service() {
   private var server: LlmHttpServer? = null
   private var wakeLock: PowerManager.WakeLock? = null
   private var wifiLock: WifiManager.WifiLock? = null
+  private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
   override fun onBind(intent: Intent?): IBinder? = null
 
@@ -108,6 +115,7 @@ class LlmServerService : Service() {
     Log.d(TAG, "onDestroy")
     stopServerInternal()
     releaseLocks()
+    serviceScope.cancel()
     super.onDestroy()
   }
 
@@ -142,6 +150,59 @@ class LlmServerService : Service() {
     acquireLocks()
     startForegroundWithNotification(port)
     Log.d(TAG, "Server started on port $port")
+
+    // For the standalone server APK (serveronly flavor), auto-load the user's chosen default
+    // model so HTTP clients can hit the server immediately without first opening a chat UI.
+    // The full Edge Gallery flavor sets this resource to false; models are loaded on-demand by
+    // the chat screens.
+    if (resources.getBoolean(R.bool.server_auto_load_model) &&
+        ServerModelHolder.activeModel == null) {
+      serviceScope.launch { autoLoadDefaultModel() }
+    }
+  }
+
+  /**
+   * Reads the configured default model from local prefs and initialises it via
+   * [LlmChatModelHelper]. Only called when [R.bool.server_auto_load_model] is true.
+   */
+  private fun autoLoadDefaultModel() {
+    val prefs = getSharedPreferences(ImportedModelStore.PREFS_NAME, Context.MODE_PRIVATE)
+    val defaultName = prefs.getString(ImportedModelStore.PREF_DEFAULT_MODEL_NAME, null)
+    if (defaultName.isNullOrEmpty()) {
+      Log.d(TAG, "No default model configured; skipping auto-load")
+      return
+    }
+
+    val meta =
+      ImportedModelStore.readImported(this).find { it.name == defaultName }
+        ?: run {
+          Log.w(TAG, "Default model '$defaultName' not found in imported_models.json")
+          return
+        }
+
+    val model = ImportedModelStore.toModel(meta)
+    val expectedPath = model.getPath(this)
+    if (!File(expectedPath).exists()) {
+      Log.w(TAG, "Default model file is missing on disk: $expectedPath")
+      return
+    }
+
+    Log.d(TAG, "Auto-loading default model: ${meta.name} from $expectedPath")
+    LlmChatModelHelper.initialize(
+      context = this,
+      model = model,
+      supportImage = false,
+      supportAudio = false,
+      onDone = { error ->
+        if (error.isEmpty()) {
+          Log.d(TAG, "Default model loaded successfully: ${meta.name}")
+          // Refresh the foreground notification so it surfaces the active model name.
+          if (isRunning) startForegroundWithNotification(runningPort)
+        } else {
+          Log.e(TAG, "Failed to auto-load default model '${meta.name}': $error")
+        }
+      },
+    )
   }
 
   private fun stopServerAndSelf() {
@@ -218,15 +279,7 @@ class LlmServerService : Service() {
     val ip = findLocalIpv4() ?: "<unknown>"
     val activeModel = ServerModelHolder.activeModel?.name ?: "(no model loaded)"
 
-    val tapIntent =
-      PendingIntent.getActivity(
-        this,
-        0,
-        Intent(this, MainActivity::class.java).apply {
-          addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        },
-        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-      )
+    val tapIntent = buildTapPendingIntent()
 
     val stopIntent =
       PendingIntent.getService(
@@ -277,6 +330,32 @@ class LlmServerService : Service() {
       NOTIFICATION_ID,
       notification,
       ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+    )
+  }
+
+  /**
+   * Builds a tap PendingIntent for the foreground notification. The launcher Activity differs by
+   * flavor (full app's MainActivity vs. serveronly's ServerLauncherActivity), so the class name
+   * is read from a flavor-overridable string resource instead of being hard-coded.
+   */
+  private fun buildTapPendingIntent(): PendingIntent? {
+    val className = getString(R.string.server_tap_activity_class)
+    val cls =
+      try {
+        Class.forName(className)
+      } catch (t: ClassNotFoundException) {
+        Log.w(TAG, "Notification tap activity '$className' not found", t)
+        return null
+      }
+    val intent =
+      Intent(this, cls).apply {
+        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+      }
+    return PendingIntent.getActivity(
+      this,
+      0,
+      intent,
+      PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
   }
 

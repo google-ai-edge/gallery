@@ -19,41 +19,16 @@
     package="com.google.ai.edge.gallery"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-sdk
-        android:minSdkVersion="31"
-        android:compileSdkVersion ="35"
-        android:targetSdkVersion="35" />
-
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <!--
+      Permissions shared by all flavors. Flavor-specific permissions live in
+      app/src/{flavor}/AndroidManifest.xml.
+    -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <!-- This is for AlarmManager#setExactAndAllowWhileIdle from Android S for setting a exact alarm to handle some background tasks. -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
-    <!-- Same as SCHEDULE_EXACT_ALARM, but for target sdk 33 or above -->
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="com.google.android.apps.aicore.service.BIND_SERVICE" />
-
-    <!-- Additional permission required for push notification handling -->
-    <!-- Required for resurfacing notifications after boot -->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- Required for GCM message handling -->
-    <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
-    <!-- Required for registering with Chime properly -->
-    <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES" />
-    <!-- Required before JellyBean MR1, optional for newer versions of Android. -->
-    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
-
-    <uses-feature
-        android:name="android.hardware.camera"
-        android:required="false" />
-    <uses-feature android:name="android.hardware.camera.flash"
-        android:required="false" />
 
     <application
         android:name="${applicationName}"
@@ -66,45 +41,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Gallery"
         tools:targetApi="31">
-        <!--
-          android:configChanges="uiMode" tells the system don't destroy and
-          recreate the activity when UI mode changes (e.g. setting dark mode).
-          Instead, just recompose the view.
-         -->
-        <activity
-            android:name="com.google.ai.edge.gallery.MainActivity"
-            android:exported="true"
-            android:theme="@style/Theme.Gallery.SplashScreen"
-            android:screenOrientation="portrait"
-            android:windowSoftInputMode="adjustResize"
-            android:configChanges="uiMode"
-            tools:ignore="DiscouragedApi,LockedOrientationActivity">
-            <!-- This is for putting the app into launcher -->
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-
-            <!-- This is for deep linking -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-
-                <data android:scheme="com.google.ai.edge.gallery" />
-            </intent-filter>
-        </activity>
-
-        <!-- Set themes for activities that are used for viewing open source licenses -->
-        <activity
-            android:name="com.google.android.gms.oss.licenses.OssLicensesMenuActivity"
-            android:exported="true"
-            android:theme="@style/Theme.Gallery.OssLicenses" />
-        <activity
-            android:name="com.google.android.gms.oss.licenses.OssLicensesActivity"
-            android:exported="true"
-            android:theme="@style/Theme.Gallery.OssLicenses" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -126,53 +62,13 @@
         <!--
           Hosts the embedded NanoHTTPD-based OpenAI-compatible LLM server.
           Runs as a foreground service so Android doesn't reap it while the screen is off.
+          Both flavors include this service.
         -->
         <service
             android:name="com.google.ai.edge.gallery.server.LlmServerService"
             android:foregroundServiceType="dataSync"
             android:exported="false" />
 
-        <!-- For Firebase Analytics. -->
-        <receiver
-            android:name="com.google.android.gms.measurement.AppMeasurementReceiver"
-            android:enabled="true"
-            android:exported="false" />
-        <service android:name="com.google.android.gms.measurement.AppMeasurementService"
-            android:enabled="true"
-            android:exported="false" />
-        <service
-            android:name="com.google.android.gms.measurement.AppMeasurementJobService"
-            android:enabled="true"
-            android:exported="false"
-            android:permission="android.permission.BIND_JOB_SERVICE" />
-
-        <service
-            android:name=".GalleryFcmMessagingService"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
-
-        <receiver
-            android:name="com.google.ai.edge.gallery.notifications.NotificationReceiver"
-            android:exported="false" />
-
-        <receiver
-            android:name="com.google.ai.edge.gallery.notifications.BootReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
-
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="gallery_high_priority_push_channel" />
-        <uses-native-library android:name="libvndksupport.so" android:required="false"/>
-        <uses-native-library android:name="libOpenCL.so" android:required="false"/>
-        <uses-native-library android:name="libcdsprpc.so" android:required="false" />
-        <uses-native-library android:name="libedgetpu_litert.so" android:required="false" />
     </application>
 
 </manifest>

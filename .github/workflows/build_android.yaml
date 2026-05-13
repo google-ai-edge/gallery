@@ -26,19 +26,31 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
-      - name: Build release APK
-        run: ./gradlew assembleRelease
-      - name: Upload debug APK
+
+      # ---- Full flavor (existing Edge Gallery app) ----
+      - name: Build full debug APK
+        run: ./gradlew assembleFullDebug
+      - name: Build full release APK
+        run: ./gradlew assembleFullRelease
+      - name: Upload full debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
-          path: Android/src/app/build/outputs/apk/debug/*.apk
+          name: app-full-debug-apk
+          path: Android/src/app/build/outputs/apk/full/debug/*.apk
           if-no-files-found: error
-      - name: Upload release APK
+      - name: Upload full release APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
-          path: Android/src/app/build/outputs/apk/release/*.apk
+          name: app-full-release-apk
+          path: Android/src/app/build/outputs/apk/full/release/*.apk
           if-no-files-found: warn
+
+      # ---- Serveronly flavor (standalone headless server APK) ----
+      - name: Build serveronly debug APK
+        run: ./gradlew assembleServeronlyDebug
+      - name: Upload serveronly debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-serveronly-debug-apk
+          path: Android/src/app/build/outputs/apk/serveronly/debug/*.apk
+          if-no-files-found: error

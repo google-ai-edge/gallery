@@ -39,21 +39,49 @@ android {
     versionCode = 31
     versionName = "1.0.14"
 
-    // Needed for HuggingFace auth workflows.
-    // Use the scheme of the "Redirect URLs" in HuggingFace app.
-    manifestPlaceholders["appAuthRedirectScheme"] =
-        "REPLACE_WITH_YOUR_REDIRECT_SCHEME_IN_HUGGINGFACE_APP"
-    manifestPlaceholders["applicationName"] = "com.google.ai.edge.gallery.GalleryApplication"
-    manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
-
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  }
+
+  flavorDimensions += "form"
+  productFlavors {
+    create("full") {
+      dimension = "form"
+      // Needed for HuggingFace auth workflows.
+      manifestPlaceholders["appAuthRedirectScheme"] =
+          "REPLACE_WITH_YOUR_REDIRECT_SCHEME_IN_HUGGINGFACE_APP"
+      manifestPlaceholders["applicationName"] = "com.google.ai.edge.gallery.GalleryApplication"
+    }
+    create("serveronly") {
+      dimension = "form"
+      applicationIdSuffix = ".server"
+      versionNameSuffix = "-server"
+      // AppAuth library requires this placeholder; use a no-op value since serveronly
+      // does not perform HuggingFace OAuth.
+      manifestPlaceholders["appAuthRedirectScheme"] = "edge-gallery-server-auth"
+      manifestPlaceholders["applicationName"] =
+          "com.google.ai.edge.gallery.serveronly.ServerOnlyApplication"
+    }
+  }
+
+  signingConfigs {
+    create("release") {
+      val keystorePath = System.getenv("KEYSTORE_PATH")
+      if (keystorePath != null) {
+        storeFile = file(keystorePath)
+        storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+        keyAlias = System.getenv("KEY_ALIAS") ?: ""
+        keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+      }
+    }
   }
 
   buildTypes {
     release {
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("debug")
+      signingConfig =
+          if (System.getenv("KEYSTORE_PATH") != null) signingConfigs.getByName("release")
+          else signingConfigs.getByName("debug")
     }
   }
   compileOptions {

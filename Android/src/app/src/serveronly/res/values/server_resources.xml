@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  serveronly flavor overrides for shared server_resources.
+-->
+<resources>
+    <bool name="server_auto_load_model">true</bool>
+    <string name="server_tap_activity_class" translatable="false">com.google.ai.edge.gallery.serveronly.ServerLauncherActivity</string>
+
+    <!-- App label shown under the launcher icon for the standalone APK. -->
+    <string name="server_app_name" translatable="false">Edge Gallery Server</string>
+</resources>
