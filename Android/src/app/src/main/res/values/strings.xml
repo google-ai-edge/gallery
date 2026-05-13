@@ -178,6 +178,7 @@
   <string name="settings_dialog_gemma_prohibited_use_policy" translatable="false">Gemma Prohibited Use Policy</string>
   <string name="share" translatable="false">Share</string>
   <string name="slide_up_to_cancel" translatable="false">Slide up to cancel</string>
+  <string name="system_prompt_placeholder" translatable="false">Enter system instructions (e.g., \"You are a versatile assistant. Provide accurate, context-aware responses in a professional tone.\")</string>
   <string name="system_prompt_updated" translatable="false">System prompt updated</string>
   <string name="submit" translatable="false">Submit</string>
   <string name="take_a_picture" translatable="false">Take a picture</string>

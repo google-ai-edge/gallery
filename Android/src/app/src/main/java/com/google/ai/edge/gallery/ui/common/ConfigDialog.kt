@@ -213,6 +213,14 @@ fun ConfigDialog(
             modifier = Modifier.weight(1f, fill = false),
             textStyle = MaterialTheme.typography.bodySmall,
             onValueChange = { systemPrompt = it },
+            placeholder = {
+              Text(
+                text = stringResource(R.string.system_prompt_placeholder),
+                modifier = Modifier.offset(y = (4).dp), // Adjust to align the cursor with the text.
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+              )
+            },
           )
         }
 
