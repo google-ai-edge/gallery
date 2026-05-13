@@ -73,7 +73,6 @@ import androidx.navigation.navArgument
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskData
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskDataForBuiltinTask
-import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.isLegacyTasks
@@ -467,40 +466,55 @@ fun GalleryNavHost(
   // Wait until the model manager has been initialized and the tasks are available.
   if (data != null && modelManagerUiState.tasks.isNotEmpty()) {
     intent.data = null
+    val uriStr = data.toString()
     Log.d(TAG, "navigation link clicked: $data")
-    if (data.toString().startsWith("com.google.ai.edge.gallery://llm_agent_chat")) {
-      val queryStr = data.getQueryParameter("query")
-      val taskId = BuiltInTaskId.LLM_AGENT_CHAT
-      val task = modelManagerUiState.tasks.find { it.id == taskId }
-      val defaultModel =
-        task?.models?.firstOrNull { model ->
-          modelManagerUiState.modelDownloadStatus[model.name]?.status ==
-            ModelDownloadStatusType.SUCCEEDED
-        } ?: task?.models?.firstOrNull()
-
-      if (defaultModel != null) {
-        val route =
-          if (!queryStr.isNullOrEmpty()) {
-            "$ROUTE_MODEL/${taskId}/${defaultModel.name}?query=${Uri.encode(queryStr)}"
-          } else {
-            "$ROUTE_MODEL/${taskId}/${defaultModel.name}"
-          }
-        navController.navigate(route)
-      } else {
-        Log.e(TAG, "No available model found for task: $taskId")
-      }
-    } else if (data.toString().startsWith("com.google.ai.edge.gallery://model/")) {
+    // 1. Precise model deep links: com.google.ai.edge.gallery://model/<taskId>/<modelName>
+    if (uriStr.startsWith("com.google.ai.edge.gallery://model/")) {
       if (data.pathSegments.size >= 2) {
         val taskId = data.pathSegments.get(data.pathSegments.size - 2)
         val modelName = data.pathSegments.last()
+        val queryStr = data.getQueryParameter("query")
         modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
-          navController.navigate("$ROUTE_MODEL/${taskId}/${model.name}")
+          val route =
+            if (!queryStr.isNullOrEmpty()) {
+              "$ROUTE_MODEL/${taskId}/${model.name}?query=${Uri.encode(queryStr)}"
+            } else {
+              "$ROUTE_MODEL/${taskId}/${model.name}"
+            }
+          navController.navigate(route)
         }
       } else {
         Log.e(TAG, "Malformed deep link URI received: $data")
       }
-    } else if (data.toString() == "com.google.ai.edge.gallery://global_model_manager") {
+    } else if (uriStr == "com.google.ai.edge.gallery://global_model_manager") {
       navController.navigate(ROUTE_MODEL_MANAGER)
+    } else {
+      // 2. Dynamic task-level deep links: com.google.ai.edge.gallery://<taskId>
+      val host = data.host
+      if (host != null) {
+        val queryStr = data.getQueryParameter("query")
+        val task = modelManagerUiState.tasks.find { it.id == host }
+        if (task != null) {
+          // Pick the first successfully downloaded model or the default active model for this task
+          val defaultModel =
+            task.models.firstOrNull { model ->
+              modelManagerUiState.modelDownloadStatus[model.name]?.status ==
+                ModelDownloadStatusType.SUCCEEDED
+            } ?: task.models.firstOrNull()
+
+          if (defaultModel != null) {
+            val route =
+              if (!queryStr.isNullOrEmpty()) {
+                "$ROUTE_MODEL/${task.id}/${defaultModel.name}?query=${Uri.encode(queryStr)}"
+              } else {
+                "$ROUTE_MODEL/${task.id}/${defaultModel.name}"
+              }
+            navController.navigate(route)
+          } else {
+            Log.e(TAG, "No available model found for task: $host")
+          }
+        }
+      }
     }
   }
 }

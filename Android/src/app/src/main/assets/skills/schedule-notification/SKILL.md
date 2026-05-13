@@ -20,7 +20,9 @@ To schedule a notification, you must follow these exact steps:
    - message: the message content of the notification. String.
    - hour: the hour of the day (0-23) for the notification. Integer.
    - minute: the minute of the hour (0-59) for the notification. Integer.
-   - deeplink: (optional) the deeplink URI to open when the notification is tapped. String.
+   - task_id: (optional) the task ID for the target page (e.g., "llm_agent_chat"). String.
+   - model_name: (optional) the model name for the target page (e.g., "Gemma-4-E4B-it"). String.
+   - deeplink: (optional) the full deeplink URI to open when the notification is tapped. String.
    - year: (optional) the year for the notification. Integer.
    - month: (optional) the month (1-12) for the notification. Integer.
    - day: (optional) the day of the month (1-31) for the notification. Integer.

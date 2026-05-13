@@ -85,6 +85,8 @@ data class ScheduleNotificationParams(
   val hour: Int,
   val minute: Int,
   val deeplink: String? = null,
+  val task_id: String? = null,
+  val model_name: String? = null,
   val year: Int? = null,
   val month: Int? = null,
   val day: Int? = null,
@@ -306,6 +308,26 @@ object IntentHandler {
             .setChannelName("Agent Skill Task")
         if (params.deeplink != null) {
           notificationProtoBuilder.setDeeplink(params.deeplink)
+        } else if (params.task_id != null && params.model_name != null) {
+          val uri =
+            "com.google.ai.edge.gallery://model/${params.task_id}/${params.model_name}"
+              .toUri()
+              .buildUpon()
+              .appendQueryParameter("query", params.message)
+              .build()
+              .toString()
+          Log.d(TAG, "Setting constructed deeplink to: $uri")
+          notificationProtoBuilder.setDeeplink(uri)
+        } else if (params.task_id != null) {
+          val uri =
+            "com.google.ai.edge.gallery://${params.task_id}/"
+              .toUri()
+              .buildUpon()
+              .appendQueryParameter("query", params.message)
+              .build()
+              .toString()
+          Log.d(TAG, "Setting constructed deeplink to: $uri")
+          notificationProtoBuilder.setDeeplink(uri)
         } else {
           val fallbackUri =
             "com.google.ai.edge.gallery://llm_agent_chat/"
