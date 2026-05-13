@@ -57,6 +57,7 @@ private const val TAG = "AGLlmChatViewModel"
 open class LlmChatViewModelBase(
   private val systemPromptRepository: SystemPromptRepository? = null,
   userDataDataStore: DataStore<UserData>? = null,
+  private val modelFeedbackRepository: Any? = null,
 ) : ChatViewModel(userDataDataStore) {
   private val _uiSystemPrompt = MutableStateFlow("")
   val uiSystemPrompt = _uiSystemPrompt.asStateFlow()
@@ -420,7 +421,7 @@ class LlmChatViewModel
 constructor(
   systemPromptRepository: SystemPromptRepository,
   userDataDataStore: DataStore<UserData>,
-) : LlmChatViewModelBase(systemPromptRepository, userDataDataStore)
+) : LlmChatViewModelBase(systemPromptRepository, userDataDataStore, null)
 
 @HiltViewModel
 class LlmAskImageViewModel
@@ -428,7 +429,7 @@ class LlmAskImageViewModel
 constructor(
   systemPromptRepository: SystemPromptRepository,
   userDataDataStore: DataStore<UserData>,
-) : LlmChatViewModelBase(systemPromptRepository, userDataDataStore)
+) : LlmChatViewModelBase(systemPromptRepository, userDataDataStore, null)
 
 @HiltViewModel
 class LlmAskAudioViewModel
@@ -436,4 +437,4 @@ class LlmAskAudioViewModel
 constructor(
   systemPromptRepository: SystemPromptRepository,
   userDataDataStore: DataStore<UserData>,
-) : LlmChatViewModelBase(systemPromptRepository, userDataDataStore)
+  ) : LlmChatViewModelBase(systemPromptRepository, userDataDataStore, null)
