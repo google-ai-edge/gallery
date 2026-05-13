@@ -29,7 +29,7 @@ jobs:
 
       # ---- Full flavor (existing Edge Gallery app) ----
       - name: Build full release APK
-        run: ./gradlew assembleFullRelease
+        run: ./gradlew assembleFullRelease --stacktrace
       - name: Upload full release APK
         uses: actions/upload-artifact@v4
         with:
@@ -39,7 +39,7 @@ jobs:
 
       # ---- Serveronly flavor (standalone headless server APK) ----
       - name: Build serveronly release APK
-        run: ./gradlew assembleServeronlyRelease
+        run: ./gradlew assembleServeronlyRelease --stacktrace
       - name: Upload serveronly release APK
         uses: actions/upload-artifact@v4
         with:
