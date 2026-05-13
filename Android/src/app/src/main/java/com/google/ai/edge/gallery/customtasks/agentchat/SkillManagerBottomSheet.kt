@@ -108,10 +108,12 @@ import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.clearFocusOnKeyboardDismiss
+import com.google.ai.edge.gallery.data.AgentSkillsURLs
 import com.google.ai.edge.gallery.data.MAX_RECOMMENDED_SKILL_COUNT
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.Skill
 import com.google.ai.edge.gallery.ui.common.FloatingBanner
+import com.google.ai.edge.gallery.ui.common.GalleryWebView
 import com.google.ai.edge.gallery.ui.theme.customColors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -122,6 +124,7 @@ private enum class AddSkillOptionType {
   RemoteUrl,
   LocalImport,
   ManualInput,
+  ViewCommunitySkills,
 }
 
 private data class AddSkillOption(
@@ -145,6 +148,12 @@ private val ADD_SKILL_OPTIONS =
       descriptionResId = R.string.add_skill_option_local_description,
       icon = Icons.Outlined.DriveFolderUpload,
     ),
+    AddSkillOption(
+      type = AddSkillOptionType.ViewCommunitySkills,
+      titleResId = R.string.add_skill_option_view_community_skills_title,
+      descriptionResId = R.string.add_skill_option_view_community_skills_description,
+      icon = Icons.AutoMirrored.Outlined.OpenInNew,
+    ),
   )
 
 val BUTTON_CONTENT_PADDING = PaddingValues(start = 12.dp, top = 2.dp, end = 12.dp, bottom = 2.dp)
@@ -164,6 +173,7 @@ fun SkillManagerBottomSheet(
   var showAddSkillFromUrlDialog by remember { mutableStateOf(false) }
   var showAddSkillFromLocalImportDialog by remember { mutableStateOf(false) }
   var showAddSkillFromFeaturedListBottomSheet by remember { mutableStateOf(false) }
+  var showCommunitySkillsBottomSheet by remember { mutableStateOf(false) }
   var showAddOrEditSkillBottomSheet by remember { mutableStateOf(false) }
   var showAddSkillOptionsSheet by remember { mutableStateOf(false) }
   var showDeleteSkillDialog by remember { mutableStateOf(false) }
@@ -705,6 +715,9 @@ fun SkillManagerBottomSheet(
           AddSkillOptionType.LocalImport -> {
             showDisclaimerDialog = true
           }
+          AddSkillOptionType.ViewCommunitySkills -> {
+            showCommunitySkillsBottomSheet = true
+          }
           else -> {}
         }
         showAddSkillOptionsSheet = false
@@ -765,6 +778,60 @@ fun SkillManagerBottomSheet(
         addSkillOptionTypeToConfirm = null
       },
     )
+  }
+
+  if (showCommunitySkillsBottomSheet) {
+    ViewCommunitySkillsBottomSheet(onDismiss = { showCommunitySkillsBottomSheet = false })
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ViewCommunitySkillsBottomSheet(onDismiss: () -> Unit) {
+  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+  val scope = rememberCoroutineScope()
+
+  ModalBottomSheet(
+    onDismissRequest = onDismiss,
+    sheetState = sheetState,
+    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+  ) {
+    Column(modifier = Modifier.fillMaxSize()) {
+      // Header section with title, description, and close button.
+      Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = stringResource(R.string.add_skill_option_view_community_skills_title),
+            style = MaterialTheme.typography.titleLarge,
+          )
+          Text(
+            stringResource(R.string.add_skill_option_view_community_skills_description),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        IconButton(
+          modifier = Modifier.padding(end = 3.dp),
+          onClick = {
+            scope.launch {
+              sheetState.hide()
+              onDismiss()
+            }
+          },
+        ) {
+          Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_close_icon))
+        }
+      }
+
+      GalleryWebView(
+        modifier = Modifier.fillMaxWidth().weight(1f),
+        initialUrl = AgentSkillsURLs.DISCUSSIONS,
+        preventParentScrolling = true,
+      )
+    }
   }
 }
 

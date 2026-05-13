@@ -80,6 +80,7 @@ import com.google.ai.edge.gallery.common.CallJsAgentAction
 import com.google.ai.edge.gallery.common.LOCAL_URL_BASE
 import com.google.ai.edge.gallery.common.RequestPermissionAgentAction
 import com.google.ai.edge.gallery.common.SkillProgressAgentAction
+import com.google.ai.edge.gallery.data.AgentSkillsURLs
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
@@ -482,8 +483,15 @@ fun AgentChatScreen(
                   append("Use specialized, high-order reasoning by loading different skills or ")
                   append(
                     buildTrackableUrlAnnotatedString(
-                      url = "https://github.com/google-ai-edge/gallery/tree/main/skills",
+                      url = AgentSkillsURLs.REPOSITORY,
                       linkText = "creating\u00A0your\u00A0own",
+                    )
+                  )
+                  append(". Explore community contributed skills on ")
+                  append(
+                    buildTrackableUrlAnnotatedString(
+                      url = AgentSkillsURLs.DISCUSSIONS,
+                      linkText = "GitHub\u00A0discussions",
                     )
                   )
                   append(".\n\nTry tapping a sample prompt below to see Agent Skills in action!")
