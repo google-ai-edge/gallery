@@ -327,10 +327,13 @@ open class LlmChatViewModelBase(
     onDone: () -> Unit = {},
     enableConversationConstrainedDecoding: Boolean = false,
     initialMessages: List<Message> = listOf(),
+    clearHistory: Boolean = true,
   ) {
     viewModelScope.launch(Dispatchers.Default) {
       setIsResettingSession(true)
-      clearAllMessages(model = model)
+      if (clearHistory) {
+        clearAllMessages(model = model)
+      }
       stopResponse(model = model)
 
       while (true) {

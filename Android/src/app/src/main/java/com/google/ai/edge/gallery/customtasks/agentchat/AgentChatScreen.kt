@@ -238,7 +238,7 @@ fun AgentChatScreen(
 
       updateProgressPanel(viewModel = viewModel, model = model, agentTools = agentTools)
     },
-    onResetSessionClickedOverride = { task, _, initialMessages ->
+    onResetSessionClickedOverride = { task, _, initialMessages, clearHistory, onDone ->
       resetSessionWithCurrentSkills(
         viewModel,
         modelManagerViewModel,
@@ -246,7 +246,9 @@ fun AgentChatScreen(
         task,
         curSystemPrompt,
         agentTools,
+        onDone = { onDone() },
         initialMessages = initialMessages,
+        clearHistory = clearHistory,
       )
     },
     onSkillClicked = { showSkillManagerBottomSheet = true },
@@ -657,6 +659,7 @@ private fun resetSessionWithCurrentSkills(
   agentTools: AgentTools,
   onDone: (Model) -> Unit = {},
   initialMessages: List<ChatMessage> = listOf(),
+  clearHistory: Boolean = true,
 ) {
   val model = modelManagerViewModel.uiState.value.selectedModel
   val litertMessages = initialMessages.mapNotNull { chatMessage ->
@@ -678,6 +681,7 @@ private fun resetSessionWithCurrentSkills(
     onDone = { onDone(model) },
     enableConversationConstrainedDecoding = true,
     initialMessages = litertMessages,
+    clearHistory = clearHistory,
   )
 }
 
