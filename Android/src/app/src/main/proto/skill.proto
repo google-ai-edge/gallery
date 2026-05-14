@@ -52,4 +52,7 @@ message Skill {
 
   // The homepage of the skill (source, doc).
   string homepage = 9;
+
+  // Whether the user explicitly modified the selection of this skill.
+  bool user_modified_selection = 11;
 }

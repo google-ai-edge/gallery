@@ -24,14 +24,11 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material.icons.outlined.Kitchen
 import androidx.compose.material.icons.outlined.LocalLibrary
 import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.QrCode
-import androidx.compose.material.icons.outlined.ScreenRotation
 import androidx.compose.material.icons.outlined.SentimentVerySatisfied
-import androidx.compose.material.icons.outlined.Tag
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -73,28 +70,10 @@ val TRYOUT_CHIPS: List<SkillTryOutChip> =
       skillName = "interactive-map",
     ),
     SkillTryOutChip(
-      icon = Icons.Outlined.Kitchen,
-      label = "Kitchen Adventure",
-      prompt = "Start kitchen adventure",
-      skillName = "kitchen-adventure",
-    ),
-    SkillTryOutChip(
-      icon = Icons.Outlined.Tag,
-      label = "Calculate Hash",
-      prompt = "What is the sha1 hash of \"gemma\"?",
-      skillName = "calculate-hash",
-    ),
-    SkillTryOutChip(
-      icon = Icons.Outlined.ScreenRotation,
-      label = "Text Spinner",
-      prompt = "Spin \"Gemma\" on my head",
-      skillName = "text-spinner",
-    ),
-    SkillTryOutChip(
-      icon = Icons.Outlined.Email,
-      label = "Send Email",
-      prompt = "Send email 'Good morning' to abc@example.com. Content: 'Any plans for tonight?'",
-      skillName = "send-email",
+      icon = Icons.Outlined.Notifications,
+      label = "Schedule Reminder",
+      prompt = "Set a daily reminder at 9am to check my schedule for today.",
+      skillName = "schedule-notification",
     ),
     SkillTryOutChip(
       icon = Icons.Outlined.SentimentVerySatisfied,
@@ -184,7 +163,9 @@ constructor(
         )
 
         // 2. Keep track of the selection state of existing built-in skills.
-        val builtInSelectionMap = dataStoreBuiltInSkills.associate { it.name to it.selected }
+        val builtInSelectionMap = dataStoreBuiltInSkills.associate {
+          it.name to Pair(it.selected, it.userModifiedSelection)
+        }
         Log.d(TAG, "data store built-in skills selection map: $builtInSelectionMap")
 
         // 3. Read and parse SKILL.md files from assets/skills directories.
@@ -208,10 +189,19 @@ constructor(
                   Log.w(TAG, "Error parsing asset skill $dirName: ${errors.joinToString(", ")}")
                 } else {
                   skillProto?.let {
-                    // Apply the previous selection state if it exists, otherwise default to
-                    // true.
-                    val selectedState = builtInSelectionMap[it.name] ?: true
-                    builtInSkills.add(it.toBuilder().setSelected(selectedState).build())
+                    // Apply the previous selection state if the user explicitly modified it,
+                    // otherwise use the default selection state.
+                    val defaultSelected = it.name !in DEFAULT_DISABLED_SKILLS
+                    val (persistedSelected, userModified) =
+                      builtInSelectionMap[it.name] ?: Pair(defaultSelected, false)
+                    val selectedState = if (userModified) persistedSelected else defaultSelected
+                    builtInSkills.add(
+                      it
+                        .toBuilder()
+                        .setSelected(selectedState)
+                        .setUserModifiedSelection(userModified)
+                        .build()
+                    )
                     Log.d(TAG, "Added built-in skill: ${it.name}")
                   }
                 }
@@ -1245,6 +1235,11 @@ constructor(
     val normalizedDirName = originalImportDirName.replace("\\s+".toRegex(), "-")
     val newImportDirName = "skills/${normalizedDirName}"
     return context.filesDir.resolve(newImportDirName)
+  }
+
+  companion object {
+    private val DEFAULT_DISABLED_SKILLS =
+      setOf("calculate-hash", "kitchen-adventure", "text-spinner", "send-email")
   }
 }
 

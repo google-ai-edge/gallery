@@ -356,14 +356,14 @@ class DefaultDataStoreRepository(
   override fun setSkillSelected(skill: Skill, selected: Boolean) {
     runBlocking {
       skillsDataStore.updateData { skills ->
-        val newSkills = mutableListOf<Skill>()
-        for (curSkill in skills.skillList) {
-          if (curSkill.name == skill.name) {
-            newSkills.add(curSkill.toBuilder().setSelected(selected).build())
-          } else {
-            newSkills.add(curSkill)
+        val newSkills =
+          skills.skillList.map { curSkill ->
+            if (curSkill.name == skill.name) {
+              curSkill.toBuilder().setSelected(selected).setUserModifiedSelection(true).build()
+            } else {
+              curSkill
+            }
           }
-        }
         Skills.newBuilder().addAllSkill(newSkills).build()
       }
     }
@@ -372,10 +372,10 @@ class DefaultDataStoreRepository(
   override fun setAllSkillsSelected(selected: Boolean) {
     runBlocking {
       skillsDataStore.updateData { skills ->
-        val newSkills = mutableListOf<Skill>()
-        for (curSkill in skills.skillList) {
-          newSkills.add(curSkill.toBuilder().setSelected(selected).build())
-        }
+        val newSkills =
+          skills.skillList.map { curSkill ->
+            curSkill.toBuilder().setSelected(selected).setUserModifiedSelection(true).build()
+          }
         Skills.newBuilder().addAllSkill(newSkills).build()
       }
     }
@@ -388,12 +388,7 @@ class DefaultDataStoreRepository(
   override fun deleteSkill(name: String) {
     runBlocking {
       skillsDataStore.updateData { skills ->
-        val newSkills = mutableListOf<Skill>()
-        for (skill in skills.skillList) {
-          if (skill.name != name) {
-            newSkills.add(skill)
-          }
-        }
+        val newSkills = skills.skillList.filter { it.name != name }
         Skills.newBuilder().addAllSkill(newSkills).build()
       }
     }
