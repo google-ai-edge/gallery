@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery.data
 import android.os.Build
 import android.util.Log
 import com.google.ai.edge.gallery.common.isPixel10
+import com.google.ai.edge.gallery.common.isPixelDevice
 import com.google.gson.annotations.SerializedName
 
 private const val TAG = "AGModelAllowlist"
@@ -111,7 +112,7 @@ data class AllowedModel(
     var finalDescription = description
     var acceleratorsStr = defaultConfig.accelerators
 
-    if (isPixel10()) {
+    if (isPixelDevice()) {
       finalDescription = description.replace(Regex("\\bNPU\\b"), "TPU")
       acceleratorsStr = acceleratorsStr?.replace(Regex("\\bnpu\\b"), "tpu")
     }
