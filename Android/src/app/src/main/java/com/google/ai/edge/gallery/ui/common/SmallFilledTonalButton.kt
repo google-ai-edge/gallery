@@ -39,15 +39,18 @@ private val BUTTON_CONTENT_PADDING =
 @Composable
 fun SmallFilledTonalButton(
   onClick: () -> Unit,
-  labelResId: Int,
+  labelResId: Int = 0,
   imageVector: ImageVector? = null,
   iconResId: Int? = null,
   size: Dp = 18.dp,
+  label: String? = null,
+  enabled: Boolean = true,
 ) {
   FilledTonalButton(
     onClick = onClick,
     modifier = Modifier.height(32.dp),
     contentPadding = BUTTON_CONTENT_PADDING,
+    enabled = enabled,
   ) {
     if (imageVector != null) {
       Icon(imageVector = imageVector, contentDescription = null, modifier = Modifier.size(size))
@@ -59,7 +62,7 @@ fun SmallFilledTonalButton(
       )
     }
     Text(
-      stringResource(labelResId),
+      text = label ?: if (labelResId != 0) stringResource(labelResId) else "",
       style = MaterialTheme.typography.labelMedium,
       modifier = Modifier.padding(start = 4.dp),
     )

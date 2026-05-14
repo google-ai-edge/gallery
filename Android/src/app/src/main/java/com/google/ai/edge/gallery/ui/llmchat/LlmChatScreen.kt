@@ -68,6 +68,7 @@ fun LlmChatScreen(
   onFirstToken: (Model) -> Unit = {},
   onGenerateResponseDone: (Model) -> Unit = {},
   onSkillClicked: () -> Unit = {},
+  onMcpClicked: () -> Unit = {},
   onResetSessionClickedOverride: ((Task, Model, List<ChatMessage>, Boolean, () -> Unit) -> Unit)? =
     null,
   composableBelowMessageList: @Composable (Model) -> Unit = {},
@@ -80,6 +81,8 @@ fun LlmChatScreen(
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
   getActiveSkills: () -> List<String> = { emptyList() },
+  skillCount: Int = 0,
+  mcpCount: Int = 0,
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -88,12 +91,15 @@ fun LlmChatScreen(
     navigateUp = navigateUp,
     modifier = modifier,
     onSkillClicked = onSkillClicked,
+    onMcpClicked = onMcpClicked,
     onFirstToken = onFirstToken,
     onGenerateResponseDone = onGenerateResponseDone,
     onResetSessionClickedOverride = onResetSessionClickedOverride,
     composableBelowMessageList = composableBelowMessageList,
     allowEditingSystemPrompt = allowEditingSystemPrompt,
     curSystemPrompt = curSystemPrompt,
+    skillCount = skillCount,
+    mcpCount = mcpCount,
     onSystemPromptChanged = onSystemPromptChanged,
     emptyStateComposable = emptyStateComposable,
     sendMessageTrigger = sendMessageTrigger,
@@ -201,6 +207,7 @@ fun ChatViewWrapper(
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
   onSkillClicked: () -> Unit = {},
+  onMcpClicked: () -> Unit = {},
   onFirstToken: (Model) -> Unit = {},
   onGenerateResponseDone: (Model) -> Unit = {},
   onResetSessionClickedOverride: ((Task, Model, List<ChatMessage>, Boolean, () -> Unit) -> Unit)? =
@@ -214,6 +221,8 @@ fun ChatViewWrapper(
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
   getActiveSkills: () -> List<String> = { emptyList() },
+  skillCount: Int = 0,
+  mcpCount: Int = 0,
 ) {
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
@@ -324,7 +333,10 @@ fun ChatViewWrapper(
     showStopButtonInInputWhenInProgress = true,
     onStopButtonClicked = { model -> viewModel.stopResponse(model = model) },
     onSkillClicked = onSkillClicked,
+    onMcpClicked = onMcpClicked,
     navigateUp = navigateUp,
+    skillCount = skillCount,
+    mcpCount = mcpCount,
     modifier = modifier,
     composableBelowMessageList = composableBelowMessageList,
     showImagePicker = showImagePicker,

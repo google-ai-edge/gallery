@@ -1,0 +1,56 @@
+/* Copyright 2026 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+package com.google.ai.edge.gallery.proto;
+
+option java_package = "com.google.ai.edge.gallery.proto";
+option java_outer_classname = "McpProto";
+option java_multiple_files = true;
+
+// A collection of MCP servers.
+message McpServers {
+  // List of individual MCP servers.
+  repeated McpServer mcp_server = 1;
+}
+
+// A single MCP server.
+message McpServer {
+  // The URL of the MCP server.
+  string url = 1;
+  // The tools available on this MCP server.
+  repeated McpTool tools = 2;
+  // Whether this server is currently enabled.
+  bool enabled = 3;
+  // The name of the server implementation.
+  string name = 4;
+  // The version of the server implementation.
+  string version = 5;
+  // A description of the server.
+  string description = 6;
+}
+
+// Represents a tool available on an MCP server.
+message McpTool {
+  // The name of the tool.
+  string name = 1;
+  // A description of what the tool does.
+  string description = 2;
+  // The input schema for using this tool, likely in JSON format.
+  string input_schema = 3;
+  // Whether this tool is currently enabled.
+  bool enabled = 4;
+}

@@ -52,6 +52,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -62,6 +63,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -156,6 +158,8 @@ fun MessageInputText(
   inProgress: Boolean,
   imageCount: Int,
   audioClipMessageCount: Int,
+  skillCount: Int = 0,
+  mcpCount: Int = 0,
   modelInitializing: Boolean,
   @StringRes textFieldPlaceHolderRes: Int,
   onValueChanged: (String) -> Unit,
@@ -166,10 +170,12 @@ fun MessageInputText(
   onSetAudioRecorderVisible: (visible: Boolean) -> Unit = {},
   onAmplitudeChanged: (Int) -> Unit,
   onSkillsClicked: () -> Unit = {},
+  onMcpClicked: () -> Unit = {},
   onPickedImagesChanged: (List<Bitmap>) -> Unit = {},
   onPickedAudioClipsChanged: (List<AudioClip>) -> Unit = {},
   showPromptTemplatesInMenu: Boolean = false,
   showSkillsPicker: Boolean = false,
+  showMcpPicker: Boolean = false,
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
   showStopButtonWhenInProgress: Boolean = false,
@@ -604,8 +610,58 @@ fun MessageInputText(
                     OutlinedButton(
                       onClick = onSkillsClicked,
                       enabled = !inProgress && !isResettingSession && !modelInitializing,
+                      contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     ) {
-                      Text(stringResource(R.string.skills))
+                      val skillsLabel = stringResource(R.string.skills)
+                      Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(skillsLabel)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Box(
+                          contentAlignment = Alignment.Center,
+                          modifier =
+                            Modifier.background(
+                                MaterialTheme.colorScheme.surfaceContainer,
+                                shape = CircleShape,
+                              )
+                              .height(18.dp)
+                              .widthIn(min = 18.dp),
+                        ) {
+                          Text(
+                            text = skillCount.toString(),
+                            style = MaterialTheme.typography.labelSmall,
+                          )
+                        }
+                      }
+                    }
+                  }
+
+                  // MCP.
+                  if (showMcpPicker) {
+                    OutlinedButton(
+                      onClick = onMcpClicked,
+                      enabled = !inProgress && !isResettingSession && !modelInitializing,
+                      contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    ) {
+                      val mcpLabel = stringResource(R.string.mcp)
+                      Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(mcpLabel)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Box(
+                          contentAlignment = Alignment.Center,
+                          modifier =
+                            Modifier.background(
+                                MaterialTheme.colorScheme.surfaceContainer,
+                                shape = CircleShape,
+                              )
+                              .height(18.dp)
+                              .widthIn(min = 18.dp),
+                        ) {
+                          Text(
+                            text = mcpCount.toString(),
+                            style = MaterialTheme.typography.labelSmall,
+                          )
+                        }
+                      }
                     }
                   }
                 }

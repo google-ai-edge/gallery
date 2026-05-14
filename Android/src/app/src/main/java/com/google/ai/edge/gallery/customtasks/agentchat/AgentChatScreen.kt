@@ -55,6 +55,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -106,6 +107,7 @@ import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.tool
 import java.lang.Exception
 import kotlin.coroutines.resume
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -123,15 +125,19 @@ fun AgentChatScreen(
   agentTools: AgentTools,
   viewModel: LlmChatViewModel = hiltViewModel(),
   skillManagerViewModel: SkillManagerViewModel = hiltViewModel(),
+  mcpManagerViewModel: McpManagerViewModel = hiltViewModel(),
   initialQuery: String? = null,
 ) {
   val context = LocalContext.current
+  val scope = rememberCoroutineScope()
   agentTools.context = context
   agentTools.skillManagerViewModel = skillManagerViewModel
+  agentTools.mcpManagerViewModel = mcpManagerViewModel
   val density = LocalDensity.current
   val windowInfo = LocalWindowInfo.current
   val screenWidthDp = remember { with(density) { windowInfo.containerSize.width.toDp() } }
   var showSkillManagerBottomSheet by remember { mutableStateOf(false) }
+  var showMcpManagerBottomSheet by remember { mutableStateOf(false) }
   var showAskInfoDialog by remember { mutableStateOf(false) }
   var currentAskInfoAction by remember { mutableStateOf<AskInfoAgentAction?>(null) }
   var askInfoInputValue by remember { mutableStateOf("") }
@@ -159,6 +165,12 @@ fun AgentChatScreen(
   // updated.
   val llmChatUiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+  val skillUiState by skillManagerViewModel.uiState.collectAsState()
+  val mcpUiState by mcpManagerViewModel.uiState.collectAsState()
+
+  val skillCount = skillUiState.skills.count { it.skill.selected }
+  val mcpCount = mcpUiState.mcpServers.count { it.mcpServer.enabled }
+
   val selectedModel = modelManagerUiState.selectedModel
   val modelInitStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
 
@@ -191,55 +203,60 @@ fun AgentChatScreen(
     modelManagerViewModel = modelManagerViewModel,
     taskId = BuiltInTaskId.LLM_AGENT_CHAT,
     navigateUp = navigateUp,
+    skillCount = skillCount,
+    mcpCount = mcpCount,
     onFirstToken = { model ->
-      updateProgressPanel(viewModel = viewModel, model = model, agentTools = agentTools)
+      scope.launch(Dispatchers.Main) {
+        updateProgressPanel(viewModel = viewModel, model = model, agentTools = agentTools)
+      }
     },
     onGenerateResponseDone = { model ->
-      // Show any image produced by tools.
-      agentTools.resultImageToShow?.let { resultImage ->
-        resultImage.base64?.let { base64 ->
-          decodeBase64ToBitmap(base64String = base64)?.let { bitmap ->
-            viewModel.addMessage(
-              model = model,
-              message =
-                ChatMessageImage(
-                  bitmaps = listOf(bitmap),
-                  imageBitMaps = listOf(bitmap.asImageBitmap()),
-                  side = ChatSide.AGENT,
-                  maxSize = (screenWidthDp.value * 0.8).toInt(),
-                  latencyMs = -1.0f,
-                  hideSenderLabel = true,
-                ),
-            )
+      scope.launch(Dispatchers.Main) {
+        // Show any image produced by tools.
+        agentTools.resultImageToShow?.let { resultImage ->
+          resultImage.base64?.let { base64 ->
+            decodeBase64ToBitmap(base64String = base64)?.let { bitmap ->
+              viewModel.addMessage(
+                model = model,
+                message =
+                  ChatMessageImage(
+                    bitmaps = listOf(bitmap),
+                    imageBitMaps = listOf(bitmap.asImageBitmap()),
+                    side = ChatSide.AGENT,
+                    maxSize = (screenWidthDp.value * 0.8).toInt(),
+                    latencyMs = -1.0f,
+                    hideSenderLabel = true,
+                  ),
+              )
+            }
           }
+          // Clean up.
+          agentTools.resultImageToShow = null
         }
-        // Clean up.
-        agentTools.resultImageToShow = null
-      }
 
-      // Show any webview produced by tools.
-      agentTools.resultWebviewToShow?.let { webview ->
-        val url = webview.url ?: ""
-        val iframe = webview.iframe == true
-        val aspectRatio = webview.aspectRatio ?: 1.333f
-        viewModel.addMessage(
-          model = model,
-          message =
-            ChatMessageWebView(
-              url = url,
-              iframe = iframe,
-              aspectRatio = aspectRatio,
-              hideSenderLabel = true,
-            ),
-        )
-        // Clean up.
-        agentTools.resultWebviewToShow = null
+        // Show any webview produced by tools.
+        agentTools.resultWebviewToShow?.let { webview ->
+          val url = webview.url ?: ""
+          val iframe = webview.iframe == true
+          val aspectRatio = webview.aspectRatio ?: 1.333f
+          viewModel.addMessage(
+            model = model,
+            message =
+              ChatMessageWebView(
+                url = url,
+                iframe = iframe,
+                aspectRatio = aspectRatio,
+                hideSenderLabel = true,
+              ),
+          )
+          // Clean up.
+          agentTools.resultWebviewToShow = null
+        }
+        updateProgressPanel(viewModel = viewModel, model = model, agentTools = agentTools)
       }
-
-      updateProgressPanel(viewModel = viewModel, model = model, agentTools = agentTools)
     },
     onResetSessionClickedOverride = { task, _, initialMessages, clearHistory, onDone ->
-      resetSessionWithCurrentSkills(
+      resetSessionWithCurrentSkillsAndMcps(
         viewModel,
         modelManagerViewModel,
         skillManagerViewModel,
@@ -252,6 +269,7 @@ fun AgentChatScreen(
       )
     },
     onSkillClicked = { showSkillManagerBottomSheet = true },
+    onMcpClicked = { showMcpManagerBottomSheet = true },
     showImagePicker = true,
     showAudioPicker = true,
     getActiveSkills = {
@@ -587,7 +605,27 @@ fun AgentChatScreen(
         // Reset session when selected skills changed.
         if (selectedSkillsChanged) {
           Log.d(TAG, "Selected skill changed. Resetting conversation.")
-          resetSessionWithCurrentSkills(
+          resetSessionWithCurrentSkillsAndMcps(
+            viewModel,
+            modelManagerViewModel,
+            skillManagerViewModel,
+            task,
+            curSystemPrompt,
+            agentTools,
+          )
+        }
+      },
+    )
+  }
+
+  if (showMcpManagerBottomSheet) {
+    McpManagerBottomSheet(
+      mcpManagerViewModel = mcpManagerViewModel,
+      onDismiss = { selectMcpsAndToolsChanged ->
+        showMcpManagerBottomSheet = false
+        if (selectMcpsAndToolsChanged) {
+          Log.d(TAG, "Selected MCPs or tools changed. Resetting conversation.")
+          resetSessionWithCurrentSkillsAndMcps(
             viewModel,
             modelManagerViewModel,
             skillManagerViewModel,
@@ -646,11 +684,15 @@ private fun updateProgressPanel(viewModel: LlmChatViewModel, model: Model, agent
           inProgress = false,
         )
       )
+    } else {
+      agentTools.sendAgentAction(
+        SkillProgressAgentAction(label = lastProgressPanelMessage.title, inProgress = false)
+      )
     }
   }
 }
 
-private fun resetSessionWithCurrentSkills(
+private fun resetSessionWithCurrentSkillsAndMcps(
   viewModel: LlmChatViewModel,
   modelManagerViewModel: ModelManagerViewModel,
   skillManagerViewModel: SkillManagerViewModel,
@@ -674,7 +716,12 @@ private fun resetSessionWithCurrentSkills(
   viewModel.resetSession(
     task = task,
     model = model,
-    systemInstruction = skillManagerViewModel.injectSkills(curSystemPrompt),
+    systemInstruction =
+      injectSkillsAndMcpTools(
+        baseSystemPrompt = curSystemPrompt,
+        skills = skillManagerViewModel.getSelectedSkills(),
+        toolsPrompt = agentTools.mcpManagerViewModel.getToolsPrompt(),
+      ),
     tools = listOf(tool(agentTools)),
     supportImage = true,
     supportAudio = true,

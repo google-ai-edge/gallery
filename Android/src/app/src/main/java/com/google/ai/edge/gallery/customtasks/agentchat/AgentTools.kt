@@ -15,6 +15,10 @@
  */
 package com.google.ai.edge.gallery.customtasks.agentchat
 
+import io.modelcontextprotocol.kotlin.sdk.types.CallToolRequestParams
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+
 import android.content.Context
 import android.util.Log
 import com.google.ai.edge.gallery.common.AgentAction
@@ -26,11 +30,14 @@ import com.google.ai.edge.gallery.common.CallJsSkillResultWebview
 import com.google.ai.edge.gallery.common.LOCAL_URL_BASE
 import com.google.ai.edge.gallery.common.RequestPermissionAgentAction
 import com.google.ai.edge.gallery.common.SkillProgressAgentAction
+import com.google.ai.edge.gallery.common.convertStringToJsonObject
 import com.google.ai.edge.litertlm.Tool
 import com.google.ai.edge.litertlm.ToolParam
 import com.google.ai.edge.litertlm.ToolSet
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
+import io.modelcontextprotocol.kotlin.sdk.CallToolRequest
+import io.modelcontextprotocol.kotlin.sdk.TextContent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
@@ -41,6 +48,7 @@ private const val TAG = "AGAgentTools"
 open class AgentTools() : ToolSet {
   lateinit var context: Context
   lateinit var skillManagerViewModel: SkillManagerViewModel
+  lateinit var mcpManagerViewModel: McpManagerViewModel
 
   private val _actionChannel = Channel<AgentAction>(Channel.UNLIMITED)
   val actionChannel: ReceiveChannel<AgentAction> = _actionChannel
@@ -82,6 +90,99 @@ open class AgentTools() : ToolSet {
       }
 
       mapOf("skill_name" to skillName, "skill_instructions" to skillContent)
+    }
+  }
+
+  @Tool(description = "Run a MCP tool")
+  fun runMcpTool(
+    @ToolParam(description = "The name of the tool to run.") toolName: String,
+    @ToolParam(description = "The parameters passed to tool as input") input: String,
+  ): Map<String, String> {
+    Log.d(TAG, "Run MCP tool:\n- name: $toolName\n- input: $input")
+
+    return runBlocking(Dispatchers.IO) {
+      val serverState =
+        mcpManagerViewModel.uiState.value.mcpServers.find { serverState ->
+          serverState.mcpServer.toolsList.any { it.name == toolName }
+        }
+
+      if (serverState == null) {
+        Log.w(TAG, "MCP server or tool not found for: $toolName")
+        return@runBlocking guardMissingEntityWithSkillFallback(name = toolName, type = "Tool")
+      }
+
+      val client =
+        serverState.client
+          ?: return@runBlocking mapOf("error" to "Client not initialized", "status" to "failed")
+      try {
+        _actionChannel.send(
+          SkillProgressAgentAction(
+            label = "Calling MCP tool \"$toolName\"",
+            inProgress = true,
+            addItemTitle = "Call MCP tool: \"$toolName\"",
+            addItemDescription = "- Input: $input",
+          )
+        )
+        val result =
+        client.callTool(
+          request = CallToolRequest(
+            CallToolRequestParams(
+              name = toolName,
+              arguments = kotlinx.serialization.json.Json.parseToJsonElement(input).jsonObject
+            )
+          )
+        )
+
+        if (result == null) {
+          Log.d(TAG, "Tool execution returned null result")
+          _actionChannel.send(
+            SkillProgressAgentAction(
+              label = "Failed to call MCP tool \"$toolName\"",
+              inProgress = false,
+            )
+          )
+          return@runBlocking mapOf("error" to "Null result", "status" to "failed")
+        }
+
+        if (result.isError == true) {
+          val errorText =
+            result.content.filterIsInstance<TextContent>().joinToString("\n") { it.text ?: "" }
+          Log.e(TAG, "MCP tool \"$toolName\" failed: $errorText")
+          _actionChannel.send(
+            SkillProgressAgentAction(
+              label = "Failed to call MCP tool \"$toolName\"",
+              addItemTitle = "Call MCP tool \"$toolName\" failed",
+              addItemDescription = errorText,
+              inProgress = false,
+            )
+          )
+          return@runBlocking mapOf("error" to errorText, "status" to "failed")
+        } else {
+          val successText =
+            result.content.filterIsInstance<TextContent>().joinToString("\n") { it.text ?: "" }
+          Log.d(TAG, "MCP tool \"$toolName\" succeeded:\n$successText")
+          _actionChannel.send(
+            SkillProgressAgentAction(
+              label = "Succeeded calling MCP tool \"$toolName\"",
+              inProgress = true,
+              addItemTitle = "Call MCP tool \"$toolName\" succeeded",
+              addItemDescription = successText,
+            )
+          )
+          return@runBlocking mapOf("result" to successText, "status" to "succeeded")
+        }
+      } catch (e: Exception) {
+        Log.e(TAG, "Error calling MCP tool", e)
+        _actionChannel.send(
+          SkillProgressAgentAction(
+            label = "Error calling MCP tool \"$toolName\"",
+            inProgress = false,
+            addItemTitle = "Call MCP tool \"$toolName\" failed",
+            addItemDescription = e.message ?: "Unknown error",
+          )
+        )
+        return@runBlocking mapOf("error" to (e.message ?: "Unknown error"), "status" to "failed")
+      }
     }
   }
 
@@ -231,6 +332,10 @@ open class AgentTools() : ToolSet {
     parameters: String,
   ): Map<String, String> {
     return runBlocking(Dispatchers.Default) {
+      if (IntentAction.from(intent) == null) {
+        Log.w(TAG, "Intent not found: '$intent'")
+        return@runBlocking guardMissingEntityWithSkillFallback(name = intent, type = "Intent")
+      }
       Log.d(TAG, "Run intent. Intent: '$intent', parameters: '$parameters'")
       _actionChannel.send(
         SkillProgressAgentAction(
@@ -248,6 +353,19 @@ open class AgentTools() : ToolSet {
         }
       return@runBlocking mapOf("action" to intent, "parameters" to parameters, "result" to res)
     }
+  }
+
+  /**
+   * Guards against missing entities (tools or intents) by checking if they exist as skills. Returns
+   * a failure response with a specific hint to the model to try running it as a skill if it is
+   * found in the allowed skills list. This helps guide the model when it gets confused and tries to
+   * call a skill as a tool or intent.
+   */
+  private fun guardMissingEntityWithSkillFallback(name: String, type: String): Map<String, String> {
+    val skills = skillManagerViewModel.getSelectedSkills()
+    val isSkill = skills.any { it.name == name.trim() }
+    val error = if (isSkill) "$type not found. Try to run it as a skill" else "Tool not found"
+    return mapOf("error" to error, "status" to "failed")
   }
 
   fun sendAgentAction(action: AgentAction) {

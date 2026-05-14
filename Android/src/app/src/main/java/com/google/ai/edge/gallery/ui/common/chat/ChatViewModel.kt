@@ -91,7 +91,7 @@ abstract class ChatViewModel(val userDataDataStore: DataStore<UserData>? = null)
       newMessages.removeAt(newMessages.size - 1)
     }
     newMessages.add(message)
-    _uiState.update { _uiState.value.copy(messagesByModel = newMessagesByModel) }
+    _uiState.update { it.copy(messagesByModel = newMessagesByModel) }
   }
 
   fun insertMessageAfter(model: Model, anchorMessage: ChatMessage, messageToAdd: ChatMessage) {
@@ -104,7 +104,7 @@ abstract class ChatViewModel(val userDataDataStore: DataStore<UserData>? = null)
       // Insert the new message after the anchor message
       newMessages.add(anchorIndex + 1, messageToAdd)
     }
-    _uiState.update { _uiState.value.copy(messagesByModel = newMessagesByModel) }
+    _uiState.update { it.copy(messagesByModel = newMessagesByModel) }
   }
 
   fun removeMessageAt(model: Model, index: Int) {
@@ -116,7 +116,7 @@ abstract class ChatViewModel(val userDataDataStore: DataStore<UserData>? = null)
         newMessages.removeAt(index)
       }
     }
-    _uiState.update { _uiState.value.copy(messagesByModel = newMessagesByModel) }
+    _uiState.update { it.copy(messagesByModel = newMessagesByModel) }
   }
 
   fun removeLastMessage(model: Model) {
@@ -126,13 +126,13 @@ abstract class ChatViewModel(val userDataDataStore: DataStore<UserData>? = null)
       newMessages.removeAt(newMessages.size - 1)
     }
     newMessagesByModel[model.name] = newMessages
-    _uiState.update { _uiState.value.copy(messagesByModel = newMessagesByModel) }
+    _uiState.update { it.copy(messagesByModel = newMessagesByModel) }
   }
 
   fun clearAllMessages(model: Model) {
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
     newMessagesByModel[model.name] = mutableListOf()
-    _uiState.update { _uiState.value.copy(messagesByModel = newMessagesByModel) }
+    _uiState.update { it.copy(messagesByModel = newMessagesByModel) }
   }
 
   fun getLastMessage(model: Model): ChatMessage? {
@@ -173,8 +173,7 @@ abstract class ChatViewModel(val userDataDataStore: DataStore<UserData>? = null)
       }
     }
     newMessagesByModel[model.name] = newMessages
-    val newUiState = _uiState.value.copy(messagesByModel = newMessagesByModel)
-    _uiState.update { newUiState }
+    _uiState.update { it.copy(messagesByModel = newMessagesByModel) }
   }
 
   fun updateLastTextMessageContentIncrementally(
@@ -201,8 +200,7 @@ abstract class ChatViewModel(val userDataDataStore: DataStore<UserData>? = null)
       }
     }
     newMessagesByModel[model.name] = newMessages
-    val newUiState = _uiState.value.copy(messagesByModel = newMessagesByModel)
-    _uiState.update { newUiState }
+    _uiState.update { it.copy(messagesByModel = newMessagesByModel) }
   }
 
   fun updateLastTextMessageLlmBenchmarkResult(
@@ -220,8 +218,7 @@ abstract class ChatViewModel(val userDataDataStore: DataStore<UserData>? = null)
       }
     }
     newMessagesByModel[model.name] = newMessages
-    val newUiState = _uiState.value.copy(messagesByModel = newMessagesByModel)
-    _uiState.update { newUiState }
+    _uiState.update { it.copy(messagesByModel = newMessagesByModel) }
   }
 
   fun replaceLastMessage(model: Model, message: ChatMessage, type: ChatMessageType) {
@@ -234,8 +231,7 @@ abstract class ChatViewModel(val userDataDataStore: DataStore<UserData>? = null)
       }
     }
     newMessagesByModel[model.name] = newMessages
-    val newUiState = _uiState.value.copy(messagesByModel = newMessagesByModel)
-    _uiState.update { newUiState }
+    _uiState.update { it.copy(messagesByModel = newMessagesByModel) }
   }
 
   fun replaceMessage(model: Model, index: Int, message: ChatMessage) {
@@ -245,14 +241,13 @@ abstract class ChatViewModel(val userDataDataStore: DataStore<UserData>? = null)
       newMessages[index] = message
     }
     newMessagesByModel[model.name] = newMessages
-    val newUiState = _uiState.value.copy(messagesByModel = newMessagesByModel)
-    _uiState.update { newUiState }
+    _uiState.update { it.copy(messagesByModel = newMessagesByModel) }
   }
 
   fun updateStreamingMessage(model: Model, message: ChatMessage) {
     val newStreamingMessagesByModel = _uiState.value.streamingMessagesByModel.toMutableMap()
     newStreamingMessagesByModel[model.name] = message
-    _uiState.update { _uiState.value.copy(streamingMessagesByModel = newStreamingMessagesByModel) }
+    _uiState.update { it.copy(streamingMessagesByModel = newStreamingMessagesByModel) }
   }
 
   fun updateCollapsableProgressPanelMessage(
@@ -338,7 +333,7 @@ abstract class ChatViewModel(val userDataDataStore: DataStore<UserData>? = null)
       }
     }
     newMessagesByModel[model.name] = newMessages
-    _uiState.update { _uiState.value.copy(messagesByModel = newMessagesByModel) }
+    _uiState.update { it.copy(messagesByModel = newMessagesByModel) }
   }
 
   fun addLogMessageToLastCollapsableProgressPanel(model: Model, logMessage: LogMessage) {
@@ -365,19 +360,19 @@ abstract class ChatViewModel(val userDataDataStore: DataStore<UserData>? = null)
       }
     }
     newMessagesByModel[model.name] = newMessages
-    _uiState.update { _uiState.value.copy(messagesByModel = newMessagesByModel) }
+    _uiState.update { it.copy(messagesByModel = newMessagesByModel) }
   }
 
   fun setInProgress(inProgress: Boolean) {
-    _uiState.update { _uiState.value.copy(inProgress = inProgress) }
+    _uiState.update { it.copy(inProgress = inProgress) }
   }
 
   fun setIsResettingSession(isResettingSession: Boolean) {
-    _uiState.update { _uiState.value.copy(isResettingSession = isResettingSession) }
+    _uiState.update { it.copy(isResettingSession = isResettingSession) }
   }
 
   fun setPreparing(preparing: Boolean) {
-    _uiState.update { _uiState.value.copy(preparing = preparing) }
+    _uiState.update { it.copy(preparing = preparing) }
   }
 
   fun addConfigChangedMessage(

@@ -325,6 +325,39 @@
   <string name="skill_instructions_input_description" translatable="false">Detailed instructions in Markdown format that LLM must follow to accomplish the task.</string>
   <string name="use_call_js_template" translatable="false">Use Call JS template</string>
 
+  <!-- Strings for MCP -->
+  <string name="mcp" translatable="false">MCP</string>
+  <string name="manage_mcp_servers" translatable="false">Manage MCP servers</string>
+  <string name="add_mcp_server" translatable="false">Add MCP server</string>
+  <string name="learn_more_about_mcp" translatable="false">Learn more about MCP and Gallery</string>
+  <string name="search_mcp_server" translatable="false">Search for an MCP server</string>
+  <plurals name="mcp_servers_count" translatable="false">
+    <item quantity="one">%d MCP server</item>
+    <item quantity="other">%d MCP servers</item>
+  </plurals>
+  <plurals name="mcp_tools_count" translatable="false">
+    <item quantity="one">%d tool</item>
+    <item quantity="other">%d tools</item>
+  </plurals>
+  <string name="add_mcp_server_from_url_dialog_title" translatable="false">Add MCP server from URL</string>
+  <string name="enter_mcp_server_url" translatable="false">Enter MCP server URL</string>
+  <string name="delete_mcp_server_dialog_title" translatable="false">Delete MCP server</string>
+  <string name="delete_mcp_server_dialog_content" translatable="false">Are you sure you want to delete this MCP server?</string>
+  <string name="manage_tools" translatable="false">Manage tools</string>
+  <string name="mcp_server_label" translatable="false">MCP server: %s</string>
+  <string name="mcp_tool_description" translatable="false">Description</string>
+  <string name="mcp_tool_schema" translatable="false">Schema</string>
+  <string name="mcp_disclaimer_dialog_title" translatable="false">Add third-party MCP</string>
+  <string name="mcp_disclaimer_dialog_content" translatable="false">Third-party MCPs are not authored or endorsed by Google. Google is not responsible for their contents, security, or data handling practices.\n\nPlease exercise caution before providing sensitive information, such as personal identification, tokens, or API keys.\n\nAny use of an MCP is subject to the applicable terms for that MCP.</string>
+  <string name="mcp_server_duplicate_title" translatable="false">Duplicate MCP server</string>
+  <string name="mcp_server_duplicate_content" translatable="false">This MCP server URL is already added.</string>
+  <string name="mcp_server_authorization" translatable="false">Authorization</string>
+  <string name="mcp_server_auth_none" translatable="false">None</string>
+  <string name="mcp_server_auth_request_header" translatable="false">Request header</string>
+  <string name="mcp_server_auth_oauth_wip" translatable="false">OAuth (WIP)</string>
+  <string name="mcp_server_header_name" translatable="false">Header name</string>
+  <string name="mcp_server_header_value" translatable="false">Header value</string>
+
   <!-- Strings for ChatHistorySideSheet component (used for the chat history side bar) -->
   <!-- Displayed as the header and section title for the user's past chats. -->
   <string name="chat_history_title" translatable="false">Chat history</string>

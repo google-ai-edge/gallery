@@ -41,6 +41,8 @@ import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.gson.Gson
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import java.io.File
 import java.io.FileInputStream
 import java.net.HttpURLConnection
@@ -395,4 +397,12 @@ fun logErrorToFirebase(event: GalleryEvent, errorType: String, errorMessage: Str
       putString("error_message", errorMessage ?: "Unknown error")
     },
   )
+}
+
+fun convertStringToJsonObject(jsonString: String): JsonObject {
+  return try {
+    JsonParser.parseString(jsonString).asJsonObject
+  } catch (e: Exception) {
+    JsonObject()
+  }
 }

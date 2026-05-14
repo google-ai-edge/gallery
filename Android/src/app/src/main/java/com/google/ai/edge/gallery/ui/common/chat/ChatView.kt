@@ -122,6 +122,8 @@ fun ChatView(
   onBenchmarkClicked: (Model, ChatMessage, Int, Int) -> Unit,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
+  skillCount: Int = 0,
+  mcpCount: Int = 0,
   onResetSessionClicked:
     (
       model: Model, initialMessages: List<ChatMessage>, clearHistory: Boolean, onDone: () -> Unit,
@@ -132,6 +134,7 @@ fun ChatView(
   onStreamImageMessage: (Model, ChatMessageImage) -> Unit = { _, _ -> },
   onStopButtonClicked: (Model) -> Unit = {},
   onSkillClicked: () -> Unit = {},
+  onMcpClicked: () -> Unit = {},
   showStopButtonInInputWhenInProgress: Boolean = false,
   composableBelowMessageList: @Composable (Model) -> Unit = {},
   showImagePicker: Boolean = false,
@@ -376,6 +379,8 @@ fun ChatView(
                       selectedModel = selectedModel,
                       viewModel = viewModel,
                       innerPadding = innerPadding,
+                      skillCount = skillCount,
+                      mcpCount = mcpCount,
                       navigateUp = navigateUp,
                       onSendMessage = { model, messages -> onSendMessage(model, messages) },
                       onRunAgainClicked = onRunAgainClicked,
@@ -397,6 +402,7 @@ fun ChatView(
                         showImageViewer = true
                       },
                       onSkillClicked = onSkillClicked,
+                      onMcpClicked = onMcpClicked,
                       modifier = Modifier.weight(1f),
                       showStopButtonInInputWhenInProgress = showStopButtonInInputWhenInProgress,
                       showImagePicker = showImagePicker,
