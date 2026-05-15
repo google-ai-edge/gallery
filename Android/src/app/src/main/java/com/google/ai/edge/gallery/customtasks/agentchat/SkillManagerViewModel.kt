@@ -1206,12 +1206,6 @@ constructor(
         putString("skill_name", skillName)
         putString("skill_id", getSkillShortId(skill))
       }
-    if (
-      skill.skillUrl.isNotEmpty() &&
-        (source == SkillSource.REMOTE_URL || source == SkillSource.FEATURED)
-    ) {
-      bundle.putString("remote_url", skill.skillUrl.take(100))
-    }
     return bundle
   }
 
