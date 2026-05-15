@@ -210,7 +210,7 @@
   <string name="view_results" translatable="false">View results</string>
   <string name="view_console_logs" translatable="false">View console logs</string>
   <string name="warming_up" translatable="false">warming up…</string>
-  <string name="warning_no_function_call" translatable="false">No function recognized</string>
+  <string name="warning_no_function_call" translatable="false">I could not quite understand that. Could you provide more details and try again?</string>
   <string name="snackbar_no_function_call" translatable="false">No function recognized</string>
   <string name="unknown_error" translatable="false">Unknown error</string>
   <string name="view" translatable="false">View</string>
