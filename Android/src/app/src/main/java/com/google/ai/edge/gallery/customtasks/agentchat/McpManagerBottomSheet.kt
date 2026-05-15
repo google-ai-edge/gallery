@@ -197,7 +197,7 @@ fun McpManagerBottomSheet(
               )
               ClickableLink(
                 url = "https://github.com/google-ai-edge/gallery/tree/main/mcp",
-                linkText = stringResource(R.string.learn_more_about_mcp),
+                linkText = stringResource(R.string.learn_more_about_mcp_short),
                 modifier = Modifier.padding(top = 4.dp),
                 textAlign = TextAlign.Start,
               )

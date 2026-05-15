@@ -339,7 +339,8 @@
   <string name="mcp_tool_revoke_permission_content" translatable="false">Are you sure you want to revoke permission to automatically call this tool?</string>
   <string name="manage_mcp_servers" translatable="false">Manage MCP servers</string>
   <string name="add_mcp_server" translatable="false">Add MCP server</string>
-  <string name="learn_more_about_mcp" translatable="false">Learn more about MCP and Gallery</string>
+  <string name="learn_more_about_mcp" translatable="false">Learn more about MCP in Google AI Edge Gallery</string>
+  <string name="learn_more_about_mcp_short" translatable="false">Learn more</string>
   <string name="search_mcp_server" translatable="false">Search for an MCP server</string>
   <plurals name="mcp_servers_count" translatable="false">
     <item quantity="one">%d MCP server</item>
