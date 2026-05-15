@@ -23,11 +23,13 @@ import android.content.Context
 import android.util.Log
 import com.google.ai.edge.gallery.common.AgentAction
 import com.google.ai.edge.gallery.common.AskInfoAgentAction
+import com.google.ai.edge.gallery.common.AskMcpToolCallPermissionAction
 import com.google.ai.edge.gallery.common.CallJsAgentAction
 import com.google.ai.edge.gallery.common.CallJsSkillResult
 import com.google.ai.edge.gallery.common.CallJsSkillResultImage
 import com.google.ai.edge.gallery.common.CallJsSkillResultWebview
 import com.google.ai.edge.gallery.common.LOCAL_URL_BASE
+import com.google.ai.edge.gallery.common.PermissionResult
 import com.google.ai.edge.gallery.common.RequestPermissionAgentAction
 import com.google.ai.edge.gallery.common.SkillProgressAgentAction
 import com.google.ai.edge.gallery.common.convertStringToJsonObject
@@ -114,6 +116,27 @@ open class AgentTools() : ToolSet {
       val client =
         serverState.client
           ?: return@runBlocking mapOf("error" to "Client not initialized", "status" to "failed")
+
+      // Check if the MCP tool requires user permission. If not always allowed,
+      // send an action to ask for permission and wait for the result.
+      val mcpTool = serverState.mcpServer.toolsList.find { it.name == toolName }
+      val isAlwaysAllow = mcpTool?.alwaysAllow ?: false
+
+      if (!isAlwaysAllow) {
+        val permissionAction = AskMcpToolCallPermissionAction(toolName = toolName, argument = input)
+        _actionChannel.send(permissionAction)
+        val permissionResult = permissionAction.result.await()
+        if (permissionResult == PermissionResult.DENY) {
+          _actionChannel.send(
+            SkillProgressAgentAction(
+              label = "Permission denied for MCP tool \"$toolName\"",
+              inProgress = false,
+            )
+          )
+          return@runBlocking mapOf("error" to "Permission denied by user", "status" to "failed")
+        }
+      }
+
       try {
         _actionChannel.send(
           SkillProgressAgentAction(

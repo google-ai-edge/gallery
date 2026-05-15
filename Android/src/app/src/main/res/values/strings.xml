@@ -327,6 +327,16 @@
 
   <!-- Strings for MCP -->
   <string name="mcp" translatable="false">MCP</string>
+  <string name="mcp_tool_call_permission_title" translatable="false">Permission to call MCP tool?</string>
+  <string name="mcp_tool_name_label" translatable="false">Tool name</string>
+  <string name="mcp_tool_input_label" translatable="false">Input</string>
+  <string name="mcp_tool_always_allow" translatable="false">Always allow</string>
+  <string name="mcp_tool_allow_once" translatable="false">Allow once</string>
+  <string name="mcp_tool_dont_allow" translatable="false">Don\'t allow</string>
+  <string name="mcp_tool_revoke" translatable="false">Revoke</string>
+  <string name="mcp_tool_revoke_permission" translatable="false">Revoke tool call permission</string>
+  <string name="mcp_tool_revoke_permission_title" translatable="false">Revoke permission?</string>
+  <string name="mcp_tool_revoke_permission_content" translatable="false">Are you sure you want to revoke permission to automatically call this tool?</string>
   <string name="manage_mcp_servers" translatable="false">Manage MCP servers</string>
   <string name="add_mcp_server" translatable="false">Add MCP server</string>
   <string name="learn_more_about_mcp" translatable="false">Learn more about MCP and Gallery</string>

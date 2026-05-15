@@ -53,4 +53,6 @@ message McpTool {
   string input_schema = 3;
   // Whether this tool is currently enabled.
   bool enabled = 4;
+  // Whether the user has selected "Always allow" for calling this tool.
+  bool always_allow = 5;
 }

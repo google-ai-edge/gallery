@@ -77,8 +77,10 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.AskInfoAgentAction
+import com.google.ai.edge.gallery.common.AskMcpToolCallPermissionAction
 import com.google.ai.edge.gallery.common.CallJsAgentAction
 import com.google.ai.edge.gallery.common.LOCAL_URL_BASE
+import com.google.ai.edge.gallery.common.PermissionResult
 import com.google.ai.edge.gallery.common.RequestPermissionAgentAction
 import com.google.ai.edge.gallery.common.SkillProgressAgentAction
 import com.google.ai.edge.gallery.data.AgentSkillsURLs
@@ -140,6 +142,9 @@ fun AgentChatScreen(
   var showMcpManagerBottomSheet by remember { mutableStateOf(false) }
   var showAskInfoDialog by remember { mutableStateOf(false) }
   var currentAskInfoAction by remember { mutableStateOf<AskInfoAgentAction?>(null) }
+  var currentMcpPermissionAction by remember {
+    mutableStateOf<AskMcpToolCallPermissionAction?>(null)
+  }
   var askInfoInputValue by remember { mutableStateOf("") }
   var webViewRef: WebView? by remember { mutableStateOf(null) }
   val chatWebViewClient = remember { ChatWebViewClient(context = context) }
@@ -415,6 +420,9 @@ fun AgentChatScreen(
               currentPermissionAction = action
               permissionLauncher.launch(action.permission)
             }
+            is AskMcpToolCallPermissionAction -> {
+              currentMcpPermissionAction = action
+            }
           }
         }
       }
@@ -590,6 +598,31 @@ fun AgentChatScreen(
         action.result.complete("")
         showAskInfoDialog = false
         currentAskInfoAction = null
+      },
+    )
+  }
+
+  if (currentMcpPermissionAction != null) {
+    val action = currentMcpPermissionAction!!
+    McpToolCallPermissionDialog(
+      toolName = action.toolName,
+      argument = action.argument,
+      onResult = { result ->
+        action.result.complete(result)
+        if (result == PermissionResult.ALWAYS_ALLOW) {
+          val serverState =
+            mcpManagerViewModel.uiState.value.mcpServers.find { serverState ->
+              serverState.mcpServer.toolsList.any { it.name == action.toolName }
+            }
+          serverState?.mcpServer?.url?.let { url ->
+            mcpManagerViewModel.setMcpToolAlwaysAllow(
+              url = url,
+              toolName = action.toolName,
+              alwaysAllow = true,
+            )
+          }
+        }
+        currentMcpPermissionAction = null
       },
     )
   }

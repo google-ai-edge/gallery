@@ -80,7 +80,9 @@ constructor(
             // Map existing tool enablement configurations to preserve user preferences upon
             // reconnect.
             val savedToolsMap = serverProto.toolsList.associate { it.name to it.enabled }
-            val (client, mcpTools) = initializeClientAndLoadTools(serverProto.url, savedToolsMap)
+            val savedAlwaysAllowMap = serverProto.toolsList.associate { it.name to it.alwaysAllow }
+            val (client, mcpTools) =
+              initializeClientAndLoadTools(serverProto.url, savedToolsMap, savedAlwaysAllowMap)
             val serverVersion = client.serverVersion
             val updatedServerProto =
               serverProto
@@ -271,21 +273,8 @@ constructor(
             state
           }
         }
+      persistServers(updatedServers)
       currentState.copy(mcpServers = updatedServers)
-    }
-
-    viewModelScope.launch(Dispatchers.IO) {
-      mcpServersDataStore.updateData { currentServers ->
-        val updatedServerList =
-          currentServers.mcpServerList.map { server ->
-            if (server.url == url) {
-              server.toBuilder().setEnabled(enabled).build()
-            } else {
-              server
-            }
-          }
-        McpServers.newBuilder().addAllMcpServer(updatedServerList).build()
-      }
     }
   }
 
@@ -310,29 +299,8 @@ constructor(
             state
           }
         }
+      persistServers(updatedServers)
       currentState.copy(mcpServers = updatedServers)
-    }
-
-    viewModelScope.launch(Dispatchers.IO) {
-      mcpServersDataStore.updateData { currentServers ->
-        val updatedServerList =
-          currentServers.mcpServerList.map { server ->
-            if (server.url == url) {
-              val updatedTools =
-                server.toolsList.map { tool ->
-                  if (tool.name == toolName) {
-                    tool.toBuilder().setEnabled(enabled).build()
-                  } else {
-                    tool
-                  }
-                }
-              server.toBuilder().clearTools().addAllTools(updatedTools).build()
-            } else {
-              server
-            }
-          }
-        McpServers.newBuilder().addAllMcpServer(updatedServerList).build()
-      }
     }
   }
 
@@ -347,23 +315,8 @@ constructor(
             state.copy(mcpServer = state.mcpServer.toBuilder().setEnabled(enabled).build())
           }
         }
+      persistServers(updatedServers)
       currentState.copy(mcpServers = updatedServers)
-    }
-
-    viewModelScope.launch(Dispatchers.IO) {
-      mcpServersDataStore.updateData { currentServers ->
-        val updatedServerList =
-          currentServers.mcpServerList.map { server ->
-            val hasError =
-              _uiState.value.mcpServers.find { it.mcpServer.url == server.url }?.error != null
-            if (hasError) {
-              server
-            } else {
-              server.toBuilder().setEnabled(enabled).build()
-            }
-          }
-        McpServers.newBuilder().addAllMcpServer(updatedServerList).build()
-      }
     }
   }
 
@@ -382,23 +335,34 @@ constructor(
             state
           }
         }
+      persistServers(updatedServers)
       currentState.copy(mcpServers = updatedServers)
     }
+  }
 
-    viewModelScope.launch(Dispatchers.IO) {
-      mcpServersDataStore.updateData { currentServers ->
-        val updatedServerList =
-          currentServers.mcpServerList.map { server ->
-            if (server.url == url) {
-              val updatedTools =
-                server.toolsList.map { tool -> tool.toBuilder().setEnabled(enabled).build() }
-              server.toBuilder().clearTools().addAllTools(updatedTools).build()
-            } else {
-              server
-            }
+  /** Sets always allow for a specific tool under a given MCP server URL. */
+  fun setMcpToolAlwaysAllow(url: String, toolName: String, alwaysAllow: Boolean) {
+    _uiState.update { currentState ->
+      val updatedServers =
+        currentState.mcpServers.map { state ->
+          if (state.mcpServer.url == url) {
+            val updatedTools =
+              state.mcpServer.toolsList.map { tool ->
+                if (tool.name == toolName) {
+                  tool.toBuilder().setAlwaysAllow(alwaysAllow).build()
+                } else {
+                  tool
+                }
+              }
+            state.copy(
+              mcpServer = state.mcpServer.toBuilder().clearTools().addAllTools(updatedTools).build()
+            )
+          } else {
+            state
           }
-        McpServers.newBuilder().addAllMcpServer(updatedServerList).build()
-      }
+        }
+      persistServers(updatedServers)
+      currentState.copy(mcpServers = updatedServers)
     }
   }
 
@@ -409,6 +373,7 @@ constructor(
   private suspend fun initializeClientAndLoadTools(
     url: String,
     savedToolsMap: Map<String, Boolean>? = null,
+    savedAlwaysAllowMap: Map<String, Boolean>? = null,
     mcpAuth: McpAuth? = null,
   ): Pair<Client, List<McpTool>> {
     Log.d(TAG, "Initializing MCP for $url...")
@@ -437,6 +402,7 @@ constructor(
     val mcpTools =
       toolsResponse?.tools.orEmpty().map { tool ->
         val isEnabled = savedToolsMap?.get(tool.name) ?: true
+        val isAlwaysAllow = savedAlwaysAllowMap?.get(tool.name) ?: false
         // Manually build a valid JSON schema string using public SDK object properties.
         // This avoids restricted library visibility constraints while ensuring robust JSON
         // formatting
@@ -451,9 +417,25 @@ constructor(
           .setDescription(tool.description ?: "")
           .setInputSchema(schemaJson)
           .setEnabled(isEnabled)
+          .setAlwaysAllow(isAlwaysAllow)
           .build()
       }
     Log.d(TAG, "Loaded ${mcpTools.size} tools from $url: ${mcpTools.joinToString { it.name }}")
     return Pair(client, mcpTools)
+  }
+
+  private fun persistServers(updatedServers: List<McpServerState>) {
+    viewModelScope.launch(Dispatchers.IO) {
+      mcpServersDataStore.updateData { currentServers ->
+        val updatedProtos = updatedServers.map { state ->
+          if (state.error != null) {
+            currentServers.mcpServerList.find { it.url == state.mcpServer.url } ?: state.mcpServer
+          } else {
+            state.mcpServer
+          }
+        }
+        McpServers.newBuilder().addAllMcpServer(updatedProtos).build()
+      }
+    }
   }
 }

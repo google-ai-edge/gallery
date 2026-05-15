@@ -20,10 +20,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -62,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.proto.McpTool
 import com.google.ai.edge.gallery.ui.common.SmallFilledTonalButton
+import com.google.ai.edge.gallery.ui.common.SmallOutlinedButton
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -84,6 +87,7 @@ fun McpToolManagerBottomSheet(
   val scope = rememberCoroutineScope()
 
   var toolToView by remember { mutableStateOf<McpTool?>(null) }
+  var toolToRevoke by remember { mutableStateOf<McpTool?>(null) }
 
   ModalBottomSheet(
     onDismissRequest = onDismiss,
@@ -160,6 +164,7 @@ fun McpToolManagerBottomSheet(
             verticalAlignment = Alignment.CenterVertically,
           ) {
             Column(modifier = Modifier.weight(1f)) {
+              // Tool name, description, and enable toggle
               Row(
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -192,6 +197,7 @@ fun McpToolManagerBottomSheet(
                 )
               }
 
+              // Action buttons for viewing schema and revoking "always allow"
               Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Start,
@@ -202,6 +208,13 @@ fun McpToolManagerBottomSheet(
                   labelResId = R.string.view,
                   imageVector = Icons.Outlined.RemoveRedEye,
                 )
+                if (tool.alwaysAllow) {
+                  Spacer(modifier = Modifier.width(8.dp))
+                  SmallOutlinedButton(
+                    onClick = { toolToRevoke = tool },
+                    labelResId = R.string.mcp_tool_revoke_permission,
+                  )
+                }
               }
             }
           }
@@ -257,6 +270,28 @@ fun McpToolManagerBottomSheet(
       },
       confirmButton = {
         Button(onClick = { toolToView = null }) { Text(stringResource(R.string.close)) }
+      },
+    )
+  }
+
+  // AlertDialog to confirm revoking "always allow" permission for a tool.
+  toolToRevoke?.let { tool ->
+    AlertDialog(
+      onDismissRequest = { toolToRevoke = null },
+      title = { Text(stringResource(R.string.mcp_tool_revoke_permission_title)) },
+      text = { Text(stringResource(R.string.mcp_tool_revoke_permission_content)) },
+      confirmButton = {
+        Button(
+          onClick = {
+            mcpManagerViewModel.setMcpToolAlwaysAllow(server.url, tool.name, false)
+            toolToRevoke = null
+          }
+        ) {
+          Text(stringResource(R.string.mcp_tool_revoke))
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { toolToRevoke = null }) { Text(stringResource(R.string.cancel)) }
       },
     )
   }
