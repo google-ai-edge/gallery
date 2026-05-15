@@ -1,0 +1,283 @@
+<!--
+ Copyright 2026 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      https://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  </head>
+  <body>
+    <div id="qrcode-container" style="display: none"></div>
+    <canvas id="card-canvas" style="display: none"></canvas>
+    <script>
+      window["ai_edge_gallery_get_result"] = async function (data, secret) {
+        console.log("[learn-something-new] Script started with data payload:", data);
+        try {
+          // Ensure fonts are loaded before measuring/drawing text
+          if (document.fonts && document.fonts.ready) {
+            await document.fonts.ready;
+          }
+
+          // Robust parsing for different model behaviors (with fallback heuristic repair)
+          let params = {};
+          if (typeof data === "object" && data !== null) {
+            params = data;
+          } else if (typeof data === "string") {
+            const cleanData = data.trim();
+            try {
+              params = JSON.parse(cleanData);
+            } catch (e) {
+              console.warn(
+                "[learn-something-new] Standard JSON.parse failed. Attempting structural bracket/quote closure repair...",
+              );
+              try {
+                // Try common closure fixes for minor stream truncation
+                params = JSON.parse(cleanData + "}");
+              } catch (e2) {
+                try {
+                  params = JSON.parse(cleanData + '"}');
+                } catch (e3) {
+                  console.warn(
+                    "[learn-something-new] Structural closure failed. Fallback to regular expression key extraction...",
+                  );
+                  // Use lenient regex scanning to salvage topic and description fields directly from the raw text
+                  const topicMatch = cleanData.match(/"topic"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)/i);
+                  const descMatch = cleanData.match(
+                    /"description"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)/i,
+                  );
+                  params.topic = topicMatch ? topicMatch[1].replace(/\\"/g, '"') : "Partial Data";
+                  params.description = descMatch
+                    ? descMatch[1].replace(/\\"/g, '"')
+                    : "Could not extract description from truncated stream.";
+                }
+              }
+            }
+          }
+
+          const topic = params.topic || "Unknown Topic";
+          const description = params.description || "";
+
+          const canvas = document.getElementById("card-canvas");
+          const ctx = canvas.getContext("2d");
+
+          canvas.width = 1080;
+          canvas.height = 1080;
+
+          // 1. Draw Background (Gradient)
+          const gradient = ctx.createLinearGradient(0, 0, 1080, 1080);
+          gradient.addColorStop(0, "#FF9A9E");
+          gradient.addColorStop(0.5, "#FECFEF");
+          gradient.addColorStop(1, "#A1C4FD");
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, 1080, 1080);
+
+          // Inner white card
+          ctx.shadowColor = "rgba(0, 0, 0, 0.15)";
+          ctx.shadowBlur = 40;
+          ctx.shadowOffsetY = 20;
+          ctx.fillStyle = "#FFFFFF";
+
+          // Draw rounded rect manually for compatibility if roundRect is missing
+          const x = 60,
+            y = 60,
+            w = 960,
+            h = 960,
+            r = 40;
+          ctx.beginPath();
+          ctx.moveTo(x + r, y);
+          ctx.arcTo(x + w, y, x + w, y + h, r);
+          ctx.arcTo(x + w, y + h, x, y + h, r);
+          ctx.arcTo(x, y + h, x, y, r);
+          ctx.arcTo(x, y, x + w, y, r);
+          ctx.closePath();
+          ctx.fill();
+          ctx.shadowColor = "transparent";
+
+          // 2. Draw "TODAY I LEARNED" Header
+          ctx.fillStyle = "#FF6B6B";
+          ctx.font = 'bold 32px "Google Sans", sans-serif';
+          ctx.fillText("💡 TODAY I LEARNED", 120, 150);
+
+          // 3. Draw Topic
+          ctx.fillStyle = "#2D3436";
+          ctx.font = 'bold 72px "Google Sans", sans-serif';
+          const topicY = 250;
+          const nextYAfterTopic = wrapText(ctx, topic, 120, topicY, 840, 85);
+
+          // 4. Draw Description (Safeguarded against verbose/run-on text from smaller models)
+          let clampedDescription = description;
+          const sentenceMatches = clampedDescription.match(/[^.!?]+[.!?]+/g);
+          if (sentenceMatches && sentenceMatches.length > 2) {
+            clampedDescription = sentenceMatches.slice(0, 2).join(" ").trim();
+          }
+          if (clampedDescription.length > 320) {
+            let cutIndex = -1;
+            for (let i = 319; i >= 0; i--) {
+              if (
+                clampedDescription[i] === "." ||
+                clampedDescription[i] === "!" ||
+                clampedDescription[i] === "?"
+              ) {
+                cutIndex = i + 1;
+                break;
+              }
+            }
+            if (cutIndex > 0) {
+              clampedDescription = clampedDescription.substring(0, cutIndex).trim();
+            } else {
+              clampedDescription = clampedDescription.substring(0, 317) + "...";
+            }
+          }
+          ctx.fillStyle = "#636E72";
+          ctx.font = '42px "Google Sans", sans-serif';
+          wrapText(ctx, clampedDescription, 120, nextYAfterTopic + 90, 840, 60);
+
+          // Helper to get platform
+          function getPlatform() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) return "iOS";
+            if (/android/i.test(userAgent)) return "Android";
+            return "unknown";
+          }
+
+          // Determine URL based on platform
+          const platform = getPlatform();
+          let linkUrl = "https://github.com/google-ai-edge/gallery"; // Fallback
+          if (platform === "iOS") {
+            linkUrl = "https://apps.apple.com/us/app/google-ai-edge-gallery/id6749645337";
+          } else if (platform === "Android") {
+            linkUrl = "https://play.google.com/store/apps/details?id=com.google.ai.edge.gallery";
+          }
+
+          // 5. Generate QR Code
+          const container = document.getElementById("qrcode-container");
+          container.innerHTML = ""; // Clear previous
+          try {
+            new QRCode(container, {
+              text: linkUrl,
+              width: 140,
+              height: 140,
+              colorDark: "#2D3436",
+              colorLight: "#ffffff",
+              correctLevel: QRCode.CorrectLevel.L,
+            });
+          } catch (qrInitErr) {
+            console.error(
+              "[learn-something-new] Exception during QRCode initialization:",
+              qrInitErr,
+            );
+          }
+
+          // Wait for QR code canvas to be ready
+          const qrCanvas = await new Promise((resolve) => {
+            let attempts = 0;
+            const check = setInterval(() => {
+              const canvas = container.querySelector("canvas");
+              if (canvas) {
+                clearInterval(check);
+                resolve(canvas);
+              }
+              if (attempts++ > 20) {
+                clearInterval(check);
+                console.warn(
+                  "[learn-something-new] Remote QR code generation timed out or failed. Proceeding to draw card safely without QR stamp.",
+                );
+                resolve(null);
+              }
+            }, 50);
+          });
+
+          // 6. Draw Footer (App Logo & QR)
+          const footerY = 920;
+          if (qrCanvas) {
+            ctx.drawImage(qrCanvas, 830, 820, 140, 140);
+          }
+
+          // Draw AI Edge Gallery Logo
+          const logoImg = new Image();
+          logoImg.src = "../assets/galleryLogo.svg";
+
+          await new Promise((resolve) => {
+            logoImg.onload = () => {
+              ctx.drawImage(logoImg, 115, footerY - 30, 70, 70);
+              resolve();
+            };
+            logoImg.onerror = () => {
+              console.error(
+                "[learn-something-new] Failed to load logo image asset at path:",
+                logoImg.src,
+              );
+              resolve(); // Continue even if logo fails
+            };
+          });
+
+          ctx.fillStyle = "#2D3436";
+          ctx.font = 'bold 36px "Google Sans", sans-serif';
+          ctx.fillText("Google AI Edge Gallery", 200, footerY);
+          ctx.fillStyle = "#B2BEC3";
+          ctx.font = '28px "Google Sans", sans-serif';
+          ctx.fillText("Scan to download the app", 200, footerY + 40);
+
+          const finalBase64 = canvas.toDataURL("image/jpeg", 0.9);
+          console.log(
+            "[learn-something-new] Card generated successfully. Yielding back Base64 output.",
+          );
+
+          return JSON.stringify({
+            result: JSON.stringify({
+              status: "success",
+              message: "Card generated successfully.",
+            }),
+            image: { base64: finalBase64 },
+            error: null,
+          });
+        } catch (err) {
+          console.error(
+            "[learn-something-new] Fatal unhandled script exception:",
+            err.message,
+            err,
+          );
+          return JSON.stringify({ result: null, image: null, error: err.message });
+        }
+      };
+
+      function wrapText(context, text, x, y, maxWidth, lineHeight) {
+        const words = text.split(" ");
+        let line = "";
+        let currentY = y;
+
+        for (let n = 0; n < words.length; n++) {
+          let testLine = line + words[n] + " ";
+          let metrics = context.measureText(testLine);
+          let testWidth = metrics.width;
+          if (testWidth > maxWidth && n > 0) {
+            context.fillText(line, x, currentY);
+            line = words[n] + " ";
+            currentY += lineHeight;
+          } else {
+            line = testLine;
+          }
+        }
+        context.fillText(line, x, currentY);
+        return currentY;
+      }
+    </script>
+  </body>
+</html>

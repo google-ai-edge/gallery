@@ -1,0 +1,67 @@
+<!--
+ Copyright 2026 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      https://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+  <body>
+    <script>
+      window["ai_edge_gallery_get_result"] = async function (data) {
+        try {
+          let params;
+          try {
+            params = typeof data === "string" ? JSON.parse(data) : data;
+          } catch (e) {
+            params = {};
+          }
+
+          const topic = params.topic || "Unknown";
+          const lang = params.lang || "en";
+          const baseUrl = `https://${lang}.wikipedia.org/w/api.php`;
+          const searchParams = new URLSearchParams({
+            action: "query",
+            format: "json",
+            generator: "search",
+            gsrsearch: topic,
+            gsrlimit: "1",
+            prop: "extracts",
+            explaintext: "1",
+            exintro: "1",
+            origin: "*",
+          });
+          const searchRes = await fetch(`${baseUrl}?${searchParams.toString()}`);
+          if (!searchRes.ok) throw new Error(`HTTP error! status: ${searchRes.status}`);
+          const searchData = await searchRes.json();
+          if (!searchData.query || !searchData.query.pages) {
+            return JSON.stringify({ result: "Not found" });
+          }
+          const pages = searchData.query.pages;
+          const page = pages[Object.keys(pages)[0]];
+
+          return JSON.stringify({
+            result: JSON.stringify({
+              title: page.title,
+              extract: page.extract,
+            }),
+          });
+        } catch (err) {
+          return JSON.stringify({ error: err.message });
+        }
+      };
+    </script>
+  </body>
+</html>

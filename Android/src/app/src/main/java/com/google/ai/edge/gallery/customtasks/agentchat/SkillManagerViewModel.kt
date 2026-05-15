@@ -24,6 +24,7 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.LocalLibrary
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Notifications
@@ -73,6 +74,12 @@ val TRYOUT_CHIPS: List<SkillTryOutChip> =
       label = "Schedule Reminder",
       prompt = "Set a daily reminder at 9am to check my schedule for today.",
       skillName = "schedule-notification",
+    ),
+    SkillTryOutChip(
+      icon = Icons.Outlined.Lightbulb,
+      label = "Learn something new",
+      prompt = "I want to learn something new!",
+      skillName = "learn-something-new",
     ),
     SkillTryOutChip(
       icon = Icons.Outlined.SentimentVerySatisfied,
