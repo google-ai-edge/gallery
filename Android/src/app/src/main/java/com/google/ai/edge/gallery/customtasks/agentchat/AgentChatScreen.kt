@@ -542,6 +542,12 @@ fun AgentChatScreen(
           horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           for (promptChip in TRYOUT_CHIPS) {
+            if (
+              promptChip.skillName == "learn-something-new" &&
+                selectedModel.name != "Gemma-4-E4B-it"
+            ) {
+              continue
+            }
             FilledTonalButton(
               enabled =
                 modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZED &&

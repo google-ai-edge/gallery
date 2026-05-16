@@ -47,17 +47,20 @@
           if (!searchRes.ok) throw new Error(`HTTP error! status: ${searchRes.status}`);
           const searchData = await searchRes.json();
           if (!searchData.query || !searchData.query.pages) {
+            console.warn("[learn-something-new/query.html] Wikipedia lookup returned empty structure. Yielding 'Not found'.");
             return JSON.stringify({ result: "Not found" });
           }
           const pages = searchData.query.pages;
           const page = pages[Object.keys(pages)[0]];
 
-          return JSON.stringify({
+          const responsePayload = JSON.stringify({
             result: JSON.stringify({
               title: page.title,
               extract: page.extract,
             }),
           });
+          console.log("[learn-something-new/query.html] Yielding extracted Wikipedia result payload back to model engine:", responsePayload);
+          return responsePayload;
         } catch (err) {
           return JSON.stringify({ error: err.message });
         }

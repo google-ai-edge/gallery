@@ -76,17 +76,17 @@ val TRYOUT_CHIPS: List<SkillTryOutChip> =
       skillName = "schedule-notification",
     ),
     SkillTryOutChip(
-      icon = Icons.Outlined.Lightbulb,
-      label = "Learn something new",
-      prompt = "I want to learn something new!",
-      skillName = "learn-something-new",
-    ),
-    SkillTryOutChip(
       icon = Icons.Outlined.SentimentVerySatisfied,
       label = "Track my mood",
       prompt =
         "Log yesterday's mood as 2 because it was raining quite heavily, and log today's mood as 9 because I had a great time playing pickleball again. Then show me my mood dashboard.",
       skillName = "mood-tracker",
+    ),
+    SkillTryOutChip(
+      icon = Icons.Outlined.Lightbulb,
+      label = "Learn something new",
+      prompt = "I want to learn something new!",
+      skillName = "learn-something-new",
     ),
     SkillTryOutChip(
       icon = Icons.Outlined.LocalLibrary,

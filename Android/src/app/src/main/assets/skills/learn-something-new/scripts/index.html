@@ -123,18 +123,10 @@
 
           // 4. Draw Description (Safeguarded against verbose/run-on text from smaller models)
           let clampedDescription = description;
-          const sentenceMatches = clampedDescription.match(/[^.!?]+[.!?]+/g);
-          if (sentenceMatches && sentenceMatches.length > 2) {
-            clampedDescription = sentenceMatches.slice(0, 2).join(" ").trim();
-          }
           if (clampedDescription.length > 320) {
             let cutIndex = -1;
             for (let i = 319; i >= 0; i--) {
-              if (
-                clampedDescription[i] === "." ||
-                clampedDescription[i] === "!" ||
-                clampedDescription[i] === "?"
-              ) {
+              if (clampedDescription[i] === '.' || clampedDescription[i] === '!' || clampedDescription[i] === '?') {
                 cutIndex = i + 1;
                 break;
               }
