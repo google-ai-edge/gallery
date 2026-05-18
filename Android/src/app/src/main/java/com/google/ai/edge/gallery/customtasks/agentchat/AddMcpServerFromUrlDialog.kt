@@ -16,6 +16,8 @@
 
 package com.google.ai.edge.gallery.customtasks.agentchat
 
+import android.os.Bundle
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -61,10 +63,13 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.McpAuth
 import java.net.URI
 
+private const val TAG = "AGAddMcpServerDialog"
 private val APPROVED_MCP_HOSTS = listOf("googleapis.com")
 
 /** A dialog composable for adding a new MCP server by entering its URL. */
@@ -294,6 +299,14 @@ fun AddMcpServerFromUrlDialog(
             Button(
               enabled = textFieldValue.text.trim().isNotEmpty(),
               onClick = {
+                Log.d(TAG, "Analytics: mcp_management, action=add_server, status=attempt")
+                firebaseAnalytics?.logEvent(
+                  GalleryEvent.MCP_MANAGEMENT.id,
+                  Bundle().apply {
+                    putString("action", "add_server")
+                    putString("status", "attempt")
+                  },
+                )
                 val url = textFieldValue.text.trim()
                 if (url.isNotEmpty()) {
                   if (mcpManagerViewModel.hasMcpServer(url)) {

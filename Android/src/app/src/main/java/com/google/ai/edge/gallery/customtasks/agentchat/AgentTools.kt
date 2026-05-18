@@ -20,7 +20,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 
 import android.content.Context
+import android.os.Bundle
 import android.util.Log
+import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.common.AgentAction
 import com.google.ai.edge.gallery.common.AskInfoAgentAction
 import com.google.ai.edge.gallery.common.AskMcpToolCallPermissionAction
@@ -33,6 +35,7 @@ import com.google.ai.edge.gallery.common.PermissionResult
 import com.google.ai.edge.gallery.common.RequestPermissionAgentAction
 import com.google.ai.edge.gallery.common.SkillProgressAgentAction
 import com.google.ai.edge.gallery.common.convertStringToJsonObject
+import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.litertlm.Tool
 import com.google.ai.edge.litertlm.ToolParam
 import com.google.ai.edge.litertlm.ToolSet
@@ -51,6 +54,7 @@ open class AgentTools() : ToolSet {
   lateinit var context: Context
   lateinit var skillManagerViewModel: SkillManagerViewModel
   lateinit var mcpManagerViewModel: McpManagerViewModel
+  lateinit var taskId: String
 
   private val _actionChannel = Channel<AgentAction>(Channel.UNLIMITED)
   val actionChannel: ReceiveChannel<AgentAction> = _actionChannel
@@ -110,12 +114,15 @@ open class AgentTools() : ToolSet {
 
       if (serverState == null) {
         Log.w(TAG, "MCP server or tool not found for: $toolName")
+        logMcpExecution(success = false, errorType = "tool_not_found")
         return@runBlocking guardMissingEntityWithSkillFallback(name = toolName, type = "Tool")
       }
 
-      val client =
-        serverState.client
-          ?: return@runBlocking mapOf("error" to "Client not initialized", "status" to "failed")
+      val client = serverState.client
+      if (client == null) {
+        logMcpExecution(success = false, errorType = "client_not_initialized")
+        return@runBlocking mapOf("error" to "Client not initialized", "status" to "failed")
+      }
 
       // Check if the MCP tool requires user permission. If not always allowed,
       // send an action to ask for permission and wait for the result.
@@ -133,6 +140,7 @@ open class AgentTools() : ToolSet {
               inProgress = false,
             )
           )
+          logMcpExecution(success = false, errorType = "permission_denied")
           return@runBlocking mapOf("error" to "Permission denied by user", "status" to "failed")
         }
       }
@@ -164,6 +172,7 @@ open class AgentTools() : ToolSet {
               inProgress = false,
             )
           )
+          logMcpExecution(success = false, errorType = "null_result")
           return@runBlocking mapOf("error" to "Null result", "status" to "failed")
         }
 
@@ -179,6 +188,7 @@ open class AgentTools() : ToolSet {
               inProgress = false,
             )
           )
+          logMcpExecution(success = false, errorType = "tool_error")
           return@runBlocking mapOf("error" to errorText, "status" to "failed")
         } else {
           val successText =
@@ -192,6 +202,7 @@ open class AgentTools() : ToolSet {
               addItemDescription = successText,
             )
           )
+          logMcpExecution(success = true, errorType = "")
           return@runBlocking mapOf("result" to successText, "status" to "succeeded")
         }
       } catch (e: Exception) {
@@ -204,6 +215,7 @@ open class AgentTools() : ToolSet {
             addItemDescription = e.message ?: "Unknown error",
           )
         )
+        logMcpExecution(success = false, errorType = "exception")
         return@runBlocking mapOf("error" to (e.message ?: "Unknown error"), "status" to "failed")
       }
     }
@@ -393,6 +405,23 @@ open class AgentTools() : ToolSet {
 
   fun sendAgentAction(action: AgentAction) {
     runBlocking(Dispatchers.Default) { _actionChannel.send(action) }
+  }
+
+  private fun logMcpExecution(success: Boolean, errorType: String) {
+    Log.d(
+      TAG,
+      "Analytics: mcp_execution, capability_name=$taskId, success=$success, error_type=$errorType",
+    )
+    firebaseAnalytics?.logEvent(
+      GalleryEvent.MCP_EXECUTION.id,
+      Bundle().apply {
+        putString("capability_name", taskId)
+        putBoolean("success", success)
+        if (errorType.isNotEmpty()) {
+          putString("error_type", errorType)
+        }
+      },
+    )
   }
 }
 
