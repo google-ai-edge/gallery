@@ -43,4 +43,6 @@ enum class GalleryEvent(val id: String) {
   SKILL_MANAGEMENT(id = "skill_management"),
   SKILL_EXECUTION(id = "skill_execution"),
   CHAT_HISTORY(id = "chat_history"),
+  MCP_MANAGEMENT(id = "mcp_management"),
+  MCP_EXECUTION(id = "mcp_execution"),
 }

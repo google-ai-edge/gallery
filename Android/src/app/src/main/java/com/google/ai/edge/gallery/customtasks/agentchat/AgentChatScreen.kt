@@ -135,6 +135,7 @@ fun AgentChatScreen(
   agentTools.context = context
   agentTools.skillManagerViewModel = skillManagerViewModel
   agentTools.mcpManagerViewModel = mcpManagerViewModel
+  agentTools.taskId = task.id
   val density = LocalDensity.current
   val windowInfo = LocalWindowInfo.current
   val screenWidthDp = remember { with(density) { windowInfo.containerSize.width.toDp() } }
@@ -175,6 +176,10 @@ fun AgentChatScreen(
 
   val skillCount = skillUiState.skills.count { it.skill.selected }
   val mcpCount = mcpUiState.mcpServers.count { it.mcpServer.enabled }
+  val mcpToolsCount =
+    mcpUiState.mcpServers
+      .filter { it.mcpServer.enabled }
+      .sumOf { it.mcpServer.toolsList.count { tool -> tool.enabled } }
 
   val selectedModel = modelManagerUiState.selectedModel
   val modelInitStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
@@ -210,6 +215,7 @@ fun AgentChatScreen(
     navigateUp = navigateUp,
     skillCount = skillCount,
     mcpCount = mcpCount,
+    mcpToolsCount = mcpToolsCount,
     onFirstToken = { model ->
       scope.launch(Dispatchers.Main) {
         updateProgressPanel(viewModel = viewModel, model = model, agentTools = agentTools)
@@ -322,11 +328,12 @@ fun AgentChatScreen(
                     Log.e(TAG, "JS Execution timed out, completing with error.")
                     Log.d(
                       TAG,
-                      "Analytics: skill_execution, skill_name=$skillName, success=false, error_type=timeout",
+                      "Analytics: skill_execution, capability_name=${task.id}, skill_name=$skillName, success=false, error_type=timeout",
                     )
                     firebaseAnalytics?.logEvent(
                       GalleryEvent.SKILL_EXECUTION.id,
                       Bundle().apply {
+                        putString("capability_name", task.id)
                         putString("skill_name", skillName)
                         putString("skill_id", skillId)
                         putBoolean("success", false)
@@ -358,11 +365,12 @@ fun AgentChatScreen(
                   val errorType = if (isSuccess) "" else "js_error"
                   Log.d(
                     TAG,
-                    "Analytics: skill_execution, skill_name=$skillName, success=$isSuccess, error_type=$errorType",
+                    "Analytics: skill_execution, capability_name=${task.id}, skill_name=$skillName, success=$isSuccess, error_type=$errorType",
                   )
                   firebaseAnalytics?.logEvent(
                     GalleryEvent.SKILL_EXECUTION.id,
                     Bundle().apply {
+                      putString("capability_name", task.id)
                       putString("skill_name", skillName)
                       putString("skill_id", skillId)
                       putBoolean("success", isSuccess)
@@ -397,11 +405,12 @@ fun AgentChatScreen(
               } catch (e: Exception) {
                 Log.d(
                   TAG,
-                  "Analytics: skill_execution, skill_name=$skillName, success=false, error_type=exception",
+                  "Analytics: skill_execution, capability_name=${task.id}, skill_name=$skillName, success=false, error_type=exception",
                 )
                 firebaseAnalytics?.logEvent(
                   GalleryEvent.SKILL_EXECUTION.id,
                   Bundle().apply {
+                    putString("capability_name", task.id)
                     putString("skill_name", skillName)
                     putString("skill_id", skillId)
                     putBoolean("success", false)

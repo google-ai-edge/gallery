@@ -83,6 +83,7 @@ fun LlmChatScreen(
   getActiveSkills: () -> List<String> = { emptyList() },
   skillCount: Int = 0,
   mcpCount: Int = 0,
+  mcpToolsCount: Int = 0,
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -100,6 +101,7 @@ fun LlmChatScreen(
     curSystemPrompt = curSystemPrompt,
     skillCount = skillCount,
     mcpCount = mcpCount,
+    mcpToolsCount = mcpToolsCount,
     onSystemPromptChanged = onSystemPromptChanged,
     emptyStateComposable = emptyStateComposable,
     sendMessageTrigger = sendMessageTrigger,
@@ -223,6 +225,7 @@ fun ChatViewWrapper(
   getActiveSkills: () -> List<String> = { emptyList() },
   skillCount: Int = 0,
   mcpCount: Int = 0,
+  mcpToolsCount: Int = 0,
 ) {
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
@@ -277,7 +280,7 @@ fun ChatViewWrapper(
         val activeSkills = getActiveSkills()
         Log.d(
           TAG,
-          "Analytics: generate_action, capability_name=${task.id}, active_skills=${activeSkills.joinToString(",")}",
+          "Analytics: generate_action, capability_name=${task.id}, active_skills=${activeSkills.joinToString(",")}, active_mcp_servers_count=$mcpCount, active_mcp_tools_count=$mcpToolsCount",
         )
         firebaseAnalytics?.logEvent(
           GalleryEvent.GENERATE_ACTION.id,
@@ -290,6 +293,8 @@ fun ChatViewWrapper(
             putInt("audio_count", audioMessages.size)
             putInt("active_skills_count", activeSkills.size)
             putString("active_skills_list", activeSkills.joinToString(","))
+            putInt("active_mcp_servers_count", mcpCount)
+            putInt("active_mcp_tools_count", mcpToolsCount)
           },
         )
       }
