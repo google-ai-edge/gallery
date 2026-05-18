@@ -562,6 +562,7 @@ fun BenchmarkResultsViewer(
                                     llmResult.stats.firstInitTimeMs,
                                   ),
                                 unit = "ms",
+                                rawValue = llmResult.stats.firstInitTimeMs,
                                 baselineValue =
                                   if (result.id != uiState.baselineResult?.id) {
                                     baselineStats?.firstInitTimeMs
@@ -769,6 +770,7 @@ private fun StatRow(
   value: String,
   modifier: Modifier = Modifier,
   unit: String = "",
+  rawValue: Double? = null,
   baselineValue: Double? = null,
   lessIsBetter: Boolean = false,
 ) {
@@ -806,7 +808,7 @@ private fun StatRow(
           transitionSpec = { fadeIn() togetherWith fadeOut() },
         ) { curBaselineValue ->
           if (curBaselineValue != null) {
-            val doubleValue = value.toDouble()
+            val doubleValue = rawValue ?: value.toDoubleOrNull() ?: 0.0
             val pct = (doubleValue - curBaselineValue) / curBaselineValue * 100
             val strPct = String.format(Locale.getDefault(), "%.1f", abs(pct))
             val sign = if (pct >= 0.0) "+" else "-"
