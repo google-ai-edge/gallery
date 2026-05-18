@@ -17,7 +17,6 @@ package com.google.ai.edge.gallery.notifications
 
 import android.app.AlarmManager
 import android.content.Context
-import android.os.Build
 import android.util.Log
 import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.DataStore
@@ -116,16 +115,6 @@ constructor(@ApplicationContext private val context: Context) {
    */
   private fun setAlarmForNotification(notification: ScheduledNotification): Boolean {
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-    // On Android S (API 31) and later, we must check whether we have permission to set exact
-    // alarms. If we don't have permission, don't schedule alarms for notifications.
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      if (!alarmManager.canScheduleExactAlarms()) {
-        // TODO: Request permission from user.
-        Log.e(TAG, "Failed to schedule notification: permission not granted")
-        return false
-      }
-    }
-
     val pendingIntent =
       NotificationPendingIntentHelper.buildNotificationPendingIntent(
         context,
@@ -168,14 +157,12 @@ constructor(@ApplicationContext private val context: Context) {
         AlarmManager.INTERVAL_DAY,
         pendingIntent,
       )
-    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-      alarmManager.setExactAndAllowWhileIdle(
+    } else {
+      alarmManager.setAndAllowWhileIdle(
         AlarmManager.RTC_WAKEUP,
         calendar.timeInMillis,
         pendingIntent,
       )
-    } else {
-      alarmManager.setExact(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
     }
     return true
   }
