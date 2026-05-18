@@ -1,0 +1,18 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Ensure gradle wrapper JAR is tracked (required for CI)
+!gradle/wrapper/gradle-wrapper.jar
+
+# Release signing (never commit keystores)
+*.jks
+*.keystore
+release-keystore.*

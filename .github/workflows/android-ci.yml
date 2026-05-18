@@ -1,0 +1,188 @@
+# GitHub Actions CI for Smart Screenshot Organizer
+#
+# Builds debug and release APKs, runs unit tests, and uploads artifacts.
+#
+# Release APK signing:
+#   - CI uses a debug keystore by default (unsigned release = no R8 crash)
+#   - For production signing, set these repository secrets:
+#     - KEYSTORE_BASE64: base64-encoded .jks file
+#     - KEYSTORE_PASSWORD: keystore password
+#     - KEY_ALIAS: signing key alias
+#     - KEY_PASSWORD: signing key password
+
+name: Android CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'SmartScreenshotOrganizer/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'SmartScreenshotOrganizer/**'
+  workflow_dispatch: # Manual trigger
+
+defaults:
+  run:
+    working-directory: SmartScreenshotOrganizer
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: SmartScreenshotOrganizer/app/build/reports/tests/
+          retention-days: 14
+
+  build-debug:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
+    needs: test
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: SmartScreenshotOrganizer/app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
+  build-release:
+    name: Build Release APK
+    runs-on: ubuntu-latest
+    needs: test
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      # Decode keystore from secrets (if available)
+      - name: Decode keystore
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > app/release-keystore.jks
+          echo "KEYSTORE_DECODED=true" >> $GITHUB_ENV
+
+      # Build release APK (signed if keystore exists, unsigned otherwise)
+      - name: Build release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ "$KEYSTORE_DECODED" = "true" ]; then
+            echo "Building signed release APK"
+            ./gradlew assembleRelease --no-daemon \
+              -Pandroid.injected.signing.store.file=$PWD/app/release-keystore.jks \
+              -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+              -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+              -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+          else
+            echo "Building unsigned release APK (no keystore configured)"
+            ./gradlew assembleRelease --no-daemon
+          fi
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: |
+            SmartScreenshotOrganizer/app/build/outputs/apk/release/*.apk
+          retention-days: 90
+
+      # Clean up keystore
+      - name: Clean up keystore
+        if: always()
+        run: rm -f app/release-keystore.jks
+
+  lint:
+    name: Lint Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Run Android Lint
+        run: ./gradlew lintDebug --no-daemon
+
+      - name: Upload lint results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-results
+          path: SmartScreenshotOrganizer/app/build/reports/lint-results-debug.html
+          retention-days: 14
