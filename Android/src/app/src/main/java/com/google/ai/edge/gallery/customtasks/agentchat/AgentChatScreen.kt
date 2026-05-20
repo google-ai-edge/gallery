@@ -165,7 +165,6 @@ fun AgentChatScreen(
 
   LaunchedEffect(task) { viewModel.loadSystemPrompt(task) }
   val uiSystemPrompt by viewModel.uiSystemPrompt.collectAsState()
-  LaunchedEffect(uiSystemPrompt) { curSystemPrompt = uiSystemPrompt }
 
   // Collect UI states from view models. Ensure launched effect is triggered when the UI state is
   // updated.
@@ -180,6 +179,10 @@ fun AgentChatScreen(
     mcpUiState.mcpServers
       .filter { it.mcpServer.enabled }
       .sumOf { it.mcpServer.toolsList.count { tool -> tool.enabled } }
+
+  LaunchedEffect(uiSystemPrompt, mcpToolsCount) {
+    curSystemPrompt = getEffectiveBaseSystemPrompt(uiSystemPrompt, mcpToolsCount > 0)
+  }
 
   val selectedModel = modelManagerUiState.selectedModel
   val modelInitStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
@@ -761,14 +764,16 @@ private fun resetSessionWithCurrentSkillsAndMcps(
       }
     } else null
   }
+  val toolsPrompt = agentTools.mcpManagerViewModel.getToolsPrompt()
+  val actualSystemPrompt = getEffectiveBaseSystemPrompt(curSystemPrompt, toolsPrompt.isNotEmpty())
   viewModel.resetSession(
     task = task,
     model = model,
     systemInstruction =
       injectSkillsAndMcpTools(
-        baseSystemPrompt = curSystemPrompt,
+        baseSystemPrompt = actualSystemPrompt,
         skills = skillManagerViewModel.getSelectedSkills(),
-        toolsPrompt = agentTools.mcpManagerViewModel.getToolsPrompt(),
+        toolsPrompt = toolsPrompt,
       ),
     tools = listOf(tool(agentTools)),
     supportImage = true,
