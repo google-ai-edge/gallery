@@ -1,0 +1,43 @@
+<!--
+ Copyright 2025 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<resources>
+    <string name="app_name">معرض Google AI Edge</string>
+    <string name="model_manager">مدير النماذج</string>
+    <string name="downloaded_size">تم تنزيل %1$s</string>
+    <string name="cancel">إلغاء</string>
+    <string name="ok">موافق</string>
+    <string name="confirm_delete_model_dialog_title">حذف التنزيل</string>
+    <string name="confirm_delete_model_dialog_content">هل أنت متأكد أنك تريد حذف النموذج الذي تم تنزيله "%s"؟</string>
+    <string name="notification_title_success">تم تنزيل النموذج بنجاح</string>
+    <string name="notification_content_success">تم تنزيل النموذج "%s"</string>
+    <string name="notification_title_fail">فشل تنزيل النموذج</string>
+    <string name="notification_content_fail">فشل في تنزيل النموذج "%s"</string>
+    <string name="chat_textinput_placeholder">اكتب رسالة…</string>
+    <string name="chat_you">أنت</string>
+    <string name="chat_llm_agent_name">النموذج اللغوي</string>
+    <string name="chat_generic_agent_name">النموذج</string>
+    <string name="chat_generic_result_name">النتيجة</string>
+    <string name="model_not_downloaded_msg">النموذج لم يتم تنزيله بعد</string>
+    <string name="model_is_initializing_msg">جارٍ تهيئة النموذج…</string>
+    <string name="text_input_placeholder_text_classification">اكتب مراجعة فيلم لتصنيفها…</string>
+    <string name="text_image_generation_text_field_placeholder">اكتب التوجيه…</string>
+    <string name="text_input_placeholder_llm_chat">اكتب التوجيه…</string>
+    <string name="run_again">تشغيل مرة أخرى</string>
+    <string name="benchmark">تشغيل اختبار الأداء</string>
+    <string name="warming_up">جارٍ التحضير…</string>
+    <string name="running">جارٍ التشغيل</string>
+</resources>
