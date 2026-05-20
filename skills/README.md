@@ -406,6 +406,13 @@ from this list, follow the steps below:
 For easier sharing, you can host your skill on a web server, and add the skill
 to the app by using the skill url.
 
+> [!NOTE]
+>
+> The URL-loading behavior documented below reflects the Android client source
+> in this repository. If the iOS or macOS app needs equivalent handling for the
+> same URL forms, that client must implement the corresponding update
+> separately.
+
 **Steps:**
 
 1. Enter the Agent Skills use case with your selected model, and navigate to the
@@ -420,6 +427,20 @@ to the app by using the skill url.
    file in your browser (e.g., `https://your/url/SKILL.md`). If the raw content
    of the file displays correctly, your URL is ready to use (excluding the
    `SKILL.md` suffix).
+
+   **Supported URL forms**:
+   - For **text-only skills**, the app accepts either the skill folder URL or
+     the direct `SKILL.md` URL, as long as the host serves the markdown file as
+     raw content. This includes GitHub repository folder URLs
+     (`https://github.com/<owner>/<repo>/tree/<ref>/<skill-path>`),
+     `raw.githubusercontent.com` URLs, and GitHub Pages URLs such as
+     `https://<owner>.github.io/<skill-path>/SKILL.md`.
+   - For **JS skills**, prefer a real static hosting URL such as GitHub Pages,
+     Cloudflare Pages, or a similar web host that serves the entire skill
+     directory with browser-friendly MIME types. GitHub repository pages and
+     `raw.githubusercontent.com` are only suitable for text-only skills because
+     they do not serve JS assets with the content types required by the
+     in-app webview.
 
 > [!IMPORTANT]
 >
