@@ -1,0 +1,404 @@
+<!--
+ Copyright 2025 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<resources>
+  <!-- TODO(jingjin): Add translation support when i18n is ready. -->
+  <string name="all" translatable="false">全部</string>
+  <string name="add" translatable="false">新增</string>
+  <string name="added" translatable="false">已新增</string>
+  <string name="add_audio" translatable="false">+音訊</string>
+  <string name="aichat_initializing_title" translatable="false">正在初始化模型</string>
+  <string name="aichat_initializing_content" translatable="false">請稍候，這最多可能需要 1 分鐘</string>
+  <string name="app_intro" translatable="false">探索令人驚豔的裝置端模型世界，來自</string>
+  <string name="app_name" translatable="false">Google AI Edge Gallery</string>
+  <string name="app_name_first_part" translatable="false">Google AI</string>
+  <string name="app_name_second_part" translatable="false">Edge Gallery</string>
+  <string name="askimage_emptystate_title" translatable="false">詢問圖片</string>
+  <string name="askimage_emptystate_content" translatable="false">若要開始，請輕觸下方的 + 以新增圖片 (每次對話最多 10 張圖片)，然後輸入提示以詢問關於圖片的問題！</string>
+  <string name="askaudio_emptystate_title" translatable="false">詢問音訊</string>
+  <string name="askaudio_emptystate_content" translatable="false">若要開始，請輕觸下方的 + 以新增音訊片段 (限制為 1 個片段，最多 30 秒)，然後輸入提示以對其進行轉錄或翻譯！</string>
+  <string name="gallery_news_notification_title" translatable="false">Gallery 最新消息</string>
+  <string name="baseline" translatable="false">基準</string>
+  <string name="basic_info" translatable="false">基本資訊</string>
+  <string name="benchmark" translatable="false">基準測試</string>
+  <string name="benchmark_comparison_help_title" translatable="false">如何比較基準測試結果</string>
+  <string name="benchmark_comparison_help_content" translatable="false">您可以輕觸任何執行結果卡片上的**基準**標籤，將該次執行設定為比較基準，藉此比較不同的基準測試執行結果。我們將自動計算並在**所有其他**執行結果卡片中顯示百分比差異。</string>
+  <string name="benchmark_model" translatable="false">基準測試模型</string>
+  <string name="benchmark_results" translatable="false">基準測試結果</string>
+  <string name="benchmark_no_results" translatable="false">沒有基準測試結果</string>
+  <string name="benchmark_tokens_limit_message" translatable="false">請確保預填與解碼詞符總和低於模型的最大詞符限制 (%d 對 %d)</string>
+  <string name="best_overall" translatable="false">整體最佳</string>
+  <string name="model_list_experimental_label" translatable="false">實驗性</string>
+  <string name="cancel" translatable="false">取消</string>
+  <string name="category_unlabeled" translatable="false">未加上標籤</string>
+  <string name="category_llm" translatable="false">大型語言模型</string>
+  <string name="category_agents" translatable="false">代理人</string>
+  <string name="category_classical_ml" translatable="false">傳統機器學習</string>
+  <string name="category_experimental" translatable="false">實驗性</string>
+  <string name="chat_textinput_placeholder" translatable="false">輸入訊息…</string>
+  <string name="chat_you" translatable="false">您</string>
+  <string name="chat_llm_agent_name" translatable="false">大型語言模型</string>
+  <string name="show_thinking" translatable="false">顯示思考過程</string>
+  <string name="checking_access" translatable="false">正在檢查存取權限...</string>
+  <string name="close" translatable="false">關閉</string>
+  <string name="collapse_all" translatable="false">全部收合</string>
+  <string name="discard" translatable="false">捨棄</string>
+  <string name="discard_changes_dialog_title" translatable="false">要捨棄變更嗎？</string>
+  <string name="discard_changes_dialog_content" translatable="false">您有未儲存的變更。確定要捨棄嗎？</string>
+  <string name="delete_benchmark_result_dialog_title" translatable="false">刪除基準測試結果</string>
+  <string name="delete_benchmark_result_dialog_content" translatable="false">確定要刪除基準測試結果嗎？</string>
+  <string name="error" translatable="false">錯誤</string>
+  <string name="confirm_delete_model_dialog_title" translatable="false">刪除下載</string>
+  <string name="confirm_delete_model_dialog_content" translatable="false">確定要刪除已下載的模型 \"%s\" 嗎？</string>
+  <string name="conversation_reset_message" translatable="false">對話已重設</string>
+  <string name="engin_reset_message" translatable="false">引擎已重設</string>
+  <string name="chat_agent_agent_name" translatable="false">代理人</string>
+  <string name="chat_generic_agent_name" translatable="false">模型</string>
+  <string name="chat_generic_result_name" translatable="false">結果</string>
+  <string name="clear" translatable="false">清除</string>
+  <string name="collect" translatable="false">收集</string>
+  <string name="color" translatable="false">顏色</string>
+  <string name="config_dialog_tab_model_configs" translatable="false">模型設定</string>
+  <string name="config_dialog_tab_system_prompt" translatable="false">系統提示</string>
+  <string name="continue_button_label" translatable="false">繼續</string>
+  <string name="conversation_history" translatable="false">對話紀錄</string>
+  <string name="copy" translatable="false">複製</string>
+  <string name="create" translatable="false">建立</string>
+  <string name="delete" translatable="false">刪除</string>
+  <string name="description_required" translatable="false">說明*</string>
+  <string name="disabled" translatable="false">已停用</string>
+  <string name="dismiss" translatable="false">略過</string>
+  <string name="done" translatable="false">完成</string>
+  <string name="download" translatable="false">下載</string>
+  <string name="downloaded_size" translatable="false">已下載 %1$s</string>
+  <string name="drawer_settings_label" translatable="false">設定</string>
+  <string name="drawer_settings_description" translatable="false">管理應用程式設定</string>
+  <string name="drawer_models_label" translatable="false">模型</string>
+  <string name="drawer_models_description" translatable="false">瀏覽、試用及基準測試模型</string>
+  <string name="edit" translatable="false">編輯</string>
+  <string name="edit_secret" translatable="false">編輯機密</string>
+  <string name="enter_instruction" translatable="false">輸入指令</string>
+  <string name="expand_all" translatable="false">全部展開</string>
+  <string name="failed_to_save" translatable="false">儲存失敗</string>
+  <string name="flashlight_off_message" translatable="false">我已將手電筒關閉。</string>
+  <string name="flashlight_on_message" translatable="false">我已將手電筒開啟。</string>
+  <string name="function_name" translatable="false">函式名稱</string>
+  <string name="generate_and_copy" translatable="false">產生並複製</string>
+  <string name="grant_permissions" translatable="false">授予權限</string>
+  <string name="grant_record_audio_permission" translatable="false">授予錄音權限</string>
+  <string name="hold_down_to_talk" translatable="false">按住即可說話</string>
+  <string name="input_history" translatable="false">輸入紀錄</string>
+  <string name="instructions" translatable="false">指示</string>
+  <string name="introducing" translatable="false">全新推出</string>
+  <string name="invalid_response" translatable="false">無效的回應</string>
+  <string name="learn_more" translatable="false">瞭解詳情並查看模型授權</string>
+  <string name="listening" translatable="false">聆聽中...</string>
+  <string name="litert_community_label" translatable="false">LiteRT 社群</string>
+  <string name="loading_model_list" translatable="false">正在載入模型清單...</string>
+  <string name="logs_viewer_filter_text_input_placeholder" translatable="false">過濾紀錄</string>
+  <string name="logs_viewer_title" translatable="false">紀錄檢視器</string>
+  <string name="logs_viewer_no_matching_logs" translatable="false">沒有符合過濾條件的紀錄</string>
+  <string name="memory_warning_content" translatable="false">您選擇的模型可能會超出裝置記憶體，這可能會導致應用程式當機。為了獲得最佳體驗，我們建議您嘗試較小的模型。</string>
+  <string name="memory_warning_proceed_anyway" translatable="false">仍然繼續</string>
+  <string name="memory_warning_title" translatable="false">記憶體警告</string>
+  <string name="max_tokens_warning_message" translatable="false">將最大詞符數設定為高於 10000 可能會導致應用程式不穩定。</string>
+  <string name="model_is_initializing_msg" translatable="false">正在初始化模型…</string>
+  <string name="model_list_imported_models_title" translatable="false">已匯入模型</string>
+  <plurals name="model_list_number_of_models_available" translatable="false">
+    <item quantity="one">有 %d 個可用模型</item>
+    <item quantity="other">有 %d 個可用模型</item>
+  </plurals>
+  <string name="model_list_recommended_models_title" translatable="false">推薦模型</string>
+  <string name="model_manager" translatable="false">模型管理員</string>
+  <string name="model_manager_select_task_title" translatable="false">選取要試用的使用案例</string>
+  <string name="model_not_downloaded_msg" translatable="false">模型尚未下載</string>
+  <string name="name" translatable="false">名稱</string>
+  <string name="no_cutouts_collected" translatable="false">未收集任何去背圖片</string>
+  <string name="notification_content_fail" translatable="false">無法下載模型 "%s"</string>
+  <string name="notification_content_success" translatable="false">模型 "%s" 已下載</string>
+  <string name="notification_title_fail" translatable="false">模型下載失敗</string>
+  <string name="notification_title_success" translatable="false">模型下載成功</string>
+  <string name="ok" translatable="false">確定</string>
+  <string name="paste_from_clipboard" translatable="false">從剪貼簿貼上</string>
+  <string name="pick_from_album" translatable="false">從相簿挑選</string>
+  <string name="preview" translatable="false">預覽</string>
+  <string name="release_to_send" translatable="false">放開即可傳送</string>
+  <string name="replace" translatable="false">取代</string>
+  <string name="results" translatable="false">結果</string>
+  <string name="reset" translatable="false">重設</string>
+  <string name="reset_note" translatable="false">輕觸「重設」只會重設 LiteRT-LM 引擎。遊戲進度不會受到影響。</string>
+  <string name="resetting_engine" translatable="false">正在重設引擎...</string>
+  <string name="restore_default" translatable="false">還原預設值</string>
+  <string name="reinitializing_description" translatable="false">遊戲進度不會受到影響</string>
+  <string name="run" translatable="false">執行</string>
+  <string name="running" translatable="false">正在執行...</string>
+  <plurals name="runs" translatable="false">
+    <item quantity="one">%d 次執行</item>
+    <item quantity="other">%d 次執行</item>
+  </plurals>
+  <string name="run_again" translatable="false">再次執行</string>
+  <string name="run_benchmark" translatable="false">執行基準測試</string>
+  <string name="run_benchmark_confirmation_msg" translatable="false">此程序通常需要幾分鐘的時間，一旦開始便無法中斷。要繼續嗎？</string>
+  <string name="running_benchmark_msg" translatable="false">正在執行模型基準測試...</string>
+  <string name="save" translatable="false">儲存</string>
+  <string name="secret" translatable="false">機密</string>
+  <string name="select_downloaded_model" translatable="false">選取已下載的模型</string>
+  <string name="select_model" translatable="false">選取模型</string>
+  <string name="selected_count" translatable="false">已選取 %d 個</string>
+  <string name="settings_dialog_tos_title" translatable="false">服務條款</string>
+  <string name="settings_dialog_view_app_terms_of_service" translatable="false">檢視應用程式服務條款</string>
+  <string name="settings_dialog_gemma_prohibited_use_policy" translatable="false">Gemma 違禁使用政策</string>
+  <string name="share" translatable="false">分享</string>
+  <string name="slide_up_to_cancel" translatable="false">向上滑動即可取消</string>
+  <string name="system_prompt_updated" translatable="false">系統提示已更新</string>
+  <string name="take_a_picture" translatable="false">拍照</string>
+  <string name="tap_to_change_color" translatable="false">輕觸以變更顏色</string>
+  <string name="tap_to_see_value" translatable="false">輕觸圖表以查看數值</string>
+  <string name="test" translatable="false">測試</string>
+  <string name="text_image_generation_text_field_placeholder" translatable="false">輸入提示…</string>
+  <string name="text_input_placeholder_llm_chat" translatable="false">輸入提示…</string>
+  <string name="tos_dialog_title_app" translatable="false">歡迎使用 Google AI Edge Gallery</string>
+  <string name="tos_dialog_title_gemma" translatable="false">Gemma 使用條款</string>
+  <string name="tos_dialog_accept_and_continue_button_label" translatable="false">接受並繼續</string>
+  <string name="tos_dialog_agree_and_continue_button_label" translatable="false">同意並繼續</string>
+  <string name="try_it" translatable="false">試試看</string>
+  <string name="turn_on_all" translatable="false">全部開啟</string>
+  <string name="turn_off_all" translatable="false">全部關閉</string>
+  <string name="undo" translatable="false">復原</string>
+  <string name="unsupported_action" translatable="false">不支援的操作</string>
+  <string name="set_screen_brightness_message" translatable="false">我已將螢幕亮度設定為 %1$d%%。</string>
+  <string name="set_timer_message" translatable="false">正在將計時器設定為 %1$d 秒。</string>
+  <string name="add_calendar_event_message" translatable="false">正在將「團隊會議 (早上 10 點至 11 點)」加入您的日曆。</string>
+  <string name="take_picture_message" translatable="false">正在開啟相機應用程式。</string>
+  <string name="mobile_actions_title" translatable="false">行動裝置動作</string>
+  <string name="mobile_actions_description" translatable="false">使用簡單指令控制您的裝置</string>
+  <string name="mobile_actions_supported_actions" translatable="false">支援的範例動作：</string>
+  <string name="mobile_actions_tab_model_response" translatable="false">模型回應</string>
+  <string name="mobile_actions_tab_function_called" translatable="false">呼叫的函式</string>
+  <string name="view_results" translatable="false">檢視結果</string>
+  <string name="view_console_logs" translatable="false">檢視主控台紀錄</string>
+  <string name="warming_up" translatable="false">正在預熱…</string>
+  <string name="warning_no_function_call" translatable="false">無法辨識任何函式</string>
+  <string name="snackbar_no_function_call" translatable="false">無法辨識任何函式</string>
+  <string name="unknown_error" translatable="false">未知的錯誤</string>
+  <string name="view" translatable="false">檢視</string>
+  <string name="view_in_full_screen" translatable="false">以全螢幕檢視</string>
+
+  <plurals name="parameter" translatable="false">
+    <item quantity="one">參數</item>
+    <item quantity="other">參數</item>
+  </plurals>
+  <string name="prompt_template_label_flash_on_off" translatable="false">開啟/關閉手電筒</string>
+  <string name="prompt_template_label_flash_on" translatable="false">開啟手電筒</string>
+  <string name="prompt_template_label_flash_off" translatable="false">關閉手電筒</string>
+  <string name="prompt_template_label_create_contact" translatable="false">建立聯絡人</string>
+  <string name="prompt_template_label_send_email" translatable="false">傳送電子郵件</string>
+  <string name="prompt_template_label_create_calendar_event" translatable="false">建立日曆活動</string>
+  <string name="prompt_template_label_show_location_on_map" translatable="false">在地圖上顯示位置</string>
+  <string name="prompt_template_label_open_wifi_settings" translatable="false">開啟 WIFI 設定</string>
+
+  <!-- Strings for MobileActionsChallengeDialog -->
+  <string name="mobile_actions_challenge_title" translatable="false">行動裝置動作微調挑戰</string>
+  <string name="mobile_actions_challenge_subtitle" translatable="false">自行建立即可遊玩！</string>
+  <string name="mobile_actions_challenge_description" translatable="false">此示範已鎖定。若要解鎖行動裝置動作代理人，您需要使用我們的開源秘訣自行編譯模型。</string>
+  <string name="mobile_actions_challenge_instructions_title" translatable="false">指示：</string>
+  <string name="mobile_actions_challenge_instruction_1" translatable="false">1. <![CDATA[<b>在您的電腦上</b>]]>，開啟 <![CDATA[<a href="https://ai.google.dev/gemma/docs/mobile-actions">此指南</a>]]></string>
+  <string name="mobile_actions_challenge_instruction_2" translatable="false">2. 按照指示微調模型，並將其轉換為 .litertlm 格式。</string>
+  <string name="mobile_actions_challenge_instruction_3" translatable="false">3. 將檔案傳輸到此手機。</string>
+  <string name="mobile_actions_challenge_instruction_4" translatable="false">4. 輕觸下方的 <![CDATA[<b>載入模型</b>]]> 即可解鎖示範。</string>
+  <string name="mobile_actions_challenge_email_colab" translatable="false">將指南透過電子郵件寄給自己</string>
+  <string name="mobile_actions_challenge_load_model" translatable="false">載入模型</string>
+
+  <!-- Strings for skills -->
+  <string name="aichat_emptystate_title" translatable="false">AI 聊天</string>
+  <string name="aichat_emptystate_content" translatable="false">與裝置端上的大型語言模型聊天。</string>
+  <string name="add_script" translatable="false">新增指令碼</string>
+  <string name="add_default_script" translatable="false">新增預設指令碼</string>
+  <string name="add_skill" translatable="false">新增技能</string>
+  <string name="add_skill_option_featured_list_title" translatable="false">從精選清單新增技能</string>
+  <string name="add_skill_option_featured_list_description" translatable="false">從社群貢獻技能的精選清單中新增技能</string>
+  <string name="add_skill_option_url_title" translatable="false">從網址載入技能</string>
+  <string name="add_skill_option_url_description" translatable="false">輸入託管在網路上的技能目錄網址</string>
+  <string name="add_skill_option_local_title" translatable="false">匯入本機技能</string>
+  <string name="add_skill_option_local_description" translatable="false">匯入本機的技能目錄</string>
+  <string name="add_skill_option_skill_creator_title" translatable="false">技能建立器</string>
+  <string name="add_skill_option_skill_creator_description" translatable="false">在應用程式中從頭開始建立技能</string>
+  <string name="add_skill_from_url_dialog_title" translatable="false">從網址新增技能</string>
+  <string name="add_skill_dialog_title_from_local_import" translatable="false">匯入本機技能</string>
+  <string name="add_skill_dialog_subtitle_from_local_import" translatable="false">請先透過 \"adb push\" 將整個技能目錄推送至 /sdcard/Download</string>
+  <string name="add_skill_manual_input_sheet_title" translatable="false">建立技能</string>
+  <string name="agent_skills" translatable="false">代理人技能</string>
+  <string name="agent_skills_description" translatable="false">藉由載入不同的技能或建立您專屬的技能，運用專門、高階的推理能力。\n\n試著輕觸下方的範例提示，看看代理人技能的實際運作情況！</string>
+  <string name="disclaimer_dialog_content" translatable="false">第三方技能並非由 Google 創作或背書。Google 對其內容、安全性或資料處理實務概不負責。\n\n提供身分證明、權杖或 API 金鑰等機密資訊前，請務必謹慎評估。\n\n代理人技能的任何使用皆受該技能適用的條款約束。</string>
+  <string name="disclaimer_dialog_title" translatable="false">新增第三方技能</string>
+  <string name="disclaimer_dialog_agree" translatable="false">同意</string>
+  <string name="delete_script_dialog_title" translatable="false">刪除指令碼</string>
+  <string name="delete_skill_dialog_title" translatable="false">刪除技能</string>
+  <string name="delete_skill_dialog_content" translatable="false">確定要刪除該技能嗎？</string>
+  <string name="delete_selected_skills_title" translatable="false">刪除選取的技能</string>
+  <plurals name="delete_selected_skills_content" translatable="false">
+    <item quantity="one">確定要刪除 %d 個技能嗎？</item>
+    <item quantity="other">確定要刪除 %d 個技能嗎？</item>
+  </plurals>
+  <plurals name="selected_custom_skills_count" translatable="false">
+    <item quantity="one">已選取 %d 個</item>
+    <item quantity="other">已選取 %d 個</item>
+  </plurals>
+  <string name="built_in_skills_title" translatable="false">內建技能</string>
+  <string name="custom_skills_title" translatable="false">自訂技能</string>
+  <string name="describe_requirements" translatable="false">描述需求</string>
+  <string name="describe_input_data" translatable="false">描述輸入資料</string>
+  <string name="describe_input_data_support_text" translatable="false">欄位名稱需與指示中的相符。</string>
+  <string name="describe_output_data" translatable="false">描述輸出資料</string>
+  <string name="duplicated_script_name" translatable="false">重複的指令碼名稱</string>
+  <string name="enable_skill_dialog_content" translatable="false">請輕觸下方的「技能」按鈕以啟用該技能。</string>
+  <string name="edit_skill" translatable="false">編輯技能</string>
+  <string name="enter_skill_url" translatable="false">輸入技能根目錄的網址</string>
+  <string name="featured_skills_title" translatable="false">精選技能</string>
+  <string name="featured_skills_description" translatable="false">社群貢獻技能的精選清單</string>
+  <string name="generate_llm_prompt_title" translatable="false">產生大型語言模型提示</string>
+  <string name="generate_llm_prompt_button_label" translatable="false">大型語言模型提示</string>
+  <string name="learn_how_to_write_skills" translatable="false">瞭解如何撰寫技能</string>
+  <string name="loading_skills_allowlist" translatable="false">正在載入精選技能...</string>
+  <string name="manage_skills" translatable="false">管理技能</string>
+  <string name="manage_skills_description" translatable="false">檢視、建立並管理您的技能</string>
+  <string name="skill_limit_warning" translatable="false">啟用超過 %s 個可能會影響效能。</string>
+  <string name="no_directory_selected" translatable="false">未選取任何目錄</string>
+  <string name="pick_skill_dir" translatable="false">挑選技能的根目錄</string>
+  <string name="prompt_copied_message" translatable="false">已將提示複製到剪貼簿。請將其貼上到您慣用的大型語言模型應用程式以產生程式碼，然後在此處複製/貼上程式碼。</string>
+  <string name="prompt_chip_kitchen_adventure" translatable="false">廚房大冒險</string>
+  <string name="prompt_chip_calculate_hash" translatable="false">計算雜湊</string>
+  <string name="prompt_chip_query_wikipedia" translatable="false">查詢維基百科</string>
+  <string name="prompt_chip_plot_chart" translatable="false">繪製圖表</string>
+  <string name="prompt_chip_interactive_map" translatable="false">互動式地圖</string>
+  <string name="prompt_chip_text_spinner" translatable="false">在我的頭上旋轉標籤</string>
+  <string name="prompt_chip_send_email" translatable="false">傳送電子郵件</string>
+  <string name="replace_skill_dialog_title" translatable="false">取代現有技能</string>
+  <string name="replace_skill_dialog_content" translatable="false">同名的技能已存在。要取代它嗎？</string>
+  <string name="search_skill" translatable="false">搜尋技能</string>
+  <string name="select_script" translatable="false">選取指令碼</string>
+  <string name="script_name" translatable="false">指令碼名稱</string>
+  <string name="script_content" translatable="false">指令碼內容</string>
+  <string name="skills" translatable="false">技能</string>
+  <plurals name="skills_count" translatable="false">
+    <item quantity="one">%d 個技能</item>
+    <item quantity="other">%d 個技能</item>
+  </plurals>
+  <string name="skill_name_input_description" translatable="false">必填。格式需為 my-skill-name</string>
+  <string name="skill_description_input_description" translatable="false">必填。技能功能及觸發條件或關鍵字的簡短說明。</string>
+  <string name="skill_instructions_input_description" translatable="false">大型語言模型為完成任務必須遵循的 Markdown 格式詳細指示。</string>
+  <string name="use_call_js_template" translatable="false">使用 Call JS 範本</string>
+
+  <!-- The following entries are for accessibility -->
+
+  <!-- Content description spoken when the "add" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_add_icon">新增</string>
+  <!-- Content description spoken when the "import model" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_import_model_button">匯入模型</string>
+  <!-- Content description spoken when the task card is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_task_card">具有 %2$d 個模型的 %1$s 任務</string>
+  <!-- Content description spoken when the error icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_error">錯誤</string>
+  <!-- Content description spoken when the "import model from local file" button is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_import_model_from_local_file_button">從本機檔案匯入模型</string>
+  <!-- Content description spoken when the back arrow icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_navigate_back_icon">返回</string>
+  <!-- Content description spoken when the settings icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_app_settings_icon">設定</string>
+  <!-- Content description spoken when the done icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_done_icon">完成</string>
+  <!-- Content description spoken when the collapse icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_collapse_icon">收合</string>
+  <!-- Content description spoken when the expand icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_expand_icon">展開</string>
+  <!-- Content description spoken when the stop icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_stop_icon">停止</string>
+  <!-- Content description spoken when the delete icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_delete_icon">刪除</string>
+  <!-- Content description spoken when the close icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_close_icon">關閉</string>
+  <!-- Content description spoken when the selected icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_selected_icon">已選取</string>
+  <!-- Content description spoken when the "model settings" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_model_settings_icon">模型設定</string>
+  <!-- Content description spoken when the "reset session" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_reset_session_icon">重設工作階段</string>
+  <!-- Content description spoken when the "model picker chip" is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_change_model">目前模型為 %1$s。輕觸以變更模型。</string>
+  <!-- Content description spoken when the "close image viewer" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_close_image_viewer_icon">關閉圖片檢視器</string>
+  <!-- Content description spoken when the "copy to clipboard" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_copy_to_clipboard_icon">複製到剪貼簿</string>
+  <!-- Content description spoken when the "prompt input" text field is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_prompt_input_text_field">輸入提示</string>
+  <!-- Content description spoken when the "send prompt" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_send_prompt_icon">傳送提示</string>
+  <!-- Content description spoken when the "model response" text is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_model_response_text">模型回應文字</string>
+  <!-- Content description spoken when the "clear input history" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_clear_input_history_icon">清除輸入紀錄</string>
+  <!-- Content description spoken when the "delete input history entry" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_delete_input_history_entry_icon">刪除輸入紀錄項目</string>
+  <!-- Content description spoken when the "content input field" is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_content_input_field">輸入內容</string>
+  <!-- Content description spoken when the "add example prompt" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_add_example_prompt_icon">新增範例提示</string>
+  <!-- Content description spoken when the image thumbnail is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_image_thumbnail">圖片縮圖</string>
+  <!-- Content description spoken when an user image is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_user_image">使用者圖片 %1$d</string>
+  <!-- Content description spoken when an user image in a group is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_user_image_in_group">使用者圖片 %1$d / %2$d</string>
+  <!-- Content description spoken when the "add content" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_add_content_icon">新增內容</string>
+  <!-- Content description spoken when the "camera shutter" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_camera_shutter_icon">相機快門</string>
+  <!-- Content description spoken when the "toggle front or back camera" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_toggle_front_back_camera_icon">切換前置或後置相機</string>
+  <!-- Content description spoken when the "pick file" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_pick_file">挑選檔案</string>
+  <!-- Content description spoken when the "play audio" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_play_audio_icon">播放音訊</string>
+  <!-- Content description spoken when the "stop playback" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_stop_playback_icon">停止播放</string>
+  <!-- Content description spoken when the "send audio clip" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_send_audio_clip_icon">傳送音訊片段</string>
+  <!-- Content description spoken when the "start recording" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_start_recording">開始錄音</string>
+  <!-- Content description spoken when the "downloaded" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_downloaded_icon">已下載</string>
+  <!-- Content description spoken when the "not downloaded" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_not_downloaded_icon">未下載</string>
+  <!-- Content description spoken when the "downloading" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_downloading_icon">正在下載</string>
+  <!-- Content description spoken when the "download failed" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_download_failed_icon">下載失敗</string>
+  <!-- Content description spoken when the "download failed" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_chat_panel">聊天面板</string>
+  <!-- Content description spoken when the "switch to keyboard" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_switch_to_keyboard">切換到鍵盤</string>
+  <!-- Content description spoken when the "switch to voice" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_switch_to_voice">切換到語音</string>
+  <!-- Content description spoken when the "show history" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_show_history">顯示紀錄</string>
+  <!-- Content description spoken when the "more options" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_more_options">更多選項</string>
+  <!-- Content description spoken when the "help" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_help">說明</string>
+  <!-- Content description spoken when the "menu" icon is focused. [CHAR_LIMIT=NONE] -->
+  <string name="cd_menu">選單</string>
+
+</resources>
