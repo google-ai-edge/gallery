@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mermaid Diagram</title>
+    <style>body{margin:0;padding:20px;display:flex;justify-content:center;background:#fff;}</style>
+</head>
+<body>
+    <pre class="mermaid" id="diagram"></pre>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: false });
+
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('data')) {
+            const data = JSON.parse(params.get('data'));
+            const el = document.getElementById('diagram');
+            el.textContent = data.code || 'graph TD\n A-->B';
+            await mermaid.run({ nodes: [el] });
+        }
+    </script>
+</body>
+</html>

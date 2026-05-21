@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashcards</title>
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --primary-color: #4CAF50;
+            --secondary-color: #2196F3;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #121212;
+                --card-bg: #1e1e1e;
+                --text-color: #e0e0e0;
+                --primary-color: #81c784;
+                --secondary-color: #64b5f6;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .progress {
+            margin-bottom: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--text-color);
+            opacity: 0.7;
+        }
+
+        .card-container {
+            width: 100%;
+            height: 250px;
+            perspective: 1000px;
+            position: relative;
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+            cursor: pointer;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            border-radius: 16px;
+        }
+
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            text-align: center;
+            font-size: 18px;
+            line-height: 1.4;
+            border: 2px solid rgba(0,0,0,0.05);
+        }
+
+        .card-front {
+            /* Front side styling */
+        }
+
+        .card-back {
+            transform: rotateY(180deg);
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        .hint {
+            position: absolute;
+            bottom: 15px;
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 30px;
+        }
+
+        button {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            color: #666666;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            button:disabled {
+                background-color: #444;
+                color: #888;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="progress" id="progress">Card 1 of ?</div>
+    
+    <div class="card-container" id="cardContainer">
+        <div class="card" id="flashcard">
+            <div class="card-face card-front" id="cardFront">
+                Loading...
+                <div class="hint">Tap to flip</div>
+            </div>
+            <div class="card-face card-back" id="cardBack">
+                Loading...
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="btnPrev">Previous</button>
+        <button id="btnNext">Next</button>
+    </div>
+</div>
+
+<script>
+    let cards = [];
+    let currentIndex = 0;
+    let isFlipped = false;
+
+    const flashcardEl = document.getElementById('flashcard');
+    const cardFrontEl = document.getElementById('cardFront');
+    const cardBackEl = document.getElementById('cardBack');
+    const progressEl = document.getElementById('progress');
+    const btnPrev = document.getElementById('btnPrev');
+    const btnNext = document.getElementById('btnNext');
+
+    // Parse URL parameters
+    function loadData() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const dataParam = urlParams.get('data');
+        
+        if (dataParam) {
+            try {
+                cards = JSON.parse(dataParam);
+                if (cards && cards.length > 0) {
+                    renderCard(0);
+                } else {
+                    showError("No flashcards found.");
+                }
+            } catch (e) {
+                showError("Failed to load flashcards.");
+                console.error(e);
+            }
+        } else {
+            showError("No data provided.");
+        }
+    }
+
+    function showError(message) {
+        cardFrontEl.innerHTML = `<div style="color: red;">${message}</div>`;
+        cardBackEl.innerHTML = "";
+        progressEl.innerText = "Error";
+        btnPrev.disabled = true;
+        btnNext.disabled = true;
+    }
+
+    function renderCard(index) {
+        if (index < 0 || index >= cards.length) return;
+        
+        currentIndex = index;
+        const card = cards[currentIndex];
+        
+        // Ensure card is showing front before changing content
+        if (isFlipped) {
+            isFlipped = false;
+            flashcardEl.classList.remove('flipped');
+            // Wait for flip animation to finish before changing text
+            setTimeout(() => {
+                updateText(card);
+            }, 300); // Half of transition time is usually fine
+        } else {
+            updateText(card);
+        }
+
+        updateControls();
+    }
+
+    function updateText(card) {
+        cardFrontEl.innerHTML = `<div>${escapeHtml(card.question)}</div><div class="hint">Tap to flip</div>`;
+        cardBackEl.innerHTML = `<div>${escapeHtml(card.answer)}</div>`;
+        progressEl.innerText = `Card ${currentIndex + 1} of ${cards.length}`;
+    }
+
+    function updateControls() {
+        btnPrev.disabled = currentIndex === 0;
+        btnNext.disabled = currentIndex === cards.length - 1;
+    }
+
+    function flipCard() {
+        isFlipped = !isFlipped;
+        flashcardEl.classList.toggle('flipped');
+    }
+
+    function escapeHtml(unsafe) {
+        if (!unsafe) return "";
+        return unsafe
+             .replace(/&/g, "&amp;")
+             .replace(/</g, "&lt;")
+             .replace(/>/g, "&gt;")
+             .replace(/"/g, "&quot;")
+             .replace(/'/g, "&#039;");
+    }
+
+    // Event Listeners
+    flashcardEl.addEventListener('click', flipCard);
+
+    btnPrev.addEventListener('click', () => {
+        if (currentIndex > 0) renderCard(currentIndex - 1);
+    });
+
+    btnNext.addEventListener('click', () => {
+        if (currentIndex < cards.length - 1) renderCard(currentIndex + 1);
+    });
+
+    // Basic Swipe Support
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    const cardContainer = document.getElementById('cardContainer');
+
+    cardContainer.addEventListener('touchstart', e => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, {passive: true});
+
+    cardContainer.addEventListener('touchend', e => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }, {passive: true});
+
+    function handleSwipe() {
+        const threshold = 50;
+        if (touchEndX < touchStartX - threshold) {
+            // Swiped left (Next)
+            if (currentIndex < cards.length - 1) renderCard(currentIndex + 1);
+        }
+        if (touchEndX > touchStartX + threshold) {
+            // Swiped right (Prev)
+            if (currentIndex > 0) renderCard(currentIndex - 1);
+        }
+    }
+
+    // Initialize
+    loadData();
+</script>
+
+</body>
+</html>

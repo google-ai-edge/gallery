@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<body>
+<script>
+window['ai_edge_gallery_get_result'] = async (data) => {
+    try {
+        const parsed = JSON.parse(data);
+        const amount = parsed.amount || 1;
+        const from = (parsed.from || 'USD').toUpperCase();
+        const to = (parsed.to || 'EUR').toUpperCase();
+        
+        const response = await fetch(`https://api.frankfurter.app/latest?amount=${amount}&from=${from}&to=${to}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch exchange rate. Verify the currency codes.');
+        }
+        
+        const result = await response.json();
+        const converted = result.rates[to];
+        
+        return JSON.stringify({
+            result: `${amount} ${from} is currently exactly ${converted} ${to}.`
+        });
+    } catch (e) { 
+        return JSON.stringify({ error: e.message }); 
+    }
+};
+</script>
+</body>
+</html>
