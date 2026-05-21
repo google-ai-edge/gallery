@@ -36,9 +36,14 @@ import com.google.ai.edge.gallery.ui.common.MarkdownText
 
 /** Composable function to display the text content of a ChatMessageText. */
 @Composable
-fun MessageBodyText(message: ChatMessageText, inProgress: Boolean, horizontalPadding: Dp = 12.dp) {
+fun MessageBodyText(
+  message: ChatMessageText,
+  inProgress: Boolean,
+  horizontalPadding: Dp = 12.dp,
+  onCopyClicked: (String) -> Unit = {},
+) {
   if (message.side == ChatSide.USER) {
-    SelectionContainer {
+    LongPressCopyContainer(copyText = message.content, onCopyClicked = onCopyClicked) {
       MarkdownText(
         text = message.content,
         modifier = Modifier.padding(vertical = 12.dp).padding(horizontal = horizontalPadding),

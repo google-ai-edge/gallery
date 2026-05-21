@@ -47,7 +47,11 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.ui.common.MarkdownText
 
 @Composable
-fun MessageBodyThinking(thinkingText: String, inProgress: Boolean) {
+fun MessageBodyThinking(
+  thinkingText: String,
+  inProgress: Boolean,
+  onCopyClicked: (String) -> Unit = {},
+) {
   var isExpanded by remember { mutableStateOf(false) }
 
   // Auto-expand while thinking is in progress
@@ -91,11 +95,13 @@ fun MessageBodyThinking(thinkingText: String, inProgress: Boolean) {
             }
             .padding(start = 12.dp)
       ) {
-        MarkdownText(
-          text = thinkingText,
-          smallFontSize = true,
-          textColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        LongPressCopyContainer(copyText = thinkingText, onCopyClicked = onCopyClicked) {
+          MarkdownText(
+            text = thinkingText,
+            smallFontSize = true,
+            textColor = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
       }
     }
   }
