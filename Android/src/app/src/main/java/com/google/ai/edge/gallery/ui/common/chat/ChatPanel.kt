@@ -16,6 +16,9 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
@@ -54,6 +57,7 @@ import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.outlined.ThumbDown
 import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -152,6 +156,13 @@ fun ChatPanel(
   val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
   val scope = rememberCoroutineScope()
   val snackbarHostState = remember { SnackbarHostState() }
+  val context = LocalContext.current
+  val clipboard =
+    remember(context) { context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
+  val copyToClipboard: (String) -> Unit =
+    remember(clipboard) {
+      { text -> clipboard.setPrimaryClip(ClipData.newPlainText("message", text)) }
+    }
   val imageCountToLastConfigChange =
     remember(messages) {
       var imageCount = 0
@@ -181,7 +192,6 @@ fun ChatPanel(
 
   var curMessage by remember { mutableStateOf("") } // Correct state
   val focusManager = LocalFocusManager.current
-  val context = LocalContext.current
 
   // List state to control scrolling.
   val listState = rememberScrollState()
@@ -488,6 +498,7 @@ fun ChatPanel(
                             } else {
                               12.dp
                             },
+                          onCopyClicked = copyToClipboard,
                         )
 
                       // Image
@@ -520,6 +531,7 @@ fun ChatPanel(
                         MessageBodyThinking(
                           thinkingText = message.content,
                           inProgress = message.inProgress,
+                          onCopyClicked = copyToClipboard,
                         )
 
                       else -> {}
@@ -532,6 +544,19 @@ fun ChatPanel(
                       horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                       LatencyText(message = message)
+                      if (message is ChatMessageText && !uiState.inProgress) {
+                        IconButton(
+                          onClick = { copyToClipboard(message.content) },
+                          modifier = Modifier.size(28.dp),
+                        ) {
+                          Icon(
+                            imageVector = Icons.Rounded.ContentCopy,
+                            contentDescription = stringResource(R.string.copy),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.size(18.dp),
+                          )
+                        }
+                      }
                     }
                   } else if (message.side == ChatSide.USER) {
                     Row(
