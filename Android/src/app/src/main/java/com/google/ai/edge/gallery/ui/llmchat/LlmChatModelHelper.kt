@@ -99,11 +99,11 @@ object LlmChatModelHelper : LlmModelHelper {
     val preferredBackend =
       when (accelerator) {
         Accelerator.CPU.label -> Backend.CPU()
-        Accelerator.GPU.label -> Backend.GPU()
+        Accelerator.GPU.label -> Backend.CPU()
         Accelerator.NPU.label ->
-          Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
+          Backend.CPU()
         Accelerator.TPU.label ->
-          Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
+          Backend.CPU()
         else -> Backend.CPU()
       }
     Log.d(TAG, "Preferred backend: $preferredBackend")
