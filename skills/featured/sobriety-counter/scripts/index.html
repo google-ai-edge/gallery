@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<body>
+  <script>
+    window["ai_edge_gallery_get_result"] = async (data) => {
+      try {
+        const { sobriety_date, name } = JSON.parse(data);
+        const displayName = name || "friend";
+
+        const start = new Date(sobriety_date + "T00:00:00");
+        if (isNaN(start)) throw new Error("Invalid date. Please use YYYY-MM-DD format.");
+        const now = new Date();
+        if (start > now) throw new Error("Sobriety date cannot be in the future.");
+
+        const diffMs   = now - start;
+        const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        const years    = Math.floor(totalDays / 365);
+        const months   = Math.floor((totalDays % 365) / 30);
+        const days     = totalDays % 30;
+
+        // AA/NA chip milestones in days
+        const milestones = [
+          { days: 1,    label: "24 Hours" },
+          { days: 30,   label: "30 Days" },
+          { days: 60,   label: "60 Days" },
+          { days: 90,   label: "90 Days" },
+          { days: 180,  label: "6 Months" },
+          { days: 270,  label: "9 Months" },
+          { days: 365,  label: "1 Year" },
+          { days: 548,  label: "18 Months" },
+          { days: 730,  label: "2 Years" },
+          { days: 1095, label: "3 Years" },
+          { days: 1461, label: "4 Years" },
+          { days: 1826, label: "5 Years" },
+          { days: 2191, label: "6 Years" },
+          { days: 2556, label: "7 Years" },
+          { days: 2922, label: "8 Years" },
+          { days: 3287, label: "9 Years" },
+          { days: 3652, label: "10 Years" },
+          { days: 5478, label: "15 Years" },
+          { days: 7305, label: "20 Years" },
+          { days: 9131, label: "25 Years" },
+        ];
+
+        const earned = milestones.filter(m => totalDays >= m.days);
+        const next   = milestones.find(m => totalDays < m.days);
+        const daysToNext = next ? next.days - totalDays : null;
+
+        const payload = {
+          displayName,
+          sobriety_date,
+          totalDays,
+          years,
+          months,
+          days,
+          earned: earned.map(m => m.label),
+          nextMilestone: next ? next.label : "Legend status",
+          daysToNext
+        };
+
+        const summary = `${displayName} has ${totalDays.toLocaleString()} days${years > 0 ? ` (${years}y ${months}m ${days}d)` : ""} of clean time. Next milestone: ${payload.nextMilestone}${daysToNext ? ` in ${daysToNext} days` : ""}.`;
+
+        return JSON.stringify({
+          result: summary,
+          webview: {
+            url: `webview.html?data=${encodeURIComponent(JSON.stringify(payload))}`,
+            aspectRatio: 1.5
+          }
+        });
+      } catch (e) {
+        return JSON.stringify({ error: `Sobriety counter error: ${e.message}` });
+      }
+    };
+  </script>
+</body>
+</html>
