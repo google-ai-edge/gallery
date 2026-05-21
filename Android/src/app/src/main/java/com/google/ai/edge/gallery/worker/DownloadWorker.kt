@@ -105,6 +105,15 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
     val accessToken = inputData.getString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN)
 
     return withContext(Dispatchers.IO) {
+      // Check if external files directory is accessible
+      if (externalFilesDir == null) {
+        return@withContext Result.failure(
+          Data.Builder()
+            .putString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE, "External storage directory is not accessible")
+            .build()
+        )
+      }
+
       if (fileUrl == null || fileName == null) {
         Result.failure()
       } else {
@@ -137,13 +146,19 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             }
 
             // Prepare output file's dir.
+            val filesDir = applicationContext.getExternalFilesDir(null)
+            if (filesDir == null) {
+              throw IOException("The folder /Android/data is not accessible. Ensure you have storage permissions and sufficient space.")
+            }
             val outputDir =
               File(
-                applicationContext.getExternalFilesDir(null),
+                filesDir,
                 listOf(modelDir, version).joinToString(separator = File.separator),
               )
             if (!outputDir.exists()) {
-              outputDir.mkdirs()
+              if (!outputDir.mkdirs()) {
+                throw IOException("The folder ${outputDir.absolutePath} could not be created. Check storage permissions and available space.")
+              }
             }
 
             // Read the tmp file and see if it is partially downloaded.
@@ -269,7 +284,9 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                   listOf(modelDir, version, unzippedDir).joinToString(File.separator),
                 )
               if (!destDir.exists()) {
-                destDir.mkdirs()
+                if (!destDir.mkdirs()) {
+                  throw IOException("The folder ${destDir.absolutePath} could not be created for unzipping. Check storage permissions and available space.")
+                }
               }
 
               // Unzip.
@@ -296,7 +313,9 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 // Create dir.
                 else {
                   val dir = File(filePath)
-                  dir.mkdirs()
+                  if (!dir.mkdirs()) {
+                    Log.w(TAG, "Failed to create directory: ${dir.absolutePath}")
+                  }
                 }
 
                 zipIn.closeEntry()
