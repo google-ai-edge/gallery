@@ -18,4 +18,6 @@ npm run validate
 npm test
 ```
 
+The skill has been locally validated: `npm run validate` wrote `.last_run.json` and `npm test` returned `TEST_OK`.
+
 If CI is configured it will also run `npm run validate` as part of the workflow.
