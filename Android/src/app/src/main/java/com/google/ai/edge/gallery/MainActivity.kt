@@ -180,6 +180,10 @@ class MainActivity : ComponentActivity() {
     }
     // Keep the screen on while the app is running for better demo experience.
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    // Optimize for consistent peak frequencies by requesting sustained performance mode.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+      window.setSustainedPerformanceMode(true)
+    }
   }
 
   override fun onNewIntent(intent: Intent) {
