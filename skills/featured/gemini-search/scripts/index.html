@@ -34,23 +34,22 @@ limitations under the License.
             return JSON.stringify({ error: 'No Gemini API key provided. Please enter your API key.' });
           }
 
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
 
           const groundedPrompt = [
-            'Answer the user\'s question directly using current Google Search grounding.',
-            'Treat the text below as the exact user question.',
-            'Do not reinterpret a factual question as a prediction question.',
-            'If the question is about a current status, lead with the current status in the first sentence.',
-            'Then give a brief explanation and include source links when available.',
+            'Answer the exact user question directly using current Google Search grounding.',
+            'Preserve the user\'s wording and intent exactly; do not reinterpret the question.',
+            'Lead with the current answer in the first sentence when the question is about current status.',
+            'Then give a short explanation based on grounded search results.',
             '',
-            'User question:',
+            'Exact user question:',
             query,
           ].join('\n');
 
           const requestBody = {
-            contents: [{ parts: [{ text: groundedPrompt }], role: 'user' }],
+            contents: [{ role: 'user', parts: [{ text: groundedPrompt }] }],
             tools: [{ googleSearch: {} }],
-            generationConfig: { temperature: 0.2, maxOutputTokens: 1024 },
+            generationConfig: { temperature: 0.2, maxOutputTokens: 768 },
           };
 
           const response = await fetch(url, {
@@ -80,34 +79,38 @@ limitations under the License.
           }
 
           const candidate = data.candidates[0];
-          const answerText = candidate.content.parts[0].text || '';
+          const answerText =
+            (candidate.content && Array.isArray(candidate.content.parts)
+              ? candidate.content.parts.map((part) => part.text || '').join('')
+              : '') || '';
 
-          // Extract grounding sources if present
           const groundingChunks =
-            candidate.groundingMetadata && candidate.groundingMetadata.groundingChunks
+            candidate.groundingMetadata && Array.isArray(candidate.groundingMetadata.groundingChunks)
               ? candidate.groundingMetadata.groundingChunks
               : [];
 
-          let result = answerText;
+          const seen = new Set();
+          const sources = groundingChunks
+            .filter((chunk) => chunk.web && chunk.web.uri)
+            .map((chunk) => ({
+              title: chunk.web.title || chunk.web.uri,
+              url: chunk.web.uri,
+            }))
+            .filter((source) => {
+              if (seen.has(source.url)) return false;
+              seen.add(source.url);
+              return true;
+            });
 
-          if (groundingChunks.length > 0) {
-            const seen = new Set();
-            const sources = groundingChunks
-              .filter((chunk) => chunk.web && chunk.web.uri)
-              .filter((chunk) => {
-                if (seen.has(chunk.web.uri)) return false;
-                seen.add(chunk.web.uri);
-                return true;
-              })
-              .map((chunk) => `- [${chunk.web.title || chunk.web.uri}](${chunk.web.uri})`)
-              .join('\n');
+          const result = answerText.trim();
+          const renderedSources = sources.map((source) => `- ${source.title}: ${source.url}`).join('\n');
+          const presentable = renderedSources ? `${result}\n\nSources:\n${renderedSources}` : result;
 
-            if (sources) {
-              result += `\n\nSources:\n${sources}`;
-            }
-          }
-
-          return JSON.stringify({ result });
+          return JSON.stringify({
+            result,
+            presentable,
+            sources,
+          });
         } catch (e) {
           console.error(e);
           return JSON.stringify({ error: `Failed to search: ${e.message}` });

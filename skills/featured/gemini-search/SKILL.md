@@ -4,7 +4,7 @@ description: Search the web using Google Search via Gemini grounding API and ret
 metadata:
   require-secret: true
   require-secret-description: Enter your Gemini API key from https://aistudio.google.com/app/apikey
-  homepage: https://github.com/google-ai-edge/gallery
+  homepage: https://johanesalxd.github.io/gallery/skills/featured/gemini-search
 ---
 
 # Gemini Search
