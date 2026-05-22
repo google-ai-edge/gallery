@@ -1,0 +1,24 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>FooG808 Agent Ensemble</title>
+</head>
+<body>
+  <script src="ensemble.js"></script>
+  <script>
+    window.ai_edge_gallery_get_result = async (data) => {
+      try {
+        const payload = JSON.parse(data || '{}');
+        const request = payload.request || '';
+        const result = createEnsembleResult(request);
+        return JSON.stringify({ result });
+      } catch (error) {
+        console.error(error);
+        return JSON.stringify({ error: error.message || 'Failed to parse request.' });
+      }
+    };
+  </script>
+  <p>FooG808 Agent Ensemble skill is ready to receive a request.</p>
+</body>
+</html>
