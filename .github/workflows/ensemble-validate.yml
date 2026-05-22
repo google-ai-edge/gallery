@@ -1,0 +1,24 @@
+name: Ensemble Validate
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Run ensemble validation and tests
+        run: |
+          cd skills/featured/foog808-agent-ensemble
+          node validate_runtime.js
+          node test_assert.js
