@@ -39,10 +39,21 @@ Call the `run_js` tool with the following exact parameters:
 
 - script name: `index.html`
 - data: A JSON string with the following field
-  - `request`: the user's request text
+  - `request`: String. The user's request text.
 
-The script returns a JSON object containing:
+The script returns a JSON object containing a `result` object with these fields:
 
+- `final_result`: String. Summary of the selected answer.
+- `best_candidate`: Object. The chosen candidate with `id`, `summary`, `details`, `score_components`, `score`, `rank`, and `medal`.
+- `candidates`: Array of 23 sorted candidate objects.
+- `goose_notes`: String.
+- `agency_agents_notes`: String.
+- `gallery_notes`: String.
+- `action_items`: Array of next-step strings.
+- `confidence`: Numeric confidence score.
+- `learning_summary`: String describing the GRPO evaluation.
+- `discussion_log`: Array of candidate summary entries.
+- `medal_counts`: Object with counts for Gold, Silver, and Bronze.
 
 ## Example prompts
 

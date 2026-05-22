@@ -11,9 +11,10 @@ This skill uses a GRPO-style candidate evaluation process to generate 23 alterna
   - Agency Agents for strategy and domain expertise
   - Gallery for presentation and UX quality
 - Generates 23 candidate answers for each request
-- Grades each candidate on correctness, completeness, and usability
+- Grades each candidate on correctness, completeness, UX, risk, and clarity
+- Uses group relative policy optimization (GRPO) to compare candidates against the full set
 - Assigns medals to the top-performing candidates
-- Returns a structured best answer plus detailed notes and action items
+- Returns a structured best answer plus detailed notes, action items, and a learning summary
 
 ## How to use
 
@@ -22,7 +23,7 @@ Call the skill through the Gallery `run_js` tool:
 - `script name`: `index.html`
 - `data`: `{ "request": "your task description" }`
 
-The response includes `final_result`, `best_candidate`, `candidates`, `goose_notes`, `agency_agents_notes`, `gallery_notes`, `action_items`, `confidence`, and `discussion_log`.
+The response includes `final_result`, `best_candidate`, `candidates`, `goose_notes`, `agency_agents_notes`, `gallery_notes`, `action_items`, `confidence`, `learning_summary`, `discussion_log`, and `medal_counts`.
 
 Local development helpers:
 
