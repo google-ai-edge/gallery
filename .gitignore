@@ -1,1 +1,4 @@
 .DS_Store
+.opencode/
+.python-version
+.mise.toml
