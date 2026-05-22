@@ -26,13 +26,16 @@ The response includes `final_result`, `best_candidate`, `candidates`, `goose_not
 
 Local development helpers:
 
+- `scripts/ensemble.js`: shared ensemble logic for both browser and Node runtimes.
 - `scripts/index.node.js`: Node harness that mirrors the browser `index.html` logic and returns the same output schema.
 - `validate_runtime.js`: runs the harness with a self-improvement request and writes `.last_run.json`.
-- `scripts/run_log.json`: appended with runs when using the Node harness (manual append by developers).
+- `package.json`: adds `npm run validate` and `npm test` commands for easy local validation.
+- `scripts/run_log.json`: appended with runs when using the Node harness.
 
 Run locally:
 
 ```bash
-node validate_runtime.js
+npm run validate
+npm test
 cat .last_run.json
 ```
