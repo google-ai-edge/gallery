@@ -18,6 +18,8 @@ The latest version brings official support for the newly released Gemma 4 family
 
 For users without Google Play access, install the apk from the [**latest release**](https://github.com/google-ai-edge/gallery/releases/latest/)
 
+> [!NOTE]
+> This repository currently includes the Android app source code, along with shared skills and documentation. The iOS app is available on the App Store, but its source code has not been published in this repository yet.
 
 ## App Preview
 
@@ -66,7 +68,7 @@ For users without Google Play access, install the apk from the [**latest release
 
 ## ⌨️ Development
 
-Check out the [development notes](DEVELOPMENT.md) for instructions about how to build the app locally.
+Check out the [development notes](DEVELOPMENT.md) for instructions about how to build the Android app locally.
 
 ## 🤝 Feedback
 
