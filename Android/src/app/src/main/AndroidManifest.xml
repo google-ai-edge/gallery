@@ -160,6 +160,45 @@
         <uses-native-library android:name="libOpenCL.so" android:required="false"/>
         <uses-native-library android:name="libcdsprpc.so" android:required="false" />
         <uses-native-library android:name="libedgetpu_litert.so" android:required="false" />
+
+        <!-- MediaTek NPU runtime: vendor libs published per MediaTek's
+             /system/etc/public.libraries-mtk.txt. Required so the LiteRT
+             MTK dispatcher (libLiteRtDispatch_MediaTek.so, bundled in
+             split_mediatek_runtime_v8) can dlopen its transitive vendor
+             dependencies at construction time. Without these declarations,
+             Android's nativeloader denies the dlopen and the adapter
+             crashes with a SIGSEGV in its static constructor on devices
+             like Vivo PD2417 (D9300). All marked required="false" so the
+             app installs cleanly on non-MTK SoCs. -->
+        <uses-native-library android:name="libapuwareapusys.mtk.so" android:required="false" />
+        <uses-native-library android:name="libapuwareapusys_v2.mtk.so" android:required="false" />
+        <uses-native-library android:name="libapuwarexrp.mtk.so" android:required="false" />
+        <uses-native-library android:name="libapuwarexrp_v2.mtk.so" android:required="false" />
+        <uses-native-library android:name="libapuwareutils.mtk.so" android:required="false" />
+        <uses-native-library android:name="libapuwareutils_v2.mtk.so" android:required="false" />
+        <uses-native-library android:name="libapuwarehmp.mtk.so" android:required="false" />
+        <uses-native-library android:name="libneuron_graph_delegate.mtk.so" android:required="false" />
+        <uses-native-library android:name="libneuronusdk_adapter.mtk.so" android:required="false" />
+        <uses-native-library android:name="libneuronusdk_adapter.9.mtk.so" android:required="false" />
+        <uses-native-library android:name="libneuronservice_adapter.mtk.so" android:required="false" />
+        <uses-native-library android:name="libneuron_sys_util.mtk.so" android:required="false" />
+        <uses-native-library android:name="libtflite_mtk.mtk.so" android:required="false" />
+        <uses-native-library android:name="libarmnn_ndk.mtk.so" android:required="false" />
+        <uses-native-library android:name="libcmdl_ndk.mtk.so" android:required="false" />
+        <uses-native-library android:name="libnir_neon_driver_ndk.mtk.so" android:required="false" />
+        <uses-native-library android:name="libmvpu_runtime.mtk.so" android:required="false" />
+        <uses-native-library android:name="libmvpu_runtime_pub.mtk.so" android:required="false" />
+        <uses-native-library android:name="libmvpu_engine_pub.mtk.so" android:required="false" />
+        <uses-native-library android:name="libmvpu_pattern_pub.mtk.so" android:required="false" />
+        <uses-native-library android:name="libmvpuop_mtk_cv.mtk.so" android:required="false" />
+        <uses-native-library android:name="libmvpuop_mtk_nn.mtk.so" android:required="false" />
+        <uses-native-library android:name="libmvpu_runtime_25.mtk.so" android:required="false" />
+        <uses-native-library android:name="libmvpu_runtime_25_pub.mtk.so" android:required="false" />
+        <uses-native-library android:name="libmvpu_engine_25_pub.mtk.so" android:required="false" />
+        <uses-native-library android:name="libmvpu_pattern_25_pub.mtk.so" android:required="false" />
+        <uses-native-library android:name="libmvpuop25_mtk_cv.mtk.so" android:required="false" />
+        <uses-native-library android:name="libmvpuop25_mtk_nn.mtk.so" android:required="false" />
+        <uses-native-library android:name="libmvpu_config.mtk.so" android:required="false" />
     </application>
 
 </manifest>
