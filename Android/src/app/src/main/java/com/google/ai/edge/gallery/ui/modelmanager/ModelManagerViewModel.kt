@@ -412,6 +412,7 @@ constructor(
     model: Model,
     force: Boolean = false,
     onDone: () -> Unit = {},
+    onError: (String) -> Unit = {},
   ) {
     viewModelScope.launch(Dispatchers.Default) {
       // Skip if initialized already.
@@ -462,6 +463,7 @@ constructor(
             status = ModelInitializationStatusType.ERROR,
             error = error,
           )
+          onError(error)
         }
       }
 

@@ -405,12 +405,23 @@ open class LlmChatViewModelBase(
         task = task,
         model = model,
         onDone = {
-          modelManagerViewModel.initializeModel(context = context, task = task, model = model)
-
-          // Add a warning message for re-initializing the session.
-          addMessage(
+          modelManagerViewModel.initializeModel(
+            context = context,
+            task = task,
             model = model,
-            message = ChatMessageWarning(content = "Session re-initialized"),
+            onDone = {
+              // Add a warning message for re-initializing the session.
+              addMessage(
+                model = model,
+                message = ChatMessageWarning(content = "Session re-initialized"),
+              )
+            },
+            onError = {
+              addMessage(
+                model = model,
+                message = ChatMessageError(content = "Failed to re-initialize session"),
+              )
+            },
           )
         },
       )
