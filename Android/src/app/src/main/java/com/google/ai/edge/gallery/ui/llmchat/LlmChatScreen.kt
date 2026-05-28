@@ -259,6 +259,9 @@ fun ChatViewWrapper(
           modelManagerViewModel.addTextInputHistory(text)
         }
         viewModel.generateResponse(
+          context = context,
+          task = task,
+          modelManagerViewModel = modelManagerViewModel,
           model = model,
           input = text,
           images = images,
@@ -302,6 +305,9 @@ fun ChatViewWrapper(
     onRunAgainClicked = { model, message ->
       if (message is ChatMessageText) {
         viewModel.runAgain(
+          context = context,
+          task = task,
+          modelManagerViewModel = modelManagerViewModel,
           model = model,
           message = message,
           onError = { errorMessage ->

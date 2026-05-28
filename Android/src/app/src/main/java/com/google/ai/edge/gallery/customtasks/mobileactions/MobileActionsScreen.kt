@@ -357,6 +357,9 @@ fun MainUi(
       // Figure out the correct action from user prompt.
       doneGeneratingResponse = false
       viewModel.processUserPrompt(
+        context = context,
+        task = task,
+        modelManagerViewModel = modelManagerViewModel,
         model = model,
         userPrompt = text,
         tools = tools,

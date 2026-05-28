@@ -349,6 +349,9 @@ fun MainUi(
       } else {
         // Run inference to get response command in json.
         viewModel.getCommand(
+          context = context,
+          task = task,
+          modelManagerViewModel = modelManagerViewModel,
           model = model,
           instructionText = text,
           onDone = { response ->

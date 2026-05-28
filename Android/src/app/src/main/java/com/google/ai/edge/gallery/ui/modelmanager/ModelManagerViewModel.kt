@@ -67,6 +67,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import javax.inject.Inject
 import kotlin.collections.sortedWith
+import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -477,6 +478,19 @@ constructor(
           systemInstruction = Contents.of(systemPrompt),
           onDone = onDoneFn,
         )
+    }
+  }
+
+  suspend fun reinitializeModelSafely(context: Context, task: Task, model: Model): Boolean {
+    return kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+      initializeModel(
+        context = context,
+        task = task,
+        model = model,
+        force = true,
+        onDone = { continuation.resume(true) },
+        onError = { _ -> continuation.resume(false) },
+      )
     }
   }
 

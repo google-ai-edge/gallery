@@ -24,12 +24,15 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageWarning
 import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.gallery.ui.llmchat.LlmModelInstance
+import com.google.ai.edge.gallery.ui.llmchat.sendMessageSafely
+import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ToolProvider
@@ -80,6 +83,9 @@ constructor(
    * The tools defined in [TinyGardenTools] will be invoked during the process.
    */
   fun getCommand(
+    context: Context,
+    task: Task,
+    modelManagerViewModel: ModelManagerViewModel,
     model: Model,
     instructionText: String,
     onDone: (String) -> Unit,
@@ -114,8 +120,15 @@ constructor(
       }
 
       try {
-        val responseMessage = conversation.sendMessage(Contents.of(contents))
-        val response = responseMessage.toString()
+        val responseMessage =
+          instance.sendMessageSafely(
+            model = model,
+            contents = Contents.of(contents),
+            context = context,
+            task = task,
+            modelManager = modelManagerViewModel,
+          )
+        val response = responseMessage
         Log.d(TAG, "Done processing user instruction. Response: $response")
         onDone(response)
       } catch (e: Exception) {

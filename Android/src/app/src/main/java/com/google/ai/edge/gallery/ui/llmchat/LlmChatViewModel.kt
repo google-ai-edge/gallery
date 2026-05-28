@@ -120,6 +120,9 @@ open class LlmChatViewModelBase(
   }
 
   fun generateResponse(
+    context: Context,
+    task: Task,
+    modelManagerViewModel: ModelManagerViewModel,
     model: Model,
     input: String,
     images: List<Bitmap> = listOf(),
@@ -141,6 +144,22 @@ open class LlmChatViewModelBase(
       while (model.instance == null) {
         delay(100)
       }
+
+      val instance = model.instance as? com.google.ai.edge.gallery.ui.llmchat.LlmModelInstance
+      if (instance != null && !instance.conversation.isAlive) {
+        android.util.Log.w(
+          TAG,
+          "Conversation is dead. Re-initializing before generating response...",
+        )
+        val reinitSuccess = modelManagerViewModel.reinitializeModelSafely(context, task, model)
+        if (!reinitSuccess) {
+          setInProgress(false)
+          setPreparing(false)
+          onError("Failed to gracefully recover session. Please try again.")
+          return@launch
+        }
+      }
+
       delay(500)
 
       // Run inference.
@@ -359,6 +378,9 @@ open class LlmChatViewModelBase(
   }
 
   fun runAgain(
+    context: Context,
+    task: Task,
+    modelManagerViewModel: ModelManagerViewModel,
     model: Model,
     message: ChatMessageText,
     onError: (String) -> Unit,
@@ -375,6 +397,9 @@ open class LlmChatViewModelBase(
 
       // Run inference.
       generateResponse(
+        context = context,
+        task = task,
+        modelManagerViewModel = modelManagerViewModel,
         model = model,
         input = message.content,
         onError = onError,

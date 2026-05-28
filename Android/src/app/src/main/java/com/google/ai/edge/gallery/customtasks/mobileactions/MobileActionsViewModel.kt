@@ -29,8 +29,10 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.gallery.ui.llmchat.LlmModelInstance
+import com.google.ai.edge.gallery.ui.llmchat.sendMessageAsyncFlowSafely
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatus
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
@@ -125,6 +127,9 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
   }
 
   fun processUserPrompt(
+    context: Context,
+    task: Task,
+    modelManagerViewModel: ModelManagerViewModel,
     model: Model,
     userPrompt: String,
     tools: List<ToolProvider>,
@@ -162,8 +167,14 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
         contents.add(Content.Text(userPrompt))
       }
 
-      conversation
-        .sendMessageAsync(Contents.of(contents))
+      instance
+        .sendMessageAsyncFlowSafely(
+          model = model,
+          contents = Contents.of(contents),
+          context = context,
+          task = task,
+          modelManager = modelManagerViewModel,
+        )
         .catch {
           Log.e(TAG, "Failed to run inference", it)
           onError(it.message ?: "Unknown error")
