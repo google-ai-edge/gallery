@@ -419,7 +419,10 @@ open class LlmChatViewModelBase(
             onError = {
               addMessage(
                 model = model,
-                message = ChatMessageError(content = "Failed to re-initialize session"),
+                message =
+                  ChatMessageError(
+                    content = "Failed to re-initialize session, please restart the app"
+                  ),
               )
             },
           )
