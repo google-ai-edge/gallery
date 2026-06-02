@@ -416,4 +416,132 @@
   <string name="cd_menu">菜单</string>
   <string name="cd_scroll_to_bottom">滚动到底部</string>
   <string name="cd_chat_history">对话历史</string>
+
+  <!-- 主页 / 推广 -->
+  <string name="promo_gm4_introducing">隆重推出</string>
+  <string name="promo_gm4_title">Gemma 4</string>
+  <string name="promo_gm4_description">体验全球最强大的开放模型，专为在您的硬件上直接运行前沿智能而设计。</string>
+  <string name="promo_dismiss">关闭</string>
+  <string name="home_try_gemma4">立即体验 Gemma 4</string>
+  <string name="home_gemma4_subtitle">Gemma 4 E2B 和 E4B 来了！在 AI 对话、智能体技能或以下用例中试用它们。</string>
+  <string name="home_explore_use_cases">探索更多用例</string>
+  <string name="banner_gm4_title">Gemma 4：现已推出</string>
+  <string name="banner_gm4_description">基于与 Gemini 3 相同的世界级技术，Gemma 4 为您的手持和边缘设备带来前沿智能。</string>
+  <string name="banner_read_more">了解更多</string>
+
+  <!-- 错误 / 重试 -->
+  <string name="error_check_internet">请检查您的网络连接，稍后重试。</string>
+  <string name="error_retry">重试</string>
+  <string name="error_unknown_network">未知网络错误</string>
+  <string name="error_check_connection">请检查您的网络连接。</string>
+  <string name="error_unsupported_file_type">不支持的文件类型</string>
+  <string name="error_unsupported_file_type_msg">仅支持 \".task\" 或 \".litertlm\" 文件类型。</string>
+  <string name="error_unsupported_model_type">不支持的模型类型</string>
+  <string name="error_unsupported_model_type_msg">此模型似乎是仅限网页版的模型，应用不支持。</string>
+
+  <!-- 模型导入 -->
+  <string name="import_model_title">导入模型</string>
+  <string name="import_model_btn">导入</string>
+  <string name="import_model_from_local">从本地模型文件</string>
+  <string name="import_model_success">模型导入成功</string>
+  <string name="download_and_try">下载并试用</string>
+
+  <!-- 用户协议 -->
+  <string name="acknowledge_agreement">确认用户协议</string>
+  <string name="acknowledge_agreement_desc">这是一个受限模型。请点击下方按钮查看并同意用户协议。接受后，关闭该页面即可继续下载模型。</string>
+  <string name="open_user_agreement">打开用户协议</string>
+
+  <!-- 设置 -->
+  <string name="settings_enter_token">手动输入令牌</string>
+  <string name="settings_third_party_libs">第三方库</string>
+  <string name="settings_view_licenses">查看许可证</string>
+
+  <!-- 聊天输入 -->
+  <string name="input_take_picture">拍照</string>
+  <string name="input_pick_from_album">从相册选择</string>
+  <string name="input_record_audio">录制音频片段</string>
+  <string name="input_pick_wav">选择 wav 文件</string>
+  <string name="input_history_text">输入历史</string>
+
+  <!-- 技能测试器 -->
+  <string name="skill_input_data">输入数据</string>
+  <string name="skill_custom_data">自定义数据</string>
+  <string name="skill_result">结果</string>
+  <string name="skill_logs">日志</string>
+  <string name="skill_clear_history_title">清除历史？</string>
+  <string name="skill_clear_history_content">确定要清除历史记录吗？此操作无法撤销。</string>
+  <string name="skill_delete_script_confirm">确定要删除「%s」吗？</string>
+  <string name="skill_disabled_title">「%s」技能当前已禁用</string>
+
+  <!-- 提示词实验室 -->
+  <string name="prompt_enter_content">输入内容</string>
+  <string name="prompt_preview">预览提示词</string>
+
+  <!-- 配置标签 -->
+  <string name="config_max_tokens">最大 Token 数</string>
+  <string name="config_topk">TopK</string>
+  <string name="config_topp">TopP</string>
+  <string name="config_temperature">温度</string>
+  <string name="config_default_max_tokens">默认最大 Token 数</string>
+  <string name="config_default_topk">默认 TopK</string>
+  <string name="config_default_topp">默认 TopP</string>
+  <string name="config_default_temperature">默认温度</string>
+  <string name="config_support_image">支持图片</string>
+  <string name="config_support_audio">支持音频</string>
+  <string name="config_support_tiny_garden">支持微型花园</string>
+  <string name="config_support_mobile_actions">支持手机操作</string>
+  <string name="config_support_thinking">支持思考模式</string>
+  <string name="config_support_speculative_decoding">支持推测解码</string>
+  <string name="config_enable_thinking">启用思考模式</string>
+  <string name="config_enable_speculative_decoding">启用推测解码</string>
+  <string name="config_max_result_count">最大结果数</string>
+  <string name="config_use_gpu">使用 GPU</string>
+  <string name="config_accelerator">加速器</string>
+  <string name="config_vision_accelerator">视觉加速器</string>
+  <string name="config_compatible_accelerators">兼容加速器</string>
+  <string name="config_warm_up_iterations">预热迭代</string>
+  <string name="config_benchmark_iterations">基准测试迭代</string>
+  <string name="config_iterations">迭代次数</string>
+  <string name="config_theme">主题</string>
+  <string name="config_name">名称</string>
+  <string name="config_model_type">模型类型</string>
+  <string name="config_model">模型</string>
+  <string name="config_reset_turn_count">对话重置前的轮数</string>
+  <string name="config_prefill_tokens">预填充 Token 数</string>
+  <string name="config_decode_tokens">解码 Token 数</string>
+  <string name="config_number_of_runs">运行次数</string>
+  <string name="config_cpu">CPU</string>
+  <string name="config_gpu">GPU</string>
+  <string name="config_npu">NPU</string>
+  <string name="config_tpu">TPU</string>
+
+  <!-- 实验性标签 -->
+  <string name="label_experimental">实验性</string>
+
+  <!-- 对话描述 -->
+  <string name="chat_desc_llm">与大语言模型对话</string>
+  <string name="chat_desc_agent">让 Gemma 4 为您完成智能体任务</string>
+
+  <!-- 任务标签和描述 -->
+  <string name="task_llm_chat_label">AI 对话</string>
+  <string name="task_llm_chat_desc">与端侧大语言模型进行对话</string>
+  <string name="task_llm_chat_short">与端侧大模型对话</string>
+  <string name="task_llm_ask_image_label">图片问答</string>
+  <string name="task_llm_ask_image_desc">使用端侧大语言模型对图片进行提问</string>
+  <string name="task_llm_ask_image_short">对图片进行提问</string>
+  <string name="task_llm_ask_audio_label">音频转录</string>
+  <string name="task_llm_ask_audio_desc">使用端侧大语言模型即时转录和/或翻译音频片段</string>
+  <string name="task_llm_ask_audio_short">转录和翻译音频</string>
+  <string name="task_llm_prompt_lab_label">提示词实验室</string>
+  <string name="task_llm_prompt_lab_desc">使用端侧大语言模型进行单轮用例测试</string>
+  <string name="task_llm_prompt_lab_short">单轮用例测试</string>
+  <string name="task_llm_agent_chat_label">智能体技能</string>
+  <string name="task_llm_agent_chat_desc">使用具备技能和工具的端侧大语言模型进行对话</string>
+  <string name="task_llm_agent_chat_short">通过对话完成智能体任务</string>
+  <string name="task_llm_tiny_garden_label">微型花园</string>
+  <string name="task_llm_tiny_garden_short">使用自然语言来种植</string>
+  <string name="task_llm_mobile_actions_label">手机操作</string>
+  <string name="task_llm_mobile_actions_desc">通过 Function Gemma 执行各种设备操作</string>
+  <string name="task_llm_mobile_actions_short">利用设备端手机操作</string>
+
 </resources>

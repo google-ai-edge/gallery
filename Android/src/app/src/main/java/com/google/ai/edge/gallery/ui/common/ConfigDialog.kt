@@ -21,6 +21,7 @@ package com.google.ai.edge.gallery.ui.common
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.util.Log
 import androidx.annotation.StringRes
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -97,6 +98,7 @@ import com.google.ai.edge.gallery.data.BottomSheetSelectorConfig
 import com.google.ai.edge.gallery.data.BottomSheetSelectorItem
 import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
+import com.google.ai.edge.gallery.data.getConfigLabel
 import com.google.ai.edge.gallery.data.LabelConfig
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.SegmentedButtonConfig
@@ -252,7 +254,7 @@ fun ConfigDialog(
           ) {
             // Cancel button.
             if (showCancel) {
-              TextButton(onClick = { onDismissed() }) { Text("Cancel") }
+              TextButton(onClick = { onDismissed() }) { Text(stringResource(R.string.cancel)) }
             }
 
             // Ok button
@@ -310,7 +312,7 @@ fun ConfigEditorsPanel(configs: List<Config>, values: SnapshotStateMap<String, A
 fun LabelRow(config: LabelConfig, values: SnapshotStateMap<String, Any>) {
   Column(modifier = Modifier.fillMaxWidth()) {
     // Field label.
-    Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+    Text(getConfigLabel(LocalContext.current, config.key), style = MaterialTheme.typography.titleSmall)
     // Content label.
     val label =
       try {
@@ -357,7 +359,7 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
     // Field label.
     val minStr = getTextFieldDisplayValue(config.valueType, config.sliderMin)
     val maxStr = getTextFieldDisplayValue(config.valueType, config.sliderMax)
-    Text("${config.key.label} ($minStr-$maxStr)", style = MaterialTheme.typography.titleSmall)
+    Text("${getConfigLabel(LocalContext.current, config.key)} ($minStr-$maxStr)", style = MaterialTheme.typography.titleSmall)
 
     // Controls row.
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -470,7 +472,7 @@ fun BooleanSwitchRow(config: BooleanSwitchConfig, values: SnapshotStateMap<Strin
       false
     }
   Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
-    Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+    Text(getConfigLabel(LocalContext.current, config.key), style = MaterialTheme.typography.titleSmall)
     Switch(checked = switchValue, onCheckedChange = { values[config.key.label] = it })
   }
 }
@@ -491,7 +493,7 @@ fun SegmentedButtonRow(config: SegmentedButtonConfig, values: SnapshotStateMap<S
   }
 
   Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
-    Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+    Text(getConfigLabel(LocalContext.current, config.key), style = MaterialTheme.typography.titleSmall)
     MultiChoiceSegmentedButtonRow {
       config.options.forEachIndexed { index, label ->
         SegmentedButton(
@@ -559,7 +561,7 @@ fun BottomSheetSelectorRow(
     verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
     if (showLabel) {
-      Text(config.key.label, style = MaterialTheme.typography.titleSmall)
+      Text(getConfigLabel(LocalContext.current, config.key), style = MaterialTheme.typography.titleSmall)
     }
     Row(
       horizontalArrangement = Arrangement.SpaceBetween,

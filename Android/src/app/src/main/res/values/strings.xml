@@ -486,4 +486,131 @@
   <!-- Content description spoken when the "chat history" icon is focused. [CHAR_LIMIT=NONE] -->
   <string name="cd_chat_history">Chat history</string>
 
+  <!-- Home screen / promo -->
+  <string name="promo_gm4_introducing">Introducing</string>
+  <string name="promo_gm4_title">Gemma 4</string>
+  <string name="promo_gm4_description">Experience the world\'s most capable open models, designed to run frontier-level intelligence directly on your hardware.</string>
+  <string name="promo_dismiss">Dismiss</string>
+  <string name="home_try_gemma4">Try Gemma 4 today</string>
+  <string name="home_gemma4_subtitle">Gemma 4 E2B &amp; E4B are here! Try them in AI Chat, Agent Skills, or the use cases below.</string>
+  <string name="home_explore_use_cases">Explore other use cases</string>
+  <string name="banner_gm4_title">Gemma 4: now available</string>
+  <string name="banner_gm4_description">Built from the same world-class technology as Gemini 3, Gemma 4 brings frontier intelligence to your mobile and edge devices.</string>
+  <string name="banner_read_more">Read more</string>
+
+  <!-- Error / retry -->
+  <string name="error_check_internet">Please check your internet connection and try again later.</string>
+  <string name="error_retry">Retry</string>
+  <string name="error_unknown_network">Unknown network error</string>
+  <string name="error_check_connection">Please check your internet connection.</string>
+  <string name="error_unsupported_file_type">Unsupported file type</string>
+  <string name="error_unsupported_file_type_msg">Only \".task\" or \".litertlm\" file type is supported.</string>
+  <string name="error_unsupported_model_type">Unsupported model type</string>
+  <string name="error_unsupported_model_type_msg">Looks like the model is a web-only model and is not supported by the app.</string>
+
+  <!-- Model import -->
+  <string name="import_model_title">Import Model</string>
+  <string name="import_model_btn">Import</string>
+  <string name="import_model_from_local">From local model file</string>
+  <string name="import_model_success">Model imported successfully</string>
+  <string name="download_and_try">Download &amp; Try it</string>
+
+  <!-- User agreement -->
+  <string name="acknowledge_agreement">Acknowledge user agreement</string>
+  <string name="acknowledge_agreement_desc">This is a gated model. Please click the button below to view and agree to the user agreement. After accepting, simply close that tab to proceed with the model download.</string>
+  <string name="open_user_agreement">Open user agreement</string>
+
+  <!-- Settings -->
+  <string name="settings_enter_token">Enter token manually</string>
+  <string name="settings_third_party_libs">Third-party libraries</string>
+  <string name="settings_view_licenses">View licenses</string>
+
+  <!-- Chat input -->
+  <string name="input_take_picture">Take a picture</string>
+  <string name="input_pick_from_album">Pick from album</string>
+  <string name="input_record_audio">Record audio clip</string>
+  <string name="input_pick_wav">Pick wav file</string>
+  <string name="input_history_text">Input history</string>
+
+  <!-- Skill tester -->
+  <string name="skill_input_data">Input Data</string>
+  <string name="skill_custom_data">Custom Data</string>
+  <string name="skill_result">Result</string>
+  <string name="skill_logs">Logs</string>
+  <string name="skill_clear_history_title">Clear history?</string>
+  <string name="skill_clear_history_content">Are you sure you want to clear the history? This action cannot be undone.</string>
+  <string name="skill_delete_script_confirm">Are you sure you want to delete \'%s\'?</string>
+  <string name="skill_disabled_title">The \"%s\" skill is currently disabled</string>
+
+  <!-- Prompt lab -->
+  <string name="prompt_enter_content">Enter content</string>
+  <string name="prompt_preview">Preview prompt</string>
+
+  <!-- Config labels (data layer - displayed in config editors) -->
+  <string name="config_max_tokens">Max tokens</string>
+  <string name="config_topk">TopK</string>
+  <string name="config_topp">TopP</string>
+  <string name="config_temperature">Temperature</string>
+  <string name="config_default_max_tokens">Default max tokens</string>
+  <string name="config_default_topk">Default TopK</string>
+  <string name="config_default_topp">Default TopP</string>
+  <string name="config_default_temperature">Default temperature</string>
+  <string name="config_support_image">Support image</string>
+  <string name="config_support_audio">Support audio</string>
+  <string name="config_support_tiny_garden">Support tiny garden</string>
+  <string name="config_support_mobile_actions">Support mobile actions</string>
+  <string name="config_support_thinking">Support thinking</string>
+  <string name="config_support_speculative_decoding">Support speculative decoding</string>
+  <string name="config_enable_thinking">Enable thinking</string>
+  <string name="config_enable_speculative_decoding">Enable speculative decoding</string>
+  <string name="config_max_result_count">Max result count</string>
+  <string name="config_use_gpu">Use GPU</string>
+  <string name="config_accelerator">Accelerator</string>
+  <string name="config_vision_accelerator">Vision accelerator</string>
+  <string name="config_compatible_accelerators">Compatible accelerators</string>
+  <string name="config_warm_up_iterations">Warm up iterations</string>
+  <string name="config_benchmark_iterations">Benchmark iterations</string>
+  <string name="config_iterations">Iterations</string>
+  <string name="config_theme">Theme</string>
+  <string name="config_name">Name</string>
+  <string name="config_model_type">Model type</string>
+  <string name="config_model">Model</string>
+  <string name="config_reset_turn_count">Number of turns before the conversation resets</string>
+  <string name="config_prefill_tokens">Prefill tokens</string>
+  <string name="config_decode_tokens">Decode tokens</string>
+  <string name="config_number_of_runs">Number of runs</string>
+  <string name="config_cpu">CPU</string>
+  <string name="config_gpu">GPU</string>
+  <string name="config_npu">NPU</string>
+  <string name="config_tpu">TPU</string>
+
+  <!-- Experimental label -->
+  <string name="label_experimental">Experimental</string>
+
+  <!-- Chat description texts -->
+  <string name="chat_desc_llm">Chat with LLMs</string>
+  <string name="chat_desc_agent">Have Gemma 4 complete agentic tasks for you</string>
+
+  <!-- Task labels and descriptions (built-in tasks shown on home screen grid) -->
+  <string name="task_llm_chat_label">AI Chat</string>
+  <string name="task_llm_chat_desc">Chat with on-device large language models</string>
+  <string name="task_llm_chat_short">Chat with an on-device LLM</string>
+  <string name="task_llm_ask_image_label">Ask Image</string>
+  <string name="task_llm_ask_image_desc">Ask questions about images with on-device large language models</string>
+  <string name="task_llm_ask_image_short">Ask questions about images</string>
+  <string name="task_llm_ask_audio_label">Audio Scribe</string>
+  <string name="task_llm_ask_audio_desc">Instantly transcribe and/or translate audio clips using on-device large language models</string>
+  <string name="task_llm_ask_audio_short">Transcribe and translate audio</string>
+  <string name="task_llm_prompt_lab_label">Prompt Lab</string>
+  <string name="task_llm_prompt_lab_desc">Single turn use cases with on-device large language models</string>
+  <string name="task_llm_prompt_lab_short">Single turn use cases</string>
+  <string name="task_llm_agent_chat_label">Agent Skills</string>
+  <string name="task_llm_agent_chat_desc">Chat with on-device large language models with skills and tools</string>
+  <string name="task_llm_agent_chat_short">Complete agentic tasks with chat</string>
+  <string name="task_llm_tiny_garden_label">Tiny Garden</string>
+  <string name="task_llm_tiny_garden_short">Use natural language to plant</string>
+  <string name="task_llm_mobile_actions_label">Mobile Actions</string>
+  <string name="task_llm_mobile_actions_desc">Perform various device actions through Function Gemma</string>
+  <string name="task_llm_mobile_actions_short">Leverage device mobile actions</string>
+
 </resources>

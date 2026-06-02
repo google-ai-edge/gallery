@@ -458,7 +458,7 @@ fun MessageInputText(
                               horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
                               Icon(Icons.Rounded.PhotoCamera, contentDescription = null)
-                              Text("Take a picture")
+                              Text(stringResource(R.string.input_take_picture))
                             }
                           },
                           enabled = enableAddImageMenuItems,
@@ -495,7 +495,7 @@ fun MessageInputText(
                               horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
                               Icon(Icons.Rounded.Photo, contentDescription = null)
-                              Text("Pick from album")
+                              Text(stringResource(R.string.input_pick_from_album))
                             }
                           },
                           enabled = enableAddImageMenuItems,
@@ -527,7 +527,7 @@ fun MessageInputText(
                               horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
                               Icon(Icons.Rounded.Mic, contentDescription = null)
-                              Text("Record audio clip")
+                              Text(stringResource(R.string.input_record_audio))
                             }
                           },
                           enabled = enableRecordAudioClipMenuItems,
@@ -559,7 +559,7 @@ fun MessageInputText(
                               horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
                               Icon(Icons.Rounded.AudioFile, contentDescription = null)
-                              Text("Pick wav file")
+                              Text(stringResource(R.string.input_pick_wav))
                             }
                           },
                           enabled = enableRecordAudioClipMenuItems,
@@ -594,7 +594,7 @@ fun MessageInputText(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                           ) {
                             Icon(Icons.Rounded.History, contentDescription = null)
-                            Text("Input history")
+                            Text(stringResource(R.string.input_history_text))
                           }
                         },
                         onClick = {
