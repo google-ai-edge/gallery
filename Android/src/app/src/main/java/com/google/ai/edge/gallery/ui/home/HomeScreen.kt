@@ -982,6 +982,7 @@ private fun TaskCard(
   description: String = "",
   square: Boolean = false,
 ) {
+  val context = LocalContext.current
   // Observes the model count and updates the model count label with a fade-in/fade-out animation
   // whenever the count changes.
   val modelCount by remember {
@@ -1030,7 +1031,7 @@ private fun TaskCard(
       )
     else 1f
 
-  val cbTask = stringResource(R.string.cd_task_card, task.localizedLabel(), task.models.size)
+  val cbTask = stringResource(R.string.cd_task_card, task.localizedLabel(context), task.models.size)
   Card(
     modifier =
       modifier
@@ -1063,12 +1064,12 @@ private fun TaskCard(
             modifier = Modifier.clearAndSetSemantics {},
           )
           Text(
-            task.localizedLabel(),
+            task.localizedLabel(context),
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.titleMedium,
           )
           Text(
-            task.localizedShortDescription(),
+            task.localizedShortDescription(context),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 14.sp),
             modifier = Modifier.clearAndSetSemantics {},
@@ -1097,7 +1098,7 @@ private fun TaskCard(
               horizontalArrangement = Arrangement.SpaceBetween,
             ) {
               Text(
-                task.localizedLabel(),
+                task.localizedLabel(context),
                 color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.titleMedium,
               )
@@ -1132,7 +1133,7 @@ private fun TaskCard(
           Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
               Text(
-                task.localizedLabel(),
+                task.localizedLabel(context),
                 color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.titleMedium,
               )

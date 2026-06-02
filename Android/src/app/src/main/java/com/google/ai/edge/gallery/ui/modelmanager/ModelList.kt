@@ -203,14 +203,15 @@ fun ModelList(
           TaskIcon(task = task, width = 64.dp, animationProgress = taskIconProgress)
 
           // Task name.
+          val ctx = LocalContext.current
           Box(
             modifier =
               Modifier.offset(x = (20f * (1f - taskIconProgress)).dp).semantics {
-                contentDescription = task.localizedLabel()
+                contentDescription = task.localizedLabel(ctx)
               }
           ) {
             RevealingText(
-              text = task.localizedLabel(),
+              text = task.localizedLabel(ctx),
               style =
                 headlineLargeMedium.copy(
                   brush = Brush.linearGradient(getTaskBgGradientColors(task = task))
@@ -219,7 +220,7 @@ fun ModelList(
               animationProgress = taskIconProgress,
             )
             RevealingText(
-              text = task.localizedLabel(),
+              text = task.localizedLabel(ctx),
               style = headlineLargeMedium,
               textAlign = TextAlign.Center,
               animationProgress = taskLabelProgress,
@@ -249,7 +250,7 @@ fun ModelList(
 
           // Description.
           Text(
-            task.localizedDescription(),
+            task.localizedDescription(ctx),
             textAlign = TextAlign.Center,
             style = bodyLargeNarrow,
             modifier =
