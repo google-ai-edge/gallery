@@ -18,8 +18,6 @@ The latest version brings official support for the newly released Gemma 4 family
 
 For users without Google Play access, install the apk from the [**latest release**](https://github.com/google-ai-edge/gallery/releases/latest/)
 
-The macOS app is currently unavailable in certain regions, including the EU, Canada, and Brazil. We are actively working to resolve a few remaining issues so we can bring the app to these areas soon.
-
 
 ## App Preview
 
