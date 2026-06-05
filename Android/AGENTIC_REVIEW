@@ -1,3 +1,0 @@
-# proto-file: learning/gemini/_agents/cl_review_agent/agentic_review.proto
-review_capability_skills: "learning/gemini/agents/skills/kotlin_readability/SKILL.md"
-review_capability_skills: "third_party/ai_edge_gallery/_agents/skills/avoid-fully-qualified-names-kotlin/SKILL.md"
