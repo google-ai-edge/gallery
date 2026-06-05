@@ -23,6 +23,7 @@ import com.google.ai.edge.gallery.common.cleanUpMediapipeTaskErrorMessage
 import com.google.ai.edge.gallery.data.AICoreModelPreference
 import com.google.ai.edge.gallery.data.AICoreModelReleaseStage
 import com.google.ai.edge.gallery.data.ConfigKeys
+import com.google.ai.edge.gallery.data.DEFAULT_MAX_OUTPUT_TOKEN
 import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
 import com.google.ai.edge.gallery.data.DEFAULT_TOPK
 import com.google.ai.edge.gallery.data.Model
@@ -271,6 +272,11 @@ object AICoreModelHelper : LlmModelHelper {
         .getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
         .coerceIn(0.0f, 1.0f)
     val topK = model.getIntConfigValue(key = ConfigKeys.TOPK, defaultValue = DEFAULT_TOPK)
+    val maxOutputTokens =
+      model.getIntConfigValue(
+        key = ConfigKeys.MAX_OUTPUT_TOKENS,
+        defaultValue = DEFAULT_MAX_OUTPUT_TOKEN,
+      )
 
     instance.inferenceJob?.cancel()
 
@@ -280,6 +286,7 @@ object AICoreModelHelper : LlmModelHelper {
         prompt = prompt,
         temperature = temperature,
         topK = topK,
+        maxOutputTokens = maxOutputTokens,
         images = images,
         input = input,
         resultListener = resultListener,
@@ -293,6 +300,7 @@ object AICoreModelHelper : LlmModelHelper {
     prompt: String,
     temperature: Float,
     topK: Int,
+    maxOutputTokens: Int,
     images: List<Bitmap>,
     input: String,
     resultListener: ResultListener,
@@ -308,11 +316,13 @@ object AICoreModelHelper : LlmModelHelper {
           ) {
             this.temperature = temperature
             this.topK = topK
+            this.maxOutputTokens = maxOutputTokens
           }
         } else {
           generateContentRequest(TextPart(prompt)) {
             this.temperature = temperature
             this.topK = topK
+            this.maxOutputTokens = maxOutputTokens
           }
         }
       val flow = instance.generativeModel.generateContentStream(request)
