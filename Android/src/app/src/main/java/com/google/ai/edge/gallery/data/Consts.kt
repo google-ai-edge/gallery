@@ -42,6 +42,7 @@ const val DEFAULT_MAX_TOKEN = 1024
 const val DEFAULT_TOPK = 64
 const val DEFAULT_TOPP = 0.95f
 const val DEFAULT_TEMPERATURE = 1.0f
+const val DEFAULT_MAX_OUTPUT_TOKEN = 1024
 val DEFAULT_ACCELERATORS = listOf(Accelerator.GPU)
 val DEFAULT_VISION_ACCELERATOR = Accelerator.GPU
 
