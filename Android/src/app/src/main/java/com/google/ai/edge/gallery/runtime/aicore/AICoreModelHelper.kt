@@ -370,7 +370,7 @@ object AICoreModelHelper : LlmModelHelper {
   }
 
   // Get the generative model from AICore based on the model config.
-  private fun getGenerativeModel(model: Model) =
+  fun getGenerativeModel(model: Model) =
     Generation.getClient(generationConfig { modelConfig = model.toAICoreModelConfig() })
 
   private fun Model.toAICoreModelConfig() = modelConfig {
