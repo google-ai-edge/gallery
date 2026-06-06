@@ -195,6 +195,7 @@
   <string name="turn_on_all" translatable="false">Turn on all</string>
   <string name="turn_off_all" translatable="false">Turn off all</string>
   <string name="undo" translatable="false">Undo</string>
+  <string name="use" translatable="false">Use</string>
   <string name="unsupported_action" translatable="false">Unsupported action</string>
   <string name="set_screen_brightness_message" translatable="false">I\'ve set the screen brightness to %1$d%%.</string>
   <string name="set_timer_message" translatable="false">Setting the timer for %1$d seconds.</string>

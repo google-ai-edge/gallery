@@ -39,6 +39,7 @@ private val BUTTON_CONTENT_PADDING =
 @Composable
 fun SmallOutlinedButton(
   onClick: () -> Unit,
+  modifier: Modifier = Modifier,
   labelResId: Int = 0,
   imageVector: ImageVector? = null,
   iconResId: Int? = null,
@@ -48,7 +49,7 @@ fun SmallOutlinedButton(
 ) {
   OutlinedButton(
     onClick = onClick,
-    modifier = Modifier.height(32.dp),
+    modifier = modifier.height(32.dp),
     contentPadding = BUTTON_CONTENT_PADDING,
     enabled = enabled,
   ) {

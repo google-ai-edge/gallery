@@ -18,7 +18,9 @@ package com.google.ai.edge.gallery.ui.common
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -34,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -42,6 +45,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.coerceIn
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.withStyle
@@ -65,6 +69,10 @@ fun CursorTrackingTextField(
   minLines: Int = 1,
   extraOffset: Dp = 56.dp,
   monoFont: Boolean = false,
+  disableBorder: Boolean = false,
+  textColor: Color? = null,
+  fontWeight: FontWeight? = null,
+  contentPadding: PaddingValues = OutlinedTextFieldDefaults.contentPadding(),
   extraBottomComposable: @Composable () -> Unit = {},
   trailingIcon: @Composable () -> Unit = {},
 ) {
@@ -117,7 +125,10 @@ fun CursorTrackingTextField(
         })
         .copy(
           // BasicTextField needs explicit color
-          color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.7f)
+          color =
+            textColor
+              ?: MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.7f),
+          fontWeight = fontWeight,
         ),
     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
     minLines = minLines,
@@ -128,6 +139,7 @@ fun CursorTrackingTextField(
         innerTextField = innerTextField,
         enabled = true,
         singleLine = false,
+        contentPadding = contentPadding,
         placeholder =
           if (placeholderResId != null) {
             {
@@ -153,26 +165,33 @@ fun CursorTrackingTextField(
           } else {
             null
           },
-        supportingText = {
+        supportingText =
           if (supportingTextResId != null) {
-            Column() {
-              Text(stringResource(supportingTextResId))
-              extraBottomComposable()
+            {
+              Column() {
+                Text(stringResource(supportingTextResId))
+                extraBottomComposable()
+              }
             }
-          }
-        },
+          } else {
+            null
+          },
         trailingIcon = trailingIcon,
         // The ContainerBox draws the actual border/outline
         container = {
-          OutlinedTextFieldDefaults.Container(
-            enabled = true,
-            isError = false,
-            interactionSource = interactionSource,
-            colors = OutlinedTextFieldDefaults.colors(),
-            shape = OutlinedTextFieldDefaults.shape,
-            focusedBorderThickness = 2.dp,
-            unfocusedBorderThickness = 1.dp,
-          )
+          if (disableBorder) {
+            Box {}
+          } else {
+            OutlinedTextFieldDefaults.Container(
+              enabled = true,
+              isError = false,
+              interactionSource = interactionSource,
+              colors = OutlinedTextFieldDefaults.colors(),
+              shape = OutlinedTextFieldDefaults.shape,
+              focusedBorderThickness = 2.dp,
+              unfocusedBorderThickness = 1.dp,
+            )
+          }
         },
       )
     },
