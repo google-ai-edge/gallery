@@ -41,6 +41,7 @@ enum class RuntimeType {
   @SerializedName("unknown") UNKNOWN,
   @SerializedName("litert_lm") LITERT_LM,
   @SerializedName("aicore") AICORE,
+  @SerializedName("private_inference") PRIVATE_INFERENCE,
 }
 
 enum class AICoreModelReleaseStage {
@@ -333,6 +334,9 @@ data class Model(
    */
   var latestModelFile: ModelFile? = null,
 ) {
+  val isSystemManaged: Boolean
+    get() = runtimeType == RuntimeType.AICORE || runtimeType == RuntimeType.PRIVATE_INFERENCE
+
   init {
     normalizedName = NORMALIZE_NAME_REGEX.replace(name, "_")
   }

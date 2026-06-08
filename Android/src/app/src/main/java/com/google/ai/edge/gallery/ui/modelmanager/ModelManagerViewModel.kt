@@ -296,41 +296,54 @@ constructor(
 
     // TODO: b/494029782 - Both litertlm and aicore download and storage should be unified into a
     // model repository.
-    if (model.runtimeType == RuntimeType.AICORE) {
-      AICoreModelHelper.downloadModel(
-        context = context,
-        coroutineScope = viewModelScope,
-        model = model,
-        onProgress = { downloaded: Long, total: Long ->
-          setDownloadStatus(
-            curModel = model,
-            status =
-              ModelDownloadStatus(
-                status = ModelDownloadStatusType.IN_PROGRESS,
-                receivedBytes = downloaded,
-                totalBytes = total,
-              ),
-          )
-        },
-        onDone = {
-          setDownloadStatus(
-            curModel = model,
-            status =
-              ModelDownloadStatus(
-                status = ModelDownloadStatusType.SUCCEEDED,
-                receivedBytes = model.sizeInBytes,
-                totalBytes = model.sizeInBytes,
-              ),
-          )
-        },
-        onError = { error: String ->
-          setDownloadStatus(
-            curModel = model,
-            status =
-              ModelDownloadStatus(status = ModelDownloadStatusType.FAILED, errorMessage = error),
-          )
-        },
-      )
+    if (model.isSystemManaged) {
+      if (model.runtimeType == RuntimeType.AICORE) {
+        AICoreModelHelper.downloadModel(
+          context = context,
+          coroutineScope = viewModelScope,
+          model = model,
+          onProgress = { downloaded: Long, total: Long ->
+            setDownloadStatus(
+              curModel = model,
+              status =
+                ModelDownloadStatus(
+                  status = ModelDownloadStatusType.IN_PROGRESS,
+                  receivedBytes = downloaded,
+                  totalBytes = total,
+                ),
+            )
+          },
+          onDone = {
+            setDownloadStatus(
+              curModel = model,
+              status =
+                ModelDownloadStatus(
+                  status = ModelDownloadStatusType.SUCCEEDED,
+                  receivedBytes = model.sizeInBytes,
+                  totalBytes = model.sizeInBytes,
+                ),
+            )
+          },
+          onError = { error: String ->
+            setDownloadStatus(
+              curModel = model,
+              status =
+                ModelDownloadStatus(status = ModelDownloadStatusType.FAILED, errorMessage = error),
+            )
+          },
+        )
+      } else {
+        // For PRIVATE_INFERENCE, we mark it as SUCCEEDED immediately because it's system-managed.
+        setDownloadStatus(
+          curModel = model,
+          status =
+            ModelDownloadStatus(
+              status = ModelDownloadStatusType.SUCCEEDED,
+              receivedBytes = 0,
+              totalBytes = 0,
+            ),
+        )
+      }
       return
     }
 
@@ -349,7 +362,7 @@ constructor(
     // TODO: b/494029782 - Both litertlm and aicore download and storage should be unified into a
     // model repository.
     // AICore models cannot be deleted from the download repository within the app.
-    if (model.runtimeType == RuntimeType.AICORE) {
+    if (model.isSystemManaged) {
       return
     }
     downloadRepository.cancelDownloadModel(model)
@@ -904,11 +917,14 @@ constructor(
         modelAllowlist = readModelAllowlistFromDisk(fileName = MODEL_ALLOWLIST_TEST_FILENAME)
 
         // Local test only.
-        if (TEST_MODEL_ALLOW_LIST.isNotEmpty()) {
+        val allowListToUse =
+          if (TEST_MODEL_ALLOW_LIST.isNotEmpty()) TEST_MODEL_ALLOW_LIST
+          else TEST_MODEL_ALLOW_LIST_BAK
+        if (allowListToUse.isNotEmpty()) {
           Log.d(TAG, "Loading local model allowlist for testing.")
           val gson = Gson()
           try {
-            modelAllowlist = gson.fromJson(TEST_MODEL_ALLOW_LIST, ModelAllowlist::class.java)
+            modelAllowlist = gson.fromJson(allowListToUse, ModelAllowlist::class.java)
           } catch (e: JsonSyntaxException) {
             Log.e(TAG, "Failed to parse local test json", e)
           }
@@ -960,7 +976,10 @@ constructor(
             continue
           }
 
-          if (allowedModel.runtimeType == RuntimeType.AICORE && !isAICoreAvailable) {
+          val isSystemManaged =
+            allowedModel.runtimeType == RuntimeType.AICORE ||
+              allowedModel.runtimeType == RuntimeType.PRIVATE_INFERENCE
+          if (isSystemManaged && !isAICoreAvailable) {
             continue
           }
 
@@ -1317,6 +1336,15 @@ constructor(
    */
   private fun getModelDownloadStatus(model: Model): ModelDownloadStatus {
     Log.d(TAG, "Checking model ${model.name} download status...")
+
+    if (model.runtimeType == RuntimeType.PRIVATE_INFERENCE) {
+      Log.d(TAG, "Model is Private Inference. Set status to SUCCEEDED")
+      return ModelDownloadStatus(
+        status = ModelDownloadStatusType.SUCCEEDED,
+        receivedBytes = 0,
+        totalBytes = 0,
+      )
+    }
 
     if (model.localFileRelativeDirPathOverride.isNotEmpty()) {
       Log.d(TAG, "Model has localFileRelativeDirPathOverride set. Set status to SUCCEEDED")

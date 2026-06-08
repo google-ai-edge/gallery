@@ -65,7 +65,6 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
-import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.MarkdownText
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
@@ -107,7 +106,7 @@ fun ModelItem(
   var isExpanded by remember { mutableStateOf(expanded ?: isBestOverall) }
 
   val isDownloadFailed = downloadStatus?.status == ModelDownloadStatusType.FAILED
-  val isAicore = model.runtimeType == RuntimeType.AICORE
+  val isAicore = model.isSystemManaged
 
   var boxModifier =
     modifier
@@ -395,7 +394,7 @@ fun ModelVariantHeader(
         showDeleteButton =
           showDeleteButton &&
             variantModel.localFileRelativeDirPathOverride.isEmpty() &&
-            variantModel.runtimeType != RuntimeType.AICORE,
+            !variantModel.isSystemManaged,
         onBenchmarkClicked = { onBenchmarkClicked(variantModel) },
         modifier = menuModifier.offset(y = (-12).dp),
       )

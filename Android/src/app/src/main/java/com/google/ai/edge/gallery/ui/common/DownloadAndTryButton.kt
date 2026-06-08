@@ -77,7 +77,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
-import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.tos.GemmaTermsOfUseDialog
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
@@ -152,7 +151,7 @@ fun DownloadAndTryButton(
     (downloadStatus == ModelDownloadStatusType.NOT_DOWNLOADED ||
       downloadStatus == ModelDownloadStatusType.FAILED) &&
       model.localFileRelativeDirPathOverride.isEmpty() &&
-      model.runtimeType != RuntimeType.AICORE
+      !model.isSystemManaged
   val inProgress = downloadStatus == ModelDownloadStatusType.IN_PROGRESS
   val downloadSucceeded = downloadStatus == ModelDownloadStatusType.SUCCEEDED
   val isPartiallyDownloaded = downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED

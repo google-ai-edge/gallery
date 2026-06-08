@@ -52,7 +52,6 @@ import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelCapability
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
-import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.convertValueToTargetType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
@@ -277,8 +276,7 @@ fun ModelPageAppBar(
         }
       },
       // AICore doesn't support system prompt yet.
-      showSystemPromptEditorTab =
-        allowEditingSystemPrompt && model.runtimeType != RuntimeType.AICORE,
+      showSystemPromptEditorTab = allowEditingSystemPrompt && !model.isSystemManaged,
       defaultSystemPrompt = task.defaultSystemPrompt,
       curSystemPrompt = curSystemPrompt,
     )

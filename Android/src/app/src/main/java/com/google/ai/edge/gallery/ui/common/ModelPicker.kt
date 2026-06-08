@@ -53,7 +53,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.modelitem.StatusIcon
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
@@ -119,7 +118,7 @@ fun ModelPicker(
             model.displayName.ifEmpty { model.name },
             style = MaterialTheme.typography.bodyMedium,
           )
-          if (model.runtimeType != RuntimeType.AICORE) {
+          if (!model.isSystemManaged) {
             Row(
               horizontalArrangement = Arrangement.spacedBy(4.dp),
               verticalAlignment = Alignment.CenterVertically,

@@ -129,7 +129,6 @@ import com.google.ai.edge.gallery.common.rotateBitmap
 import com.google.ai.edge.gallery.data.MAX_AUDIO_CLIP_COUNT
 import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT
 import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT_AI_CORE
-import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.getTaskIconColor
@@ -197,7 +196,7 @@ fun MessageInputText(
   val sensorObserver = remember { SensorObserver(context) }
 
   val updatePickedImages: (List<Bitmap>) -> Unit = { bitmaps ->
-    val isAiCore = modelManagerUiState.selectedModel.runtimeType == RuntimeType.AICORE
+    val isAiCore = modelManagerUiState.selectedModel.isSystemManaged
     var limit = MAX_IMAGE_COUNT
     if (isAiCore) {
       limit = MAX_IMAGE_COUNT_AI_CORE
@@ -446,7 +445,7 @@ fun MessageInputText(
                     ) {
                       if (showImagePicker) {
                         val isImageLimitExceededForAiCore =
-                          modelManagerUiState.selectedModel.runtimeType == RuntimeType.AICORE &&
+                          modelManagerUiState.selectedModel.isSystemManaged &&
                             (imageCount + pickedImages.size) >= MAX_IMAGE_COUNT_AI_CORE
                         val enableAddImageMenuItems =
                           (imageCount + pickedImages.size) < MAX_IMAGE_COUNT

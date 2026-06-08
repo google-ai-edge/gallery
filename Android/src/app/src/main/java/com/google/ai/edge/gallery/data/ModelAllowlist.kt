@@ -156,7 +156,7 @@ data class AllowedModel(
         accelerators.size == 1 &&
           (accelerators[0] == Accelerator.NPU || accelerators[0] == Accelerator.TPU)
       configs =
-        (if (runtimeType == RuntimeType.AICORE) {
+        (if (runtimeType == RuntimeType.AICORE || runtimeType == RuntimeType.PRIVATE_INFERENCE) {
             createAICoreConfigs(
               defaultTopK = defaultTopK,
               defaultTemperature = if (defaultTemperature > 1.0f) 1.0f else defaultTemperature,
@@ -186,7 +186,7 @@ data class AllowedModel(
 
     var learnMoreUrl = "https://huggingface.co/${modelId}"
 
-    if (runtimeType == RuntimeType.AICORE) {
+    if (runtimeType == RuntimeType.AICORE || runtimeType == RuntimeType.PRIVATE_INFERENCE) {
       downloadUrl = ""
       learnMoreUrl = "https://developers.google.com/ml-kit/terms"
     }

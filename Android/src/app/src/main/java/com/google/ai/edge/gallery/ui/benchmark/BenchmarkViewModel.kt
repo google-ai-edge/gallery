@@ -22,11 +22,13 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.proto.BenchmarkResult
 import com.google.ai.edge.gallery.proto.LlmBenchmarkBasicInfo
 import com.google.ai.edge.gallery.proto.LlmBenchmarkResult
 import com.google.ai.edge.gallery.proto.LlmBenchmarkStats
 import com.google.ai.edge.gallery.proto.ValueSeries
+import com.google.ai.edge.gallery.runtime.runtimeHelper
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.benchmark
@@ -34,6 +36,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
+import kotlin.coroutines.resume
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.random.Random
@@ -42,6 +45,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 private const val TAG = "AGBenchmarkVM"
 
@@ -90,6 +94,33 @@ constructor(
     collapseAll()
   }
 
+  private suspend fun ensureModelInitialized(model: Model): Boolean {
+    if (model.instance != null) {
+      return true
+    }
+    return suspendCancellableCoroutine { continuation ->
+      model.runtimeHelper.initialize(
+        context = appContext,
+        model = model,
+        taskId = "",
+        supportImage = false,
+        supportAudio = false,
+        onDone = { error ->
+          if (error.isEmpty()) {
+            continuation.resume(true)
+          } else {
+            Log.e(TAG, "Failed to initialize model for benchmark: $error")
+            continuation.resume(false)
+          }
+        },
+        systemInstruction = null,
+        tools = emptyList(),
+        enableConversationConstrainedDecoding = false,
+        coroutineScope = viewModelScope,
+      )
+    }
+  }
+
   @OptIn(ExperimentalApi::class)
   fun runBenchmark(
     model: Model,
@@ -121,56 +152,142 @@ constructor(
       val timesToFirstToken = mutableListOf<Double>()
       var firstInitTime = 0.0
       val nonFirstInitTimes = mutableListOf<Double>()
-      // Create a temporary cache dir to run benchmark in.
-      val timestamp = System.currentTimeMillis()
-      var needCleanUpCacheDir = true
-      val benchmarkCacheDir = File(appContext.cacheDir, "benchmark_$timestamp")
-      var cacheDirPath = benchmarkCacheDir.absolutePath
-      if (!benchmarkCacheDir.mkdirs()) {
-        Log.e(TAG, "Failed to create benchmark cache directory: ${benchmarkCacheDir.absolutePath}")
-        cacheDirPath = appContext.cacheDir.absolutePath
-        needCleanUpCacheDir = false
-      }
-      Log.d(TAG, "Using benchmark cache dir: $cacheDirPath")
-      val backend: Backend =
-        when (accelerator.lowercase()) {
-          "gpu" -> Backend.GPU()
-          "npu",
-          "tpu" -> Backend.NPU(nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir)
-          else -> Backend.CPU()
+
+      if (model.runtimeType == RuntimeType.PRIVATE_INFERENCE) {
+        val initStart = System.currentTimeMillis()
+        val initialized = ensureModelInitialized(model)
+        val initLatency = System.currentTimeMillis() - initStart
+        if (!initialized) {
+          Log.e(TAG, "Failed to initialize PI model for benchmark")
+          setRunning(running = false)
+          return@launch
         }
-      val modelPath = model.getPath(context = appContext)
-      for (i in 0 until runCount) {
-        Log.d(TAG, "Start running #$i...")
-        val benchmarkInfo =
-          benchmark(
-            modelPath = modelPath,
-            backend = backend,
-            prefillTokens = prefillTokens,
-            decodeTokens = decodeTokens,
-            cacheDir = cacheDirPath,
+        firstInitTime = initLatency.toDouble()
+
+        for (i in 0 until runCount) {
+          Log.d(TAG, "Start running PI benchmark #$i...")
+          val prompt = "a ".repeat(prefillTokens)
+
+          var outputText = ""
+          var done = false
+          var errorOccurred = false
+          var timeToFirstTokenVal = -1.0
+
+          try {
+            val latency =
+              suspendCancellableCoroutine<Long> { continuation ->
+                val startTime = System.currentTimeMillis()
+                model.runtimeHelper.runInference(
+                  model = model,
+                  input = prompt,
+                  images = emptyList(),
+                  audioClips = emptyList(),
+                  resultListener = { partial, isDone, _ ->
+                    if (partial.isNotEmpty() && timeToFirstTokenVal < 0) {
+                      timeToFirstTokenVal = (System.currentTimeMillis() - startTime) / 1000.0
+                    }
+                    if (isDone) {
+                      done = true
+                      continuation.resume(System.currentTimeMillis() - startTime)
+                    } else {
+                      outputText += partial
+                    }
+                  },
+                  cleanUpListener = {},
+                  onError = { errMsg ->
+                    Log.e(TAG, "PI benchmark run failed: $errMsg")
+                    errorOccurred = true
+                    continuation.resume(-1L)
+                  },
+                  coroutineScope = viewModelScope,
+                  extraContext = null,
+                )
+              }
+
+            if (errorOccurred || latency < 0) {
+              prefillSpeeds.add(0.0)
+              decodeSpeeds.add(0.0)
+              timesToFirstToken.add(0.0)
+              if (i > 0) nonFirstInitTimes.add(0.0)
+              continue
+            }
+
+            val outputTokens = outputText.split(Regex("\\s+")).filter { it.isNotEmpty() }.size * 1.3
+            val decodeSpeedVal = outputTokens / (latency / 1000.0)
+
+            prefillSpeeds.add(0.0)
+            decodeSpeeds.add(decodeSpeedVal)
+            timesToFirstToken.add(
+              if (timeToFirstTokenVal >= 0) timeToFirstTokenVal else latency / 1000.0
+            )
+            if (i > 0) {
+              nonFirstInitTimes.add(0.0)
+            }
+          } catch (e: Exception) {
+            Log.e(TAG, "Exception during PI benchmark run", e)
+            prefillSpeeds.add(0.0)
+            decodeSpeeds.add(0.0)
+            timesToFirstToken.add(0.0)
+            if (i > 0) nonFirstInitTimes.add(0.0)
+          }
+
+          setRunProgress(completedRunCount = i + 1)
+        }
+      } else {
+        // Create a temporary cache dir to run benchmark in.
+        val timestamp = System.currentTimeMillis()
+        var needCleanUpCacheDir = true
+        val benchmarkCacheDir = File(appContext.cacheDir, "benchmark_$timestamp")
+        var cacheDirPath = benchmarkCacheDir.absolutePath
+        if (!benchmarkCacheDir.mkdirs()) {
+          Log.e(
+            TAG,
+            "Failed to create benchmark cache directory: ${benchmarkCacheDir.absolutePath}",
           )
-        Log.d(TAG, "Done #$i")
-
-        val initTimeMs = benchmarkInfo.initTimeInSecond * 1000.0
-        if (i == 0) {
-          firstInitTime = initTimeMs
-        } else {
-          nonFirstInitTimes.add(initTimeMs)
+          cacheDirPath = appContext.cacheDir.absolutePath
+          needCleanUpCacheDir = false
         }
-        prefillSpeeds.add(benchmarkInfo.lastPrefillTokensPerSecond)
-        decodeSpeeds.add(benchmarkInfo.lastDecodeTokensPerSecond)
-        timesToFirstToken.add(benchmarkInfo.timeToFirstTokenInSecond)
+        Log.d(TAG, "Using benchmark cache dir: $cacheDirPath")
+        val backend: Backend =
+          when (accelerator.lowercase()) {
+            "gpu" -> Backend.GPU()
+            "npu",
+            "tpu" -> Backend.NPU(nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir)
+            else -> Backend.CPU()
+          }
+        val modelPath = model.getPath(context = appContext)
+        for (i in 0 until runCount) {
+          Log.d(TAG, "Start running #$i...")
+          val benchmarkInfo =
+            benchmark(
+              modelPath = modelPath,
+              backend = backend,
+              prefillTokens = prefillTokens,
+              decodeTokens = decodeTokens,
+              cacheDir = cacheDirPath,
+            )
+          Log.d(TAG, "Done #$i")
 
-        // Mark finish for this run.
-        setRunProgress(completedRunCount = i + 1)
+          val initTimeMs = benchmarkInfo.initTimeInSecond * 1000.0
+          if (i == 0) {
+            firstInitTime = initTimeMs
+          } else {
+            nonFirstInitTimes.add(initTimeMs)
+          }
+          prefillSpeeds.add(benchmarkInfo.lastPrefillTokensPerSecond)
+          decodeSpeeds.add(benchmarkInfo.lastDecodeTokensPerSecond)
+          timesToFirstToken.add(benchmarkInfo.timeToFirstTokenInSecond)
+
+          // Mark finish for this run.
+          setRunProgress(completedRunCount = i + 1)
+        }
+        if (needCleanUpCacheDir) {
+          benchmarkCacheDir.deleteRecursively()
+          Log.d(TAG, "Cleaned up benchmark cache dir: ${benchmarkCacheDir.absolutePath}")
+        }
       }
+
       val endMs = System.currentTimeMillis()
-      if (needCleanUpCacheDir) {
-        benchmarkCacheDir.deleteRecursively()
-        Log.d(TAG, "Cleaned up benchmark cache dir: ${benchmarkCacheDir.absolutePath}")
-      }
-
       // Create and add benchmark result.
       val basicInfo =
         LlmBenchmarkBasicInfo.newBuilder()
