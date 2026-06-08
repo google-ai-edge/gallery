@@ -840,10 +840,12 @@ constructor(
       val aicoreModels =
         uiState.value.tasks
           .flatMap { it.models }
-          .filter { it.runtimeType == RuntimeType.AICORE }
+          .filter {
+            it.runtimeType == RuntimeType.AICORE
+          }
           .distinctBy { it.name }
 
-      // Proactively attempt AICore model download upon app startup.
+      // Proactively attempt system-managed model download upon app startup.
       for (model in aicoreModels) {
         downloadModel(task = null, model = model)
       }
@@ -904,11 +906,12 @@ constructor(
         modelAllowlist = readModelAllowlistFromDisk(fileName = MODEL_ALLOWLIST_TEST_FILENAME)
 
         // Local test only.
-        if (TEST_MODEL_ALLOW_LIST.isNotEmpty()) {
+        val allowListToUse = TEST_MODEL_ALLOW_LIST
+        if (allowListToUse.isNotEmpty()) {
           Log.d(TAG, "Loading local model allowlist for testing.")
           val gson = Gson()
           try {
-            modelAllowlist = gson.fromJson(TEST_MODEL_ALLOW_LIST, ModelAllowlist::class.java)
+            modelAllowlist = gson.fromJson(allowListToUse, ModelAllowlist::class.java)
           } catch (e: JsonSyntaxException) {
             Log.e(TAG, "Failed to parse local test json", e)
           }
@@ -960,7 +963,9 @@ constructor(
             continue
           }
 
-          if (allowedModel.runtimeType == RuntimeType.AICORE && !isAICoreAvailable) {
+          val isSystemManaged =
+            allowedModel.runtimeType == RuntimeType.AICORE
+          if (isSystemManaged && !isAICoreAvailable) {
             continue
           }
 

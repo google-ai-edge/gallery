@@ -16,6 +16,8 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
+// BEGIN_INTERNAL
+// END_INTERNAL
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
@@ -26,6 +28,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.common.processLlmResponse
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.proto.AudioMessageProto
 import com.google.ai.edge.gallery.proto.ChatMessageProto
 import com.google.ai.edge.gallery.proto.ChatSessionProto
@@ -259,7 +262,8 @@ abstract class ChatViewModel(val userDataDataStore: DataStore<UserData>? = null)
     addItemDescription: String,
     customData: Any? = null,
   ) {
-    val accelerator = model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = "")
+    val accelerator =
+      model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = "")
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
     val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
 
