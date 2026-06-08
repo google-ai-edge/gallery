@@ -115,6 +115,7 @@ object AICoreModelHelper : LlmModelHelper {
             }
           }
           FeatureStatus.UNAVAILABLE -> {
+            logAICoreAccessDetails(context)
             onDone("Feature is unavailable on this device.")
           }
           else -> {
@@ -167,6 +168,7 @@ object AICoreModelHelper : LlmModelHelper {
             }
           }
           FeatureStatus.UNAVAILABLE -> {
+            logAICoreAccessDetails(context)
             onError("AICore model is unavailable on this device.")
           }
           else -> {
@@ -384,6 +386,45 @@ object AICoreModelHelper : LlmModelHelper {
       } else {
         ModelPreference.FAST
       }
+  }
+
+  private fun logAICoreAccessDetails(context: Context) {
+    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
+      Log.w(
+        TAG,
+        "AICore is not accessible: Android version is ${android.os.Build.VERSION.SDK_INT}. It requires at least Android T (API 33).",
+      )
+      return
+    }
+
+    val allowedPackages =
+      setOf(
+        "com.google.ai.edge.gallery",
+        "com.google.ai.edge.gallery.internal",
+        "com.google.ai.edge.gallery.dev",
+      )
+    val packageName = context.packageName
+    if (!allowedPackages.contains(packageName)) {
+      Log.w(
+        TAG,
+        "AICore is not accessible: Package name '$packageName' is not allowlisted in AICore. " +
+          "Allowed package names: $allowedPackages",
+      )
+    }
+
+    val isInstalled =
+      try {
+        context.packageManager.getPackageInfo("com.google.android.aicore", 0)
+        true
+      } catch (e: android.content.pm.PackageManager.NameNotFoundException) {
+        false
+      }
+    if (!isInstalled) {
+      Log.w(
+        TAG,
+        "AICore is not accessible: com.google.android.aicore is not installed on this device.",
+      )
+    }
   }
 
   private fun formatChatPrompt(chatHistory: List<AICoreChatMessage>, input: String): String =
