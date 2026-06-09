@@ -333,6 +333,7 @@ data class Model(
    */
   var latestModelFile: ModelFile? = null,
 ) {
+
   init {
     normalizedName = NORMALIZE_NAME_REGEX.replace(name, "_")
   }

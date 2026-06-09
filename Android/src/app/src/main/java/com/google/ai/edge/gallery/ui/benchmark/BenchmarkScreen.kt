@@ -16,6 +16,8 @@
 
 package com.google.ai.edge.gallery.ui.benchmark
 
+// BEGIN_INTERNAL
+// END_INTERNAL
 import android.os.Bundle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -72,6 +74,7 @@ import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.NumberSliderConfig
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.SegmentedButtonConfig
 import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.data.convertValueToTargetType
@@ -105,11 +108,13 @@ fun BenchmarkScreen(
   val configs =
     remember(selectedModel) {
       mutableStateListOf<Config>().apply {
+        val acceleratorOptions =
+          selectedModel.accelerators.map { it.label }
         add(
           SegmentedButtonConfig(
             key = ConfigKeys.ACCELERATOR,
-            defaultValue = selectedModel.accelerators.getOrNull(0)?.label ?: Accelerator.CPU.label,
-            options = selectedModel.accelerators.map { it.label },
+            defaultValue = acceleratorOptions.getOrNull(0) ?: Accelerator.CPU.label,
+            options = acceleratorOptions,
             allowMultiple = false,
           )
         )
