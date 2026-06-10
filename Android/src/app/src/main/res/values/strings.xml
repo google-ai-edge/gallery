@@ -16,373 +16,373 @@
 
 <resources>
   <!-- TODO(jingjin): Add translation support when i18n is ready. -->
-  <string name="about_this_update" translatable="false">About this update</string>
-  <string name="all" translatable="false">All</string>
-  <string name="add" translatable="false">Add</string>
-  <string name="added" translatable="false">Added</string>
-  <string name="add_audio" translatable="false">+Audio</string>
-  <string name="aicore_access_panel_title" translatable="false">You cannot access this model yet. Please follow the steps and return when complete.</string>
-  <string name="aicore_access_panel_button" translatable="false">Open guide</string>
-  <string name="aicore_image_limit_message" translatable="false">The current model can only support 1 image per chat. To ask about another image, create a new chat.</string>
-  <string name="aichat_initializing_title" translatable="false">Initializing model</string>
-  <string name="aichat_initializing_content" translatable="false">Sit tight, this can take up to 1 minute</string>
-  <string name="app_intro" translatable="false">Explore a world of amazing on-device models from</string>
-  <string name="app_name" translatable="false">Google AI Edge Gallery</string>
-  <string name="app_name_first_part" translatable="false">Google AI</string>
-  <string name="app_name_second_part" translatable="false">Edge Gallery</string>
-  <string name="askimage_emptystate_title" translatable="false">Ask Image</string>
-  <string name="askimage_emptystate_content" translatable="false">To get started, tap the + below to add an image (max 10 images per chat) and type a prompt to ask a question about it!</string>
-  <string name="askimage_emptystate_content_aicore" translatable="false">To get started, tap the + below to add an image (max 1 image per chat) and type a prompt to ask a question about it!</string>
-  <string name="askaudio_emptystate_title" translatable="false">Ask Audio</string>
-  <string name="askaudio_emptystate_content" translatable="false">To get started, tap the + below to add a audio clip (limited to 1 clip up to 30 seconds) and type a prompt to transcribe or translate it!</string>
-  <string name="gallery_news_notification_title" translatable="false">Gallery News</string>
-  <string name="baseline" translatable="false">Baseline</string>
-  <string name="basic_info" translatable="false">Basic info</string>
-  <string name="benchmark" translatable="false">Benchmark</string>
-  <string name="benchmark_comparison_help_title" translatable="false">How to compare benchmark runs</string>
-  <string name="benchmark_comparison_help_content" translatable="false">Compare benchmark runs by tapping the **Baseline** chip on any run result card to set the run as the comparison baseline. We\'ll automatically calculate and display the percentage differences in **all other** run result cards.</string>
-  <string name="benchmark_model" translatable="false">Benchmark model</string>
-  <string name="benchmark_results" translatable="false">Benchmark results</string>
-  <string name="benchmark_no_results" translatable="false">No benchmark results</string>
-  <string name="benchmark_tokens_limit_message" translatable="false">Ensure that the sum of prefill and decode tokens remains under the model\'s maximum token limit (%d vs %d)</string>
-  <string name="best_overall" translatable="false">Best overall</string>
-  <string name="model_list_experimental_label" translatable="false">EXPERIMENTAL</string>
-  <string name="cancel" translatable="false">Cancel</string>
-  <string name="category_unlabeled" translatable="false">Unlabeled</string>
-  <string name="category_llm" translatable="false">LLM</string>
-  <string name="category_agents" translatable="false">Agents</string>
-  <string name="category_classical_ml" translatable="false">Classical ML</string>
-  <string name="category_experimental" translatable="false">Experimental</string>
-  <string name="chat_textinput_placeholder" translatable="false">Type message…</string>
-  <string name="chat_you" translatable="false">You</string>
-  <string name="chat_llm_agent_name" translatable="false">LLM</string>
-  <string name="show_thinking" translatable="false">Show thinking</string>
-  <string name="checking_access" translatable="false">Checking access...</string>
-  <string name="close" translatable="false">Close</string>
-  <string name="collapse_all" translatable="false">Collapse all</string>
-  <string name="discard" translatable="false">Discard</string>
-  <string name="discard_changes_dialog_title" translatable="false">Discard changes?</string>
-  <string name="discard_changes_dialog_content" translatable="false">You have unsaved changes. Are you sure you want to discard them?</string>
-  <string name="delete_benchmark_result_dialog_title" translatable="false">Delete benchmark result</string>
-  <string name="delete_benchmark_result_dialog_content" translatable="false">Are you sure you want to delete the benchmark result?</string>
-  <string name="error" translatable="false">Error</string>
-  <string name="confirm_delete_model_dialog_title" translatable="false">Delete download</string>
-  <string name="confirm_delete_model_dialog_content" translatable="false">Are you sure you want to delete the downloaded model \"%s\"?</string>
-  <string name="conversation_reset_message" translatable="false">Conversation was reset</string>
-  <string name="engin_reset_message" translatable="false">Engine was reset</string>
-  <string name="chat_agent_agent_name" translatable="false">Agent</string>
-  <string name="chat_generic_agent_name" translatable="false">Model</string>
-  <string name="chat_generic_result_name" translatable="false">Result</string>
-  <string name="clear" translatable="false">Clear</string>
-  <string name="collect" translatable="false">Collect</string>
-  <string name="color" translatable="false">Color</string>
-  <string name="config_dialog_tab_model_configs" translatable="false">Model configs</string>
-  <string name="config_dialog_tab_system_prompt" translatable="false">System prompt</string>
-  <string name="continue_button_label" translatable="false">Continue</string>
-  <string name="conversation_history" translatable="false">Conversation History</string>
-  <string name="copy" translatable="false">Copy</string>
-  <string name="create" translatable="false">Create</string>
-  <string name="delete" translatable="false">Delete</string>
-  <string name="description_required" translatable="false">Description*</string>
-  <string name="disabled" translatable="false">Disabled</string>
-  <string name="dismiss" translatable="false">Dismiss</string>
-  <string name="done" translatable="false">Done</string>
-  <string name="download" translatable="false">Download</string>
-  <string name="downloaded_size" translatable="false">%1$s downloaded</string>
-  <string name="drawer_settings_label" translatable="false">Settings</string>
-  <string name="drawer_settings_description" translatable="false">Manage application settings</string>
-  <string name="drawer_models_label" translatable="false">Models</string>
-  <string name="drawer_models_description" translatable="false">Browse, try, and benchmark models</string>
-  <string name="drawer_notifications_label" translatable="false">Notifications</string>
-  <string name="drawer_notifications_description" translatable="false">View scheduled notifications</string>
-  <string name="notifications_title" translatable="false">Notifications</string>
-  <string name="notifications_empty_state" translatable="false">No scheduled notifications</string>
-  <string name="notifications_delete_dialog_title" translatable="false">Delete Notification</string>
-  <string name="notifications_delete_dialog_content" translatable="false">Are you sure you want to delete the scheduled notification \"%s\"?</string>
-  <string name="notifications_time_label" translatable="false">Time: %s</string>
-  <string name="notifications_date_label" translatable="false">Date: %s</string>
-  <string name="notifications_repeat_daily" translatable="false">Daily</string>
-  <string name="notifications_repeat_one_time" translatable="false">One-time</string>
-  <string name="edit" translatable="false">Edit</string>
-  <string name="edit_secret" translatable="false">Edit secret</string>
-  <string name="enter_instruction" translatable="false">Enter instruction</string>
-  <string name="expand_all" translatable="false">Expand all</string>
-  <string name="failed_to_save" translatable="false">Failed to save</string>
-  <string name="flashlight_off_message" translatable="false">I\'ve turned off the flashlight.</string>
-  <string name="flashlight_on_message" translatable="false">I\'ve turned on the flashlight.</string>
-  <string name="function_name" translatable="false">Function name</string>
-  <string name="generate_and_copy" translatable="false">Generate and copy</string>
-  <string name="grant_permissions" translatable="false">Grant permissions</string>
-  <string name="grant_record_audio_permission" translatable="false">Grant record audio permission</string>
-  <string name="hold_down_to_talk" translatable="false">Hold to talk</string>
-  <string name="input_history" translatable="false">Input history</string>
-  <string name="instructions" translatable="false">Instructions</string>
-  <string name="introducing" translatable="false">Introducing</string>
-  <string name="invalid_response" translatable="false">Invalid response</string>
-  <string name="learn_more" translatable="false">Learn more and see model license</string>
-  <string name="listening" translatable="false">Listening...</string>
-  <string name="litert_community_label" translatable="false">LiteRT community</string>
-  <string name="loading_model_list" translatable="false">Loading model list...</string>
-  <string name="logs_viewer_filter_text_input_placeholder" translatable="false">Filter logs</string>
-  <string name="logs_viewer_title" translatable="false">Logs viewer</string>
-  <string name="logs_viewer_no_matching_logs" translatable="false">No logs match the filter</string>
-  <string name="memory_warning_content" translatable="false">The model you\'ve selected may exceed your device\'s memory, which can cause the app to crash. For the best experience, we recommend trying a smaller model.</string>
-  <string name="memory_warning_proceed_anyway" translatable="false">Proceed anyway</string>
-  <string name="memory_warning_title" translatable="false">Memory Warning</string>
-  <string name="max_tokens_warning_message" translatable="false">Setting max tokens above 10000 may cause app to be unstable.</string>
-  <string name="model_is_initializing_msg" translatable="false">Initializing model…</string>
-  <string name="model_list_imported_models_title" translatable="false">Imported models</string>
-  <plurals name="model_list_number_of_models_available" translatable="false">
+  <string name="about_this_update" translatable="true">About this update</string>
+  <string name="all" translatable="true">All</string>
+  <string name="add" translatable="true">Add</string>
+  <string name="added" translatable="true">Added</string>
+  <string name="add_audio" translatable="true">+Audio</string>
+  <string name="aicore_access_panel_title" translatable="true">You cannot access this model yet. Please follow the steps and return when complete.</string>
+  <string name="aicore_access_panel_button" translatable="true">Open guide</string>
+  <string name="aicore_image_limit_message" translatable="true">The current model can only support 1 image per chat. To ask about another image, create a new chat.</string>
+  <string name="aichat_initializing_title" translatable="true">Initializing model</string>
+  <string name="aichat_initializing_content" translatable="true">Sit tight, this can take up to 1 minute</string>
+  <string name="app_intro" translatable="true">Explore a world of amazing on-device models from</string>
+  <string name="app_name" translatable="true">Google AI Edge Gallery</string>
+  <string name="app_name_first_part" translatable="true">Google AI</string>
+  <string name="app_name_second_part" translatable="true">Edge Gallery</string>
+  <string name="askimage_emptystate_title" translatable="true">Ask Image</string>
+  <string name="askimage_emptystate_content" translatable="true">To get started, tap the + below to add an image (max 10 images per chat) and type a prompt to ask a question about it!</string>
+  <string name="askimage_emptystate_content_aicore" translatable="true">To get started, tap the + below to add an image (max 1 image per chat) and type a prompt to ask a question about it!</string>
+  <string name="askaudio_emptystate_title" translatable="true">Ask Audio</string>
+  <string name="askaudio_emptystate_content" translatable="true">To get started, tap the + below to add a audio clip (limited to 1 clip up to 30 seconds) and type a prompt to transcribe or translate it!</string>
+  <string name="gallery_news_notification_title" translatable="true">Gallery News</string>
+  <string name="baseline" translatable="true">Baseline</string>
+  <string name="basic_info" translatable="true">Basic info</string>
+  <string name="benchmark" translatable="true">Benchmark</string>
+  <string name="benchmark_comparison_help_title" translatable="true">How to compare benchmark runs</string>
+  <string name="benchmark_comparison_help_content" translatable="true">Compare benchmark runs by tapping the **Baseline** chip on any run result card to set the run as the comparison baseline. We\'ll automatically calculate and display the percentage differences in **all other** run result cards.</string>
+  <string name="benchmark_model" translatable="true">Benchmark model</string>
+  <string name="benchmark_results" translatable="true">Benchmark results</string>
+  <string name="benchmark_no_results" translatable="true">No benchmark results</string>
+  <string name="benchmark_tokens_limit_message" translatable="true">Ensure that the sum of prefill and decode tokens remains under the model\'s maximum token limit (%d vs %d)</string>
+  <string name="best_overall" translatable="true">Best overall</string>
+  <string name="model_list_experimental_label" translatable="true">EXPERIMENTAL</string>
+  <string name="cancel" translatable="true">Cancel</string>
+  <string name="category_unlabeled" translatable="true">Unlabeled</string>
+  <string name="category_llm" translatable="true">LLM</string>
+  <string name="category_agents" translatable="true">Agents</string>
+  <string name="category_classical_ml" translatable="true">Classical ML</string>
+  <string name="category_experimental" translatable="true">Experimental</string>
+  <string name="chat_textinput_placeholder" translatable="true">Type message…</string>
+  <string name="chat_you" translatable="true">You</string>
+  <string name="chat_llm_agent_name" translatable="true">LLM</string>
+  <string name="show_thinking" translatable="true">Show thinking</string>
+  <string name="checking_access" translatable="true">Checking access...</string>
+  <string name="close" translatable="true">Close</string>
+  <string name="collapse_all" translatable="true">Collapse all</string>
+  <string name="discard" translatable="true">Discard</string>
+  <string name="discard_changes_dialog_title" translatable="true">Discard changes?</string>
+  <string name="discard_changes_dialog_content" translatable="true">You have unsaved changes. Are you sure you want to discard them?</string>
+  <string name="delete_benchmark_result_dialog_title" translatable="true">Delete benchmark result</string>
+  <string name="delete_benchmark_result_dialog_content" translatable="true">Are you sure you want to delete the benchmark result?</string>
+  <string name="error" translatable="true">Error</string>
+  <string name="confirm_delete_model_dialog_title" translatable="true">Delete download</string>
+  <string name="confirm_delete_model_dialog_content" translatable="true">Are you sure you want to delete the downloaded model \"%s\"?</string>
+  <string name="conversation_reset_message" translatable="true">Conversation was reset</string>
+  <string name="engin_reset_message" translatable="true">Engine was reset</string>
+  <string name="chat_agent_agent_name" translatable="true">Agent</string>
+  <string name="chat_generic_agent_name" translatable="true">Model</string>
+  <string name="chat_generic_result_name" translatable="true">Result</string>
+  <string name="clear" translatable="true">Clear</string>
+  <string name="collect" translatable="true">Collect</string>
+  <string name="color" translatable="true">Color</string>
+  <string name="config_dialog_tab_model_configs" translatable="true">Model configs</string>
+  <string name="config_dialog_tab_system_prompt" translatable="true">System prompt</string>
+  <string name="continue_button_label" translatable="true">Continue</string>
+  <string name="conversation_history" translatable="true">Conversation History</string>
+  <string name="copy" translatable="true">Copy</string>
+  <string name="create" translatable="true">Create</string>
+  <string name="delete" translatable="true">Delete</string>
+  <string name="description_required" translatable="true">Description*</string>
+  <string name="disabled" translatable="true">Disabled</string>
+  <string name="dismiss" translatable="true">Dismiss</string>
+  <string name="done" translatable="true">Done</string>
+  <string name="download" translatable="true">Download</string>
+  <string name="downloaded_size" translatable="true">%1$s downloaded</string>
+  <string name="drawer_settings_label" translatable="true">Settings</string>
+  <string name="drawer_settings_description" translatable="true">Manage application settings</string>
+  <string name="drawer_models_label" translatable="true">Models</string>
+  <string name="drawer_models_description" translatable="true">Browse, try, and benchmark models</string>
+  <string name="drawer_notifications_label" translatable="true">Notifications</string>
+  <string name="drawer_notifications_description" translatable="true">View scheduled notifications</string>
+  <string name="notifications_title" translatable="true">Notifications</string>
+  <string name="notifications_empty_state" translatable="true">No scheduled notifications</string>
+  <string name="notifications_delete_dialog_title" translatable="true">Delete Notification</string>
+  <string name="notifications_delete_dialog_content" translatable="true">Are you sure you want to delete the scheduled notification \"%s\"?</string>
+  <string name="notifications_time_label" translatable="true">Time: %s</string>
+  <string name="notifications_date_label" translatable="true">Date: %s</string>
+  <string name="notifications_repeat_daily" translatable="true">Daily</string>
+  <string name="notifications_repeat_one_time" translatable="true">One-time</string>
+  <string name="edit" translatable="true">Edit</string>
+  <string name="edit_secret" translatable="true">Edit secret</string>
+  <string name="enter_instruction" translatable="true">Enter instruction</string>
+  <string name="expand_all" translatable="true">Expand all</string>
+  <string name="failed_to_save" translatable="true">Failed to save</string>
+  <string name="flashlight_off_message" translatable="true">I\'ve turned off the flashlight.</string>
+  <string name="flashlight_on_message" translatable="true">I\'ve turned on the flashlight.</string>
+  <string name="function_name" translatable="true">Function name</string>
+  <string name="generate_and_copy" translatable="true">Generate and copy</string>
+  <string name="grant_permissions" translatable="true">Grant permissions</string>
+  <string name="grant_record_audio_permission" translatable="true">Grant record audio permission</string>
+  <string name="hold_down_to_talk" translatable="true">Hold to talk</string>
+  <string name="input_history" translatable="true">Input history</string>
+  <string name="instructions" translatable="true">Instructions</string>
+  <string name="introducing" translatable="true">Introducing</string>
+  <string name="invalid_response" translatable="true">Invalid response</string>
+  <string name="learn_more" translatable="true">Learn more and see model license</string>
+  <string name="listening" translatable="true">Listening...</string>
+  <string name="litert_community_label" translatable="true">LiteRT community</string>
+  <string name="loading_model_list" translatable="true">Loading model list...</string>
+  <string name="logs_viewer_filter_text_input_placeholder" translatable="true">Filter logs</string>
+  <string name="logs_viewer_title" translatable="true">Logs viewer</string>
+  <string name="logs_viewer_no_matching_logs" translatable="true">No logs match the filter</string>
+  <string name="memory_warning_content" translatable="true">The model you\'ve selected may exceed your device\'s memory, which can cause the app to crash. For the best experience, we recommend trying a smaller model.</string>
+  <string name="memory_warning_proceed_anyway" translatable="true">Proceed anyway</string>
+  <string name="memory_warning_title" translatable="true">Memory Warning</string>
+  <string name="max_tokens_warning_message" translatable="true">Setting max tokens above 10000 may cause app to be unstable.</string>
+  <string name="model_is_initializing_msg" translatable="true">Initializing model…</string>
+  <string name="model_list_imported_models_title" translatable="true">Imported models</string>
+  <plurals name="model_list_number_of_models_available" translatable="true">
     <item quantity="one">%d model available</item>
     <item quantity="other">%d models available</item>
   </plurals>
-  <string name="model_list_recommended_models_title" translatable="false">Recommended models</string>
-  <string name="model_manager" translatable="false">Model Manager</string>
-  <string name="model_manager_select_task_title" translatable="false">Select a use case to try</string>
-  <string name="model_not_downloaded_msg" translatable="false">Model not downloaded yet</string>
-  <string name="name" translatable="false">Name</string>
-  <string name="no_cutouts_collected" translatable="false">No cutouts collected</string>
-  <string name="notification_content_fail" translatable="false">Failed to download model "%s"</string>
-  <string name="notification_content_success" translatable="false">Model "%s" has been downloaded</string>
-  <string name="notification_title_fail" translatable="false">Model download failed</string>
-  <string name="notification_title_success" translatable="false">Model download succeeded</string>
-  <string name="ok" translatable="false">OK</string>
-  <string name="paste_from_clipboard" translatable="false">Paste from clipboard</string>
-  <string name="pick_from_album" translatable="false">Pick from album</string>
-  <string name="preview" translatable="false">Preview</string>
-  <string name="release_to_send" translatable="false">Release to send</string>
-  <string name="replace" translatable="false">Replace</string>
-  <string name="results" translatable="false">Results</string>
-  <string name="reset" translatable="false">Reset</string>
-  <string name="reset_note" translatable="false">Tapping \"Reset\" will reset LiteRT-LM engine only. The game progress won\'t be affected.</string>
-  <string name="resetting_engine" translatable="false">Resetting engine...</string>
-  <string name="restore_default" translatable="false">Restore default</string>
-  <string name="reinitializing_description" translatable="false">The game progress won\'t be affected</string>
-  <string name="run" translatable="false">Run</string>
-  <string name="running" translatable="false">Running...</string>
-  <plurals name="runs" translatable="false">
+  <string name="model_list_recommended_models_title" translatable="true">Recommended models</string>
+  <string name="model_manager" translatable="true">Model Manager</string>
+  <string name="model_manager_select_task_title" translatable="true">Select a use case to try</string>
+  <string name="model_not_downloaded_msg" translatable="true">Model not downloaded yet</string>
+  <string name="name" translatable="true">Name</string>
+  <string name="no_cutouts_collected" translatable="true">No cutouts collected</string>
+  <string name="notification_content_fail" translatable="true">Failed to download model "%s"</string>
+  <string name="notification_content_success" translatable="true">Model "%s" has been downloaded</string>
+  <string name="notification_title_fail" translatable="true">Model download failed</string>
+  <string name="notification_title_success" translatable="true">Model download succeeded</string>
+  <string name="ok" translatable="true">OK</string>
+  <string name="paste_from_clipboard" translatable="true">Paste from clipboard</string>
+  <string name="pick_from_album" translatable="true">Pick from album</string>
+  <string name="preview" translatable="true">Preview</string>
+  <string name="release_to_send" translatable="true">Release to send</string>
+  <string name="replace" translatable="true">Replace</string>
+  <string name="results" translatable="true">Results</string>
+  <string name="reset" translatable="true">Reset</string>
+  <string name="reset_note" translatable="true">Tapping \"Reset\" will reset LiteRT-LM engine only. The game progress won\'t be affected.</string>
+  <string name="resetting_engine" translatable="true">Resetting engine...</string>
+  <string name="restore_default" translatable="true">Restore default</string>
+  <string name="reinitializing_description" translatable="true">The game progress won\'t be affected</string>
+  <string name="run" translatable="true">Run</string>
+  <string name="running" translatable="true">Running...</string>
+  <plurals name="runs" translatable="true">
     <item quantity="one">%d run</item>
     <item quantity="other">%d runs</item>
   </plurals>
-  <string name="run_again" translatable="false">Run again</string>
-  <string name="run_benchmark" translatable="false">Run benchmark</string>
-  <string name="run_benchmark_confirmation_msg" translatable="false">This process typically takes several minutes and cannot be interrupted once started. Would you like to proceed?</string>
-  <string name="running_benchmark_msg" translatable="false">Running model benchmark...</string>
-  <string name="save" translatable="false">Save</string>
-  <string name="secret" translatable="false">Secret</string>
-  <string name="select_downloaded_model" translatable="false">Select a downloaded model</string>
-  <string name="select_model" translatable="false">Select a model</string>
-  <string name="selected_count" translatable="false">%d selected</string>
-  <string name="settings_dialog_tos_title" translatable="false">Terms of service</string>
-  <string name="settings_dialog_view_app_terms_of_service" translatable="false">View App Terms of Service</string>
-  <string name="settings_dialog_gemma_prohibited_use_policy" translatable="false">Gemma Prohibited Use Policy</string>
-  <string name="share" translatable="false">Share</string>
-  <string name="slide_up_to_cancel" translatable="false">Slide up to cancel</string>
-  <string name="system_prompt_placeholder" translatable="false">Enter system instructions (e.g., \"You are a versatile assistant. Provide accurate, context-aware responses in a professional tone.\")</string>
-  <string name="system_prompt_updated" translatable="false">System prompt updated</string>
-  <string name="submit" translatable="false">Submit</string>
-  <string name="take_a_picture" translatable="false">Take a picture</string>
-  <string name="tap_to_change_color" translatable="false">Tap to change color</string>
-  <string name="tap_to_see_value" translatable="false">Tap on graph to see value</string>
-  <string name="test" translatable="false">Test</string>
-  <string name="text_image_generation_text_field_placeholder" translatable="false">Type prompt…</string>
-  <string name="text_input_placeholder_llm_chat" translatable="false">Type prompt…</string>
-  <string name="tos_dialog_title_app" translatable="false">Welcome to Google AI Edge Gallery</string>
-  <string name="tos_dialog_title_gemma" translatable="false">Gemma Terms of Use</string>
-  <string name="tos_dialog_accept_and_continue_button_label" translatable="false">Accept &amp; continue</string>
-  <string name="tos_dialog_agree_and_continue_button_label" translatable="false">Agree &amp; continue</string>
-  <string name="try_it" translatable="false">Try it</string>
-  <string name="turn_on_all" translatable="false">Turn on all</string>
-  <string name="turn_off_all" translatable="false">Turn off all</string>
-  <string name="undo" translatable="false">Undo</string>
-  <string name="use" translatable="false">Use</string>
-  <string name="unsupported_action" translatable="false">Unsupported action</string>
-  <string name="set_screen_brightness_message" translatable="false">I\'ve set the screen brightness to %1$d%%.</string>
-  <string name="set_timer_message" translatable="false">Setting the timer for %1$d seconds.</string>
-  <string name="add_calendar_event_message" translatable="false">Adding \"Team meeting (10AM-11AM)\" to your calendar.</string>
-  <string name="take_picture_message" translatable="false">Opening the camera app.</string>
-  <string name="mobile_actions_title" translatable="false">Mobile Actions</string>
-  <string name="mobile_actions_description" translatable="false">Control your device with simple commands</string>
-  <string name="mobile_actions_supported_actions" translatable="false">Supported sample actions:</string>
-  <string name="mobile_actions_tab_model_response" translatable="false">Model response</string>
-  <string name="mobile_actions_tab_function_called" translatable="false">Function(s) called</string>
-  <string name="update" translatable="false">Update</string>
-  <string name="update_available" translatable="false">Update available</string>
-  <string name="view_results" translatable="false">View results</string>
-  <string name="view_console_logs" translatable="false">View console logs</string>
-  <string name="warming_up" translatable="false">warming up…</string>
-  <string name="warning_no_function_call" translatable="false">I could not quite understand that. Could you try again with more specific details?</string>
-  <string name="snackbar_no_function_call" translatable="false">No function recognized</string>
-  <string name="unknown_error" translatable="false">Unknown error</string>
-  <string name="view" translatable="false">View</string>
-  <string name="view_in_full_screen" translatable="false">View in full screen</string>
-  <string name="snackbar_save_to_album_success" translatable="false">Saved to photo album</string>
-  <string name="snackbar_save_to_album_failed" translatable="false">Failed to save to photo album</string>
-  <string name="snackbar_copy_to_clipboard_success" translatable="false">Copied to clipboard</string>
+  <string name="run_again" translatable="true">Run again</string>
+  <string name="run_benchmark" translatable="true">Run benchmark</string>
+  <string name="run_benchmark_confirmation_msg" translatable="true">This process typically takes several minutes and cannot be interrupted once started. Would you like to proceed?</string>
+  <string name="running_benchmark_msg" translatable="true">Running model benchmark...</string>
+  <string name="save" translatable="true">Save</string>
+  <string name="secret" translatable="true">Secret</string>
+  <string name="select_downloaded_model" translatable="true">Select a downloaded model</string>
+  <string name="select_model" translatable="true">Select a model</string>
+  <string name="selected_count" translatable="true">%d selected</string>
+  <string name="settings_dialog_tos_title" translatable="true">Terms of service</string>
+  <string name="settings_dialog_view_app_terms_of_service" translatable="true">View App Terms of Service</string>
+  <string name="settings_dialog_gemma_prohibited_use_policy" translatable="true">Gemma Prohibited Use Policy</string>
+  <string name="share" translatable="true">Share</string>
+  <string name="slide_up_to_cancel" translatable="true">Slide up to cancel</string>
+  <string name="system_prompt_placeholder" translatable="true">Enter system instructions (e.g., \"You are a versatile assistant. Provide accurate, context-aware responses in a professional tone.\")</string>
+  <string name="system_prompt_updated" translatable="true">System prompt updated</string>
+  <string name="submit" translatable="true">Submit</string>
+  <string name="take_a_picture" translatable="true">Take a picture</string>
+  <string name="tap_to_change_color" translatable="true">Tap to change color</string>
+  <string name="tap_to_see_value" translatable="true">Tap on graph to see value</string>
+  <string name="test" translatable="true">Test</string>
+  <string name="text_image_generation_text_field_placeholder" translatable="true">Type prompt…</string>
+  <string name="text_input_placeholder_llm_chat" translatable="true">Type prompt…</string>
+  <string name="tos_dialog_title_app" translatable="true">Welcome to Google AI Edge Gallery</string>
+  <string name="tos_dialog_title_gemma" translatable="true">Gemma Terms of Use</string>
+  <string name="tos_dialog_accept_and_continue_button_label" translatable="true">Accept &amp; continue</string>
+  <string name="tos_dialog_agree_and_continue_button_label" translatable="true">Agree &amp; continue</string>
+  <string name="try_it" translatable="true">Try it</string>
+  <string name="turn_on_all" translatable="true">Turn on all</string>
+  <string name="turn_off_all" translatable="true">Turn off all</string>
+  <string name="undo" translatable="true">Undo</string>
+  <string name="use" translatable="true">Use</string>
+  <string name="unsupported_action" translatable="true">Unsupported action</string>
+  <string name="set_screen_brightness_message" translatable="true">I\'ve set the screen brightness to %1$d%%.</string>
+  <string name="set_timer_message" translatable="true">Setting the timer for %1$d seconds.</string>
+  <string name="add_calendar_event_message" translatable="true">Adding \"Team meeting (10AM-11AM)\" to your calendar.</string>
+  <string name="take_picture_message" translatable="true">Opening the camera app.</string>
+  <string name="mobile_actions_title" translatable="true">Mobile Actions</string>
+  <string name="mobile_actions_description" translatable="true">Control your device with simple commands</string>
+  <string name="mobile_actions_supported_actions" translatable="true">Supported sample actions:</string>
+  <string name="mobile_actions_tab_model_response" translatable="true">Model response</string>
+  <string name="mobile_actions_tab_function_called" translatable="true">Function(s) called</string>
+  <string name="update" translatable="true">Update</string>
+  <string name="update_available" translatable="true">Update available</string>
+  <string name="view_results" translatable="true">View results</string>
+  <string name="view_console_logs" translatable="true">View console logs</string>
+  <string name="warming_up" translatable="true">warming up…</string>
+  <string name="warning_no_function_call" translatable="true">I could not quite understand that. Could you try again with more specific details?</string>
+  <string name="snackbar_no_function_call" translatable="true">No function recognized</string>
+  <string name="unknown_error" translatable="true">Unknown error</string>
+  <string name="view" translatable="true">View</string>
+  <string name="view_in_full_screen" translatable="true">View in full screen</string>
+  <string name="snackbar_save_to_album_success" translatable="true">Saved to photo album</string>
+  <string name="snackbar_save_to_album_failed" translatable="true">Failed to save to photo album</string>
+  <string name="snackbar_copy_to_clipboard_success" translatable="true">Copied to clipboard</string>
 
-  <plurals name="parameter" translatable="false">
+  <plurals name="parameter" translatable="true">
     <item quantity="one">Parameter</item>
     <item quantity="other">Parameters</item>
   </plurals>
-  <string name="prompt_template_label_flash_on_off" translatable="false">Turn flashlight on/off</string>
-  <string name="prompt_template_label_flash_on" translatable="false">Flashlight on</string>
-  <string name="prompt_template_label_flash_off" translatable="false">Flashlight off</string>
-  <string name="prompt_template_label_create_contact" translatable="false">Create contact</string>
-  <string name="prompt_template_label_send_email" translatable="false">Send email</string>
-  <string name="prompt_template_label_create_calendar_event" translatable="false">Create calendar event</string>
-  <string name="prompt_template_label_show_location_on_map" translatable="false">Show location on map</string>
-  <string name="prompt_template_label_open_wifi_settings" translatable="false">Open WIFI settings</string>
+  <string name="prompt_template_label_flash_on_off" translatable="true">Turn flashlight on/off</string>
+  <string name="prompt_template_label_flash_on" translatable="true">Flashlight on</string>
+  <string name="prompt_template_label_flash_off" translatable="true">Flashlight off</string>
+  <string name="prompt_template_label_create_contact" translatable="true">Create contact</string>
+  <string name="prompt_template_label_send_email" translatable="true">Send email</string>
+  <string name="prompt_template_label_create_calendar_event" translatable="true">Create calendar event</string>
+  <string name="prompt_template_label_show_location_on_map" translatable="true">Show location on map</string>
+  <string name="prompt_template_label_open_wifi_settings" translatable="true">Open WIFI settings</string>
 
   <!-- Strings for MobileActionsChallengeDialog -->
-  <string name="mobile_actions_challenge_title" translatable="false">Mobile Actions Finetune Challenge</string>
-  <string name="mobile_actions_challenge_subtitle" translatable="false">Build it to play it!</string>
-  <string name="mobile_actions_challenge_description" translatable="false">This demo is locked. To unlock the Mobile Actions agent, you need to compile the model yourself using our open-source recipe.</string>
-  <string name="mobile_actions_challenge_instructions_title" translatable="false">Instructions:</string>
-  <string name="mobile_actions_challenge_instruction_1" translatable="false">1. <![CDATA[<b>On your computer</b>]]>, open <![CDATA[<a href="https://ai.google.dev/gemma/docs/mobile-actions">this guide</a>]]></string>
-  <string name="mobile_actions_challenge_instruction_2" translatable="false">2. Follow the instructions to fine tune the model and convert it to .litertlm format.</string>
-  <string name="mobile_actions_challenge_instruction_3" translatable="false">3. Transfer the file to this phone.</string>
-  <string name="mobile_actions_challenge_instruction_4" translatable="false">4. Tap <![CDATA[<b>Load Model</b>]]> below to unlock the demo.</string>
-  <string name="mobile_actions_challenge_email_colab" translatable="false">Email guide to myself</string>
-  <string name="mobile_actions_challenge_load_model" translatable="false">Load Model</string>
+  <string name="mobile_actions_challenge_title" translatable="true">Mobile Actions Finetune Challenge</string>
+  <string name="mobile_actions_challenge_subtitle" translatable="true">Build it to play it!</string>
+  <string name="mobile_actions_challenge_description" translatable="true">This demo is locked. To unlock the Mobile Actions agent, you need to compile the model yourself using our open-source recipe.</string>
+  <string name="mobile_actions_challenge_instructions_title" translatable="true">Instructions:</string>
+  <string name="mobile_actions_challenge_instruction_1" translatable="true">1. <![CDATA[<b>On your computer</b>]]>, open <![CDATA[<a href="https://ai.google.dev/gemma/docs/mobile-actions">this guide</a>]]></string>
+  <string name="mobile_actions_challenge_instruction_2" translatable="true">2. Follow the instructions to fine tune the model and convert it to .litertlm format.</string>
+  <string name="mobile_actions_challenge_instruction_3" translatable="true">3. Transfer the file to this phone.</string>
+  <string name="mobile_actions_challenge_instruction_4" translatable="true">4. Tap <![CDATA[<b>Load Model</b>]]> below to unlock the demo.</string>
+  <string name="mobile_actions_challenge_email_colab" translatable="true">Email guide to myself</string>
+  <string name="mobile_actions_challenge_load_model" translatable="true">Load Model</string>
 
   <!-- Strings for skills -->
-  <string name="aichat_emptystate_title" translatable="false">AI Chat</string>
-  <string name="aichat_emptystate_content" translatable="false">Chat with on-device large language models.</string>
-  <string name="add_script" translatable="false">Add script</string>
-  <string name="add_default_script" translatable="false">Add default script</string>
-  <string name="add_skill" translatable="false">Add skill</string>
-  <string name="add_skill_option_view_community_skills_title" translatable="false">View Community Skills</string>
-  <string name="add_skill_option_view_community_skills_description" translatable="false">Explore community contributed skills on GitHub discussions</string>
-  <string name="add_skill_option_featured_list_title" translatable="false">Add skill from featured list</string>
-  <string name="add_skill_option_featured_list_description" translatable="false">Add a skill from a curated list of community contributed skills</string>
-  <string name="add_skill_option_url_title" translatable="false">Load skill from URL</string>
-  <string name="add_skill_option_url_description" translatable="false">Enter the URL of a skill directory hosted on Web</string>
-  <string name="add_skill_option_local_title" translatable="false">Import local skill</string>
-  <string name="add_skill_option_local_description" translatable="false">Import the skill directory locally</string>
-  <string name="add_skill_option_skill_creator_title" translatable="false">Skill creator</string>
-  <string name="add_skill_option_skill_creator_description" translatable="false">Create a skill from scratch in-app</string>
-  <string name="add_skill_from_url_dialog_title" translatable="false">Add skill from URL</string>
-  <string name="add_skill_dialog_title_from_local_import" translatable="false">Import local skill</string>
-  <string name="add_skill_dialog_subtitle_from_local_import" translatable="false">Please first \"adb push\" the whole skill directory to /sdcard/Download</string>
-  <string name="add_skill_manual_input_sheet_title" translatable="false">Create a skill</string>
-  <string name="agent_skills" translatable="false">Agent Skills</string>
-  <string name="disclaimer_dialog_content" translatable="false">Third-party skills are not authored or endorsed by Google. Google is not responsible for their contents, security, or data handling practices.\n\nPlease exercise caution before providing sensitive information, such as personal identification, tokens, or API keys.\n\nAny use of an Agent Skill is subject to the applicable terms for that Skill.</string>
-  <string name="disclaimer_dialog_title" translatable="false">Add third-party skill</string>
-  <string name="disclaimer_dialog_agree" translatable="false">Agree</string>
-  <string name="delete_script_dialog_title" translatable="false">Delete script</string>
-  <string name="delete_skill_dialog_title" translatable="false">Delete skill</string>
-  <string name="delete_skill_dialog_content" translatable="false">Are you sure you want to delete the skill?</string>
-  <string name="delete_selected_skills_title" translatable="false">Delete selected skills</string>
-  <plurals name="delete_selected_skills_content" translatable="false">
+  <string name="aichat_emptystate_title" translatable="true">AI Chat</string>
+  <string name="aichat_emptystate_content" translatable="true">Chat with on-device large language models.</string>
+  <string name="add_script" translatable="true">Add script</string>
+  <string name="add_default_script" translatable="true">Add default script</string>
+  <string name="add_skill" translatable="true">Add skill</string>
+  <string name="add_skill_option_view_community_skills_title" translatable="true">View Community Skills</string>
+  <string name="add_skill_option_view_community_skills_description" translatable="true">Explore community contributed skills on GitHub discussions</string>
+  <string name="add_skill_option_featured_list_title" translatable="true">Add skill from featured list</string>
+  <string name="add_skill_option_featured_list_description" translatable="true">Add a skill from a curated list of community contributed skills</string>
+  <string name="add_skill_option_url_title" translatable="true">Load skill from URL</string>
+  <string name="add_skill_option_url_description" translatable="true">Enter the URL of a skill directory hosted on Web</string>
+  <string name="add_skill_option_local_title" translatable="true">Import local skill</string>
+  <string name="add_skill_option_local_description" translatable="true">Import the skill directory locally</string>
+  <string name="add_skill_option_skill_creator_title" translatable="true">Skill creator</string>
+  <string name="add_skill_option_skill_creator_description" translatable="true">Create a skill from scratch in-app</string>
+  <string name="add_skill_from_url_dialog_title" translatable="true">Add skill from URL</string>
+  <string name="add_skill_dialog_title_from_local_import" translatable="true">Import local skill</string>
+  <string name="add_skill_dialog_subtitle_from_local_import" translatable="true">Please first \"adb push\" the whole skill directory to /sdcard/Download</string>
+  <string name="add_skill_manual_input_sheet_title" translatable="true">Create a skill</string>
+  <string name="agent_skills" translatable="true">Agent Skills</string>
+  <string name="disclaimer_dialog_content" translatable="true">Third-party skills are not authored or endorsed by Google. Google is not responsible for their contents, security, or data handling practices.\n\nPlease exercise caution before providing sensitive information, such as personal identification, tokens, or API keys.\n\nAny use of an Agent Skill is subject to the applicable terms for that Skill.</string>
+  <string name="disclaimer_dialog_title" translatable="true">Add third-party skill</string>
+  <string name="disclaimer_dialog_agree" translatable="true">Agree</string>
+  <string name="delete_script_dialog_title" translatable="true">Delete script</string>
+  <string name="delete_skill_dialog_title" translatable="true">Delete skill</string>
+  <string name="delete_skill_dialog_content" translatable="true">Are you sure you want to delete the skill?</string>
+  <string name="delete_selected_skills_title" translatable="true">Delete selected skills</string>
+  <plurals name="delete_selected_skills_content" translatable="true">
     <item quantity="one">Are you sure you want to delete %d skill?</item>
     <item quantity="other">Are you sure you want to delete %d skills?</item>
   </plurals>
-  <plurals name="selected_custom_skills_count" translatable="false">
+  <plurals name="selected_custom_skills_count" translatable="true">
     <item quantity="one">%d selected</item>
     <item quantity="other">%d selected</item>
   </plurals>
-  <string name="built_in_skills_title" translatable="false">Built-in Skills</string>
-  <string name="custom_skills_title" translatable="false">Custom Skills</string>
-  <string name="describe_requirements" translatable="false">Describe requirements</string>
-  <string name="describe_input_data" translatable="false">Describe input data</string>
-  <string name="describe_input_data_support_text" translatable="false">The field names need to match the ones in instructions.</string>
-  <string name="describe_output_data" translatable="false">Describe output data</string>
-  <string name="duplicated_script_name" translatable="false">Duplicated script name</string>
-  <string name="enable_skill_dialog_content" translatable="false">Please enable the skill by tapping the Skills button below.</string>
-  <string name="edit_skill" translatable="false">Edit skill</string>
-  <string name="enter_skill_url" translatable="false">Enter URL of skill\'s root directory</string>
-  <string name="featured_skills_title" translatable="false">Featured skills</string>
-  <string name="featured_skills_description" translatable="false">A curated list of community contributed skills</string>
-  <string name="generate_llm_prompt_title" translatable="false">Generate LLM prompt</string>
-  <string name="generate_llm_prompt_button_label" translatable="false">LLM prompt</string>
-  <string name="learn_how_to_write_skills" translatable="false">Learn how to write skills</string>
-  <string name="loading_skills_allowlist" translatable="false">Loading featured skills...</string>
-  <string name="manage_skills" translatable="false">Manage skills</string>
-  <string name="manage_skills_description" translatable="false">View, create, and manage your skills</string>
-  <string name="skill_limit_warning" translatable="false">Enabling more than %s may impact performance.</string>
-  <string name="no_directory_selected" translatable="false">No directory selected</string>
-  <string name="pick_skill_dir" translatable="false">Pick skill\'s root directory</string>
-  <string name="prompt_copied_message" translatable="false">Prompt copied to clipboard. Paste it into your favorite LLM app to generate the code and copy/paste the code here.</string>
-  <string name="prompt_chip_kitchen_adventure" translatable="false">Kitchen adventure</string>
-  <string name="prompt_chip_calculate_hash" translatable="false">Calculate hash</string>
-  <string name="prompt_chip_query_wikipedia" translatable="false">Query Wikipedia</string>
-  <string name="prompt_chip_plot_chart" translatable="false">Plot chart</string>
-  <string name="prompt_chip_interactive_map" translatable="false">Interactive map</string>
-  <string name="prompt_chip_text_spinner" translatable="false">Spin label on my head</string>
-  <string name="prompt_chip_send_email" translatable="false">Send email</string>
-  <string name="replace_skill_dialog_title" translatable="false">Replace existing skill</string>
-  <string name="replace_skill_dialog_content" translatable="false">A skill with the same name already exists. Do you want to replace it?</string>
-  <string name="search_skill" translatable="false">Search for a skill</string>
-  <string name="select_script" translatable="false">Select script</string>
-  <string name="script_name" translatable="false">Script name</string>
-  <string name="script_content" translatable="false">Script content</string>
-  <string name="skills" translatable="false">Skills</string>
-  <plurals name="skills_count" translatable="false">
+  <string name="built_in_skills_title" translatable="true">Built-in Skills</string>
+  <string name="custom_skills_title" translatable="true">Custom Skills</string>
+  <string name="describe_requirements" translatable="true">Describe requirements</string>
+  <string name="describe_input_data" translatable="true">Describe input data</string>
+  <string name="describe_input_data_support_text" translatable="true">The field names need to match the ones in instructions.</string>
+  <string name="describe_output_data" translatable="true">Describe output data</string>
+  <string name="duplicated_script_name" translatable="true">Duplicated script name</string>
+  <string name="enable_skill_dialog_content" translatable="true">Please enable the skill by tapping the Skills button below.</string>
+  <string name="edit_skill" translatable="true">Edit skill</string>
+  <string name="enter_skill_url" translatable="true">Enter URL of skill\'s root directory</string>
+  <string name="featured_skills_title" translatable="true">Featured skills</string>
+  <string name="featured_skills_description" translatable="true">A curated list of community contributed skills</string>
+  <string name="generate_llm_prompt_title" translatable="true">Generate LLM prompt</string>
+  <string name="generate_llm_prompt_button_label" translatable="true">LLM prompt</string>
+  <string name="learn_how_to_write_skills" translatable="true">Learn how to write skills</string>
+  <string name="loading_skills_allowlist" translatable="true">Loading featured skills...</string>
+  <string name="manage_skills" translatable="true">Manage skills</string>
+  <string name="manage_skills_description" translatable="true">View, create, and manage your skills</string>
+  <string name="skill_limit_warning" translatable="true">Enabling more than %s may impact performance.</string>
+  <string name="no_directory_selected" translatable="true">No directory selected</string>
+  <string name="pick_skill_dir" translatable="true">Pick skill\'s root directory</string>
+  <string name="prompt_copied_message" translatable="true">Prompt copied to clipboard. Paste it into your favorite LLM app to generate the code and copy/paste the code here.</string>
+  <string name="prompt_chip_kitchen_adventure" translatable="true">Kitchen adventure</string>
+  <string name="prompt_chip_calculate_hash" translatable="true">Calculate hash</string>
+  <string name="prompt_chip_query_wikipedia" translatable="true">Query Wikipedia</string>
+  <string name="prompt_chip_plot_chart" translatable="true">Plot chart</string>
+  <string name="prompt_chip_interactive_map" translatable="true">Interactive map</string>
+  <string name="prompt_chip_text_spinner" translatable="true">Spin label on my head</string>
+  <string name="prompt_chip_send_email" translatable="true">Send email</string>
+  <string name="replace_skill_dialog_title" translatable="true">Replace existing skill</string>
+  <string name="replace_skill_dialog_content" translatable="true">A skill with the same name already exists. Do you want to replace it?</string>
+  <string name="search_skill" translatable="true">Search for a skill</string>
+  <string name="select_script" translatable="true">Select script</string>
+  <string name="script_name" translatable="true">Script name</string>
+  <string name="script_content" translatable="true">Script content</string>
+  <string name="skills" translatable="true">Skills</string>
+  <plurals name="skills_count" translatable="true">
     <item quantity="one">%d skill</item>
     <item quantity="other">%d skills</item>
   </plurals>
-  <string name="skill_name_input_description" translatable="false">REQUIRED. In the form of my-skill-name</string>
-  <string name="skill_description_input_description" translatable="false">REQUIRED. A brief description of the skill\'s function and trigger conditions or keywords.</string>
-  <string name="skill_instructions_input_description" translatable="false">Detailed instructions in Markdown format that LLM must follow to accomplish the task.</string>
-  <string name="use_call_js_template" translatable="false">Use Call JS template</string>
+  <string name="skill_name_input_description" translatable="true">REQUIRED. In the form of my-skill-name</string>
+  <string name="skill_description_input_description" translatable="true">REQUIRED. A brief description of the skill\'s function and trigger conditions or keywords.</string>
+  <string name="skill_instructions_input_description" translatable="true">Detailed instructions in Markdown format that LLM must follow to accomplish the task.</string>
+  <string name="use_call_js_template" translatable="true">Use Call JS template</string>
 
   <!-- Strings for MCP -->
-  <string name="mcp" translatable="false">MCP</string>
-  <string name="mcp_tool_call_permission_title" translatable="false">Permission to call MCP tool?</string>
-  <string name="mcp_tool_name_label" translatable="false">Tool name</string>
-  <string name="mcp_tool_input_label" translatable="false">Input</string>
-  <string name="mcp_tool_always_allow" translatable="false">Always allow</string>
-  <string name="mcp_tool_allow_once" translatable="false">Allow once</string>
-  <string name="mcp_tool_dont_allow" translatable="false">Don\'t allow</string>
-  <string name="mcp_tool_revoke" translatable="false">Revoke</string>
-  <string name="mcp_tool_revoke_permission" translatable="false">Revoke tool call permission</string>
-  <string name="mcp_tool_revoke_permission_title" translatable="false">Revoke permission?</string>
-  <string name="mcp_tool_revoke_permission_content" translatable="false">Are you sure you want to revoke permission to automatically call this tool?</string>
-  <string name="manage_mcp_servers" translatable="false">Manage MCP servers</string>
-  <string name="add_mcp_server" translatable="false">Add MCP server</string>
-  <string name="learn_more_about_mcp" translatable="false">Learn more about MCP in Google AI Edge Gallery</string>
-  <string name="learn_more_about_mcp_short" translatable="false">Learn more</string>
-  <string name="search_mcp_server" translatable="false">Search for an MCP server</string>
-  <plurals name="mcp_servers_count" translatable="false">
+  <string name="mcp" translatable="true">MCP</string>
+  <string name="mcp_tool_call_permission_title" translatable="true">Permission to call MCP tool?</string>
+  <string name="mcp_tool_name_label" translatable="true">Tool name</string>
+  <string name="mcp_tool_input_label" translatable="true">Input</string>
+  <string name="mcp_tool_always_allow" translatable="true">Always allow</string>
+  <string name="mcp_tool_allow_once" translatable="true">Allow once</string>
+  <string name="mcp_tool_dont_allow" translatable="true">Don\'t allow</string>
+  <string name="mcp_tool_revoke" translatable="true">Revoke</string>
+  <string name="mcp_tool_revoke_permission" translatable="true">Revoke tool call permission</string>
+  <string name="mcp_tool_revoke_permission_title" translatable="true">Revoke permission?</string>
+  <string name="mcp_tool_revoke_permission_content" translatable="true">Are you sure you want to revoke permission to automatically call this tool?</string>
+  <string name="manage_mcp_servers" translatable="true">Manage MCP servers</string>
+  <string name="add_mcp_server" translatable="true">Add MCP server</string>
+  <string name="learn_more_about_mcp" translatable="true">Learn more about MCP in Google AI Edge Gallery</string>
+  <string name="learn_more_about_mcp_short" translatable="true">Learn more</string>
+  <string name="search_mcp_server" translatable="true">Search for an MCP server</string>
+  <plurals name="mcp_servers_count" translatable="true">
     <item quantity="one">%d MCP server</item>
     <item quantity="other">%d MCP servers</item>
   </plurals>
-  <plurals name="mcp_tools_count" translatable="false">
+  <plurals name="mcp_tools_count" translatable="true">
     <item quantity="one">%d tool</item>
     <item quantity="other">%d tools</item>
   </plurals>
-  <string name="add_mcp_server_from_url_dialog_title" translatable="false">Add MCP server from URL</string>
-  <string name="enter_mcp_server_url" translatable="false">Enter MCP server URL</string>
-  <string name="delete_mcp_server_dialog_title" translatable="false">Delete MCP server</string>
-  <string name="delete_mcp_server_dialog_content" translatable="false">Are you sure you want to delete this MCP server?</string>
-  <string name="manage_tools" translatable="false">Manage tools</string>
-  <string name="mcp_server_label" translatable="false">MCP server: %s</string>
-  <string name="mcp_tool_description" translatable="false">Description</string>
-  <string name="mcp_tool_schema" translatable="false">Schema</string>
-  <string name="mcp_disclaimer_dialog_title" translatable="false">Add third-party MCP</string>
-  <string name="mcp_disclaimer_dialog_content" translatable="false">Third-party MCPs are not authored or endorsed by Google. Google is not responsible for their contents, security, or data handling practices.\n\nPlease exercise caution before providing sensitive information, such as personal identification, tokens, or API keys.\n\nAny use of an MCP is subject to the applicable terms for that MCP.</string>
-  <string name="mcp_server_duplicate_title" translatable="false">Duplicate MCP server</string>
-  <string name="mcp_server_duplicate_content" translatable="false">This MCP server URL is already added.</string>
-  <string name="mcp_server_authorization" translatable="false">Authorization</string>
-  <string name="mcp_server_auth_none" translatable="false">None</string>
-  <string name="mcp_server_auth_request_header" translatable="false">Request header</string>
-  <string name="mcp_server_auth_oauth_wip" translatable="false">OAuth (WIP)</string>
-  <string name="mcp_server_header_name" translatable="false">Header name</string>
-  <string name="mcp_server_header_value" translatable="false">Header value</string>
+  <string name="add_mcp_server_from_url_dialog_title" translatable="true">Add MCP server from URL</string>
+  <string name="enter_mcp_server_url" translatable="true">Enter MCP server URL</string>
+  <string name="delete_mcp_server_dialog_title" translatable="true">Delete MCP server</string>
+  <string name="delete_mcp_server_dialog_content" translatable="true">Are you sure you want to delete this MCP server?</string>
+  <string name="manage_tools" translatable="true">Manage tools</string>
+  <string name="mcp_server_label" translatable="true">MCP server: %s</string>
+  <string name="mcp_tool_description" translatable="true">Description</string>
+  <string name="mcp_tool_schema" translatable="true">Schema</string>
+  <string name="mcp_disclaimer_dialog_title" translatable="true">Add third-party MCP</string>
+  <string name="mcp_disclaimer_dialog_content" translatable="true">Third-party MCPs are not authored or endorsed by Google. Google is not responsible for their contents, security, or data handling practices.\n\nPlease exercise caution before providing sensitive information, such as personal identification, tokens, or API keys.\n\nAny use of an MCP is subject to the applicable terms for that MCP.</string>
+  <string name="mcp_server_duplicate_title" translatable="true">Duplicate MCP server</string>
+  <string name="mcp_server_duplicate_content" translatable="true">This MCP server URL is already added.</string>
+  <string name="mcp_server_authorization" translatable="true">Authorization</string>
+  <string name="mcp_server_auth_none" translatable="true">None</string>
+  <string name="mcp_server_auth_request_header" translatable="true">Request header</string>
+  <string name="mcp_server_auth_oauth_wip" translatable="true">OAuth (WIP)</string>
+  <string name="mcp_server_header_name" translatable="true">Header name</string>
+  <string name="mcp_server_header_value" translatable="true">Header value</string>
 
   <!-- Strings for ChatHistorySideSheet component (used for the chat history side bar) -->
   <!-- Displayed as the header and section title for the user's past chats. -->
-  <string name="chat_history_title" translatable="false">Chat history</string>
+  <string name="chat_history_title" translatable="true">Chat history</string>
   <!-- Displayed on the button to clear and start a new chat session. -->
-  <string name="new_chat" translatable="false">New chat</string>
+  <string name="new_chat" translatable="true">New chat</string>
   <!-- Displayed to clear all current chat history items from the list. -->
-  <string name="clear_all" translatable="false">Clear all</string>
+  <string name="clear_all" translatable="true">Clear all</string>
   <!-- Displayed as a persistent notice at the bottom of the side bar regarding demo usage. -->
-  <string name="chat_history_demo_notice" translatable="false">Chat history does not persist across demos.</string>
+  <string name="chat_history_demo_notice" translatable="true">Chat history does not persist across demos.</string>
   <!-- Title for warning dialog before clearing chat history. -->
-  <string name="clear_history_dialog_title" translatable="false">Clear history?</string>
+  <string name="clear_history_dialog_title" translatable="true">Clear history?</string>
   <!-- Content descriptive text for the clear history warning dialog. -->
-  <string name="clear_history_dialog_content" translatable="false">Are you sure you want to clear the history? This action cannot be undone.</string>
+  <string name="clear_history_dialog_content" translatable="true">Are you sure you want to clear the history? This action cannot be undone.</string>
 
   <!-- The following entries are for accessibility -->
 
