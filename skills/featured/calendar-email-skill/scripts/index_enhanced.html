@@ -1,0 +1,187 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calendar Email Skill (Enhanced)</title>
+  </head>
+  <body>
+    <script src="index_enhanced.js"></script>
+    
+    <!-- Test UI for development -->
+    <div style="margin: 20px; padding: 20px; border: 1px solid #ccc; background: #fff; font-family: sans-serif; color: #333;">
+      <h3>Calendar Email Skill - Enhanced Test</h3>
+      <p><strong>Version:</strong> 2.0.0 with Email API Support</p>
+      
+      <div style="margin-bottom: 20px;">
+        <h4>Test Create Event:</h4>
+        <button onclick="testCreateEvent()" style="padding: 10px 20px; font-size: 14px; cursor: pointer;">
+          Test Create Event
+        </button>
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <h4>Test Send Invite (Simulation):</h4>
+        <button onclick="testSendInviteSimulation()" style="padding: 10px 20px; font-size: 14px; cursor: pointer;">
+          Test Send Invite (Simulation)
+        </button>
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <h4>Test Send Invite (Actual - Requires API Key):</h4>
+        <div style="margin-bottom: 10px;">
+          <input type="text" id="apiKey" placeholder="Enter email API key (optional)" style="width: 300px; padding: 5px;">
+        </div>
+        <button onclick="testSendInviteActual()" style="padding: 10px 20px; font-size: 14px; cursor: pointer;">
+          Test Send Invite (Actual)
+        </button>
+        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+          Use SendGrid (SG.), Mailgun (key-), or generic API key
+        </p>
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <h4>Test Check Availability:</h4>
+        <button onclick="testCheckAvailability()" style="padding: 10px 20px; font-size: 14px; cursor: pointer;">
+          Test Check Availability
+        </button>
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <h4>Test Email Configuration:</h4>
+        <button onclick="testEmailConfiguration()" style="padding: 10px 20px; font-size: 14px; cursor: pointer;">
+          Test Email Configuration
+        </button>
+      </div>
+      
+      <pre id="test-output" style="margin-top: 15px; padding: 10px; background: #f4f4f4; border: 1px solid #ddd; white-space: pre-wrap; font-size: 13px; max-height: 400px; overflow-y: auto;">
+Test output will appear here...
+      </pre>
+    </div>
+
+    <script>
+      function logOutput(message) {
+        const output = document.getElementById('test-output');
+        output.textContent = message + '\n\n' + output.textContent;
+      }
+      
+      async function testCreateEvent() {
+        logOutput('Testing create_event...');
+        
+        try {
+          const mockData = JSON.stringify({
+            action: 'create_event',
+            title: 'Math Tutorial',
+            date: '2026-04-05',
+            time: '10:00',
+            duration: 1.5
+          });
+          
+          const result = await window['ai_edge_gallery_get_result'](mockData);
+          logOutput('Result: ' + result);
+        } catch (e) {
+          logOutput(`Error: ${e.message}`);
+        }
+      }
+      
+      async function testSendInviteSimulation() {
+        logOutput('Testing send_invite (simulation)...');
+        
+        try {
+          const mockData = JSON.stringify({
+            action: 'send_invite',
+            event_title: 'Math Tutorial',
+            event_date: '2026-04-05',
+            to_email: 'student@example.com',
+            event_time: '10:00',
+            event_duration: 1.5,
+            location: 'Room 101',
+            actually_send: false
+          });
+          
+          const result = await window['ai_edge_gallery_get_result'](mockData);
+          logOutput('Result: ' + result);
+        } catch (e) {
+          logOutput(`Error: ${e.message}`);
+        }
+      }
+      
+      async function testSendInviteActual() {
+        const apiKey = document.getElementById('apiKey').value;
+        logOutput(`Testing send_invite (actual) with API key: ${apiKey ? 'Provided' : 'Not provided'}`);
+        
+        try {
+          const mockData = JSON.stringify({
+            action: 'send_invite',
+            event_title: 'Math Tutorial',
+            event_date: '2026-04-05',
+            to_email: 'student@example.com',
+            event_time: '10:00',
+            event_duration: 1.5,
+            location: 'Room 101',
+            actually_send: true
+          });
+          
+          const result = await window['ai_edge_gallery_get_result'](mockData, apiKey);
+          logOutput('Result: ' + result);
+        } catch (e) {
+          logOutput(`Error: ${e.message}`);
+        }
+      }
+      
+      async function testCheckAvailability() {
+        logOutput('Testing check_availability...');
+        
+        try {
+          const mockData = JSON.stringify({
+            action: 'check_availability',
+            date: '2026-04-05'
+          });
+          
+          const result = await window['ai_edge_gallery_get_result'](mockData);
+          logOutput('Result: ' + result);
+        } catch (e) {
+          logOutput(`Error: ${e.message}`);
+        }
+      }
+      
+      async function testEmailConfiguration() {
+        const apiKey = document.getElementById('apiKey').value;
+        logOutput('Testing email configuration...');
+        
+        try {
+          // Call the checkEmailConfiguration function directly
+          if (typeof checkEmailConfiguration === 'function') {
+            const result = await checkEmailConfiguration(apiKey);
+            logOutput('Configuration Result: ' + JSON.stringify(result, null, 2));
+          } else {
+            logOutput('checkEmailConfiguration function not found');
+          }
+        } catch (e) {
+          logOutput(`Error: ${e.message}`);
+        }
+      }
+      
+      // Initialize
+      logOutput('Enhanced Calendar Email Skill v2.0.0 loaded\nSupports actual email sending via external APIs\n\nAvailable email services:\n• SendGrid (SG. or sg. prefix)\n• Mailgun (key- prefix)\n• AWS SES (ses. prefix)\n• Generic REST API\n\nTest with simulation first, then add API key for actual sending.');
+    </script>
+  </body>
+</html>

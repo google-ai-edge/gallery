@@ -1,0 +1,117 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calendar Email Skill</title>
+  </head>
+  <body>
+    <script src="index.js"></script>
+    
+    <!-- Test UI for development -->
+    <div style="margin: 20px; padding: 20px; border: 1px solid #ccc; background: #fff; font-family: sans-serif; color: #333;">
+      <h3>Calendar Email Skill - Local Test</h3>
+      
+      <div style="margin-bottom: 20px;">
+        <h4>Test Create Event:</h4>
+        <button onclick="testCreateEvent()" style="padding: 10px 20px; font-size: 14px; cursor: pointer;">
+          Test Create Event
+        </button>
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <h4>Test Send Invite:</h4>
+        <button onclick="testSendInvite()" style="padding: 10px 20px; font-size: 14px; cursor: pointer;">
+          Test Send Invite
+        </button>
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <h4>Test Check Availability:</h4>
+        <button onclick="testCheckAvailability()" style="padding: 10px 20px; font-size: 14px; cursor: pointer;">
+          Test Check Availability
+        </button>
+      </div>
+      
+      <pre id="test-output" style="margin-top: 15px; padding: 10px; background: #f4f4f4; border: 1px solid #ddd; white-space: pre-wrap; font-size: 13px;">
+Test output will appear here...
+      </pre>
+    </div>
+
+    <script>
+      async function testCreateEvent() {
+        const output = document.getElementById('test-output');
+        output.textContent = 'Testing create_event...';
+        
+        try {
+          const mockData = JSON.stringify({
+            action: 'create_event',
+            title: 'Team Meeting',
+            date: '2024-12-25',
+            time: '14:00',
+            duration: 2.0
+          });
+          
+          const result = await window['ai_edge_gallery_get_result'](mockData);
+          output.textContent = result;
+        } catch (e) {
+          output.textContent = `Error: ${e.message}`;
+        }
+      }
+      
+      async function testSendInvite() {
+        const output = document.getElementById('test-output');
+        output.textContent = 'Testing send_invite...';
+        
+        try {
+          const mockData = JSON.stringify({
+            action: 'send_invite',
+            event_title: 'Team Meeting',
+            event_date: '2024-12-25',
+            to_email: 'john@example.com'
+          });
+          
+          const result = await window['ai_edge_gallery_get_result'](mockData);
+          output.textContent = result;
+        } catch (e) {
+          output.textContent = `Error: ${e.message}`;
+        }
+      }
+      
+      async function testCheckAvailability() {
+        const output = document.getElementById('test-output');
+        output.textContent = 'Testing check_availability...';
+        
+        try {
+          const mockData = JSON.stringify({
+            action: 'check_availability',
+            date: '2024-12-25'
+          });
+          
+          const result = await window['ai_edge_gallery_get_result'](mockData);
+          output.textContent = result;
+        } catch (e) {
+          output.textContent = `Error: ${e.message}`;
+        }
+      }
+    </script>
+  </body>
+</html>
