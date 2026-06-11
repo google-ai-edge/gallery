@@ -1,0 +1,43 @@
+<!--
+ Copyright 2025 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<resources>
+    <string name="app_name">Google AI Edge Gallery</string>
+    <string name="model_manager">मॉडल प्रबंधक</string>
+    <string name="downloaded_size">%1$s डाउनलोड किया गया</string>
+    <string name="cancel">रद्द करें</string>
+    <string name="ok">ठीक है</string>
+    <string name="confirm_delete_model_dialog_title">डाउनलोड हटाएं</string>
+    <string name="confirm_delete_model_dialog_content">क्या आप वाकई डाउनलोड किए गए मॉडल \"%s\" को हटाना चाहते हैं?</string>
+    <string name="notification_title_success">मॉडल डाउनलोड सफल</string>
+    <string name="notification_content_success">मॉडल \"%s\" डाउनलोड हो गया है</string>
+    <string name="notification_title_fail">मॉडल डाउनलोड असफल</string>
+    <string name="notification_content_fail">मॉडल \"%s\" डाउनलोड करने में असफल</string>
+    <string name="chat_textinput_placeholder">संदेश टाइप करें…</string>
+    <string name="chat_you">आप</string>
+    <string name="chat_llm_agent_name">LLM</string>
+    <string name="chat_generic_agent_name">मॉडल</string>
+    <string name="chat_generic_result_name">परिणाम</string>
+    <string name="model_not_downloaded_msg">मॉडल अभी तक डाउनलोड नहीं हुआ है</string>
+    <string name="model_is_initializing_msg">मॉडल को प्रारंभ कर रहे हैं…</string>
+    <string name="text_input_placeholder_text_classification">वर्गीकरण के लिए फिल्म समीक्षा टाइप करें…</string>
+    <string name="text_image_generation_text_field_placeholder">प्रॉम्प्ट टाइप करें…</string>
+    <string name="text_input_placeholder_llm_chat">प्रॉम्प्ट टाइप करें…</string>
+    <string name="run_again">फिर से चलाएं</string>
+    <string name="benchmark">बेंचमार्क चलाएं</string>
+    <string name="warming_up">तैयार हो रहे हैं…</string>
+    <string name="running">चल रहा है</string>
+</resources>
