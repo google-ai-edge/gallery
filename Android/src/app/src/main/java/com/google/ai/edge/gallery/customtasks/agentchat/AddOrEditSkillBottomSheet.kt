@@ -680,7 +680,7 @@ private fun ScriptsTabContent(
     AlertDialog(
       onDismissRequest = { showDeleteConfirmation = false },
       title = { Text(stringResource(R.string.delete_script_dialog_title)) },
-      text = { Text("Are you sure you want to delete '$selectedScript'?") },
+      text = { selectedScript?.let { Text(stringResource(R.string.skill_delete_script_confirm, it)) } },
       confirmButton = {
         Button(
           onClick = {

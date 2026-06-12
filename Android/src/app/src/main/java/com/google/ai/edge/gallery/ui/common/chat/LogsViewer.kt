@@ -94,7 +94,7 @@ fun LogsViewer(logs: List<LogMessage>, onDismissRequest: () -> Unit) {
             }
           }
         ) {
-          Icon(Icons.Filled.Close, contentDescription = "Close viewer")
+          Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.cd_close_icon))
         }
       }
 
@@ -115,7 +115,7 @@ fun LogsViewer(logs: List<LogMessage>, onDismissRequest: () -> Unit) {
         trailingIcon = {
           if (filterText.isNotEmpty()) {
             IconButton(onClick = { filterText = "" }) {
-              Icon(Icons.Outlined.Cancel, contentDescription = "Clear filter")
+              Icon(Icons.Outlined.Cancel, contentDescription = stringResource(R.string.clear))
             }
           }
         },

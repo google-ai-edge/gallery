@@ -28,7 +28,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.R
 import androidx.compose.ui.window.Dialog
 
 @Composable
@@ -54,7 +56,7 @@ fun ErrorDialog(error: String, onDismiss: () -> Unit) {
         )
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-          Button(onClick = onDismiss) { Text("Close") }
+          Button(onClick = onDismiss) { Text(stringResource(R.string.close)) }
         }
       }
     }

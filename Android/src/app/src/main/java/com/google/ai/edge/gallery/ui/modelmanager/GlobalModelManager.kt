@@ -94,6 +94,7 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.data.localizedLabel
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.ui.common.TaskIcon
 import com.google.ai.edge.gallery.ui.common.modelitem.ModelItem
@@ -393,7 +394,7 @@ fun GlobalModelManager(
                 .padding(horizontal = 16.dp, vertical = 4.dp),
           ) {
             Text(
-              task.label,
+              task.localizedLabel(context),
               color = MaterialTheme.colorScheme.onSurface,
               style = MaterialTheme.typography.titleMedium,
             )
@@ -408,7 +409,7 @@ fun GlobalModelManager(
   if (showImportModelSheet) {
     ModalBottomSheet(onDismissRequest = { showImportModelSheet = false }, sheetState = sheetState) {
       Text(
-        "Import model",
+        stringResource(R.string.import_model_title),
         style = MaterialTheme.typography.titleLarge,
         modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
       )
@@ -443,7 +444,7 @@ fun GlobalModelManager(
           modifier = Modifier.fillMaxWidth().padding(16.dp),
         ) {
           Icon(Icons.AutoMirrored.Outlined.NoteAdd, contentDescription = null)
-          Text("From local model file", modifier = Modifier.clearAndSetSemantics {})
+          Text(stringResource(R.string.import_model_from_local), modifier = Modifier.clearAndSetSemantics {})
         }
       }
       val cdImportFromHuggingFace = stringResource(R.string.cd_import_model_from_hugging_face)
@@ -492,6 +493,7 @@ fun GlobalModelManager(
   }
 
   // Importing in progress dialog.
+  val importSuccessMsg = stringResource(R.string.import_model_success)
   if (showImportingDialog) {
     selectedLocalModelFileUri.value?.let { uri ->
       selectedImportedModelInfo.value?.let { info ->
@@ -504,7 +506,7 @@ fun GlobalModelManager(
             showImportingDialog = false
 
             // Show a snack bar for successful import.
-            scope.launch { snackbarHostState.showSnackbar("Model imported successfully") }
+            scope.launch { snackbarHostState.showSnackbar(importSuccessMsg) }
           },
         )
       }

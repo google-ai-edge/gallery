@@ -123,12 +123,15 @@ class AgentChatTask @Inject constructor() : CustomTask {
     Task(
       id = BuiltInTaskId.LLM_AGENT_CHAT,
       label = "Agent Skills",
+      labelRes = R.string.task_llm_agent_chat_label,
       category = Category.LLM,
       iconVectorResourceId = R.drawable.agent,
       newFeature = true,
       models = mutableListOf(),
       description = "Chat with on-device large language models with skills and tools",
+      descriptionRes = R.string.task_llm_agent_chat_desc,
       shortDescription = "Complete agentic tasks with chat",
+      shortDescriptionRes = R.string.task_llm_agent_chat_short,
       docUrl = "https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md",
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/customtasks/agentchat/",

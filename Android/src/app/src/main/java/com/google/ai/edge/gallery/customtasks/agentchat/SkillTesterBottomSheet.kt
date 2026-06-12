@@ -90,7 +90,7 @@ fun SkillTesterBottomSheet(agentTools: AgentTools, skill: Skill, onDismiss: () -
       OutlinedTextField(
         value = inputData,
         onValueChange = { inputData = it },
-        label = { Text("Input Data") },
+        label = { Text(stringResource(R.string.skill_input_data)) },
         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
       )
 
@@ -98,12 +98,12 @@ fun SkillTesterBottomSheet(agentTools: AgentTools, skill: Skill, onDismiss: () -
       OutlinedTextField(
         value = customData,
         onValueChange = { customData = it },
-        label = { Text("Custom Data") },
+        label = { Text(stringResource(R.string.skill_custom_data)) },
         modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
       )
 
       // Tab Panel
-      val tabs = listOf("Result", "Logs")
+      val tabs = listOf(stringResource(R.string.skill_result), stringResource(R.string.skill_logs))
       PrimaryTabRow(selectedTabIndex = selectedTabIndex, containerColor = Color.Transparent) {
         tabs.forEachIndexed { index, title ->
           Tab(

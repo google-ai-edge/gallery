@@ -229,7 +229,7 @@ fun SettingsDialog(
                 },
                 enabled = curHfToken != null,
               ) {
-                Text("Clear")
+                Text(stringResource(R.string.clear))
               }
               val handleSaveToken = {
                 modelManagerViewModel.saveAccessToken(
@@ -270,7 +270,7 @@ fun SettingsDialog(
                     Box(modifier = Modifier.padding(start = 16.dp).weight(1f)) {
                       if (customHfToken.isEmpty()) {
                         Text(
-                          "Enter token manually",
+                          stringResource(R.string.settings_enter_token),
                           color = MaterialTheme.colorScheme.onSurfaceVariant,
                           style = MaterialTheme.typography.bodySmall,
                         )
@@ -294,7 +294,7 @@ fun SettingsDialog(
           // Third party licenses.
           Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
             Text(
-              "Third-party libraries",
+              stringResource(R.string.settings_third_party_libs),
               style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
             )
             OutlinedButton(
@@ -305,7 +305,7 @@ fun SettingsDialog(
                 context.startActivity(intent)
               }
             ) {
-              Text("View licenses")
+              Text(stringResource(R.string.settings_view_licenses))
             }
           }
 
@@ -337,7 +337,7 @@ fun SettingsDialog(
           horizontalArrangement = Arrangement.End,
         ) {
           // Close button
-          Button(onClick = { onDismissed() }) { Text("Close") }
+          Button(onClick = { onDismissed() }) { Text(stringResource(R.string.close)) }
         }
       }
     }

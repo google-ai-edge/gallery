@@ -1,0 +1,547 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+ Copyright 2025 Google LLC
+ Simplified Chinese (zh-CN) localization
+-->
+<resources>
+  <string name="about_this_update">关于此更新</string>
+  <string name="all">全部</string>
+  <string name="add">添加</string>
+  <string name="added">已添加</string>
+  <string name="add_audio">+音频</string>
+  <string name="aicore_access_panel_title">您暂时无法访问此模型。请按照以下步骤操作，完成后返回。</string>
+  <string name="aicore_access_panel_button">打开指南</string>
+  <string name="aicore_image_limit_message">当前模型每次对话仅支持 1 张图片。如需询问其他图片，请创建新对话。</string>
+  <string name="aichat_initializing_title">正在初始化模型</string>
+  <string name="aichat_initializing_content">请稍候，此过程最多需要 1 分钟</string>
+  <string name="app_intro">探索来自以下来源的优秀端侧模型</string>
+  <string name="app_name">Google AI Edge Gallery</string>
+  <string name="app_name_first_part">Google AI</string>
+  <string name="app_name_second_part">Edge Gallery</string>
+  <string name="askimage_emptystate_title">图片问答</string>
+  <string name="askimage_emptystate_content">点击下方的 + 添加图片（每次对话最多 10 张），然后输入提示词来提问！</string>
+  <string name="askimage_emptystate_content_aicore">点击下方的 + 添加图片（每次对话最多 1 张），然后输入提示词来提问！</string>
+  <string name="askaudio_emptystate_title">音频问答</string>
+  <string name="askaudio_emptystate_content">点击下方的 + 添加音频片段（最多 1 段，时长 30 秒以内），然后输入提示词进行转录或翻译！</string>
+  <string name="gallery_news_notification_title">Gallery 新闻</string>
+  <string name="baseline">基准</string>
+  <string name="basic_info">基本信息</string>
+  <string name="benchmark">基准测试</string>
+  <string name="benchmark_comparison_help_title">如何比较基准测试结果</string>
+  <string name="benchmark_comparison_help_content">点击任意结果卡片上的「基准」标签将该次运行设为比较基准，系统将自动计算并显示**其他所有**结果卡片的百分比差异。</string>
+  <string name="benchmark_model">基准测试模型</string>
+  <string name="benchmark_results">基准测试结果</string>
+  <string name="benchmark_no_results">无基准测试结果</string>
+  <string name="benchmark_tokens_limit_message" formatted="false">请确保 prefill 和 decode token 之和不超过模型的最大 token 限制（%d 对 %d）</string>
+  <string name="best_overall">综合最佳</string>
+  <string name="model_list_experimental_label">实验性</string>
+  <string name="cancel">取消</string>
+  <string name="category_unlabeled">未分类</string>
+  <string name="category_llm">LLM</string>
+  <string name="category_agents">智能体</string>
+  <string name="category_classical_ml">经典机器学习</string>
+  <string name="category_experimental">实验性</string>
+  <string name="chat_textinput_placeholder">输入消息…</string>
+  <string name="chat_you">你</string>
+  <string name="chat_llm_agent_name">LLM</string>
+  <string name="show_thinking">显示思考过程</string>
+  <string name="checking_access">正在检查访问权限…</string>
+  <string name="close">关闭</string>
+  <string name="collapse_all">全部折叠</string>
+  <string name="discard">放弃</string>
+  <string name="discard_changes_dialog_title">放弃更改？</string>
+  <string name="discard_changes_dialog_content">您有未保存的更改。确定要放弃吗？</string>
+  <string name="delete_benchmark_result_dialog_title">删除基准测试结果</string>
+  <string name="delete_benchmark_result_dialog_content">确定要删除此基准测试结果吗？</string>
+  <string name="error">错误</string>
+  <string name="confirm_delete_model_dialog_title">删除下载</string>
+  <string name="confirm_delete_model_dialog_content">确定要删除已下载的模型「%s」吗？</string>
+  <string name="conversation_reset_message">对话已重置</string>
+  <string name="engin_reset_message">引擎已重置</string>
+  <string name="chat_agent_agent_name">智能体</string>
+  <string name="chat_generic_agent_name">模型</string>
+  <string name="chat_generic_result_name">结果</string>
+  <string name="clear">清除</string>
+  <string name="collect">收集</string>
+  <string name="color">颜色</string>
+  <string name="config_dialog_tab_model_configs">模型配置</string>
+  <string name="config_dialog_tab_system_prompt">系统提示</string>
+  <string name="continue_button_label">继续</string>
+  <string name="conversation_history">对话历史</string>
+  <string name="copy">复制</string>
+  <string name="create">创建</string>
+  <string name="delete">删除</string>
+  <string name="description_required">描述*</string>
+  <string name="disabled">已禁用</string>
+  <string name="dismiss">忽略</string>
+  <string name="done">完成</string>
+  <string name="download">下载</string>
+  <string name="downloaded_size">已下载 %1$s</string>
+  <string name="drawer_settings_label">设置</string>
+  <string name="drawer_settings_description">管理应用设置</string>
+  <string name="drawer_models_label">模型</string>
+  <string name="drawer_models_description">浏览、试用和测试模型</string>
+  <string name="drawer_notifications_label">通知</string>
+  <string name="drawer_notifications_description">查看已安排的通知</string>
+  <string name="notifications_title">通知</string>
+  <string name="notifications_empty_state">暂无已安排的通知</string>
+  <string name="notifications_delete_dialog_title">删除通知</string>
+  <string name="notifications_delete_dialog_content">确定要删除已安排的通知「%s」吗？</string>
+  <string name="notifications_time_label">时间: %s</string>
+  <string name="notifications_date_label">日期: %s</string>
+  <string name="notifications_repeat_daily">每天</string>
+  <string name="notifications_repeat_one_time">一次性</string>
+  <string name="edit">编辑</string>
+  <string name="edit_secret">编辑密钥</string>
+  <string name="enter_instruction">输入指令</string>
+  <string name="expand_all">全部展开</string>
+  <string name="failed_to_save">保存失败</string>
+  <string name="flashlight_off_message">我已关闭手电筒。</string>
+  <string name="flashlight_on_message">我已打开手电筒。</string>
+  <string name="function_name">函数名称</string>
+  <string name="generate_and_copy">生成并复制</string>
+  <string name="grant_permissions">授予权限</string>
+  <string name="grant_record_audio_permission">授予录音权限</string>
+  <string name="hold_down_to_talk">按住说话</string>
+  <string name="input_history">输入历史</string>
+  <string name="instructions">指令</string>
+  <string name="introducing">隆重推出</string>
+  <string name="invalid_response">无效响应</string>
+  <string name="learn_more">了解更多并查看模型许可</string>
+  <string name="listening">正在聆听…</string>
+  <string name="litert_community_label">LiteRT 社区</string>
+  <string name="loading_model_list">正在加载模型列表…</string>
+  <string name="logs_viewer_filter_text_input_placeholder">筛选日志</string>
+  <string name="logs_viewer_title">日志查看器</string>
+  <string name="logs_viewer_no_matching_logs">没有匹配的日志</string>
+  <string name="memory_warning_content">您选择的模型可能超出设备内存，这可能导致应用崩溃。为获得最佳体验，我们建议尝试较小的模型。</string>
+  <string name="memory_warning_proceed_anyway">仍然继续</string>
+  <string name="memory_warning_title">内存警告</string>
+  <string name="max_tokens_warning_message">将最大 token 设置为 10000 以上可能导致应用不稳定。</string>
+  <string name="model_is_initializing_msg">正在初始化模型…</string>
+  <string name="model_list_imported_models_title">已导入的模型</string>
+  <plurals name="model_list_number_of_models_available">
+    <item quantity="one">%d 个模型可用</item>
+    <item quantity="other">%d 个模型可用</item>
+  </plurals>
+  <string name="model_list_recommended_models_title">推荐模型</string>
+  <string name="model_manager">模型管理器</string>
+  <string name="model_manager_select_task_title">选择一个用例来试用</string>
+  <string name="model_not_downloaded_msg">模型尚未下载</string>
+  <string name="name">名称</string>
+  <string name="no_cutouts_collected">未收集到截图</string>
+  <string name="notification_content_fail">模型「%s」下载失败</string>
+  <string name="notification_content_success">模型「%s」已下载完成</string>
+  <string name="notification_title_fail">模型下载失败</string>
+  <string name="notification_title_success">模型下载成功</string>
+  <string name="ok">确定</string>
+  <string name="paste_from_clipboard">从剪贴板粘贴</string>
+  <string name="pick_from_album">从相册选择</string>
+  <string name="preview">预览</string>
+  <string name="release_to_send">松开发送</string>
+  <string name="replace">替换</string>
+  <string name="results">结果</string>
+  <string name="reset">重置</string>
+  <string name="reset_note">点击「重置」仅会重置 LiteRT-LM 引擎。游戏进度不会受到影响。</string>
+  <string name="resetting_engine">正在重置引擎…</string>
+  <string name="restore_default">恢复默认</string>
+  <string name="reinitializing_description">游戏进度不会受到影响</string>
+  <string name="run">运行</string>
+  <string name="running">运行中…</string>
+  <plurals name="runs">
+    <item quantity="one">%d 次运行</item>
+    <item quantity="other">%d 次运行</item>
+  </plurals>
+  <string name="run_again">再次运行</string>
+  <string name="run_benchmark">运行基准测试</string>
+  <string name="run_benchmark_confirmation_msg">此过程通常需要几分钟，一旦开始无法中断。是否继续？</string>
+  <string name="running_benchmark_msg">正在运行模型基准测试…</string>
+  <string name="save">保存</string>
+  <string name="secret">密钥</string>
+  <string name="select_downloaded_model">选择已下载的模型</string>
+  <string name="select_model">选择模型</string>
+  <string name="selected_count">已选择 %d 项</string>
+  <string name="settings_dialog_tos_title">服务条款</string>
+  <string name="settings_dialog_view_app_terms_of_service">查看应用服务条款</string>
+  <string name="settings_dialog_gemma_prohibited_use_policy">Gemma 禁止使用政策</string>
+  <string name="share">分享</string>
+  <string name="slide_up_to_cancel">上滑取消</string>
+  <string name="system_prompt_placeholder">输入系统指令（例如：「你是一个多才多艺的助手。以专业的语气提供准确、上下文相关的回答。」）</string>
+  <string name="system_prompt_updated">系统提示已更新</string>
+  <string name="submit">提交</string>
+  <string name="take_a_picture">拍照</string>
+  <string name="tap_to_change_color">点击更改颜色</string>
+  <string name="tap_to_see_value">点击图表查看数值</string>
+  <string name="test">测试</string>
+  <string name="text_image_generation_text_field_placeholder">输入提示词…</string>
+  <string name="text_input_placeholder_llm_chat">输入提示词…</string>
+  <string name="tos_dialog_title_app">欢迎使用 Google AI Edge Gallery</string>
+  <string name="tos_dialog_title_gemma">Gemma 使用条款</string>
+  <string name="tos_dialog_accept_and_continue_button_label">接受并继续</string>
+  <string name="tos_dialog_agree_and_continue_button_label">同意并继续</string>
+  <string name="try_it">试一试</string>
+  <string name="turn_on_all">全部开启</string>
+  <string name="turn_off_all">全部关闭</string>
+  <string name="undo">撤销</string>
+  <string name="unsupported_action">不支持的操作</string>
+  <string name="set_screen_brightness_message">我已将屏幕亮度设置为 %1$d%%。</string>
+  <string name="set_timer_message">正在设置 %1$d 秒计时器。</string>
+  <string name="add_calendar_event_message">正在将「团队会议 (10:00–11:00)」添加到您的日历。</string>
+  <string name="take_picture_message">正在打开相机应用。</string>
+  <string name="mobile_actions_title">手机操作</string>
+  <string name="mobile_actions_description">使用简单命令控制您的设备</string>
+  <string name="mobile_actions_supported_actions">支持的示例操作：</string>
+  <string name="mobile_actions_tab_model_response">模型响应</string>
+  <string name="mobile_actions_tab_function_called">已调用的函数</string>
+  <string name="update">更新</string>
+  <string name="update_available">有新版本可用</string>
+  <string name="view_results">查看结果</string>
+  <string name="view_console_logs">查看控制台日志</string>
+  <string name="warming_up">预热中…</string>
+  <string name="warning_no_function_call">未识别到函数</string>
+  <string name="snackbar_no_function_call">未识别到函数</string>
+  <string name="unknown_error">未知错误</string>
+  <string name="view">查看</string>
+  <string name="view_in_full_screen">全屏查看</string>
+  <string name="snackbar_save_to_album_success">已保存到相册</string>
+  <string name="snackbar_save_to_album_failed">保存到相册失败</string>
+  <string name="snackbar_copy_to_clipboard_success">已复制到剪贴板</string>
+
+  <plurals name="parameter">
+    <item quantity="one">参数</item>
+    <item quantity="other">参数</item>
+  </plurals>
+  <string name="prompt_template_label_flash_on_off">打开/关闭手电筒</string>
+  <string name="prompt_template_label_flash_on">打开手电筒</string>
+  <string name="prompt_template_label_flash_off">关闭手电筒</string>
+  <string name="prompt_template_label_create_contact">创建联系人</string>
+  <string name="prompt_template_label_send_email">发送邮件</string>
+  <string name="prompt_template_label_create_calendar_event">创建日历事件</string>
+  <string name="prompt_template_label_show_location_on_map">在地图上显示位置</string>
+  <string name="prompt_template_label_open_wifi_settings">打开 WLAN 设置</string>
+
+  <!-- MobileActionsChallengeDialog -->
+  <string name="mobile_actions_challenge_title">手机操作微调挑战</string>
+  <string name="mobile_actions_challenge_subtitle">构建它来体验它！</string>
+  <string name="mobile_actions_challenge_description">此演示已锁定。要解锁手机操作智能体，您需要使用我们的开源配方自行编译模型。</string>
+  <string name="mobile_actions_challenge_instructions_title">操作说明：</string>
+  <string name="mobile_actions_challenge_instruction_1">1. <![CDATA[<b>在您的电脑上</b>]]>，打开 <![CDATA[<a href="https://ai.google.dev/gemma/docs/mobile-actions">此指南</a>]]></string>
+  <string name="mobile_actions_challenge_instruction_2">2. 按照说明微调模型并将其转换为 .litertlm 格式。</string>
+  <string name="mobile_actions_challenge_instruction_3">3. 将文件传输到此手机。</string>
+  <string name="mobile_actions_challenge_instruction_4">4. 点击下方的 <![CDATA[<b>加载模型</b>]]> 以解锁演示。</string>
+  <string name="mobile_actions_challenge_email_colab">将指南发送到我的邮箱</string>
+  <string name="mobile_actions_challenge_load_model">加载模型</string>
+
+  <!-- Skills -->
+  <string name="aichat_emptystate_title">AI 对话</string>
+  <string name="aichat_emptystate_content">与端侧大语言模型进行对话。</string>
+  <string name="add_script">添加脚本</string>
+  <string name="add_default_script">添加默认脚本</string>
+  <string name="add_skill">添加技能</string>
+  <string name="add_skill_option_view_community_skills_title">查看社区技能</string>
+  <string name="add_skill_option_view_community_skills_description">在 GitHub Discussions 上探索社区贡献的技能</string>
+  <string name="add_skill_option_featured_list_title">从精选列表添加技能</string>
+  <string name="add_skill_option_featured_list_description">从社区贡献的精选技能列表中添加</string>
+  <string name="add_skill_option_url_title">从 URL 加载技能</string>
+  <string name="add_skill_option_url_description">输入托管在网络上的技能目录 URL</string>
+  <string name="add_skill_option_local_title">导入本地技能</string>
+  <string name="add_skill_option_local_description">从本地导入技能目录</string>
+  <string name="add_skill_option_skill_creator_title">技能创建器</string>
+  <string name="add_skill_option_skill_creator_description">在应用内从头创建技能</string>
+  <string name="add_skill_from_url_dialog_title">从 URL 添加技能</string>
+  <string name="add_skill_dialog_title_from_local_import">导入本地技能</string>
+  <string name="add_skill_dialog_subtitle_from_local_import">请先通过「adb push」将整个技能目录推送到 /sdcard/Download</string>
+  <string name="add_skill_manual_input_sheet_title">创建技能</string>
+  <string name="agent_skills">智能体技能</string>
+  <string name="disclaimer_dialog_content">第三方技能并非由 Google 创作或背书。Google 对其内容、安全性或数据处理方式概不负责。\n\n在提供敏感信息（如个人身份信息、令牌或 API 密钥）之前请谨慎操作。\n\n使用任何智能体技能均须遵守该技能的适用条款。</string>
+  <string name="disclaimer_dialog_title">添加第三方技能</string>
+  <string name="disclaimer_dialog_agree">同意</string>
+  <string name="delete_script_dialog_title">删除脚本</string>
+  <string name="delete_skill_dialog_title">删除技能</string>
+  <string name="delete_skill_dialog_content">确定要删除此技能吗？</string>
+  <string name="delete_selected_skills_title">删除选中的技能</string>
+  <plurals name="delete_selected_skills_content">
+    <item quantity="one">确定要删除 %d 个技能吗？</item>
+    <item quantity="other">确定要删除 %d 个技能吗？</item>
+  </plurals>
+  <plurals name="selected_custom_skills_count">
+    <item quantity="one">已选择 %d 项</item>
+    <item quantity="other">已选择 %d 项</item>
+  </plurals>
+  <string name="built_in_skills_title">内置技能</string>
+  <string name="custom_skills_title">自定义技能</string>
+  <string name="describe_requirements">描述需求</string>
+  <string name="describe_input_data">描述输入数据</string>
+  <string name="describe_input_data_support_text">字段名称需与指令中的名称匹配。</string>
+  <string name="describe_output_data">描述输出数据</string>
+  <string name="duplicated_script_name">脚本名称重复</string>
+  <string name="enable_skill_dialog_content">请点击下方的技能按钮来启用技能。</string>
+  <string name="edit_skill">编辑技能</string>
+  <string name="enter_skill_url">输入技能根目录的 URL</string>
+  <string name="featured_skills_title">精选技能</string>
+  <string name="featured_skills_description">社区贡献的精选技能列表</string>
+  <string name="generate_llm_prompt_title">生成 LLM 提示</string>
+  <string name="generate_llm_prompt_button_label">LLM 提示</string>
+  <string name="learn_how_to_write_skills">学习如何编写技能</string>
+  <string name="loading_skills_allowlist">正在加载精选技能…</string>
+  <string name="manage_skills">管理技能</string>
+  <string name="manage_skills_description">查看、创建和管理您的技能</string>
+  <string name="skill_limit_warning">启用超过 %s 个可能会影响性能。</string>
+  <string name="no_directory_selected">未选择目录</string>
+  <string name="pick_skill_dir">选择技能根目录</string>
+  <string name="prompt_copied_message">提示已复制到剪贴板。将其粘贴到您常用的 LLM 应用中生成代码，然后将代码复制粘贴到此处。</string>
+  <string name="prompt_chip_kitchen_adventure">厨房冒险</string>
+  <string name="prompt_chip_calculate_hash">计算哈希</string>
+  <string name="prompt_chip_query_wikipedia">查询维基百科</string>
+  <string name="prompt_chip_plot_chart">绘制图表</string>
+  <string name="prompt_chip_interactive_map">交互式地图</string>
+  <string name="prompt_chip_text_spinner">头顶旋转标签</string>
+  <string name="prompt_chip_send_email">发送邮件</string>
+  <string name="replace_skill_dialog_title">替换现有技能</string>
+  <string name="replace_skill_dialog_content">已存在同名技能。是否要替换？</string>
+  <string name="search_skill">搜索技能</string>
+  <string name="select_script">选择脚本</string>
+  <string name="script_name">脚本名称</string>
+  <string name="script_content">脚本内容</string>
+  <string name="skills">技能</string>
+  <plurals name="skills_count">
+    <item quantity="one">%d 个技能</item>
+    <item quantity="other">%d 个技能</item>
+  </plurals>
+  <string name="skill_name_input_description">必填。格式为 my-skill-name</string>
+  <string name="skill_description_input_description">必填。简要描述技能的功能和触发条件或关键词。</string>
+  <string name="skill_instructions_input_description">LLM 完成任务所需遵循的详细说明（Markdown 格式）。</string>
+  <string name="use_call_js_template">使用 Call JS 模板</string>
+
+  <!-- MCP -->
+  <string name="mcp">MCP</string>
+  <string name="mcp_tool_call_permission_title">允许调用 MCP 工具？</string>
+  <string name="mcp_tool_name_label">工具名称</string>
+  <string name="mcp_tool_input_label">输入</string>
+  <string name="mcp_tool_always_allow">始终允许</string>
+  <string name="mcp_tool_allow_once">允许一次</string>
+  <string name="mcp_tool_dont_allow">不允许</string>
+  <string name="mcp_tool_revoke">撤销</string>
+  <string name="mcp_tool_revoke_permission">撤销工具调用权限</string>
+  <string name="mcp_tool_revoke_permission_title">撤销权限？</string>
+  <string name="mcp_tool_revoke_permission_content">确定要撤销自动调用此工具的权限吗？</string>
+  <string name="manage_mcp_servers">管理 MCP 服务器</string>
+  <string name="add_mcp_server">添加 MCP 服务器</string>
+  <string name="learn_more_about_mcp">了解 Google AI Edge Gallery 中的 MCP</string>
+  <string name="learn_more_about_mcp_short">了解更多</string>
+  <string name="search_mcp_server">搜索 MCP 服务器</string>
+  <plurals name="mcp_servers_count">
+    <item quantity="one">%d 个 MCP 服务器</item>
+    <item quantity="other">%d 个 MCP 服务器</item>
+  </plurals>
+  <plurals name="mcp_tools_count">
+    <item quantity="one">%d 个工具</item>
+    <item quantity="other">%d 个工具</item>
+  </plurals>
+  <string name="add_mcp_server_from_url_dialog_title">从 URL 添加 MCP 服务器</string>
+  <string name="enter_mcp_server_url">输入 MCP 服务器 URL</string>
+  <string name="delete_mcp_server_dialog_title">删除 MCP 服务器</string>
+  <string name="delete_mcp_server_dialog_content">确定要删除此 MCP 服务器吗？</string>
+  <string name="manage_tools">管理工具</string>
+  <string name="mcp_server_label">MCP 服务器: %s</string>
+  <string name="mcp_tool_description">描述</string>
+  <string name="mcp_tool_schema">架构</string>
+  <string name="mcp_disclaimer_dialog_title">添加第三方 MCP</string>
+  <string name="mcp_disclaimer_dialog_content">第三方 MCP 并非由 Google 创作或背书。Google 对其内容、安全性或数据处理方式概不负责。\n\n在提供敏感信息（如个人身份信息、令牌或 API 密钥）之前请谨慎操作。\n\n使用任何 MCP 均须遵守该 MCP 的适用条款。</string>
+  <string name="mcp_server_duplicate_title">MCP 服务器重复</string>
+  <string name="mcp_server_duplicate_content">此 MCP 服务器 URL 已添加。</string>
+  <string name="mcp_server_authorization">授权</string>
+  <string name="mcp_server_auth_none">无</string>
+  <string name="mcp_server_auth_request_header">请求头</string>
+  <string name="mcp_server_auth_oauth_wip">OAuth（开发中）</string>
+  <string name="mcp_server_header_name">请求头名称</string>
+  <string name="mcp_server_header_value">请求头值</string>
+
+  <!-- ChatHistorySideSheet -->
+  <string name="chat_history_title">对话历史</string>
+  <string name="new_chat">新建对话</string>
+  <string name="clear_all">全部清除</string>
+  <string name="chat_history_demo_notice">对话历史不会跨演示保留。</string>
+  <string name="clear_history_dialog_title">清除历史？</string>
+  <string name="clear_history_dialog_content">确定要清除历史记录吗？此操作无法撤销。</string>
+
+  <!-- Accessibility -->
+  <string name="cd_add_icon">添加</string>
+  <string name="cd_import_model_button">导入模型</string>
+  <string name="cd_task_card">%1$s 任务 (%2$d 个模型)</string>
+  <string name="cd_error">错误</string>
+  <string name="cd_import_model_from_local_file_button">从本地文件导入模型</string>
+  <string name="cd_navigate_back_icon">返回</string>
+  <string name="cd_app_settings_icon">设置</string>
+  <string name="cd_done_icon">完成</string>
+  <string name="cd_collapse_icon">折叠</string>
+  <string name="cd_expand_icon">展开</string>
+  <string name="cd_stop_icon">停止</string>
+  <string name="cd_delete_icon">删除</string>
+  <string name="cd_close_icon">关闭</string>
+  <string name="cd_selected_icon">已选中</string>
+  <string name="cd_model_settings_icon">模型设置</string>
+  <string name="cd_reset_session_icon">重置会话</string>
+  <string name="cd_change_model">当前模型为 %1$s。点击切换模型。</string>
+  <string name="cd_close_image_viewer_icon">关闭图片查看器</string>
+  <string name="cd_copy_to_clipboard_icon">复制到剪贴板</string>
+  <string name="cd_prompt_input_text_field">提示输入</string>
+  <string name="cd_send_prompt_icon">发送提示</string>
+  <string name="cd_model_response_text">模型响应文本</string>
+  <string name="cd_clear_input_history_icon">清除输入历史</string>
+  <string name="cd_delete_input_history_entry_icon">删除输入历史条目</string>
+  <string name="cd_content_input_field">内容输入</string>
+  <string name="cd_add_example_prompt_icon">添加示例提示</string>
+  <string name="cd_image_thumbnail">图片缩略图</string>
+  <string name="cd_user_image">用户图片 %1$d</string>
+  <string name="cd_user_image_in_group">用户图片 %1$d / %2$d</string>
+  <string name="cd_add_content_icon">添加内容</string>
+  <string name="cd_camera_shutter_icon">相机快门</string>
+  <string name="cd_toggle_front_back_camera_icon">切换前后摄像头</string>
+  <string name="cd_pick_file">选择文件</string>
+  <string name="cd_play_audio_icon">播放音频</string>
+  <string name="cd_stop_playback_icon">停止播放</string>
+  <string name="cd_send_audio_clip_icon">发送音频片段</string>
+  <string name="cd_start_recording">开始录音</string>
+  <string name="cd_downloaded_icon">已下载</string>
+  <string name="cd_not_downloaded_icon">未下载</string>
+  <string name="cd_downloading_icon">下载中</string>
+  <string name="cd_download_failed_icon">下载失败</string>
+  <string name="cd_chat_panel">对话面板</string>
+  <string name="cd_switch_to_keyboard">切换到键盘</string>
+  <string name="cd_switch_to_voice">切换到语音</string>
+  <string name="cd_show_history">显示历史</string>
+  <string name="cd_more_options">更多选项</string>
+  <string name="cd_help">帮助</string>
+  <string name="cd_menu">菜单</string>
+  <string name="cd_scroll_to_bottom">滚动到底部</string>
+  <string name="cd_chat_history">对话历史</string>
+
+  <!-- 主页 / 推广 -->
+  <string name="promo_gm4_introducing">隆重推出</string>
+  <string name="promo_gm4_title">Gemma 4</string>
+  <string name="promo_gm4_description">体验全球最强大的开放模型，专为在您的硬件上直接运行前沿智能而设计。</string>
+  <string name="promo_dismiss">关闭</string>
+  <string name="home_try_gemma4">立即体验 Gemma 4</string>
+  <string name="home_gemma4_subtitle">Gemma 4 E2B 和 E4B 来了！在 AI 对话、智能体技能或以下用例中试用它们。</string>
+  <string name="home_explore_use_cases">探索更多用例</string>
+  <string name="banner_gm4_title">Gemma 4：现已推出</string>
+  <string name="banner_gm4_description">基于与 Gemini 3 相同的世界级技术，Gemma 4 为您的手持和边缘设备带来前沿智能。</string>
+  <string name="banner_read_more">了解更多</string>
+
+  <!-- 错误 / 重试 -->
+  <string name="error_check_internet">请检查您的网络连接，稍后重试。</string>
+  <string name="error_retry">重试</string>
+  <string name="error_unknown_network">未知网络错误</string>
+  <string name="error_check_connection">请检查您的网络连接。</string>
+  <string name="error_unsupported_file_type">不支持的文件类型</string>
+  <string name="error_unsupported_file_type_msg">仅支持 \".task\" 或 \".litertlm\" 文件类型。</string>
+  <string name="error_unsupported_model_type">不支持的模型类型</string>
+  <string name="error_unsupported_model_type_msg">此模型似乎是仅限网页版的模型，应用不支持。</string>
+
+  <!-- 模型导入 -->
+  <string name="import_model_title">导入模型</string>
+  <string name="import_model_btn">导入</string>
+  <string name="import_model_from_local">从本地模型文件</string>
+  <string name="import_model_success">模型导入成功</string>
+  <string name="download_and_try">下载并试用</string>
+
+  <!-- 用户协议 -->
+  <string name="acknowledge_agreement">确认用户协议</string>
+  <string name="acknowledge_agreement_desc">这是一个受限模型。请点击下方按钮查看并同意用户协议。接受后，关闭该页面即可继续下载模型。</string>
+  <string name="open_user_agreement">打开用户协议</string>
+
+  <!-- 设置 -->
+  <string name="settings_enter_token">手动输入令牌</string>
+  <string name="settings_third_party_libs">第三方库</string>
+  <string name="settings_view_licenses">查看许可证</string>
+
+  <!-- 聊天输入 -->
+  <string name="input_take_picture">拍照</string>
+  <string name="input_pick_from_album">从相册选择</string>
+  <string name="input_record_audio">录制音频片段</string>
+  <string name="input_pick_wav">选择 wav 文件</string>
+  <string name="input_history_text">输入历史</string>
+
+  <!-- 技能测试器 -->
+  <string name="skill_input_data">输入数据</string>
+  <string name="skill_custom_data">自定义数据</string>
+  <string name="skill_result">结果</string>
+  <string name="skill_logs">日志</string>
+  <string name="skill_clear_history_title">清除历史？</string>
+  <string name="skill_clear_history_content">确定要清除历史记录吗？此操作无法撤销。</string>
+  <string name="skill_delete_script_confirm">确定要删除「%s」吗？</string>
+  <string name="skill_disabled_title">「%s」技能当前已禁用</string>
+
+  <!-- 提示词实验室 -->
+  <string name="prompt_enter_content">输入内容</string>
+  <string name="prompt_preview">预览提示词</string>
+
+  <!-- 配置标签 -->
+  <string name="config_max_tokens">最大 Token 数</string>
+  <string name="config_topk">TopK</string>
+  <string name="config_topp">TopP</string>
+  <string name="config_temperature">温度</string>
+  <string name="config_default_max_tokens">默认最大 Token 数</string>
+  <string name="config_default_topk">默认 TopK</string>
+  <string name="config_default_topp">默认 TopP</string>
+  <string name="config_default_temperature">默认温度</string>
+  <string name="config_support_image">支持图片</string>
+  <string name="config_support_audio">支持音频</string>
+  <string name="config_support_tiny_garden">支持微型花园</string>
+  <string name="config_support_mobile_actions">支持手机操作</string>
+  <string name="config_support_thinking">支持思考模式</string>
+  <string name="config_support_speculative_decoding">支持推测解码</string>
+  <string name="config_enable_thinking">启用思考模式</string>
+  <string name="config_enable_speculative_decoding">启用推测解码</string>
+  <string name="config_max_result_count">最大结果数</string>
+  <string name="config_use_gpu">使用 GPU</string>
+  <string name="config_accelerator">加速器</string>
+  <string name="config_vision_accelerator">视觉加速器</string>
+  <string name="config_compatible_accelerators">兼容加速器</string>
+  <string name="config_warm_up_iterations">预热迭代</string>
+  <string name="config_benchmark_iterations">基准测试迭代</string>
+  <string name="config_iterations">迭代次数</string>
+  <string name="config_theme">主题</string>
+  <string name="config_name">名称</string>
+  <string name="config_model_type">模型类型</string>
+  <string name="config_model">模型</string>
+  <string name="config_reset_turn_count">对话重置前的轮数</string>
+  <string name="config_prefill_tokens">预填充 Token 数</string>
+  <string name="config_decode_tokens">解码 Token 数</string>
+  <string name="config_number_of_runs">运行次数</string>
+  <string name="config_cpu">CPU</string>
+  <string name="config_gpu">GPU</string>
+  <string name="config_npu">NPU</string>
+  <string name="config_tpu">TPU</string>
+
+  <!-- 实验性标签 -->
+  <string name="label_experimental">实验性</string>
+
+  <!-- 对话描述 -->
+  <string name="chat_desc_llm">与大语言模型对话</string>
+  <string name="chat_desc_agent">让 Gemma 4 为您完成智能体任务</string>
+
+  <!-- 任务标签和描述 -->
+  <string name="task_llm_chat_label">AI 对话</string>
+  <string name="task_llm_chat_desc">与端侧大语言模型进行对话</string>
+  <string name="task_llm_chat_short">与端侧大模型对话</string>
+  <string name="task_llm_ask_image_label">图片问答</string>
+  <string name="task_llm_ask_image_desc">使用端侧大语言模型对图片进行提问</string>
+  <string name="task_llm_ask_image_short">对图片进行提问</string>
+  <string name="task_llm_ask_audio_label">音频转录</string>
+  <string name="task_llm_ask_audio_desc">使用端侧大语言模型即时转录和/或翻译音频片段</string>
+  <string name="task_llm_ask_audio_short">转录和翻译音频</string>
+  <string name="task_llm_prompt_lab_label">提示词实验室</string>
+  <string name="task_llm_prompt_lab_desc">使用端侧大语言模型进行单轮用例测试</string>
+  <string name="task_llm_prompt_lab_short">单轮用例测试</string>
+  <string name="task_llm_agent_chat_label">智能体技能</string>
+  <string name="task_llm_agent_chat_desc">使用具备技能和工具的端侧大语言模型进行对话</string>
+  <string name="task_llm_agent_chat_short">通过对话完成智能体任务</string>
+  <string name="task_llm_tiny_garden_label">微型花园</string>
+  <string name="task_llm_tiny_garden_short">使用自然语言来种植</string>
+  <string name="task_llm_mobile_actions_label">手机操作</string>
+  <string name="task_llm_mobile_actions_desc">通过 Function Gemma 执行各种设备操作</string>
+  <string name="task_llm_mobile_actions_short">利用设备端手机操作</string>
+
+</resources>

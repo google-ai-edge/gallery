@@ -247,7 +247,7 @@ fun PromptTemplatesPanel(
                   disabledContainerColor = Color.Transparent,
                 ),
               textStyle = bodyLargeNarrow,
-              placeholder = { Text("Enter content") },
+              placeholder = { Text(stringResource(R.string.prompt_enter_content)) },
               modifier =
                 Modifier.padding(bottom = 40.dp).focusRequester(focusRequester).semantics {
                   contentDescription = cdContentInput
@@ -302,7 +302,7 @@ fun PromptTemplatesPanel(
                   modifier = Modifier.size(FilterChipDefaults.IconSize).alpha(0.3f),
                 )
               }
-              Text("Preview prompt", style = MaterialTheme.typography.labelMedium)
+              Text(stringResource(R.string.prompt_preview), style = MaterialTheme.typography.labelMedium)
             }
           }
 

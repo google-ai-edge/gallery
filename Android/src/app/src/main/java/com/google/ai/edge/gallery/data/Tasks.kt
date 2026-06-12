@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.data
 
+import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableLongStateOf
@@ -42,6 +43,9 @@ data class Task(
   /** The label of the task, for display purpose. */
   val label: String,
 
+  /** String resource id for localized label. Falls back to [label] if 0. */
+  @StringRes val labelRes: Int = 0,
+
   /**
    * The category of the task.
    *
@@ -62,8 +66,14 @@ data class Task(
    */
   val description: String,
 
+  /** String resource id for localized description. Falls back to [description] if 0. */
+  @StringRes val descriptionRes: Int = 0,
+
   /** Shorter description (within 6 words) of the task. */
   val shortDescription: String = "",
+
+  /** String resource id for localized short description. Falls back to [shortDescription] if 0. */
+  @StringRes val shortDescriptionRes: Int = 0,
 
   /**
    * (optional)
@@ -156,3 +166,15 @@ private val allLegacyTaskIds: MutableSet<String> =
 fun isLegacyTasks(id: String): Boolean {
   return allLegacyTaskIds.contains(id)
 }
+
+/** Returns the localized label for this task, falling back to [Task.label]. */
+fun Task.localizedLabel(context: Context): String =
+  if (labelRes != 0) context.getString(labelRes) else label
+
+/** Returns the localized description for this task, falling back to [Task.description]. */
+fun Task.localizedDescription(context: Context): String =
+  if (descriptionRes != 0) context.getString(descriptionRes) else description
+
+/** Returns the localized short description for this task, falling back to [Task.shortDescription]. */
+fun Task.localizedShortDescription(context: Context): String =
+  if (shortDescriptionRes != 0) context.getString(shortDescriptionRes) else shortDescription
