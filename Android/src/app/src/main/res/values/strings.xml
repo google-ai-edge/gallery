@@ -384,6 +384,17 @@
   <!-- Content descriptive text for the clear history warning dialog. -->
   <string name="clear_history_dialog_content" translatable="true">Are you sure you want to clear the history? This action cannot be undone.</string>
 
+  <!-- Strings for model import dialog  [CHAR LIMIT=NONE] -->
+  <string name="cd_import_model_from_hugging_face" translatable="true" description="Content description spoken when the import model from hugging face button is focused.">Import model from Hugging Face</string>
+  <string name="import_model_from_hugging_face" translatable="true" description="Text label on the button/option to import a model from Hugging Face.">From Hugging Face</string>
+  <string name="import_from_hugging_face_title" translatable="true" description="Title of the dialog box for importing a model from Hugging Face.">Import from Hugging Face</string>
+  <string name="enter_hugging_face_url" translatable="true" description="Prompt text to guide the user to enter a Hugging Face model URL.">Enter the Hugging Face model URL:</string>
+  <string name="hugging_face_url_placeholder" description="Placeholder text shown inside the text field where the user enters the URL.">https://huggingface.co/…</string>
+  <string name="next" translatable="true" description="Button text to navigate to the next step.">Next</string>
+  <string name="unsupported_model_title" translatable="true" description="Title of the dialog showing that the imported model type is unsupported.">Unsupported model type</string>
+  <string name="unsupported_file_type_error" translatable="true" description="Message informing the user that only .task or .litertlm file formats are supported.">Only \".task\" or \".litertlm\" file type is supported.</string>
+  <string name="unsupported_web_model_error" translatable="true" description="Message explaining that the model is only for web browsers and not supported on the Android application.">Looks like the model is a web-only model and is not supported by the app.</string>
+
   <!-- The following entries are for accessibility -->
 
   <!-- Content description spoken when the "add" icon is focused. [CHAR_LIMIT=NONE] -->

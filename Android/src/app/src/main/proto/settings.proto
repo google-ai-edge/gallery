@@ -48,6 +48,8 @@ message ImportedModel {
   oneof config {
     LlmConfig llm_config = 3;
   }
+  // Only set for models imported from url.
+  string url = 4;
 }
 
 message LlmConfig {
