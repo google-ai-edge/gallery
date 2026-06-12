@@ -1,0 +1,12 @@
+{
+  "name": "foog808-agent-ensemble-skill",
+  "version": "0.1.0",
+  "description": "Ensemble skill that generates 23 candidates and selects best via GRPO evaluation.",
+  "main": "scripts/index.node.js",
+  "scripts": {
+    "validate": "node scripts/run_local.js",
+    "test": "node test_assert.js"
+  },
+  "author": "foog808",
+  "license": "MIT"
+}
