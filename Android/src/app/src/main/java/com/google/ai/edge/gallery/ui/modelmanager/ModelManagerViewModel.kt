@@ -335,7 +335,7 @@ constructor(
     }
 
     // Delete the model files first.
-    deleteModel(model = model)
+    deleteModel(model = model, removeImportedFromModelList = false)
 
     // Start to send download request.
     downloadRepository.downloadModel(
@@ -353,10 +353,10 @@ constructor(
       return
     }
     downloadRepository.cancelDownloadModel(model)
-    deleteModel(model = model)
+    deleteModel(model = model, removeImportedFromModelList = false)
   }
 
-  fun deleteModel(model: Model) {
+  fun deleteModel(model: Model, removeImportedFromModelList: Boolean = true) {
     // If the currently downloaded model is an updatable version, reset the model to its latest
     // version and mark it as not updatable upon deletion.
     if (model.updatable) {
@@ -378,8 +378,10 @@ constructor(
     curModelDownloadStatus[model.name] =
       ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED)
 
-    // Delete model from the list if model is imported as a local model.
-    if (model.imported) {
+    // Delete model from the list if model is imported as a local model and
+    // removeImportedFromModelList is
+    // true.
+    if (model.imported && removeImportedFromModelList) {
       for (curTask in uiState.value.tasks) {
         val index = curTask.models.indexOf(model)
         if (index >= 0) {
@@ -629,6 +631,11 @@ constructor(
   fun addImportedLlmModel(info: ImportedModel) {
     Log.d(TAG, "adding imported llm model: $info")
 
+    val importsDir = File(context.getExternalFilesDir(null), IMPORTS_DIR)
+    if (!importsDir.exists()) {
+      importsDir.mkdirs()
+    }
+
     // Create model.
     val model = createModelFromImportedModelInfo(info = info)
 
@@ -673,12 +680,16 @@ constructor(
     // Add initial status and states.
     val modelDownloadStatus = uiState.value.modelDownloadStatus.toMutableMap()
     val modelInstances = uiState.value.modelInitializationStatus.toMutableMap()
-    modelDownloadStatus[model.name] =
-      ModelDownloadStatus(
-        status = ModelDownloadStatusType.SUCCEEDED,
-        receivedBytes = info.fileSize,
-        totalBytes = info.fileSize,
-      )
+    if (model.url.isNotEmpty()) {
+      modelDownloadStatus[model.name] = getModelDownloadStatus(model = model)
+    } else {
+      modelDownloadStatus[model.name] =
+        ModelDownloadStatus(
+          status = ModelDownloadStatusType.SUCCEEDED,
+          receivedBytes = info.fileSize,
+          totalBytes = info.fileSize,
+        )
+    }
     modelInstances[model.name] =
       ModelInitializationStatus(status = ModelInitializationStatusType.NOT_INITIALIZED)
 
@@ -1152,12 +1163,16 @@ constructor(
       }
 
       // Update status.
-      modelDownloadStatus[model.name] =
-        ModelDownloadStatus(
-          status = ModelDownloadStatusType.SUCCEEDED,
-          receivedBytes = importedModel.fileSize,
-          totalBytes = importedModel.fileSize,
-        )
+      if (model.url.isNotEmpty()) {
+        modelDownloadStatus[model.name] = getModelDownloadStatus(model = model)
+      } else {
+        modelDownloadStatus[model.name] =
+          ModelDownloadStatus(
+            status = ModelDownloadStatusType.SUCCEEDED,
+            receivedBytes = importedModel.fileSize,
+            totalBytes = importedModel.fileSize,
+          )
+      }
     }
 
     val textInputHistory = dataStoreRepository.readTextInputHistory()
@@ -1227,10 +1242,10 @@ constructor(
     val model =
       Model(
         name = info.fileName,
-        url = "",
+        url = info.url,
         configs = configs,
         sizeInBytes = info.fileSize,
-        downloadFileName = "$IMPORTS_DIR/${info.fileName}",
+        downloadFileName = info.fileName,
         showBenchmarkButton = false,
         showRunAgainButton = false,
         imported = true,
@@ -1386,7 +1401,8 @@ constructor(
   private fun deleteFilesFromImportDir(fileName: String) {
     val dir = context.getExternalFilesDir(null) ?: return
 
-    val prefixAbsolutePath = "${context.getExternalFilesDir(null)}${File.separator}$fileName"
+    val prefixAbsolutePath =
+      "${context.getExternalFilesDir(null)}${File.separator}$IMPORTS_DIR${File.separator}$fileName"
     val filesToDelete =
       File(dir, IMPORTS_DIR).listFiles { dirFile, name ->
         File(dirFile, name).absolutePath.startsWith(prefixAbsolutePath)
@@ -1428,7 +1444,6 @@ constructor(
     _uiState.update { it.copy(modelInitializationStatus = curModelInstance) }
   }
 
-  @androidx.annotation.VisibleForTesting
   fun isModelDownloaded(model: Model): Boolean {
     model.updatable = false
     // First, check if the model with the current (latest) version has been downloaded.
@@ -1456,7 +1471,11 @@ constructor(
     fileName: String = model.downloadFileName,
   ): Boolean {
     val modelRelativePath =
-      listOf(model.normalizedName, version, fileName).joinToString(File.separator)
+      if (model.imported) {
+        listOf(IMPORTS_DIR, fileName).joinToString(File.separator)
+      } else {
+        listOf(model.normalizedName, version, fileName).joinToString(File.separator)
+      }
     val downloadedFileExists =
       fileName.isNotEmpty() &&
         ((model.localModelFilePathOverride.isEmpty() &&

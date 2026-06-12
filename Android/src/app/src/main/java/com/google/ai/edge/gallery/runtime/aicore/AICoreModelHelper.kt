@@ -23,6 +23,7 @@ import com.google.ai.edge.gallery.common.cleanUpMediapipeTaskErrorMessage
 import com.google.ai.edge.gallery.data.AICoreModelPreference
 import com.google.ai.edge.gallery.data.AICoreModelReleaseStage
 import com.google.ai.edge.gallery.data.ConfigKeys
+import com.google.ai.edge.gallery.data.DEFAULT_MAX_OUTPUT_TOKEN
 import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
 import com.google.ai.edge.gallery.data.DEFAULT_TOPK
 import com.google.ai.edge.gallery.data.Model
@@ -114,6 +115,7 @@ object AICoreModelHelper : LlmModelHelper {
             }
           }
           FeatureStatus.UNAVAILABLE -> {
+            logAICoreAccessDetails(context)
             onDone("Feature is unavailable on this device.")
           }
           else -> {
@@ -166,6 +168,7 @@ object AICoreModelHelper : LlmModelHelper {
             }
           }
           FeatureStatus.UNAVAILABLE -> {
+            logAICoreAccessDetails(context)
             onError("AICore model is unavailable on this device.")
           }
           else -> {
@@ -271,6 +274,11 @@ object AICoreModelHelper : LlmModelHelper {
         .getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
         .coerceIn(0.0f, 1.0f)
     val topK = model.getIntConfigValue(key = ConfigKeys.TOPK, defaultValue = DEFAULT_TOPK)
+    val maxOutputTokens =
+      model.getIntConfigValue(
+        key = ConfigKeys.MAX_OUTPUT_TOKENS,
+        defaultValue = DEFAULT_MAX_OUTPUT_TOKEN,
+      )
 
     instance.inferenceJob?.cancel()
 
@@ -280,6 +288,7 @@ object AICoreModelHelper : LlmModelHelper {
         prompt = prompt,
         temperature = temperature,
         topK = topK,
+        maxOutputTokens = maxOutputTokens,
         images = images,
         input = input,
         resultListener = resultListener,
@@ -293,6 +302,7 @@ object AICoreModelHelper : LlmModelHelper {
     prompt: String,
     temperature: Float,
     topK: Int,
+    maxOutputTokens: Int,
     images: List<Bitmap>,
     input: String,
     resultListener: ResultListener,
@@ -308,11 +318,13 @@ object AICoreModelHelper : LlmModelHelper {
           ) {
             this.temperature = temperature
             this.topK = topK
+            this.maxOutputTokens = maxOutputTokens
           }
         } else {
           generateContentRequest(TextPart(prompt)) {
             this.temperature = temperature
             this.topK = topK
+            this.maxOutputTokens = maxOutputTokens
           }
         }
       val flow = instance.generativeModel.generateContentStream(request)
@@ -374,6 +386,45 @@ object AICoreModelHelper : LlmModelHelper {
       } else {
         ModelPreference.FAST
       }
+  }
+
+  private fun logAICoreAccessDetails(context: Context) {
+    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
+      Log.w(
+        TAG,
+        "AICore is not accessible: Android version is ${android.os.Build.VERSION.SDK_INT}. It requires at least Android T (API 33).",
+      )
+      return
+    }
+
+    val allowedPackages =
+      setOf(
+        "com.google.ai.edge.gallery",
+        "com.google.ai.edge.gallery.internal",
+        "com.google.ai.edge.gallery.dev",
+      )
+    val packageName = context.packageName
+    if (!allowedPackages.contains(packageName)) {
+      Log.w(
+        TAG,
+        "AICore is not accessible: Package name '$packageName' is not allowlisted in AICore. " +
+          "Allowed package names: $allowedPackages",
+      )
+    }
+
+    val isInstalled =
+      try {
+        context.packageManager.getPackageInfo("com.google.android.aicore", 0)
+        true
+      } catch (e: android.content.pm.PackageManager.NameNotFoundException) {
+        false
+      }
+    if (!isInstalled) {
+      Log.w(
+        TAG,
+        "AICore is not accessible: com.google.android.aicore is not installed on this device.",
+      )
+    }
   }
 
   private fun formatChatPrompt(chatHistory: List<AICoreChatMessage>, input: String): String =

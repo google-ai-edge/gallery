@@ -46,6 +46,7 @@ data class ConfigKey(val id: String, val label: String)
 
 object ConfigKeys {
   val MAX_TOKENS = ConfigKey("max_tokens", "Max tokens")
+  val MAX_OUTPUT_TOKENS = ConfigKey("max_output_tokens", "Max output tokens")
   val TOPK = ConfigKey("topk", "TopK")
   val TOPP = ConfigKey("topp", "TopP")
   val TEMPERATURE = ConfigKey("temperature", "Temperature")
@@ -316,9 +317,17 @@ fun createAICoreConfigs(
   defaultTopK: Int = DEFAULT_TOPK,
   defaultTemperature: Float = DEFAULT_TEMPERATURE,
   accelerators: List<Accelerator> = DEFAULT_ACCELERATORS,
+  defaultMaxOutputTokens: Int = DEFAULT_MAX_OUTPUT_TOKEN,
 ): List<Config> {
   return listOf(
     LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken"),
+    NumberSliderConfig(
+      key = ConfigKeys.MAX_OUTPUT_TOKENS,
+      sliderMin = 100f,
+      sliderMax = 4096f,
+      defaultValue = defaultMaxOutputTokens.toFloat(),
+      valueType = ValueType.INT,
+    ),
     NumberSliderConfig(
       key = ConfigKeys.TOPK,
       sliderMin = 5f,
