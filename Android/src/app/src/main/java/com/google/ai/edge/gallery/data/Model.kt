@@ -348,7 +348,7 @@ data class Model(
 
   fun getPath(context: Context, fileName: String = downloadFileName): String {
     if (imported) {
-      return listOf(context.getExternalFilesDir(null)?.absolutePath ?: "", fileName)
+      return listOf(context.getExternalFilesDir(null)?.absolutePath ?: "", IMPORTS_DIR, fileName)
         .joinToString(File.separator)
     }
 

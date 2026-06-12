@@ -38,6 +38,7 @@ import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_RECEIVED_BYTES
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_REMAINING_MS
 import com.google.ai.edge.gallery.data.KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES
 import com.google.ai.edge.gallery.data.KEY_MODEL_EXTRA_DATA_URLS
+import com.google.ai.edge.gallery.data.KEY_MODEL_IS_IMPORTED
 import com.google.ai.edge.gallery.data.KEY_MODEL_IS_ZIP
 import com.google.ai.edge.gallery.data.KEY_MODEL_NAME
 import com.google.ai.edge.gallery.data.KEY_MODEL_START_UNZIPPING
@@ -96,6 +97,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
     val version = inputData.getString(KEY_MODEL_COMMIT_HASH)!!
     val fileName = inputData.getString(KEY_MODEL_DOWNLOAD_FILE_NAME)
     val modelDir = inputData.getString(KEY_MODEL_DOWNLOAD_MODEL_DIR)!!
+    val isModelImported = inputData.getBoolean(KEY_MODEL_IS_IMPORTED, false)
     val isZip = inputData.getBoolean(KEY_MODEL_IS_ZIP, false)
     val unzippedDir = inputData.getString(KEY_MODEL_UNZIPPED_DIR)
     val extraDataFileUrls = inputData.getString(KEY_MODEL_EXTRA_DATA_URLS)?.split(",") ?: listOf()
@@ -138,21 +140,33 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
             // Prepare output file's dir.
             val outputDir =
-              File(
-                applicationContext.getExternalFilesDir(null),
-                listOf(modelDir, version).joinToString(separator = File.separator),
-              )
+              if (isModelImported) {
+                File(applicationContext.getExternalFilesDir(null), modelDir)
+              } else {
+                File(
+                  applicationContext.getExternalFilesDir(null),
+                  listOf(modelDir, version).joinToString(separator = File.separator),
+                )
+              }
             if (!outputDir.exists()) {
               outputDir.mkdirs()
             }
 
             // Read the tmp file and see if it is partially downloaded.
             val outputTmpFile =
-              File(
-                applicationContext.getExternalFilesDir(null),
-                listOf(modelDir, version, "${file.fileName}.$TMP_FILE_EXT")
-                  .joinToString(separator = File.separator),
-              )
+              if (isModelImported) {
+                File(
+                  applicationContext.getExternalFilesDir(null),
+                  listOf(modelDir, "${file.fileName}.$TMP_FILE_EXT")
+                    .joinToString(separator = File.separator),
+                )
+              } else {
+                File(
+                  applicationContext.getExternalFilesDir(null),
+                  listOf(modelDir, version, "${file.fileName}.$TMP_FILE_EXT")
+                    .joinToString(separator = File.separator),
+                )
+              }
             val outputFileBytes = outputTmpFile.length()
             if (outputFileBytes > 0) {
               Log.d(
