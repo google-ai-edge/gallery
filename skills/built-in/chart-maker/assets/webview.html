@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>body{margin:0;padding:20px;display:flex;justify-content:center;align-items:center;height:100vh;background:#fff;} canvas{max-width:100%;max-height:100%;}</style>
+</head>
+<body>
+    <canvas id="chartCanvas"></canvas>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('data')) {
+            const data = JSON.parse(params.get('data'));
+            const ctx = document.getElementById('chartCanvas').getContext('2d');
+            new Chart(ctx, {
+                type: data.type || 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: data.title || 'Dataset',
+                        data: data.data,
+                        backgroundColor: ['#ff6384', '#36a2eb', '#cc65fe', '#ffce56', '#4bc0c0', '#9966ff'],
+                        borderWidth: 1
+                    }]
+                }
+            });
+        }
+    </script>
+</body>
+</html>

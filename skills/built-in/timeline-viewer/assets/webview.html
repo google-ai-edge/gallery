@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timeline</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f4f4f9; padding: 20px; color: #333; margin: 0; }
+        @media (prefers-color-scheme: dark) {
+            body { background: #121212; color: #eee; }
+        }
+        h2 { text-align: center; margin-top: 0; font-size: 1.5em; padding-bottom: 10px; border-bottom: 1px solid #ccc; }
+        @media (prefers-color-scheme: dark) { h2 { border-bottom-color: #444; } }
+        
+        .timeline { position: relative; max-width: 600px; margin: 0 auto; padding-top: 10px; }
+        .timeline::after { content: ''; position: absolute; width: 4px; background: #2196F3; top: 0; bottom: 0; left: 30px; margin-left: -2px; border-radius: 2px; }
+        
+        .event { padding: 10px 10px 20px 60px; position: relative; width: 100%; box-sizing: border-box; }
+        .event::after { content: ''; position: absolute; width: 16px; height: 16px; background: white; border: 4px solid #2196F3; top: 15px; left: 30px; border-radius: 50%; z-index: 1; margin-left: -10px; }
+        @media (prefers-color-scheme: dark) { .event::after { background: #2d2d2d; border-color: #64b5f6; } }
+        
+        .content { padding: 15px; background: white; position: relative; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        @media (prefers-color-scheme: dark) { .content { background: #1e1e1e; box-shadow: 0 2px 8px rgba(0,0,0,0.2); border: 1px solid #333; } }
+        
+        .date { font-weight: bold; color: #2196F3; margin-bottom: 5px; font-size: 0.9em; text-transform: uppercase; letter-spacing: 0.5px; }
+        @media (prefers-color-scheme: dark) { .date { color: #64b5f6; } }
+        
+        .title { font-weight: bold; font-size: 1.1em; margin-bottom: 8px; }
+        .desc { margin: 0; font-size: 0.95em; opacity: 0.85; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <h2 id="timelineTitle">Timeline</h2>
+    <div class="timeline" id="timeline"></div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('data')) {
+            try {
+                const data = JSON.parse(params.get('data'));
+                if (data.title) document.getElementById('timelineTitle').textContent = data.title;
+                
+                const timeline = document.getElementById('timeline');
+                (data.events || []).forEach(ev => {
+                    const el = document.createElement('div');
+                    el.className = 'event';
+                    el.innerHTML = `
+                        <div class="content">
+                            <div class="date">${escapeHtml(ev.date)}</div>
+                            <div class="title">${escapeHtml(ev.title)}</div>
+                            <p class="desc">${escapeHtml(ev.description)}</p>
+                        </div>
+                    `;
+                    timeline.appendChild(el);
+                });
+            } catch(e) {
+                document.body.innerHTML = `<div style="color:red; text-align:center; padding: 20px;">Error loading timeline: ${e.message}</div>`;
+            }
+        }
+        function escapeHtml(str) { return (str||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+    </script>
+</body>
+</html>

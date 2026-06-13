@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <script>
+        window['ai_edge_gallery_get_result'] = async (data) => {
+            try {
+                const parsedData = JSON.parse(data);
+                
+                if (!parsedData.cards || !Array.isArray(parsedData.cards)) {
+                    throw new Error("Invalid format: 'cards' array is missing or invalid.");
+                }
+
+                if (parsedData.cards.length === 0) {
+                    throw new Error("No flashcards generated.");
+                }
+
+                // URL-encode the cards to pass them to the interactive webview
+                const encodedCards = encodeURIComponent(JSON.stringify(parsedData.cards));
+                
+                return JSON.stringify({
+                    result: `Generated ${parsedData.cards.length} flashcards. Here is the interactive view.`,
+                    webview: {
+                        url: `webview.html?data=${encodedCards}`,
+                        aspectRatio: 1.0
+                    }
+                });
+            } catch (e) {
+                console.error(e);
+                return JSON.stringify({
+                    error: `Failed to generate flashcards: ${e.message}`
+                });
+            }
+        };
+    </script>
+</body>
+</html>
