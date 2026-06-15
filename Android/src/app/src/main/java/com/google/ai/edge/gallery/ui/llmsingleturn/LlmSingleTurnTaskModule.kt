@@ -93,9 +93,11 @@ class LlmSingleTurnTask @Inject constructor() : CustomTask {
 @Module
 @InstallIn(SingletonComponent::class) // Or another component that fits your scope
 internal object LlmSingleTurnTaskModule {
+  /*
   @Provides
   @IntoSet
   fun provideTask(): CustomTask {
     return LlmSingleTurnTask()
   }
+  */
 }
