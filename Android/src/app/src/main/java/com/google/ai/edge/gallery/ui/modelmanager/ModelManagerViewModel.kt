@@ -169,7 +169,6 @@ private val RESET_CONVERSATION_TURN_COUNT_CONFIG =
     defaultValue = 3f,
     valueType = ValueType.INT,
   )
-
 private val PREDEFINED_LLM_TASK_ORDER =
   listOf(
     BuiltInTaskId.LLM_ASK_IMAGE,
