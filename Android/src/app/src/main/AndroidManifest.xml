@@ -63,6 +63,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Gallery"
         tools:targetApi="31">
+        <uses-native-library android:name="libedgetpu_util.so" android:required="false" />
+        <uses-native-library android:name="libedgetpu_tachyon.google.so" android:required="false" />
+        <uses-native-library android:name="libedgetpu_client.google.so" android:required="false" />
         <!--
           android:configChanges="uiMode" tells the system don't destroy and
           recreate the activity when UI mode changes (e.g. setting dark mode).
