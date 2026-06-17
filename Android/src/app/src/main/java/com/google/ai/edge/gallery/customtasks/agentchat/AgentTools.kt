@@ -36,6 +36,7 @@ import com.google.ai.edge.gallery.common.RequestPermissionAgentAction
 import com.google.ai.edge.gallery.common.SkillProgressAgentAction
 import com.google.ai.edge.gallery.common.convertStringToJsonObject
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.proto.Skill
 import com.google.ai.edge.litertlm.Tool
 import com.google.ai.edge.litertlm.ToolParam
 import com.google.ai.edge.litertlm.ToolSet
@@ -49,21 +50,72 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.runBlocking
 
 private const val TAG = "AGAgentTools"
+const val SKILL_INSTRUCTIONS_TEMPLATE = "---\nname: %s\ndescription: %s\n---\n\n%s"
 
-open class AgentTools() : ToolSet {
-  lateinit var context: Context
-  lateinit var skillManagerViewModel: SkillManagerViewModel
-  lateinit var mcpManagerViewModel: McpManagerViewModel
-  lateinit var taskId: String
+fun Skill.getSkillContent(): String {
+  return SKILL_INSTRUCTIONS_TEMPLATE.format(name, description, instructions)
+}
+
+interface AgentTools : ToolSet {
+  var context: Context
+  var skillManagerViewModel: SkillManagerViewModel
+  var mcpManagerViewModel: McpManagerViewModel
+  var taskId: String
+  val actionChannel: ReceiveChannel<AgentAction>
+  var resultImageToShow: CallJsSkillResultImage?
+  var resultWebviewToShow: CallJsSkillResultWebview?
+
+  @Tool(description = "Loads a skill.")
+  fun loadSkill(
+    @ToolParam(description = "The name of the skill to load.") skillName: String
+  ): Map<String, String>
+
+  @Tool(description = "Run a MCP tool")
+  fun runMcpTool(
+    @ToolParam(description = "The name of the tool to run.") toolName: String,
+    @ToolParam(description = "The parameters passed to tool as input") input: String,
+  ): Map<String, String>
+
+  @Tool(description = "Runs JS script")
+  fun runJs(
+    @ToolParam(description = "The name of skill") skillName: String,
+    @ToolParam(description = "The script name to run. Use 'index.html' if not provided by user")
+    scriptName: String,
+    @ToolParam(
+      description = "The data to pass to the script. Use empty string if not provided by user"
+    )
+    data: String,
+  ): Map<String, Any>
+
+  @Tool(
+    description =
+      "Run an Android intent. It is used to interact with the app to perform certain actions."
+  )
+  fun runIntent(
+    @ToolParam(description = "The intent to run.") intent: String,
+    @ToolParam(
+      description = "A JSON string containing the parameter values required for the intent."
+    )
+    parameters: String,
+  ): Map<String, String>
+
+  fun sendAgentAction(action: AgentAction)
+}
+
+open class AgentToolsImpl : AgentTools {
+  override lateinit var context: Context
+  override lateinit var skillManagerViewModel: SkillManagerViewModel
+  override lateinit var mcpManagerViewModel: McpManagerViewModel
+  override lateinit var taskId: String
 
   private val _actionChannel = Channel<AgentAction>(Channel.UNLIMITED)
-  val actionChannel: ReceiveChannel<AgentAction> = _actionChannel
-  var resultImageToShow: CallJsSkillResultImage? = null
-  var resultWebviewToShow: CallJsSkillResultWebview? = null
+  override val actionChannel: ReceiveChannel<AgentAction> = _actionChannel
+  override var resultImageToShow: CallJsSkillResultImage? = null
+  override var resultWebviewToShow: CallJsSkillResultWebview? = null
 
   /** Loads skill. */
   @Tool(description = "Loads a skill.")
-  fun loadSkill(
+  override fun loadSkill(
     @ToolParam(description = "The name of the skill to load.") skillName: String
   ): Map<String, String> {
     return runBlocking(Dispatchers.Default) {
@@ -71,7 +123,7 @@ open class AgentTools() : ToolSet {
       val skill = skills.find { it.name == skillName.trim() }
       val skillContent =
         if (skill != null) {
-          "---\nname: ${skill.name}\ndescription: ${skill.description}\n---\n\n${skill.instructions}"
+          skill.getSkillContent()
         } else {
           "Skill not found"
         }
@@ -100,7 +152,7 @@ open class AgentTools() : ToolSet {
   }
 
   @Tool(description = "Run a MCP tool")
-  fun runMcpTool(
+  override fun runMcpTool(
     @ToolParam(description = "The name of the tool to run.") toolName: String,
     @ToolParam(description = "The parameters passed to tool as input") input: String,
   ): Map<String, String> {
@@ -223,7 +275,7 @@ open class AgentTools() : ToolSet {
 
   /** Call JS skill */
   @Tool(description = "Runs JS script")
-  fun runJs(
+  override fun runJs(
     @ToolParam(description = "The name of skill") skillName: String,
     @ToolParam(description = "The script name to run. Use 'index.html' if not provided by user")
     scriptName: String,
@@ -359,7 +411,7 @@ open class AgentTools() : ToolSet {
     description =
       "Run an Android intent. It is used to interact with the app to perform certain actions."
   )
-  fun runIntent(
+  override fun runIntent(
     @ToolParam(description = "The intent to run.") intent: String,
     @ToolParam(
       description = "A JSON string containing the parameter values required for the intent."
@@ -403,7 +455,7 @@ open class AgentTools() : ToolSet {
     return mapOf("error" to error, "status" to "failed")
   }
 
-  fun sendAgentAction(action: AgentAction) {
+  override fun sendAgentAction(action: AgentAction) {
     runBlocking(Dispatchers.Default) { _actionChannel.send(action) }
   }
 

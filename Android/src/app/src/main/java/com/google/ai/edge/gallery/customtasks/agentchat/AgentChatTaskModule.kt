@@ -49,7 +49,7 @@ import kotlinx.coroutines.launch
 private const val TAG = "AGAgentChatTask"
 
 // The default system prompt for the agent chat task with both skills and MCP tools.
-internal const val DEFAULT_SYSTEM_PROMPT =
+const val DEFAULT_SYSTEM_PROMPT =
   """
   You are an AI assistant that helps users by answering questions and completing tasks using skills and tools. For EVERY new task, request, or question, you MUST execute the following steps in exact order. You MUST NOT skip any steps.
 
@@ -94,7 +94,7 @@ internal const val DEFAULT_SYSTEM_PROMPT =
 private val DEFAULT_SYSTEM_PROMPT_TRIMMED = DEFAULT_SYSTEM_PROMPT.trimIndent()
 
 // The default system prompt for the agent chat task with only skills.
-internal const val DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY =
+const val DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY =
   """
   You are an AI assistant that helps users by answering questions and completes tasks using skills. For EVERY new task or request or question, you MUST execute the following steps in exact order. You MUST NOT skip any steps.
 
@@ -117,7 +117,7 @@ private val DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY_TRIMMED =
   DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY.trimIndent()
 
 class AgentChatTask @Inject constructor() : CustomTask {
-  private val agentTools = AgentTools()
+  private val agentTools: AgentTools = AgentToolsImpl()
 
   override val task: Task =
     Task(
@@ -242,13 +242,13 @@ fun injectSkillsAndMcpTools(
 }
 
 // Check whether the system prompt is the default one.
-internal fun isDefaultSystemPrompt(prompt: String): Boolean {
+fun isDefaultSystemPrompt(prompt: String): Boolean {
   return prompt == DEFAULT_SYSTEM_PROMPT_TRIMMED ||
     prompt == DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY_TRIMMED
 }
 
 // Returns the effective default system prompt depending on whether MCP tools are enabled.
-internal fun getEffectiveBaseSystemPrompt(currentPrompt: String, hasMcpTools: Boolean): String {
+fun getEffectiveBaseSystemPrompt(currentPrompt: String, hasMcpTools: Boolean): String {
   return if (isDefaultSystemPrompt(currentPrompt)) {
     if (hasMcpTools) DEFAULT_SYSTEM_PROMPT_TRIMMED else DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY_TRIMMED
   } else {
