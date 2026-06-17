@@ -72,7 +72,6 @@ import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.bodyMediumMedium
 import com.google.ai.edge.gallery.ui.theme.customColors
-import kotlin.text.toFloat
 
 /**
  * Composable function to display a model item in the model manager list.
@@ -148,13 +147,16 @@ fun ModelItem(
         )
         // Model action menu (benchmark, delete), and button to expand/collapse button at the right.
         Row(verticalAlignment = Alignment.Top, modifier = Modifier.align(Alignment.TopEnd)) {
+          val isWebImport = model.imported && model.url.isNotEmpty()
           if (
-            modelVariants.isEmpty() && downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+            modelVariants.isEmpty() &&
+              (downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED || isWebImport)
           ) {
             ModelItemActionMenu(
               model = model,
               modelManagerViewModel = modelManagerViewModel,
-              showBenchmarkButton = showBenchmarkButton,
+              showBenchmarkButton =
+                showBenchmarkButton && downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED,
               showDeleteButton =
                 showDeleteButton && model.localFileRelativeDirPathOverride.isEmpty() && !isAicore,
               onBenchmarkClicked = { onBenchmarkClicked(model) },
@@ -387,11 +389,13 @@ fun ModelVariantHeader(
       )
     }
     // Model action menu (benchmark, delete)
-    if (downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED) {
+    val isWebImport = variantModel.imported && variantModel.url.isNotEmpty()
+    if (downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED || isWebImport) {
       ModelItemActionMenu(
         model = variantModel,
         modelManagerViewModel = modelManagerViewModel,
-        showBenchmarkButton = showBenchmarkButton,
+        showBenchmarkButton =
+          showBenchmarkButton && downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED,
         showDeleteButton =
           showDeleteButton &&
             variantModel.localFileRelativeDirPathOverride.isEmpty() &&

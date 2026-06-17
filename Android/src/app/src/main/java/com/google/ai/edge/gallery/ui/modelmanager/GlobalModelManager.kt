@@ -88,6 +88,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.google.ai.edge.gallery.R
@@ -96,6 +97,7 @@ import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.ui.common.TaskIcon
+import com.google.ai.edge.gallery.ui.common.buildTrackableUrlAnnotatedString
 import com.google.ai.edge.gallery.ui.common.modelitem.ModelItem
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import kotlin.text.endsWith
@@ -412,6 +414,12 @@ fun GlobalModelManager(
         style = MaterialTheme.typography.titleLarge,
         modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
       )
+      Text(
+        stringResource(R.string.import_model_terms_subtitle),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+      )
       val cbImportFromLocalFile = stringResource(R.string.cd_import_model_from_local_file_button)
       Box(
         modifier =
@@ -538,7 +546,17 @@ fun GlobalModelManager(
       title = { Text(stringResource(R.string.import_from_hugging_face_title)) },
       text = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-          Text(stringResource(R.string.enter_hugging_face_url))
+          Text(
+            buildAnnotatedString {
+              append(stringResource(R.string.enter_hugging_face_url))
+              append(
+                buildTrackableUrlAnnotatedString(
+                  url = stringResource(R.string.enter_hugging_face_url_example_link),
+                  linkText = stringResource(R.string.enter_hugging_face_url_example_link),
+                )
+              )
+            }
+          )
           OutlinedTextField(
             value = huggingFaceUrlInput,
             onValueChange = { huggingFaceUrlInput = it },
