@@ -30,12 +30,12 @@ plugins {
 
 android {
   namespace = "com.google.ai.edge.gallery"
-  compileSdk = 35
+  version = release(37) { minorApiLevel = 0 }
 
   defaultConfig {
     applicationId = "com.google.aiedge.gallery"
     minSdk = 31
-    targetSdk = 35
+    targetSdk = 37
     versionCode = 34
     versionName = "1.0.16"
 
