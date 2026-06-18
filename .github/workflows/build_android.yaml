@@ -1,29 +1,33 @@
-name: Build Android APK
-
-on:
-  workflow_dispatch:
-  push:
-    branches: [ "main" ]
-    paths:
-      - 'Android/**'
-  pull_request:
-    branches: [ "main" ]
-    paths:
-      - 'Android/**'
-
-jobs:
-  build_apk:
-    name: Build Android APK
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./Android/src
-    steps:
-      - name: Checkout the source code
-        uses: actions/checkout@v3
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-      - name: Build
-        run: ./gradlew assembleRelease
+  name: Build Android APK
+  
+  on:
+    workflow_dispatch:
+    push:
+      branches: [ "main" ]
+      paths:
+        - 'Android/**'
+    pull_request:
+      branches: [ "main" ]
+      paths:
+        - 'Android/**'
+  
+  jobs:
+    build_apk:
+      name: Build Android APK
+      runs-on: ubuntu-latest
+      defaults:
+        run:
+          working-directory: ./Android/src
+      steps:
+        - name: Checkout the source code
+          uses: actions/checkout@v3
+        - uses: actions/setup-java@v4
+          with:
+            distribution: 'temurin'
+            java-version: '21'
+        - name: Install Android SDK Platform 37
+          run: echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-37.0"
+        - name: Build
+          run: ./gradlew assembleRelease
+  
+  
