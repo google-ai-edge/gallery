@@ -21,8 +21,8 @@
 
     <uses-sdk
         android:minSdkVersion="31"
-        android:compileSdkVersion ="35"
-        android:targetSdkVersion="35" />
+        android:compileSdkVersion ="37"
+        android:targetSdkVersion="37" />
 
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
