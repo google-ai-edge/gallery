@@ -185,18 +185,16 @@ constructor(
             }
 
             val outputTokens = outputText.split(Regex("\\s+")).filter { it.isNotEmpty() }.size * 1.3
-            val totalLatencyS = latency / 1000.0
-            val prefillSpeedVal =
+            var totalLatencyS = latency / 1000.0
+            var prefillSpeedVal =
               if (timeToFirstTokenVal > 0) prefillTokens / timeToFirstTokenVal else 0.0
             val decodeTimeS =
               if (timeToFirstTokenVal > 0) totalLatencyS - timeToFirstTokenVal else totalLatencyS
-            val decodeSpeedVal = if (decodeTimeS > 0) outputTokens / decodeTimeS else 0.0
+            var decodeSpeedVal = if (decodeTimeS > 0) outputTokens / decodeTimeS else 0.0
 
             prefillSpeeds.add(prefillSpeedVal)
             decodeSpeeds.add(decodeSpeedVal)
-            timesToFirstToken.add(
-              if (timeToFirstTokenVal >= 0) timeToFirstTokenVal else latency / 1000.0
-            )
+            timesToFirstToken.add(timeToFirstTokenVal)
             if (i > 0) {
               nonFirstInitTimes.add(0.0)
             }
