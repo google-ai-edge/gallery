@@ -85,6 +85,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedIconButton
@@ -180,6 +181,8 @@ fun MessageInputText(
   showAudioPicker: Boolean = false,
   showStopButtonWhenInProgress: Boolean = false,
   onImageLimitExceeded: () -> Unit = {},
+  onModelNotSupportImage: () -> Unit = {},
+  onModelNotSupportAudio: () -> Unit = {},
 ) {
   val context = LocalContext.current
   val lifecycleOwner = LocalLifecycleOwner.current
@@ -450,6 +453,16 @@ fun MessageInputText(
                             (imageCount + pickedImages.size) >= MAX_IMAGE_COUNT_AI_CORE
                         val enableAddImageMenuItems =
                           (imageCount + pickedImages.size) < MAX_IMAGE_COUNT
+                        val isImageSupported = modelManagerUiState.selectedModel.llmSupportImage
+                        val imageItemColors =
+                          MenuDefaults.itemColors(
+                            textColor =
+                              if (isImageSupported) Color.Unspecified
+                              else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                            leadingIconColor =
+                              if (isImageSupported) Color.Unspecified
+                              else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                          )
                         // Take a picture.
                         DropdownMenuItem(
                           text = {
@@ -462,7 +475,13 @@ fun MessageInputText(
                             }
                           },
                           enabled = enableAddImageMenuItems,
+                          colors = imageItemColors,
                           onClick = {
+                            if (!isImageSupported) {
+                              onModelNotSupportImage()
+                              showAddContentMenu = false
+                              return@DropdownMenuItem
+                            }
                             if (isImageLimitExceededForAiCore) {
                               onImageLimitExceeded()
                               showAddContentMenu = false
@@ -499,7 +518,13 @@ fun MessageInputText(
                             }
                           },
                           enabled = enableAddImageMenuItems,
+                          colors = imageItemColors,
                           onClick = {
+                            if (!isImageSupported) {
+                              onModelNotSupportImage()
+                              showAddContentMenu = false
+                              return@DropdownMenuItem
+                            }
                             if (isImageLimitExceededForAiCore) {
                               onImageLimitExceeded()
                               showAddContentMenu = false
@@ -520,6 +545,16 @@ fun MessageInputText(
                       if (showAudioPicker) {
                         val enableRecordAudioClipMenuItems =
                           (audioClipMessageCount + pickedAudioClips.size) < MAX_AUDIO_CLIP_COUNT
+                        val isAudioSupported = modelManagerUiState.selectedModel.llmSupportAudio
+                        val audioItemColors =
+                          MenuDefaults.itemColors(
+                            textColor =
+                              if (isAudioSupported) Color.Unspecified
+                              else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                            leadingIconColor =
+                              if (isAudioSupported) Color.Unspecified
+                              else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                          )
                         DropdownMenuItem(
                           text = {
                             Row(
@@ -531,7 +566,13 @@ fun MessageInputText(
                             }
                           },
                           enabled = enableRecordAudioClipMenuItems,
+                          colors = audioItemColors,
                           onClick = {
+                            if (!isAudioSupported) {
+                              onModelNotSupportAudio()
+                              showAddContentMenu = false
+                              return@DropdownMenuItem
+                            }
                             // Check permission
                             when (PackageManager.PERMISSION_GRANTED) {
                               // Already got permission. Call the lambda.
@@ -563,7 +604,13 @@ fun MessageInputText(
                             }
                           },
                           enabled = enableRecordAudioClipMenuItems,
+                          colors = audioItemColors,
                           onClick = {
+                            if (!isAudioSupported) {
+                              onModelNotSupportAudio()
+                              showAddContentMenu = false
+                              return@DropdownMenuItem
+                            }
                             showAddContentMenu = false
 
                             // Show file picker.

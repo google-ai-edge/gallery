@@ -24,6 +24,8 @@
   <string name="aicore_access_panel_title" translatable="true">You cannot access this model yet. Please follow the steps and return when complete.</string>
   <string name="aicore_access_panel_button" translatable="true">Open guide</string>
   <string name="aicore_image_limit_message" translatable="true">The current model can only support 1 image per chat. To ask about another image, create a new chat.</string>
+  <string name="model_not_support_image_message" translatable="true">The current model does not support image input.</string>
+  <string name="model_not_support_audio_message" translatable="true">The current model does not support audio input.</string>
   <string name="aichat_initializing_title" translatable="true">Initializing model</string>
   <string name="aichat_initializing_content" translatable="true">Sit tight, this can take up to 1 minute</string>
   <string name="app_intro" translatable="true">Explore a world of amazing on-device models from</string>

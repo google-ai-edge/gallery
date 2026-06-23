@@ -200,6 +200,7 @@ fun ChatPanel(
   val benchmarkMessage: MutableState<ChatMessage?> = remember { mutableStateOf(null) }
 
   var showErrorDialog by remember { mutableStateOf(false) }
+  var customErrorMessage by remember { mutableStateOf<String?>(null) }
   var showFeedbackDialog by remember { mutableStateOf(false) }
   var isPositiveFeedback by remember { mutableStateOf(true) }
   var feedbackMessageIndex by remember { mutableIntStateOf(-1) }
@@ -666,6 +667,9 @@ fun ChatPanel(
         }
       }
 
+      val modelNotSupportImageMsg = stringResource(R.string.model_not_support_image_message)
+      val modelNotSupportAudioMsg = stringResource(R.string.model_not_support_audio_message)
+
       MessageInputText(
         task = task,
         modelManagerViewModel = modelManagerViewModel,
@@ -713,19 +717,27 @@ fun ChatPanel(
         showPromptTemplatesInMenu = false,
         showSkillsPicker = task.id === BuiltInTaskId.LLM_AGENT_CHAT,
         showMcpPicker = task.id === BuiltInTaskId.LLM_AGENT_CHAT,
-        showImagePicker = selectedModel.llmSupportImage && showImagePicker,
-        showAudioPicker = selectedModel.llmSupportAudio && showAudioPicker,
+        showImagePicker = showImagePicker,
+        showAudioPicker = showAudioPicker,
         showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
         onImageLimitExceeded = { showImageLimitBanner = true },
+        onModelNotSupportImage = { customErrorMessage = modelNotSupportImageMsg },
+        onModelNotSupportAudio = { customErrorMessage = modelNotSupportAudioMsg },
       )
     }
   }
 
   // Error dialog.
-  if (showErrorDialog) {
+  if (showErrorDialog || customErrorMessage != null) {
     ErrorDialog(
-      error = modelInitializationStatus?.error ?: "",
-      onDismiss = { showErrorDialog = false },
+      error = customErrorMessage ?: modelInitializationStatus?.error ?: "",
+      onDismiss = {
+        if (customErrorMessage != null) {
+          customErrorMessage = null
+        } else {
+          showErrorDialog = false
+        }
+      },
     )
   }
 
