@@ -250,7 +250,7 @@ fun createLlmChatConfigs(
         maxTokensConfig,
         NumberSliderConfig(
           key = ConfigKeys.TOPK,
-          sliderMin = 5f,
+          sliderMin = 1f,
           sliderMax = 100f,
           defaultValue = defaultTopK.toFloat(),
           valueType = ValueType.INT,
@@ -330,7 +330,7 @@ fun createAICoreConfigs(
     ),
     NumberSliderConfig(
       key = ConfigKeys.TOPK,
-      sliderMin = 5f,
+      sliderMin = 1f,
       sliderMax = 100f,
       defaultValue = defaultTopK.toFloat(),
       valueType = ValueType.INT,
