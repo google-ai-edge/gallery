@@ -112,8 +112,8 @@ private val IMPORT_CONFIGS_LLM: List<Config> =
     ),
     NumberSliderConfig(
       key = ConfigKeys.DEFAULT_TOPK,
-      sliderMin = 5f,
-      sliderMax = 40f,
+      sliderMin = 1f,
+      sliderMax = 100f,
       defaultValue = DEFAULT_TOPK.toFloat(),
       valueType = ValueType.INT,
     ),
