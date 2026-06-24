@@ -1010,9 +1010,10 @@ constructor(
             for (modelName in task.modelNames) {
               val model = nameToModel[modelName]
               if (model == null) {
-                Log.w(TAG, "Model '${modelName}' in task '${task.label}' not found in allowlist.")
+                Log.w(TAG, "Model '$modelName' in task '${task.label}' not found in allowlist.")
                 continue
               }
+              Log.d(TAG, "Adding model '$modelName' to task '${task.label}' from modelNames.")
               task.models.add(model)
             }
           }
