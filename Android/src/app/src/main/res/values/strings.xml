@@ -46,7 +46,7 @@
   <string name="benchmark_model" translatable="true">Benchmark model</string>
   <string name="benchmark_results" translatable="true">Benchmark results</string>
   <string name="benchmark_no_results" translatable="true">No benchmark results</string>
-  <string name="benchmark_tokens_limit_message" translatable="true">Ensure that the sum of prefill and decode tokens remains under the model\'s maximum token limit (%d vs %d)</string>
+  <string name="benchmark_tokens_limit_message" translatable="true">Ensure that the sum of prefill and decode tokens remains under the model\'s maximum token limit (%1$d vs %2$d)</string>
   <string name="best_overall" translatable="true">Best overall</string>
   <string name="model_list_experimental_label" translatable="true">EXPERIMENTAL</string>
   <string name="cancel" translatable="true">Cancel</string>
