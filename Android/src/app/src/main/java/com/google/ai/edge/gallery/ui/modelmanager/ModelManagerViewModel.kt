@@ -72,6 +72,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationRequest
 import net.openid.appauth.AuthorizationResponse
@@ -415,7 +416,7 @@ constructor(
     onDone: () -> Unit = {},
     onError: (String) -> Unit = {},
   ) {
-    viewModelScope.launch(Dispatchers.Default) {
+    viewModelScope.launch {
       // Skip if initialized already.
       if (
         !force &&
@@ -470,14 +471,16 @@ constructor(
 
       // Call the model initialization function.
       val systemPrompt = SystemPromptHelper.getEffectiveSystemPrompt(systemPromptRepository, task)
-      getCustomTaskByTaskId(id = task.id)
-        ?.initializeModelFn(
-          context = context,
-          coroutineScope = viewModelScope,
-          model = model,
-          systemInstruction = Contents.of(systemPrompt),
-          onDone = onDoneFn,
-        )
+      withContext(Dispatchers.IO) {
+        getCustomTaskByTaskId(id = task.id)
+          ?.initializeModelFn(
+            context = context,
+            coroutineScope = viewModelScope,
+            model = model,
+            systemInstruction = Contents.of(systemPrompt),
+            onDone = onDoneFn,
+          )
+      }
     }
   }
 
@@ -907,11 +910,9 @@ constructor(
         _allowlistModels.clear()
 
         // Load model allowlist json.
-        var modelAllowlist: ModelAllowlist? = null
-
         // Try to read the test allowlist first.
         Log.d(TAG, "Loading test model allowlist.")
-        modelAllowlist = readModelAllowlistFromDisk(fileName = MODEL_ALLOWLIST_TEST_FILENAME)
+        var modelAllowlist = readModelAllowlistFromDisk(fileName = MODEL_ALLOWLIST_TEST_FILENAME)
 
         // Local test only.
         if (TEST_MODEL_ALLOW_LIST.isNotEmpty()) {
