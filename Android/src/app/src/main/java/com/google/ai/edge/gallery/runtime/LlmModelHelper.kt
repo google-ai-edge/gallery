@@ -122,4 +122,13 @@ interface LlmModelHelper {
    * @param model the ongoing model response to be stopped.
    */
   fun stopResponse(model: Model)
+
+  /**
+   * Counts the number of tokens in the specified text for the model.
+   *
+   * @param model the model to use for token counting.
+   * @param text the text to count tokens for.
+   * @return the number of tokens, or null if not supported or failed.
+   */
+  suspend fun countTokens(model: Model, text: String): Int? = null
 }
