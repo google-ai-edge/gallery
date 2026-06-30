@@ -240,6 +240,17 @@ object AICoreModelHelper : LlmModelHelper {
     instance.inferenceJob?.cancel()
   }
 
+  override suspend fun countTokens(model: Model, text: String): Int? {
+    val instance = model.instance as? AICoreModelInstance ?: return null
+    return try {
+      val response = instance.generativeModel.countTokens(generateContentRequest(TextPart(text)) {})
+      response.totalTokens
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to count tokens", e)
+      null
+    }
+  }
+
   override fun runInference(
     model: Model,
     input: String,

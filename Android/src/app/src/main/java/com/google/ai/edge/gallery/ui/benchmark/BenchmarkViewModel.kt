@@ -137,9 +137,11 @@ constructor(
         }
         firstInitTime = initLatency.toDouble()
 
+        val prompt = "a ".repeat(prefillTokens)
+        val actualPrefillTokens = model.runtimeHelper.countTokens(model, prompt) ?: prefillTokens
+
         for (i in 0 until runCount) {
           Log.d(TAG, "Start running AICore benchmark #$i...")
-          val prompt = "a ".repeat(prefillTokens)
 
           var outputText = ""
           var done = false
@@ -184,10 +186,13 @@ constructor(
               continue
             }
 
-            val outputTokens = outputText.split(Regex("\\s+")).filter { it.isNotEmpty() }.size * 1.3
+            val countedTokens = model.runtimeHelper.countTokens(model, outputText)
+            val outputTokens =
+              countedTokens?.toDouble()
+                ?: (outputText.split(Regex("\\s+")).filter { it.isNotEmpty() }.size * 1.3)
             val totalLatencyS = latency / 1000.0
             val prefillSpeedVal =
-              if (timeToFirstTokenVal > 0) prefillTokens / timeToFirstTokenVal else 0.0
+              if (timeToFirstTokenVal > 0) actualPrefillTokens / timeToFirstTokenVal else 0.0
             val decodeTimeS =
               if (timeToFirstTokenVal > 0) totalLatencyS - timeToFirstTokenVal else totalLatencyS
             val decodeSpeedVal = if (decodeTimeS > 0) outputTokens / decodeTimeS else 0.0
