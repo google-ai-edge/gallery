@@ -45,4 +45,5 @@ enum class GalleryEvent(val id: String) {
   CHAT_HISTORY(id = "chat_history"),
   MCP_MANAGEMENT(id = "mcp_management"),
   MCP_EXECUTION(id = "mcp_execution"),
+  MODEL_CONFIG_CHANGE(id = "model_config_change"),
 }

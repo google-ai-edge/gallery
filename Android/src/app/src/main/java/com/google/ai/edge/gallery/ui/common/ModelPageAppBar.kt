@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.ui.common
 
+import android.os.Bundle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.BuildConfig
+import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.ConfigKeys
@@ -55,6 +58,7 @@ import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.convertValueToTargetType
+import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 
@@ -243,8 +247,22 @@ fun ModelPageAppBar(
             break
           }
         }
+        val systemPromptChanged = newSystemPrompt != oldSystemPrompt
+
+        if (!same || systemPromptChanged) {
+          firebaseAnalytics?.logEvent(
+            GalleryEvent.MODEL_CONFIG_CHANGE.id,
+            Bundle().apply {
+              putString("model_id", model.name)
+              putString("capability_name", task.id)
+              putString("model_version", model.version)
+              putString("app_version", BuildConfig.VERSION_NAME)
+            },
+          )
+        }
+
         if (same) {
-          if (newSystemPrompt != oldSystemPrompt) {
+          if (systemPromptChanged) {
             onSystemPromptChanged(newSystemPrompt)
           }
           return@ConfigDialog
