@@ -93,8 +93,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.data.supportModelBenchmark
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.ui.common.TaskIcon
 import com.google.ai.edge.gallery.ui.common.buildTrackableUrlAnnotatedString
@@ -310,7 +310,7 @@ fun GlobalModelManager(
             onModelClicked = handleClickModel,
             onBenchmarkClicked = onBenchmarkClicked,
             expanded = expanded,
-            showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
+            showBenchmarkButton = model.supportModelBenchmark,
             onExpanded = { modelItemExpandedStates[model.name] = it },
             tosViewModel = tosViewModel,
           )
@@ -335,7 +335,7 @@ fun GlobalModelManager(
             onModelClicked = handleClickModel,
             onBenchmarkClicked = onBenchmarkClicked,
             expanded = true,
-            showBenchmarkButton = model.runtimeType == RuntimeType.LITERT_LM,
+            showBenchmarkButton = model.supportModelBenchmark,
             tosViewModel = tosViewModel,
           )
         }

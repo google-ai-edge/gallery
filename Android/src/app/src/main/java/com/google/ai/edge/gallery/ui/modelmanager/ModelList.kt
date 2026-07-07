@@ -48,7 +48,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -64,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.data.supportModelBenchmark
 import com.google.ai.edge.gallery.ui.common.ClickableLink
 import com.google.ai.edge.gallery.ui.common.RevealingText
 import com.google.ai.edge.gallery.ui.common.TaskIcon
@@ -336,7 +336,7 @@ fun ModelList(
             onBenchmarkClicked = onBenchmarkClicked,
             expanded = expanded,
             onExpanded = { modelItemExpandedStates[model.name] = it },
-            showBenchmarkButton = true,
+            showBenchmarkButton = model.supportModelBenchmark,
             modifier =
               Modifier.graphicsLayer {
                 alpha = modelListProgress
@@ -373,7 +373,7 @@ fun ModelList(
             modelManagerViewModel = modelManagerViewModel,
             onModelClicked = onModelClicked,
             onBenchmarkClicked = onBenchmarkClicked,
-            showBenchmarkButton = true,
+            showBenchmarkButton = model.supportModelBenchmark,
             modifier =
               Modifier.graphicsLayer {
                 alpha = modelListProgress

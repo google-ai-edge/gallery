@@ -434,3 +434,8 @@ data class ModelDownloadStatus(
 
 val EMPTY_MODEL: Model =
   Model(name = "empty", downloadFileName = "empty.tflite", url = "", sizeInBytes = 0L)
+
+val Model.supportModelBenchmark: Boolean
+  get() =
+    runtimeType == RuntimeType.LITERT_LM ||
+      false

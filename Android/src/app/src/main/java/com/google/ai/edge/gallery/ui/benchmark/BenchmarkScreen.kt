@@ -75,6 +75,7 @@ import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.SegmentedButtonConfig
 import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.data.convertValueToTargetType
+import com.google.ai.edge.gallery.data.supportModelBenchmark
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.ConfigEditorsPanel
 import com.google.ai.edge.gallery.ui.common.SMALL_BUTTON_CONTENT_PADDING
@@ -94,7 +95,10 @@ fun BenchmarkScreen(
   var enableBackButton by remember { mutableStateOf(true) }
   var showRunBenchmarkConfirmationDialog by remember { mutableStateOf(false) }
   val downloadedLlmModelNames = remember {
-    modelManagerViewModel.getAllDownloadedModels().filter { it.isLlm }.map { it.name }
+    modelManagerViewModel
+      .getAllDownloadedModels()
+      .filter { it.isLlm && it.supportModelBenchmark }
+      .map { it.name }
   }
   var selectedModelName by remember { mutableStateOf(initialModel.name) }
   var selectedModel by

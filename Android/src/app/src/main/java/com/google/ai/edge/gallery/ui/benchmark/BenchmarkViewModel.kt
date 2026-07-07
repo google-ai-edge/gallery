@@ -126,92 +126,7 @@ constructor(
       var firstInitTime = 0.0
       val nonFirstInitTimes = mutableListOf<Double>()
       var endMs = 0L
-      if (model.runtimeType == RuntimeType.AICORE) {
-        val initStart = System.currentTimeMillis()
-        val initialized = ensureModelInitialized(model)
-        val initLatency = System.currentTimeMillis() - initStart
-        if (!initialized) {
-          Log.e(TAG, "Failed to initialize AICore model for benchmark")
-          setRunning(running = false)
-          return@launch
-        }
-        firstInitTime = initLatency.toDouble()
-
-        for (i in 0 until runCount) {
-          Log.d(TAG, "Start running AICore benchmark #$i...")
-          val prompt = "a ".repeat(prefillTokens)
-
-          var outputText = ""
-          var done = false
-          var errorOccurred = false
-          var timeToFirstTokenVal = -1.0
-
-          try {
-            val latency =
-              suspendCancellableCoroutine<Long> { continuation ->
-                val startTime = System.currentTimeMillis()
-                model.runtimeHelper.runInference(
-                  model = model,
-                  input = prompt,
-                  images = emptyList(),
-                  audioClips = emptyList(),
-                  resultListener = { partial, isDone, _ ->
-                    if (partial.isNotEmpty() && timeToFirstTokenVal < 0) {
-                      timeToFirstTokenVal = (System.currentTimeMillis() - startTime) / 1000.0
-                    }
-                    outputText += partial
-                    if (isDone) {
-                      done = true
-                      continuation.resume(System.currentTimeMillis() - startTime)
-                    }
-                  },
-                  cleanUpListener = {},
-                  onError = { errMsg ->
-                    Log.e(TAG, "AICore benchmark run failed: $errMsg")
-                    errorOccurred = true
-                    continuation.resume(-1L)
-                  },
-                  coroutineScope = viewModelScope,
-                  extraContext = null,
-                )
-              }
-
-            if (errorOccurred || latency < 0) {
-              prefillSpeeds.add(0.0)
-              decodeSpeeds.add(0.0)
-              timesToFirstToken.add(0.0)
-              if (i > 0) nonFirstInitTimes.add(0.0)
-              continue
-            }
-
-            val outputTokens = outputText.split(Regex("\\s+")).filter { it.isNotEmpty() }.size * 1.3
-            val totalLatencyS = latency / 1000.0
-            val prefillSpeedVal =
-              if (timeToFirstTokenVal > 0) prefillTokens / timeToFirstTokenVal else 0.0
-            val decodeTimeS =
-              if (timeToFirstTokenVal > 0) totalLatencyS - timeToFirstTokenVal else totalLatencyS
-            val decodeSpeedVal = if (decodeTimeS > 0) outputTokens / decodeTimeS else 0.0
-
-            prefillSpeeds.add(prefillSpeedVal)
-            decodeSpeeds.add(decodeSpeedVal)
-            timesToFirstToken.add(
-              if (timeToFirstTokenVal >= 0) timeToFirstTokenVal else latency / 1000.0
-            )
-            if (i > 0) {
-              nonFirstInitTimes.add(0.0)
-            }
-          } catch (e: Exception) {
-            Log.e(TAG, "Exception during AICore benchmark run", e)
-            prefillSpeeds.add(0.0)
-            decodeSpeeds.add(0.0)
-            timesToFirstToken.add(0.0)
-            if (i > 0) nonFirstInitTimes.add(0.0)
-          }
-
-          setRunProgress(completedRunCount = i + 1)
-        }
-        endMs = System.currentTimeMillis()
-      } else {
+        run {
         // Create a temporary cache dir to run benchmark in.
         val timestamp = System.currentTimeMillis()
         var needCleanUpCacheDir = true
@@ -495,32 +410,5 @@ constructor(
       .setPct25(pct25)
       .setPct75(pct75)
       .build()
-  }
-
-  private suspend fun ensureModelInitialized(model: Model): Boolean {
-    if (model.instance != null) {
-      return true
-    }
-    return suspendCancellableCoroutine { continuation ->
-      model.runtimeHelper.initialize(
-        context = appContext,
-        model = model,
-        taskId = "",
-        supportImage = false,
-        supportAudio = false,
-        onDone = { error ->
-          if (model.instance != null) {
-            continuation.resume(true)
-          } else {
-            Log.e(TAG, "Failed to initialize model for benchmark: $error")
-            continuation.resume(false)
-          }
-        },
-        systemInstruction = null,
-        tools = emptyList(),
-        enableConversationConstrainedDecoding = false,
-        coroutineScope = viewModelScope,
-      )
-    }
   }
 }
