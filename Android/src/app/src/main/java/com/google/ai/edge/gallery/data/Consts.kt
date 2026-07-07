@@ -47,6 +47,9 @@ const val DEFAULT_MAX_OUTPUT_TOKEN = 1024
 val DEFAULT_ACCELERATORS = listOf(Accelerator.GPU)
 val DEFAULT_VISION_ACCELERATOR = Accelerator.GPU
 
+// LiteRT LM Engine constants.
+const val THOUGHT_CHANNEL = "thought"
+
 // Max number of images allowed in a "ask image" session.
 const val MAX_IMAGE_COUNT = 10
 
