@@ -29,6 +29,7 @@ import com.google.ai.edge.gallery.data.DEFAULT_TOPP
 import com.google.ai.edge.gallery.data.DEFAULT_VISION_ACCELERATOR
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelCapability
+import com.google.ai.edge.gallery.data.THOUGHT_CHANNEL
 import com.google.ai.edge.gallery.runtime.CleanUpListener
 import com.google.ai.edge.gallery.runtime.LlmModelHelper
 import com.google.ai.edge.gallery.runtime.ResultListener
@@ -315,7 +316,7 @@ object LlmChatModelHelper : LlmModelHelper {
       Contents.of(contents),
       object : MessageCallback {
         override fun onMessage(message: Message) {
-          resultListener(message.toString(), false, message.channels["thought"])
+          resultListener(message.toString(), false, message.channels[THOUGHT_CHANNEL])
         }
 
         override fun onDone() {
