@@ -50,6 +50,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -186,6 +187,18 @@ fun AgentChatScreen(
 
   val selectedModel = modelManagerUiState.selectedModel
   val modelInitStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
+
+  DisposableEffect(selectedModel.name, task.id) {
+    if (selectedModel.setupAgentSkillTopK()) {
+      modelManagerViewModel.updateConfigValuesUpdateTrigger()
+    }
+
+    onDispose {
+      if (selectedModel.cleanupAgentSkillTopK()) {
+        modelManagerViewModel.updateConfigValuesUpdateTrigger()
+      }
+    }
+  }
 
   var initialQueryConsumed by remember { mutableStateOf(false) }
 

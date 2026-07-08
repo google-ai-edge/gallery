@@ -72,6 +72,7 @@ interface LlmModelHelper {
    * @param systemInstruction new system instruction to guide the model's behavior after reset.
    * @param tools new or updated tools available for the model.
    * @param enableConversationConstrainedDecoding whether to enable constrained decoding.
+   * @param initialMessages messages used to reinitialize conversation history on reset.
    */
   fun resetConversation(
     model: Model,
