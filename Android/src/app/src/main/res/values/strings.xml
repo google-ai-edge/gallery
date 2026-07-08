@@ -191,7 +191,7 @@
   <string name="text_input_placeholder_llm_chat" translatable="true">Type prompt…</string>
   <string name="tos_dialog_title_app" translatable="true">Welcome to Google AI Edge Gallery</string>
   <!-- Body text of the Terms of Service dialog. Contains links to Google Terms of Service and Privacy Policy. [CHAR_LIMIT=NONE] -->
-  <string name="tos_dialog_body" translatable="true">By using this app, you agree to the [Google Terms of Service](https://policies.google.com/terms?hl=en-US).\n\nTo learn what information we collect and why, how we use it, and how to review and update it, please review the [Google Privacy Policy](https://policies.google.com/privacy?hl=en-US).\n\nYour use of each model is subject to the applicable model license terms.</string>
+  <string name="tos_dialog_body" translatable="true">By using this app, you agree to the [Google Terms of Service](https://policies.google.com/terms?hl=en-US).\n\nTo learn what information we collect and why, how we use it, and how to review and update it, please review the [Google Privacy Policy](https://policies.google.com/privacy?hl=en-US).\n\nThis app collects aggregated usage metrics to understand user engagement, such as error messages, app actions, IP inferred approximate location, OS version. This data is processed in accordance with the [Google Privacy Policy](https://policies.google.com/privacy?hl=en-US).\n\nYour use of each model is subject to the applicable model license terms.</string>
   <!-- Title of the Gemma Terms of Use dialog. [CHAR_LIMIT=NONE] -->
   <string name="tos_dialog_title_gemma" translatable="true">Gemma Terms of Use</string>
   <string name="tos_dialog_accept_and_continue_button_label" translatable="true">Accept &amp; continue</string>
