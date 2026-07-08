@@ -533,14 +533,16 @@ fun HomeScreen(
         )
       },
       title = { Text(uiState.loadingModelAllowlistError) },
-      text = { Text("Please check your internet connection and try again later.") },
+      text = { Text(stringResource(R.string.error_internet_connection)) },
       onDismissRequest = { modelManagerViewModel.loadModelAllowlist() },
       confirmButton = {
-        TextButton(onClick = { modelManagerViewModel.loadModelAllowlist() }) { Text("Retry") }
+        TextButton(onClick = { modelManagerViewModel.loadModelAllowlist() }) {
+          Text(stringResource(R.string.retry))
+        }
       },
       dismissButton = {
         TextButton(onClick = { modelManagerViewModel.clearLoadModelAllowlistError() }) {
-          Text("Cancel")
+          Text(stringResource(R.string.cancel))
         }
       },
     )
@@ -669,10 +671,20 @@ private fun IntroText(enableAnimation: Boolean, gm4: Boolean) {
   val introText = buildAnnotatedString {
     val gemma4Url = "https://ai.google.dev/gemma"
     if (gm4) {
-      append("Discover the power of on-device AI models from the ")
-      append(buildTrackableUrlAnnotatedString(url = litertUrl, linkText = "LiteRT community"))
-      append(", featuring the all-new ")
-      append(buildTrackableUrlAnnotatedString(url = gemma4Url, linkText = "Gemma 4"))
+      append(stringResource(R.string.gemma4_intro_part_1))
+      append(
+        buildTrackableUrlAnnotatedString(
+          url = litertUrl,
+          linkText = stringResource(R.string.litert_community_label),
+        )
+      )
+      append(stringResource(R.string.gemma4_intro_part_2))
+      append(
+        buildTrackableUrlAnnotatedString(
+          url = gemma4Url,
+          linkText = stringResource(R.string.gemma4_label),
+        )
+      )
       append(".")
     } else {
       append("${stringResource(R.string.app_intro)} ")

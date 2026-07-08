@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -89,7 +90,7 @@ fun PromoScreenGm4(onDismiss: () -> Unit) {
       // Center text.
       Image(ImageVector.vectorResource(R.drawable.gemini_star), contentDescription = null)
       Text(
-        "Introducing",
+        stringResource(R.string.introducing),
         style = MaterialTheme.typography.headlineSmall.copy(fontSize = 20.sp),
         color = Color.White,
       )
@@ -107,7 +108,7 @@ fun PromoScreenGm4(onDismiss: () -> Unit) {
 
       // Dismiss button.
       TextButton(onClick = onDismiss, modifier = Modifier.padding(top = 24.dp)) {
-        Text("Dismiss", color = Color(0xFFA8C7FA))
+        Text(stringResource(R.string.dismiss), color = Color(0xFFA8C7FA))
       }
     }
   }

@@ -159,7 +159,7 @@ private fun getMessageLayoutConfig(
     is ChatMessageBenchmarkResult -> {
       horizontalArrangement = Arrangement.SpaceBetween
       modifier = modifier.fillMaxWidth()
-      userLabel = "Benchmark"
+      userLabel = stringResource(R.string.benchmark)
       rightSideLabel =
         if (message.isWarmingUp()) {
           "${message.warmupCurrent}/${message.warmupTotal}"
@@ -171,10 +171,12 @@ private fun getMessageLayoutConfig(
     is ChatMessageBenchmarkLlmResult -> {
       horizontalArrangement = Arrangement.SpaceBetween
       modifier = modifier.fillMaxWidth()
-      userLabel = "Stats"
-      if (message.accelerator.isNotEmpty()) {
-        userLabel = "${userLabel} on ${message.accelerator}"
-      }
+      userLabel =
+        if (message.accelerator.isNotEmpty()) {
+          stringResource(R.string.stats_on_accelerator, message.accelerator)
+        } else {
+          stringResource(R.string.stats)
+        }
     }
 
     is ChatMessageImageWithHistory -> {

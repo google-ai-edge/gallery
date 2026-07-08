@@ -28,8 +28,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.google.ai.edge.gallery.R
 
 @Composable
 fun ErrorDialog(error: String, onDismiss: () -> Unit) {
@@ -41,7 +43,7 @@ fun ErrorDialog(error: String, onDismiss: () -> Unit) {
       ) {
         // Title
         Text(
-          "Error",
+          stringResource(R.string.error),
           style = MaterialTheme.typography.titleLarge,
           modifier = Modifier.padding(bottom = 8.dp),
         )
@@ -54,7 +56,7 @@ fun ErrorDialog(error: String, onDismiss: () -> Unit) {
         )
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-          Button(onClick = onDismiss) { Text("Close") }
+          Button(onClick = onDismiss) { Text(stringResource(R.string.close)) }
         }
       }
     }

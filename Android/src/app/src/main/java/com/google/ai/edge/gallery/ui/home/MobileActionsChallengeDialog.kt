@@ -33,15 +33,14 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.ui.common.buildTrackableUrlAnnotatedString
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +50,6 @@ fun MobileActionsChallengeDialog(
   onSendEmail: () -> Unit,
 ) {
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-  val guideUrl = "https://ai.google.dev/gemma/docs/mobile-actions"
 
   ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
     Column(modifier = Modifier.padding(16.dp)) {
@@ -79,17 +77,21 @@ fun MobileActionsChallengeDialog(
         fontWeight = FontWeight.Bold,
       )
       val instructions = buildAnnotatedString {
-        append("1. ")
-        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { append("On your computer") }
-        append(", open ")
-        append(buildTrackableUrlAnnotatedString(url = guideUrl, linkText = "this guide"))
         append(
-          "\n2. Follow the instructions to fine tune the model and convert it to .litertlm format."
+          AnnotatedString.fromHtml(stringResource(R.string.mobile_actions_challenge_instruction_1))
         )
-        append("\n3. Transfer the file to this phone.")
-        append("\n4. Tap ")
-        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { append("Load Model") }
-        append(" below to unlock the demo.")
+        append("\n")
+        append(
+          AnnotatedString.fromHtml(stringResource(R.string.mobile_actions_challenge_instruction_2))
+        )
+        append("\n")
+        append(
+          AnnotatedString.fromHtml(stringResource(R.string.mobile_actions_challenge_instruction_3))
+        )
+        append("\n")
+        append(
+          AnnotatedString.fromHtml(stringResource(R.string.mobile_actions_challenge_instruction_4))
+        )
       }
       Text(
         text = instructions,

@@ -190,6 +190,9 @@
   <string name="text_image_generation_text_field_placeholder" translatable="true">Type prompt…</string>
   <string name="text_input_placeholder_llm_chat" translatable="true">Type prompt…</string>
   <string name="tos_dialog_title_app" translatable="true">Welcome to Google AI Edge Gallery</string>
+  <!-- Body text of the Terms of Service dialog. Contains links to Google Terms of Service and Privacy Policy. [CHAR_LIMIT=NONE] -->
+  <string name="tos_dialog_body" translatable="true">By using this app, you agree to the [Google Terms of Service](https://policies.google.com/terms?hl=en-US).\n\nTo learn what information we collect and why, how we use it, and how to review and update it, please review the [Google Privacy Policy](https://policies.google.com/privacy?hl=en-US).\n\nYour use of each model is subject to the applicable model license terms.</string>
+  <!-- Title of the Gemma Terms of Use dialog. [CHAR_LIMIT=NONE] -->
   <string name="tos_dialog_title_gemma" translatable="true">Gemma Terms of Use</string>
   <string name="tos_dialog_accept_and_continue_button_label" translatable="true">Accept &amp; continue</string>
   <string name="tos_dialog_agree_and_continue_button_label" translatable="true">Agree &amp; continue</string>
@@ -290,8 +293,11 @@
   <string name="describe_input_data_support_text" translatable="true">The field names need to match the ones in instructions.</string>
   <string name="describe_output_data" translatable="true">Describe output data</string>
   <string name="duplicated_script_name" translatable="true">Duplicated script name</string>
-  <string name="enable_skill_dialog_content" translatable="true">Please enable the skill by tapping the Skills button below.</string>
+  <!-- Message in a dialog explaining that a skill is disabled and how to enable it. [CHAR_LIMIT=NONE] -->
+  <string name="enable_skill_dialog_content" translatable="true">Please enable the skill by tapping the Skills button below</string>
+  <!-- Button label to edit a skill. [CHAR_LIMIT=NONE] -->
   <string name="edit_skill" translatable="true">Edit skill</string>
+  <!-- Text field placeholder/label to enter the URL of a skill. [CHAR_LIMIT=NONE] -->
   <string name="enter_skill_url" translatable="true">Enter URL of skill\'s root directory</string>
   <string name="featured_skills_title" translatable="true">Featured skills</string>
   <string name="featured_skills_description" translatable="true">A curated list of community contributed skills</string>
@@ -502,4 +508,123 @@
   <!-- Content description spoken when the "chat history" icon is focused. [CHAR_LIMIT=NONE] -->
   <string name="cd_chat_history">Chat history</string>
 
+  <!-- Strings for HomeScreen, Model Manager, Settings, and Chat -->
+  <!-- Title of the dialog for importing a model. [CHAR_LIMIT=NONE] -->
+  <string name="import_model" translatable="true">Import Model</string>
+  <!-- Button label to confirm importing a model. [CHAR_LIMIT=NONE] -->
+  <string name="import_action" translatable="true">Import</string>
+  <!-- Error message prefix when model import fails. [CHAR_LIMIT=NONE] -->
+  <string name="failed_to_import" translatable="true">Failed to import</string>
+  <!-- Error message when model import fails due to connection issue. [CHAR_LIMIT=NONE] -->
+  <string name="error_internet_connection" translatable="true">Please check your internet connection and try again later.</string>
+  <!-- Button label to retry model import. [CHAR_LIMIT=NONE] -->
+  <string name="retry" translatable="true">Retry</string>
+  <!-- Title of the theme selection setting. [CHAR_LIMIT=NONE] -->
+  <string name="theme_title" translatable="true">Theme</string>
+  <!-- Title of the section for third-party libraries in settings. [CHAR_LIMIT=NONE] -->
+  <string name="third_party_libraries" translatable="true">Third-party libraries</string>
+  <!-- Button label to view licenses of third-party libraries. [CHAR_LIMIT=NONE] -->
+  <string name="view_licenses" translatable="true">View licenses</string>
+  <!-- Label for 'System default' theme option. [CHAR_LIMIT=NONE] -->
+  <string name="theme_auto" translatable="true">System default</string>
+  <!-- Label for 'Light' theme option. [CHAR_LIMIT=NONE] -->
+  <string name="theme_light" translatable="true">Light</string>
+  <!-- Label for 'Dark' theme option. [CHAR_LIMIT=NONE] -->
+  <string name="theme_dark" translatable="true">Dark</string>
+  <!-- General fallback label for unknown values. [CHAR_LIMIT=NONE] -->
+  <string name="unknown" translatable="true">Unknown</string>
+  <!-- Label for stats button or section. [CHAR_LIMIT=NONE] -->
+  <string name="stats" translatable="true">Stats</string>
+
+  <!-- Button label to acknowledge user agreement for gated models. [CHAR_LIMIT=NONE] -->
+  <string name="acknowledge_user_agreement" translatable="true">Acknowledge user agreement</string>
+  <!-- Explanatory text for gated model user agreement dialog. [CHAR_LIMIT=NONE] -->
+  <string name="gated_model_agreement_help" translatable="true">This is a gated model. Please click the button below to view and agree to the user agreement. After accepting, simply close that tab to proceed with the model download.</string>
+  <!-- Button label to open user agreement in browser. [CHAR_LIMIT=NONE] -->
+  <string name="open_user_agreement" translatable="true">Open user agreement</string>
+  <!-- Error message for unknown network issues. [CHAR_LIMIT=NONE] -->
+  <string name="error_unknown_network" translatable="true">Unknown network error</string>
+  <!-- Error message suggesting to check internet connection. [CHAR_LIMIT=NONE] -->
+  <string name="error_check_internet" translatable="true">Please check your internet connection.</string>
+  <!-- Title of dialog warning that a skill is disabled. %s is the skill name. [CHAR_LIMIT=NONE] -->
+  <string name="disabled_skill_dialog_title" translatable="true">The \'%s\' skill is currently disabled</string>
+  <!-- Introductory text for Agent Skills screen. Contains HTML links. [CHAR_LIMIT=NONE] -->
+  <string name="agent_skills_intro" translatable="true">Use specialized, high-order reasoning by loading different skills or <![CDATA[<a href="%1$s">creating your own</a>]]>. Explore community contributed skills on <![CDATA[<a href="%2$s">GitHub discussions</a>]]>.\n\nTry tapping a sample prompt below to see Agent Skills in action!</string>
+
+  <!-- Config Labels -->
+  <!-- Label for the 'Max tokens' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_max_tokens" translatable="true">Max tokens</string>
+  <!-- Label for the 'Max output tokens' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_max_output_tokens" translatable="true">Max output tokens</string>
+  <!-- Label for the 'TopK' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_topk" translatable="true">TopK</string>
+  <!-- Label for the 'TopP' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_topp" translatable="true">TopP</string>
+  <!-- Label for the 'Temperature' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_temperature" translatable="true">Temperature</string>
+  <!-- Label for the 'Default max tokens' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_default_max_tokens" translatable="true">Default max tokens</string>
+  <!-- Label for the 'Default TopK' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_default_topk" translatable="true">Default TopK</string>
+  <!-- Label for the 'Default TopP' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_default_topp" translatable="true">Default TopP</string>
+  <!-- Label for the 'Default temperature' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_default_temperature" translatable="true">Default temperature</string>
+  <!-- Label for the 'Support image' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_support_image" translatable="true">Support image</string>
+  <!-- Label for the 'Support audio' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_support_audio" translatable="true">Support audio</string>
+  <!-- Label for the 'Support tiny garden' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_support_tiny_garden" translatable="true">Support tiny garden</string>
+  <!-- Label for the 'Support mobile actions' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_support_mobile_actions" translatable="true">Support mobile actions</string>
+  <!-- Label for the 'Support thinking' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_support_thinking" translatable="true">Support thinking</string>
+  <!-- Label for the 'Support speculative decoding' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_support_speculative_decoding" translatable="true">Support speculative decoding</string>
+  <!-- Label for the 'Enable thinking' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_enable_thinking" translatable="true">Enable thinking</string>
+  <!-- Label for the 'Enable speculative decoding' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_enable_speculative_decoding" translatable="true">Enable speculative decoding</string>
+  <!-- Label for the 'Max result count' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_max_result_count" translatable="true">Max result count</string>
+  <!-- Label for the 'Use GPU' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_use_gpu" translatable="true">Use GPU</string>
+  <!-- Label for the 'Accelerator' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_accelerator" translatable="true">Accelerator</string>
+  <!-- Label for the 'Vision accelerator' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_vision_accelerator" translatable="true">Vision accelerator</string>
+  <!-- Label for the 'Compatible accelerators' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_compatible_accelerators" translatable="true">Compatible accelerators</string>
+  <!-- Label for the 'Warm up iterations' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_warm_up_iterations" translatable="true">Warm up iterations</string>
+  <!-- Label for the 'Benchmark iterations' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_benchmark_iterations" translatable="true">Benchmark iterations</string>
+  <!-- Label for the 'Iterations' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_iterations" translatable="true">Iterations</string>
+  <!-- Label for the 'Model type' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_model_type" translatable="true">Model type</string>
+  <!-- Label for the 'Model' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_model" translatable="true">Model</string>
+  <!-- Label for the 'Number of turns before the conversation resets' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_reset_conversation_turn_count" translatable="true">Number of turns before the conversation resets</string>
+  <!-- Label for the 'Prefill tokens' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_prefill_tokens" translatable="true">Prefill tokens</string>
+  <!-- Label for the 'Decode tokens' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_decode_tokens" translatable="true">Decode tokens</string>
+  <!-- Label for the 'Number of runs' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_number_of_runs" translatable="true">Number of runs</string>
+  <!-- Label indicating statistics on a specific accelerator. %1$s is the accelerator name. [CHAR_LIMIT=NONE] -->
+  <string name="stats_on_accelerator" translatable="true">Stats on %1$s</string>
+  <!-- First part of Gemma 4 introduction text. [CHAR_LIMIT=NONE] -->
+  <string name="gemma4_intro_part_1" translatable="true">Discover the power of on-device AI models from the </string>
+  <!-- Second part of Gemma 4 introduction text. [CHAR_LIMIT=NONE] -->
+  <string name="gemma4_intro_part_2" translatable="true">, featuring the all-new </string>
+  <string name="gemma4_label" translatable="false">Gemma 4</string>
+  <!-- Label for the 'Show 3D spinner during image gen' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_show_3d_spinner" translatable="true">Show 3D spinner during image gen</string>
+  <!-- Label for the 'Font size' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_font_size" translatable="true">Font size</string>
+  <!-- Label for the 'Max character count' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
+  <string name="config_label_max_char_count" translatable="true">Max character count</string>
 </resources>

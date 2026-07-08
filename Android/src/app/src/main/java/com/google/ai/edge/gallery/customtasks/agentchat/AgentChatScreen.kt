@@ -68,8 +68,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -90,7 +91,6 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.BaseGalleryWebViewClient
 import com.google.ai.edge.gallery.ui.common.GalleryWebView
-import com.google.ai.edge.gallery.ui.common.buildTrackableUrlAnnotatedString
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageCollapsableProgressPanel
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
@@ -519,23 +519,13 @@ fun AgentChatScreen(
                 modifier = Modifier.padding(top = 12.dp, bottom = 16.dp),
               )
               Text(
-                buildAnnotatedString {
-                  append("Use specialized, high-order reasoning by loading different skills or ")
-                  append(
-                    buildTrackableUrlAnnotatedString(
-                      url = AgentSkillsURLs.REPOSITORY,
-                      linkText = "creating\u00A0your\u00A0own",
-                    )
+                AnnotatedString.fromHtml(
+                  stringResource(
+                    R.string.agent_skills_intro,
+                    AgentSkillsURLs.REPOSITORY,
+                    AgentSkillsURLs.DISCUSSIONS,
                   )
-                  append(". Explore community contributed skills on ")
-                  append(
-                    buildTrackableUrlAnnotatedString(
-                      url = AgentSkillsURLs.DISCUSSIONS,
-                      linkText = "GitHub\u00A0discussions",
-                    )
-                  )
-                  append(".\n\nTry tapping a sample prompt below to see Agent Skills in action!")
-                },
+                ),
                 style =
                   MaterialTheme.typography.headlineSmall.copy(fontSize = 16.sp, lineHeight = 22.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -692,7 +682,7 @@ fun AgentChatScreen(
   if (showAlertForDisabledSkill) {
     AlertDialog(
       onDismissRequest = { showAlertForDisabledSkill = false },
-      title = { Text("The \"$disabledSkillName\" skill is currently disabled") },
+      title = { Text(stringResource(R.string.disabled_skill_dialog_title, disabledSkillName)) },
       text = { Text(stringResource(R.string.enable_skill_dialog_content)) },
       confirmButton = {
         Button(onClick = { showAlertForDisabledSkill = false }) {
