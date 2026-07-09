@@ -97,7 +97,7 @@ fun LiveCameraView(
       }
     }
 
-  LaunchedEffect(Unit) {
+  LaunchedEffect(cameraSelector) {
     // Check permission.
     when (PackageManager.PERMISSION_GRANTED) {
       // Already got permission. Call the lambda.
@@ -124,7 +124,7 @@ fun LiveCameraView(
 
   // Camera live view.
   if (renderPreview) {
-    Row(modifier = modifier.background(Color.Red), horizontalArrangement = Arrangement.Center) {
+    Row(modifier = modifier.background(Color.Black), horizontalArrangement = Arrangement.Center) {
       val ib = imageBitmap
       if (ib != null) {
         Canvas(modifier = Modifier.fillMaxSize()) {

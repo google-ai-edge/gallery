@@ -123,6 +123,18 @@
   <string name="invalid_response" translatable="true">Invalid response</string>
   <string name="learn_more" translatable="true">Learn more and see model license</string>
   <string name="listening" translatable="true">Listening...</string>
+  <string name="llm_camera_status_waiting_to_start" translatable="true" description="Status text shown when LlmCamera is initialized and waiting for user input.">Waiting to start…</string>
+  <string name="llm_camera_status_loading_model" translatable="true" description="Status text shown while loading the LlmCamera model.">Loading model…</string>
+  <string name="llm_camera_status_processing" translatable="true" description="Status text shown while LlmCamera is processing speech or image input.">Processing…</string>
+  <string name="llm_camera_status_cancelled" translatable="true" description="Status text shown when LlmCamera processing was cancelled.">Cancelled</string>
+  <string name="llm_camera_status_responding" translatable="true" description="Status text shown while LlmCamera model is generating a response.">Responding…</string>
+  <string name="llm_camera_status_error" translatable="true" description="Status text template shown when an error occurs during LlmCamera operation.">Error: %1$s</string>
+  <string name="llm_camera_recognized_prefix" translatable="true" description="Prefix for recognized speech text in LlmCamera.">Recognized: %1$s</string>
+  <string name="llm_camera_response_prefix" translatable="true" description="Prefix for model response text in LlmCamera.">Response: %1$s</string>
+  <string name="llm_camera_status_prefix" translatable="true" description="Prefix for current status text in LlmCamera.">Status: %1$s</string>
+  <string name="llm_camera_btn_start_listening" translatable="true" description="Button text to start speech recognition in LlmCamera.">Start Listening</string>
+  <string name="llm_camera_btn_stop_listening" translatable="true" description="Button text to stop speech recognition in LlmCamera.">Stop Listening</string>
+  <string name="llm_camera_cd_toggle_mic" translatable="true" description="Content description for the microphone toggle button in LlmCamera.">Toggle Mic</string>
   <string name="litert_community_label" translatable="true">LiteRT community</string>
   <string name="loading_model_list" translatable="true">Loading model list...</string>
   <string name="logs_viewer_filter_text_input_placeholder" translatable="true">Filter logs</string>
