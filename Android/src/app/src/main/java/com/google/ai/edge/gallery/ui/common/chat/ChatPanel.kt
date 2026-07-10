@@ -103,8 +103,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
+import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.AudioAnimation
