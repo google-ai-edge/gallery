@@ -83,6 +83,7 @@ message Settings {
   // copybara:strip_end
 
   repeated string viewed_promo_id = 10;
+  bool disable_firebase_analytics = 11;
 }
 
 message McpAuth {

@@ -20,6 +20,7 @@ import com.google.android.gms.oss.licenses.OssLicensesMenuActivity
 import android.app.UiModeManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import androidx.annotation.StringRes
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -51,6 +52,7 @@ import androidx.compose.material3.MultiChoiceSegmentedButtonRow
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -92,10 +94,12 @@ private val THEME_OPTIONS = listOf(Theme.THEME_AUTO, Theme.THEME_LIGHT, Theme.TH
 @Composable
 fun SettingsDialog(
   curThemeOverride: Theme,
+  curFirebaseAnalytics: Boolean,
   modelManagerViewModel: ModelManagerViewModel,
   onDismissed: () -> Unit,
 ) {
   var selectedTheme by remember { mutableStateOf(curThemeOverride) }
+  var selectedFirebaseAnalytics by remember { mutableStateOf(curFirebaseAnalytics) }
   var hfToken by remember { mutableStateOf(modelManagerViewModel.getTokenStatusAndData().data) }
   val dateFormatter = remember {
     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
@@ -187,6 +191,34 @@ fun SettingsDialog(
               }
             }
           }
+
+            Row(
+              modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+              Column(
+                modifier = Modifier.weight(1f).padding(end = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+              ) {
+                Text(
+                  stringResource(R.string.settings_dialog_firebase_analytics_title),
+                  style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+                )
+                Text(
+                  stringResource(R.string.settings_dialog_firebase_analytics_description),
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
+              Switch(
+                checked = selectedFirebaseAnalytics,
+                onCheckedChange = { checked ->
+                  selectedFirebaseAnalytics = checked
+                  modelManagerViewModel.saveFirebaseAnalytics(checked)
+                },
+              )
+            }
 
           // HF Token management.
           Column(

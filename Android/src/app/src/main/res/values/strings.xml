@@ -190,6 +190,8 @@
   <string name="settings_dialog_tos_title" translatable="true">Terms of service</string>
   <string name="settings_dialog_view_app_terms_of_service" translatable="true">View App Terms of Service</string>
   <string name="settings_dialog_gemma_prohibited_use_policy" translatable="true">Gemma Prohibited Use Policy</string>
+  <string name="settings_dialog_firebase_analytics_title" translatable="true">Firebase Analytics</string>
+  <string name="settings_dialog_firebase_analytics_description" translatable="true">Send usage data to help improve AI Edge Gallery</string>
   <string name="share" translatable="true">Share</string>
   <string name="slide_up_to_cancel" translatable="true">Slide up to cancel</string>
   <string name="system_prompt_placeholder" translatable="true">Enter system instructions (e.g., \"You are a versatile assistant. Provide accurate, context-aware responses in a professional tone.\")</string>

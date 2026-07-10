@@ -53,6 +53,7 @@ import com.google.ai.edge.gallery.data.TMP_FILE_EXT
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.data.createLlmChatConfigs
+import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.AccessTokenData
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.proto.Theme
@@ -611,6 +612,29 @@ constructor(
 
   fun saveThemeOverride(theme: Theme) {
     dataStoreRepository.saveTheme(theme = theme)
+  }
+
+  /**
+   * Retrieves whether Firebase Analytics collection is currently enabled.
+   *
+   * @return `true` if enabled or not explicitly disabled in settings; `false` if disabled.
+   */
+  fun readFirebaseAnalytics(): Boolean {
+    return dataStoreRepository.readFirebaseAnalytics()
+  }
+
+  /**
+   * Updates the user preference for Firebase Analytics data collection right away.
+   *
+   * Persists the setting to on-disk DataStore
+   * (`dataStoreRepository.saveFirebaseAnalytics(enabled)`) and dynamically updates the live
+   * Firebase SDK state via `firebaseAnalytics?.setAnalyticsCollectionEnabled(enabled)`.
+   *
+   * @param enabled `true` to enable diagnostic/analytics gathering; `false` to disable.
+   */
+  fun saveFirebaseAnalytics(enabled: Boolean) {
+    dataStoreRepository.saveFirebaseAnalytics(enabled = enabled)
+    firebaseAnalytics?.setAnalyticsCollectionEnabled(enabled)
   }
 
   fun getModelUrlResponse(model: Model, accessToken: String? = null): Int {

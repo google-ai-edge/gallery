@@ -518,6 +518,7 @@ fun HomeScreen(
   if (showSettingsDialog) {
     SettingsDialog(
       curThemeOverride = modelManagerViewModel.readThemeOverride(),
+      curFirebaseAnalytics = modelManagerViewModel.readFirebaseAnalytics(),
       modelManagerViewModel = modelManagerViewModel,
       onDismissed = { showSettingsDialog = false },
     )
