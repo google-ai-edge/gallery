@@ -539,8 +539,8 @@
   <string name="third_party_libraries" translatable="true">Third-party libraries</string>
   <!-- Button label to view licenses of third-party libraries. [CHAR_LIMIT=NONE] -->
   <string name="view_licenses" translatable="true">View licenses</string>
-  <!-- Label for 'System default' theme option. [CHAR_LIMIT=NONE] -->
-  <string name="theme_auto" translatable="true">System default</string>
+  <!-- Label for 'Auto' theme option. [CHAR_LIMIT=NONE] -->
+  <string name="theme_auto" translatable="true">Auto</string>
   <!-- Label for 'Light' theme option. [CHAR_LIMIT=NONE] -->
   <string name="theme_light" translatable="true">Light</string>
   <!-- Label for 'Dark' theme option. [CHAR_LIMIT=NONE] -->
