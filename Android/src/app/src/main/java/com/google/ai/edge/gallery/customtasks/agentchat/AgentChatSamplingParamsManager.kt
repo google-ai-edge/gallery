@@ -119,6 +119,10 @@ fun Model.setupAgentSkillTopK(): Boolean {
       this.configValues = newConfigValues
       configValuesChanged = true
     } else if (this.agentSkillTopK != 1f) {
+      // Handles the edge case where configValues[TOPK] is already 1f on entry, but
+      // agentSkillTopK in memory (agentSkillTopKMap) is not yet initialized to 1f. For example,
+      // this can happen when entering Agent Chat (setupAgentSkillTopK()) on a model whose
+      // general TopK is already 1f.
       this.agentSkillTopK = 1f
     }
   } else {
