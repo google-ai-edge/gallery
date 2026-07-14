@@ -1125,7 +1125,7 @@ private fun TaskCard(
                   contentAlignment = Alignment.Center,
                 ) {
                   Text(
-                    "New",
+                    stringResource(R.string.new_badge),
                     color = MaterialTheme.customColors.newFeatureTextColor,
                     style = MaterialTheme.typography.labelLarge,
                   )

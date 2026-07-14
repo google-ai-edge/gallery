@@ -125,7 +125,7 @@ fun ConfigDialog(
   initialValues: Map<String, Any>,
   onDismissed: () -> Unit,
   onOk: (values: Map<String, Any>, oldSystemPrompt: String, newSystemPrompt: String) -> Unit,
-  okBtnLabel: String = "OK",
+  okBtnLabel: String = stringResource(R.string.ok),
   subtitle: String = "",
   showCancel: Boolean = true,
   showSystemPromptEditorTab: Boolean = false,
@@ -224,19 +224,14 @@ fun ConfigDialog(
           )
         }
 
-        // Button row.
-        Row(
-          horizontalArrangement =
-            if (showSystemPromptEditorTab && selectedTabIndex == 1) {
-              Arrangement.SpaceBetween
-            } else {
-              Arrangement.End
-            },
-          verticalAlignment = Alignment.CenterVertically,
-          modifier = Modifier.padding(top = 8.dp),
-        ) {
-          // Restore default button to restore system prompt.
-          if (showSystemPromptEditorTab && selectedTabIndex == 1) {
+        // Button row(s).
+        if (showSystemPromptEditorTab && selectedTabIndex == 1) {
+          Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            // Restore default button to restore system prompt.
             OutlinedButton(
               onClick = { systemPrompt = defaultSystemPrompt },
               contentPadding = SMALL_BUTTON_CONTENT_PADDING,
@@ -244,26 +239,28 @@ fun ConfigDialog(
               Text(stringResource(R.string.restore_default))
             }
           }
+        }
 
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
+        Row(
+          modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+          horizontalArrangement = Arrangement.End,
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          // Cancel button.
+          if (showCancel) {
+            TextButton(onClick = { onDismissed() }) { Text(stringResource(R.string.cancel)) }
+          }
+
+          Spacer(modifier = Modifier.width(8.dp))
+
+          // Ok button
+          Button(
+            onClick = {
+              Log.d(TAG, "Values from dialog: $values")
+              onOk(values.toMap(), savedSystemPrompt, systemPrompt)
+            }
           ) {
-            // Cancel button.
-            if (showCancel) {
-              TextButton(onClick = { onDismissed() }) { Text("Cancel") }
-            }
-
-            // Ok button
-            Button(
-              onClick = {
-                Log.d(TAG, "Values from dialog: $values")
-                onOk(values.toMap(), savedSystemPrompt, systemPrompt)
-              }
-            ) {
-              Text(okBtnLabel)
-            }
+            Text(okBtnLabel)
           }
         }
       }

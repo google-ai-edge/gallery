@@ -55,8 +55,13 @@ fun MobileActionsChallengeDialog(
     Column(modifier = Modifier.padding(16.dp)) {
       Text(text = "🏆", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
       Text(
-        text = stringResource(R.string.mobile_actions_challenge_title),
         modifier = Modifier.fillMaxWidth(),
+        text =
+          stringResource(
+            R.string.mobile_actions_challenge_title,
+            stringResource(R.string.mobile_actions_title),
+          ),
+        style = MaterialTheme.typography.titleLarge,
         textAlign = TextAlign.Center,
         fontSize = 16.sp,
         fontWeight = FontWeight.Bold,
@@ -68,7 +73,11 @@ fun MobileActionsChallengeDialog(
       )
       Spacer(modifier = Modifier.height(16.dp))
       Text(
-        text = stringResource(R.string.mobile_actions_challenge_description),
+        text =
+          stringResource(
+            R.string.mobile_actions_challenge_description,
+            stringResource(R.string.mobile_actions_title),
+          ),
         style = MaterialTheme.typography.bodyMedium,
       )
       Spacer(modifier = Modifier.height(24.dp))
