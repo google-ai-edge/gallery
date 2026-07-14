@@ -520,6 +520,7 @@ fun AgentChatScreen(
               Text(
                 stringResource(R.string.introducing),
                 style = MaterialTheme.typography.headlineSmall,
+                textAlign = TextAlign.Center,
               )
               Text(
                 stringResource(R.string.agent_skills),
@@ -530,6 +531,7 @@ fun AgentChatScreen(
                       Brush.linearGradient(colors = listOf(Color(0xFF85B1F8), Color(0xFF3174F1))),
                   ),
                 modifier = Modifier.padding(top = 12.dp, bottom = 16.dp),
+                textAlign = TextAlign.Center,
               )
               Text(
                 AnnotatedString.fromHtml(
@@ -537,6 +539,7 @@ fun AgentChatScreen(
                     R.string.agent_skills_intro,
                     AgentSkillsURLs.REPOSITORY,
                     AgentSkillsURLs.DISCUSSIONS,
+                    stringResource(R.string.agent_skills),
                   )
                 ),
                 style =

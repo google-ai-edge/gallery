@@ -26,12 +26,14 @@
   <string name="aicore_image_limit_message" translatable="true">The current model can only support 1 image per chat. To ask about another image, create a new chat.</string>
   <string name="model_not_support_image_message" translatable="true">The current model does not support image input.</string>
   <string name="model_not_support_audio_message" translatable="true">The current model does not support audio input.</string>
-  <string name="aichat_initializing_title" translatable="true">Initializing model</string>
+  <!-- TODO(b/534771669): Re-enable translation after shorter translation is provided. -->
+  <!-- Status indicator when initializing model. [CHAR_LIMIT=25] -->
+  <string name="aichat_initializing_title" translatable="false">Initializing model</string>
   <string name="aichat_initializing_content" translatable="true">Sit tight, this can take up to 1 minute</string>
   <string name="app_intro" translatable="true">Explore a world of amazing on-device models from</string>
-  <string name="app_name" translatable="true">Google AI Edge Gallery</string>
-  <string name="app_name_first_part" translatable="true">Google AI</string>
-  <string name="app_name_second_part" translatable="true">Edge Gallery</string>
+  <string name="app_name" translatable="false">Google AI Edge Gallery</string>
+  <string name="app_name_first_part" translatable="false">Google AI</string>
+  <string name="app_name_second_part" translatable="false">Edge Gallery</string>
   <string name="askimage_emptystate_title" translatable="true">Ask Image</string>
   <string name="askimage_emptystate_content" translatable="true">To get started, tap the + below to add an image (max 10 images per chat) and type a prompt to ask a question about it!</string>
   <string name="askimage_emptystate_content_aicore" translatable="true">To get started, tap the + below to add an image (max 1 image per chat) and type a prompt to ask a question about it!</string>
@@ -80,6 +82,9 @@
   <string name="color" translatable="true">Color</string>
   <string name="config_dialog_tab_model_configs" translatable="true">Model configs</string>
   <string name="config_dialog_tab_system_prompt" translatable="true">System prompt</string>
+  <string name="config_dialog_title" translatable="true">Configurations</string>
+  <string name="benchmark_config_dialog_title" translatable="true">Benchmark configs</string>
+  <string name="start" translatable="true">Start</string>
   <string name="continue_button_label" translatable="true">Continue</string>
   <string name="conversation_history" translatable="true">Conversation History</string>
   <string name="copy" translatable="true">Copy</string>
@@ -116,7 +121,9 @@
   <string name="generate_and_copy" translatable="true">Generate and copy</string>
   <string name="grant_permissions" translatable="true">Grant permissions</string>
   <string name="grant_record_audio_permission" translatable="true">Grant record audio permission</string>
-  <string name="hold_down_to_talk" translatable="true">Hold to talk</string>
+  <!-- TODO(b/534771669): Re-enable translation after shorter translation is provided. -->
+  <!-- Instruction label on the voice recording button. [CHAR_LIMIT=20] -->
+  <string name="hold_down_to_talk" translatable="false">Hold to talk</string>
   <string name="input_history" translatable="true">Input history</string>
   <string name="instructions" translatable="true">Instructions</string>
   <string name="introducing" translatable="true">Introducing</string>
@@ -170,7 +177,9 @@
   <string name="reset" translatable="true">Reset</string>
   <string name="reset_note" translatable="true">Tapping \"Reset\" will reset LiteRT-LM engine only. The game progress won\'t be affected.</string>
   <string name="resetting_engine" translatable="true">Resetting engine...</string>
-  <string name="restore_default" translatable="true">Restore default</string>
+  <!-- TODO(b/534771669): Re-enable translation after shorter translation is provided. -->
+  <!-- Button label to restore default model configurations. [CHAR_LIMIT=20] -->
+  <string name="restore_default" translatable="false">Restore default</string>
   <string name="reinitializing_description" translatable="true">The game progress won\'t be affected</string>
   <string name="run" translatable="true">Run</string>
   <string name="running" translatable="true">Running...</string>
@@ -220,7 +229,7 @@
   <string name="set_timer_message" translatable="true">Setting the timer for %1$d seconds.</string>
   <string name="add_calendar_event_message" translatable="true">Adding \"Team meeting (10AM-11AM)\" to your calendar.</string>
   <string name="take_picture_message" translatable="true">Opening the camera app.</string>
-  <string name="mobile_actions_title" translatable="true">Mobile Actions</string>
+  <string name="mobile_actions_title" translatable="false">Mobile Actions</string>
   <string name="mobile_actions_description" translatable="true">Control your device with simple commands</string>
   <string name="mobile_actions_supported_actions" translatable="true">Supported sample actions:</string>
   <string name="mobile_actions_tab_model_response" translatable="true">Model response</string>
@@ -253,9 +262,9 @@
   <string name="prompt_template_label_open_wifi_settings" translatable="true">Open WIFI settings</string>
 
   <!-- Strings for MobileActionsChallengeDialog -->
-  <string name="mobile_actions_challenge_title" translatable="true">Mobile Actions Finetune Challenge</string>
+  <string name="mobile_actions_challenge_title" translatable="true">%s Finetune Challenge</string>
   <string name="mobile_actions_challenge_subtitle" translatable="true">Build it to play it!</string>
-  <string name="mobile_actions_challenge_description" translatable="true">This demo is locked. To unlock the Mobile Actions agent, you need to compile the model yourself using our open-source recipe.</string>
+  <string name="mobile_actions_challenge_description" translatable="true">This demo is locked. To unlock the %s agent, you need to compile the model yourself using our open-source recipe.</string>
   <string name="mobile_actions_challenge_instructions_title" translatable="true">Instructions:</string>
   <string name="mobile_actions_challenge_instruction_1" translatable="true">1. <![CDATA[<b>On your computer</b>]]>, open <![CDATA[<a href="https://ai.google.dev/gemma/docs/mobile-actions">this guide</a>]]></string>
   <string name="mobile_actions_challenge_instruction_2" translatable="true">2. Follow the instructions to fine tune the model and convert it to .litertlm format.</string>
@@ -284,7 +293,7 @@
   <string name="add_skill_dialog_title_from_local_import" translatable="true">Import local skill</string>
   <string name="add_skill_dialog_subtitle_from_local_import" translatable="true">Please first \"adb push\" the whole skill directory to /sdcard/Download</string>
   <string name="add_skill_manual_input_sheet_title" translatable="true">Create a skill</string>
-  <string name="agent_skills" translatable="true">Agent Skills</string>
+  <string name="agent_skills" translatable="false">Agent Skills</string>
   <string name="disclaimer_dialog_content" translatable="true">Third-party skills are not authored or endorsed by Google. Google is not responsible for their contents, security, or data handling practices.\n\nPlease exercise caution before providing sensitive information, such as personal identification, tokens, or API keys.\n\nAny use of an Agent Skill is subject to the applicable terms for that Skill.</string>
   <string name="disclaimer_dialog_title" translatable="true">Add third-party skill</string>
   <string name="disclaimer_dialog_agree" translatable="true">Agree</string>
@@ -563,7 +572,7 @@
   <!-- Title of dialog warning that a skill is disabled. %s is the skill name. [CHAR_LIMIT=NONE] -->
   <string name="disabled_skill_dialog_title" translatable="true">The \'%s\' skill is currently disabled</string>
   <!-- Introductory text for Agent Skills screen. Contains HTML links. [CHAR_LIMIT=NONE] -->
-  <string name="agent_skills_intro" translatable="true">Use specialized, high-order reasoning by loading different skills or <![CDATA[<a href="%1$s">creating your own</a>]]>. Explore community contributed skills on <![CDATA[<a href="%2$s">GitHub discussions</a>]]>.\n\nTry tapping a sample prompt below to see Agent Skills in action!</string>
+  <string name="agent_skills_intro" translatable="true">Use specialized, high-order reasoning by loading different skills or <![CDATA[<a href="%1$s">creating your own</a>]]>. Explore community contributed skills on <![CDATA[<a href="%2$s">GitHub discussions</a>]]>.\n\nTry tapping a sample prompt below to see %3$s in action!</string>
 
   <!-- Config Labels -->
   <!-- Label for the 'Max tokens' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
@@ -641,4 +650,5 @@
   <string name="config_label_font_size" translatable="true">Font size</string>
   <!-- Label for the 'Max character count' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
   <string name="config_label_max_char_count" translatable="true">Max character count</string>
+  <string name="new_badge" translatable="true" description="Badge label indicating a new feature. [CHAR_LIMIT=5]">New</string>
 </resources>
