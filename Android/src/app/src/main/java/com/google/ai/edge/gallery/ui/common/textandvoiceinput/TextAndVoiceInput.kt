@@ -113,13 +113,13 @@ fun TextAndVoiceInput(
       )
     }
 
-    AnimatedContent(targetState = textInputMode) { showTextInput ->
+    AnimatedContent(targetState = textInputMode, modifier = Modifier.weight(1f)) { showTextInput ->
       // Text field.
       if (showTextInput) {
         val cdPromptInput = stringResource(R.string.cd_prompt_input_text_field)
         Row(
           modifier =
-            Modifier.weight(1f)
+            Modifier.fillMaxWidth()
               .clip(RoundedCornerShape(28.dp))
               .background(MaterialTheme.colorScheme.surface)
               .border(
