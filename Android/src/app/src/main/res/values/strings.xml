@@ -125,9 +125,11 @@
   <string name="listening" translatable="true">Listening...</string>
   <string name="llm_camera_status_waiting_to_start" translatable="true" description="Status text shown when LlmCamera is initialized and waiting for user input.">Waiting to start…</string>
   <string name="llm_camera_status_loading_model" translatable="true" description="Status text shown while loading the LlmCamera model.">Loading model…</string>
+  <string name="llm_camera_status_listening" translatable="true" description="Status text shown when LlmCamera is listening to user speech. [CHAR_LIMIT=30] [BACKUP_MESSAGE_ID: 4062899179021837624]">Listening…</string>
   <string name="llm_camera_status_processing" translatable="true" description="Status text shown while LlmCamera is processing speech or image input.">Processing…</string>
   <string name="llm_camera_status_cancelled" translatable="true" description="Status text shown when LlmCamera processing was cancelled.">Cancelled</string>
   <string name="llm_camera_status_responding" translatable="true" description="Status text shown while LlmCamera model is generating a response.">Responding…</string>
+  <string name="llm_camera_status_done" translatable="true" description="Status text shown when LlmCamera finishes generating a response. [CHAR_LIMIT=15] [BACKUP_MESSAGE_ID: 5969525977325895045]">Done</string>
   <string name="llm_camera_status_error" translatable="true" description="Status text template shown when an error occurs during LlmCamera operation.">Error: %1$s</string>
   <string name="llm_camera_recognized_prefix" translatable="true" description="Prefix for recognized speech text in LlmCamera.">Recognized: %1$s</string>
   <string name="llm_camera_response_prefix" translatable="true" description="Prefix for model response text in LlmCamera.">Response: %1$s</string>
@@ -641,4 +643,7 @@
   <string name="config_label_font_size" translatable="true">Font size</string>
   <!-- Label for the 'Max character count' option in the model configuration dialog. [CHAR_LIMIT=NONE] -->
   <string name="config_label_max_char_count" translatable="true">Max character count</string>
+
+  <string name="llm_camera_title" translatable="true" description="Title of the LlmCamera screen. [CHAR_LIMIT=30]">LlmCamera</string>
+  <string name="llm_camera_cd_flip_camera" translatable="true" description="Content description for the flip button in LlmCamera. Camera is a generic term. [CHAR_LIMIT=30]">Flip Camera</string>
 </resources>
