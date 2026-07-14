@@ -672,14 +672,14 @@ private fun IntroText(enableAnimation: Boolean, gm4: Boolean) {
   val introText = buildAnnotatedString {
     val gemma4Url = "https://ai.google.dev/gemma"
     if (gm4) {
-      append(stringResource(R.string.gemma4_intro_part_1))
+      append("${stringResource(R.string.gemma4_intro_part_1)} ")
       append(
         buildTrackableUrlAnnotatedString(
           url = litertUrl,
           linkText = stringResource(R.string.litert_community_label),
         )
       )
-      append(stringResource(R.string.gemma4_intro_part_2))
+      append("${stringResource(R.string.gemma4_intro_part_2)} ")
       append(
         buildTrackableUrlAnnotatedString(
           url = gemma4Url,
