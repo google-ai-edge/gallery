@@ -145,7 +145,6 @@ class AgentChatTask @Inject constructor() : CustomTask {
   ) {
     val initialSystemPrompt = systemInstruction?.toString() ?: task.defaultSystemPrompt
     coroutineScope.launch(Dispatchers.Default) {
-      val unused = model.setupAgentSkillTopK()
       val skillsJob = launch { agentTools.skillManagerViewModel.loadSkills() }
       val mcpJob = launch { agentTools.mcpManagerViewModel.loadMcpServers() }
       skillsJob.join()
@@ -183,7 +182,6 @@ class AgentChatTask @Inject constructor() : CustomTask {
     model: Model,
     onDone: () -> Unit,
   ) {
-    val unused = model.cleanupAgentSkillTopK()
     LlmChatModelHelper.cleanUp(model = model, onDone = onDone)
   }
 
