@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery.ui.common
 import android.graphics.RuntimeShader
 import android.os.Build
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,6 +36,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ShaderBrush
 import kotlin.math.pow
 import kotlin.random.Random
+
+private const val AMPLITUDE_VISUAL_SCALE_DOWN = 0.4f
+// Maximum amplitude value from LlmCameraViewModel.convertRmsDbToAmplitude (0..65535 range).
+// Used to normalize the amplitude input to 0..1 for the visual animation.
+private const val MAX_16BIT_AMPLITUDE = 65535.0
+// Normalized amplitude threshold for detecting high-to-low transitions that reset Perlin noise.
+private const val AMPLITUDE_THRESHOLD = 0.2
+// Multiplier for the random Perlin noise offset range.
+private const val POFFSET_RANGE = 1000f
 
 private const val SHADER =
   """
@@ -89,20 +99,23 @@ half4 main(float2 fragCoord) {
 
   // Add a wavy distortion to the y-coordinate of the uv.
   //
-  // Control the amplitude of the wave
+  // Control the amplitude of the wave. Higher values create more pronounced vertical distortion.
   float wave_strength = 0.036;
-  // Control the speed of the wave
-  float wave_speed = 1.2;
-  // Control the frequency of the wave
-  float wave_frequency = 4.0;
+  // Control the speed of the wave. Higher values make the idle wave animate faster.
+  float wave_speed = 0.8;
+  // Control the frequency of the wave. Higher values create more wave cycles across the screen.
+  float wave_frequency = 0.5;
 
   // Idle.
   if (amplitude == 0.) {
     uv.y += sin(uv.x * wave_frequency + -iTime * wave_speed) * wave_strength;
   }
   // Visualizing amplitude by sampling the 1d perlin noise at the given offset.
+  // The 0.5 multiplier on uv.x reduces the noise sampling rate, creating wider, smoother
+  // wave patterns. Dividing amplitude by 2.0 scales the visual response to prevent
+  // excessive distortion at high audio amplitudes.
   else {
-    uv.y -= perlin_noise_1d(pOffset + uv.x * 3.) * amplitude / 2.0;
+    uv.y -= perlin_noise_1d(pOffset + uv.x * 0.5) * amplitude / 2.0;
   }
 
   vec3 col = mix4(
@@ -142,8 +155,11 @@ fun AudioAnimation(bgColor: Color, amplitude: Int, modifier: Modifier = Modifier
     var iTime by remember { mutableFloatStateOf(0f) }
     var curPOffset by remember { mutableFloatStateOf(0f) }
     var prevNormalizedAmplitude by remember { mutableDoubleStateOf(0.0) }
-    // Use pow(x, 0.5) to make low amplitude levels more significant.
-    val normalizedAmplitude = (amplitude / 32767.0).pow(0.5)
+    // Use pow(x, 0.5) (square root curve) to make low amplitude levels more significant.
+    // Scale down by AMPLITUDE_VISUAL_SCALE_DOWN (0.4) to reduce the visual intensity,
+    // preventing the animation from being too aggressive at normal speech volumes.
+    val normalizedAmplitude =
+      (amplitude / MAX_16BIT_AMPLITUDE).pow(0.5) * AMPLITUDE_VISUAL_SCALE_DOWN
     var animatedAmplitude by remember { mutableFloatStateOf(normalizedAmplitude.toFloat()) }
 
     // Animate the amplitude value whenever amplitude changes.
@@ -152,7 +168,7 @@ fun AudioAnimation(bgColor: Color, amplitude: Int, modifier: Modifier = Modifier
       val animatable = Animatable(initialValue = animatedAmplitude)
       animatable.animateTo(
         targetValue = normalizedAmplitude.toFloat(),
-        animationSpec = tween(durationMillis = 100),
+        animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing),
       ) {
         animatedAmplitude = this.value
       }
@@ -160,8 +176,10 @@ fun AudioAnimation(bgColor: Color, amplitude: Int, modifier: Modifier = Modifier
 
     // Updates the iTime uniform for the shader.
     LaunchedEffect(Unit) {
-      while (true) {
-        withFrameMillis { frameTimeMs -> iTime = frameTimeMs / 1000f }
+      if ("robolectric" != Build.FINGERPRINT) {
+        while (true) {
+          withFrameMillis { frameTimeMs -> iTime = frameTimeMs / 1000f }
+        }
       }
     }
 
@@ -171,8 +189,10 @@ fun AudioAnimation(bgColor: Color, amplitude: Int, modifier: Modifier = Modifier
       // level (0.2 or greater) to a low level (less than 0.2). This makes the noise-driven visual
       // effect appear to "jump" or reset to a new, random state when the audio becomes quiet,
       // preventing the visual from settling into a repetitive or static pattern.
-      if (normalizedAmplitude < 0.2 && prevNormalizedAmplitude >= 0.2) {
-        curPOffset = Random.nextFloat() * 1000f
+      if (
+        normalizedAmplitude < AMPLITUDE_THRESHOLD && prevNormalizedAmplitude >= AMPLITUDE_THRESHOLD
+      ) {
+        curPOffset = Random.nextFloat() * POFFSET_RANGE
       }
       prevNormalizedAmplitude = normalizedAmplitude
 
