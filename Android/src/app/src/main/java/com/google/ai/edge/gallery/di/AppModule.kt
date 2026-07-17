@@ -23,6 +23,7 @@ import androidx.datastore.core.Serializer
 import androidx.datastore.dataStoreFile
 import com.google.ai.edge.gallery.AppLifecycleProvider
 import com.google.ai.edge.gallery.BenchmarkResultsSerializer
+import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.CutoutsSerializer
 import com.google.ai.edge.gallery.GalleryLifecycleProvider
 import com.google.ai.edge.gallery.SettingsSerializer
