@@ -63,6 +63,7 @@ data class ChatUiState(
 
   /** A map of model names to the currently streaming chat message. */
   val streamingMessagesByModel: Map<String, ChatMessage> = mapOf(),
+
 )
 
 /** ViewModel responsible for managing the chat UI state and handling chat-related operations. */
@@ -130,9 +131,11 @@ abstract class ChatViewModel(val userDataDataStore: DataStore<UserData>? = null)
   }
 
   fun clearAllMessages(model: Model) {
-    val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
-    newMessagesByModel[model.name] = mutableListOf()
-    _uiState.update { it.copy(messagesByModel = newMessagesByModel) }
+    _uiState.update { state ->
+      state.copy(
+        messagesByModel = state.messagesByModel + (model.name to mutableListOf()),
+      )
+    }
   }
 
   fun getLastMessage(model: Model): ChatMessage? {
