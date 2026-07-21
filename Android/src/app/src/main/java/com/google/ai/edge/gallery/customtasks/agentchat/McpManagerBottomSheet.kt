@@ -94,6 +94,7 @@ import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.clearFocusOnKeyboardDismiss
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.mcp.McpServerState
 import com.google.ai.edge.gallery.ui.common.ClickableLink
 import com.google.ai.edge.gallery.ui.common.SmallFilledTonalButton
 import com.google.ai.edge.gallery.ui.common.SmallOutlinedButton

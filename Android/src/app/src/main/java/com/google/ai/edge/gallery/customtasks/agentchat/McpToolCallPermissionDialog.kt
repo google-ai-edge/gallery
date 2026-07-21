@@ -36,7 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.common.PermissionResult
+import com.google.ai.edge.gallery.tools.PermissionResult
 import org.json.JSONObject
 
 /** A dialog that prompts the user for permission to execute a MCP tool call. */

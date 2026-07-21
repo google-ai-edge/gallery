@@ -13,10 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.ai.edge.gallery.customtasks.agentchat
+package com.google.ai.edge.gallery.intents
 
+import android.Manifest
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.provider.CalendarContract
 import android.provider.CalendarContract.Events
 import android.provider.CalendarContract.Instances
@@ -33,6 +36,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 
 @JsonClass(generateAdapter = true)
 data class SendEmailParams(
@@ -203,10 +207,10 @@ object IntentHandler {
     requestPermission: suspend (String) -> Boolean,
   ): String {
     if (
-      checkSelfPermission(context, android.Manifest.permission.READ_CALENDAR) !=
-        android.content.pm.PackageManager.PERMISSION_GRANTED
+      checkSelfPermission(context, Manifest.permission.READ_CALENDAR) !=
+        PackageManager.PERMISSION_GRANTED
     ) {
-      val granted = requestPermission(android.Manifest.permission.READ_CALENDAR)
+      val granted = requestPermission(Manifest.permission.READ_CALENDAR)
       if (!granted) {
         Log.e(TAG, "READ_CALENDAR permission denied by user")
         return "failed: READ_CALENDAR permission denied by user"
@@ -241,8 +245,8 @@ object IntentHandler {
             arrayOf(Instances.TITLE, Instances.DESCRIPTION, Instances.BEGIN, Instances.END)
 
           val builder = Instances.CONTENT_URI.buildUpon()
-          android.content.ContentUris.appendId(builder, startOfDayMillis)
-          android.content.ContentUris.appendId(builder, endOfDayMillis)
+          ContentUris.appendId(builder, startOfDayMillis)
+          ContentUris.appendId(builder, endOfDayMillis)
 
           val cursor =
             context.contentResolver.query(
@@ -299,7 +303,7 @@ object IntentHandler {
       if (params != null) {
         val notificationProtoBuilder =
           ScheduledNotification.newBuilder()
-            .setId(java.util.UUID.randomUUID().toString())
+            .setId(UUID.randomUUID().toString())
             .setTitle(params.title)
             .setMessage(params.message)
             .setHour(params.hour)

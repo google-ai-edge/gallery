@@ -24,6 +24,8 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.mcp.McpServerState
+import com.google.ai.edge.gallery.mcp.McpServersProvider
 import com.google.ai.edge.gallery.proto.McpAuth
 import com.google.ai.edge.gallery.proto.McpServer
 import com.google.ai.edge.gallery.proto.McpServers
@@ -48,8 +50,6 @@ import kotlinx.coroutines.withContext
 
 private const val TAG = "AGMcpManagerVM"
 
-data class McpServerState(val mcpServer: McpServer, val client: Client?, val error: String? = null)
-
 data class McpManagerUiState(
   val mcpServers: List<McpServerState> = emptyList(),
   val loadingMcpServer: Boolean = false,
@@ -62,7 +62,10 @@ class McpManagerViewModel
 constructor(
   private val mcpServersDataStore: DataStore<McpServers>,
   private val userDataDataStore: DataStore<UserData>,
-) : ViewModel() {
+) : ViewModel(), McpServersProvider {
+  override val mcpServers: List<McpServerState>
+    get() = uiState.value.mcpServers
+
   private val _uiState = MutableStateFlow(McpManagerUiState())
   val uiState = _uiState.asStateFlow()
 

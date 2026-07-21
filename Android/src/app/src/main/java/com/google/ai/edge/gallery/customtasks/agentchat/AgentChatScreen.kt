@@ -78,18 +78,20 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.common.AskInfoAgentAction
-import com.google.ai.edge.gallery.common.AskMcpToolCallPermissionAction
-import com.google.ai.edge.gallery.common.CallJsAgentAction
 import com.google.ai.edge.gallery.common.LOCAL_URL_BASE
-import com.google.ai.edge.gallery.common.PermissionResult
-import com.google.ai.edge.gallery.common.RequestPermissionAgentAction
-import com.google.ai.edge.gallery.common.SkillProgressAgentAction
 import com.google.ai.edge.gallery.data.AgentSkillsURLs
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.tools.AskInfoToolAction
+import com.google.ai.edge.gallery.tools.AskMcpToolCallPermissionAction
+import com.google.ai.edge.gallery.tools.CallJsToolAction
+import com.google.ai.edge.gallery.tools.PermissionResult
+import com.google.ai.edge.gallery.tools.RequestPermissionToolAction
+import com.google.ai.edge.gallery.tools.RuntimeToolDispatcher
+import com.google.ai.edge.gallery.tools.SkillProgressToolAction
+import com.google.ai.edge.gallery.tools.ToolExecutionContext
 import com.google.ai.edge.gallery.ui.common.BaseGalleryWebViewClient
 import com.google.ai.edge.gallery.ui.common.GalleryWebView
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
@@ -107,12 +109,12 @@ import com.google.ai.edge.gallery.ui.llmchat.LlmChatViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.litertlm.Message
-import com.google.ai.edge.litertlm.tool
 import java.lang.Exception
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONObject
 
@@ -143,7 +145,7 @@ fun AgentChatScreen(
   var showSkillManagerBottomSheet by remember { mutableStateOf(false) }
   var showMcpManagerBottomSheet by remember { mutableStateOf(false) }
   var showAskInfoDialog by remember { mutableStateOf(false) }
-  var currentAskInfoAction by remember { mutableStateOf<AskInfoAgentAction?>(null) }
+  var currentAskInfoAction by remember { mutableStateOf<AskInfoToolAction?>(null) }
   var currentMcpPermissionAction by remember {
     mutableStateOf<AskMcpToolCallPermissionAction?>(null)
   }
@@ -156,7 +158,7 @@ fun AgentChatScreen(
   var showAlertForDisabledSkill by remember { mutableStateOf(false) }
   var disabledSkillName by remember { mutableStateOf("") }
 
-  var currentPermissionAction by remember { mutableStateOf<RequestPermissionAgentAction?>(null) }
+  var currentPermissionAction by remember { mutableStateOf<RequestPermissionToolAction?>(null) }
   val permissionLauncher =
     rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
       permissionGranted ->
@@ -305,7 +307,7 @@ fun AgentChatScreen(
       }
     },
     composableBelowMessageList = { model ->
-      val actionChannel = agentTools.actionChannel
+      val actionChannel = agentTools.receiveActionChannel
       val doneIcon = ImageVector.vectorResource(R.drawable.skill)
       // Use rememberUpdatedState to ensure that LaunchedEffect captures the
       // latest active model when the model is switched during an ongoing skill execution.
@@ -314,7 +316,7 @@ fun AgentChatScreen(
         for (action in actionChannel) {
           Log.d(TAG, "Handling action: $action")
           when (action) {
-            is SkillProgressAgentAction -> {
+            is SkillProgressToolAction -> {
               viewModel.updateCollapsableProgressPanelMessage(
                 model = currentModel,
                 title = action.label,
@@ -325,7 +327,7 @@ fun AgentChatScreen(
                 customData = action.customData,
               )
             }
-            is CallJsAgentAction -> {
+            is CallJsToolAction -> {
               val skillName =
                 if (action.url.contains("/skills/")) {
                   action.url.substringAfter("/skills/").substringBefore("/")
@@ -436,12 +438,12 @@ fun AgentChatScreen(
                 action.result.completeExceptionally(e)
               }
             }
-            is AskInfoAgentAction -> {
+            is AskInfoToolAction -> {
               currentAskInfoAction = action
               askInfoInputValue = "" // Reset input
               showAskInfoDialog = true
             }
-            is RequestPermissionAgentAction -> {
+            is RequestPermissionToolAction -> {
               currentPermissionAction = action
               permissionLauncher.launch(action.permission)
             }
@@ -721,29 +723,29 @@ private fun updateProgressPanel(viewModel: LlmChatViewModel, model: Model, agent
       lastProgressPanelMessage is ChatMessageCollapsableProgressPanel
   ) {
     if (lastProgressPanelMessage.title.startsWith("Loading")) {
-      agentTools.sendAgentAction(
-        SkillProgressAgentAction(
+      agentTools.sendToolAction(
+        SkillProgressToolAction(
           label = lastProgressPanelMessage.title.replace("Loading", "Loaded"),
           inProgress = false,
         )
       )
     } else if (lastProgressPanelMessage.title.startsWith("Calling")) {
-      agentTools.sendAgentAction(
-        SkillProgressAgentAction(
+      agentTools.sendToolAction(
+        SkillProgressToolAction(
           label = lastProgressPanelMessage.title.replace("Calling", "Called"),
           inProgress = false,
         )
       )
     } else if (lastProgressPanelMessage.title.startsWith("Executing")) {
-      agentTools.sendAgentAction(
-        SkillProgressAgentAction(
+      agentTools.sendToolAction(
+        SkillProgressToolAction(
           label = lastProgressPanelMessage.title.replace("Executing", "Executed"),
           inProgress = false,
         )
       )
     } else {
-      agentTools.sendAgentAction(
-        SkillProgressAgentAction(label = lastProgressPanelMessage.title, inProgress = false)
+      agentTools.sendToolAction(
+        SkillProgressToolAction(label = lastProgressPanelMessage.title, inProgress = false)
       )
     }
   }
@@ -772,6 +774,11 @@ private fun resetSessionWithCurrentSkillsAndMcps(
   }
   val toolsPrompt = agentTools.mcpManagerViewModel.getToolsPrompt()
   val actualSystemPrompt = getEffectiveBaseSystemPrompt(curSystemPrompt, toolsPrompt.isNotEmpty())
+
+  val executionContext =
+    ToolExecutionContext(taskId = task.id, actionChannel = agentTools.sendActionChannel)
+  RuntimeToolDispatcher().setupExecutionContext(agentTools.getAvailableTools(), executionContext)
+
   viewModel.resetSession(
     task = task,
     model = model,
@@ -781,7 +788,7 @@ private fun resetSessionWithCurrentSkillsAndMcps(
         skills = skillManagerViewModel.getSelectedSkills(),
         toolsPrompt = toolsPrompt,
       ),
-    tools = listOf(tool(agentTools)),
+    tools = runBlocking(Dispatchers.Default) { agentTools.getLiteRtToolProviders() },
     supportImage = true,
     supportAudio = true,
     onDone = { onDone(model) },

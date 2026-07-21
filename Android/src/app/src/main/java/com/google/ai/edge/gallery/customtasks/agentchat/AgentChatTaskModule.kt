@@ -31,9 +31,11 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.proto.McpServers
 import com.google.ai.edge.gallery.proto.Skill
+import com.google.ai.edge.gallery.tools.RuntimeToolDispatcher
+import com.google.ai.edge.gallery.tools.ToolDispatcher
+import com.google.ai.edge.gallery.tools.ToolExecutionContext
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.litertlm.Contents
-import com.google.ai.edge.litertlm.tool
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -118,6 +120,7 @@ private val DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY_TRIMMED =
 
 class AgentChatTask @Inject constructor() : CustomTask {
   private val agentTools: AgentTools = AgentToolsImpl()
+  private val toolDispatcher: ToolDispatcher = RuntimeToolDispatcher()
 
   override val task: Task =
     Task(
@@ -162,6 +165,10 @@ class AgentChatTask @Inject constructor() : CustomTask {
           toolsPrompt = toolsPrompt,
         )
 
+      val executionContext =
+        ToolExecutionContext(taskId = task.id, actionChannel = agentTools.sendActionChannel)
+      toolDispatcher.setupExecutionContext(agentTools.getAvailableTools(), executionContext)
+
       LlmChatModelHelper.initialize(
         context = context,
         model = model,
@@ -170,7 +177,7 @@ class AgentChatTask @Inject constructor() : CustomTask {
         supportAudio = true,
         onDone = onDone,
         systemInstruction = finalSystemInstruction,
-        tools = listOf(tool(agentTools)),
+        tools = agentTools.getLiteRtToolProviders(),
         enableConversationConstrainedDecoding = true,
       )
     }

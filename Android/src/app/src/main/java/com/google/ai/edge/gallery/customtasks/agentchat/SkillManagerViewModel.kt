@@ -34,7 +34,6 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.GalleryEvent
-import com.google.ai.edge.gallery.common.LOCAL_URL_BASE
 import com.google.ai.edge.gallery.common.SkillTryOutChip
 import com.google.ai.edge.gallery.common.getJsonResponse
 import com.google.ai.edge.gallery.data.AllowedSkill
@@ -42,6 +41,9 @@ import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.SkillAllowlist
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.Skill
+import com.google.ai.edge.gallery.skills.SkillsProvider
+import com.google.ai.edge.gallery.skills.getJsSkillUrl
+import com.google.ai.edge.gallery.skills.getJsSkillWebviewUrl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -138,7 +140,7 @@ class SkillManagerViewModel
 constructor(
   val dataStoreRepository: DataStoreRepository,
   @ApplicationContext private val context: Context,
-) : ViewModel() {
+) : ViewModel(), SkillsProvider {
   private val _uiState = MutableStateFlow(SkillManagerUiState())
   val uiState = _uiState.asStateFlow()
   var skillLoaded = false
@@ -690,48 +692,33 @@ constructor(
     return _uiState.value.skills.filter { it.skill.selected }.map { it.skill }
   }
 
+  private fun matchesSkillName(actualName: String, targetName: String): Boolean {
+    val normalizedActual = actualName.trim().lowercase().replace("[\\s_]+".toRegex(), "-")
+    val normalizedTarget = targetName.trim().lowercase().replace("[\\s_]+".toRegex(), "-")
+    return normalizedActual == normalizedTarget ||
+      actualName.equals(targetName.trim(), ignoreCase = true)
+  }
+
   fun getSkill(name: String): Skill? {
-    return _uiState.value.skills.firstOrNull { it.skill.name == name }?.skill
+    return _uiState.value.skills.firstOrNull { matchesSkillName(it.skill.name, name) }?.skill
+  }
+
+  override suspend fun getAvailableSkills(): List<Skill> {
+    return getSelectedSkills()
+  }
+
+  override suspend fun loadSkill(skillName: String): Skill? {
+    return getSelectedSkills().find { matchesSkillName(it.name, skillName) }
   }
 
   fun getJsSkillUrl(skillName: String, scriptName: String): String? {
     val skill = getSkill(name = skillName) ?: return null
-    var baseUrl = ""
-    // Construct a local URL for imported skill and built-in skills.
-    if (skill.importDirName.isNotEmpty()) {
-      baseUrl = "$LOCAL_URL_BASE/${skill.importDirName}"
-    }
-    // Use skill.skillUrl if set.
-    else if (skill.skillUrl.isNotEmpty()) {
-      baseUrl = skill.skillUrl
-    }
-    if (baseUrl.isEmpty()) {
-      return null
-    }
-    return "$baseUrl/scripts/$scriptName"
+    return skill.getJsSkillUrl(scriptName = scriptName)
   }
 
   fun getJsSkillWebviewUrl(skillName: String, url: String): String {
     val skill = getSkill(name = skillName) ?: return url
-
-    // Return the url if it is an absolute url.
-    if (url.startsWith("http")) {
-      return url
-    }
-
-    var baseUrl = ""
-    // Construct a local URL for imported skill.
-    if (skill.importDirName.isNotEmpty()) {
-      baseUrl = "$LOCAL_URL_BASE/${skill.importDirName}"
-    }
-    // Use skill.skillUrl if set.
-    else if (skill.skillUrl.isNotEmpty()) {
-      baseUrl = skill.skillUrl
-    }
-    if (baseUrl.isEmpty()) {
-      return url
-    }
-    return "$baseUrl/assets/$url"
+    return skill.getJsSkillWebviewUrl(url = url)
   }
 
   fun getSelectedSkillsNamesAndDescriptions(): String {
