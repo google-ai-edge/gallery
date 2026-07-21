@@ -62,6 +62,7 @@ import androidx.core.content.FileProvider
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import com.google.android.libraries.security.content.SafeContentResolver
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.ln
@@ -449,9 +450,13 @@ suspend fun Context.saveBitmapToMediaStore(
     try {
       imageUri = resolver.insert(imageCollection, contentValues) ?: return@withContext false
       val success =
-        resolver.openOutputStream(imageUri)?.use { outputStream ->
-          bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-        } ?: false
+        SafeContentResolver.openOutputStream(
+            this@saveBitmapToMediaStore,
+            imageUri,
+            SafeContentResolver.SourcePolicy.EXTERNAL_ONLY,
+          )
+          ?.use { outputStream -> bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream) }
+          ?: false
 
       if (!success) {
         resolver.delete(imageUri, null, null)
@@ -461,6 +466,90 @@ suspend fun Context.saveBitmapToMediaStore(
       Log.e(TAG, "Failed to save bitmap to MediaStore", e)
       imageUri?.let { resolver.delete(it, null, null) }
       false
+    }
+  }
+}
+
+suspend fun Context.saveBitmapWithC2paToMediaStore(
+  bitmap: Bitmap,
+  fileName: String,
+  dispatcher: CoroutineDispatcher = Dispatchers.IO,
+): Boolean {
+  return withContext(dispatcher) {
+    val resolver: ContentResolver = contentResolver
+    val imageCollection: Uri =
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+      } else {
+        MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+      }
+
+    val mimeType = if (fileName.endsWith(".png", ignoreCase = true)) "image/png" else "image/jpeg"
+    val contentValues =
+      ContentValues().apply {
+        put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
+        put(MediaStore.Images.Media.MIME_TYPE, mimeType)
+        put(MediaStore.Images.Media.DATE_ADDED, System.currentTimeMillis() / 1000)
+        put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis())
+      }
+
+    var imageUri: Uri? = null
+    try {
+      val byteArrayOutputStream = java.io.ByteArrayOutputStream()
+      val format =
+        if (mimeType == "image/png") Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG
+      bitmap.compress(format, 100, byteArrayOutputStream)
+      val inputBytes = byteArrayOutputStream.toByteArray()
+
+      val createdActionInput =
+        com.google.android.libraries.mediaprovenance.c2pa.CreatedActionInput.builder()
+          .setDigitalSourceType(
+            java.util.Optional.of(
+              "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia"
+            )
+          )
+          .build()
+
+      val request =
+        com.google.android.libraries.mediaprovenance.c2pa.GenerateManifestStoreRequest.builder()
+          .setInceptionAction(createdActionInput)
+          .build()
+
+      val generatorOptions =
+        com.google.android.libraries.mediaprovenance.c2pa.DefaultGeneratorOptions.builder()
+          .setUseTrustedKeys(false)
+          .build()
+
+      val inputAsset =
+        com.google.android.libraries.mediaprovenance.c2pa.Asset.create(inputBytes, mimeType)
+      val stampedBytes =
+        com.google.android.libraries.mediaprovenance.c2pa.DefaultGeneratorFactory.getInstance()
+          .createGenerator(request, this@saveBitmapWithC2paToMediaStore, generatorOptions)
+          .use { generator ->
+            val outputAsset = generator.generateManifestStoreAndEmbed(inputAsset)
+            outputAsset.content.contentAsBytes()
+          }
+
+      imageUri = resolver.insert(imageCollection, contentValues) ?: return@withContext false
+      val success =
+        SafeContentResolver.openOutputStream(
+            this@saveBitmapWithC2paToMediaStore,
+            imageUri,
+            SafeContentResolver.SourcePolicy.EXTERNAL_ONLY,
+          )
+          ?.use { outputStream ->
+            outputStream.write(stampedBytes)
+            true
+          } ?: false
+
+      if (!success) {
+        resolver.delete(imageUri, null, null)
+      }
+      success
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to save bitmap with C2PA to MediaStore, falling back to non-C2PA save", e)
+      imageUri?.let { resolver.delete(it, null, null) }
+      saveBitmapToMediaStore(bitmap, fileName, dispatcher)
     }
   }
 }
