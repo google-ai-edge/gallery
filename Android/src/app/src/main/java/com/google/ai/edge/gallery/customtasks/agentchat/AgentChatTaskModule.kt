@@ -148,7 +148,9 @@ class AgentChatTask @Inject constructor() : CustomTask {
   ) {
     val initialSystemPrompt = systemInstruction?.toString() ?: task.defaultSystemPrompt
     coroutineScope.launch(Dispatchers.Default) {
-      val skillsJob = launch { agentTools.skillManagerViewModel.loadSkills() }
+      val skillsJob = launch {
+        agentTools.skillsProvider.loadSkills(SkillManagerViewModel.DEFAULT_DISABLED_SKILLS)
+      }
       val mcpJob = launch { agentTools.mcpManagerViewModel.loadMcpServers() }
       skillsJob.join()
       mcpJob.join()
@@ -161,7 +163,7 @@ class AgentChatTask @Inject constructor() : CustomTask {
       val finalSystemInstruction =
         injectSkillsAndMcpTools(
           baseSystemPrompt = baseSystemPrompt,
-          skills = agentTools.skillManagerViewModel.getSelectedSkills(),
+          skills = agentTools.skillsProvider.getAvailableSkills(),
           toolsPrompt = toolsPrompt,
         )
 

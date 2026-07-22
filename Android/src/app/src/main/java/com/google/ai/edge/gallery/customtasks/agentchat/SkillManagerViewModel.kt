@@ -20,8 +20,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.os.Bundle
-import android.provider.OpenableColumns
 import android.util.Log
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Lightbulb
@@ -30,38 +28,25 @@ import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.SentimentVerySatisfied
-import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.common.SkillTryOutChip
-import com.google.ai.edge.gallery.common.getJsonResponse
 import com.google.ai.edge.gallery.data.AllowedSkill
 import com.google.ai.edge.gallery.data.DataStoreRepository
-import com.google.ai.edge.gallery.data.SkillAllowlist
-import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.Skill
-import com.google.ai.edge.gallery.skills.SkillsProvider
+import com.google.ai.edge.gallery.skills.SkillManager
 import com.google.ai.edge.gallery.skills.getJsSkillUrl
 import com.google.ai.edge.gallery.skills.getJsSkillWebviewUrl
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.File
-import java.io.InputStreamReader
-import java.net.URL
 import javax.inject.Inject
-import kotlin.collections.joinToString
 import kotlin.io.encoding.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private const val TAG = "AGSkillManagerVM"
-
-private const val SKILL_ALLOWLIST_URL = ""
 
 val TRYOUT_CHIPS: List<SkillTryOutChip> =
   listOf(
@@ -104,23 +89,6 @@ val TRYOUT_CHIPS: List<SkillTryOutChip> =
     ),
   )
 
-enum class SkillSource(val sourceName: String) {
-  BUILTIN("builtin"),
-  FEATURED("featured"),
-  REMOTE_URL("remote_url"),
-  LOCAL_IMPORT("local_import"),
-  UNKNOWN("unknown"),
-}
-
-enum class SkillAction(val value: String) {
-  ADD("add"),
-  DELETE("delete"),
-  ENABLE("enable"),
-  DISABLE("disable"),
-  ENABLE_ALL("enable_all"),
-  DISABLE_ALL("disable_all"),
-}
-
 data class SkillState(val skill: Skill)
 
 data class SkillManagerUiState(
@@ -135,94 +103,53 @@ data class SkillManagerUiState(
 )
 
 @HiltViewModel
-class SkillManagerViewModel
-@Inject
-constructor(
-  val dataStoreRepository: DataStoreRepository,
-  @ApplicationContext private val context: Context,
-) : ViewModel(), SkillsProvider {
+class SkillManagerViewModel @Inject constructor(val skillManager: SkillManager) : ViewModel() {
+
+  constructor(
+    dataStoreRepository: DataStoreRepository,
+    context: Context,
+  ) : this(SkillManager(dataStoreRepository, context))
+
   private val _uiState = MutableStateFlow(SkillManagerUiState())
   val uiState = _uiState.asStateFlow()
-  var skillLoaded = false
+
+  var skillLoaded: Boolean
+    get() = skillManager.skillLoaded
+    set(value) {
+      skillManager.skillLoaded = value
+    }
 
   init {
-    if (SKILL_ALLOWLIST_URL.isNotEmpty()) {
-      loadSkillAllowlist()
+    viewModelScope.launch {
+      skillManager.skills.collect { updatedSkills ->
+        _uiState.update { currentState ->
+          currentState.copy(skills = updatedSkills.map { SkillState(skill = it) })
+        }
+      }
+    }
+    loadSkillAllowlist()
+  }
+
+  private fun syncSkillsFromManager() {
+    _uiState.update { currentState ->
+      currentState.copy(skills = skillManager.skills.value.map { SkillState(skill = it) })
     }
   }
 
   suspend fun loadSkills() {
-    if (!skillLoaded) {
-      setLoading(true)
-      withContext(Dispatchers.IO) {
-        Log.d(TAG, "Loading skills index...")
-
-        // 1. Load all skills from DataStore.
-        val allDataStoreSkills = dataStoreRepository.getAllSkills()
-        val dataStoreBuiltInSkills = allDataStoreSkills.filter { it.builtIn }
-        val dataStoreCustomSkills = allDataStoreSkills.filter { !it.builtIn }
-        Log.d(
-          TAG,
-          "data store built-in skills:\n${dataStoreBuiltInSkills.joinToString(separator = "\n") { it.name }}",
-        )
-        Log.d(
-          TAG,
-          "data store custom skills:\n${dataStoreCustomSkills.joinToString(separator = "\n") { it.name }}",
-        )
-
-        // 2. Keep track of the selection state of existing built-in skills.
-        val builtInSelectionMap = dataStoreBuiltInSkills.associate {
-          it.name to Pair(it.selected, it.userModifiedSelection)
-        }
-        Log.d(TAG, "data store built-in skills selection map: $builtInSelectionMap")
-
-        // 3. Read and parse SKILL.md files from assets/skills directories.
-        val builtInSkills = loadBuiltInSkills(context, builtInSelectionMap, DEFAULT_DISABLED_SKILLS)
-        Log.d(
-          TAG,
-          "Final built-in skills:\n${builtInSkills.joinToString(separator = "\n") { "${it.name}(${it.selected})" }}",
-        )
-
-        // 4. Combine the updated built-in skills with the existing custom skills.
-        val finalSkills = builtInSkills.toMutableList()
-        for (customSkill in dataStoreCustomSkills) {
-          if (!finalSkills.any { it.name == customSkill.name }) {
-            finalSkills.add(customSkill)
-          }
-        }
-
-        // 5. Update the DataStore with the combined list of skills.
-        dataStoreRepository.setSkills(finalSkills)
-
-        // 6. Update UI State with the final set of skills.
-        _uiState.update { currentState ->
-          currentState.copy(skills = finalSkills.map { SkillState(skill = it) })
-        }
-
-        setLoading(false)
-        skillLoaded = true
-      }
-    }
+    setLoading(true)
+    skillManager.loadSkills(DEFAULT_DISABLED_SKILLS)
+    syncSkillsFromManager()
+    setLoading(false)
   }
 
   private fun loadSkillAllowlist() {
     _uiState.update { it.copy(loadingSkillAllowlist = true, skillAllowlistError = null) }
     viewModelScope.launch(Dispatchers.IO) {
       try {
-        val url = SKILL_ALLOWLIST_URL
-        Log.d(TAG, "Fetching skill allowlist from: $url")
-        val result =
-          getJsonResponse<SkillAllowlist>(url)
-            ?: throw Exception("Failed to fetch or parse JSON from $url")
-
-        val allowlist = result.jsonObj
-        Log.d(TAG, "Successfully loaded ${allowlist.featuredSkills.size} featured skills.")
-
+        val featured = skillManager.loadSkillAllowlist()
         _uiState.update { currentState ->
-          currentState.copy(
-            loadingSkillAllowlist = false,
-            featuredSkills = allowlist.featuredSkills,
-          )
+          currentState.copy(loadingSkillAllowlist = false, featuredSkills = featured)
         }
       } catch (e: Exception) {
         Log.e(TAG, "Error loading skill allowlist", e)
@@ -244,76 +171,15 @@ constructor(
     setValidating(true)
     setValidationError(null)
 
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch {
       try {
-        Log.d(TAG, "Validating skill from URL: $url")
-
-        // 1. Normalize the URL: remove trailing "/SKILL.md" or "/".
-        var normalizedUrl = url
-        if (normalizedUrl.endsWith("/SKILL.md")) {
-          normalizedUrl = normalizedUrl.dropLast("/SKILL.md".length)
-        }
-        if (normalizedUrl.endsWith("/")) {
-          normalizedUrl = normalizedUrl.dropLast(1)
-        }
-        val skillMdUrl = "$normalizedUrl/SKILL.md"
-        Log.d(TAG, "Fetching SKILL.md from: $skillMdUrl")
-
-        // 2. Read url/SKILL.md.
-        val mdContent =
-          try {
-            val connection = URL(skillMdUrl).openConnection()
-            InputStreamReader(connection.getInputStream()).use { reader -> reader.readText() }
-          } catch (e: Exception) {
-            Log.e(TAG, "Error fetching SKILL.md from $skillMdUrl", e)
-            val error = "Failed to fetch SKILL.md: ${e.message}"
-            setValidationError(error)
-            onValidationError(error)
-            return@launch
-          }
-
-        if (mdContent.isEmpty()) {
-          val error = "SKILL.md is empty at $skillMdUrl"
-          setValidationError(error)
-          onValidationError(error)
-          return@launch
-        }
-
-        // 3. If it exists, read and convert it to proto.
-        val (skillProto, errors) =
-          convertSkillMdToProto(
-            mdContent,
-            builtIn = false,
-            selected = true,
-            skillUrl = normalizedUrl,
-          )
-
-        // 4. If conversion failed, report error.
-        if (errors.isNotEmpty()) {
-          val error = "Error parsing SKILL.md from $skillMdUrl: ${errors.joinToString(", ")}"
-          setValidationError(error)
-          onValidationError(error)
-          return@launch
-        }
-
-        skillProto?.let { skill ->
-          // 5. Check if the name already exists. If so, report error.
-          if (_uiState.value.skills.any { curSkill -> curSkill.skill.name == skill.name }) {
-            val error = "A skill with the name '${skill.name}' already exists."
-            setValidationError(error)
-            onValidationError(error)
-            return@launch
-          }
-
-          // 6. Add to ui states and data store.
-          addSkill(skill = skill, addToDataStore = true)
-          Log.d(TAG, "Successfully added skill from URL: ${skill.name}")
-          firebaseAnalytics?.logEvent(
-            GalleryEvent.SKILL_MANAGEMENT.id,
-            getSkillLoggingParams(skill).apply { putString("action", SkillAction.ADD.value) },
-          )
-          onSuccess()
-        }
+        val unused = skillManager.addSkillFromUrl(url, _uiState.value.featuredSkills)
+        syncSkillsFromManager()
+        onSuccess()
+      } catch (e: Exception) {
+        val error = e.message ?: "Failed to validate skill from URL"
+        setValidationError(error)
+        onValidationError(error)
       } finally {
         setValidating(false)
       }
@@ -325,12 +191,7 @@ constructor(
    * storage.
    */
   fun checkLocalSkillExisted(directoryUri: Uri): Boolean {
-    val originalImportDirName = getDisplayName(context, directoryUri)
-    if (originalImportDirName.isEmpty()) {
-      return false
-    }
-    val destDir = getSkillDestinationDir(originalImportDirName)
-    return destDir.exists()
+    return skillManager.checkLocalSkillExisted(directoryUri)
   }
 
   /**
@@ -338,40 +199,7 @@ constructor(
    * [directoryUri]'s SKILL.md file already exists.
    */
   fun checkBuiltInSkillExistedForImportedSkill(directoryUri: Uri): Boolean {
-    Log.d(TAG, "Checking built-in skill existed for imported skill: $directoryUri")
-
-    val rootFile = DocumentFile.fromTreeUri(context, directoryUri)
-    val skillMdFile = rootFile?.findFile("SKILL.md")
-
-    if (skillMdFile == null || !skillMdFile.exists()) {
-      Log.w(TAG, "SKILL.md not found in the selected directory for built-in check.")
-      return false
-    }
-
-    val mdContent =
-      try {
-        context.contentResolver.openInputStream(skillMdFile.uri)?.use { inputStream ->
-          inputStream.bufferedReader().use { it.readText() }
-        }
-      } catch (e: Exception) {
-        Log.e(TAG, "Error reading SKILL.md for built-in check", e)
-        return false
-      } ?: ""
-
-    if (mdContent.isEmpty()) {
-      Log.w(TAG, "SKILL.md is empty for built-in check.")
-      return false
-    }
-
-    val (skillProto, errors) = convertSkillMdToProto(mdContent, builtIn = false, selected = false)
-
-    if (errors.isNotEmpty() || skillProto == null) {
-      Log.w(TAG, "Error parsing SKILL.md for built-in check: ${errors.joinToString(", ")}")
-      return false
-    }
-
-    val importedSkillName = skillProto.name
-    return _uiState.value.skills.any { it.skill.builtIn && it.skill.name == importedSkillName }
+    return skillManager.checkBuiltInSkillExistedForImportedSkill(directoryUri)
   }
 
   fun validateAndAddSkillFromLocalImport(
@@ -391,120 +219,16 @@ constructor(
       return
     }
 
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch {
       try {
-        Log.d(TAG, "Validating skill from directory URI: $directoryUri")
-
-        // Get the DocumentFile representing the selected directory
-        val rootFile = DocumentFile.fromTreeUri(context, directoryUri)
-
-        // Find the SKILL.md file within that directory
-        val skillMdFile = rootFile?.findFile("SKILL.md")
-
-        if (skillMdFile == null || !skillMdFile.exists()) {
-          val error = "SKILL.md not found in the selected directory."
-          setValidationError(error)
-          onValidationError(error)
-          return@launch
-        }
-
-        // Read the content using the correctly resolved URI
-        val mdContent =
-          try {
-            context.contentResolver.openInputStream(skillMdFile.uri)?.use { inputStream ->
-              inputStream.bufferedReader().use { it.readText() }
-            }
-          } catch (e: Exception) {
-            Log.e(TAG, "Error reading SKILL.md", e)
-            val error = "Failed to read SKILL.md: ${e.message}"
-            setValidationError(error)
-            onValidationError(error)
-            return@launch
-          } ?: ""
-
-        val (skillProto, errors) =
-          convertSkillMdToProto(mdContent, builtIn = false, selected = true)
-
-        if (errors.isNotEmpty()) {
-          val error = "Error parsing SKILL.md: ${errors.joinToString(", ")}"
-          setValidationError(error)
-          onValidationError(error)
-          return@launch
-        }
-
-        skillProto?.let {
-          // Successfully parsed the skill. Add the directory name.
-          val originalImportDirName = getDisplayName(context, directoryUri)
-          val destDir = getSkillDestinationDir(originalImportDirName)
-          val newImportDirName = destDir.relativeTo(context.filesDir).path
-
-          // Create the destination directory.
-          if (destDir.exists()) {
-            Log.d(TAG, "Destination directory already exists, deleting: ${destDir.path}")
-            deleteSkill(name = skillProto.name)
-          }
-          if (!destDir.exists()) {
-            destDir.mkdirs()
-          }
-
-          // Check if the skill already exists.
-          if (_uiState.value.skills.any { curSkill -> curSkill.skill.name == skillProto.name }) {
-            setValidating(false)
-            val error = "A skill with the name '${skillProto.name}' already exists."
-            setValidationError(error)
-            onValidationError(error)
-            return@launch
-          }
-
-          val sourceDocumentFile = DocumentFile.fromTreeUri(context, directoryUri)
-          if (sourceDocumentFile == null) {
-            Log.e(TAG, "Failed to get DocumentFile from URI: $directoryUri")
-            val error = "Failed to access the selected directory."
-            setValidationError(error)
-            onValidationError(error)
-            return@launch
-          }
-
-          // Recursive function to copy a DocumentFile to a File
-          fun copyDocumentFile(source: DocumentFile, dest: File) {
-            if (source.isDirectory) {
-              dest.mkdirs()
-              for (child in source.listFiles()) {
-                val childDest = File(dest, child.name!!)
-                copyDocumentFile(child, childDest)
-              }
-            } else if (source.isFile) {
-              try {
-                Log.d(TAG, "Copying file ${source.name} to ${dest.path}")
-                context.contentResolver.openInputStream(source.uri)?.use { inputStream ->
-                  dest.outputStream().use { outputStream -> inputStream.copyTo(outputStream) }
-                }
-              } catch (e: Exception) {
-                Log.e(TAG, "Error copying file ${source.name} to ${dest.path}", e)
-                // Log error but don't block the whole process for now.
-              }
-            }
-          }
-
-          // Start copying from the root of the selected directory
-          copyDocumentFile(sourceDocumentFile, destDir)
-
-          // Update the skill proto with the new import directory name.
-          val skillWithDir = it.toBuilder().setImportDirName(newImportDirName).build()
-          addSkill(skill = skillWithDir, addToDataStore = true)
-          Log.d(TAG, "Successfully added skill from local import: ${skillWithDir.name}")
-          firebaseAnalytics?.logEvent(
-            GalleryEvent.SKILL_MANAGEMENT.id,
-            getSkillLoggingParams(skillWithDir).apply { putString("action", SkillAction.ADD.value) },
-          )
-          onSuccess()
-        }
-          ?: run {
-            // Should not happen if errors is empty, but good to handle.
-            val error = "Unknown error during SKILL.md conversion."
-            setValidationError(error)
-            onValidationError(error)
-          }
+        val unused =
+          skillManager.addSkillFromLocalImport(directoryUri, _uiState.value.featuredSkills)
+        syncSkillsFromManager()
+        onSuccess()
+      } catch (e: Exception) {
+        val error = e.message ?: "Failed to import local skill"
+        setValidationError(error)
+        onValidationError(error)
       } finally {
         setValidating(false)
         setImportDirectoryUri(null)
@@ -529,202 +253,54 @@ constructor(
   }
 
   fun addSkill(skill: Skill, addToDataStore: Boolean) {
-    Log.d(TAG, "Adding skill: $skill")
-
-    // Update state.
-    _uiState.update { currentState ->
-      val newSkillState = SkillState(skill = skill)
-      if (skill.builtIn) {
-        currentState.copy(skills = currentState.skills + newSkillState)
-      } else {
-        val firstCustomIndex = currentState.skills.indexOfFirst { !it.skill.builtIn }
-        val newSkills =
-          if (firstCustomIndex == -1) {
-            currentState.skills + newSkillState
-          } else {
-            currentState.skills.toMutableList().apply { add(firstCustomIndex, newSkillState) }
-          }
-        currentState.copy(skills = newSkills)
-      }
-    }
-
-    if (addToDataStore) {
-      // Add skill to data store.
-      viewModelScope.launch(Dispatchers.IO) { dataStoreRepository.addSkill(skill) }
-    }
+    skillManager.addSkill(skill, addToDataStore, _uiState.value.featuredSkills)
+    syncSkillsFromManager()
   }
 
   fun deleteSkill(name: String) {
-    // Locate the skill to be deleted.
-    val skill = _uiState.value.skills.firstOrNull { it.skill.name == name }?.skill
-    if (skill == null) {
-      return
-    }
-
-    val loggingParams = getSkillLoggingParams(skill)
-    Log.d(
-      TAG,
-      "Analytics: skill_management, action=${SkillAction.DELETE.value}, params=$loggingParams",
-    )
-    firebaseAnalytics?.logEvent(
-      GalleryEvent.SKILL_MANAGEMENT.id,
-      loggingParams.apply { putString("action", SkillAction.DELETE.value) },
-    )
-
-    // Update state.
-    _uiState.update { currentState ->
-      currentState.copy(skills = currentState.skills.filter { it.skill.name != name })
-    }
-
-    viewModelScope.launch(Dispatchers.IO) {
-      // Delete imported files from file system.
-      if (skill.importDirName.isNotEmpty()) {
-        try {
-          val skillDir = context.filesDir.resolve(skill.importDirName)
-          skillDir.deleteRecursively()
-        } catch (e: Exception) {
-          Log.w(TAG, "Failed to delete skill directory: ${skill.importDirName}", e)
-        }
-      }
-
-      // Delete skill from data store.
-      dataStoreRepository.deleteSkill(name)
-    }
+    skillManager.deleteSkill(name, _uiState.value.featuredSkills)
+    syncSkillsFromManager()
   }
 
   fun deleteSkills(names: Set<String>) {
-    val skillsToDelete =
-      _uiState.value.skills.filter { names.contains(it.skill.name) }.map { it.skill }
-    if (skillsToDelete.isEmpty()) {
-      return
-    }
-
-    for (skill in skillsToDelete) {
-      val loggingParams = getSkillLoggingParams(skill)
-      Log.d(
-        TAG,
-        "Analytics: skill_management, action=${SkillAction.DELETE.value}, params=$loggingParams",
-      )
-      firebaseAnalytics?.logEvent(
-        GalleryEvent.SKILL_MANAGEMENT.id,
-        loggingParams.apply { putString("action", SkillAction.DELETE.value) },
-      )
-    }
-
-    // Update state.
-    _uiState.update { currentState ->
-      currentState.copy(skills = currentState.skills.filter { !names.contains(it.skill.name) })
-    }
-
-    viewModelScope.launch(Dispatchers.IO) {
-      // Delete all imported files from file system.
-      for (skill in skillsToDelete) {
-        if (skill.importDirName.isNotEmpty()) {
-          try {
-            val skillDir = context.filesDir.resolve(skill.importDirName)
-            skillDir.deleteRecursively()
-          } catch (e: Exception) {
-            Log.w(TAG, "Failed to delete skill directory: ${skill.importDirName}", e)
-          }
-        }
-      }
-
-      // Delete skills from data store.
-      dataStoreRepository.deleteSkills(names)
+    viewModelScope.launch {
+      skillManager.deleteSkills(names, _uiState.value.featuredSkills)
+      syncSkillsFromManager()
     }
   }
 
   fun setSkillSelected(skill: SkillState, selected: Boolean) {
-    // Update state.
-    val updatedSkill = skill.skill.toBuilder().setSelected(selected).build()
-
-    firebaseAnalytics?.logEvent(
-      GalleryEvent.SKILL_MANAGEMENT.id,
-      getSkillLoggingParams(skill.skill).apply {
-        putString("action", if (selected) SkillAction.ENABLE.value else SkillAction.DISABLE.value)
-      },
-    )
-    val updatedSkills =
-      _uiState.value.skills.map { curSkill ->
-        if (curSkill.skill.name == skill.skill.name) {
-          SkillState(skill = updatedSkill)
-        } else {
-          curSkill
-        }
-      }
-    _uiState.update { currentState -> currentState.copy(skills = updatedSkills) }
-
-    // Update data store.
-    viewModelScope.launch(Dispatchers.IO) {
-      dataStoreRepository.setSkillSelected(skill.skill, selected)
-    }
+    skillManager.setSkillSelected(skill.skill, selected, _uiState.value.featuredSkills)
+    syncSkillsFromManager()
   }
 
   fun setAllSkillsSelected(selected: Boolean) {
-    // Update state.
-    _uiState.update { currentState ->
-      val updatedSkills =
-        currentState.skills.map { skillState ->
-          SkillState(skill = skillState.skill.toBuilder().setSelected(selected).build())
-        }
-      currentState.copy(skills = updatedSkills)
-    }
-
-    Log.d(
-      TAG,
-      "Analytics: skill_management, action=${if (selected) SkillAction.ENABLE_ALL.value else SkillAction.DISABLE_ALL.value}",
-    )
-    firebaseAnalytics?.logEvent(
-      GalleryEvent.SKILL_MANAGEMENT.id,
-      Bundle().apply {
-        putString(
-          "action",
-          if (selected) SkillAction.ENABLE_ALL.value else SkillAction.DISABLE_ALL.value,
-        )
-      },
-    )
-
-    // Update data store.
-    viewModelScope.launch(Dispatchers.IO) { dataStoreRepository.setAllSkillsSelected(selected) }
+    skillManager.setAllSkillsSelected(selected)
+    syncSkillsFromManager()
   }
 
   fun getSelectedSkills(): List<Skill> {
-    return _uiState.value.skills.filter { it.skill.selected }.map { it.skill }
-  }
-
-  private fun matchesSkillName(actualName: String, targetName: String): Boolean {
-    val normalizedActual = actualName.trim().lowercase().replace("[\\s_]+".toRegex(), "-")
-    val normalizedTarget = targetName.trim().lowercase().replace("[\\s_]+".toRegex(), "-")
-    return normalizedActual == normalizedTarget ||
-      actualName.equals(targetName.trim(), ignoreCase = true)
+    return skillManager.getSelectedSkills()
   }
 
   fun getSkill(name: String): Skill? {
-    return _uiState.value.skills.firstOrNull { matchesSkillName(it.skill.name, name) }?.skill
+    return skillManager.getSkill(name)
   }
 
-  override suspend fun getAvailableSkills(): List<Skill> {
-    return getSelectedSkills()
-  }
-
-  override suspend fun loadSkill(skillName: String): Skill? {
-    return getSelectedSkills().find { matchesSkillName(it.name, skillName) }
-  }
-
+  /** Resolves the local URL path to a JavaScript file [scriptName] within [skillName]. */
   fun getJsSkillUrl(skillName: String, scriptName: String): String? {
-    val skill = getSkill(name = skillName) ?: return null
+    val skill = skillManager.getSkill(name = skillName) ?: return null
     return skill.getJsSkillUrl(scriptName = scriptName)
   }
 
+  /** Resolves the webview URL for a JavaScript skill given [skillName] and base [url]. */
   fun getJsSkillWebviewUrl(skillName: String, url: String): String {
-    val skill = getSkill(name = skillName) ?: return url
+    val skill = skillManager.getSkill(name = skillName) ?: return url
     return skill.getJsSkillWebviewUrl(url = url)
   }
 
   fun getSelectedSkillsNamesAndDescriptions(): String {
-    return this.getSelectedSkills().joinToString("\n") { skill ->
-      "- ${skill.name}: ${skill.description}"
-    }
+    return skillManager.getSelectedSkillsNamesAndDescriptions()
   }
 
   /** Saves or updates a custom skill. */
@@ -737,352 +313,51 @@ constructor(
     onSuccess: () -> Unit,
     onError: (error: String) -> Unit,
   ) {
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch {
       try {
-        Log.d(TAG, "saveSkillEdit: $name")
-
-        val isNewSkill = index < 0 || index >= _uiState.value.skills.size
-
-        if (isNewSkill) {
-          Log.d(TAG, "Saving new skill: $name")
-
-          // Check for name conflict
-          if (_uiState.value.skills.any { it.skill.name == name }) {
-            val error = "A skill with the name '${name}' already exists."
-            Log.w(TAG, error)
-            onError(error)
-            return@launch
-          }
-
-          val normalizedName = name.replace("\\s+".toRegex(), "-")
-          val skillDestDir = context.filesDir.resolve("skills/${normalizedName}")
-          val scriptDestDir = File(skillDestDir, "scripts")
-          // If the directory exists from a previous failed attempt, clear it.
-          if (skillDestDir.exists()) {
-            Log.w(
-              TAG,
-              "Skill destination directory already exists for new skill: ${skillDestDir.path}, deleting.",
-            )
-            skillDestDir.deleteRecursively()
-          }
-
-          // Create directories
-          skillDestDir.mkdirs()
-          scriptDestDir.mkdirs()
-          val skillMdFile = File(skillDestDir, "SKILL.md")
-
-          // Write SKILL.md
-          writeSkillMd(skillMdFile, normalizedName, description, instructions)
-
-          // Save scripts
-          saveScripts(scriptDestDir, scriptsContent)
-
-          // Create and add new skill proto
-          val newSkill =
-            Skill.newBuilder()
-              .setName(normalizedName)
-              .setDescription(description)
-              .setInstructions(instructions)
-              .setBuiltIn(false)
-              .setSelected(true)
-              .setSkillUrl("")
-              .setImportDirName(skillDestDir.relativeTo(context.filesDir).path)
-              .build()
-          addSkill(newSkill, addToDataStore = true)
-          onSuccess()
-        } else {
-          Log.d(TAG, "Saving skill edit: $name")
-
-          // Editing existing skill
-          val existingSkillState = _uiState.value.skills[index]
-          val existingSkill = existingSkillState.skill
-
-          val oldName = existingSkill.name
-          val normalizedNewName = name.replace("\\s+".toRegex(), "-")
-          val newSkillDestDir = context.filesDir.resolve("skills/${normalizedNewName}")
-          val newScriptDestDir = File(newSkillDestDir, "scripts")
-          val newSkillMdFile = File(newSkillDestDir, "SKILL.md")
-
-          if (existingSkill.builtIn) {
-            onError("Cannot edit built-in skills.")
-            return@launch
-          }
-
-          var updatedImportDirName = existingSkill.importDirName
-
-          if (oldName != normalizedNewName) {
-            Log.d(TAG, "Renaming skill from $oldName to $normalizedNewName")
-
-            // Check for name conflict with the new name
-            if (_uiState.value.skills.any { it.skill.name == normalizedNewName }) {
-              val error = "A skill with the name '${normalizedNewName}' already exists."
-              Log.w(TAG, error)
-              onError(error)
-              return@launch
-            }
-
-            val oldSkillDestDir = context.filesDir.resolve(existingSkill.importDirName)
-            if (oldSkillDestDir.exists()) {
-              Log.d(
-                TAG,
-                "Renaming directory from ${oldSkillDestDir.path} to ${newSkillDestDir.path}",
-              )
-              if (!oldSkillDestDir.renameTo(newSkillDestDir)) {
-                val error =
-                  "Failed to rename skill directory from ${oldSkillDestDir.name} to ${newSkillDestDir.name}."
-                Log.e(TAG, error)
-                onError(error)
-                return@launch
-              }
-              updatedImportDirName = newSkillDestDir.relativeTo(context.filesDir).path
-            } else {
-              Log.w(TAG, "Old skill directory not found: ${oldSkillDestDir.path}")
-              // If the old directory doesn't exist, create the new one.
-              newSkillDestDir.mkdirs()
-            }
-          }
-
-          // Update SKILL.md
-          writeSkillMd(newSkillMdFile, normalizedNewName, description, instructions)
-
-          // Update scripts: Clear existing scripts and save new ones.
-          newScriptDestDir.deleteRecursively()
-          newScriptDestDir.mkdirs()
-          saveScripts(newScriptDestDir, scriptsContent)
-
-          // Update skill proto in state and data store
-          val updatedSkill =
-            existingSkill
-              .toBuilder()
-              .setName(normalizedNewName)
-              .setDescription(description)
-              .setInstructions(instructions)
-              .setImportDirName(updatedImportDirName)
-              .build()
-
-          // Update state
-          _uiState.update { currentState ->
-            val updatedSkillsList =
-              currentState.skills.mapIndexed { i, skillState ->
-                if (i == index) SkillState(skill = updatedSkill) else skillState
-              }
-            currentState.copy(skills = updatedSkillsList)
-          }
-
-          // Update data store
-          updateSkillInDataStore(oldName, updatedSkill)
-          onSuccess()
-        }
+        val unused =
+          skillManager.saveSkillEdit(
+            index = index,
+            name = name,
+            description = description,
+            instructions = instructions,
+            scriptsContent = scriptsContent,
+            featuredSkills = _uiState.value.featuredSkills,
+          )
+        onSuccess()
       } catch (e: Exception) {
         Log.e(TAG, "Error saving skill edit", e)
-        onError("Failed to save skill: ${e.message}")
+        onError(e.message ?: "Failed to save skill")
       }
     }
   }
 
   /** Loads the content of skill scripts from the local file system. */
   fun loadSkillScriptsContent(skill: Skill, onDone: (Map<String, String>) -> Unit) {
-    viewModelScope.launch(Dispatchers.IO) {
-      if (skill.importDirName.isEmpty()) {
-        Log.d(TAG, "Skill ${skill.name} has no import directory, returning empty scripts.")
-        withContext(Dispatchers.Default) { onDone(emptyMap()) }
-        return@launch
-      }
-
-      val skillDir = context.filesDir.resolve(skill.importDirName)
-      val scriptDir = File(skillDir, "scripts")
-
-      if (!scriptDir.exists() || !scriptDir.isDirectory) {
-        Log.w(TAG, "Script directory not found for skill ${skill.name}: ${scriptDir.path}")
-        withContext(Dispatchers.Default) { onDone(emptyMap()) }
-        return@launch
-      }
-
-      val scriptsContent = mutableMapOf<String, String>()
-      for (file in scriptDir.listFiles() ?: emptyArray()) {
-        if (file.isFile && (file.name.endsWith(".html") || file.name.endsWith(".js"))) {
-          try {
-            val content = file.readText()
-            scriptsContent[file.name] = content
-            Log.d(TAG, "Loaded script ${file.name} for skill ${skill.name}")
-          } catch (e: Exception) {
-            Log.e(TAG, "Error reading script file ${file.name} for skill ${skill.name}", e)
-            scriptsContent[file.name] = "" // Use empty string on error
-          }
-        }
-      }
-      withContext(Dispatchers.Default) { onDone(scriptsContent) }
+    viewModelScope.launch {
+      val result = skillManager.loadSkillScriptsContent(skill)
+      onDone(result)
     }
   }
 
   /** Deletes a specific script file associated with a locally imported skill. */
   fun deleteSkillScript(skill: Skill, scriptName: String) {
-    if (skill.importDirName.isEmpty()) {
-      Log.d(TAG, "Skill ${skill.name} is not locally imported, cannot delete script.")
-      return
-    }
-
-    viewModelScope.launch(Dispatchers.IO) {
-      val skillDir = context.filesDir.resolve(skill.importDirName)
-      val scriptDir = File(skillDir, "scripts")
-      val scriptFile = File(scriptDir, scriptName)
-
-      if (scriptFile.exists()) {
-        try {
-          if (scriptFile.delete()) {
-            Log.d(TAG, "Successfully deleted script: ${scriptFile.path}")
-          } else {
-            Log.w(TAG, "Failed to delete script: ${scriptFile.path}")
-          }
-        } catch (e: Exception) {
-          Log.e(TAG, "Error deleting script ${scriptFile.path}", e)
-        }
-      } else {
-        Log.d(TAG, "Script file not found, ignoring delete: ${scriptFile.path}")
-      }
-    }
+    skillManager.deleteSkillScript(skill, scriptName)
   }
 
   /** Checks if a skill with the given [skillName] is currently selected. */
   fun isSkillSelected(skillName: String): Boolean {
-    return _uiState.value.skills.firstOrNull { it.skill.name == skillName }?.skill?.selected == true
+    return skillManager.isSkillSelected(skillName)
   }
 
-  private fun writeSkillMd(
-    skillMdFile: File,
-    name: String,
-    description: String,
-    instructions: String,
-  ) {
-    Log.d(TAG, "Writing skill.md: ${skillMdFile.path}")
-    val mdContent =
-      """
-    ---
-    name: $name
-    description: $description
-    ---
-
-    $instructions
-    """
-        .trimIndent()
-    skillMdFile.writeText(mdContent)
-  }
-
-  private fun saveScripts(scriptDestDir: File, scriptsContent: Map<String, String>) {
-    scriptDestDir.mkdirs() // Ensure directory exists
-
-    // Clear existing files in the script directory
-    scriptDestDir.listFiles()?.forEach { it.delete() }
-
-    for ((scriptName, content) in scriptsContent) {
-      val scriptFile = File(scriptDestDir, scriptName)
-      Log.d(TAG, "Saving script: ${scriptFile.path}")
-      try {
-        scriptFile.writeText(content)
-        Log.d(TAG, "Saved script: ${scriptFile.path}")
-      } catch (e: Exception) {
-        Log.e(TAG, "Error saving script ${scriptName} to ${scriptFile.path}", e)
-      }
-    }
-  }
-
-  private fun updateSkillInDataStore(oldName: String, updatedSkill: Skill) {
-    val allSkills = dataStoreRepository.getAllSkills()
-    val updatedList = allSkills.map { if (it.name == oldName) updatedSkill else it }
-    dataStoreRepository.setSkills(updatedList)
-  }
-
-  private fun getSkillSource(skill: Skill): SkillSource {
-    val isFeatured =
-      skill.skillUrl.isNotEmpty() &&
-        _uiState.value.featuredSkills.any { it.skillUrl == skill.skillUrl }
-    return when {
-      skill.builtIn -> SkillSource.BUILTIN
-      isFeatured -> SkillSource.FEATURED
-      skill.skillUrl.isNotEmpty() -> SkillSource.REMOTE_URL
-      skill.importDirName.isNotEmpty() -> SkillSource.LOCAL_IMPORT
-      else -> SkillSource.UNKNOWN
-    }
-  }
-
-  /**
-   * Generates a short 4-character hash to act as a stable ID. This solves the 100-character limit
-   * for list logging in GA4 AND allows us to distinguish between different custom skills in
-   * reports. Note: When we migrate to Cleancut or a similar service that doesn't have severe
-   * character limits, we can drop the human-readable skill_name from setup events and rely purely
-   * on this hash ID.
-   */
   fun getSkillShortId(skill: Skill): String {
-    val source = getSkillSource(skill)
-    val identifier =
-      when (source) {
-        SkillSource.BUILTIN,
-        SkillSource.FEATURED -> skill.name
-        SkillSource.LOCAL_IMPORT -> skill.importDirName
-        else -> skill.skillUrl
-      }
-    if (identifier.isEmpty()) return "xxxx"
-
-    val prefix =
-      when (source) {
-        SkillSource.BUILTIN -> "b_"
-        SkillSource.FEATURED -> "f_"
-        SkillSource.LOCAL_IMPORT -> "l_"
-        else -> "c_"
-      }
-
-    return try {
-      val digest = java.security.MessageDigest.getInstance("SHA-256")
-      val hashBytes = digest.digest(identifier.toByteArray())
-      val hexString = hashBytes.joinToString("") { "%02x".format(it) }
-      prefix + hexString.take(4)
-    } catch (e: Exception) {
-      prefix + "fail"
-    }
-  }
-
-  private fun getSkillLoggingParams(skill: Skill): Bundle {
-    val source = getSkillSource(skill)
-    val skillName =
-      if (source == SkillSource.BUILTIN || source == SkillSource.FEATURED) skill.name
-      else "custom_skill"
-    val bundle =
-      Bundle().apply {
-        putString("source", source.sourceName)
-        putString("skill_name", skillName)
-        putString("skill_id", getSkillShortId(skill))
-      }
-    return bundle
-  }
-
-  private fun getSkillDestinationDir(originalImportDirName: String): File {
-    val normalizedDirName = originalImportDirName.replace("\\s+".toRegex(), "-")
-    val newImportDirName = "skills/${normalizedDirName}"
-    return context.filesDir.resolve(newImportDirName)
+    return skillManager.getSkillShortId(skill, _uiState.value.featuredSkills)
   }
 
   companion object {
     val DEFAULT_DISABLED_SKILLS =
       setOf("calculate-hash", "kitchen-adventure", "text-spinner", "send-email")
 
-    /**
-     * Converts the content of a skill.md file to a [Skill] proto.
-     *
-     * The expected format is:
-     * ```
-     * ---
-     * name: name-of-the-skill
-     * description: description of the skill
-     * metadata:
-     *   key: value
-     * ---
-     *
-     * other instructions text
-     * ```
-     *
-     * @return A [Pair] containing the parsed [Skill] proto (or null if errors occurred) and a list
-     *   of error messages.
-     */
     fun convertSkillMdToProto(
       mdContent: String,
       builtIn: Boolean,
@@ -1090,155 +365,27 @@ constructor(
       skillUrl: String = "",
       importDir: String = "",
     ): Pair<Skill?, List<String>> {
-      val parts = mdContent.split("---")
-      val errors = mutableListOf<String>()
-
-      if (parts.size < 3) {
-        errors.add("Invalid format: Expected at least two '---' sections.")
-        return Pair(null, errors)
-      }
-
-      // Part 1: Header (index 1)
-      val header = parts[1].trim()
-      var name: String? = null
-      var description: String? = null
-      var requireSecret = false
-      var requireSecretDescription = ""
-      var homepage: String? = null
-
-      var startMetadata = false
-      for (line in header.lines()) {
-        val trimmedLine = line.trim()
-        if (trimmedLine == "metadata:") {
-          startMetadata = true
-          continue
-        }
-        if (!startMetadata) {
-          when {
-            trimmedLine.startsWith("name:") -> name = trimmedLine.substringAfter("name:").trim()
-            trimmedLine.startsWith("description:") ->
-              description = trimmedLine.substringAfter("description:").trim()
-          }
-        } else {
-          when {
-            trimmedLine.startsWith("require-secret:") ->
-              requireSecret = trimmedLine.substringAfter("require-secret:").trim().toBoolean()
-            trimmedLine.startsWith("require-secret-description:") ->
-              requireSecretDescription =
-                trimmedLine.substringAfter("require-secret-description:").trim()
-            trimmedLine.startsWith("homepage:") ->
-              homepage = trimmedLine.substringAfter("homepage:").trim()
-          }
-        }
-      }
-
-      if (name.isNullOrEmpty()) {
-        errors.add("Missing or empty 'name' in the header.")
-      }
-      if (description.isNullOrEmpty()) {
-        errors.add("Missing or empty 'description' in the header.")
-      }
-
-      // Part 2: Instructions (index 2 onwards)
-      val instructions = parts.drop(2).joinToString("---").trim()
-
-      if (errors.isNotEmpty()) {
-        return Pair(null, errors)
-      }
-
-      val skill =
-        Skill.newBuilder()
-          .setName(name!!)
-          .setDescription(description!!)
-          .setInstructions(instructions)
-          .setBuiltIn(builtIn)
-          .setSelected(selected)
-          .setSkillUrl(skillUrl)
-          .setRequireSecret(requireSecret)
-          .setRequireSecretDescription(requireSecretDescription)
-          .setHomepage(homepage ?: "")
-          .setImportDirName(importDir)
-          .build()
-
-      return Pair(skill, emptyList())
+      return SkillManager.convertSkillMdToProto(
+        mdContent = mdContent,
+        builtIn = builtIn,
+        selected = selected,
+        skillUrl = skillUrl,
+        importDir = importDir,
+      )
     }
 
-    /**
-     * Reads and parses SKILL.md files from assets/skills directories to load all built-in skills.
-     *
-     * @param context The application context.
-     * @param builtInSelectionMap A map of skill names to their selection state and whether they
-     *   were user-modified.
-     * @return A list of [Skill] protos representing the built-in skills.
-     */
     fun loadBuiltInSkills(
       context: Context,
-      builtInSelectionMap: Map<String, Pair<Boolean /* selected */, Boolean /* userModified */>> =
-        emptyMap(),
+      builtInSelectionMap: Map<String, Pair<Boolean, Boolean>> = emptyMap(),
       defaultDisabledSkills: Set<String> = emptySet(),
     ): List<Skill> {
-      val builtInSkills = mutableListOf<Skill>()
-      try {
-        val skillAssetDirs = context.assets.list("skills") ?: emptyArray()
-        for (dirName in skillAssetDirs) {
-          val skillMdPath = "skills/$dirName/SKILL.md"
-          try {
-            context.assets.open(skillMdPath).use { inputStream ->
-              val mdContent = inputStream.bufferedReader().use { it.readText() }
-              val (skillProto, errors) =
-                convertSkillMdToProto(
-                  mdContent,
-                  builtIn = true,
-                  // Selection state will be reconciled with DataStore later
-                  selected = true,
-                  importDir = "assets/skills/$dirName",
-                )
-              if (errors.isNotEmpty()) {
-                Log.w(TAG, "Error parsing asset skill $dirName: ${errors.joinToString(", ")}")
-              } else {
-                skillProto?.let {
-                  // Apply the previous selection state if the user explicitly modified it,
-                  // otherwise use the default selection state.
-                  val defaultSelected = it.name !in defaultDisabledSkills
-                  val (persistedSelected, userModified) =
-                    builtInSelectionMap[it.name] ?: Pair(defaultSelected, false)
-                  val selectedState = if (userModified) persistedSelected else defaultSelected
-                  builtInSkills.add(
-                    it
-                      .toBuilder()
-                      .setSelected(selectedState)
-                      .setUserModifiedSelection(userModified)
-                      .build()
-                  )
-                  Log.d(TAG, "Added built-in skill: ${it.name}")
-                }
-              }
-            }
-          } catch (e: Exception) {
-            Log.w(TAG, "SKILL.md not found or error reading for asset skill $dirName", e)
-          }
-        }
-      } catch (e: Exception) {
-        Log.e(TAG, "Error listing assets/skills", e)
-      }
-      return builtInSkills
+      return SkillManager.loadBuiltInSkills(
+        context = context,
+        builtInSelectionMap = builtInSelectionMap,
+        defaultDisabledSkills = defaultDisabledSkills,
+      )
     }
   }
-}
-
-fun getDisplayName(context: Context, uri: Uri): String {
-  var name = ""
-  try {
-    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-      val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-      if (nameIndex != -1 && cursor.moveToFirst()) {
-        name = cursor.getString(nameIndex)
-      }
-    }
-  } catch (e: Exception) {
-    // Ignore
-  }
-  return name.ifEmpty { uri.path?.substringAfterLast('/') ?: "Unknown" }
 }
 
 fun decodeBase64ToBitmap(base64String: String): Bitmap? {

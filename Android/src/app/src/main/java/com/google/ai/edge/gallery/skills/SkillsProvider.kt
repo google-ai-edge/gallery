@@ -20,6 +20,9 @@ import com.google.ai.edge.gallery.proto.Skill
 
 /** Manages skill discovery, querying, and instruction loading. */
 interface SkillsProvider {
+  /** Loads skills index from storage. */
+  suspend fun loadSkills(defaultDisabledSkills: Set<String> = emptySet())
+
   /** Returns metadata for all currently enabled skills. */
   suspend fun getAvailableSkills(): List<Skill>
 

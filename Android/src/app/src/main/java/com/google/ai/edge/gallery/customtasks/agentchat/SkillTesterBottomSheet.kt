@@ -50,6 +50,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.proto.Skill
+import com.google.ai.edge.gallery.skills.getJsSkillUrl
+import com.google.ai.edge.gallery.skills.getJsSkillWebviewUrl
 import com.google.ai.edge.gallery.tools.CallJsSkillResult
 import com.google.ai.edge.gallery.tools.CallJsSkillResultWebview
 import com.google.ai.edge.gallery.tools.CallJsToolAction
@@ -154,11 +156,7 @@ fun SkillTesterBottomSheet(agentTools: AgentTools, skill: Skill, onDismiss: () -
               resultWebview?.let { webview ->
                 val url = webview.url
                 if (url != null) {
-                  val finalUrl =
-                    agentTools.skillManagerViewModel.getJsSkillWebviewUrl(
-                      skillName = skill.name,
-                      url = url,
-                    )
+                  val finalUrl = skill.getJsSkillWebviewUrl(url = url)
                   MessageBodyWebview(
                     message =
                       ChatMessageWebView(
@@ -187,11 +185,7 @@ fun SkillTesterBottomSheet(agentTools: AgentTools, skill: Skill, onDismiss: () -
               resultImage = null
               resultWebview = null
               // TODO(before launch)
-              val url =
-                agentTools.skillManagerViewModel.getJsSkillUrl(
-                  skillName = skill.name,
-                  scriptName = "",
-                )
+              val url = skill.getJsSkillUrl(scriptName = "")
               if (url == null) {
                 error = "JS skill url not specified"
               } else {

@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.skills.getDisplayName
 
 private const val TAG = "AGAddSkillFromLocalImportDialog"
 

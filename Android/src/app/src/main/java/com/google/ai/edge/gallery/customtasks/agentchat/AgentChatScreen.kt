@@ -136,7 +136,8 @@ fun AgentChatScreen(
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
   agentTools.context = context
-  agentTools.skillManagerViewModel = skillManagerViewModel
+  agentTools.skillsProvider = skillManagerViewModel.skillManager
+  agentTools.dataStoreRepository = skillManagerViewModel.skillManager.dataStoreRepository
   agentTools.mcpManagerViewModel = mcpManagerViewModel
   agentTools.taskId = task.id
   val density = LocalDensity.current

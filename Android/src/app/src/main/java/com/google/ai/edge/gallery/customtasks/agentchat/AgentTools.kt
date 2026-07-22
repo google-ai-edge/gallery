@@ -17,6 +17,8 @@
 package com.google.ai.edge.gallery.customtasks.agentchat
 
 import android.content.Context
+import com.google.ai.edge.gallery.data.DataStoreRepository
+import com.google.ai.edge.gallery.skills.SkillsProvider
 import com.google.ai.edge.gallery.tools.CallJsSkillResultImage
 import com.google.ai.edge.gallery.tools.CallJsSkillResultWebview
 import com.google.ai.edge.gallery.tools.LoadSkillTool
@@ -34,7 +36,8 @@ import kotlinx.coroutines.runBlocking
 
 interface AgentTools : ToolsProvider {
   var context: Context
-  var skillManagerViewModel: SkillManagerViewModel
+  var skillsProvider: SkillsProvider
+  var dataStoreRepository: DataStoreRepository
   var mcpManagerViewModel: McpManagerViewModel
   var taskId: String
   val receiveActionChannel: ReceiveChannel<ToolAction>
@@ -47,7 +50,8 @@ interface AgentTools : ToolsProvider {
 
 open class AgentToolsImpl : AgentTools {
   override lateinit var context: Context
-  override lateinit var skillManagerViewModel: SkillManagerViewModel
+  override lateinit var skillsProvider: SkillsProvider
+  override lateinit var dataStoreRepository: DataStoreRepository
   override lateinit var mcpManagerViewModel: McpManagerViewModel
   override lateinit var taskId: String
 
@@ -57,26 +61,21 @@ open class AgentToolsImpl : AgentTools {
 
   private val activeTools = mutableListOf<ToolDefinition>()
 
-  val loadSkillTool by lazy { LoadSkillTool(skillsProvider = skillManagerViewModel) }
+  val loadSkillTool by lazy { LoadSkillTool(skillsProvider = skillsProvider) }
 
   val runMcpTool by lazy {
     RunMcpTool(
       mcpServersProvider = mcpManagerViewModel,
-      skillsProvider = skillManagerViewModel,
+      skillsProvider = skillsProvider,
       taskId = taskId,
     )
   }
 
   val runJsTool by lazy {
-    RunJsTool(
-      skillsProvider = skillManagerViewModel,
-      dataStoreRepository = skillManagerViewModel.dataStoreRepository,
-    )
+    RunJsTool(skillsProvider = skillsProvider, dataStoreRepository = dataStoreRepository)
   }
 
-  val runIntentTool by lazy {
-    RunIntentTool(context = context, skillsProvider = skillManagerViewModel)
-  }
+  val runIntentTool by lazy { RunIntentTool(context = context, skillsProvider = skillsProvider) }
 
   override fun getAvailableTools(): List<ToolDefinition> {
     return listOf(loadSkillTool, runMcpTool, runJsTool, runIntentTool) + activeTools
