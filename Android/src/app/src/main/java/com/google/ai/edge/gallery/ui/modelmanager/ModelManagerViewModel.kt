@@ -199,7 +199,10 @@ constructor(
   private val customTasks: Set<@JvmSuppressWildcards CustomTask>,
   private val systemPromptRepository: SystemPromptRepository,
   @ApplicationContext private val context: Context,
-) : ViewModel() {
+) :
+  ViewModel()
+{
+
   private val externalFilesDir = context.getExternalFilesDir(null)
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   open val uiState = _uiState.asStateFlow()
