@@ -50,7 +50,7 @@ data class AllowedModel(
   val commitHash: String,
   val description: String,
   val sizeInBytes: Long,
-  val defaultConfig: DefaultConfig,
+  val defaultConfig: DefaultConfig? = null,
   val taskTypes: List<String>,
   val disabled: Boolean? = null,
   val llmSupportImage: Boolean? = null,
@@ -110,7 +110,7 @@ data class AllowedModel(
     var visionAccelerator: Accelerator = DEFAULT_VISION_ACCELERATOR
 
     var finalDescription = description
-    var acceleratorsStr = defaultConfig.accelerators
+    var acceleratorsStr = defaultConfig?.accelerators
 
     if (isPixelDevice()) {
       finalDescription = description.replace(Regex("\\bNPU\\b"), "TPU")
@@ -118,11 +118,11 @@ data class AllowedModel(
     }
 
     if (isLlmModel) {
-      val defaultTopK: Int = defaultConfig.topK ?: DEFAULT_TOPK
-      val defaultTopP: Float = defaultConfig.topP ?: DEFAULT_TOPP
-      val defaultTemperature: Float = defaultConfig.temperature ?: DEFAULT_TEMPERATURE
-      llmMaxToken = defaultConfig.maxTokens ?: 1024
-      llmMaxContextLength = defaultConfig.maxContextLength
+      val defaultTopK: Int = defaultConfig?.topK ?: DEFAULT_TOPK
+      val defaultTopP: Float = defaultConfig?.topP ?: DEFAULT_TOPP
+      val defaultTemperature: Float = defaultConfig?.temperature ?: DEFAULT_TEMPERATURE
+      llmMaxToken = defaultConfig?.maxTokens ?: 1024
+      llmMaxContextLength = defaultConfig?.maxContextLength
       if (acceleratorsStr != null) {
         val items = acceleratorsStr.split(",")
         accelerators = mutableListOf()
@@ -142,8 +142,7 @@ data class AllowedModel(
           accelerators.remove(Accelerator.GPU)
         }
       }
-      if (defaultConfig.visionAccelerator != null) {
-        val accelerator = defaultConfig.visionAccelerator
+      defaultConfig?.visionAccelerator?.let { accelerator ->
         if (accelerator == "cpu") {
           visionAccelerator = Accelerator.CPU
         } else if (accelerator == "gpu") {
