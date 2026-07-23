@@ -977,6 +977,7 @@ constructor(
         Log.d(TAG, "Allowlist: $modelAllowlist")
 
         val isAICoreAvailable by lazy {
+          Log.d(TAG, "loadModelAllowlist: Checking AICore availability")
           // Build a fast-lookup set of all supported device models.
           // This extracts the models from all allowed groups, flattens them into a single stream,
           // lowercases them for case-insensitive matching, and stores them in a Set.
@@ -991,6 +992,10 @@ constructor(
         }
 
         // Convert models in the allowlist.
+        Log.d(
+          TAG,
+          "loadModelAllowlist: Converting models. Total models: ${modelAllowlist.models.size}",
+        )
         val curTasks = getActiveCustomTasks().map { it.task }
         val nameToModel = mutableMapOf<String, Model>()
         for (allowedModel in modelAllowlist.models) {
@@ -1004,7 +1009,7 @@ constructor(
 
           // Ignore the allowedModel if its accelerator is only npu and this device's soc is not in
           // its socToModelFiles.
-          val accelerators = allowedModel.defaultConfig.accelerators ?: ""
+          val accelerators = allowedModel.defaultConfig?.accelerators ?: ""
           val acceleratorList = accelerators.split(",").map { it.trim() }.filter { it.isNotEmpty() }
           if (acceleratorList.size == 1 && acceleratorList[0] == "npu") {
             val socToModelFiles = allowedModel.socToModelFiles
@@ -1033,6 +1038,7 @@ constructor(
         }
 
         // Find models from allowlist if a task's `modelNames` field is not empty.
+        Log.d(TAG, "loadModelAllowlist: Processing task modelNames")
         for (task in curTasks) {
           if (task.modelNames.isNotEmpty()) {
             for (modelName in task.modelNames) {
@@ -1048,9 +1054,11 @@ constructor(
         }
 
         // Process all tasks.
+        Log.d(TAG, "loadModelAllowlist: Processing tasks")
         processTasks()
 
         // Update UI state.
+        Log.d(TAG, "loadModelAllowlist: Updating UI state")
         _uiState.update {
           createUiState()
             .copy(
@@ -1061,12 +1069,15 @@ constructor(
         }
 
         // Process pending downloads.
+        Log.d(TAG, "loadModelAllowlist: Processing pending downloads")
         processPendingDownloads()
 
         // Wait for AICore models statuses and update download indicators
+        Log.d(TAG, "loadModelAllowlist: Checking AICore model statuses")
         checkAICoreModelStatuses()
+        Log.d(TAG, "loadModelAllowlist: Done")
       } catch (e: Exception) {
-        e.printStackTrace()
+        Log.e(TAG, "Failed to load model allowlist", e)
       }
     }
   }
