@@ -118,7 +118,7 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
   }
 
   fun selectPromptTemplate(model: Model, promptTemplateType: PromptTemplateType) {
-    Log.d(TAG, "selecting prompt template: ${promptTemplateType.label}")
+    Log.d(TAG, "selecting prompt template: ${promptTemplateType.name}")
 
     // Clear response.
     updateResponse(model = model, promptTemplateType = promptTemplateType, response = "")
@@ -140,7 +140,7 @@ class LlmSingleTurnViewModel @Inject constructor() : ViewModel() {
     _uiState.update { currentState ->
       val currentResponses = currentState.responsesByModel
       val modelResponses = currentResponses[model.name]?.toMutableMap() ?: mutableMapOf()
-      modelResponses[promptTemplateType.label] = response
+      modelResponses[promptTemplateType.name] = response
       val newResponses = currentResponses.toMutableMap()
       newResponses[model.name] = modelResponses
       currentState.copy(responsesByModel = newResponses)

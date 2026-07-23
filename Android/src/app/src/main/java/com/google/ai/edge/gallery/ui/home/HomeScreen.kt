@@ -101,6 +101,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -737,7 +738,7 @@ private fun TryGm4IntroText(enableAnimation: Boolean) {
       tint = MaterialTheme.colorScheme.primary,
     )
     Text(
-      text = "Try Gemma 4 today",
+      text = stringResource(R.string.gemma_reskin_try_gemma_4_title),
       style =
         MaterialTheme.typography.headlineSmall.copy(
           fontWeight = FontWeight.Medium,
@@ -749,7 +750,7 @@ private fun TryGm4IntroText(enableAnimation: Boolean) {
   }
 
   Text(
-    "Gemma 4 E2B & E4B are here! Try them in AI Chat, Agent Skills, or the use cases below.",
+    stringResource(R.string.gemma_reskin_try_gemma_4_description),
     style = MaterialTheme.typography.bodyMedium,
     modifier =
       Modifier.graphicsLayer {
@@ -879,10 +880,10 @@ private fun TaskList(
     ) {
       val chatToDescription =
         mapOf(
-          BuiltInTaskId.LLM_CHAT to "Chat with the latest Gemma 4 model today",
+          BuiltInTaskId.LLM_CHAT to stringResource(R.string.gemma_reskin_try_gemma_4_chat),
           // use "\u00a0" to make sure the word before and after it should always be together when
           // wrapping lines.
-          BuiltInTaskId.LLM_AGENT_CHAT to "Have Gemma 4 complete agentic tasks for\u00A0you",
+          BuiltInTaskId.LLM_AGENT_CHAT to stringResource(R.string.gemma_reskin_try_gemma_4_skills),
         )
       for (task in
         listOf(
@@ -900,7 +901,7 @@ private fun TaskList(
       }
 
       Text(
-        text = "Explore other use cases",
+        text = stringResource(R.string.explore_other_use_cases),
         style =
           MaterialTheme.typography.headlineSmall.copy(
             fontWeight = FontWeight.Medium,
@@ -1007,14 +1008,8 @@ private fun TaskCard(
       }
     }
   }
-  val modelCountLabel by remember {
-    derivedStateOf {
-      when (modelCount) {
-        1 -> "1 Model"
-        else -> "%d Models".format(modelCount)
-      }
-    }
-  }
+  val modelCountLabel =
+    pluralStringResource(R.plurals.task_card_models_count, modelCount, modelCount)
   var curModelCountLabel by remember { mutableStateOf("") }
   var modelCountLabelVisible by remember { mutableStateOf(true) }
 

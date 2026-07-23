@@ -32,26 +32,29 @@ import com.google.ai.edge.litertlm.Contents
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 
-class LlmSingleTurnTask @Inject constructor() : CustomTask {
-  override val task: Task =
+class LlmSingleTurnTask @Inject constructor(@ApplicationContext private val context: Context) :
+  CustomTask {
+  override val task: Task by lazy {
     Task(
       id = BuiltInTaskId.LLM_PROMPT_LAB,
-      label = "Prompt Lab",
+      label = context.getString(R.string.task_label_prompt_lab),
       category = Category.LLM,
       icon = Icons.Outlined.Widgets,
       models = mutableListOf(),
-      description = "Single turn use cases with on-device large language models",
-      shortDescription = "Single turn use cases",
+      description = context.getString(R.string.task_desc_prompt_lab),
+      shortDescription = context.getString(R.string.task_short_desc_prompt_lab),
       docUrl = "https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md",
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
       textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
     )
+  }
 
   override fun initializeModelFn(
     context: Context,
@@ -95,7 +98,7 @@ class LlmSingleTurnTask @Inject constructor() : CustomTask {
 internal object LlmSingleTurnTaskModule {
   @Provides
   @IntoSet
-  fun provideTask(): CustomTask {
-    return LlmSingleTurnTask()
+  fun provideTask(@ApplicationContext context: Context): CustomTask {
+    return LlmSingleTurnTask(context)
   }
 }

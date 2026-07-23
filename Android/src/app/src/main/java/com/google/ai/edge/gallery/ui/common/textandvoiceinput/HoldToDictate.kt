@@ -129,7 +129,8 @@ fun HoldToDictate(
       contentAlignment = Alignment.Center,
     ) {
       Text(
-        stringResource(if (uiState.recognizing) R.string.listening else R.string.hold_down_to_talk),
+        if (uiState.recognizing) stringResource(R.string.listening)
+        else stringResource(R.string.hold_down_to_talk),
         color = Color.White,
       )
     }

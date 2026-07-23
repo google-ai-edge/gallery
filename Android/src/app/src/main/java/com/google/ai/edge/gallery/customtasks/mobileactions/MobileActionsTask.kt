@@ -31,6 +31,7 @@ import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.tool
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -42,16 +43,17 @@ private const val TAG = "AGMATask"
  * A custom task that demonstrates how to use function calling to control various device
  * functionalities.
  */
-class MobileActionsTask @Inject constructor() : CustomTask {
+class MobileActionsTask @Inject constructor(@ApplicationContext private val context: Context) :
+  CustomTask {
   private var curActions = mutableStateListOf<Action>()
   private val tools = listOf(tool(MobileActionsTools(onFunctionCalled = { curActions.add(it) })))
 
   override val task =
     Task(
       id = BuiltInTaskId.LLM_MOBILE_ACTIONS,
-      label = "Mobile Actions",
-      description = "Perform various device actions through Function Gemma",
-      shortDescription = "Leverage device mobile actions",
+      label = context.getString(R.string.mobile_actions_title),
+      description = context.getString(R.string.task_desc_mobile_actions),
+      shortDescription = context.getString(R.string.mobile_actions_description),
       docUrl = "https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md",
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/customtasks/mobileactions",

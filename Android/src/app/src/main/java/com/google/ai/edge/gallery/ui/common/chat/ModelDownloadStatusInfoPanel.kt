@@ -33,8 +33,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
@@ -103,9 +105,7 @@ fun ModelDownloadStatusInfoPanel(
         exit = scaleOut(targetScale = 0.9f) + fadeOut(),
       ) {
         Text(
-          "Feel free to switch apps or lock your device.\n" +
-            "The download will continue in the background.\n" +
-            "We'll send a notification when it's done.",
+          stringResource(R.string.model_download_background_notice),
           style = MaterialTheme.typography.bodyLarge,
           textAlign = TextAlign.Center,
           modifier = Modifier.fillMaxWidth(),

@@ -118,26 +118,28 @@ const val DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY =
 private val DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY_TRIMMED =
   DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY.trimIndent()
 
-class AgentChatTask @Inject constructor() : CustomTask {
+class AgentChatTask @Inject constructor(@ApplicationContext private val context: Context) :
+  CustomTask {
   private val agentTools: AgentTools = AgentToolsImpl()
   private val toolDispatcher: ToolDispatcher = RuntimeToolDispatcher()
 
-  override val task: Task =
+  override val task: Task by lazy {
     Task(
       id = BuiltInTaskId.LLM_AGENT_CHAT,
-      label = "Agent Skills",
+      label = context.getString(R.string.task_label_agent_skills),
       category = Category.LLM,
       iconVectorResourceId = R.drawable.agent,
       newFeature = true,
       models = mutableListOf(),
-      description = "Chat with on-device large language models with skills and tools",
-      shortDescription = "Complete agentic tasks with chat",
+      description = context.getString(R.string.task_desc_agent_skills),
+      shortDescription = context.getString(R.string.task_short_desc_agent_skills),
       docUrl = "https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md",
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/customtasks/agentchat/",
       textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
       defaultSystemPrompt = DEFAULT_SYSTEM_PROMPT_TRIMMED,
     )
+  }
 
   override fun initializeModelFn(
     context: Context,
@@ -212,8 +214,8 @@ class AgentChatTask @Inject constructor() : CustomTask {
 internal object AgentChatTaskModule {
   @Provides
   @IntoSet
-  fun provideTask(): CustomTask {
-    return AgentChatTask()
+  fun provideTask(@ApplicationContext context: Context): CustomTask {
+    return AgentChatTask(context)
   }
 
   @Provides

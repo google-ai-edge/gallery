@@ -101,7 +101,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val promptTemplateTypes: List<PromptTemplateType> = PromptTemplateType.entries
-private val TAB_TITLES = PromptTemplateType.entries.map { it.label }
 private val ICON_BUTTON_SIZE = 42.dp
 
 const val FULL_PROMPT_SWITCH_KEY = "full_prompt"
@@ -141,7 +140,7 @@ fun PromptTemplatesPanel(
   // Update input editor values when prompt template changes.
   LaunchedEffect(selectedPromptTemplateType) {
     for (config in selectedPromptTemplateType.config.inputEditors) {
-      inputEditorValues[config.label] = config.defaultOption
+      inputEditorValues[config.key] = config.defaultOptionKey
     }
     expandedStates.clear()
   }
@@ -153,7 +152,7 @@ fun PromptTemplatesPanel(
   Column(modifier = modifier) {
     // Scrollable tab row for all prompt templates.
     PrimaryScrollableTabRow(selectedTabIndex = selectedTabIndex) {
-      TAB_TITLES.forEachIndexed { index, title ->
+      promptTemplateTypes.forEachIndexed { index, templateType ->
         Tab(
           selected = selectedTabIndex == index,
           enabled = !inProgress,
@@ -171,7 +170,7 @@ fun PromptTemplatesPanel(
           },
           text = {
             Text(
-              text = title,
+              text = stringResource(templateType.labelRes),
               modifier = Modifier.alpha(if (inProgress) 0.5f else 1f),
               color =
                 if (selectedTabIndex == index) MaterialTheme.colorScheme.primary
@@ -200,7 +199,7 @@ fun PromptTemplatesPanel(
               PromptTemplateInputEditorType.SINGLE_SELECT ->
                 SingleSelectButton(
                   config = inputEditor as PromptTemplateSingleSelectInputEditor,
-                  onSelected = { option -> inputEditorValues[inputEditor.label] = option },
+                  onSelected = { optionKey -> inputEditorValues[inputEditor.key] = optionKey },
                 )
             }
           }
@@ -247,7 +246,7 @@ fun PromptTemplatesPanel(
                   disabledContainerColor = Color.Transparent,
                 ),
               textStyle = bodyLargeNarrow,
-              placeholder = { Text("Enter content") },
+              placeholder = { Text(stringResource(R.string.prompt_lab_enter_content_placeholder)) },
               modifier =
                 Modifier.padding(bottom = 40.dp).focusRequester(focusRequester).semantics {
                   contentDescription = cdContentInput
@@ -302,7 +301,10 @@ fun PromptTemplatesPanel(
                   modifier = Modifier.size(FilterChipDefaults.IconSize).alpha(0.3f),
                 )
               }
-              Text("Preview prompt", style = MaterialTheme.typography.labelMedium)
+              Text(
+                stringResource(R.string.prompt_lab_preview_prompt),
+                style = MaterialTheme.typography.labelMedium,
+              )
             }
           }
 
@@ -416,7 +418,7 @@ fun PromptTemplatesPanel(
       Column(modifier = Modifier.padding(bottom = 16.dp)) {
         // Title
         Text(
-          "Select an example",
+          stringResource(R.string.prompt_lab_select_example_title),
           modifier = Modifier.fillMaxWidth().padding(16.dp),
           style = MaterialTheme.typography.titleLarge,
         )
