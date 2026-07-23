@@ -66,15 +66,6 @@ message LlmConfig {
   bool support_speculative_decoding = 11;
 }
 
-// copybara:strip_begin(google-internal)
-message FeatureFlagValue {
-  oneof value {
-    bool bool_value = 1;
-    string string_value = 2;
-  }
-}
-// copybara:strip_end
-
 message Settings {
   Theme theme = 1;
   AccessTokenData access_token_data = 2;  // deprecated
@@ -86,11 +77,6 @@ message Settings {
   bool has_seen_benchmark_comparison_help = 7;
   // Has the Gemma terms of use been accepted.
   bool is_gemma_terms_accepted = 8;
-  // copybara:strip_begin(google-internal)
-  // Feature flags
-  map<string, bool> feature_flags = 9 [deprecated = true];
-  map<string, FeatureFlagValue> feature_flag_values = 12;
-  // copybara:strip_end
 
   repeated string viewed_promo_id = 10;
   bool disable_firebase_analytics = 11;
