@@ -562,7 +562,7 @@ fun AgentChatScreen(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-          for (promptChip in TRYOUT_CHIPS) {
+          for (promptChip in getTryOutChips(LocalContext.current)) {
             if (
               promptChip.skillName == "learn-something-new" &&
                 selectedModel.name != "Gemma-4-E4B-it"

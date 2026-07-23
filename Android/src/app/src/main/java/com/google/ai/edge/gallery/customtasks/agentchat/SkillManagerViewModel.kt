@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.SentimentVerySatisfied
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.SkillTryOutChip
 import com.google.ai.edge.gallery.data.AllowedSkill
 import com.google.ai.edge.gallery.data.DataStoreRepository
@@ -48,42 +49,42 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "AGSkillManagerVM"
 
-val TRYOUT_CHIPS: List<SkillTryOutChip> =
+fun getTryOutChips(context: Context): List<SkillTryOutChip> =
   listOf(
     SkillTryOutChip(
       icon = Icons.Outlined.Map,
-      label = "Interactive Map",
+      label = context.getString(R.string.skill_chip_interactive_map_label),
       prompt = "Show me Googleplex on interactive map.",
       skillName = "interactive-map",
     ),
     SkillTryOutChip(
       icon = Icons.Outlined.Notifications,
-      label = "Schedule Reminder",
+      label = context.getString(R.string.skill_chip_schedule_reminder_label),
       prompt = "Set a daily reminder at 9am to check my schedule for today.",
       skillName = "schedule-notification",
     ),
     SkillTryOutChip(
       icon = Icons.Outlined.SentimentVerySatisfied,
-      label = "Track my mood",
+      label = context.getString(R.string.skill_chip_track_mood_label),
       prompt =
         "Log yesterday's mood as 2 because it was raining quite heavily, and log today's mood as 9 because I had a great time playing pickleball again. Then show me my mood dashboard.",
       skillName = "mood-tracker",
     ),
     SkillTryOutChip(
       icon = Icons.Outlined.Lightbulb,
-      label = "Learn something new",
+      label = context.getString(R.string.skill_chip_learn_something_new_label),
       prompt = "I want to learn something new!",
       skillName = "learn-something-new",
     ),
     SkillTryOutChip(
       icon = Icons.Outlined.LocalLibrary,
-      label = "Query Wikipedia",
+      label = context.getString(R.string.skill_chip_query_wikipedia_label),
       prompt = "Check Wikipedia about Oscars 2026. Tell me who won the best picture.",
       skillName = "query-wikipedia",
     ),
     SkillTryOutChip(
       icon = Icons.Outlined.QrCode,
-      label = "Generate QR code",
+      label = context.getString(R.string.skill_chip_generate_qr_code_label),
       prompt = "Generate QR code for https://deepmind.google/models/gemma/",
       skillName = "qr-code",
     ),

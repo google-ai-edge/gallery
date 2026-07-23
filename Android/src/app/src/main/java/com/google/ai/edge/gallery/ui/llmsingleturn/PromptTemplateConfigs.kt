@@ -16,66 +16,89 @@
 
 package com.google.ai.edge.gallery.ui.llmsingleturn
 
+import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Brush.Companion.linearGradient
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
+import com.google.ai.edge.gallery.R
 
 enum class PromptTemplateInputEditorType {
   SINGLE_SELECT
 }
 
-enum class RewriteToneType(val label: String) {
-  FORMAL(label = "Formal"),
-  CASUAL(label = "Casual"),
-  FRIENDLY(label = "Friendly"),
-  POLITE(label = "Polite"),
-  ENTHUSIASTIC(label = "Enthusiastic"),
-  CONCISE(label = "Concise"),
+enum class RewriteToneType(val key: String, @StringRes val labelRes: Int) {
+  FORMAL(key = "formal", labelRes = R.string.prompt_lab_tone_formal),
+  CASUAL(key = "casual", labelRes = R.string.prompt_lab_tone_casual),
+  FRIENDLY(key = "friendly", labelRes = R.string.prompt_lab_tone_friendly),
+  POLITE(key = "polite", labelRes = R.string.prompt_lab_tone_polite),
+  ENTHUSIASTIC(key = "enthusiastic", labelRes = R.string.prompt_lab_tone_enthusiastic),
+  CONCISE(key = "concise", labelRes = R.string.prompt_lab_tone_concise);
+
+  fun toSelectOption() = SelectOption(key = key, labelRes = labelRes)
 }
 
-enum class SummarizationType(val label: String) {
-  KEY_BULLET_POINT(label = "Key bullet points (3-5)"),
-  SHORT_PARAGRAPH(label = "Short paragraph (1-2 sentences)"),
-  CONCISE_SUMMARY(label = "Concise summary (~50 words)"),
-  HEADLINE_TITLE(label = "Headline / title"),
-  ONE_SENTENCE_SUMMARY(label = "One-sentence summary"),
+enum class SummarizationType(val key: String, @StringRes val labelRes: Int) {
+  KEY_BULLET_POINT(
+    key = "key bullet points (3-5)",
+    labelRes = R.string.prompt_lab_summary_key_bullet_points,
+  ),
+  SHORT_PARAGRAPH(
+    key = "short paragraph (1-2 sentences)",
+    labelRes = R.string.prompt_lab_summary_short_paragraph,
+  ),
+  CONCISE_SUMMARY(
+    key = "concise summary (~50 words)",
+    labelRes = R.string.prompt_lab_summary_concise_summary,
+  ),
+  HEADLINE_TITLE(key = "headline / title", labelRes = R.string.prompt_lab_summary_headline_title),
+  ONE_SENTENCE_SUMMARY(
+    key = "one-sentence summary",
+    labelRes = R.string.prompt_lab_summary_one_sentence,
+  );
+
+  fun toSelectOption() = SelectOption(key = key, labelRes = labelRes)
 }
 
-enum class LanguageType(val label: String) {
-  CPP(label = "C++"),
-  JAVA(label = "Java"),
-  JAVASCRIPT(label = "JavaScript"),
-  KOTLIN(label = "Kotlin"),
-  PYTHON(label = "Python"),
-  SWIFT(label = "Swift"),
-  TYPESCRIPT(label = "TypeScript"),
+enum class LanguageType(val key: String) {
+  CPP(key = "C++"),
+  JAVA(key = "Java"),
+  JAVASCRIPT(key = "JavaScript"),
+  KOTLIN(key = "Kotlin"),
+  PYTHON(key = "Python"),
+  SWIFT(key = "Swift"),
+  TYPESCRIPT(key = "TypeScript");
+
+  fun toSelectOption() = SelectOption(key = key, labelFallback = key)
 }
 
-enum class InputEditorLabel(val label: String) {
-  TONE(label = "Tone"),
-  STYLE(label = "Style"),
-  LANGUAGE(label = "Language"),
-}
+data class SelectOption(
+  val key: String,
+  @StringRes val labelRes: Int = 0,
+  val labelFallback: String = "",
+)
 
 open class PromptTemplateInputEditor(
-  open val label: String,
+  val key: String,
+  @StringRes open val labelRes: Int,
   open val type: PromptTemplateInputEditorType,
-  open val defaultOption: String = "",
+  open val defaultOptionKey: String = "",
 )
 
 /** Single select that shows options in bottom sheet. */
 class PromptTemplateSingleSelectInputEditor(
-  override val label: String,
-  val options: List<String> = listOf(),
-  override val defaultOption: String = "",
+  key: String,
+  @StringRes override val labelRes: Int,
+  val options: List<SelectOption> = listOf(),
+  override val defaultOptionKey: String = "",
 ) :
   PromptTemplateInputEditor(
-    label = label,
+    key = key,
+    labelRes = labelRes,
     type = PromptTemplateInputEditorType.SINGLE_SELECT,
-    defaultOption = defaultOption,
+    defaultOptionKey = defaultOptionKey,
   )
 
 data class PromptTemplateConfig(val inputEditors: List<PromptTemplateInputEditor> = listOf())
@@ -87,7 +110,7 @@ private val GEMINI_GRADIENT_STYLE =
 
 @Suppress("ImmutableEnum")
 enum class PromptTemplateType(
-  val label: String,
+  @StringRes val labelRes: Int,
   val config: PromptTemplateConfig,
   val genFullPrompt: (userInput: String, inputEditorValues: Map<String, Any>) -> AnnotatedString =
     { _, _ ->
@@ -96,7 +119,7 @@ enum class PromptTemplateType(
   val examplePrompts: List<String> = listOf(),
 ) {
   FREE_FORM(
-    label = "Free form",
+    labelRes = R.string.prompt_lab_tab_free_form,
     config = PromptTemplateConfig(),
     genFullPrompt = { userInput, _ -> AnnotatedString(userInput) },
     examplePrompts =
@@ -112,20 +135,21 @@ enum class PromptTemplateType(
       ),
   ),
   REWRITE_TONE(
-    label = "Rewrite tone",
+    labelRes = R.string.prompt_lab_tab_rewrite_tone,
     config =
       PromptTemplateConfig(
         inputEditors =
           listOf(
             PromptTemplateSingleSelectInputEditor(
-              label = InputEditorLabel.TONE.label,
-              options = RewriteToneType.entries.map { it.label },
-              defaultOption = RewriteToneType.FORMAL.label,
+              key = "tone",
+              labelRes = R.string.prompt_lab_label_tone,
+              options = RewriteToneType.entries.map { it.toSelectOption() },
+              defaultOptionKey = RewriteToneType.FORMAL.key,
             )
           )
       ),
     genFullPrompt = { userInput, inputEditorValues ->
-      val tone = inputEditorValues[InputEditorLabel.TONE.label] as String
+      val tone = inputEditorValues["tone"] as String
       buildAnnotatedString {
         withStyle(GEMINI_GRADIENT_STYLE) {
           append("Rewrite the following text using a ${tone.lowercase()} tone: ")
@@ -143,20 +167,21 @@ enum class PromptTemplateType(
       ),
   ),
   SUMMARIZE_TEXT(
-    label = "Summarize text",
+    labelRes = R.string.prompt_lab_tab_summarize_text,
     config =
       PromptTemplateConfig(
         inputEditors =
           listOf(
             PromptTemplateSingleSelectInputEditor(
-              label = InputEditorLabel.STYLE.label,
-              options = SummarizationType.entries.map { it.label },
-              defaultOption = SummarizationType.KEY_BULLET_POINT.label,
+              key = "style",
+              labelRes = R.string.prompt_lab_label_style,
+              options = SummarizationType.entries.map { it.toSelectOption() },
+              defaultOptionKey = SummarizationType.KEY_BULLET_POINT.key,
             )
           )
       ),
     genFullPrompt = { userInput, inputEditorValues ->
-      val style = inputEditorValues[InputEditorLabel.STYLE.label] as String
+      val style = inputEditorValues["style"] as String
       buildAnnotatedString {
         withStyle(GEMINI_GRADIENT_STYLE) {
           append("Please summarize the following in ${style.lowercase()}: ")
@@ -171,20 +196,21 @@ enum class PromptTemplateType(
       ),
   ),
   CODE_SNIPPET(
-    label = "Code snippet",
+    labelRes = R.string.prompt_lab_tab_code_snippet,
     config =
       PromptTemplateConfig(
         inputEditors =
           listOf(
             PromptTemplateSingleSelectInputEditor(
-              label = InputEditorLabel.LANGUAGE.label,
-              options = LanguageType.entries.map { it.label },
-              defaultOption = LanguageType.JAVASCRIPT.label,
+              key = "language",
+              labelRes = R.string.prompt_lab_label_language,
+              options = LanguageType.entries.map { it.toSelectOption() },
+              defaultOptionKey = LanguageType.JAVASCRIPT.key,
             )
           )
       ),
     genFullPrompt = { userInput, inputEditorValues ->
-      val language = inputEditorValues[InputEditorLabel.LANGUAGE.label] as String
+      val language = inputEditorValues["language"] as String
       buildAnnotatedString {
         withStyle(GEMINI_GRADIENT_STYLE) { append("Write a $language code snippet to ") }
         append(userInput)

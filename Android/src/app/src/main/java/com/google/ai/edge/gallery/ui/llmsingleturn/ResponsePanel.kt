@@ -123,7 +123,7 @@ fun ResponsePanel(
     val curPageModel = task.models[pageIndex]
 
     val response =
-      uiState.responsesByModel[curPageModel.name]?.get(selectedPromptTemplateType.label) ?: ""
+      uiState.responsesByModel[curPageModel.name]?.get(selectedPromptTemplateType.name) ?: ""
 
     if (initializing) {
       Box(
@@ -141,7 +141,7 @@ fun ResponsePanel(
           verticalAlignment = Alignment.CenterVertically,
         ) {
           Text(
-            "Response will appear here",
+            stringResource(R.string.prompt_lab_response_placeholder),
             modifier = Modifier.alpha(0.5f),
             style = MaterialTheme.typography.labelMedium,
           )

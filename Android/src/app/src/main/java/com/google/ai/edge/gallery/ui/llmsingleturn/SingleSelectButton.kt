@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -47,9 +48,15 @@ fun SingleSelectButton(
   onSelected: (String) -> Unit,
 ) {
   var showMenu by remember { mutableStateOf(false) }
-  var selectedOption by remember { mutableStateOf(config.defaultOption) }
+  var selectedOptionKey by remember { mutableStateOf(config.defaultOptionKey) }
 
-  LaunchedEffect(config) { selectedOption = config.defaultOption }
+  LaunchedEffect(config) { selectedOptionKey = config.defaultOptionKey }
+
+  val selectedOption = config.options.find { it.key == selectedOptionKey }
+  val selectedOptionLabel =
+    selectedOption?.let { if (it.labelRes != 0) stringResource(it.labelRes) else it.labelFallback }
+      ?: ""
+  val label = stringResource(config.labelRes)
 
   Box {
     Row(
@@ -62,19 +69,21 @@ fun SingleSelectButton(
           .padding(vertical = 4.dp, horizontal = 6.dp)
           .padding(start = 8.dp),
     ) {
-      Text("${config.label}: $selectedOption", style = MaterialTheme.typography.labelLarge)
+      Text("$label: $selectedOptionLabel", style = MaterialTheme.typography.labelLarge)
       Icon(Icons.Rounded.ArrowDropDown, contentDescription = null)
     }
 
     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
       // Options
       for (option in config.options) {
+        val optionLabel =
+          if (option.labelRes != 0) stringResource(option.labelRes) else option.labelFallback
         DropdownMenuItem(
-          text = { Text(option) },
+          text = { Text(optionLabel) },
           onClick = {
-            selectedOption = option
+            selectedOptionKey = option.key
             showMenu = false
-            onSelected(option)
+            onSelected(option.key)
           },
         )
       }

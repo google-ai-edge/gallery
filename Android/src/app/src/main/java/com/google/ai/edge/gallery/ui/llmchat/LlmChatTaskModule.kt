@@ -52,6 +52,7 @@ import com.google.ai.edge.litertlm.Contents
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import javax.inject.Inject
@@ -60,21 +61,23 @@ import kotlinx.coroutines.CoroutineScope
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // AI Chat.
 
-class LlmChatTask @Inject constructor() : CustomTask {
-  override val task: Task =
+class LlmChatTask @Inject constructor(@ApplicationContext private val context: Context) :
+  CustomTask {
+  override val task: Task by lazy {
     Task(
       id = BuiltInTaskId.LLM_CHAT,
-      label = "AI Chat",
+      label = context.getString(R.string.task_label_ai_chat),
       category = Category.LLM,
       icon = Icons.Outlined.Forum,
       models = mutableListOf(),
-      description = "Chat with on-device large language models",
-      shortDescription = "Chat with an on-device LLM",
+      description = context.getString(R.string.task_desc_ai_chat),
+      shortDescription = context.getString(R.string.task_short_desc_ai_chat),
       docUrl = "https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md",
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
       textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
     )
+  }
 
   override fun initializeModelFn(
     context: Context,
@@ -153,29 +156,31 @@ class LlmChatTask @Inject constructor() : CustomTask {
 internal object LlmChatTaskModule {
   @Provides
   @IntoSet
-  fun provideTask(): CustomTask {
-    return LlmChatTask()
+  fun provideTask(@ApplicationContext context: Context): CustomTask {
+    return LlmChatTask(context)
   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Ask image.
 
-class LlmAskImageTask @Inject constructor() : CustomTask {
-  override val task: Task =
+class LlmAskImageTask @Inject constructor(@ApplicationContext private val context: Context) :
+  CustomTask {
+  override val task: Task by lazy {
     Task(
       id = BuiltInTaskId.LLM_ASK_IMAGE,
-      label = "Ask Image",
+      label = context.getString(R.string.task_label_ask_image),
       category = Category.LLM,
       icon = Icons.Outlined.Mms,
       models = mutableListOf(),
-      description = "Ask questions about images with on-device large language models",
-      shortDescription = "Ask questions about images",
+      description = context.getString(R.string.task_desc_ask_image),
+      shortDescription = context.getString(R.string.task_short_desc_ask_image),
       docUrl = "https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md",
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
       textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
     )
+  }
 
   override fun initializeModelFn(
     context: Context,
@@ -236,30 +241,31 @@ class LlmAskImageTask @Inject constructor() : CustomTask {
 internal object LlmAskImageModule {
   @Provides
   @IntoSet
-  fun provideTask(): CustomTask {
-    return LlmAskImageTask()
+  fun provideTask(@ApplicationContext context: Context): CustomTask {
+    return LlmAskImageTask(context)
   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Ask audio.
 
-class LlmAskAudioTask @Inject constructor() : CustomTask {
-  override val task: Task =
+class LlmAskAudioTask @Inject constructor(@ApplicationContext private val context: Context) :
+  CustomTask {
+  override val task: Task by lazy {
     Task(
       id = BuiltInTaskId.LLM_ASK_AUDIO,
-      label = "Audio Scribe",
+      label = context.getString(R.string.task_label_audio_scribe),
       category = Category.LLM,
       icon = Icons.Outlined.Mic,
       models = mutableListOf(),
-      description =
-        "Instantly transcribe and/or translate audio clips using on-device large language models",
-      shortDescription = "Transcribe and translate audio",
+      description = context.getString(R.string.task_desc_audio_scribe),
+      shortDescription = context.getString(R.string.task_short_desc_audio_scribe),
       docUrl = "https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md",
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
       textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
     )
+  }
 
   override fun initializeModelFn(
     context: Context,
@@ -320,7 +326,7 @@ class LlmAskAudioTask @Inject constructor() : CustomTask {
 internal object LlmAskAudioModule {
   @Provides
   @IntoSet
-  fun provideTask(): CustomTask {
-    return LlmAskAudioTask()
+  fun provideTask(@ApplicationContext context: Context): CustomTask {
+    return LlmAskAudioTask(context)
   }
 }

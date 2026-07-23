@@ -34,7 +34,7 @@
   <string name="askimage_emptystate_title" translatable="false">Ask Image</string>
   <string name="askimage_emptystate_content" translatable="true" description="Instructions shown when starting a chat with image input, explaining how to add images (up to 10). [CHAR_LIMIT=120]">To get started, tap the + below to add an image (max 10 images per chat) and type a prompt to ask a question about it!</string>
   <string name="askimage_emptystate_content_aicore" translatable="true" description="Instructions shown when starting a chat with image input for AICore models, explaining how to add a single image. [CHAR_LIMIT=118]">To get started, tap the + below to add an image (max 1 image per chat) and type a prompt to ask a question about it!</string>
-  <string name="askaudio_emptystate_title" translatable="true" description="Title of the empty state screen when initiating an audio-based chat. [CHAR_LIMIT=11]">Ask Audio</string>
+  <string name="askaudio_emptystate_title" translatable="false">Audio Scribe</string>
   <string name="askaudio_emptystate_content" translatable="true" description="Instructions shown when starting a chat with audio input, explaining how to add a clip. [CHAR_LIMIT=139]">To get started, tap the + below to add a audio clip (limited to 1 clip up to 30 seconds) and type a prompt to transcribe or translate it!</string>
   <string name="gallery_news_notification_title" translatable="true" description="Default title for push notifications about gallery news. [CHAR_LIMIT=14]">Gallery News</string>
   <string name="baseline" translatable="true" description="Label for a button or chip to set a benchmark run as the comparison baseline. [CHAR_LIMIT=10]">Baseline</string>
@@ -118,27 +118,13 @@
   <string name="generate_and_copy" translatable="true" description="Button label to generate a prompt and copy it to clipboard. [CHAR_LIMIT=19]">Generate and copy</string>
   <string name="grant_permissions" translatable="true" description="Button label to request required system permissions. [CHAR_LIMIT=19]">Grant permissions</string>
   <string name="grant_record_audio_permission" translatable="true" description="Button or dialog text to request audio recording permission from the user. [CHAR_LIMIT=31]">Grant record audio permission</string>
-  <string name="hold_down_to_talk" translatable="true" description="Instruction label on the voice recording button. [CHAR_LIMIT=12]">Hold to talk</string>
+  <string name="hold_down_to_talk" translatable="true" description="Instruction label on the voice recording button. [CHAR_LIMIT=20]">Hold Down to Talk</string>
   <string name="input_history" translatable="true" description="Title or header for a section showing previous user inputs. [CHAR_LIMIT=15]">Input history</string>
   <string name="instructions" translatable="true" description="Label for a text input field where the user enters instructions or behavior guidelines for a custom skill. [CHAR_LIMIT=14]">Instructions</string>
   <string name="introducing" translatable="true" description="Heading text used to introduce a new model or feature (e.g., 'Introducing Gemma 4'). [CHAR_LIMIT=13]">Introducing</string>
   <string name="invalid_response" translatable="true" description="Error message displayed when the model's output is invalid or cannot be parsed. [CHAR_LIMIT=18]">Invalid response</string>
   <string name="learn_more" translatable="true" description="Hyperlink text that directs users to more information and the model's license terms. [CHAR_LIMIT=34]">Learn more and see model license</string>
   <string name="listening" translatable="true" description="Status message indicating the app is actively listening to voice input for dictation. [CHAR_LIMIT=14]">Listening...</string>
-  <string name="llm_camera_status_waiting_to_start" translatable="true" description="Status text shown when LlmCamera is initialized and waiting for user input. [CHAR_LIMIT=19]">Waiting to start…</string>
-  <string name="llm_camera_status_loading_model" translatable="true" description="Status text shown while loading the LlmCamera model. [CHAR_LIMIT=16]">Loading model…</string>
-  <string name="llm_camera_status_listening" translatable="true" description="Status text shown when LlmCamera is listening to user speech. [CHAR_LIMIT=30] [BACKUP_MESSAGE_ID: 4062899179021837624]">Listening…</string>
-  <string name="llm_camera_status_processing" translatable="true" description="Status text shown while LlmCamera is processing speech or image input. [CHAR_LIMIT=13]">Processing…</string>
-  <string name="llm_camera_status_cancelled" translatable="true" description="Status text shown when LlmCamera processing was cancelled. [CHAR_LIMIT=11]">Cancelled</string>
-  <string name="llm_camera_status_responding" translatable="true" description="Status text shown while LlmCamera model is generating a response. [CHAR_LIMIT=13]">Responding…</string>
-  <string name="llm_camera_status_done" translatable="true" description="Status text shown when LlmCamera finishes generating a response. [CHAR_LIMIT=15] [BACKUP_MESSAGE_ID: 5969525977325895045]">Done</string>
-  <string name="llm_camera_status_error" translatable="true" description="Status text template shown when an error occurs during LlmCamera operation. [CHAR_LIMIT=13]">Error: %1$s</string>
-  <string name="llm_camera_recognized_prefix" translatable="true" description="Prefix for recognized speech text in LlmCamera. [CHAR_LIMIT=18]">Recognized: %1$s</string>
-  <string name="llm_camera_response_prefix" translatable="true" description="Prefix for model response text in LlmCamera. [CHAR_LIMIT=16]">Response: %1$s</string>
-  <string name="llm_camera_status_prefix" translatable="true" description="Prefix for current status text in LlmCamera. [CHAR_LIMIT=14]">Status: %1$s</string>
-  <string name="llm_camera_btn_start_listening" translatable="true" description="Button text to start speech recognition in LlmCamera. [CHAR_LIMIT=17]">Start Listening</string>
-  <string name="llm_camera_btn_stop_listening" translatable="true" description="Button text to stop speech recognition in LlmCamera. [CHAR_LIMIT=16]">Stop Listening</string>
-  <string name="llm_camera_cd_toggle_mic" translatable="true" description="Content description for the microphone toggle button in LlmCamera. [CHAR_LIMIT=12]">Toggle Mic</string>
   <string name="litert_community_label" translatable="true" description="Hyperlink text pointing to the LiteRT community webpage. [CHAR_LIMIT=18]">LiteRT community</string>
   <string name="loading_model_list" translatable="true" description="Progress message displayed while the application fetches the list of available models. [CHAR_LIMIT=23]">Loading model list...</string>
   <string name="logs_viewer_filter_text_input_placeholder" translatable="true" description="Placeholder text in a search/filter input field within the logs viewer screen. [CHAR_LIMIT=13]">Filter logs</string>
@@ -646,6 +632,114 @@
   <!-- Label for the 'Max character count' option in the model configuration dialog. -->
   <string name="config_label_max_char_count" translatable="false">Max character count</string>
   <string name="new_badge" translatable="true" description="Badge label indicating a new feature. [CHAR_LIMIT=5]">New</string>
-  <string name="llm_camera_title" translatable="false">LlmCamera</string>
-  <string name="llm_camera_cd_flip_camera" translatable="true" description="Content description for the flip button in LlmCamera. Camera is a generic term. [CHAR_LIMIT=30]">Flip Camera</string>
+  <!-- Home Screen Promos -->
+  <string name="gemma_reskin_try_gemma_4_chat" translatable="true" description="Promo card description to try Gemma 4 chat. [CHAR_LIMIT=50]">Chat with the latest Gemma 4 model today</string>
+  <string name="gemma_reskin_try_gemma_4_skills" translatable="true" description="Promo card description to try Gemma 4 skills. [CHAR_LIMIT=50]">Have Gemma 4 complete agentic tasks for\u00A0you</string>
+
+  <!-- Single-turn / Prompt Lab Placeholders -->
+  <string name="prompt_lab_response_placeholder" translatable="true" description="Placeholder text indicating where the model response will appear. [CHAR_LIMIT=30]">Response will appear here</string>
+  <string name="prompt_lab_enter_content_placeholder" translatable="true" description="Placeholder text in the input area for Prompt Lab. [CHAR_LIMIT=20]">Enter content</string>
+  <string name="prompt_lab_select_example_title" translatable="true" description="Title for the section showing example prompts. [CHAR_LIMIT=20]">Select an example</string>
+
+  <!-- Model Download -->
+  <string name="model_download_background_notice" translatable="true" description="Notice for Android users that the download will continue in the background if they switch apps or lock the device, and they will be notified when it is done. [CHAR_LIMIT=150]">Feel free to switch apps or lock your device.\nThe download will continue in the background.\nWe\'ll send a notification when it\'s done.</string>
+  <string name="model_download_try_button" translatable="true" description="Button label to download and try a model. [CHAR_LIMIT=20]">Download &amp; Try it</string>
+
+  <!-- Media Picker (dropdown menu) -->
+  <string name="media_picker_record_audio" translatable="true" description="Menu option to record an audio clip as input. [CHAR_LIMIT=25]">Record audio clip</string>
+  <string name="media_picker_pick_wav" translatable="true" description="Menu option to pick a local WAV audio file. [CHAR_LIMIT=20]">Pick wav file</string>
+
+  <!-- Input History -->
+  <string name="text_input_history_title" translatable="true" description="Title of the history popup showing previous text inputs. [CHAR_LIMIT=25]">Text input history</string>
+  <string name="clear_history_title" translatable="true" description="Title of the alert confirming whether to clear input history. [CHAR_LIMIT=20]">Clear history?</string>
+  <string name="clear_history_message" translatable="true" description="Message asking the user to confirm clearing the input history. [CHAR_LIMIT=100]">Are you sure you want to clear the history? This action cannot be undone.</string>
+
+  <!-- Prompt Lab Tabs -->
+  <string name="prompt_lab_tab_free_form" translatable="true" description="Label for the Free Form tab in Prompt Lab. [CHAR_LIMIT=15]">Free form</string>
+  <string name="prompt_lab_tab_rewrite_tone" translatable="true" description="Label for the Rewrite Tone tab in Prompt Lab. [CHAR_LIMIT=15]">Rewrite tone</string>
+  <string name="prompt_lab_tab_summarize_text" translatable="true" description="Label for the Summarize Text tab in Prompt Lab. [CHAR_LIMIT=15]">Summarize text</string>
+  <string name="prompt_lab_tab_code_snippet" translatable="true" description="Label for the Code Snippet tab in Prompt Lab. [CHAR_LIMIT=15]">Code snippet</string>
+
+  <!-- Prompt Lab Labels -->
+  <string name="prompt_lab_label_tone" translatable="true" description="Label for the Tone input editor. [CHAR_LIMIT=10]">Tone</string>
+  <string name="prompt_lab_label_style" translatable="true" description="Label for the Style input editor. [CHAR_LIMIT=10]">Style</string>
+  <string name="prompt_lab_label_language" translatable="true" description="Label for the Language input editor. [CHAR_LIMIT=10]">Language</string>
+
+  <!-- Prompt Lab Rewrite Tones -->
+  <string name="prompt_lab_tone_formal" translatable="true" description="Option for formal rewrite tone. [CHAR_LIMIT=15]">Formal</string>
+  <string name="prompt_lab_tone_casual" translatable="true" description="Option for casual rewrite tone. [CHAR_LIMIT=15]">Casual</string>
+  <string name="prompt_lab_tone_friendly" translatable="true" description="Option for friendly rewrite tone. [CHAR_LIMIT=15]">Friendly</string>
+  <string name="prompt_lab_tone_polite" translatable="true" description="Option for polite rewrite tone. [CHAR_LIMIT=15]">Polite</string>
+  <string name="prompt_lab_tone_enthusiastic" translatable="true" description="Option for enthusiastic rewrite tone. [CHAR_LIMIT=15]">Enthusiastic</string>
+  <string name="prompt_lab_tone_concise" translatable="true" description="Option for concise rewrite tone. [CHAR_LIMIT=15]">Concise</string>
+
+  <!-- Prompt Lab Summarization Styles -->
+  <string name="prompt_lab_summary_key_bullet_points" translatable="true" description="Option for summary in key bullet points (3-5). [CHAR_LIMIT=30]">Key bullet points (3-5)</string>
+  <string name="prompt_lab_summary_short_paragraph" translatable="true" description="Option for summary in a short paragraph (1-2 sentences). [CHAR_LIMIT=35]">Short paragraph (1-2 sentences)</string>
+  <string name="prompt_lab_summary_concise_summary" translatable="true" description="Option for summary in a concise summary (~50 words). [CHAR_LIMIT=30]">Concise summary (~50 words)</string>
+  <string name="prompt_lab_summary_headline_title" translatable="true" description="Option for summary as a headline / title. [CHAR_LIMIT=20]">Headline / title</string>
+  <string name="prompt_lab_summary_one_sentence" translatable="true" description="Option for summary in one-sentence summary. [CHAR_LIMIT=25]">One-sentence summary</string>
+  <string name="prompt_lab_preview_prompt" translatable="true" description="Button label to preview the fully constructed prompt before sending. [CHAR_LIMIT=20]">Preview prompt</string>
+  <!-- Label for the link to API documentation. [CHAR_LIMIT=20] -->
+  <string name="api_doc" translatable="true" description="Label for the link to API documentation.">API Documentation</string>
+
+  <!-- Title for the Try Gemma 4 reskin onboarding section. [CHAR_LIMIT=30] -->
+  <string name="gemma_reskin_try_gemma_4_title" translatable="true" description="Title for the Try Gemma 4 reskin onboarding section.">Try Gemma 4 today</string>
+  <!-- Description for the Try Gemma 4 reskin onboarding section. [CHAR_LIMIT=120] -->
+  <string name="gemma_reskin_try_gemma_4_description" translatable="true" description="Description for the Try Gemma 4 reskin onboarding section.">Gemma 4 E2B &amp; E4B are here! Try them in AI Chat, Agent Skills, or other use cases below.</string>
+
+  <!-- Section header for other use cases. [CHAR_LIMIT=30] -->
+  <string name="explore_other_use_cases" translatable="true" description="Section header for other use cases.">Explore other use cases</string>
+
+  <!-- Task Labels & Descriptions -->
+  <string name="task_label_ai_chat" translatable="false">AI Chat</string>
+  <string name="task_label_prompt_lab" translatable="false">Prompt Lab</string>
+  <string name="task_label_ask_image" translatable="false">Ask Image</string>
+  <string name="task_label_audio_scribe" translatable="false">Audio Scribe</string>
+  <string name="task_label_tiny_garden" translatable="false">Tiny Garden</string>
+  <string name="task_label_agent_skills" translatable="false">Agent Skills</string>
+  <!-- Description for the AI Chat task. [CHAR_LIMIT=100] -->
+  <string name="task_desc_ai_chat" translatable="true" description="Description for the AI Chat task.">Chat with on-device large language models</string>
+  <!-- Short description for the AI Chat task. [CHAR_LIMIT=35] -->
+  <string name="task_short_desc_ai_chat" translatable="true" description="Short description for the AI Chat task.">Chat with an on-device LLM</string><!-- Description for the Ask Image task. [CHAR_LIMIT=100] -->
+  <string name="task_desc_ask_image" translatable="true" description="Description for the Ask Image task.">Ask questions about images with on-device large language models</string>
+  <!-- Short description for the Ask Image task. [CHAR_LIMIT=35] -->
+  <string name="task_short_desc_ask_image" translatable="true" description="Short description for the Ask Image task.">Ask questions about images</string><!-- Description for the Audio Scribe task. [CHAR_LIMIT=100] -->
+  <string name="task_desc_audio_scribe" translatable="true" description="Description for the Audio Scribe task.">Instantly transcribe and/or translate audio clips using on-device large language models</string>
+  <!-- Short description for the Audio Scribe task. [CHAR_LIMIT=35] -->
+  <string name="task_short_desc_audio_scribe" translatable="true" description="Short description for the Audio Scribe task.">Transcribe and translate audio</string><!-- Description for the Prompt Lab task. [CHAR_LIMIT=100] -->
+  <string name="task_desc_prompt_lab" translatable="true" description="Description for the Prompt Lab task.">Single turn use cases with on-device large language models</string>
+  <!-- Short description for the Prompt Lab task. [CHAR_LIMIT=35] -->
+  <string name="task_short_desc_prompt_lab" translatable="true" description="Short description for the Prompt Lab task.">Single turn use cases</string><!-- Description for the Agent Skills task. [CHAR_LIMIT=100] -->
+  <string name="task_desc_agent_skills" translatable="true" description="Description for the Agent Skills task.">Chat with on-device large language models with skills and tools</string>
+  <!-- Short description for the Agent Skills task. [CHAR_LIMIT=35] -->
+  <string name="task_short_desc_agent_skills" translatable="true" description="Short description for the Agent Skills task.">Complete agentic tasks with chat</string>
+
+  <!-- Label for the link to example code. [CHAR_LIMIT=20] -->
+  <string name="example_code" translatable="true" description="Label for the link to example code.">Example code</string>
+
+  <!-- Plural string showing the number of models available for a task. [CHAR_LIMIT=15] -->
+  <plurals name="task_card_models_count" translatable="true" description="Plural string showing the number of models available for a task.">
+    <item quantity="one">1 Model</item>
+    <item quantity="other">%1$d Models</item>
+  </plurals>
+
+  <!-- Agent Skills Chips -->
+  <!-- Label for the Interactive Map skill chip. [CHAR_LIMIT=20] -->
+  <string name="skill_chip_interactive_map_label" translatable="true" description="Label for the Interactive Map skill chip.">Interactive Map</string>
+  <!-- Label for the Schedule Reminder skill chip. [CHAR_LIMIT=20] -->
+  <string name="skill_chip_schedule_reminder_label" translatable="true" description="Label for the Schedule Reminder skill chip.">Schedule Reminder</string>
+  <!-- Label for the Track my mood skill chip. [CHAR_LIMIT=20] -->
+  <string name="skill_chip_track_mood_label" translatable="true" description="Label for the Track my mood skill chip.">Track my mood</string>
+  <!-- Label for the Learn something new skill chip. [CHAR_LIMIT=20] -->
+  <string name="skill_chip_learn_something_new_label" translatable="true" description="Label for the Learn something new skill chip.">Learn something new</string>
+  <!-- Label for the Query Wikipedia skill chip. [CHAR_LIMIT=20] -->
+  <string name="skill_chip_query_wikipedia_label" translatable="true" description="Label for the Query Wikipedia skill chip.">Query Wikipedia</string>
+  <!-- Label for the Generate QR code skill chip. [CHAR_LIMIT=20] -->
+  <string name="skill_chip_generate_qr_code_label" translatable="true" description="Label for the Generate QR code skill chip.">Generate QR code</string>
+  <!-- Description for the Mobile Actions task. [CHAR_LIMIT=100] -->
+  <string name="task_desc_mobile_actions" translatable="true" description="Description for the Mobile Actions task.">Perform various device actions through Function Gemma</string><!-- Description for the Tiny Garden task. [CHAR_LIMIT=300] -->
+  <string name="task_desc_tiny_garden" translatable="true" description="Description for the Tiny Garden task.">Use natural language to plant, water, and harvest in this fully offline mini-game.\n\nNote: This is powered by the experimental FunctionGemma model optimized for latency. Due to its compact size (270M), it works well on simple instructions but responses may vary to more complex interactions.</string>
+  <!-- Short description for the Tiny Garden task. [CHAR_LIMIT=35] -->
+  <string name="task_short_desc_tiny_garden" translatable="true" description="Short description for the Tiny Garden task.">Use natural language to plant</string>
 </resources>
