@@ -273,7 +273,11 @@ object LlmChatModelHelper : LlmModelHelper {
 
   override fun stopResponse(model: Model) {
     val instance = model.instance as? LlmModelInstance ?: return
-    instance.conversation.cancelProcess()
+    try {
+      instance.conversation.cancelProcess()
+    } catch (e: IllegalStateException) {
+      Log.w(TAG, "Conversation is not alive, cannot cancel process", e)
+    }
   }
 
   override fun runInference(
