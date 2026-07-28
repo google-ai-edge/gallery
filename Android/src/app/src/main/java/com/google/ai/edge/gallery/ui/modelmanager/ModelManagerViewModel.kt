@@ -425,10 +425,12 @@ constructor(
       // Skip if initialized already.
       if (
         !force &&
+          model.instance != null &&
           uiState.value.modelInitializationStatus[model.name]?.status ==
             ModelInitializationStatusType.INITIALIZED
       ) {
         Log.d(TAG, "Model '${model.name}' has been initialized. Skipping.")
+        onDone()
         return@launch
       }
 
@@ -532,6 +534,7 @@ constructor(
         )
         model.cleanUpAfterInit = true
       }
+      onDone()
     }
   }
 
