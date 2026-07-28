@@ -180,6 +180,7 @@ private val PREDEFINED_LLM_TASK_ORDER =
     BuiltInTaskId.LLM_PROMPT_LAB,
     BuiltInTaskId.LLM_TINY_GARDEN,
     BuiltInTaskId.LLM_MOBILE_ACTIONS,
+    BuiltInTaskId.MP_SCRAPBOOK,
   )
 
 /**
