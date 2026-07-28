@@ -56,7 +56,7 @@ constructor(private val userDataDataStore: DataStore<UserData>) {
    * @param taskId The ID of the task.
    * @return A Flow emitting the custom system prompt string or null.
    */
-  fun getCustomSystemPrompt(taskId: String): Flow<String?> {
+  open fun getCustomSystemPrompt(taskId: String): Flow<String?> {
     return userDataDataStore.data.map { it.secretsMap[getKey(taskId)] }
   }
 

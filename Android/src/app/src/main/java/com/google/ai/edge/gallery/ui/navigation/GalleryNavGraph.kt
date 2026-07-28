@@ -158,7 +158,6 @@ fun GalleryNavHost(
   var pickedTask by remember { mutableStateOf<Task?>(null) }
   var enableHomeScreenAnimation by remember { mutableStateOf(true) }
   var enableModelListAnimation by remember { mutableStateOf(true) }
-  var lastNavigatedModelName = remember { "" }
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
 
   // Track whether app is in foreground.
@@ -317,10 +316,7 @@ fun GalleryNavHost(
       val context = LocalContext.current
 
       modelManagerViewModel.getModelByName(name = modelName)?.let { initialModel ->
-        if (lastNavigatedModelName != modelName) {
-          modelManagerViewModel.selectModel(initialModel)
-          lastNavigatedModelName = modelName
-        }
+        LaunchedEffect(modelName) { modelManagerViewModel.selectModel(initialModel) }
 
         val customTask = modelManagerViewModel.getCustomTaskByTaskId(id = taskId)
         if (customTask != null) {
@@ -331,7 +327,6 @@ fun GalleryNavHost(
                   modelManagerViewModel = modelManagerViewModel,
                   onNavUp = {
                     enableModelListAnimation = false
-                    lastNavigatedModelName = ""
                     navController.navigateUp()
                   },
                   initialQuery = queryParam,
@@ -349,7 +344,6 @@ fun GalleryNavHost(
                   customNavigateUpCallback?.invoke()
                 } else {
                   enableModelListAnimation = false
-                  lastNavigatedModelName = ""
                   navController.navigateUp()
 
                   // clean up all models.
