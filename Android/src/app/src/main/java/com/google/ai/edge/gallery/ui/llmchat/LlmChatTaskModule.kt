@@ -44,6 +44,7 @@ import com.google.ai.edge.gallery.customtasks.common.CustomTaskDataForBuiltinTas
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.runtime.runtimeHelper
 import com.google.ai.edge.gallery.ui.theme.emptyStateContent
@@ -90,8 +91,8 @@ class LlmChatTask @Inject constructor(@ApplicationContext private val context: C
       context = context,
       model = model,
       taskId = task.id,
-      supportImage = false,
-      supportAudio = false,
+      supportImage = model.llmSupportImage,
+      supportAudio = model.llmSupportAudio,
       onDone = onDone,
       coroutineScope = coroutineScope,
       systemInstruction = systemInstruction,
@@ -120,6 +121,8 @@ class LlmChatTask @Inject constructor(@ApplicationContext private val context: C
       viewModel = viewModel,
       allowEditingSystemPrompt = true,
       curSystemPrompt = uiSystemPrompt,
+      showImagePicker = true,
+      showAudioPicker = true,
       onSystemPromptChanged = { newPrompt ->
         val selectedModel = myData.modelManagerViewModel.uiState.value.selectedModel
         viewModel.applySystemPromptChange(
@@ -129,7 +132,7 @@ class LlmChatTask @Inject constructor(@ApplicationContext private val context: C
           systemPromptUpdatedMessage = systemPromptUpdatedMessage,
         )
       },
-      emptyStateComposable = {
+      emptyStateComposable = { model ->
         Box(modifier = Modifier.fillMaxSize()) {
           Column(
             modifier =
@@ -144,6 +147,34 @@ class LlmChatTask @Inject constructor(@ApplicationContext private val context: C
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               textAlign = TextAlign.Center,
             )
+            val multimodalRes =
+              when {
+                model.llmSupportImage && model.llmSupportAudio -> {
+                  if (model.runtimeType == RuntimeType.AICORE) {
+                    R.string.aichat_emptystate_support_image_aicore_audio
+                  } else {
+                    R.string.aichat_emptystate_support_image_audio
+                  }
+                }
+                model.llmSupportImage -> {
+                  if (model.runtimeType == RuntimeType.AICORE) {
+                    R.string.aichat_emptystate_support_image_aicore
+                  } else {
+                    R.string.aichat_emptystate_support_image
+                  }
+                }
+                model.llmSupportAudio -> R.string.aichat_emptystate_support_audio
+                else -> null
+              }
+
+            if (multimodalRes != null) {
+              Text(
+                stringResource(multimodalRes),
+                style = emptyStateContent,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+              )
+            }
           }
         }
       },

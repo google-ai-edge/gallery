@@ -257,6 +257,11 @@
   <!-- Strings for skills -->
   <string name="aichat_emptystate_title" translatable="false">AI Chat</string>
   <string name="aichat_emptystate_content" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining what it does. [CHAR_LIMIT=44]">Chat with on-device large language models.</string>
+  <string name="aichat_emptystate_support_image_audio" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining the multimodal limits. [CHAR_LIMIT=100]">Support up to 10 images per chat and 1 audio clip up to 30 seconds.</string>
+  <string name="aichat_emptystate_support_image_aicore_audio" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining the multimodal limits. [CHAR_LIMIT=100]">Support 1 image per chat and 1 audio clip up to 30 seconds.</string>
+  <string name="aichat_emptystate_support_image" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining the multimodal limits. [CHAR_LIMIT=100]">Support up to 10 images per chat.</string>
+  <string name="aichat_emptystate_support_image_aicore" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining the multimodal limits. [CHAR_LIMIT=100]">Support 1 image per chat.</string>
+  <string name="aichat_emptystate_support_audio" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining the multimodal limits. [CHAR_LIMIT=100]">Support 1 audio clip up to 30 seconds.</string>
   <string name="add_script" translatable="true" description="Title of the dialog for adding a new script to a skill. [CHAR_LIMIT=12]">Add script</string>
   <string name="add_default_script" translatable="true" description="Button label to add a template or default script when no scripts exist yet. [CHAR_LIMIT=20]">Add default script</string>
   <string name="add_skill" translatable="true" description="Title of the bottom sheet containing options to add a new skill. [CHAR_LIMIT=11]">Add skill</string>
