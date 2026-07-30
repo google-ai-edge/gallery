@@ -25,10 +25,7 @@ import com.google.ai.edge.gallery.skills.SkillsProvider
 import com.google.ai.edge.gallery.tools.ToolDispatcher
 import com.google.ai.edge.gallery.tools.ToolExecutionContext
 import com.google.ai.edge.gallery.tools.ToolsProvider
-import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.litertlm.Contents
-import java.util.concurrent.ConcurrentHashMap
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.onFailure
@@ -50,8 +47,6 @@ open class DefaultAgentRuntimeExecutor(
   private var model: Model? = null
   private var toolExecutionContext: ToolExecutionContext? = null
 
-  private val activeJobs = ConcurrentHashMap<String, Job>()
-
   override suspend fun initialize(
     context: Context,
     config: AgentRuntimeConfig,
@@ -69,7 +64,7 @@ open class DefaultAgentRuntimeExecutor(
       context = executionContext,
     )
 
-    LlmChatModelHelper.initialize(
+    config.model.runtimeHelper.initialize(
       context = context,
       model = config.model,
       taskId = config.taskId,
@@ -141,7 +136,6 @@ open class DefaultAgentRuntimeExecutor(
             )
           }
           if (partialResult.isNotEmpty()) {
-            finalResponse.clear()
             finalResponse.append(partialResult)
           }
         }
