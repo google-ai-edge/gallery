@@ -17,12 +17,16 @@
 package com.google.ai.edge.gallery.customtasks.agentchat
 
 import android.content.Context
-import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.dataStoreFile
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.agent.AgentChatExecutor
+import com.google.ai.edge.gallery.agent.AgentRuntimeConfig
+import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
+import com.google.ai.edge.gallery.agent.DefaultAgentRuntimeExecutor
+import com.google.ai.edge.gallery.agent.PromptExpander
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskDataForBuiltinTask
 import com.google.ai.edge.gallery.data.BuiltInTaskId
@@ -30,11 +34,10 @@ import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.proto.McpServers
-import com.google.ai.edge.gallery.proto.Skill
+import com.google.ai.edge.gallery.skills.SkillManager
+import com.google.ai.edge.gallery.skills.SkillsProvider
+import com.google.ai.edge.gallery.skills.formatSelectedSkills
 import com.google.ai.edge.gallery.tools.RuntimeToolDispatcher
-import com.google.ai.edge.gallery.tools.ToolDispatcher
-import com.google.ai.edge.gallery.tools.ToolExecutionContext
-import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.litertlm.Contents
 import dagger.Module
 import dagger.Provides
@@ -93,7 +96,7 @@ const val DEFAULT_SYSTEM_PROMPT =
   6. Output ONLY the final result returned by the tool. You MUST NOT output any intermediate thoughts or status updates. No exceptions!
   """
 
-private val DEFAULT_SYSTEM_PROMPT_TRIMMED = DEFAULT_SYSTEM_PROMPT.trimIndent()
+val DEFAULT_SYSTEM_PROMPT_TRIMMED = DEFAULT_SYSTEM_PROMPT.trimIndent()
 
 // The default system prompt for the agent chat task with only skills.
 const val DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY =
@@ -115,14 +118,16 @@ const val DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY =
   4. If no relevant skill is found, output "No relevant skills found" and stop.
   """
 
-private val DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY_TRIMMED =
-  DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY.trimIndent()
+val DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY_TRIMMED = DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY.trimIndent()
 
-class AgentChatTask @Inject constructor(@ApplicationContext private val context: Context) :
-  CustomTask {
-  private val agentTools: AgentTools = AgentToolsImpl()
-  private val toolDispatcher: ToolDispatcher = RuntimeToolDispatcher()
-
+class AgentChatTask
+@Inject
+constructor(
+  @ApplicationContext private val context: Context,
+  private val skillsProvider: SkillsProvider,
+  private val agentTools: AgentTools,
+  @AgentChatExecutor private val executor: AgentRuntimeExecutor,
+) : CustomTask {
   override val task: Task by lazy {
     Task(
       id = BuiltInTaskId.LLM_AGENT_CHAT,
@@ -162,28 +167,30 @@ class AgentChatTask @Inject constructor(@ApplicationContext private val context:
       val baseSystemPrompt =
         getEffectiveBaseSystemPrompt(initialSystemPrompt, toolsPrompt.isNotEmpty())
 
-      val finalSystemInstruction =
-        injectSkillsAndMcpTools(
-          baseSystemPrompt = baseSystemPrompt,
-          skills = agentTools.skillsProvider.getAvailableSkills(),
-          toolsPrompt = toolsPrompt,
+      // TODO: inject prompt expander as a dependency.
+      val finalSystemPrompt =
+        PromptExpander()
+          .formatSystemInstructions(
+            template = baseSystemPrompt,
+            substitutions =
+              mapOf(
+                "___SKILLS___" to formatSelectedSkills(skillsProvider.getAvailableSkills()),
+                "___TOOLS___" to toolsPrompt,
+              ),
+          )
+
+      val config =
+        AgentRuntimeConfig(
+          model = model,
+          taskId = task.id,
+          actionChannel = agentTools.sendActionChannel,
+          supportImage = model.llmSupportImage,
+          supportAudio = model.llmSupportAudio,
+          enableConversationConstrainedDecoding = true,
+          systemInstruction = finalSystemPrompt,
         )
 
-      val executionContext =
-        ToolExecutionContext(taskId = task.id, actionChannel = agentTools.sendActionChannel)
-      toolDispatcher.setupExecutionContext(agentTools.getAvailableTools(), executionContext)
-
-      LlmChatModelHelper.initialize(
-        context = context,
-        model = model,
-        taskId = task.id,
-        supportImage = model.llmSupportImage,
-        supportAudio = model.llmSupportAudio,
-        onDone = onDone,
-        systemInstruction = finalSystemInstruction,
-        tools = agentTools.getLiteRtToolProviders(),
-        enableConversationConstrainedDecoding = true,
-      )
+      executor.initialize(context = context, config = config, onDone = onDone)
     }
   }
 
@@ -193,7 +200,7 @@ class AgentChatTask @Inject constructor(@ApplicationContext private val context:
     model: Model,
     onDone: () -> Unit,
   ) {
-    LlmChatModelHelper.cleanUp(model = model, onDone = onDone)
+    executor.cleanUp(onDone = onDone)
   }
 
   @Composable
@@ -213,9 +220,34 @@ class AgentChatTask @Inject constructor(@ApplicationContext private val context:
 @InstallIn(SingletonComponent::class)
 internal object AgentChatTaskModule {
   @Provides
+  @Singleton
+  fun provideAgentTools(skillManager: SkillManager): AgentTools {
+    return AgentToolsImpl().apply { skillsProvider = skillManager }
+  }
+
+  @Provides
+  @Singleton
+  @AgentChatExecutor
+  fun provideAgentChatExecutor(
+    skillManager: SkillManager,
+    agentTools: AgentTools,
+  ): AgentRuntimeExecutor {
+    return DefaultAgentRuntimeExecutor(
+      skillsProvider = skillManager,
+      toolsProvider = agentTools,
+      toolDispatcher = RuntimeToolDispatcher(),
+    )
+  }
+
+  @Provides
   @IntoSet
-  fun provideTask(@ApplicationContext context: Context): CustomTask {
-    return AgentChatTask(context)
+  fun provideTask(
+    @ApplicationContext context: Context,
+    skillManager: SkillManager,
+    agentTools: AgentTools,
+    @AgentChatExecutor executor: AgentRuntimeExecutor,
+  ): CustomTask {
+    return AgentChatTask(context, skillManager, agentTools, executor)
   }
 
   @Provides
@@ -226,30 +258,6 @@ internal object AgentChatTaskModule {
       produceFile = { context.dataStoreFile("mcp_servers.pb") },
     )
   }
-}
-
-fun injectSkillsAndMcpTools(
-  baseSystemPrompt: String,
-  skills: List<Skill>,
-  toolsPrompt: String,
-): Contents {
-  val selectedSkillsNamesAndDescriptions =
-    skills
-      .filter { it.selected }
-      .joinToString("\n\n") { skill ->
-        "- Skill name: \"${skill.name}\"\n- Description: ${skill.description}"
-      }
-
-  val systemPrompt =
-    if (selectedSkillsNamesAndDescriptions.isBlank() && toolsPrompt.isBlank()) {
-      ""
-    } else {
-      baseSystemPrompt
-        .replace("___SKILLS___", selectedSkillsNamesAndDescriptions)
-        .replace("___TOOLS___", toolsPrompt)
-    }
-  Log.d(TAG, "System prompt:\n$systemPrompt")
-  return Contents.of(systemPrompt)
 }
 
 // Check whether the system prompt is the default one.

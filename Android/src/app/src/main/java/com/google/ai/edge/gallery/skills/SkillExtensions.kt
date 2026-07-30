@@ -25,6 +25,15 @@ fun Skill.getSkillContent(): String {
   return SKILL_INSTRUCTIONS_TEMPLATE.format(name, description, instructions)
 }
 
+/** Formats descriptions of selected skills for inclusion in prompt placeholders. */
+fun formatSelectedSkills(skills: List<Skill>): String {
+  return skills
+    .filter { it.selected }
+    .joinToString("\n\n") { skill ->
+      "- Skill name: \"${skill.name}\"\n- Description: ${skill.description}"
+    }
+}
+
 fun Skill.getJsSkillUrl(scriptName: String): String? {
   var baseUrl = ""
   // Construct a local URL for imported skill and built-in skills.

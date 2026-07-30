@@ -29,3 +29,12 @@ interface SkillsProvider {
   /** Loads a specific skill by name (e.g., when the load_skill tool is triggered). */
   suspend fun loadSkill(skillName: String): Skill?
 }
+
+/** No-op implementation of [SkillsProvider] used when skills are disabled. */
+open class NoOpSkillsProvider : SkillsProvider {
+  override suspend fun loadSkills(defaultDisabledSkills: Set<String>) {}
+
+  override suspend fun getAvailableSkills(): List<Skill> = emptyList()
+
+  override suspend fun loadSkill(skillName: String): Skill? = null
+}

@@ -30,6 +30,10 @@ import com.google.ai.edge.gallery.data.DEFAULT_VISION_ACCELERATOR
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelCapability
 import com.google.ai.edge.gallery.data.THOUGHT_CHANNEL
+import com.google.ai.edge.gallery.data.markInitializationFailed
+import com.google.ai.edge.gallery.data.markInitializationStarted
+import com.google.ai.edge.gallery.data.markInitialized
+import com.google.ai.edge.gallery.data.resetInitialization
 import com.google.ai.edge.gallery.runtime.CleanUpListener
 import com.google.ai.edge.gallery.runtime.LlmModelHelper
 import com.google.ai.edge.gallery.runtime.ResultListener
@@ -71,6 +75,13 @@ object LlmChatModelHelper : LlmModelHelper {
     enableConversationConstrainedDecoding: Boolean,
     coroutineScope: CoroutineScope?,
   ) {
+    if (model.instance != null) {
+      Log.d(TAG, "Model '${model.name}' already initialized in LlmChatModelHelper. Skipping.")
+      model.markInitialized()
+      onDone("")
+      return
+    }
+    model.markInitializationStarted()
     // Prepare options.
     val maxTokens =
       model.getIntConfigValue(key = ConfigKeys.MAX_TOKENS, defaultValue = DEFAULT_MAX_TOKEN)
@@ -177,9 +188,12 @@ object LlmChatModelHelper : LlmModelHelper {
       ExperimentalFlags.enableConversationConstrainedDecoding = false
       model.instance = LlmModelInstance(engine = engine, conversation = conversation)
     } catch (e: Exception) {
-      onDone(cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error"))
+      val errorMsg = cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error")
+      model.markInitializationFailed(errorMsg)
+      onDone(errorMsg)
       return
     }
+    model.markInitialized()
     onDone("")
   }
 
@@ -265,7 +279,7 @@ object LlmChatModelHelper : LlmModelHelper {
     if (onCleanUp != null) {
       onCleanUp()
     }
-    model.instance = null
+    model.resetInitialization()
 
     onDone()
     Log.d(TAG, "Clean up done.")

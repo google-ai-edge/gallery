@@ -39,6 +39,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.agent.AgentRuntimeConfig
+import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
+import com.google.ai.edge.gallery.agent.AiChatExecutor
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskDataForBuiltinTask
 import com.google.ai.edge.gallery.data.BuiltInTaskId
@@ -46,7 +49,6 @@ import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.runtime.runtimeHelper
 import com.google.ai.edge.gallery.ui.theme.emptyStateContent
 import com.google.ai.edge.gallery.ui.theme.emptyStateTitle
 import com.google.ai.edge.litertlm.Contents
@@ -58,12 +60,18 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // AI Chat.
 
-class LlmChatTask @Inject constructor(@ApplicationContext private val context: Context) :
-  CustomTask {
+class LlmChatTask
+@Inject
+constructor(
+  @ApplicationContext private val context: Context,
+  @AiChatExecutor private val executor: AgentRuntimeExecutor,
+) : CustomTask {
   override val task: Task by lazy {
     Task(
       id = BuiltInTaskId.LLM_CHAT,
@@ -87,16 +95,17 @@ class LlmChatTask @Inject constructor(@ApplicationContext private val context: C
     systemInstruction: Contents?,
     onDone: (String) -> Unit,
   ) {
-    model.runtimeHelper.initialize(
-      context = context,
-      model = model,
-      taskId = task.id,
-      supportImage = model.llmSupportImage,
-      supportAudio = model.llmSupportAudio,
-      onDone = onDone,
-      coroutineScope = coroutineScope,
-      systemInstruction = systemInstruction,
-    )
+    coroutineScope.launch(Dispatchers.Default) {
+      val config =
+        AgentRuntimeConfig(
+          model = model,
+          taskId = task.id,
+          supportImage = model.llmSupportImage,
+          supportAudio = model.llmSupportAudio,
+          systemInstruction = systemInstruction?.toString(),
+        )
+      executor.initialize(context = context, config = config, onDone = onDone)
+    }
   }
 
   override fun cleanUpModelFn(
@@ -105,7 +114,7 @@ class LlmChatTask @Inject constructor(@ApplicationContext private val context: C
     model: Model,
     onDone: () -> Unit,
   ) {
-    model.runtimeHelper.cleanUp(model = model, onDone = onDone)
+    executor.cleanUp(onDone = onDone)
   }
 
   @Composable
@@ -187,16 +196,23 @@ class LlmChatTask @Inject constructor(@ApplicationContext private val context: C
 internal object LlmChatTaskModule {
   @Provides
   @IntoSet
-  fun provideTask(@ApplicationContext context: Context): CustomTask {
-    return LlmChatTask(context)
+  fun provideTask(
+    @ApplicationContext context: Context,
+    @AiChatExecutor executor: AgentRuntimeExecutor,
+  ): CustomTask {
+    return LlmChatTask(context, executor)
   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Ask image.
 
-class LlmAskImageTask @Inject constructor(@ApplicationContext private val context: Context) :
-  CustomTask {
+class LlmAskImageTask
+@Inject
+constructor(
+  @ApplicationContext private val context: Context,
+  @AiChatExecutor private val executor: AgentRuntimeExecutor,
+) : CustomTask {
   override val task: Task by lazy {
     Task(
       id = BuiltInTaskId.LLM_ASK_IMAGE,
@@ -220,16 +236,17 @@ class LlmAskImageTask @Inject constructor(@ApplicationContext private val contex
     systemInstruction: Contents?,
     onDone: (String) -> Unit,
   ) {
-    model.runtimeHelper.initialize(
-      context = context,
-      model = model,
-      taskId = task.id,
-      supportImage = true,
-      supportAudio = false,
-      onDone = onDone,
-      coroutineScope = coroutineScope,
-      systemInstruction = systemInstruction,
-    )
+    coroutineScope.launch(Dispatchers.Default) {
+      val config =
+        AgentRuntimeConfig(
+          model = model,
+          taskId = task.id,
+          supportImage = true,
+          supportAudio = false,
+          systemInstruction = systemInstruction?.toString(),
+        )
+      executor.initialize(context = context, config = config, onDone = onDone)
+    }
   }
 
   override fun cleanUpModelFn(
@@ -238,7 +255,7 @@ class LlmAskImageTask @Inject constructor(@ApplicationContext private val contex
     model: Model,
     onDone: () -> Unit,
   ) {
-    model.runtimeHelper.cleanUp(model = model, onDone = onDone)
+    executor.cleanUp(onDone = onDone)
   }
 
   @Composable
@@ -272,16 +289,23 @@ class LlmAskImageTask @Inject constructor(@ApplicationContext private val contex
 internal object LlmAskImageModule {
   @Provides
   @IntoSet
-  fun provideTask(@ApplicationContext context: Context): CustomTask {
-    return LlmAskImageTask(context)
+  fun provideTask(
+    @ApplicationContext context: Context,
+    @AiChatExecutor executor: AgentRuntimeExecutor,
+  ): CustomTask {
+    return LlmAskImageTask(context, executor)
   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Ask audio.
 
-class LlmAskAudioTask @Inject constructor(@ApplicationContext private val context: Context) :
-  CustomTask {
+class LlmAskAudioTask
+@Inject
+constructor(
+  @ApplicationContext private val context: Context,
+  @AiChatExecutor private val executor: AgentRuntimeExecutor,
+) : CustomTask {
   override val task: Task by lazy {
     Task(
       id = BuiltInTaskId.LLM_ASK_AUDIO,
@@ -305,16 +329,17 @@ class LlmAskAudioTask @Inject constructor(@ApplicationContext private val contex
     systemInstruction: Contents?,
     onDone: (String) -> Unit,
   ) {
-    model.runtimeHelper.initialize(
-      context = context,
-      model = model,
-      taskId = task.id,
-      supportImage = false,
-      supportAudio = true,
-      onDone = onDone,
-      coroutineScope = coroutineScope,
-      systemInstruction = systemInstruction,
-    )
+    coroutineScope.launch(Dispatchers.Default) {
+      val config =
+        AgentRuntimeConfig(
+          model = model,
+          taskId = task.id,
+          supportImage = false,
+          supportAudio = true,
+          systemInstruction = systemInstruction?.toString(),
+        )
+      executor.initialize(context = context, config = config, onDone = onDone)
+    }
   }
 
   override fun cleanUpModelFn(
@@ -323,7 +348,7 @@ class LlmAskAudioTask @Inject constructor(@ApplicationContext private val contex
     model: Model,
     onDone: () -> Unit,
   ) {
-    model.runtimeHelper.cleanUp(model = model, onDone = onDone)
+    executor.cleanUp(onDone = onDone)
   }
 
   @Composable
@@ -357,7 +382,10 @@ class LlmAskAudioTask @Inject constructor(@ApplicationContext private val contex
 internal object LlmAskAudioModule {
   @Provides
   @IntoSet
-  fun provideTask(@ApplicationContext context: Context): CustomTask {
-    return LlmAskAudioTask(context)
+  fun provideTask(
+    @ApplicationContext context: Context,
+    @AiChatExecutor executor: AgentRuntimeExecutor,
+  ): CustomTask {
+    return LlmAskAudioTask(context, executor)
   }
 }

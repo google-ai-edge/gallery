@@ -19,6 +19,8 @@ package com.google.ai.edge.gallery.data
 import android.content.Context
 import com.google.gson.annotations.SerializedName
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CompletableDeferred
 
 data class ModelDataFile(
   val name: String,
@@ -439,3 +441,63 @@ val Model.supportModelBenchmark: Boolean
   get() =
     runtimeType == RuntimeType.LITERT_LM ||
       false
+
+// A map of model name to CompletableDeferred for model initialization.
+private val modelInitDeferreds = ConcurrentHashMap<String, CompletableDeferred<Any?>>()
+
+/**
+ * A deferred object for model initialization.
+ *
+ * This field is managed by the app. It is set to a CompletableDeferred object when the model is
+ * being initialized, and set to null when the model is initialized or failed to be initialized.
+ */
+internal var Model.initDeferred: CompletableDeferred<Any?>?
+  get() = modelInitDeferreds[name]
+  set(value) {
+    if (value == null) {
+      val unused = modelInitDeferreds.remove(name)
+    } else {
+      modelInitDeferreds[name] = value
+    }
+  }
+
+/** Marks that model initialization has started. */
+fun Model.markInitializationStarted() {
+  initDeferred = CompletableDeferred()
+  initializing = true
+}
+
+/** Marks that the model has been initialized with the given [instance]. */
+fun Model.markInitialized(instance: Any? = this.instance) {
+  this.instance = instance
+  this.initializing = false
+  initDeferred?.complete(instance)
+}
+
+/** Marks that model initialization has failed with the given [error]. */
+fun Model.markInitializationFailed(error: Throwable) {
+  this.initializing = false
+  val current = initDeferred
+  this.initDeferred = null
+  current?.completeExceptionally(error)
+}
+
+/** Marks that model initialization has failed with the given [errorMessage]. */
+fun Model.markInitializationFailed(errorMessage: String) {
+  markInitializationFailed(IllegalStateException(errorMessage))
+}
+
+/** Resets the model initialization state and cancels any pending initialization. */
+fun Model.resetInitialization() {
+  this.instance = null
+  this.initializing = false
+  val current = initDeferred
+  this.initDeferred = null
+  current?.cancel()
+}
+
+/** Awaits completion of model initialization if currently in progress and [instance] is null. */
+suspend fun Model.awaitInitialization() {
+  if (instance != null) return
+  initDeferred?.await()
+}

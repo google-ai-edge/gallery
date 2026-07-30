@@ -53,6 +53,10 @@ import com.google.ai.edge.gallery.data.TMP_FILE_EXT
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.data.createLlmChatConfigs
+import com.google.ai.edge.gallery.data.markInitializationFailed
+import com.google.ai.edge.gallery.data.markInitializationStarted
+import com.google.ai.edge.gallery.data.markInitialized
+import com.google.ai.edge.gallery.data.resetInitialization
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.AccessTokenData
 import com.google.ai.edge.gallery.proto.ImportedModel
@@ -446,14 +450,13 @@ constructor(
 
       // Start initialization.
       Log.d(TAG, "Initializing model '${model.name}'...")
-      model.initializing = true
+      model.markInitializationStarted()
       updateModelInitializationStatus(
         model = model,
         status = ModelInitializationStatusType.INITIALIZING,
       )
 
       val onDoneFn: (error: String) -> Unit = { error ->
-        model.initializing = false
         if (model.instance != null) {
           Log.d(TAG, "Model '${model.name}' initialized successfully")
           updateModelInitializationStatus(
@@ -461,11 +464,17 @@ constructor(
             status = ModelInitializationStatusType.INITIALIZED,
           )
           if (model.cleanUpAfterInit) {
+            model.markInitializationFailed(
+              IllegalStateException("Model cleaned up after initialization")
+            )
             Log.d(TAG, "Model '${model.name}' needs cleaning up after init.")
             cleanupModel(context = context, task = task, model = model)
+          } else {
+            model.markInitialized()
           }
           onDone()
         } else if (error.isNotEmpty()) {
+          model.markInitializationFailed(error)
           Log.d(TAG, "Model '${model.name}' failed to initialize")
           updateModelInitializationStatus(
             model = model,
@@ -473,6 +482,8 @@ constructor(
             error = error,
           )
           onError(error)
+        } else {
+          model.markInitialized(null)
         }
       }
 
@@ -508,8 +519,7 @@ constructor(
       model.cleanUpAfterInit = false
       Log.d(TAG, "Cleaning up model '${model.name}'...")
       val onDoneFn: () -> Unit = {
-        model.instance = null
-        model.initializing = false
+        model.resetInitialization()
         updateModelInitializationStatus(
           model = model,
           status = ModelInitializationStatusType.NOT_INITIALIZED,

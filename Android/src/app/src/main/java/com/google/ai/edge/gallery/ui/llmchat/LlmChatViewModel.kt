@@ -21,11 +21,18 @@ import android.graphics.Bitmap
 import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.lifecycle.viewModelScope
+import com.google.ai.edge.gallery.agent.AgentEvent
+import com.google.ai.edge.gallery.agent.AgentExecutionContext
+import com.google.ai.edge.gallery.agent.AgentRequest
+import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
+import com.google.ai.edge.gallery.agent.AiChatExecutor
+import com.google.ai.edge.gallery.agent.Attachment
 import com.google.ai.edge.gallery.common.SystemPromptHelper
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.SystemPromptRepository
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.data.awaitInitialization
 import com.google.ai.edge.gallery.proto.UserData
 import com.google.ai.edge.gallery.runtime.runtimeHelper
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
@@ -58,6 +65,7 @@ open class LlmChatViewModelBase(
   private val systemPromptRepository: SystemPromptRepository? = null,
   userDataDataStore: DataStore<UserData>? = null,
   private val modelFeedbackRepository: Any? = null,
+  val runtimeExecutor: AgentRuntimeExecutor,
 ) : ChatViewModel(userDataDataStore) {
   private val _uiSystemPrompt = MutableStateFlow("")
   val uiSystemPrompt = _uiSystemPrompt.asStateFlow()
@@ -119,7 +127,7 @@ open class LlmChatViewModelBase(
     }
   }
 
-  fun generateResponse(
+  open fun generateResponse(
     model: Model,
     input: String,
     images: List<Bitmap> = listOf(),
@@ -137,172 +145,158 @@ open class LlmChatViewModelBase(
       // Loading.
       addMessage(model = model, message = ChatMessageLoading(accelerator = accelerator))
 
-      // Wait for instance to be initialized.
-      while (model.instance == null) {
-        delay(100)
+      val attachments = mutableListOf<Attachment>()
+      for (image in images) {
+        attachments.add(Attachment.ImageBitmap(image))
       }
-      delay(500)
-
-      // Run inference.
-      val audioClips: MutableList<ByteArray> = mutableListOf()
       for (audioMessage in audioMessages) {
-        audioClips.add(audioMessage.genByteArrayForWav())
+        attachments.add(Attachment.AudioBytes(audioMessage.genByteArrayForWav()))
       }
+
+      val enableThinking =
+        allowThinking &&
+          model.getBooleanConfigValue(key = ConfigKeys.ENABLE_THINKING, defaultValue = false)
+      val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else emptyMap()
+      val metadata =
+        if (extraContext.isNotEmpty()) {
+          mapOf(AgentRequest.LITERTLM_EXTRA_CONTEXT to extraContext)
+        } else {
+          emptyMap()
+        }
+
+      val request = AgentRequest(query = input, attachments = attachments, metadata = metadata)
+
+      val context = AgentExecutionContext()
 
       var firstRun = true
       val start = System.currentTimeMillis()
 
-      try {
-        val resultListener: (String, Boolean, String?) -> Unit =
-          { partialResult, done, partialThinkingResult ->
-            if (partialResult.startsWith("<ctrl")) {
-              // Do nothing. Ignore control tokens.
-            } else {
-              // Remove the last message if it is a "loading" message.
-              // This will only be done once.
-              val lastMessage = getLastMessage(model = model)
-              val wasLoading = lastMessage?.type == ChatMessageType.LOADING
-              if (wasLoading) {
-                removeLastMessage(model = model)
+      // Run inference.
+      runtimeExecutor.executeStream(context = context, request = request).collect { event ->
+        when (event) {
+          is AgentEvent.LoopInitiated -> {}
+          is AgentEvent.StreamToken -> {
+            val lastMessage = getLastMessage(model = model)
+            val wasLoading = lastMessage?.type == ChatMessageType.LOADING
+            // Remove the last message if it is a "loading" message.
+            // This will only be done once.
+            if (wasLoading) {
+              removeLastMessage(model = model)
+            }
+
+            val thinkingText = event.thinking
+            val isThinking = !thinkingText.isNullOrEmpty()
+            var currentLastMessage = getLastMessage(model = model)
+
+            // If thinking is enabled, add a thinking message.
+            if (isThinking) {
+              if (currentLastMessage?.type != ChatMessageType.THINKING) {
+                addMessage(
+                  model = model,
+                  message =
+                    ChatMessageThinking(
+                      content = "",
+                      inProgress = true,
+                      side = ChatSide.AGENT,
+                      accelerator = accelerator,
+                      hideSenderLabel =
+                        currentLastMessage?.type == ChatMessageType.COLLAPSABLE_PROGRESS_PANEL,
+                    ),
+                )
               }
-
-              val thinkingText = partialThinkingResult
-              val isThinking = thinkingText != null && thinkingText.isNotEmpty()
-              var currentLastMessage = getLastMessage(model = model)
-
-              // If thinking is enabled, add a thinking message.
-              if (isThinking) {
-                if (currentLastMessage?.type != ChatMessageType.THINKING) {
-                  addMessage(
+              updateLastThinkingMessageContentIncrementally(
+                model = model,
+                partialContent = thinkingText!!,
+              )
+            } else {
+              if (currentLastMessage?.type == ChatMessageType.THINKING) {
+                val thinkingMsg = currentLastMessage as ChatMessageThinking
+                if (thinkingMsg.inProgress) {
+                  replaceLastMessage(
                     model = model,
                     message =
                       ChatMessageThinking(
-                        content = "",
-                        inProgress = true,
-                        side = ChatSide.AGENT,
-                        accelerator = accelerator,
-                        hideSenderLabel =
-                          currentLastMessage?.type == ChatMessageType.COLLAPSABLE_PROGRESS_PANEL,
+                        content = thinkingMsg.content,
+                        inProgress = false,
+                        side = thinkingMsg.side,
+                        accelerator = thinkingMsg.accelerator,
+                        hideSenderLabel = thinkingMsg.hideSenderLabel,
                       ),
+                    type = ChatMessageType.THINKING,
                   )
                 }
-                updateLastThinkingMessageContentIncrementally(
+              }
+              currentLastMessage = getLastMessage(model = model)
+              if (
+                currentLastMessage?.type != ChatMessageType.TEXT ||
+                  currentLastMessage.side != ChatSide.AGENT
+              ) {
+                // Add an empty message that will receive streaming results.
+                addMessage(
                   model = model,
-                  partialContent = thinkingText!!,
+                  message =
+                    ChatMessageText(
+                      content = "",
+                      side = ChatSide.AGENT,
+                      accelerator = accelerator,
+                      hideSenderLabel =
+                        currentLastMessage?.type == ChatMessageType.COLLAPSABLE_PROGRESS_PANEL ||
+                          currentLastMessage?.type == ChatMessageType.THINKING,
+                    ),
                 )
-              } else {
-                if (currentLastMessage?.type == ChatMessageType.THINKING) {
-                  val thinkingMsg = currentLastMessage as ChatMessageThinking
-                  if (thinkingMsg.inProgress) {
-                    replaceLastMessage(
-                      model = model,
-                      message =
-                        ChatMessageThinking(
-                          content = thinkingMsg.content,
-                          inProgress = false,
-                          side = thinkingMsg.side,
-                          accelerator = thinkingMsg.accelerator,
-                          hideSenderLabel = thinkingMsg.hideSenderLabel,
-                        ),
-                      type = ChatMessageType.THINKING,
-                    )
-                  }
-                }
-                currentLastMessage = getLastMessage(model = model)
-                if (
-                  currentLastMessage?.type != ChatMessageType.TEXT ||
-                    currentLastMessage.side != ChatSide.AGENT
-                ) {
-                  // Add an empty message that will receive streaming results.
-                  addMessage(
-                    model = model,
-                    message =
-                      ChatMessageText(
-                        content = "",
-                        side = ChatSide.AGENT,
-                        accelerator = accelerator,
-                        hideSenderLabel =
-                          currentLastMessage?.type == ChatMessageType.COLLAPSABLE_PROGRESS_PANEL ||
-                            currentLastMessage?.type == ChatMessageType.THINKING,
-                      ),
-                  )
-                }
-
-                // Incrementally update the streamed partial results.
-                val latencyMs: Long = if (done) System.currentTimeMillis() - start else -1
-                if (partialResult.isNotEmpty() || wasLoading || done) {
-                  updateLastTextMessageContentIncrementally(
-                    model = model,
-                    partialContent = partialResult,
-                    latencyMs = latencyMs.toFloat(),
-                  )
-                }
               }
 
-              if (firstRun) {
-                firstRun = false
-                setPreparing(false)
-                onFirstToken(model)
-              }
-
-              if (done) {
-                val finalLastMessage = getLastMessage(model = model)
-                if (finalLastMessage?.type == ChatMessageType.THINKING) {
-                  val thinkingMsg = finalLastMessage as ChatMessageThinking
-                  if (thinkingMsg.inProgress) {
-                    replaceLastMessage(
-                      model = model,
-                      message =
-                        ChatMessageThinking(
-                          content = thinkingMsg.content,
-                          inProgress = false,
-                          side = thinkingMsg.side,
-                          accelerator = thinkingMsg.accelerator,
-                          hideSenderLabel = thinkingMsg.hideSenderLabel,
-                        ),
-                      type = ChatMessageType.THINKING,
-                    )
-                  }
-                }
-                setInProgress(false)
-                onDone()
+              // Incrementally update the streamed partial results.
+              val latencyMs: Long = if (event.done) System.currentTimeMillis() - start else -1
+              if (event.token.isNotEmpty() || wasLoading || event.done) {
+                updateLastTextMessageContentIncrementally(
+                  model = model,
+                  partialContent = event.token,
+                  latencyMs = latencyMs.toFloat(),
+                )
               }
             }
+
+            if (firstRun) {
+              firstRun = false
+              setPreparing(false)
+              onFirstToken(model)
+            }
           }
-
-        val cleanUpListener: () -> Unit = {
-          setInProgress(false)
-          setPreparing(false)
+          is AgentEvent.LoopTerminated -> {
+            val finalLastMessage = getLastMessage(model = model)
+            if (finalLastMessage?.type == ChatMessageType.THINKING) {
+              val thinkingMsg = finalLastMessage as ChatMessageThinking
+              if (thinkingMsg.inProgress) {
+                replaceLastMessage(
+                  model = model,
+                  message =
+                    ChatMessageThinking(
+                      content = thinkingMsg.content,
+                      inProgress = false,
+                      side = thinkingMsg.side,
+                      accelerator = thinkingMsg.accelerator,
+                      hideSenderLabel = thinkingMsg.hideSenderLabel,
+                    ),
+                  type = ChatMessageType.THINKING,
+                )
+              }
+            }
+            setInProgress(false)
+            setPreparing(false)
+            onDone()
+          }
+          is AgentEvent.Error -> {
+            Log.e(TAG, "Error occurred while running inference: ${event.errorMessage}")
+            setInProgress(false)
+            setPreparing(false)
+            onError(event.errorMessage)
+          }
+          is AgentEvent.LoopCancelled -> {
+            setInProgress(false)
+            setPreparing(false)
+          }
         }
-
-        val errorListener: (String) -> Unit = { message ->
-          Log.e(TAG, "Error occurred while running inference")
-          setInProgress(false)
-          setPreparing(false)
-          onError(message)
-        }
-
-        val enableThinking =
-          allowThinking &&
-            model.getBooleanConfigValue(key = ConfigKeys.ENABLE_THINKING, defaultValue = false)
-        val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
-
-        model.runtimeHelper.runInference(
-          model = model,
-          input = input,
-          images = images,
-          audioClips = audioClips,
-          resultListener = resultListener,
-          cleanUpListener = cleanUpListener,
-          onError = errorListener,
-          coroutineScope = viewModelScope,
-          extraContext = extraContext,
-        )
-      } catch (e: Exception) {
-        Log.e(TAG, "Error occurred while running inference", e)
-        setInProgress(false)
-        setPreparing(false)
-        onError(e.message ?: "")
       }
     }
   }
@@ -313,7 +307,7 @@ open class LlmChatViewModelBase(
       removeLastMessage(model = model)
     }
     setInProgress(false)
-    model.runtimeHelper.stopResponse(model)
+    runtimeExecutor.interrupt()
     Log.d(TAG, "Done stopping response")
   }
 
@@ -336,6 +330,7 @@ open class LlmChatViewModelBase(
       }
       stopResponse(model = model)
 
+      // TODO: move to runtime executor.
       while (true) {
         try {
           model.runtimeHelper.resetConversation(
@@ -366,8 +361,17 @@ open class LlmChatViewModelBase(
   ) {
     viewModelScope.launch(Dispatchers.Default) {
       // Wait for model to be initialized.
-      while (model.instance == null) {
-        delay(100)
+      if (model.instance == null) {
+        try {
+          model.awaitInitialization()
+        } catch (e: Exception) {
+          onError("Model initialization failed: ${e.message}")
+          return@launch
+        }
+      }
+      if (model.instance == null) {
+        onError("Model not initialized.")
+        return@launch
       }
 
       // Clone the clicked message and add it.
@@ -433,12 +437,14 @@ open class LlmChatViewModelBase(
 }
 
 @HiltViewModel
-class LlmChatViewModel
+open class LlmChatViewModel
 @Inject
 constructor(
   systemPromptRepository: SystemPromptRepository,
   userDataDataStore: DataStore<UserData>,
-) : LlmChatViewModelBase(systemPromptRepository, userDataDataStore, null)
+  @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
+) :
+LlmChatViewModelBase(systemPromptRepository, userDataDataStore, null, runtimeExecutor)
 
 @HiltViewModel
 class LlmAskImageViewModel
@@ -446,7 +452,9 @@ class LlmAskImageViewModel
 constructor(
   systemPromptRepository: SystemPromptRepository,
   userDataDataStore: DataStore<UserData>,
-) : LlmChatViewModelBase(systemPromptRepository, userDataDataStore, null)
+  @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
+) :
+LlmChatViewModelBase(systemPromptRepository, userDataDataStore, null, runtimeExecutor)
 
 @HiltViewModel
 class LlmAskAudioViewModel
@@ -454,4 +462,6 @@ class LlmAskAudioViewModel
 constructor(
   systemPromptRepository: SystemPromptRepository,
   userDataDataStore: DataStore<UserData>,
-  ) : LlmChatViewModelBase(systemPromptRepository, userDataDataStore, null)
+  @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
+) :
+LlmChatViewModelBase(systemPromptRepository, userDataDataStore, null, runtimeExecutor)

@@ -78,12 +78,14 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.agent.PromptExpander
 import com.google.ai.edge.gallery.common.LOCAL_URL_BASE
 import com.google.ai.edge.gallery.data.AgentSkillsURLs
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.skills.formatSelectedSkills
 import com.google.ai.edge.gallery.tools.AskInfoToolAction
 import com.google.ai.edge.gallery.tools.AskMcpToolCallPermissionAction
 import com.google.ai.edge.gallery.tools.CallJsToolAction
@@ -128,7 +130,7 @@ fun AgentChatScreen(
   modelManagerViewModel: ModelManagerViewModel,
   navigateUp: () -> Unit,
   agentTools: AgentTools,
-  viewModel: LlmChatViewModel = hiltViewModel(),
+  viewModel: AgentChatViewModel = hiltViewModel(),
   skillManagerViewModel: SkillManagerViewModel = hiltViewModel(),
   mcpManagerViewModel: McpManagerViewModel = hiltViewModel(),
   initialQuery: String? = null,
@@ -232,6 +234,7 @@ fun AgentChatScreen(
     modelManagerViewModel = modelManagerViewModel,
     taskId = BuiltInTaskId.LLM_AGENT_CHAT,
     navigateUp = navigateUp,
+    viewModel = viewModel,
     skillCount = skillCount,
     mcpCount = mcpCount,
     mcpToolsCount = mcpToolsCount,
@@ -780,15 +783,23 @@ private fun resetSessionWithCurrentSkillsAndMcps(
     ToolExecutionContext(taskId = task.id, actionChannel = agentTools.sendActionChannel)
   RuntimeToolDispatcher().setupExecutionContext(agentTools.getAvailableTools(), executionContext)
 
+  val selectedSkills =
+    runBlocking(Dispatchers.Default) { skillManagerViewModel.skillManager.getAvailableSkills() }
+  val finalSystemPrompt =
+    PromptExpander()
+      .formatSystemInstructions(
+        template = actualSystemPrompt,
+        substitutions =
+          mapOf(
+            "___SKILLS___" to formatSelectedSkills(selectedSkills),
+            "___TOOLS___" to toolsPrompt,
+          ),
+      )
+
   viewModel.resetSession(
     task = task,
     model = model,
-    systemInstruction =
-      injectSkillsAndMcpTools(
-        baseSystemPrompt = actualSystemPrompt,
-        skills = skillManagerViewModel.getSelectedSkills(),
-        toolsPrompt = toolsPrompt,
-      ),
+    systemInstruction = com.google.ai.edge.litertlm.Contents.of(finalSystemPrompt),
     tools = runBlocking(Dispatchers.Default) { agentTools.getLiteRtToolProviders() },
     supportImage = model.llmSupportImage,
     supportAudio = model.llmSupportAudio,
