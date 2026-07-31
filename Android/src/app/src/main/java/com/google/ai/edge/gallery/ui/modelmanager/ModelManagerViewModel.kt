@@ -656,6 +656,9 @@ constructor(
 
   fun getModelUrlResponse(model: Model, accessToken: String? = null): Int {
     try {
+      if (model.url.isEmpty()) {
+        return HttpURLConnection.HTTP_OK
+      }
       val url = URL(model.url)
       val connection = url.openConnection() as HttpURLConnection
       if (accessToken != null) {
