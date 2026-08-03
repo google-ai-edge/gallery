@@ -330,6 +330,14 @@ object LlmChatModelHelper : LlmModelHelper {
       contents.add(Content.Text(input))
     }
 
+    // Set enable_thinking to false by default.
+    val finalExtraContext =
+      if (extraContext?.get("enable_thinking") == "true") {
+        extraContext
+      } else {
+        (extraContext ?: emptyMap()) + ("enable_thinking" to "false")
+      }
+
     conversation.sendMessageAsync(
       Contents.of(contents),
       object : MessageCallback {
@@ -351,7 +359,7 @@ object LlmChatModelHelper : LlmModelHelper {
           }
         }
       },
-      extraContext ?: emptyMap(),
+      finalExtraContext,
     )
   }
 
