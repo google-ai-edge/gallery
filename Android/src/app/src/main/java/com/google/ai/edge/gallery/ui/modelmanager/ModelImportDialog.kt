@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -84,13 +86,22 @@ import com.google.ai.edge.gallery.ui.common.ensureValidFileName
 import com.google.ai.edge.gallery.ui.common.humanReadableSize
 import java.io.File
 import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "AGModelImportDialog"
+// 5 seconds timeout for fetching file size from URI.
+private const val FILE_SIZE_TIMEOUT = 5000L
+// Max redirects for fetching file size from URI.
+private const val MAX_REDIRECT_COUNT = 5
 
 private val SUPPORTED_ACCELERATORS: List<Accelerator> =
   if (isPixel10()) {
@@ -146,34 +157,44 @@ private val IMPORT_CONFIGS_LLM: List<Config> =
     ),
   )
 
+private fun isHttpOrHttps(uri: Uri): Boolean {
+  return uri.scheme == "http" || uri.scheme == "https"
+}
+
 @Composable
 fun ModelImportDialog(
   uri: Uri,
   onDismiss: () -> Unit,
   onDone: (ImportedModel) -> Unit,
   defaultValues: Map<ConfigKey, Any> = emptyMap(),
+  accessToken: String? = null,
 ) {
   val context = LocalContext.current
   val info = remember { getFileSizeAndDisplayNameFromUri(context = context, uri = uri) }
   var fileSize by remember { mutableLongStateOf(info.first) }
   val fileName by remember { mutableStateOf(ensureValidFileName(info.second)) }
 
+  // Indicates that the file size is still being fetched and we should disable the import button
+  // until it's done.
+  var isFetchingSize by remember { mutableStateOf(isHttpOrHttps(uri)) }
+
   LaunchedEffect(uri) {
-    if (uri.scheme == "http" || uri.scheme == "https") {
-      kotlinx.coroutines.withContext(Dispatchers.IO) {
-        try {
-          // Get the file size from the download url.
+    if (isHttpOrHttps(uri)) {
+      isFetchingSize = true
+      try {
+        // Fetch file size from URI with 5 seconds timeout.
+        withTimeoutOrNull(FILE_SIZE_TIMEOUT) {
           val downloadUrl = getDownloadUrl(uri)
-          val connection = java.net.URL(downloadUrl).openConnection()
-          connection.connect()
-          val size = connection.contentLengthLong
-          if (size > 0) {
+          val size = fetchFileSize(downloadUrl, accessToken = accessToken)
+          if (size > 0L) {
             fileSize = size
           }
-          connection.getInputStream().close()
-        } catch (e: Exception) {
-          e.printStackTrace()
         }
+      } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        Log.e(TAG, "Error fetching file size for $uri", e)
+      } finally {
+        isFetchingSize = false
       }
     }
   }
@@ -238,6 +259,8 @@ fun ModelImportDialog(
 
           // Import button
           Button(
+            // Disable the import button while fetching file size for URI.
+            enabled = !isFetchingSize,
             onClick = {
               val supportedAccelerators =
                 (convertValueToTargetType(
@@ -329,9 +352,23 @@ fun ModelImportDialog(
                   )
                   .build()
               onDone(importedModel)
-            }
+            },
           ) {
-            Text(stringResource(R.string.import_action))
+            if (isFetchingSize) {
+              Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+              ) {
+                CircularProgressIndicator(
+                  modifier = Modifier.size(16.dp),
+                  strokeWidth = 2.dp,
+                  color = MaterialTheme.colorScheme.onPrimary,
+                )
+                Text(stringResource(R.string.import_action))
+              }
+            } else {
+              Text(stringResource(R.string.import_action))
+            }
           }
         }
       }
@@ -536,3 +573,82 @@ private fun getDownloadUrl(uri: Uri): String {
     uri.toString()
   }
 }
+
+/**
+ * Fetches the total file size of a remote model URL without downloading the full payload.
+ *
+ * Sends an HTTP GET request with a `Range: bytes=0-0` header and handles cross-domain HTTP 3xx
+ * redirects manually up to 5 hops.
+ *
+ * Standards & References:
+ * - RFC 9110 §15.4 (Redirection 3xx & Location Header):
+ *   https://www.rfc-editor.org/rfc/rfc9110.html#section-15.4 Status codes 300..399 indicate
+ *   redirection. The target URI for the redirection is specified by the `Location` header field.
+ * - RFC 9110 §14.2 (Range Header Field): https://www.rfc-editor.org/rfc/rfc9110.html#section-14.2
+ *   `Range: bytes=0-0` requests only the single byte at index 0 to inspect file size headers.
+ * - RFC 9110 §14.4 (Content-Range Header Field):
+ *   https://www.rfc-editor.org/rfc/rfc9110.html#section-14.4 In HTTP 206 Partial Content responses,
+ *   `Content-Range` specifies the range and complete resource length (`bytes
+ *   <start>-<end>/<complete-length>`).
+ * - RFC 9110 §8.6 (Content-Length Header Field):
+ *   https://www.rfc-editor.org/rfc/rfc9110.html#section-8.6 In HTTP 200 OK responses, specifies
+ *   total file size. In HTTP 206 responses, specifies chunk size (1 byte).
+ *
+ * @param urlStr Direct remote file URL to inspect.
+ * @param accessToken Optional Bearer authentication token for private or gated models.
+ * @return Total file size in bytes, or `0L` if size could not be determined.
+ */
+private suspend fun fetchFileSize(urlStr: String, accessToken: String? = null): Long =
+  withContext(Dispatchers.IO) {
+    var connection: HttpURLConnection? = null
+    try {
+      var currentUrl = urlStr
+      var redirectCount = 0
+      while (redirectCount < MAX_REDIRECT_COUNT) {
+        val url = URL(currentUrl)
+        connection = url.openConnection() as HttpURLConnection
+
+        connection.instanceFollowRedirects = true
+        connection.requestMethod = "GET"
+        if (!accessToken.isNullOrEmpty()) {
+          connection.setRequestProperty("Authorization", "Bearer $accessToken")
+        }
+        connection.setRequestProperty("Range", "bytes=0-0")
+        connection.connect()
+
+        // 1. Handle HTTP 3xx Redirection (RFC 9110 §15.4)
+        val isRedirect = connection.responseCode in 300..399
+        if (isRedirect) {
+          val redirectUrl = connection.getHeaderField("Location")
+          if (!redirectUrl.isNullOrEmpty()) {
+            connection.disconnect()
+            currentUrl = redirectUrl
+            redirectCount++
+            continue
+          }
+        }
+
+        // 2. Extract complete resource length from Content-Range header (RFC 9110 §14.4)
+        val contentRange = connection.getHeaderField("Content-Range")
+        if (contentRange != null) {
+          val totalFromRange = contentRange.substringAfter("/").trim().toLongOrNull()
+          if (totalFromRange != null && totalFromRange > 0L) {
+            return@withContext totalFromRange
+          }
+        }
+
+        // 3. Fallback to Content-Length header if present and positive (RFC 9110 §8.6)
+        val contentLength = connection.contentLengthLong
+        if (contentLength > 0L) {
+          return@withContext contentLength
+        }
+        break
+      }
+    } catch (e: Exception) {
+      if (e is CancellationException) throw e
+      Log.e(TAG, "Error fetching file size for $urlStr", e)
+    } finally {
+      connection?.disconnect()
+    }
+    return@withContext 0L
+  }

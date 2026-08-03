@@ -489,6 +489,7 @@ fun GlobalModelManager(
     selectedLocalModelFileUri.value?.let { uri ->
       ModelImportDialog(
         uri = uri,
+        accessToken = viewModel.dataStoreRepository.readAccessTokenData()?.accessToken,
         onDismiss = { showImportDialog = false },
         onDone = { info ->
           selectedImportedModelInfo.value = info
