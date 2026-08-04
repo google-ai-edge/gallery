@@ -406,13 +406,26 @@
   <string name="cd_import_model_from_hugging_face" translatable="true" description="Content description spoken when the import model from hugging face button is focused. [CHAR_LIMIT=32]">Import model from Hugging Face</string>
   <string name="import_model_from_hugging_face" translatable="true" description="Text label on the button/option to import a model from Hugging Face. [CHAR_LIMIT=19]">From Hugging Face</string>
   <string name="import_from_hugging_face_title" translatable="true" description="Title of the dialog box for importing a model from Hugging Face. [CHAR_LIMIT=26]">Import from Hugging Face</string>
-  <string name="enter_hugging_face_url" translatable="true" description="Prompt text to guide the user to enter a Hugging Face model URL. [CHAR_LIMIT=56]">"Enter the Hugging Face model file URL, for example: "</string>
-  <string name="enter_hugging_face_url_example_link" translatable="false">https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm</string>
+  <string name="enter_hugging_face_url" translatable="true" description="Prompt text to guide the user to enter a Hugging Face model card or model file URL. [CHAR_LIMIT=90]">"Enter a Hugging Face model card or file URL. For example: "</string>
+  <string name="enter_hugging_face_url_example_link" translatable="false">https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm</string>
   <string name="hugging_face_url_placeholder" description="Placeholder text shown inside the text field where the user enters the URL. [CHAR_LIMIT=26]">https://huggingface.co/…</string>
   <string name="next" translatable="true" description="Button text to navigate to the next step. [CHAR_LIMIT=6]">Next</string>
   <string name="unsupported_model_title" translatable="true" description="Title of the dialog showing that the imported model type is unsupported. [CHAR_LIMIT=24]">Unsupported model type</string>
   <string name="unsupported_file_type_error" translatable="true" description="Message informing the user that only .task or .litertlm file formats are supported. [CHAR_LIMIT=53]">Only \".task\" or \".litertlm\" file type is supported.</string>
   <string name="unsupported_web_model_error" translatable="true" description="Message explaining that the model is only for web browsers and not supported on the Android application. [CHAR_LIMIT=75]">Looks like the model is a web-only model and is not supported by the app.</string>
+  <string name="file_too_large_warning" translatable="true" description="Warning label when a model file size exceeds device memory limit. [CHAR_LIMIT=100]">Likely too large for device RAM</string>
+  <string name="incompatible_device_warning" translatable="true" description="Warning label when a model file is incompatible with device hardware. [CHAR_LIMIT=100]">Likely incompatible with device hardware</string>
+  <string name="import_selected_model" translatable="true" description="Button label to confirm importing the selected model file. [CHAR_LIMIT=30]">Import selected model</string>
+  <string name="copy_url" translatable="true" description="Button label or accessibility action to copy model URL to clipboard. [CHAR_LIMIT=50]">Copy URL</string>
+  <string name="url_copied" translatable="true" description="Toast message shown after model URL is copied to clipboard. [CHAR_LIMIT=100]">URL copied to clipboard</string>
+  <string name="compatible_files_header" translatable="true" description="Header for compatible files section showing count. [CHAR_LIMIT=40]">Compatible Files (%1$d):</string>
+  <string name="compatible_files_subheader" translatable="true" description="Subheader explaining compatible model files. [CHAR_LIMIT=60]">LiteRT-LM files compatible with AI Edge Gallery.</string>
+  <string name="other_files_header" translatable="true" description="Header for incompatible/other files section showing count. [CHAR_LIMIT=40]">Other Files (%1$d):</string>
+  <string name="other_files_subheader" translatable="true" description="Subheader explaining other model files. [CHAR_LIMIT=60]">Files that may not be compatible with AI Edge Gallery.</string>
+  <string name="incompatible_file_selection_prompt" translatable="true" description="Prompt shown when user taps an incompatible file. [CHAR_LIMIT=150]">This file may not be compatible. You can still copy the file URL to import it directly.</string>
+  <string name="hf_no_model_files_in_card" translatable="true" description="Error message when no LiteRT model files are found in a Hugging Face repository card. [CHAR_LIMIT=100]">No LiteRT model files (.litertlm) found in this model card.</string>
+  <string name="hf_last_updated" translatable="true" description="Label showing when a model was last updated. [CHAR_LIMIT=50]">Updated %1$s</string>
+  <string name="could_not_fetch_model_details" translatable="true" description="Error message when fetching Hugging Face model details fails. [CHAR_LIMIT=100]">Unable to load model details for %1$s. Please check the URL and try again.</string>
 
   <!-- The following entries are for accessibility -->
 

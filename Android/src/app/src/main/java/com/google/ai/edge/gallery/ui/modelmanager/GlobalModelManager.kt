@@ -95,6 +95,8 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.supportModelBenchmark
+import com.google.ai.edge.gallery.huggingface.extractHfUrlInfo
+import com.google.ai.edge.gallery.proto.HfModelItemProto
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.ui.common.TaskIcon
 import com.google.ai.edge.gallery.ui.common.buildTrackableUrlAnnotatedString
@@ -133,6 +135,9 @@ fun GlobalModelManager(
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   var showImportDialog by remember { mutableStateOf(false) }
   var showImportingDialog by remember { mutableStateOf(false) }
+  var selectedModelForDetails by remember { mutableStateOf<HfModelItemProto?>(null) }
+  var showModelDetailsSheet by remember { mutableStateOf(false) }
+  var isLoadingModelCardDetails by remember { mutableStateOf(false) }
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
   val snackbarHostState = remember { SnackbarHostState() }
@@ -144,26 +149,29 @@ fun GlobalModelManager(
     showPromo = !viewModel.dataStoreRepository.hasViewedPromo(promoId = promoId)
   }
 
+  val processModelUri: (Uri, Boolean) -> Unit = { uri, isWebImport ->
+    validateAndProcessModelUri(
+      uri = uri,
+      context = context,
+      isWebImport = isWebImport,
+      onUnsupportedModelError = { errorMessage ->
+        unsupportedModelErrorMessage = errorMessage
+        showUnsupportedModelDialog = true
+      },
+      onValidModelUri = { validUri ->
+        selectedLocalModelFileUri.value = validUri
+        showImportDialog = true
+      },
+    )
+  }
+
   val filePickerLauncher: ActivityResultLauncher<Intent> =
     rememberLauncherForActivityResult(
       contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
       if (result.resultCode == android.app.Activity.RESULT_OK) {
-        result.data?.data?.let { uri ->
-          validateAndProcessModelUri(
-            uri = uri,
-            context = context,
-            isWebImport = false,
-            onUnsupportedModelError = { errorMessage ->
-              unsupportedModelErrorMessage = errorMessage
-              showUnsupportedModelDialog = true
-            },
-            onValidModelUri = { validUri ->
-              selectedLocalModelFileUri.value = validUri
-              showImportDialog = true
-            },
-          )
-        } ?: run { Log.d(TAG, "No file selected or URI is null.") }
+        result.data?.data?.let { uri -> processModelUri(uri, /* isWebImport= */ false) }
+          ?: run { Log.d(TAG, "No file selected or URI is null.") }
       } else {
         Log.d(TAG, "File picking cancelled.")
       }
@@ -573,20 +581,43 @@ fun GlobalModelManager(
             val url = huggingFaceUrlInput.trim()
             if (url.isNotEmpty()) {
               showHuggingFaceUrlDialog = false
-              val uri = url.toUri()
-              validateAndProcessModelUri(
-                uri = uri,
-                context = context,
-                isWebImport = true,
-                onUnsupportedModelError = { errorMessage ->
-                  unsupportedModelErrorMessage = errorMessage
-                  showUnsupportedModelDialog = true
-                },
-                onValidModelUri = { validUri ->
-                  selectedLocalModelFileUri.value = validUri
-                  showImportDialog = true
-                },
-              )
+              val urlInfo = extractHfUrlInfo(url)
+              when {
+                urlInfo.isDirectModelFile -> {
+                  val fileUri =
+                    if (urlInfo.modelId != null && urlInfo.fileName != null) {
+                      "https://huggingface.co/${urlInfo.modelId}/resolve/main/${urlInfo.fileName}?download=true"
+                        .toUri()
+                    } else {
+                      url.toUri()
+                    }
+                  processModelUri(fileUri, true)
+                }
+                urlInfo.modelId != null -> {
+                  val targetModelId = urlInfo.modelId
+                  if (targetModelId != null) {
+                    isLoadingModelCardDetails = true
+                    viewModel.fetchModelDetails(targetModelId) { detailedModel ->
+                      isLoadingModelCardDetails = false
+                      if (detailedModel != null) {
+                        selectedModelForDetails = detailedModel
+                        showModelDetailsSheet = true
+                      } else {
+                        unsupportedModelErrorMessage =
+                          getErrorMessage(
+                            context,
+                            R.string.could_not_fetch_model_details,
+                            targetModelId,
+                          )
+                        showUnsupportedModelDialog = true
+                      }
+                    }
+                  }
+                }
+                else -> {
+                  processModelUri(url.toUri(), true)
+                }
+              }
             }
           }
         ) {
@@ -597,6 +628,23 @@ fun GlobalModelManager(
         TextButton(onClick = { showHuggingFaceUrlDialog = false }) {
           Text(stringResource(R.string.cancel))
         }
+      },
+    )
+  }
+
+  // Model card details sheet
+  if (showModelDetailsSheet && selectedModelForDetails != null) {
+    HfModelDetailsSheet(
+      modelItem = selectedModelForDetails!!,
+      onDismiss = {
+        showModelDetailsSheet = false
+        selectedModelForDetails = null
+      },
+      onImportModelFile = { modelId, fileName ->
+        showModelDetailsSheet = false
+        selectedModelForDetails = null
+        val fileUrl = "https://huggingface.co/$modelId/resolve/main/$fileName?download=true"
+        processModelUri(fileUrl.toUri(), true)
       },
     )
   }
@@ -627,8 +675,8 @@ private fun validateAndProcessModelUri(
   }
 }
 
-private fun getErrorMessage(context: Context, resId: Int): String {
-  return context.getString(resId)
+private fun getErrorMessage(context: Context, resId: Int, vararg formatArgs: Any): String {
+  return context.getString(resId, *formatArgs)
 }
 
 // Helper function to get the file name from a URI

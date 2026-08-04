@@ -24,6 +24,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.icu.text.CompactDecimalFormat
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -64,6 +65,11 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import java.io.File
 import java.io.FileOutputStream
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 import kotlin.math.ln
 import kotlin.math.pow
 import kotlinx.coroutines.CoroutineDispatcher
@@ -134,6 +140,36 @@ fun Long.formatToHourMinSecond(): String {
   }
 
   return parts.joinToString(" ")
+}
+
+/**
+ * Formats large counts (e.g. downloads, likes) into localized abbreviated strings (e.g. 1.2K,
+ * 3.4M).
+ */
+fun formatCount(count: Long): String {
+  return CompactDecimalFormat.getInstance(
+      Locale.getDefault(),
+      CompactDecimalFormat.CompactStyle.SHORT,
+    )
+    .format(count)
+}
+
+/**
+ * Formats an ISO-8601 last modified date string to a localized medium date format according to
+ * device locale settings.
+ */
+fun formatLastModifiedDate(lastModified: String): String {
+  if (lastModified.isBlank()) return ""
+  return try {
+    val instant = Instant.parse(lastModified)
+    val formatter =
+      DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+        .withZone(ZoneId.systemDefault())
+        .withLocale(Locale.getDefault())
+    formatter.format(instant)
+  } catch (e: Exception) {
+    if (lastModified.contains("T")) lastModified.substringBefore("T") else lastModified
+  }
 }
 
 fun getDistinctiveColor(index: Int): Color {

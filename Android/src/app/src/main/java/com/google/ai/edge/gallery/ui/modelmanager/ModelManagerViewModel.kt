@@ -58,7 +58,9 @@ import com.google.ai.edge.gallery.data.markInitializationStarted
 import com.google.ai.edge.gallery.data.markInitialized
 import com.google.ai.edge.gallery.data.resetInitialization
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.huggingface.HuggingFaceApiClient
 import com.google.ai.edge.gallery.proto.AccessTokenData
+import com.google.ai.edge.gallery.proto.HfModelItemProto
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.proto.Theme
 import com.google.ai.edge.gallery.runtime.aicore.AICoreModelHelper
@@ -203,6 +205,7 @@ constructor(
   private val lifecycleProvider: AppLifecycleProvider,
   private val customTasks: Set<@JvmSuppressWildcards CustomTask>,
   private val systemPromptRepository: SystemPromptRepository,
+  private val huggingFaceApiClient: HuggingFaceApiClient,
   @ApplicationContext private val context: Context,
 ) :
   ViewModel()
@@ -211,6 +214,19 @@ constructor(
   private val externalFilesDir = context.getExternalFilesDir(null)
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   open val uiState = _uiState.asStateFlow()
+
+  fun fetchModelDetails(modelId: String, onResult: (HfModelItemProto?) -> Unit) {
+    viewModelScope.launch {
+      try {
+        val token = getTokenStatusAndData().data?.accessToken
+        val details = huggingFaceApiClient.getModelDetails(modelId, accessToken = token)
+        onResult(details)
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to fetch model details for $modelId", e)
+        onResult(null)
+      }
+    }
+  }
 
   private var _allowlistModels: MutableList<Model> = mutableListOf()
   val allowlistModels: List<Model>
