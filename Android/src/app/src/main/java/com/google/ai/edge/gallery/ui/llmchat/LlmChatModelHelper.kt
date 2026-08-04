@@ -330,13 +330,10 @@ object LlmChatModelHelper : LlmModelHelper {
       contents.add(Content.Text(input))
     }
 
-    // Set enable_thinking to false by default.
-    val finalExtraContext =
-      if (extraContext?.get("enable_thinking") == "true") {
-        extraContext
-      } else {
-        (extraContext ?: emptyMap()) + ("enable_thinking" to "false")
-      }
+    // Set enable_thinking to false by default using boolean literals for proper JSON serialization.
+    val enableThinking = extraContext?.get("enable_thinking") == "true"
+    val finalExtraContext: Map<String, Any> =
+      (extraContext ?: emptyMap()) + ("enable_thinking" to enableThinking)
 
     conversation.sendMessageAsync(
       Contents.of(contents),
