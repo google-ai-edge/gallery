@@ -88,6 +88,7 @@ import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.notifications.NotificationsScreen
+import com.google.ai.edge.gallery.server.OpenAiApiServerScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -99,6 +100,7 @@ private const val ROUTE_MODEL = "route_model"
 private const val ROUTE_BENCHMARK = "benchmark"
 private const val ROUTE_MODEL_MANAGER = "model_manager"
 private const val ROUTE_NOTIFICATIONS = "notifications"
+private const val ROUTE_OPENAI_SERVER = "openai_server"
 private const val ENTER_ANIMATION_DURATION_MS = 500
 private val ENTER_ANIMATION_EASING = EaseOutExpo
 private const val ENTER_ANIMATION_DELAY_MS = 100
@@ -212,6 +214,7 @@ fun GalleryNavHost(
             },
             onModelsClicked = { navController.navigate(ROUTE_MODEL_MANAGER) },
             onNotificationsClicked = { navController.navigate(ROUTE_NOTIFICATIONS) },
+            onOpenAiServerClicked = { navController.navigate(ROUTE_OPENAI_SERVER) },
             gm4 = true,
           )
         }
@@ -430,6 +433,18 @@ fun GalleryNavHost(
       exitTransition = { slideDownExit() },
     ) {
       NotificationsScreen(navigateUp = { navController.navigateUp() })
+    }
+
+    // OpenAI Server page.
+    composable(
+      route = ROUTE_OPENAI_SERVER,
+      enterTransition = { slideUpEnter() },
+      exitTransition = { slideDownExit() },
+    ) {
+      OpenAiApiServerScreen(
+        modelManagerViewModel = modelManagerViewModel,
+        onBackClicked = { navController.navigateUp() }
+      )
     }
 
     // Benchmark creation page.

@@ -80,6 +80,19 @@ message Settings {
 
   repeated string viewed_promo_id = 10;
   bool disable_firebase_analytics = 11;
+
+  // Local OpenAI-compatible API server preferences. The API key is kept in UserData.secrets.
+  bool openai_api_server_enabled = 12;
+  int32 openai_api_server_port = 13;
+  string openai_api_server_model = 14;
+
+  // FRP configuration
+  bool frp_enabled = 15;
+  string frp_server_address = 16;
+  int32 frp_server_port = 17;
+  string frp_token = 18;
+  int32 frp_remote_port = 19;
+  string frp_custom_domain = 20;
 }
 
 message McpAuth {

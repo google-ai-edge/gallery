@@ -229,6 +229,32 @@
   <string name="snackbar_save_to_album_failed" translatable="true" description="Failure notification message shown when saving an image to the gallery fails. [CHAR_LIMIT=31]">Failed to save to photo album</string>
   <string name="snackbar_copy_to_clipboard_success" translatable="true" description="Success notification message shown when text is copied to the clipboard. [CHAR_LIMIT=21]">Copied to clipboard</string>
 
+  <!-- OpenAI API Server -->
+  <string name="openai_api_notification_channel" translatable="true">OpenAI API Server</string>
+  <string name="openai_api_notification_title" translatable="true">OpenAI API Server is running</string>
+  <string name="openai_api_notification_text" translatable="true">Port: %1$d</string>
+  <string name="stop" translatable="true">Stop</string>
+  <string name="openai_api_server_title" translatable="true">OpenAI API Server</string>
+  <string name="openai_api_server_description" translatable="true">Turn this device into an OpenAI-compatible API server. Any downloaded model can be used as an endpoint.</string>
+  <string name="openai_api_server_enabled" translatable="true">Server Enabled</string>
+  <string name="openai_api_server_port" translatable="true">Server Port</string>
+  <string name="openai_api_server_model" translatable="true">Default Model</string>
+  <string name="openai_api_server_api_key" translatable="true">API Key</string>
+  <string name="openai_api_server_endpoint" translatable="true">Endpoint</string>
+  <string name="openai_api_server_requests" translatable="true">Total Requests</string>
+  <string name="openai_api_server_regenerate_key" translatable="true">Regenerate Key</string>
+  <string name="openai_api_server_copy_endpoint" translatable="true">Copy Endpoint</string>
+  <string name="openai_api_server_copy_key" translatable="true">Copy API Key</string>
+  <string name="openai_api_server_frp_title" translatable="true">Internet Access (FRP)</string>
+  <string name="openai_api_server_frp_enable" translatable="true">Enable FRP Tunnel</string>
+  <string name="openai_api_server_frp_running" translatable="true">Tunnel Running</string>
+  <string name="openai_api_server_frp_stopped" translatable="true">Tunnel Stopped</string>
+  <string name="openai_api_server_frp_address" translatable="true">FRP Server Address</string>
+  <string name="openai_api_server_frp_port" translatable="true">FRP Server Port</string>
+  <string name="openai_api_server_frp_remote_port" translatable="true">Remote Port</string>
+  <string name="openai_api_server_frp_token" translatable="true">FRP Token</string>
+  <string name="openai_api_server_frp_custom_domain" translatable="true">Custom Domain (Optional)</string>
+
   <plurals name="parameter" translatable="true">
     <item quantity="one">Parameter</item>
     <item quantity="other">Parameters</item>
