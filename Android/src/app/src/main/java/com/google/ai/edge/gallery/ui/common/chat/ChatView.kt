@@ -144,6 +144,9 @@ fun ChatView(
   curSystemPrompt: String = "",
   onSystemPromptChanged: (String) -> Unit = {},
   sendMessageTrigger: SendMessageTrigger? = null,
+  voiceInputOnly: Boolean = false,
+  voiceInputProcessingStatusText: String? = null,
+  retainModelOnNavigateUp: Boolean = false,
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -182,10 +185,13 @@ fun ChatView(
     navigatingUp = true
     navigateUp()
 
-    // clean up all models.
-    scope.launch(Dispatchers.Default) {
-      for (model in task.models) {
-        modelManagerViewModel.cleanupModel(context = context, task = task, model = model)
+    if (retainModelOnNavigateUp) {
+      Log.d(TAG, "Retaining model '${selectedModel.name}' after navigating from '${task.id}'.")
+    } else {
+      scope.launch(Dispatchers.Default) {
+        for (model in task.models) {
+          modelManagerViewModel.cleanupModel(context = context, task = task, model = model)
+        }
       }
     }
   }
@@ -407,6 +413,8 @@ fun ChatView(
                       showStopButtonInInputWhenInProgress = showStopButtonInInputWhenInProgress,
                       showImagePicker = showImagePicker,
                       showAudioPicker = showAudioPicker,
+                      voiceInputOnly = voiceInputOnly,
+                      voiceInputProcessingStatusText = voiceInputProcessingStatusText,
                       emptyStateComposable = emptyStateComposable,
                     )
                   // Model download

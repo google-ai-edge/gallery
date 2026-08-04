@@ -72,6 +72,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlin.collections.sortedWith
 import kotlinx.coroutines.Dispatchers
@@ -94,6 +95,18 @@ private const val ALLOWLIST_BASE_URL =
   "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlists"
 
 private const val TEST_MODEL_ALLOW_LIST = ""
+
+private data class ModelInitializationKey(
+  val taskId: String,
+  val accelerator: String,
+  val systemPrompt: String,
+)
+
+private data class ActiveModelInitialization(
+  val model: Model,
+  val task: Task,
+  val key: ModelInitializationKey,
+)
 
 data class ModelInitializationStatus(
   val status: ModelInitializationStatusType,
@@ -214,6 +227,8 @@ constructor(
   private val externalFilesDir = context.getExternalFilesDir(null)
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   open val uiState = _uiState.asStateFlow()
+  private val activeModelInitializations =
+    ConcurrentHashMap<String, ActiveModelInitialization>()
 
   fun fetchModelDetails(modelId: String, onResult: (HfModelItemProto?) -> Unit) {
     viewModelScope.launch {
@@ -293,6 +308,7 @@ constructor(
       for (model in task.models) {
         model.preProcess()
       }
+
       // Move the model that is best for this task to the front.
       val bestModel = task.models.find { it.bestForTaskIds.contains(task.id) }
       if (bestModel != null) {
@@ -442,14 +458,32 @@ constructor(
     onError: (String) -> Unit = {},
   ) {
     viewModelScope.launch {
-      // Skip if initialized already.
+      val systemPrompt = SystemPromptHelper.getEffectiveSystemPrompt(systemPromptRepository, task)
+      val initializationKey =
+        ModelInitializationKey(
+          taskId = task.id,
+          accelerator =
+            model.getStringConfigValue(
+              key = ConfigKeys.ACCELERATOR,
+              defaultValue = Accelerator.GPU.label,
+            ),
+          systemPrompt = systemPrompt,
+        )
+      val activeInitialization = activeModelInitializations[model.name]
+
       if (
         !force &&
           model.instance != null &&
+          activeInitialization?.model === model &&
+          activeInitialization.key == initializationKey &&
           uiState.value.modelInitializationStatus[model.name]?.status ==
             ModelInitializationStatusType.INITIALIZED
       ) {
-        Log.d(TAG, "Model '${model.name}' has been initialized. Skipping.")
+        Log.d(
+          TAG,
+          "Model '${model.name}' is already initialized for task='${task.id}', " +
+            "accelerator='${initializationKey.accelerator}'. Skipping.",
+        )
         onDone()
         return@launch
       }
@@ -459,6 +493,37 @@ constructor(
         model.cleanUpAfterInit = false
         Log.d(TAG, "Model '${model.name}' is being initialized. Skipping.")
         return@launch
+      }
+
+      for (retainedInitialization in activeModelInitializations.values.toList()) {
+        if (
+          retainedInitialization.key.taskId == BuiltInTaskId.LLM_TRANSLATION &&
+            retainedInitialization.model.name != model.name &&
+            retainedInitialization.model.instance != null
+        ) {
+          Log.d(
+            TAG,
+            "Releasing retained Translation model '${retainedInitialization.model.name}' " +
+              "before initializing '${model.name}'.",
+          )
+          cleanupModel(
+            context = context,
+            task = retainedInitialization.task,
+            model = retainedInitialization.model,
+          )
+        }
+      }
+
+      if (
+        activeInitialization != null &&
+          activeInitialization.model !== model &&
+          activeInitialization.model.instance != null
+      ) {
+        cleanupModel(
+          context = context,
+          task = activeInitialization.task,
+          model = activeInitialization.model,
+        )
       }
 
       // Clean up.
@@ -475,6 +540,8 @@ constructor(
       val onDoneFn: (error: String) -> Unit = { error ->
         if (model.instance != null) {
           Log.d(TAG, "Model '${model.name}' initialized successfully")
+          activeModelInitializations[model.name] =
+            ActiveModelInitialization(model = model, task = task, key = initializationKey)
           updateModelInitializationStatus(
             model = model,
             status = ModelInitializationStatusType.INITIALIZED,
@@ -504,7 +571,6 @@ constructor(
       }
 
       // Call the model initialization function.
-      val systemPrompt = SystemPromptHelper.getEffectiveSystemPrompt(systemPromptRepository, task)
       withContext(Dispatchers.IO) {
         getCustomTaskByTaskId(id = task.id)
           ?.initializeModelFn(
@@ -536,6 +602,7 @@ constructor(
       Log.d(TAG, "Cleaning up model '${model.name}'...")
       val onDoneFn: () -> Unit = {
         model.resetInitialization()
+        removeActiveModelInitialization(model)
         updateModelInitializationStatus(
           model = model,
           status = ModelInitializationStatusType.NOT_INITIALIZED,
@@ -559,8 +626,27 @@ constructor(
           "Model '${model.name}' is still initializing.. Will clean up after it is done initializing",
         )
         model.cleanUpAfterInit = true
+      } else {
+        removeActiveModelInitialization(model)
       }
       onDone()
+    }
+  }
+
+  private fun removeActiveModelInitialization(model: Model) {
+    val activeInitialization = activeModelInitializations[model.name] ?: return
+    if (activeInitialization.model === model) {
+      activeModelInitializations.remove(model.name, activeInitialization)
+    }
+  }
+
+  fun updateActiveModelSystemPrompt(task: Task, model: Model, systemPrompt: String) {
+    val activeInitialization = activeModelInitializations[model.name] ?: return
+    if (activeInitialization.model === model && activeInitialization.key.taskId == task.id) {
+      activeModelInitializations[model.name] =
+        activeInitialization.copy(
+          key = activeInitialization.key.copy(systemPrompt = systemPrompt)
+        )
     }
   }
 
@@ -668,6 +754,14 @@ constructor(
   fun saveFirebaseAnalytics(enabled: Boolean) {
     dataStoreRepository.saveFirebaseAnalytics(enabled = enabled)
     firebaseAnalytics?.setAnalyticsCollectionEnabled(enabled)
+  }
+
+  fun isTranslationTextInputEnabled(): Boolean {
+    return dataStoreRepository.isTranslationTextInputEnabled()
+  }
+
+  fun setTranslationTextInputEnabled(enabled: Boolean) {
+    dataStoreRepository.setTranslationTextInputEnabled(enabled)
   }
 
   fun getModelUrlResponse(model: Model, accessToken: String? = null): Int {
@@ -1067,6 +1161,19 @@ constructor(
               newConfigs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
               model.configs = newConfigs
             }
+          }
+
+          if (allowedModel.taskTypes.contains(BuiltInTaskId.LLM_CHAT) &&
+            !allowedModel.taskTypes.contains(BuiltInTaskId.LLM_TRANSLATION)
+          ) {
+            val translationTask = curTasks.find { it.id == BuiltInTaskId.LLM_TRANSLATION }
+            translationTask?.models?.add(
+              if (model.name == "Gemma-4-E2B-it") {
+                model.copy(bestForTaskIds = listOf(BuiltInTaskId.LLM_TRANSLATION))
+              } else {
+                model
+              }
+            )
           }
         }
 

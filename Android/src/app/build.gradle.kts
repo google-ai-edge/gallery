@@ -28,9 +28,15 @@ plugins {
   kotlin("kapt")
 }
 
+val translationSherpaTtsEnabled =
+  providers.gradleProperty("translationSherpaTtsEnabled").orElse("true").map {
+    it.toBooleanStrict().toString()
+  }
+
 android {
   namespace = "com.google.ai.edge.gallery"
   compileSdk { this.version = release(37) { minorApiLevel = 0 } }
+  ndkVersion = "27.2.12479018"
 
   defaultConfig {
     applicationId = "com.google.aiedge.gallery"
@@ -49,6 +55,14 @@ android {
     buildConfigField("String", "FEEDBACK_API_KEY", "\"\"")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+    buildConfigField(
+      "boolean",
+      "TRANSLATION_TTS_SHERPA_ENABLED",
+      translationSherpaTtsEnabled.get(),
+    )
+
+    ndk { abiFilters += "arm64-v8a" }
   }
 
   buildTypes {
@@ -128,6 +142,8 @@ dependencies {
   implementation(libs.ktor.client.android)
   implementation(libs.ktor.client.core)
   implementation(libs.tasks.vision)
+  implementation(libs.sherpa.onnx)
+  implementation(libs.commons.compress)
 }
 
 protobuf {

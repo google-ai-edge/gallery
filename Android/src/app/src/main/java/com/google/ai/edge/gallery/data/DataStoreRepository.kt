@@ -68,6 +68,10 @@ interface DataStoreRepository {
 
   fun deleteSecret(key: String)
 
+  fun isTranslationTextInputEnabled(): Boolean
+
+  fun setTranslationTextInputEnabled(enabled: Boolean)
+
   fun saveAccessTokenData(accessToken: String, refreshToken: String, expiresAt: Long)
 
   fun clearAccessTokenData()
@@ -208,6 +212,18 @@ class DefaultDataStoreRepository(
   override fun deleteSecret(key: String) {
     runBlocking {
       userDataDataStore.updateData { userData -> userData.toBuilder().removeSecrets(key).build() }
+    }
+  }
+
+  override fun isTranslationTextInputEnabled(): Boolean {
+    return runBlocking { userDataDataStore.data.first().translationTextInputEnabled }
+  }
+
+  override fun setTranslationTextInputEnabled(enabled: Boolean) {
+    runBlocking {
+      userDataDataStore.updateData { userData ->
+        userData.toBuilder().setTranslationTextInputEnabled(enabled).build()
+      }
     }
   }
 

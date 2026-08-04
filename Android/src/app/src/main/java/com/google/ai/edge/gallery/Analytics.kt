@@ -27,8 +27,6 @@ val firebaseAnalytics: FirebaseAnalytics?
   get() =
     runCatching { Firebase.analytics }
       .onFailure { exception ->
-        // Firebase.analytics can throw an exception if goolgle-services is not set up, e.g.,
-        // missing google-services.json.
         if (!hasLoggedAnalyticsWarning) {
           Log.w("AGAnalyticsFirebase", "Firebase Analytics is not available", exception)
         }

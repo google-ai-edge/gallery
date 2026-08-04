@@ -112,6 +112,7 @@ open class LlmChatViewModelBase(
     model: Model,
     newPrompt: String,
     systemPromptUpdatedMessage: String,
+    onDone: () -> Unit = {},
   ) {
     _uiSystemPrompt.value = newPrompt
     viewModelScope.launch {
@@ -122,7 +123,10 @@ open class LlmChatViewModelBase(
         systemInstruction = newPrompt,
         supportImage = true,
         supportAudio = true,
-        onDone = { addMessage(model, ChatMessageInfo(content = systemPromptUpdatedMessage)) },
+        onDone = {
+          addMessage(model, ChatMessageInfo(content = systemPromptUpdatedMessage))
+          onDone()
+        },
       )
     }
   }
@@ -133,6 +137,7 @@ open class LlmChatViewModelBase(
     images: List<Bitmap> = listOf(),
     audioMessages: List<ChatMessageAudioClip> = listOf(),
     onFirstToken: (Model) -> Unit = {},
+    onPartialResult: (String, Boolean) -> Unit = { _, _ -> },
     onDone: () -> Unit = {},
     onError: (String) -> Unit,
     allowThinking: Boolean = false,
@@ -254,6 +259,9 @@ open class LlmChatViewModelBase(
                   partialContent = event.token,
                   latencyMs = latencyMs.toFloat(),
                 )
+              }
+              if (event.token.isNotEmpty() || event.done) {
+                onPartialResult(event.token, event.done)
               }
             }
 

@@ -103,6 +103,9 @@ message UserData {
   repeated ChatSessionProto chat_sessions = 3;
   // MCP server URL to MCP auth data.
   map<string, McpAuth> mcp_auths = 4;
+  string translation_target_language = 5;
+  bool translation_text_input_enabled = 6;
+  string translation_tts_model = 7;
 }
 
 enum FillMode {

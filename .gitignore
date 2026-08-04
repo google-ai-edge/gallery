@@ -1,1 +1,4 @@
 .DS_Store
+
+Android/src/app/.cxx/
+Android/src/app/build/

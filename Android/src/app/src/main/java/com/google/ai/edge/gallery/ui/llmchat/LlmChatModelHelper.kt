@@ -21,6 +21,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.google.ai.edge.gallery.common.cleanUpMediapipeTaskErrorMessage
 import com.google.ai.edge.gallery.data.Accelerator
+import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
@@ -52,6 +53,7 @@ import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.CancellationException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 
 private const val TAG = "AGLlmChatModelHelper"
@@ -146,22 +148,24 @@ object LlmChatModelHelper : LlmModelHelper {
     }
     // Create an instance of LiteRT LM engine and conversation.
     try {
-      var speculativeDecoding = false
-      // Check if the model supports speculative decoding for the given task type and if the
-      // speculative decoding is enabled in the settings.
-      if (
-        supportsSpeculativeDecoding &&
-          model.capabilityToTaskTypes[ModelCapability.SPECULATIVE_DECODING]?.contains(taskId) ==
-            true
-      ) {
-        speculativeDecoding =
-          model.getBooleanConfigValue(
-            key = ConfigKeys.ENABLE_SPECULATIVE_DECODING,
-            defaultValue = false,
-          )
-      }
+      val speculativeDecoding =
+        shouldEnableSpeculativeDecoding(
+          taskId = taskId,
+          modelSupportsSpeculativeDecoding = supportsSpeculativeDecoding,
+          capabilityTaskIds =
+            model.capabilityToTaskTypes[ModelCapability.SPECULATIVE_DECODING].orEmpty(),
+          configuredEnabled =
+            model.getBooleanConfigValue(
+              key = ConfigKeys.ENABLE_SPECULATIVE_DECODING,
+              defaultValue = false,
+            ),
+        )
       ExperimentalFlags.enableSpeculativeDecoding = speculativeDecoding
-      Log.d(TAG, "Speculative decoding enabled: $speculativeDecoding")
+      Log.d(
+        TAG,
+        "Speculative decoding enabled: $speculativeDecoding " +
+          "(task=$taskId, model_support=$supportsSpeculativeDecoding)",
+      )
       val engine = Engine(engineConfig)
       engine.initialize()
       ExperimentalFlags.enableSpeculativeDecoding = false
@@ -294,6 +298,43 @@ object LlmChatModelHelper : LlmModelHelper {
     }
   }
 
+  fun warmUp(
+    model: Model,
+    input: String,
+    onDone: () -> Unit,
+    onError: (String) -> Unit,
+  ) {
+    val instance = model.instance as? LlmModelInstance
+    if (instance == null) {
+      onError("LlmModelInstance is not initialized.")
+      return
+    }
+
+    val stopRequested = AtomicBoolean(false)
+    instance.conversation.sendMessageAsync(
+      Contents.of(input),
+      object : MessageCallback {
+        override fun onMessage(message: Message) {
+          if (stopRequested.compareAndSet(false, true)) {
+            instance.conversation.cancelProcess()
+          }
+        }
+
+        override fun onDone() {
+          onDone()
+        }
+
+        override fun onError(throwable: Throwable) {
+          if (throwable is CancellationException) {
+            onDone()
+          } else {
+            onError(throwable.message ?: "Unknown warmup error")
+          }
+        }
+      },
+    )
+  }
+
   override fun runInference(
     model: Model,
     input: String,
@@ -365,4 +406,15 @@ object LlmChatModelHelper : LlmModelHelper {
     this.compress(Bitmap.CompressFormat.PNG, 100, stream)
     return stream.toByteArray()
   }
+}
+
+internal fun shouldEnableSpeculativeDecoding(
+  taskId: String,
+  modelSupportsSpeculativeDecoding: Boolean,
+  capabilityTaskIds: List<String>,
+  configuredEnabled: Boolean,
+): Boolean {
+  if (!modelSupportsSpeculativeDecoding) return false
+  if (taskId == BuiltInTaskId.LLM_TRANSLATION) return true
+  return capabilityTaskIds.contains(taskId) && configuredEnabled
 }

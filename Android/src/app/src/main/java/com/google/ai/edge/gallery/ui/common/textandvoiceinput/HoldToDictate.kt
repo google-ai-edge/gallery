@@ -23,7 +23,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +45,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.core.content.ContextCompat
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Task
@@ -64,6 +69,8 @@ fun HoldToDictate(
   onAmplitudeChanged: (Int) -> Unit,
   enabled: Boolean,
   modifier: Modifier = Modifier,
+  iconOnly: Boolean = false,
+  iconButtonSize: Dp = 64.dp,
 ) {
   val uiState by viewModel.uiState.collectAsState()
   var recordAudioPermissionGranted by remember { mutableStateOf(false) }
@@ -125,14 +132,26 @@ fun HoldToDictate(
           .clip(CircleShape)
           .graphicsLayer { alpha = if (enabled) 1f else 0.5f }
           .background(getTaskBgGradientColors(task = task)[1])
-          .height(48.dp),
+          .then(if (iconOnly) Modifier.size(iconButtonSize) else Modifier.height(48.dp)),
       contentAlignment = Alignment.Center,
     ) {
-      Text(
-        if (uiState.recognizing) stringResource(R.string.listening)
-        else stringResource(R.string.hold_down_to_talk),
-        color = Color.White,
-      )
+      if (iconOnly) {
+        Icon(
+          imageVector = Icons.Rounded.Mic,
+          contentDescription =
+            stringResource(
+              if (uiState.recognizing) R.string.listening else R.string.hold_down_to_talk
+            ),
+          tint = Color.White,
+        )
+      } else {
+        Text(
+          stringResource(
+            if (uiState.recognizing) R.string.listening else R.string.hold_down_to_talk
+          ),
+          color = Color.White,
+        )
+      }
     }
   }
 }

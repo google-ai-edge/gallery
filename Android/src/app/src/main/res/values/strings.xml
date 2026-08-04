@@ -126,6 +126,9 @@
   <string name="invalid_response" translatable="true" description="Error message displayed when the model's output is invalid or cannot be parsed. [CHAR_LIMIT=18]">Invalid response</string>
   <string name="learn_more" translatable="true" description="Hyperlink text that directs users to more information and the model's license terms. [CHAR_LIMIT=34]">Learn more and see model license</string>
   <string name="listening" translatable="true" description="Status message indicating the app is actively listening to voice input for dictation. [CHAR_LIMIT=14]">Listening...</string>
+  <string name="transcribing" translatable="false">Transcribing...</string>
+  <string name="translating" translatable="false">Translating...</string>
+  <string name="speaking" translatable="false">Speaking...</string>
   <string name="litert_community_label" translatable="true" description="Hyperlink text pointing to the LiteRT community webpage. [CHAR_LIMIT=18]">LiteRT community</string>
   <string name="loading_model_list" translatable="true" description="Progress message displayed while the application fetches the list of available models. [CHAR_LIMIT=23]">Loading model list...</string>
   <string name="logs_viewer_filter_text_input_placeholder" translatable="true" description="Placeholder text in a search/filter input field within the logs viewer screen. [CHAR_LIMIT=13]">Filter logs</string>
@@ -263,6 +266,32 @@
   <string name="aichat_emptystate_support_image" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining the multimodal limits. [CHAR_LIMIT=100]">Support up to 10 images per chat.</string>
   <string name="aichat_emptystate_support_image_aicore" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining the multimodal limits. [CHAR_LIMIT=100]">Support 1 image per chat.</string>
   <string name="aichat_emptystate_support_audio" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining the multimodal limits. [CHAR_LIMIT=100]">Support 1 audio clip up to 30 seconds.</string>
+  <string name="translation_emptystate_title" translatable="false">Translation</string>
+  <string name="translation_emptystate_content" translatable="false">Type text or hold the microphone button to translate input and hear the result.</string>
+  <string name="translation_voice_emptystate_content" translatable="false">Hold the microphone and speak naturally. Your words will appear here as you talk.</string>
+  <string name="translation_typing_setting_title" translatable="false">Typing in Translation</string>
+  <string name="translation_typing_setting_description" translatable="false">Show a text field in Translation instead of the voice-first interface.</string>
+  <string name="translation_hold_to_speak" translatable="false">Hold to speak</string>
+  <string name="translation_release_to_translate" translatable="false">Listening · release to translate</string>
+  <string name="text_input_placeholder_translation" translatable="false">Enter text to translate…</string>
+  <string name="translation_offline_stt_unavailable_title" translatable="false">Speech recognition unavailable</string>
+  <string name="translation_offline_stt_unavailable_content" translatable="false">Offline speech recognition is not available right now. Would you like to type the text to translate instead?</string>
+  <string name="translation_type_instead" translatable="false">Type instead</string>
+  <string name="translation_tts_download_dialog_title" translatable="false">Download offline translation voice?</string>
+  <string name="translation_tts_download_dialog_content" translatable="false">The %s voice model is required for offline translated speech output.</string>
+  <string name="translation_tts_download_dialog_downloading" translatable="false">Downloading offline translation voice…</string>
+  <string name="translation_tts_download_dialog_byte_stats" translatable="false">%1$s of %2$s downloaded</string>
+  <string name="translation_tts_download_dialog_downloaded_stats" translatable="false">%s downloaded</string>
+  <string name="translation_tts_download_dialog_file_stats" translatable="false">%1$d of %2$d files</string>
+  <string name="translation_voice_models_title" translatable="false">Voice models</string>
+  <string name="translation_voice_models_description" translatable="false">Choose the on-device voice used to read translations. Models are downloaded and stored independently.</string>
+  <string name="translation_voice_model_installed" translatable="false">Installed</string>
+  <string name="translation_voice_model_download_size" translatable="false">Download · %s</string>
+  <string name="translation_voice_model_use" translatable="false">Use model</string>
+  <string name="translation_voice_model_selected" translatable="false">Selected</string>
+  <string name="translation_voice_model_delete_title" translatable="false">Delete voice model?</string>
+  <string name="translation_voice_model_delete_content" translatable="false">Remove %s and its downloaded files from this device?</string>
+  <string name="not_now" translatable="false">Not now</string>
   <string name="add_script" translatable="true" description="Title of the dialog for adding a new script to a skill. [CHAR_LIMIT=12]">Add script</string>
   <string name="add_default_script" translatable="true" description="Button label to add a template or default script when no scripts exist yet. [CHAR_LIMIT=20]">Add default script</string>
   <string name="add_skill" translatable="true" description="Title of the bottom sheet containing options to add a new skill. [CHAR_LIMIT=11]">Add skill</string>

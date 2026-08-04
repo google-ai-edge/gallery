@@ -23,8 +23,14 @@ import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -34,6 +40,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,9 +54,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ThumbDown
@@ -58,14 +68,19 @@ import androidx.compose.material.icons.outlined.ThumbDown
 import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -83,6 +98,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -102,6 +118,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
@@ -109,8 +126,11 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.AudioAnimation
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.FloatingBanner
+import com.google.ai.edge.gallery.ui.common.getTaskBgGradientColors
 import com.google.ai.edge.gallery.ui.common.RotationalLoader
 import com.google.ai.edge.gallery.ui.common.ScrollToBottomButton
+import com.google.ai.edge.gallery.ui.common.textandvoiceinput.HoldToDictate
+import com.google.ai.edge.gallery.ui.common.textandvoiceinput.HoldToDictateViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
@@ -147,6 +167,8 @@ fun ChatPanel(
   showStopButtonInInputWhenInProgress: Boolean = false,
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
+  voiceInputOnly: Boolean = false,
+  voiceInputProcessingStatusText: String? = null,
   emptyStateComposable: @Composable (Model) -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsState()
@@ -653,72 +675,99 @@ fun ChatPanel(
         }
       }
 
-      val modelNotSupportImageMsg = stringResource(R.string.model_not_support_image_message)
-      val modelNotSupportAudioMsg = stringResource(R.string.model_not_support_audio_message)
-      val imageLimitIgnoredMsg = stringResource(R.string.image_limit_ignored_message)
-
-      MessageInputText(
-        task = task,
-        modelManagerViewModel = modelManagerViewModel,
-        curMessage = curMessage,
-        inProgress = uiState.inProgress,
-        isResettingSession = uiState.isResettingSession,
-        modelPreparing = uiState.preparing,
-        imageCount = imageCountToLastConfigChange,
-        audioClipMessageCount = audioClipMesssageCountToLastconfigChange,
-        skillCount = skillCount,
-        mcpCount = mcpCount,
-        modelInitializing =
-          modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING,
-        textFieldPlaceHolderRes = task.textInputPlaceHolderRes,
-        onValueChanged = { curMessage = it },
-        onSendMessage = {
-          onSendMessage(selectedModel, it)
-          curMessage = ""
-          // Hide software keyboard.
-          focusManager.clearFocus()
-        },
-        onOpenPromptTemplatesClicked = {
-          onSendMessage(
-            selectedModel,
-            listOf(
-              ChatMessagePromptTemplates(
-                templates = selectedModel.llmPromptTemplates,
-                showMakeYourOwn = false,
-              )
-            ),
-          )
-        },
-        onStopButtonClicked = onStopButtonClicked,
-        onSetAudioRecorderVisible = { start ->
-          showAudioRecorder = start
-          if (!showAudioRecorder) {
-            curAmplitude = 0
-          }
-        },
-        onAmplitudeChanged = { curAmplitude = it },
-        onSkillsClicked = onSkillClicked,
-        onMcpClicked = onMcpClicked,
-        onPickedImagesChanged = { pickedImagesCount = it.size },
-        onPickedAudioClipsChanged = { pickedAudioClipsCount = it.size },
-        showPromptTemplatesInMenu = false,
-        showSkillsPicker = task.id === BuiltInTaskId.LLM_AGENT_CHAT,
-        showMcpPicker = task.id === BuiltInTaskId.LLM_AGENT_CHAT,
-        showImagePicker = showImagePicker,
-        showAudioPicker = showAudioPicker,
-        showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
-        onImageLimitExceeded = { showImageLimitBanner = true },
-        onImagesIgnored = {
-          scope.launch {
-            snackbarHostState.showSnackbar(
-              message = imageLimitIgnoredMsg,
-              duration = SnackbarDuration.Short,
+      val modelInitializing =
+        modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
+      if (voiceInputOnly) {
+        VoiceOnlyMessageInput(
+          task = task,
+          inProgress = uiState.inProgress,
+          isResettingSession = uiState.isResettingSession,
+          modelInitializing = modelInitializing,
+          modelPreparing = uiState.preparing,
+          showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
+          processingStatusText = voiceInputProcessingStatusText,
+          onStopButtonClicked = onStopButtonClicked,
+          onEnableTextInput = {
+            if (task.id == BuiltInTaskId.LLM_TRANSLATION) {
+              modelManagerViewModel.setTranslationTextInputEnabled(true)
+            }
+          },
+          onSendMessage = { text ->
+            onSendMessage(
+              selectedModel,
+              listOf(ChatMessageText(content = text, side = ChatSide.USER)),
             )
-          }
-        },
-        onModelNotSupportImage = { customErrorMessage = modelNotSupportImageMsg },
-        onModelNotSupportAudio = { customErrorMessage = modelNotSupportAudioMsg },
-      )
+            focusManager.clearFocus()
+          },
+        )
+      } else {
+        val modelNotSupportImageMsg =
+          stringResource(R.string.model_not_support_image_message)
+        val modelNotSupportAudioMsg =
+          stringResource(R.string.model_not_support_audio_message)
+        val imageLimitIgnoredMsg = stringResource(R.string.image_limit_ignored_message)
+
+        MessageInputText(
+          task = task,
+          modelManagerViewModel = modelManagerViewModel,
+          curMessage = curMessage,
+          inProgress = uiState.inProgress,
+          isResettingSession = uiState.isResettingSession,
+          modelPreparing = uiState.preparing,
+          imageCount = imageCountToLastConfigChange,
+          audioClipMessageCount = audioClipMesssageCountToLastconfigChange,
+          skillCount = skillCount,
+          mcpCount = mcpCount,
+          modelInitializing = modelInitializing,
+          textFieldPlaceHolderRes = task.textInputPlaceHolderRes,
+          onValueChanged = { curMessage = it },
+          onSendMessage = {
+            onSendMessage(selectedModel, it)
+            curMessage = ""
+            focusManager.clearFocus()
+          },
+          onOpenPromptTemplatesClicked = {
+            onSendMessage(
+              selectedModel,
+              listOf(
+                ChatMessagePromptTemplates(
+                  templates = selectedModel.llmPromptTemplates,
+                  showMakeYourOwn = false,
+                )
+              ),
+            )
+          },
+          onStopButtonClicked = onStopButtonClicked,
+          onSetAudioRecorderVisible = { start ->
+            showAudioRecorder = start
+            if (!showAudioRecorder) {
+              curAmplitude = 0
+            }
+          },
+          onAmplitudeChanged = { curAmplitude = it },
+          onSkillsClicked = onSkillClicked,
+          onMcpClicked = onMcpClicked,
+          onPickedImagesChanged = { pickedImagesCount = it.size },
+          onPickedAudioClipsChanged = { pickedAudioClipsCount = it.size },
+          showPromptTemplatesInMenu = false,
+          showSkillsPicker = task.id === BuiltInTaskId.LLM_AGENT_CHAT,
+          showMcpPicker = task.id === BuiltInTaskId.LLM_AGENT_CHAT,
+          showImagePicker = showImagePicker,
+          showAudioPicker = showAudioPicker,
+          showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
+          onImageLimitExceeded = { showImageLimitBanner = true },
+          onImagesIgnored = {
+            scope.launch {
+              snackbarHostState.showSnackbar(
+                message = imageLimitIgnoredMsg,
+                duration = SnackbarDuration.Short,
+              )
+            }
+          },
+          onModelNotSupportImage = { customErrorMessage = modelNotSupportImageMsg },
+          onModelNotSupportAudio = { customErrorMessage = modelNotSupportAudioMsg },
+        )
+      }
     }
   }
 
@@ -744,6 +793,281 @@ fun ChatPanel(
       onBenchmarkClicked = { message, warmUpIterations, benchmarkIterations ->
         onBenchmarkClicked(selectedModel, message, warmUpIterations, benchmarkIterations)
       },
+    )
+  }
+}
+
+@Composable
+private fun VoiceOnlyMessageInput(
+  task: Task,
+  inProgress: Boolean,
+  isResettingSession: Boolean,
+  modelInitializing: Boolean,
+  modelPreparing: Boolean,
+  showStopButtonWhenInProgress: Boolean,
+  processingStatusText: String?,
+  onStopButtonClicked: () -> Unit,
+  onEnableTextInput: () -> Unit,
+  onSendMessage: (String) -> Unit,
+  holdToDictateViewModel: HoldToDictateViewModel = hiltViewModel(),
+) {
+  val holdToDictateUiState by holdToDictateViewModel.uiState.collectAsState()
+  val inputEnabled =
+    !inProgress &&
+      !isResettingSession &&
+      !modelInitializing &&
+      !modelPreparing &&
+      !holdToDictateUiState.transcribing
+  var amplitude by remember { mutableIntStateOf(0) }
+  val transcript = holdToDictateUiState.recognizedText.trim()
+  val dictationActive =
+    holdToDictateUiState.recognizing || holdToDictateUiState.transcribing
+
+  if (holdToDictateUiState.offerTextInputFallback) {
+    AlertDialog(
+      onDismissRequest = { holdToDictateViewModel.dismissTextInputFallbackOffer() },
+      title = { Text(stringResource(R.string.translation_offline_stt_unavailable_title)) },
+      text = { Text(stringResource(R.string.translation_offline_stt_unavailable_content)) },
+      confirmButton = {
+        TextButton(
+          onClick = {
+            holdToDictateViewModel.dismissTextInputFallbackOffer()
+            onEnableTextInput()
+          }
+        ) {
+          Text(stringResource(R.string.translation_type_instead))
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { holdToDictateViewModel.dismissTextInputFallbackOffer() }) {
+          Text(stringResource(R.string.not_now))
+        }
+      },
+    )
+  }
+
+  Column(
+    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(vertical = 10.dp),
+    verticalArrangement = Arrangement.spacedBy(12.dp),
+    horizontalAlignment = Alignment.CenterHorizontally,
+  ) {
+    val activeStatusText =
+      when {
+        holdToDictateUiState.transcribing -> stringResource(R.string.transcribing)
+        holdToDictateUiState.recognizing -> null
+        else -> processingStatusText
+      }
+    Box(
+      modifier = Modifier.fillMaxWidth().height(24.dp),
+      contentAlignment = Alignment.Center,
+    ) {
+      if (activeStatusText != null) {
+        Row(
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+          Text(
+            text = activeStatusText,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+      }
+    }
+
+    AnimatedVisibility(
+      visible = dictationActive,
+      enter = fadeIn(tween(140)) + scaleIn(initialScale = 0.96f),
+      exit = fadeOut(tween(100)) + scaleOut(targetScale = 0.98f),
+    ) {
+      Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+        Box(
+          modifier =
+            Modifier.widthIn(max = 340.dp)
+              .clip(
+                RoundedCornerShape(
+                  topStart = 24.dp,
+                  topEnd = 24.dp,
+                  bottomStart = 24.dp,
+                  bottomEnd = 6.dp,
+                )
+              )
+              .background(MaterialTheme.colorScheme.primaryContainer)
+              .padding(horizontal = 18.dp, vertical = 14.dp)
+        ) {
+          Text(
+            text = transcript.ifEmpty { stringResource(R.string.listening) },
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+          )
+        }
+      }
+    }
+
+    AnimatedVisibility(
+      visible = holdToDictateUiState.errorMessage.isNotBlank(),
+      enter = fadeIn(animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)),
+      exit = fadeOut(animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing)),
+    ) {
+      Box(
+        modifier =
+          Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(
+              width = 1.dp,
+              color = MaterialTheme.colorScheme.outlineVariant,
+              shape = RoundedCornerShape(16.dp),
+            )
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+      ) {
+        Text(
+          text = holdToDictateUiState.errorMessage,
+          style = MaterialTheme.typography.bodyLarge,
+          color = MaterialTheme.colorScheme.error,
+        )
+      }
+    }
+
+    if (inProgress && showStopButtonWhenInProgress && !modelInitializing && !modelPreparing) {
+      Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        IconButton(
+          onClick = onStopButtonClicked,
+          colors =
+            IconButtonDefaults.iconButtonColors(
+              containerColor = MaterialTheme.colorScheme.secondaryContainer
+            ),
+        ) {
+          Icon(
+            Icons.Rounded.Stop,
+            contentDescription = stringResource(R.string.cd_stop_icon),
+            tint = MaterialTheme.colorScheme.primary,
+          )
+        }
+      }
+    } else {
+      TranslationVoiceControl(
+        task = task,
+        viewModel = holdToDictateViewModel,
+        enabled = inputEnabled,
+        recognizing = holdToDictateUiState.recognizing,
+        amplitude = amplitude,
+        onAmplitudeChanged = { amplitude = it },
+        onDone = { recognizedText ->
+          recognizedText.trim().takeIf { it.isNotEmpty() }?.let(onSendMessage)
+          amplitude = 0
+          holdToDictateViewModel.setRecognizedText("")
+        },
+      )
+    }
+  }
+}
+
+@Composable
+private fun TranslationVoiceControl(
+  task: Task,
+  viewModel: HoldToDictateViewModel,
+  enabled: Boolean,
+  recognizing: Boolean,
+  amplitude: Int,
+  onAmplitudeChanged: (Int) -> Unit,
+  onDone: (String) -> Unit,
+) {
+  val taskColor = getTaskBgGradientColors(task = task)[1]
+  val pulseTransition = rememberInfiniteTransition(label = "translationVoicePulse")
+  val pulse by
+    pulseTransition.animateFloat(
+      initialValue = 0f,
+      targetValue = 1f,
+      animationSpec =
+        infiniteRepeatable(
+          animation = tween(durationMillis = 950, easing = LinearEasing),
+          repeatMode = RepeatMode.Restart,
+        ),
+      label = "translationVoicePulseProgress",
+    )
+  val amplitudeFraction by
+    animateFloatAsState(
+      targetValue = (amplitude / 65535f).coerceIn(0f, 1f),
+      animationSpec = tween(durationMillis = 90),
+      label = "translationVoiceAmplitude",
+    )
+
+  Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Box(
+      modifier =
+        Modifier.size(132.dp).drawBehind {
+          if (recognizing) {
+            val radius = size.minDimension / 2f
+            drawCircle(
+              color = taskColor.copy(alpha = 0.15f * (1f - pulse)),
+              radius = radius * (0.62f + 0.34f * pulse),
+            )
+            drawCircle(
+              color = taskColor.copy(alpha = 0.14f + 0.10f * amplitudeFraction),
+              radius = radius * (0.61f + 0.08f * amplitudeFraction),
+            )
+          }
+        },
+      contentAlignment = Alignment.Center,
+    ) {
+      HoldToDictate(
+        task = task,
+        viewModel = viewModel,
+        onDone = onDone,
+        onAmplitudeChanged = onAmplitudeChanged,
+        enabled = enabled,
+        modifier =
+          Modifier.graphicsLayer {
+            val activeScale = if (recognizing) 1f + 0.05f * amplitudeFraction else 1f
+            scaleX = activeScale
+            scaleY = activeScale
+          },
+        iconOnly = true,
+        iconButtonSize = 84.dp,
+      )
+    }
+
+    Row(
+      modifier = Modifier.height(34.dp),
+      horizontalArrangement = Arrangement.spacedBy(5.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      val barWeights = listOf(0.42f, 0.72f, 1f, 0.72f, 0.42f)
+      for (barWeight in barWeights) {
+        val activeHeight =
+          if (recognizing) {
+            7f + barWeight * (8f + 19f * amplitudeFraction) + pulse * 2f
+          } else {
+            5f
+          }
+        Box(
+          modifier =
+            Modifier.width(5.dp)
+              .height(activeHeight.dp)
+              .clip(CircleShape)
+              .background(
+                if (recognizing) taskColor else MaterialTheme.colorScheme.outlineVariant
+              )
+        )
+      }
+    }
+
+    Text(
+      text =
+        stringResource(
+          if (recognizing) {
+            R.string.translation_release_to_translate
+          } else {
+            R.string.translation_hold_to_speak
+          }
+        ),
+      style = MaterialTheme.typography.labelLarge,
+      color =
+        if (enabled) MaterialTheme.colorScheme.onSurface
+        else MaterialTheme.colorScheme.onSurfaceVariant,
+      modifier = Modifier.padding(top = 2.dp),
     )
   }
 }
