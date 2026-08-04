@@ -183,7 +183,7 @@ data class AllowedModel(
           .toMutableList()
     }
 
-    var learnMoreUrl = "https://huggingface.co/${modelId}"
+    var learnMoreUrl = if (modelId.isEmpty()) "" else "https://huggingface.co/${modelId}"
 
     if (runtimeType == RuntimeType.AICORE) {
       downloadUrl = ""

@@ -167,7 +167,10 @@ fun ModelNameAndStatus(
 
     // Learn more url.
     if (!model.imported && model.learnMoreUrl.isNotEmpty()) {
-      Row(verticalAlignment = Alignment.CenterVertically) {
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+      ) {
         Icon(
           Icons.AutoMirrored.Outlined.OpenInNew,
           tint = MaterialTheme.customColors.modelInfoIconColor,
