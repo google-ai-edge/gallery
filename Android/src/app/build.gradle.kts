@@ -104,6 +104,7 @@ dependencies {
   implementation(libs.openid.appauth)
   implementation(libs.androidx.splashscreen)
   implementation(libs.protobuf.javalite)
+  implementation(libs.protobuf.kotlin.lite)
   implementation(libs.hilt.android)
   implementation(libs.hilt.navigation.compose)
   implementation(libs.play.services.oss.licenses)
@@ -130,5 +131,12 @@ dependencies {
 
 protobuf {
   protoc { artifact = "com.google.protobuf:protoc:4.26.1" }
-  generateProtoTasks { all().forEach { it.plugins { create("java") { option("lite") } } } }
+  generateProtoTasks {
+    all().forEach { task ->
+      task.builtins {
+        create("java") { option("lite") }
+        create("kotlin") { option("lite") }
+      }
+    }
+  }
 }
