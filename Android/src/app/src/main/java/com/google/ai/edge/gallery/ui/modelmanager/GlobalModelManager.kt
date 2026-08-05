@@ -100,6 +100,7 @@ import com.google.ai.edge.gallery.proto.HfModelItemProto
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.ui.common.TaskIcon
 import com.google.ai.edge.gallery.ui.common.buildTrackableUrlAnnotatedString
+import com.google.ai.edge.gallery.ui.common.isHttpOrHttps
 import com.google.ai.edge.gallery.ui.common.modelitem.ModelItem
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import kotlin.text.endsWith
@@ -690,7 +691,7 @@ private fun getFileName(context: Context, uri: Uri): String? {
         }
       }
     }
-  } else if (uri.scheme == "file" || uri.scheme == "http" || uri.scheme == "https") {
+  } else if (uri.scheme == "file" || isHttpOrHttps(uri)) {
     return uri.lastPathSegment
   }
   return null

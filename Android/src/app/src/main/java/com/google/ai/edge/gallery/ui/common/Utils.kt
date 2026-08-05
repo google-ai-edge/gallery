@@ -172,6 +172,11 @@ fun formatLastModifiedDate(lastModified: String): String {
   }
 }
 
+/** Returns true if the Uri scheme is "http" or "https" (case-insensitive). */
+fun isHttpOrHttps(uri: Uri): Boolean =
+  uri.scheme?.equals("http", ignoreCase = true) == true ||
+    uri.scheme?.equals("https", ignoreCase = true) == true
+
 fun getDistinctiveColor(index: Int): Color {
   val colors =
     listOf(

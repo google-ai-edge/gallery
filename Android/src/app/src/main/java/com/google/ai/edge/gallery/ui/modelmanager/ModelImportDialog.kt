@@ -80,10 +80,12 @@ import com.google.ai.edge.gallery.data.SegmentedButtonConfig
 import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.data.convertValueToTargetType
 import com.google.ai.edge.gallery.proto.ImportedModel
-import com.google.ai.edge.gallery.proto.LlmConfig
+import com.google.ai.edge.gallery.proto.importedModel
+import com.google.ai.edge.gallery.proto.llmConfig
 import com.google.ai.edge.gallery.ui.common.ConfigEditorsPanel
 import com.google.ai.edge.gallery.ui.common.ensureValidFileName
 import com.google.ai.edge.gallery.ui.common.humanReadableSize
+import com.google.ai.edge.gallery.ui.common.isHttpOrHttps
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
@@ -156,10 +158,6 @@ private val IMPORT_CONFIGS_LLM: List<Config> =
       allowMultiple = true,
     ),
   )
-
-private fun isHttpOrHttps(uri: Uri): Boolean {
-  return uri.scheme == "http" || uri.scheme == "https"
-}
 
 @Composable
 fun ModelImportDialog(
@@ -330,27 +328,25 @@ fun ModelImportDialog(
                 )
                   as Boolean
               val downloadUrl = getDownloadUrl(uri)
-              val importedModel: ImportedModel =
-                ImportedModel.newBuilder()
-                  .setFileName(fileName)
-                  .setFileSize(fileSize)
-                  .setUrl(if (uri.scheme == "http" || uri.scheme == "https") downloadUrl else "")
-                  .setLlmConfig(
-                    LlmConfig.newBuilder()
-                      .addAllCompatibleAccelerators(supportedAccelerators)
-                      .setDefaultMaxTokens(defaultMaxTokens)
-                      .setDefaultTopk(defaultTopk)
-                      .setDefaultTopp(defaultTopp)
-                      .setDefaultTemperature(defaultTemperature)
-                      .setSupportImage(supportImage)
-                      .setSupportAudio(supportAudio)
-                      .setSupportMobileActions(supportMobileActions)
-                      .setSupportThinking(supportThinking)
-                      .setSupportTinyGarden(supportTinyGarden)
-                      .setSupportSpeculativeDecoding(supportSpeculativeDecoding)
-                      .build()
-                  )
-                  .build()
+              val importedModel = importedModel {
+                this.fileName = fileName
+                this.fileSize = fileSize
+                this.url = if (isHttpOrHttps(uri)) downloadUrl else ""
+                this.llmConfig = llmConfig {
+                  compatibleAccelerators += supportedAccelerators
+                  this.defaultMaxTokens = defaultMaxTokens
+                  this.defaultTopk = defaultTopk
+                  this.defaultTopp = defaultTopp
+                  this.defaultTemperature = defaultTemperature
+                  this.supportImage = supportImage
+                  this.supportAudio = supportAudio
+                  this.supportMobileActions = supportMobileActions
+                  this.supportThinking = supportThinking
+                  this.supportTinyGarden = supportTinyGarden
+                  this.supportSpeculativeDecoding = supportSpeculativeDecoding
+                }
+              }
+
               onDone(importedModel)
             },
           ) {
@@ -476,7 +472,7 @@ private fun importModel(
   // TODO: handle error.
   coroutineScope.launch(Dispatchers.IO) {
     // If it's a model from the web, we don't need to copy the file over.
-    if (uri.scheme == "http" || uri.scheme == "https") {
+    if (isHttpOrHttps(uri)) {
       Log.d(TAG, "importing web model from $uri. File name: $fileName. File size: $fileSize")
       // Simulate a quick progress animation to show the user it's being added
       // for (i in 1..10) {
@@ -538,7 +534,7 @@ private fun importModel(
 }
 
 private fun getFileSizeAndDisplayNameFromUri(context: Context, uri: Uri): Pair<Long, String> {
-  if (uri.scheme == "http" || uri.scheme == "https") {
+  if (isHttpOrHttps(uri)) {
     return Pair(0L, uri.lastPathSegment ?: "")
   }
   val contentResolver = context.contentResolver
