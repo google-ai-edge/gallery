@@ -26,6 +26,7 @@ import com.google.ai.edge.gallery.tools.ToolDispatcher
 import com.google.ai.edge.gallery.tools.ToolExecutionContext
 import com.google.ai.edge.gallery.tools.ToolsProvider
 import com.google.ai.edge.litertlm.Contents
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.onFailure
@@ -37,6 +38,12 @@ private const val TAG = "AGDefaultAgentRuntimeExecutor"
 /**
  * Default implementation of [AgentRuntimeExecutor] orchestrating context assembly, execution
  * context injection, LiteRT-LM inference turns, and event streaming.
+ *
+ * This implementation is thread-safe and lock-free. Internal session state such as the active model
+ * and tool execution context is encapsulated within an immutable structure managed by an atomic
+ * reference. This allows lifecycle operations ([initialize], [executeStream], [interrupt], and
+ * [cleanUp]) to be invoked safely across concurrent threads or coroutines without contention, race
+ * conditions, or deadlocks.
  */
 open class DefaultAgentRuntimeExecutor(
   val skillsProvider: SkillsProvider,
@@ -44,21 +51,23 @@ open class DefaultAgentRuntimeExecutor(
   val toolDispatcher: ToolDispatcher,
 ) : AgentRuntimeExecutor {
 
-  private var model: Model? = null
-  private var toolExecutionContext: ToolExecutionContext? = null
+  /** Active session state for the current conversation. */
+  private data class ActiveSession(val model: Model, val toolExecutionContext: ToolExecutionContext)
+
+  /** Atomic reference to the active session. */
+  private val activeSession = AtomicReference<ActiveSession?>(null)
 
   override suspend fun initialize(
     context: Context,
     config: AgentRuntimeConfig,
     onDone: (String) -> Unit,
   ) {
-    this.model = config.model
-
     val systemInstruction = Contents.of(config.systemInstruction ?: "")
-
     val executionContext =
       ToolExecutionContext(taskId = config.taskId, actionChannel = config.actionChannel)
-    this.toolExecutionContext = executionContext
+
+    activeSession.set(ActiveSession(model = config.model, toolExecutionContext = executionContext))
+
     toolDispatcher.setupExecutionContext(
       tools = toolsProvider.getAvailableTools(),
       context = executionContext,
@@ -87,12 +96,14 @@ open class DefaultAgentRuntimeExecutor(
   ): Flow<AgentEvent> = callbackFlow {
     emitEvent(AgentEvent.LoopInitiated(request = request))
 
-    toolExecutionContext?.let { execCtx ->
-      toolDispatcher.setupExecutionContext(
-        tools = toolsProvider.getAvailableTools(),
-        context = execCtx,
-      )
-    }
+    val session =
+      activeSession.get() ?: error("Model not initialized in DefaultAgentRuntimeExecutor")
+    val curModel = session.model
+
+    toolDispatcher.setupExecutionContext(
+      tools = toolsProvider.getAvailableTools(),
+      context = session.toolExecutionContext,
+    )
 
     val images = request.attachments.filterIsInstance<Attachment.ImageBitmap>().map { it.bitmap }
     val audioClips =
@@ -105,9 +116,6 @@ open class DefaultAgentRuntimeExecutor(
         ?.mapNotNull { (k, v) -> if (k is String && v is String) k to v else null }
         ?.toMap()
         ?.ifEmpty { null }
-    val curModel =
-      this@DefaultAgentRuntimeExecutor.model
-        ?: error("Model not initialized in DefaultAgentRuntimeExecutor")
     if (curModel.instance == null) {
       try {
         curModel.awaitInitialization()
@@ -184,20 +192,18 @@ open class DefaultAgentRuntimeExecutor(
   }
 
   override fun interrupt() {
-    val curModel = this.model ?: return
+    val curModel = activeSession.get()?.model ?: return
     Log.d(TAG, "Interrupting session for model: ${curModel.name}")
     // TODO: we need to reset the conversation in executeStream if user sends a new request.
     curModel.runtimeHelper.stopResponse(curModel)
   }
 
   override fun cleanUp(onDone: () -> Unit) {
-    val curModel = this.model
-    if (curModel == null) {
+    val session = activeSession.getAndSet(null)
+    if (session == null) {
       onDone()
       return
     }
-    this.model = null
-    this.toolExecutionContext = null
-    curModel.runtimeHelper.cleanUp(model = curModel, onDone = onDone)
+    session.model.runtimeHelper.cleanUp(model = session.model, onDone = onDone)
   }
 }
