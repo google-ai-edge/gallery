@@ -32,6 +32,7 @@ import kotlinx.coroutines.withContext
 
 private const val TAG = "AGHfApiClient"
 private const val HF_API_BASE_URL = "https://huggingface.co/api"
+private const val USER_AGENT = "AIEdgeGallery/1.0 (Android)"
 
 open class HuggingFaceApiClient
 @Inject
@@ -126,6 +127,7 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
       Log.d(TAG, "Executing HF HTTP GET request: $urlString")
       val connection = URL(urlString).openConnection() as HttpURLConnection
       connection.requestMethod = "GET"
+      connection.setRequestProperty("User-Agent", USER_AGENT)
       if (!accessToken.isNullOrEmpty()) {
         connection.setRequestProperty("Authorization", "Bearer $accessToken")
       }
