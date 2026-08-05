@@ -38,8 +38,10 @@ import kotlinx.coroutines.flow.Flow
  * 4. **Cleanup:** Call [cleanUp] when the executor or session is no longer needed to release model
  *    weights and system resources.
  *
- * Implementations should ensure thread-safe operation and proper resource management during
- * execution.
+ * **Thread Safety:** All implementations of [AgentRuntimeExecutor] MUST be thread-safe. Methods
+ * such as [initialize], [execute], [executeStream], [interrupt], and [cleanUp] may be invoked from
+ * different threads or coroutine dispatchers concurrently, and implementations must protect
+ * internal state against concurrent access and race conditions.
  */
 interface AgentRuntimeExecutor {
   /**
