@@ -21,6 +21,8 @@ import com.google.ai.edge.gallery.di.IoDispatcher
 import com.google.ai.edge.gallery.proto.HfModelItemProto
 import com.google.ai.edge.gallery.proto.HfSiblingProto
 import com.google.ai.edge.gallery.proto.HfSortOptionProto
+import com.google.ai.edge.gallery.proto.hfModelItemProto
+import com.google.ai.edge.gallery.proto.hfSiblingProto
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import java.net.HttpURLConnection
@@ -146,40 +148,35 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
     }
   }
 
-  private fun parseHfModelItemProto(jsonObj: JsonObject): HfModelItemProto {
-    val builder = HfModelItemProto.newBuilder()
-    jsonObj.getOrNull("id")?.let { builder.setId(it.asString) }
-    jsonObj.getOrNull("author")?.let { builder.setAuthor(it.asString) }
-    jsonObj.getOrNull("description")?.let { builder.setDescription(it.asString) }
-    jsonObj.getOrNull("downloads")?.let { builder.setDownloads(it.asLong) }
-    jsonObj.getOrNull("likes")?.let { builder.setLikes(it.asLong) }
-    jsonObj.getOrNull("lastModified")?.let { builder.setLastModified(it.asString) }
+  private fun parseHfModelItemProto(jsonObj: JsonObject): HfModelItemProto = hfModelItemProto {
+    jsonObj.getOrNull("id")?.let { id = it.asString }
+    jsonObj.getOrNull("author")?.let { author = it.asString }
+    jsonObj.getOrNull("description")?.let { description = it.asString }
+    jsonObj.getOrNull("downloads")?.let { downloads = it.asLong }
+    jsonObj.getOrNull("likes")?.let { likes = it.asLong }
+    jsonObj.getOrNull("lastModified")?.let { lastModified = it.asString }
 
     jsonObj
       .getAsJsonArray("tags")
       ?.filterNot { it.isJsonNull }
-      ?.forEach { tag -> builder.addTags(tag.asString) }
+      ?.forEach { tag -> tags += tag.asString }
 
     // For each file (sibling) in the model, add a sibling proto to the model proto.
     jsonObj
       .getAsJsonArray("siblings")
       ?.filter { it.isJsonObject }
       ?.mapNotNull { parseHfSiblingProto(it.asJsonObject) }
-      ?.forEach { builder.addSiblings(it) }
-
-    return builder.build()
+      ?.forEach { sibling -> siblings += sibling }
   }
 
   private fun parseHfSiblingProto(sibObj: JsonObject): HfSiblingProto? {
     val filename = sibObj.getOrNull("rfilename")?.asString
     if (filename.isNullOrEmpty()) return null
 
-    val sibBuilder = HfSiblingProto.newBuilder().setRfilename(filename)
-    val fileSize = parseSiblingFileSize(sibObj)
-    if (fileSize != null) {
-      sibBuilder.setSize(fileSize)
+    return hfSiblingProto {
+      rfilename = filename
+      parseSiblingFileSize(sibObj)?.let { size = it }
     }
-    return sibBuilder.build()
   }
 
   private fun parseSiblingFileSize(sibObj: JsonObject): Long? {
