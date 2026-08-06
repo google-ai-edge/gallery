@@ -669,6 +669,7 @@ fun ChatPanel(
 
       val modelNotSupportImageMsg = stringResource(R.string.model_not_support_image_message)
       val modelNotSupportAudioMsg = stringResource(R.string.model_not_support_audio_message)
+      val imageLimitIgnoredMsg = stringResource(R.string.image_limit_ignored_message)
 
       MessageInputText(
         task = task,
@@ -721,6 +722,14 @@ fun ChatPanel(
         showAudioPicker = showAudioPicker,
         showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
         onImageLimitExceeded = { showImageLimitBanner = true },
+        onImagesIgnored = {
+          scope.launch {
+            snackbarHostState.showSnackbar(
+              message = imageLimitIgnoredMsg,
+              duration = SnackbarDuration.Short,
+            )
+          }
+        },
         onModelNotSupportImage = { customErrorMessage = modelNotSupportImageMsg },
         onModelNotSupportAudio = { customErrorMessage = modelNotSupportAudioMsg },
       )

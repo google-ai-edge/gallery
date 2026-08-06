@@ -25,6 +25,7 @@
   <string name="aicore_image_limit_message" translatable="true" description="Warning message shown when the user tries to add more than 1 image to a chat session. [CHAR_LIMIT=101]">The current model can only support 1 image per chat. To ask about another image, create a new chat.</string>
   <string name="model_not_support_image_message" translatable="true" description="Error message shown when the user tries to input an image to a model that doesn't support it. [CHAR_LIMIT=49]">The current model does not support image input.</string>
   <string name="model_not_support_audio_message" translatable="true" description="Error message shown when the user tries to input audio to a model that doesn't support it. [CHAR_LIMIT=49]">The current model does not support audio input.</string>
+  <string name="image_limit_ignored_message" translatable="true" description="Toast message indicating some images were ignored due to limit. [CHAR_LIMIT=60]">Some images have been ignored due to limit.</string>
   <string name="aichat_initializing_title" translatable="true" description="Status indicator when initializing model. [CHAR_LIMIT=18]">Initializing model</string>
   <string name="aichat_initializing_content" translatable="true" description="Loading message shown while a chat or translator session is initializing. [CHAR_LIMIT=41]">Sit tight, this can take up to 1 minute</string>
   <string name="app_intro" translatable="true" description="Introduction text shown on the home screen. [CHAR_LIMIT=50]">Explore a world of amazing on-device models from</string>
