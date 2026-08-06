@@ -181,6 +181,7 @@ fun MessageInputText(
   showAudioPicker: Boolean = false,
   showStopButtonWhenInProgress: Boolean = false,
   onImageLimitExceeded: () -> Unit = {},
+  onImagesIgnored: () -> Unit = {},
   onModelNotSupportImage: () -> Unit = {},
   onModelNotSupportAudio: () -> Unit = {},
 ) {
@@ -216,6 +217,8 @@ fun MessageInputText(
       } else {
         if (isAiCore) {
           scope.launch(Dispatchers.Main) { onImageLimitExceeded() }
+        } else {
+          scope.launch(Dispatchers.Main) { onImagesIgnored() }
         }
         (pickedImages + bitmaps).take(maxAllowedForThisMessage)
       }
