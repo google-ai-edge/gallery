@@ -114,6 +114,7 @@ fun TranslationScreen(
 ) {
   val selectedLanguageState by viewModel.targetLanguage.collectAsState()
   val textInputEnabled by viewModel.textInputEnabled.collectAsState()
+  val liveSpeechEnabled by viewModel.liveSpeechEnabled.collectAsState()
   val selectedTtsModel by viewModel.ttsModel.collectAsState()
   val translationUiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -250,6 +251,9 @@ fun TranslationScreen(
       scope.launch {
         val language = selectedLanguage
         val languageTag = language.ttsLanguageTag
+        if (!liveSpeechEnabled) {
+          return@launch
+        }
         if (
           sherpaTtsEnabled &&
             selectedTtsModel != TranslationTtsModel.SYSTEM &&
@@ -298,7 +302,35 @@ fun TranslationScreen(
             else selectedLanguage
           val languageTag = language.ttsLanguageTag
 
-          val activeSessionId = ttsStreamState.sessionId.takeIf { streamMatchesModel }
+          val canStreamCompletedTranslation =
+            !sherpaTtsEnabled ||
+              selectedTtsModel == TranslationTtsModel.SYSTEM ||
+              selectedTtsPackageInstalled == true
+          val activeSessionId =
+            if (!liveSpeechEnabled && canStreamCompletedTranslation) {
+              val completedSessionId =
+                translationTtsPlayer.startStreaming(languageTag = languageTag)
+              ttsStreamState.begin(
+                sessionId = completedSessionId,
+                modelName = model.name,
+                language = language,
+              )
+              val completedChunks =
+                ttsStreamState.chunker.append(partialText = translatedText, flush = true)
+              for (chunk in completedChunks) {
+                if (
+                  translationTtsPlayer.enqueueStreaming(
+                    sessionId = completedSessionId,
+                    text = chunk,
+                  )
+                ) {
+                  ttsStreamState.queuedChunkCount++
+                }
+              }
+              completedSessionId
+            } else {
+              ttsStreamState.sessionId.takeIf { streamMatchesModel }
+            }
           if (activeSessionId != null) {
             for (chunk in ttsStreamState.chunker.flush()) {
               if (

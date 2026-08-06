@@ -188,6 +188,7 @@ class BooleanSwitchConfig(
   override val key: ConfigKey,
   override val defaultValue: Boolean,
   override val needReinitialization: Boolean = true,
+  val description: String = "",
 ) :
   Config(
     type = ConfigEditorType.BOOLEAN_SWITCH,

@@ -111,8 +111,6 @@ fun SettingsDialog(
   val focusRequester = remember { FocusRequester() }
   val interactionSource = remember { MutableInteractionSource() }
   var showTos by remember { mutableStateOf(false) }
-  var translationTextInputEnabled by
-    remember { mutableStateOf(modelManagerViewModel.isTranslationTextInputEnabled()) }
 
   Dialog(onDismissRequest = onDismissed) {
     val focusManager = LocalFocusManager.current
@@ -218,31 +216,6 @@ fun SettingsDialog(
               onCheckedChange = { checked ->
                 selectedFirebaseAnalytics = checked
                 modelManagerViewModel.saveFirebaseAnalytics(checked)
-              },
-            )
-          }
-
-          Row(
-            modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-              Text(
-                stringResource(R.string.translation_typing_setting_title),
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
-              )
-              Text(
-                stringResource(R.string.translation_typing_setting_description),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
-            }
-            Switch(
-              checked = translationTextInputEnabled,
-              onCheckedChange = { enabled ->
-                translationTextInputEnabled = enabled
-                modelManagerViewModel.setTranslationTextInputEnabled(enabled)
               },
             )
           }

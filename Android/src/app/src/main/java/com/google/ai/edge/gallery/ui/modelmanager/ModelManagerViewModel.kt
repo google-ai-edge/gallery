@@ -764,6 +764,14 @@ constructor(
     dataStoreRepository.setTranslationTextInputEnabled(enabled)
   }
 
+  fun isTranslationLiveSpeechEnabled(): Boolean {
+    return dataStoreRepository.isTranslationLiveSpeechEnabled()
+  }
+
+  fun setTranslationLiveSpeechEnabled(enabled: Boolean) {
+    dataStoreRepository.setTranslationLiveSpeechEnabled(enabled)
+  }
+
   fun getModelUrlResponse(model: Model, accessToken: String? = null): Int {
     try {
       if (model.url.isEmpty()) {

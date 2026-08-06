@@ -49,6 +49,8 @@ constructor(
   val targetLanguage = _targetLanguage.asStateFlow()
   private val _textInputEnabled = MutableStateFlow(false)
   val textInputEnabled = _textInputEnabled.asStateFlow()
+  private val _liveSpeechEnabled = MutableStateFlow(true)
+  val liveSpeechEnabled = _liveSpeechEnabled.asStateFlow()
   private val _ttsModel = MutableStateFlow(TranslationTtsModel.DEFAULT)
   internal val ttsModel = _ttsModel.asStateFlow()
 
@@ -56,6 +58,7 @@ constructor(
     viewModelScope.launch {
       translationUserDataStore.data.collectLatest { userData ->
         _textInputEnabled.value = userData.translationTextInputEnabled
+        _liveSpeechEnabled.value = !userData.translationTtsWaitForCompletion
         _ttsModel.value = TranslationTtsModel.fromStoredValue(userData.translationTtsModel)
       }
     }

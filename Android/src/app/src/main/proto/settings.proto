@@ -106,6 +106,7 @@ message UserData {
   string translation_target_language = 5;
   bool translation_text_input_enabled = 6;
   string translation_tts_model = 7;
+  bool translation_tts_wait_for_completion = 8;
 }
 
 enum FillMode {

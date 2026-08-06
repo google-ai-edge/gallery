@@ -272,6 +272,8 @@
   <string name="translation_language_picker_title" translatable="false">Translate to</string>
   <string name="translation_typing_setting_title" translatable="false">Typing in Translation</string>
   <string name="translation_typing_setting_description" translatable="false">Show a text field in Translation instead of the voice-first interface.</string>
+  <string name="translation_live_speech_setting_title" translatable="false">Live speech</string>
+  <string name="translation_live_speech_setting_description" translatable="false">Translate text and speak output in parallel.</string>
   <string name="text_input_placeholder_translation" translatable="false">Enter text to translate…</string>
   <string name="translation_offline_stt_unavailable_title" translatable="false">Speech recognition unavailable</string>
   <string name="translation_offline_stt_unavailable_content" translatable="false">Offline speech recognition is not available right now. Would you like to type the text to translate instead?</string>
@@ -279,8 +281,8 @@
   <string name="translation_tts_download_dialog_downloading" translatable="false">Downloading offline translation voice…</string>
   <string name="translation_tts_download_dialog_byte_stats" translatable="false">%1$s of %2$s downloaded</string>
   <string name="translation_voice_models_title" translatable="false">Translation voices</string>
-  <string name="translation_voice_models_description" translatable="false">Choose how translations are read aloud. The Android system voice needs no download; offline voice models are stored independently.</string>
-  <string name="translation_voice_system_available" translatable="false">Built into Android · no download required</string>
+  <string name="translation_voice_models_description" translatable="false">Choose how translations are read aloud.</string>
+  <string name="translation_voice_system_available" translatable="false">Utilises the device’s default voice model.</string>
   <string name="translation_voice_model_installed" translatable="false">Installed</string>
   <string name="translation_voice_model_download_size" translatable="false">Download · %s</string>
   <string name="translation_voice_model_verifying" translatable="false">Verifying downloaded files…</string>
