@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.agent
 
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.tools.ToolAction
+import com.google.ai.edge.litertlm.Message
 import kotlinx.coroutines.channels.SendChannel
 
 /**
@@ -33,6 +34,7 @@ import kotlinx.coroutines.channels.SendChannel
  *   schema constraints) is active during output generation.
  * @property systemInstruction System instructions formatted as a prompt prefix for the conversation
  *   turn.
+ * @property initialMessages Messages used to seed or reinitialize conversation history upon reset.
  */
 data class AgentRuntimeConfig(
   val model: Model,
@@ -42,4 +44,5 @@ data class AgentRuntimeConfig(
   val supportAudio: Boolean = true,
   val enableConversationConstrainedDecoding: Boolean = false,
   val systemInstruction: String? = null,
+  val initialMessages: List<Message> = listOf(),
 )

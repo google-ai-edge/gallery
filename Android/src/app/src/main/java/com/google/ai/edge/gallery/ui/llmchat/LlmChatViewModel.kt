@@ -25,6 +25,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.agent.AgentEvent
 import com.google.ai.edge.gallery.agent.AgentExecutionContext
 import com.google.ai.edge.gallery.agent.AgentRequest
+import com.google.ai.edge.gallery.agent.AgentRuntimeConfig
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
 import com.google.ai.edge.gallery.agent.AiChatExecutor
 import com.google.ai.edge.gallery.agent.Attachment
@@ -35,7 +36,7 @@ import com.google.ai.edge.gallery.data.SystemPromptRepository
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.awaitInitialization
 import com.google.ai.edge.gallery.proto.UserData
-import com.google.ai.edge.gallery.runtime.runtimeHelper
+import com.google.ai.edge.gallery.tools.ToolAction
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageError
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageInfo
@@ -47,14 +48,12 @@ import com.google.ai.edge.gallery.ui.common.chat.ChatMessageWarning
 import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.ai.edge.gallery.ui.common.chat.ChatViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.Message
-import com.google.ai.edge.litertlm.ToolProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -120,7 +119,7 @@ open class LlmChatViewModelBase(
       resetSession(
         task = task,
         model = model,
-        systemInstruction = Contents.of(newPrompt),
+        systemInstruction = newPrompt,
         supportImage = true,
         supportAudio = true,
         onDone = { addMessage(model, ChatMessageInfo(content = systemPromptUpdatedMessage)) },
@@ -315,8 +314,8 @@ open class LlmChatViewModelBase(
   fun resetSession(
     task: Task,
     model: Model,
-    systemInstruction: Contents? = null,
-    tools: List<ToolProvider> = listOf(),
+    systemInstruction: String? = null,
+    actionChannel: SendChannel<ToolAction>? = null,
     supportImage: Boolean = false,
     supportAudio: Boolean = false,
     onDone: () -> Unit = {},
@@ -331,24 +330,19 @@ open class LlmChatViewModelBase(
       }
       stopResponse(model = model)
 
-      // TODO: move to runtime executor.
-      while (true) {
-        try {
-          model.runtimeHelper.resetConversation(
-            model = model,
-            supportImage = supportImage,
-            supportAudio = supportAudio,
-            systemInstruction = systemInstruction,
-            tools = tools,
-            enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
-            initialMessages = initialMessages,
-          )
-          break
-        } catch (e: Exception) {
-          Log.d(TAG, "Failed to reset session. Trying again")
-        }
-        delay(200)
-      }
+      val config =
+        AgentRuntimeConfig(
+          model = model,
+          taskId = task.id,
+          actionChannel = actionChannel,
+          supportImage = supportImage,
+          supportAudio = supportAudio,
+          enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+          systemInstruction = systemInstruction,
+          initialMessages = initialMessages,
+        )
+      runtimeExecutor.resetSession(config = config)
+
       setIsResettingSession(false)
       onDone()
     }

@@ -108,6 +108,14 @@ interface AgentRuntimeExecutor {
   fun interrupt()
 
   /**
+   * Resets the active session with updated operational configuration and conversation history.
+   *
+   * @param config the updated [AgentRuntimeConfig] containing model details, task ID, tool
+   *   channels, decoding settings, system instructions, and initial messages
+   */
+  suspend fun resetSession(config: AgentRuntimeConfig)
+
+  /**
    * Releases resources associated with the initialized model engine and execution context.
    *
    * Should be invoked when the executor is being destroyed or reset to ensure model weights, native

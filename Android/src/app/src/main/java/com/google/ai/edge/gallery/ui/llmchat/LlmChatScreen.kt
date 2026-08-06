@@ -47,14 +47,12 @@ import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
-import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.ai.edge.gallery.ui.common.chat.ChatView
 import com.google.ai.edge.gallery.ui.common.chat.SendMessageTrigger
+import com.google.ai.edge.gallery.ui.common.chat.convertToLitertMessage
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.emptyStateContent
 import com.google.ai.edge.gallery.ui.theme.emptyStateTitle
-import com.google.ai.edge.litertlm.Contents
-import com.google.ai.edge.litertlm.Message
 
 private const val TAG = "AGLlmChatScreen"
 
@@ -325,7 +323,7 @@ fun ChatViewWrapper(
         viewModel.resetSession(
           task = task,
           model = model,
-          systemInstruction = Contents.of(curSystemPrompt),
+          systemInstruction = curSystemPrompt,
           supportImage = showImagePicker,
           supportAudio = showAudioPicker,
           initialMessages = litertMessages,
@@ -351,19 +349,4 @@ fun ChatViewWrapper(
     sendMessageTrigger = sendMessageTrigger,
     showAudioPicker = showAudioPicker,
   )
-}
-
-private fun convertToLitertMessage(chatMessage: ChatMessage): Message? {
-  // TODO: Restore image and audio messages to the LLM context.
-  // We are currently bypassing them because the image and audio encoder may take
-  // too long during chat history loading, which can cause stalls or stream errors.
-  if (chatMessage is ChatMessageText) {
-    return when (chatMessage.side) {
-      ChatSide.USER -> Message.user(chatMessage.content)
-      ChatSide.AGENT -> Message.model(chatMessage.content)
-      ChatSide.SYSTEM ->
-        null // TODO: Support SYSTEM role once we can decide on which system prompt to use.
-    }
-  }
-  return null
 }

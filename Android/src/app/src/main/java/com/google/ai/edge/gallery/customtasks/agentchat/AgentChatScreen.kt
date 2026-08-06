@@ -91,9 +91,7 @@ import com.google.ai.edge.gallery.tools.AskMcpToolCallPermissionAction
 import com.google.ai.edge.gallery.tools.CallJsToolAction
 import com.google.ai.edge.gallery.tools.PermissionResult
 import com.google.ai.edge.gallery.tools.RequestPermissionToolAction
-import com.google.ai.edge.gallery.tools.RuntimeToolDispatcher
 import com.google.ai.edge.gallery.tools.SkillProgressToolAction
-import com.google.ai.edge.gallery.tools.ToolExecutionContext
 import com.google.ai.edge.gallery.ui.common.BaseGalleryWebViewClient
 import com.google.ai.edge.gallery.ui.common.GalleryWebView
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
@@ -106,11 +104,11 @@ import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.ai.edge.gallery.ui.common.chat.LogMessage
 import com.google.ai.edge.gallery.ui.common.chat.LogMessageLevel
 import com.google.ai.edge.gallery.ui.common.chat.SendMessageTrigger
+import com.google.ai.edge.gallery.ui.common.chat.convertToLitertMessage
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatScreen
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import com.google.ai.edge.litertlm.Message
 import java.lang.Exception
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
@@ -767,21 +765,9 @@ private fun resetSessionWithCurrentSkillsAndMcps(
   clearHistory: Boolean = true,
 ) {
   val model = modelManagerViewModel.uiState.value.selectedModel
-  val litertMessages = initialMessages.mapNotNull { chatMessage ->
-    if (chatMessage is ChatMessageText) {
-      if (chatMessage.side == ChatSide.USER) {
-        Message.user(chatMessage.content)
-      } else {
-        Message.model(chatMessage.content)
-      }
-    } else null
-  }
+  val litertMessages = initialMessages.mapNotNull { convertToLitertMessage(it) }
   val toolsPrompt = agentTools.mcpManagerViewModel.getToolsPrompt()
   val actualSystemPrompt = getEffectiveBaseSystemPrompt(curSystemPrompt, toolsPrompt.isNotEmpty())
-
-  val executionContext =
-    ToolExecutionContext(taskId = task.id, actionChannel = agentTools.sendActionChannel)
-  RuntimeToolDispatcher().setupExecutionContext(agentTools.getAvailableTools(), executionContext)
 
   val selectedSkills =
     runBlocking(Dispatchers.Default) { skillManagerViewModel.skillManager.getAvailableSkills() }
@@ -799,8 +785,8 @@ private fun resetSessionWithCurrentSkillsAndMcps(
   viewModel.resetSession(
     task = task,
     model = model,
-    systemInstruction = com.google.ai.edge.litertlm.Contents.of(finalSystemPrompt),
-    tools = runBlocking(Dispatchers.Default) { agentTools.getLiteRtToolProviders() },
+    systemInstruction = finalSystemPrompt,
+    actionChannel = agentTools.sendActionChannel,
     supportImage = model.llmSupportImage,
     supportAudio = model.llmSupportAudio,
     onDone = { onDone(model) },

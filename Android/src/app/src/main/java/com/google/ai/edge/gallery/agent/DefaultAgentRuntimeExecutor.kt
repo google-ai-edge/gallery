@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.onFailure
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
@@ -196,6 +197,52 @@ open class DefaultAgentRuntimeExecutor(
     Log.d(TAG, "Interrupting session for model: ${curModel.name}")
     // TODO: we need to reset the conversation in executeStream if user sends a new request.
     curModel.runtimeHelper.stopResponse(curModel)
+  }
+
+  override suspend fun resetSession(config: AgentRuntimeConfig) {
+    val systemInstruction = Contents.of(config.systemInstruction ?: "")
+    val executionContext =
+      ToolExecutionContext(taskId = config.taskId, actionChannel = config.actionChannel)
+
+    activeSession.set(ActiveSession(model = config.model, toolExecutionContext = executionContext))
+
+    toolDispatcher.setupExecutionContext(
+      tools = toolsProvider.getAvailableTools(),
+      context = executionContext,
+    )
+    val curModel = config.model
+    val maxRetries = 5
+    val retryDelayMs = 200L
+
+    for (attempt in 1..maxRetries) {
+      try {
+        curModel.runtimeHelper.resetConversation(
+          model = curModel,
+          supportImage = config.supportImage,
+          supportAudio = config.supportAudio,
+          systemInstruction = systemInstruction,
+          tools = toolsProvider.getLiteRtToolProviders(),
+          enableConversationConstrainedDecoding = config.enableConversationConstrainedDecoding,
+          initialMessages = config.initialMessages,
+        )
+        return
+      } catch (e: Exception) {
+        if (attempt == maxRetries) {
+          Log.e(
+            TAG,
+            "Failed to reset session for model: ${curModel.name} after $maxRetries attempts.",
+            e,
+          )
+          return
+        }
+        Log.d(
+          TAG,
+          "Failed to reset session for model: ${curModel.name} (attempt $attempt/$maxRetries). Retrying...",
+          e,
+        )
+        delay(retryDelayMs)
+      }
+    }
   }
 
   override fun cleanUp(onDone: () -> Unit) {

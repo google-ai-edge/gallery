@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.Dp
 import com.google.ai.edge.gallery.common.Classification
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.PromptTemplate
+import com.google.ai.edge.litertlm.Message
 
 private const val TAG = "AGChatMessage"
 
@@ -435,4 +436,15 @@ class ChatMessageThinking(
       accelerator = accelerator,
     )
   }
+}
+
+fun convertToLitertMessage(chatMessage: ChatMessage): Message? {
+  if (chatMessage is ChatMessageText) {
+    return when (chatMessage.side) {
+      ChatSide.USER -> Message.user(chatMessage.content)
+      ChatSide.AGENT -> Message.model(chatMessage.content)
+      ChatSide.SYSTEM -> null
+    }
+  }
+  return null
 }
