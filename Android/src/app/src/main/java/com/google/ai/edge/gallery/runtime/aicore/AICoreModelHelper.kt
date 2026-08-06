@@ -40,6 +40,7 @@ import com.google.mlkit.genai.prompt.Generation
 import com.google.mlkit.genai.prompt.GenerativeModel
 import com.google.mlkit.genai.prompt.ModelPreference
 import com.google.mlkit.genai.prompt.ModelReleaseStage
+import com.google.mlkit.genai.prompt.SystemInstruction
 import com.google.mlkit.genai.prompt.TextPart
 import com.google.mlkit.genai.prompt.generateContentRequest
 import com.google.mlkit.genai.prompt.generationConfig
@@ -56,6 +57,7 @@ data class AICoreModelInstance(
   val generativeModel: GenerativeModel,
   val chatHistory: MutableList<AICoreChatMessage> = mutableListOf(),
   var inferenceJob: kotlinx.coroutines.Job? = null,
+  var systemInstruction: Contents? = null,
 )
 
 object AICoreModelHelper : LlmModelHelper {
@@ -89,7 +91,8 @@ object AICoreModelHelper : LlmModelHelper {
           FeatureStatus.AVAILABLE -> {
             generativeModel.warmup()
             updateTokenLimit(model, generativeModel)
-            model.instance = AICoreModelInstance(generativeModel)
+            model.instance =
+              AICoreModelInstance(generativeModel, systemInstruction = systemInstruction)
             onDone("Feature is available")
           }
           FeatureStatus.DOWNLOADABLE,
@@ -108,7 +111,8 @@ object AICoreModelHelper : LlmModelHelper {
                 is DownloadStatus.DownloadCompleted -> {
                   generativeModel.warmup()
                   updateTokenLimit(model, generativeModel)
-                  model.instance = AICoreModelInstance(generativeModel)
+                  model.instance =
+                    AICoreModelInstance(generativeModel, systemInstruction = systemInstruction)
                   onDone("Download completed")
                 }
               }
@@ -205,6 +209,7 @@ object AICoreModelHelper : LlmModelHelper {
     Log.d(TAG, "Resetting conversation for model '${model.name}'")
     val instance = model.instance as? AICoreModelInstance ?: return
     instance.chatHistory.clear()
+    instance.systemInstruction = systemInstruction
     for (msg in initialMessages) {
       instance.chatHistory.add(
         AICoreChatMessage(isUser = (msg.role == Role.USER), text = msg.contents.toString())
@@ -309,10 +314,12 @@ object AICoreModelHelper : LlmModelHelper {
     onError: (message: String) -> Unit,
   ) {
     try {
+      val sysInstruction = SystemInstruction(instance.systemInstruction?.toString() ?: "")
       val request =
         if (images.isNotEmpty()) {
           // ML Kit GenAI API currently only supports a single image input per request.
           generateContentRequest(
+            sysInstruction,
             com.google.mlkit.genai.prompt.ImagePart(images.first()),
             TextPart(prompt),
           ) {
@@ -321,7 +328,7 @@ object AICoreModelHelper : LlmModelHelper {
             this.maxOutputTokens = maxOutputTokens
           }
         } else {
-          generateContentRequest(TextPart(prompt)) {
+          generateContentRequest(sysInstruction, TextPart(prompt)) {
             this.temperature = temperature
             this.topK = topK
             this.maxOutputTokens = maxOutputTokens
