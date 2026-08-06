@@ -250,7 +250,11 @@ fun TranslationScreen(
       scope.launch {
         val language = selectedLanguage
         val languageTag = language.ttsLanguageTag
-        if (sherpaTtsEnabled && selectedTtsPackageInstalled != true) {
+        if (
+          sherpaTtsEnabled &&
+            selectedTtsModel != TranslationTtsModel.SYSTEM &&
+            selectedTtsPackageInstalled != true
+        ) {
           return@launch
         }
 
