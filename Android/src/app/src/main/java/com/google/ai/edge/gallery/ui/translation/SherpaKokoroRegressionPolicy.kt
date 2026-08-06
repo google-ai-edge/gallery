@@ -23,16 +23,16 @@ internal const val KOKORO_SHERPA_SCHEMA_VERSION = 2
 internal const val KOKORO_SHERPA_BACKEND = "sherpa-onnx"
 internal const val KOKORO_SHERPA_RUNTIME_VERSION = "1.13.4"
 internal const val KOKORO_SHERPA_SAMPLE_RATE = 24000
-internal const val KOKORO_SHERPA_PACKAGE_ID = "kokoro-int8-multi-lang-v1_1"
+internal const val KOKORO_SHERPA_PACKAGE_ID = "kokoro-multi-lang-v1_0"
 internal const val KOKORO_SHERPA_ARCHIVE_URL =
   "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/" +
     "$KOKORO_SHERPA_PACKAGE_ID.tar.bz2"
 internal const val KOKORO_SHERPA_ARCHIVE_SHA256 =
-  "a1e94694776049035c4f2c6529f003aaece993c76aae9a78995831c3c4dcafc6"
+  "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046"
 
 internal val KOKORO_SHERPA_REQUIRED_ASSETS =
   setOf(
-    "model.int8.onnx",
+    "model.onnx",
     "voices.bin",
     "tokens.txt",
     "espeak-ng-data/phondata",
@@ -41,7 +41,14 @@ internal val KOKORO_SHERPA_REQUIRED_ASSETS =
     "espeak-ng-data/en_dict",
     "espeak-ng-data/es_dict",
     "espeak-ng-data/fr_dict",
+    "espeak-ng-data/hi_dict",
     "espeak-ng-data/it_dict",
+    "espeak-ng-data/pt_dict",
+    "dict/jieba.dict.utf8",
+    "dict/hmm_model.utf8",
+    "dict/user.dict.utf8",
+    "dict/idf.utf8",
+    "dict/stop_words.utf8",
     "lexicon-us-en.txt",
     "lexicon-gb-en.txt",
     "lexicon-zh.txt",
@@ -52,12 +59,12 @@ internal val KOKORO_SHERPA_REQUIRED_ASSETS =
 
 internal val KOKORO_SHERPA_TRUSTED_CORE_HASHES =
   mapOf(
-    "model.int8.onnx" to
-      "bda15858163726a492d02a9a727bc263551b86ac77f90812c4b30ff41d380e26",
+    "model.onnx" to
+      "c436dc6a842b62aba06af67e40bafcfb9c60ac3af895358f1974ad9a7f7c026b",
     "voices.bin" to
-      "e64a5a581d8c2a350d848f51c3121657cd83aa07ed6109172177345874a7244c",
+      "8a77c0d397026208d22211f37670b5b3b11e03f190756b25a1d24041fced82a9",
     "tokens.txt" to
-      "931ab2df2400cd65d580a22402024c2347ced8ae9ea300e545144b1aacc48e14",
+      "6ebb6bb288f20f3ae8d004d3c2ca27697da27c037d75e81a60e2a6a663f95425",
   )
 
 internal data class KokoroSherpaVoiceConfig(
@@ -69,10 +76,12 @@ internal data class KokoroSherpaVoiceConfig(
 
 internal val KOKORO_SHERPA_VOICE_CONFIGS =
   listOf(
-    KokoroSherpaVoiceConfig("en-us", "en-us", "af_maple", 0),
-    KokoroSherpaVoiceConfig("es", "es", "af_sol", 1),
-    KokoroSherpaVoiceConfig("fr-fr", "fr", "zf_047", 30),
-    KokoroSherpaVoiceConfig("it", "it", "bf_vale", 2),
+    KokoroSherpaVoiceConfig("en-us", "en", "af_alloy", 0),
+    KokoroSherpaVoiceConfig("es", "es", "ef_dora", 28),
+    KokoroSherpaVoiceConfig("fr-fr", "fr", "ff_siwis", 30),
+    KokoroSherpaVoiceConfig("hi", "hi", "hf_beta", 32),
+    KokoroSherpaVoiceConfig("it", "it", "if_sara", 35),
+    KokoroSherpaVoiceConfig("pt-br", "pt-br", "pf_dora", 42),
   )
 
 internal data class KokoroSherpaManifestMetadata(
@@ -87,12 +96,6 @@ internal data class KokoroSherpaManifestMetadata(
   val languages: Map<String, KokoroSherpaVoiceConfig>,
   val assetHashes: Map<String, String>,
 )
-
-internal enum class KokoroSherpaInstallAction {
-  USE_VALID_V2,
-  INSTALL_V2,
-  REPLACE_INVALID_V2,
-}
 
 internal object SherpaKokoroRegressionPolicy {
   fun validatePackageMetadata(
@@ -119,7 +122,7 @@ internal object SherpaKokoroRegressionPolicy {
     }
 
     val expectedLanguages = KOKORO_SHERPA_VOICE_CONFIGS.associateBy { it.languageTag }
-    if (metadata.languages != expectedLanguages) {
+    if (metadata.languages.any { (tag, voice) -> expectedLanguages[tag] != voice }) {
       throw IOException("Sherpa Kokoro language and voice mapping does not match.")
     }
     if (metadata.assetHashes.keys != actualAssetPaths) {
@@ -139,16 +142,6 @@ internal object SherpaKokoroRegressionPolicy {
       }
     }
   }
-
-  fun installAction(
-    validV2Installed: Boolean,
-    v2DirectoryPresent: Boolean,
-  ): KokoroSherpaInstallAction =
-    when {
-      validV2Installed -> KokoroSherpaInstallAction.USE_VALID_V2
-      v2DirectoryPresent -> KokoroSherpaInstallAction.REPLACE_INVALID_V2
-      else -> KokoroSherpaInstallAction.INSTALL_V2
-    }
 }
 
 internal object SherpaKokoroVoiceSelector {
@@ -157,7 +150,9 @@ internal object SherpaKokoroVoiceSelector {
       "en", "en-gb", "en-us" -> "en-us"
       "es", "es-es" -> "es"
       "fr", "fr-fr" -> "fr-fr"
+      "hi", "hi-in" -> "hi"
       "it", "it-it" -> "it"
+      "pt", "pt-br" -> "pt-br"
       else -> languageTag.trim().lowercase(Locale.US).replace('_', '-')
     }
 

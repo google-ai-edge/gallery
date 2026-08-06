@@ -20,8 +20,6 @@ import androidx.core.net.toUri
 import net.openid.appauth.AuthorizationServiceConfiguration
 
 object ProjectConfig {
-  const val enableTranslationLlmWarmup = false
-
   // Hugging Face Client ID.
   //
   const val clientId = "REPLACE_WITH_YOUR_CLIENT_ID_IN_HUGGINGFACE_APP"

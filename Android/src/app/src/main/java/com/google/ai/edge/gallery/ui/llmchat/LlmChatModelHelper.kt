@@ -53,7 +53,6 @@ import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.CancellationException
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 
 private const val TAG = "AGLlmChatModelHelper"
@@ -149,17 +148,15 @@ object LlmChatModelHelper : LlmModelHelper {
     // Create an instance of LiteRT LM engine and conversation.
     try {
       val speculativeDecoding =
-        shouldEnableSpeculativeDecoding(
-          taskId = taskId,
-          modelSupportsSpeculativeDecoding = supportsSpeculativeDecoding,
-          capabilityTaskIds =
-            model.capabilityToTaskTypes[ModelCapability.SPECULATIVE_DECODING].orEmpty(),
-          configuredEnabled =
-            model.getBooleanConfigValue(
-              key = ConfigKeys.ENABLE_SPECULATIVE_DECODING,
-              defaultValue = false,
-            ),
-        )
+        supportsSpeculativeDecoding &&
+          (taskId == BuiltInTaskId.LLM_TRANSLATION ||
+            (model.capabilityToTaskTypes[ModelCapability.SPECULATIVE_DECODING]
+                .orEmpty()
+                .contains(taskId) &&
+              model.getBooleanConfigValue(
+                key = ConfigKeys.ENABLE_SPECULATIVE_DECODING,
+                defaultValue = false,
+              )))
       ExperimentalFlags.enableSpeculativeDecoding = speculativeDecoding
       Log.d(
         TAG,
@@ -298,43 +295,6 @@ object LlmChatModelHelper : LlmModelHelper {
     }
   }
 
-  fun warmUp(
-    model: Model,
-    input: String,
-    onDone: () -> Unit,
-    onError: (String) -> Unit,
-  ) {
-    val instance = model.instance as? LlmModelInstance
-    if (instance == null) {
-      onError("LlmModelInstance is not initialized.")
-      return
-    }
-
-    val stopRequested = AtomicBoolean(false)
-    instance.conversation.sendMessageAsync(
-      Contents.of(input),
-      object : MessageCallback {
-        override fun onMessage(message: Message) {
-          if (stopRequested.compareAndSet(false, true)) {
-            instance.conversation.cancelProcess()
-          }
-        }
-
-        override fun onDone() {
-          onDone()
-        }
-
-        override fun onError(throwable: Throwable) {
-          if (throwable is CancellationException) {
-            onDone()
-          } else {
-            onError(throwable.message ?: "Unknown warmup error")
-          }
-        }
-      },
-    )
-  }
-
   override fun runInference(
     model: Model,
     input: String,
@@ -406,15 +366,4 @@ object LlmChatModelHelper : LlmModelHelper {
     this.compress(Bitmap.CompressFormat.PNG, 100, stream)
     return stream.toByteArray()
   }
-}
-
-internal fun shouldEnableSpeculativeDecoding(
-  taskId: String,
-  modelSupportsSpeculativeDecoding: Boolean,
-  capabilityTaskIds: List<String>,
-  configuredEnabled: Boolean,
-): Boolean {
-  if (!modelSupportsSpeculativeDecoding) return false
-  if (taskId == BuiltInTaskId.LLM_TRANSLATION) return true
-  return capabilityTaskIds.contains(taskId) && configuredEnabled
 }

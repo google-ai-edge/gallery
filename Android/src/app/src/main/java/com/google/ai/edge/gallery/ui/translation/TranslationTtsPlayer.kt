@@ -21,6 +21,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.util.Log
+import com.google.ai.edge.gallery.BuildConfig
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
@@ -56,11 +57,12 @@ internal data class TranslationTtsStreamingResult(
 internal class TranslationTtsPlayer(
   context: Context,
   private val model: TranslationTtsModel = TranslationTtsModel.DEFAULT,
-  private val engine: TranslationTtsEngine =
-    TranslationTtsEngineStore.get(context.applicationContext, model),
+  private val engine: TranslationTtsEngine? =
+    if (model == TranslationTtsModel.SYSTEM) null
+    else TranslationTtsEngineStore.get(context.applicationContext, model),
   private val systemFallback: TranslationSystemTtsFallback =
     AndroidTranslationSystemTtsFallback(context.applicationContext),
-  private val sherpaEnabled: Boolean = TranslationTtsBackendFlags.sherpaEnabled,
+  private val sherpaEnabled: Boolean = BuildConfig.TRANSLATION_TTS_SHERPA_ENABLED,
 ) {
   private val playerJob = SupervisorJob()
   private val sessionId = AtomicLong(0L)
@@ -73,7 +75,7 @@ internal class TranslationTtsPlayer(
   private var streamingSession: StreamingSession? = null
 
   suspend fun preload() {
-    if (sherpaEnabled) engine.preload()
+    if (sherpaEnabled) engine?.preload()
   }
 
   suspend fun speak(
@@ -94,9 +96,10 @@ internal class TranslationTtsPlayer(
     stop()
     _isSpeaking.value = true
     try {
-      if (sherpaEnabled && preferSherpa) {
+      val sherpaEngine = engine
+      if (sherpaEnabled && preferSherpa && sherpaEngine != null) {
         try {
-          val audio = engine.synthesize(text = trimmedText, languageTag = languageTag)
+          val audio = sherpaEngine.synthesize(text = trimmedText, languageTag = languageTag)
           playAndAwait(audio = audio, languageTag = languageTag)
           return
         } catch (exception: CancellationException) {
@@ -184,7 +187,8 @@ internal class TranslationTtsPlayer(
   }
 
   private suspend fun runSynthesisQueue(session: StreamingSession) {
-    var useSherpa = sherpaEnabled
+    val sherpaEngine = engine
+    var useSherpa = sherpaEnabled && sherpaEngine != null
     try {
       for (text in session.textChunks) {
         currentCoroutineContext().ensureActive()
@@ -196,7 +200,7 @@ internal class TranslationTtsPlayer(
         var emittedPcm = false
         try {
           val audio =
-            engine.synthesizeStreaming(
+            checkNotNull(sherpaEngine).synthesizeStreaming(
               text = text,
               languageTag = session.languageTag,
               onPcmChunk = { pcmChunk ->
@@ -207,9 +211,7 @@ internal class TranslationTtsPlayer(
               },
             )
           currentCoroutineContext().ensureActive()
-          session.playbackItems.send(
-            TranslationTtsPlaybackItem.PcmEnd(audio = audio, text = text)
-          )
+          session.playbackItems.send(TranslationTtsPlaybackItem.PcmEnd(audio = audio))
         } catch (exception: CancellationException) {
           throw exception
         } catch (throwable: Throwable) {
@@ -222,7 +224,7 @@ internal class TranslationTtsPlayer(
             throwable,
           )
           if (emittedPcm) {
-            session.playbackItems.send(TranslationTtsPlaybackItem.PcmAbort(text = text))
+            session.playbackItems.send(TranslationTtsPlaybackItem.PcmAbort)
           } else {
             session.playbackItems.send(TranslationTtsPlaybackItem.SystemSpeech(text))
           }
@@ -285,7 +287,7 @@ internal class TranslationTtsPlayer(
             activePlayback?.validatedSamples = activePlayback?.samplesWritten ?: 0L
             session.playedChunkCount.incrementAndGet()
           }
-          is TranslationTtsPlaybackItem.PcmAbort -> {
+          TranslationTtsPlaybackItem.PcmAbort -> {
             nativePlayback?.let { it.validatedSamples = it.samplesWritten }
             session.playedChunkCount.incrementAndGet()
           }
@@ -627,9 +629,9 @@ internal class TranslationTtsPlayer(
   private sealed interface TranslationTtsPlaybackItem {
     data class PcmChunk(val audio: SynthesizedAudio) : TranslationTtsPlaybackItem
 
-    data class PcmEnd(val audio: SynthesizedAudio, val text: String) : TranslationTtsPlaybackItem
+    data class PcmEnd(val audio: SynthesizedAudio) : TranslationTtsPlaybackItem
 
-    data class PcmAbort(val text: String) : TranslationTtsPlaybackItem
+    data object PcmAbort : TranslationTtsPlaybackItem
 
     data class SystemSpeech(val text: String) : TranslationTtsPlaybackItem
   }

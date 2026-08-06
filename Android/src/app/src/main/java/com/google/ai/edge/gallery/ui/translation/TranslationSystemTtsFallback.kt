@@ -22,7 +22,6 @@ import android.os.Build
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
-import com.google.ai.edge.gallery.BuildConfig
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -34,11 +33,6 @@ import kotlinx.coroutines.withContext
 
 private const val TAG = "AGTranslationSystemTts"
 private const val INITIALIZATION_PENDING = Int.MIN_VALUE
-
-internal object TranslationTtsBackendFlags {
-  val sherpaEnabled: Boolean
-    get() = BuildConfig.TRANSLATION_TTS_SHERPA_ENABLED
-}
 
 internal interface TranslationSystemTtsFallback {
   suspend fun speak(text: String, languageTag: String)
@@ -222,14 +216,7 @@ internal class AndroidTranslationSystemTtsFallback(context: Context) :
     }
   }
 
-  private fun systemLocale(languageTag: String): Locale =
-    when (languageTag) {
-      "en-us" -> Locale.US
-      "es" -> Locale("es", "ES")
-      "fr-fr" -> Locale.FRANCE
-      "it" -> Locale.ITALY
-      else -> Locale.forLanguageTag(languageTag)
-    }
+  private fun systemLocale(languageTag: String): Locale = Locale.forLanguageTag(languageTag)
 
   private fun logOutcome(languageTag: String, outcome: String, alert: Boolean = false) {
     val message =

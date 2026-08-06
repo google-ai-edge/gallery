@@ -18,28 +18,27 @@ package com.google.ai.edge.gallery.ui.translation
 
 import android.content.Context
 import android.util.Log
-import java.io.BufferedInputStream
-import java.io.BufferedOutputStream
 import java.io.File
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
-import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
-import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
 import org.json.JSONObject
 
 private const val TAG = "AGTranslationTtsPackage"
 private const val PACKAGE_STORAGE_ROOT = "translation_tts/kokoro-sherpa"
 private const val LEGACY_PACKAGE_STORAGE_ROOT = "kokoro_tts"
-private const val PACKAGE_ARCHIVE_NAME = "$KOKORO_SHERPA_PACKAGE_ID.tar.bz2"
+private val LEGACY_PACKAGE_IDS =
+  setOf("kokoro-int8-multi-lang-v1_0", "kokoro-int8-multi-lang-v1_1")
 private const val INSTALL_MANIFEST_NAME = "install.json"
-private const val MAX_ARCHIVE_ENTRIES = 5000
-private const val MAX_EXTRACTED_BYTES = 512L * 1024L * 1024L
+private val KOKORO_ARCHIVE =
+  SherpaArchive(
+    name = "$KOKORO_SHERPA_PACKAGE_ID.tar.bz2",
+    url = KOKORO_SHERPA_ARCHIVE_URL,
+    sha256 = KOKORO_SHERPA_ARCHIVE_SHA256,
+    maxEntries = 5000,
+  )
 
 internal data class KokoroSherpaPackage(
   val rootDirectory: File,
@@ -48,6 +47,7 @@ internal data class KokoroSherpaPackage(
   val voicesFile: File,
   val tokensFile: File,
   val espeakDataDirectory: File,
+  val dictionaryDirectory: File,
   val lexiconFiles: List<File>,
   val ruleFstFiles: List<File>,
   val voiceConfigs: Map<String, KokoroSherpaVoiceConfig>,
@@ -96,18 +96,14 @@ internal object SherpaKokoroPackageInstaller {
       installMutex.withLock {
         val finalRoot = packageDirectory(context)
         val installedPackage = findInstalled(context)
-        val installAction =
-          SherpaKokoroRegressionPolicy.installAction(
-            validV2Installed = installedPackage != null,
-            v2DirectoryPresent = finalRoot.exists(),
-          )
-        if (installAction == KokoroSherpaInstallAction.USE_VALID_V2) {
-          return@withLock checkNotNull(installedPackage)
+        if (installedPackage != null) {
+          return@withLock installedPackage
         }
+        val installOutcome = if (finalRoot.exists()) "replace_invalid_v2" else "install_v2"
         Log.i(
           TAG,
           "backend=$KOKORO_SHERPA_BACKEND revision=$KOKORO_SHERPA_PACKAGE_ID " +
-            "outcome=${installAction.name.lowercase()}",
+            "outcome=$installOutcome",
         )
 
         val packageParent = finalRoot.parentFile
@@ -122,11 +118,15 @@ internal object SherpaKokoroPackageInstaller {
         if (!downloadDirectory.mkdirs()) {
           throw IOException("Unable to create Kokoro download directory: $downloadDirectory")
         }
-        val archiveFile = downloadDirectory.resolve(PACKAGE_ARCHIVE_NAME)
+        val archiveFile = downloadDirectory.resolve(KOKORO_ARCHIVE.name)
 
         try {
-          downloadArchive(destination = archiveFile, onProgress = onProgress)
-          installVerifiedArchiveLocked(context = context, archiveFile = archiveFile)
+          KOKORO_ARCHIVE.download(destination = archiveFile, onProgress = onProgress)
+          installVerifiedArchiveLocked(
+            context = context,
+            archiveFile = archiveFile,
+            onProgress = onProgress,
+          )
         } finally {
           downloadDirectory.deleteRecursively()
         }
@@ -138,51 +138,35 @@ internal object SherpaKokoroPackageInstaller {
       installMutex.withLock {
         cachedPackage = null
         val packageRoot = packageDirectory(context)
-        !packageRoot.exists() || packageRoot.deleteRecursively()
+        val deleted = !packageRoot.exists() || packageRoot.deleteRecursively()
+        deleteLegacyPackageCaches(context)
+        deleted
       }
     }
 
   internal suspend fun installFromVerifiedArchive(
     context: Context,
     archiveFile: File,
+    onProgress: (TranslationTtsDownloadProgress) -> Unit = {},
   ): KokoroSherpaPackage =
     withContext(Dispatchers.IO) {
       installMutex.withLock {
         findInstalled(context)?.let { return@withLock it }
-        installVerifiedArchiveLocked(context = context, archiveFile = archiveFile)
+        installVerifiedArchiveLocked(
+          context = context,
+          archiveFile = archiveFile,
+          onProgress = onProgress,
+        )
       }
     }
 
   private fun installVerifiedArchiveLocked(
     context: Context,
     archiveFile: File,
+    onProgress: (TranslationTtsDownloadProgress) -> Unit,
   ): KokoroSherpaPackage {
-    requireFile(archiveFile)
-    val archiveHash = sha256(archiveFile)
-    if (archiveHash != KOKORO_SHERPA_ARCHIVE_SHA256) {
-      throw IOException(
-        "Sherpa Kokoro archive checksum mismatch: expected=$KOKORO_SHERPA_ARCHIVE_SHA256, " +
-          "actual=$archiveHash"
-      )
-    }
-
     val finalRoot = packageDirectory(context)
-    val packageParent = finalRoot.parentFile
-      ?: throw IOException("Sherpa Kokoro package root has no parent directory.")
-    if (!packageParent.isDirectory && !packageParent.mkdirs()) {
-      throw IOException("Unable to create Sherpa Kokoro package storage: $packageParent")
-    }
-    val stagingRoot = packageParent.resolve(".$KOKORO_SHERPA_PACKAGE_ID.staging")
-    if (stagingRoot.exists() && !stagingRoot.deleteRecursively()) {
-      throw IOException("Unable to clear stale Kokoro staging directory: $stagingRoot")
-    }
-    if (!stagingRoot.mkdirs()) {
-      throw IOException("Unable to create Kokoro staging directory: $stagingRoot")
-    }
-
-    try {
-      extractArchive(archiveFile = archiveFile, destination = stagingRoot)
-      val candidateRoot = stagingRoot.resolve(KOKORO_SHERPA_PACKAGE_ID)
+    KOKORO_ARCHIVE.install(archiveFile, finalRoot, onProgress) { candidateRoot ->
       KOKORO_SHERPA_REQUIRED_ASSETS.forEach { relativePath ->
         requireFile(candidateRoot.resolve(relativePath))
       }
@@ -191,165 +175,15 @@ internal object SherpaKokoroPackageInstaller {
         archiveSizeBytes = archiveFile.length(),
       )
       validateInstalledPackage(root = candidateRoot, verifyHashes = true)
-
-      if (finalRoot.exists() && !finalRoot.deleteRecursively()) {
-        throw IOException("Unable to replace invalid Kokoro v2 package: $finalRoot")
-      }
-      if (!candidateRoot.renameTo(finalRoot)) {
-        throw IOException("Unable to atomically install Kokoro v2 package: $finalRoot")
-      }
-
-      return validateInstalledPackage(root = finalRoot, verifyHashes = false).also {
-        cachedPackage = it
-        deleteLegacyPackageCaches(context)
-        Log.i(
-          TAG,
-          "backend=$KOKORO_SHERPA_BACKEND revision=$KOKORO_SHERPA_PACKAGE_ID outcome=installed",
-        )
-      }
-    } finally {
-      stagingRoot.deleteRecursively()
     }
-  }
-
-  private fun downloadArchive(
-    destination: File,
-    onProgress: (TranslationTtsDownloadProgress) -> Unit,
-  ) {
-    val connection =
-      (URL(KOKORO_SHERPA_ARCHIVE_URL).openConnection() as HttpURLConnection).apply {
-        connectTimeout = 15000
-        readTimeout = 30000
-        requestMethod = "GET"
-        setRequestProperty("User-Agent", "Google-AI-Edge-Gallery")
-      }
-    val responseCode = connection.responseCode
-    if (responseCode !in 200..299) {
-      connection.disconnect()
-      throw IOException("Failed to download Kokoro package: HTTP $responseCode")
+    return validateInstalledPackage(root = finalRoot, verifyHashes = false).also {
+      cachedPackage = it
+      deleteLegacyPackageCaches(context)
+      Log.i(
+        TAG,
+        "backend=$KOKORO_SHERPA_BACKEND revision=$KOKORO_SHERPA_PACKAGE_ID outcome=installed",
+      )
     }
-
-    try {
-      val totalBytes = connection.contentLengthLong.takeIf { it > 0L } ?: 0L
-      var downloadedBytes = 0L
-      var lastProgressMillis = 0L
-      onProgress(
-        TranslationTtsDownloadProgress(
-          PACKAGE_ARCHIVE_NAME,
-          0L,
-          totalBytes,
-          0,
-          totalFiles = 1,
-        )
-      )
-      BufferedInputStream(connection.inputStream).use { input ->
-        BufferedOutputStream(destination.outputStream()).use { output ->
-          val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-          while (true) {
-            val readCount = input.read(buffer)
-            if (readCount == -1) break
-            output.write(buffer, 0, readCount)
-            downloadedBytes += readCount
-            val now = System.currentTimeMillis()
-            if (now - lastProgressMillis >= 250L) {
-              lastProgressMillis = now
-              onProgress(
-                TranslationTtsDownloadProgress(
-                  PACKAGE_ARCHIVE_NAME,
-                  downloadedBytes,
-                  totalBytes,
-                  0,
-                  totalFiles = 1,
-                )
-              )
-            }
-          }
-        }
-      }
-      if (downloadedBytes == 0L || (totalBytes > 0L && downloadedBytes != totalBytes)) {
-        throw IOException(
-          "Incomplete Sherpa Kokoro download: downloaded=$downloadedBytes, expected=$totalBytes"
-        )
-      }
-      if (sha256(destination) != KOKORO_SHERPA_ARCHIVE_SHA256) {
-        throw IOException("Downloaded Sherpa Kokoro archive failed checksum verification.")
-      }
-      onProgress(
-        TranslationTtsDownloadProgress(
-          PACKAGE_ARCHIVE_NAME,
-          downloadedBytes,
-          if (totalBytes > 0L) totalBytes else downloadedBytes,
-          completedFiles = 1,
-          totalFiles = 1,
-        )
-      )
-    } finally {
-      connection.disconnect()
-    }
-  }
-
-  private fun extractArchive(archiveFile: File, destination: File) {
-    val canonicalDestination = destination.canonicalFile
-    var entryCount = 0
-    var extractedBytes = 0L
-
-    TarArchiveInputStream(
-        BZip2CompressorInputStream(BufferedInputStream(archiveFile.inputStream()))
-      )
-      .use { archiveInput ->
-        while (true) {
-          val entry = archiveInput.nextEntry ?: break
-          entryCount++
-          if (entryCount > MAX_ARCHIVE_ENTRIES) {
-            throw IOException("Sherpa Kokoro archive contains too many entries.")
-          }
-          if (entry.isLink || entry.isSymbolicLink) {
-            throw IOException("Sherpa Kokoro archive contains an unsupported link: ${entry.name}")
-          }
-
-          val output = destination.resolve(entry.name).canonicalFile
-          if (
-            output != canonicalDestination &&
-              !output.path.startsWith(canonicalDestination.path + File.separator)
-          ) {
-            throw IOException("Blocked unsafe Sherpa Kokoro archive entry: ${entry.name}")
-          }
-          if (entry.isDirectory) {
-            if (!output.isDirectory && !output.mkdirs()) {
-              throw IOException("Unable to create extracted directory: $output")
-            }
-            continue
-          }
-          if (!entry.isFile) {
-            throw IOException("Unsupported Sherpa Kokoro archive entry: ${entry.name}")
-          }
-          output.parentFile?.let { parent ->
-            if (!parent.isDirectory && !parent.mkdirs()) {
-              throw IOException("Unable to create extracted directory: $parent")
-            }
-          }
-          BufferedOutputStream(output.outputStream()).use { fileOutput ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            var entryBytes = 0L
-            while (true) {
-              val readCount = archiveInput.read(buffer)
-              if (readCount == -1) break
-              fileOutput.write(buffer, 0, readCount)
-              entryBytes += readCount
-              extractedBytes += readCount
-              if (extractedBytes > MAX_EXTRACTED_BYTES) {
-                throw IOException("Sherpa Kokoro archive exceeds the extraction size limit.")
-              }
-            }
-            if (entry.size >= 0L && entryBytes != entry.size) {
-              throw IOException(
-                "Incomplete Sherpa Kokoro archive entry ${entry.name}: " +
-                  "extracted=$entryBytes, expected=${entry.size}"
-              )
-            }
-          }
-        }
-      }
   }
 
   private fun writeInstallManifest(packageRoot: File, archiveSizeBytes: Long) {
@@ -449,7 +283,7 @@ internal object SherpaKokoroPackageInstaller {
     }
     if (verifyHashes) {
       expectedAssets.forEach { (relativePath, expectedHash) ->
-        val actualHash = sha256(actualAssets.getValue(relativePath))
+        val actualHash = actualAssets.getValue(relativePath).sha256()
         if (actualHash != expectedHash) {
           throw IOException("Sherpa Kokoro asset checksum mismatch: $relativePath")
         }
@@ -459,10 +293,11 @@ internal object SherpaKokoroPackageInstaller {
     return KokoroSherpaPackage(
       rootDirectory = root,
       installManifest = installManifest,
-      modelFile = root.resolve("model.int8.onnx"),
+      modelFile = root.resolve("model.onnx"),
       voicesFile = root.resolve("voices.bin"),
       tokensFile = root.resolve("tokens.txt"),
       espeakDataDirectory = root.resolve("espeak-ng-data"),
+      dictionaryDirectory = root.resolve("dict"),
       lexiconFiles =
         listOf("lexicon-us-en.txt", "lexicon-gb-en.txt", "lexicon-zh.txt").map(root::resolve),
       ruleFstFiles = listOf("phone-zh.fst", "date-zh.fst", "number-zh.fst").map(root::resolve),
@@ -473,11 +308,14 @@ internal object SherpaKokoroPackageInstaller {
   private fun hashPackageAssets(packageRoot: File): Map<String, String> =
     packageRoot.walkTopDown()
       .filter { file -> file.isFile && file.name != INSTALL_MANIFEST_NAME }
-      .associate { file -> file.relativeTo(packageRoot).invariantSeparatorsPath to sha256(file) }
+      .associate { file -> file.relativeTo(packageRoot).invariantSeparatorsPath to file.sha256() }
 
   private fun deleteLegacyPackageCaches(context: Context) {
     buildList {
         add(context.filesDir.resolve(LEGACY_PACKAGE_STORAGE_ROOT))
+        LEGACY_PACKAGE_IDS.forEach { packageId ->
+          add(context.filesDir.resolve(PACKAGE_STORAGE_ROOT).resolve(packageId))
+        }
         context.getExternalFilesDir(null)?.let { externalFilesDir ->
           add(externalFilesDir.resolve(LEGACY_PACKAGE_STORAGE_ROOT))
         }
@@ -516,30 +354,4 @@ internal object SherpaKokoroPackageInstaller {
     }
   }
 
-  private fun requireFile(file: File): File {
-    if (!file.isFile || file.length() <= 0L) {
-      throw IOException("Sherpa Kokoro package asset is missing or empty: ${file.absolutePath}")
-    }
-    return file
-  }
-
-  private fun sha256(file: File): String {
-    val digest = MessageDigest.getInstance("SHA-256")
-    BufferedInputStream(file.inputStream()).use { input ->
-      val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-      while (true) {
-        val readCount = input.read(buffer)
-        if (readCount == -1) break
-        digest.update(buffer, 0, readCount)
-      }
-    }
-    val hex = "0123456789abcdef"
-    return buildString(64) {
-      digest.digest().forEach { byte ->
-        val value = byte.toInt() and 0xff
-        append(hex[value ushr 4])
-        append(hex[value and 0x0f])
-      }
-    }
-  }
 }

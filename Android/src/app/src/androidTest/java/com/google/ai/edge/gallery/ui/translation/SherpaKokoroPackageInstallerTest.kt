@@ -18,7 +18,6 @@ package com.google.ai.edge.gallery.ui.translation
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -30,26 +29,14 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class SherpaKokoroPackageInstallerTest {
   @Test
-  fun installsPinnedPackageAtomicallyAndRemovesLegacyCaches() {
+  fun installsPinnedPackageAtomically() {
     runBlocking {
       val context = InstrumentationRegistry.getInstrumentation().targetContext
       val archive =
         context.filesDir
           .resolve("translation_tts_installer_test")
-          .resolve("kokoro-int8-multi-lang-v1_1.tar.bz2")
+          .resolve("kokoro-multi-lang-v1_0.tar.bz2")
       assertTrue("Stage the pinned Kokoro archive at ${archive.absolutePath}", archive.isFile)
-
-      val legacyRoots =
-        buildList {
-          add(context.filesDir.resolve("kokoro_tts"))
-          context.getExternalFilesDir(null)?.let { externalFilesDir ->
-            add(externalFilesDir.resolve("kokoro_tts"))
-          }
-        }
-      legacyRoots.forEach { legacyRoot ->
-        assertTrue(legacyRoot.isDirectory || legacyRoot.mkdirs())
-        legacyRoot.resolve("legacy-package-sentinel.txt").writeText("obsolete")
-      }
 
       val installed =
         SherpaKokoroPackageInstaller.installFromVerifiedArchive(
@@ -65,34 +52,38 @@ class SherpaKokoroPackageInstallerTest {
       assertTrue(installed.voicesFile.isFile)
       assertTrue(installed.tokensFile.isFile)
       assertTrue(installed.espeakDataDirectory.resolve("phondata").isFile)
-      assertEquals(setOf("en-us", "es", "fr-fr", "it"), installed.voiceConfigs.keys)
-      assertTrue(legacyRoots.none(File::exists))
-
-      val manifest = JSONObject(installed.installManifest.readText())
-      assertEquals(2, manifest.getInt("schema_version"))
-      assertEquals("sherpa-onnx", manifest.getString("backend"))
-      assertEquals("1.13.4", manifest.getString("runtime_version"))
-      assertEquals(24000, manifest.getInt("sample_rate_hz"))
-      assertTrue(manifest.getJSONObject("assets").length() > 300)
+      assertTrue(installed.dictionaryDirectory.resolve("jieba.dict.utf8").isFile)
       assertEquals(
-        "fr",
-        manifest
-          .getJSONObject("languages")
-          .getJSONObject("fr-fr")
-          .getString("espeak_voice"),
+        KOKORO_SHERPA_VOICE_CONFIGS.associateBy(KokoroSherpaVoiceConfig::languageTag),
+        installed.voiceConfigs,
       )
 
-      val packageParent = installed.rootDirectory.parentFile ?: File("")
+      val manifest = JSONObject(installed.installManifest.readText())
+      assertEquals(KOKORO_SHERPA_SCHEMA_VERSION, manifest.getInt("schema_version"))
+      assertEquals(KOKORO_SHERPA_BACKEND, manifest.getString("backend"))
+      assertEquals(KOKORO_SHERPA_RUNTIME_VERSION, manifest.getString("runtime_version"))
+      assertEquals(KOKORO_SHERPA_SAMPLE_RATE, manifest.getInt("sample_rate_hz"))
+      val manifestAssets = manifest.getJSONObject("assets")
+      assertTrue(KOKORO_SHERPA_REQUIRED_ASSETS.all(manifestAssets::has))
+      val manifestLanguages = manifest.getJSONObject("languages")
+      KOKORO_SHERPA_VOICE_CONFIGS.forEach { voice ->
+        assertEquals(
+          voice.espeakVoice,
+          manifestLanguages.getJSONObject(voice.languageTag).getString("espeak_voice"),
+        )
+      }
+
+      val packageParent = checkNotNull(installed.rootDirectory.parentFile)
       assertFalse(
         packageParent.listFiles()?.any { file -> file.name.endsWith(".staging") } == true
       )
       assertEquals(
         installed.rootDirectory.canonicalPath,
-        TranslationTtsModelRepository.findInstalled(context)?.rootDirectory?.canonicalPath,
+        SherpaKokoroPackageInstaller.findInstalled(context)?.rootDirectory?.canonicalPath,
       )
       assertEquals(
         installed.rootDirectory.canonicalPath,
-        TranslationTtsModelRepository.ensureInstalled(context).rootDirectory.canonicalPath,
+        SherpaKokoroPackageInstaller.ensureInstalled(context).rootDirectory.canonicalPath,
       )
     }
   }

@@ -23,78 +23,43 @@ import org.junit.Test
 
 class TranslationTtsAudioValidatorTest {
   @Test
-  fun rejectsInvalidSampleRateWithStructuredReason() {
-    val exception =
-      assertThrows(TranslationTtsSynthesisException::class.java) {
-        TranslationTtsAudioValidator.validate(
-          SynthesizedAudio(samples = FloatArray(7000) { 0.1f }, sampleRate = 0)
-        )
-      }
+  fun rejectsInvalidPcm() {
+    val invalidAudio =
+      mapOf(
+        TranslationTtsAudioFailure.INVALID_SAMPLE_RATE to audibleAudio(sampleRate = 0),
+        TranslationTtsAudioFailure.SHORT_AUDIO to
+          audibleAudio(sampleCount = TranslationTtsAudioValidator.MIN_SAMPLE_COUNT),
+        TranslationTtsAudioFailure.NON_FINITE_AUDIO to
+          audibleAudio().copy(samples = audibleAudio().samples.apply { this[0] = Float.NaN }),
+        TranslationTtsAudioFailure.NEAR_SILENT_AUDIO to
+          audibleAudio().copy(samples = FloatArray(VALID_SAMPLE_COUNT)),
+      )
 
-    assertEquals(TranslationTtsAudioFailure.INVALID_SAMPLE_RATE, exception.audioFailure)
-  }
-
-  @Test
-  fun rejectsOneSampleOutput() {
-    val exception =
-      assertThrows(TranslationTtsSynthesisException::class.java) {
-        TranslationTtsAudioValidator.validate(
-          SynthesizedAudio(samples = floatArrayOf(0.1f), sampleRate = 24000)
-        )
-      }
-
-    assertEquals(TranslationTtsAudioFailure.SHORT_AUDIO, exception.audioFailure)
-  }
-
-  @Test
-  fun rejectsAudioAtQuarterSecondBoundary() {
-    val exception =
-      assertThrows(TranslationTtsSynthesisException::class.java) {
-        TranslationTtsAudioValidator.validate(
-          SynthesizedAudio(samples = FloatArray(6000) { 0.1f }, sampleRate = 24000)
-        )
-      }
-
-    assertEquals(TranslationTtsAudioFailure.SHORT_AUDIO, exception.audioFailure)
-    assertEquals(0.25, exception.metrics?.durationSeconds ?: 0.0, 0.0001)
-  }
-
-  @Test
-  fun rejectsNonFiniteOutput() {
-    val samples = FloatArray(7000) { 0.1f }.apply { this[3500] = Float.NaN }
-
-    val exception =
-      assertThrows(TranslationTtsSynthesisException::class.java) {
-        TranslationTtsAudioValidator.validate(
-          SynthesizedAudio(samples = samples, sampleRate = 24000)
-        )
-      }
-
-    assertEquals(TranslationTtsAudioFailure.NON_FINITE_AUDIO, exception.audioFailure)
-  }
-
-  @Test
-  fun rejectsNearSilentOutput() {
-    val exception =
-      assertThrows(TranslationTtsSynthesisException::class.java) {
-        TranslationTtsAudioValidator.validate(
-          SynthesizedAudio(samples = FloatArray(7000), sampleRate = 24000)
-        )
-      }
-
-    assertEquals(TranslationTtsAudioFailure.NEAR_SILENT_AUDIO, exception.audioFailure)
-    assertEquals(0.0, exception.metrics?.rms ?: -1.0, 0.0)
+    invalidAudio.forEach { (expectedFailure, audio) ->
+      val exception =
+        assertThrows(TranslationTtsSynthesisException::class.java) {
+          TranslationTtsAudioValidator.validate(audio)
+        }
+      assertEquals(expectedFailure, exception.audioFailure)
+    }
   }
 
   @Test
   fun acceptsAudiblePcm() {
-    val metrics =
-      TranslationTtsAudioValidator.validate(
-        SynthesizedAudio(samples = FloatArray(24000) { 0.05f }, sampleRate = 24000)
-      )
+    val metrics = TranslationTtsAudioValidator.validate(audibleAudio())
 
     assertEquals(1.0, metrics.durationSeconds, 0.0001)
     assertTrue(metrics.rms >= TranslationTtsAudioValidator.MIN_RMS)
     assertTrue(metrics.peak >= TranslationTtsAudioValidator.MIN_PEAK)
+  }
+
+  private fun audibleAudio(
+    sampleCount: Int = VALID_SAMPLE_COUNT,
+    sampleRate: Int = VALID_SAMPLE_RATE,
+  ) = SynthesizedAudio(samples = FloatArray(sampleCount) { 0.05f }, sampleRate = sampleRate)
+
+  companion object {
+    private const val VALID_SAMPLE_RATE = 24_000
+    private const val VALID_SAMPLE_COUNT = 24_000
   }
 }

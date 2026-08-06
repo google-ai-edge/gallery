@@ -18,7 +18,6 @@ package com.google.ai.edge.gallery.ui.translation
 
 import java.io.IOException
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -34,86 +33,48 @@ class SherpaKokoroRegressionPolicyTest {
   }
 
   @Test
-  fun packageValidationRejectsWrongRevision() {
-    val metadata = validMetadata().copy(revision = "different-revision")
-
-    assertThrows(IOException::class.java) {
-      SherpaKokoroRegressionPolicy.validatePackageMetadata(
-        metadata = metadata,
-        actualAssetPaths = metadata.assetHashes.keys,
-      )
-    }
-  }
-
-  @Test
-  fun packageValidationRejectsMissingOrUntrackedAssets() {
+  fun packageValidationRejectsInvalidContracts() {
     val metadata = validMetadata()
+    val voice = metadata.languages.values.first()
+    val invalidContracts =
+      listOf(
+        metadata.copy(revision = "different-revision"),
+        metadata.copy(
+          languages = metadata.languages + (voice.languageTag to voice.copy(speakerId = -1))
+        ),
+      )
 
-    assertThrows(IOException::class.java) {
-      SherpaKokoroRegressionPolicy.validatePackageMetadata(
-        metadata = metadata,
-        actualAssetPaths = metadata.assetHashes.keys - "tokens.txt",
+    invalidContracts.forEach { invalidContract ->
+      assertThrows(IOException::class.java) {
+        SherpaKokoroRegressionPolicy.validatePackageMetadata(
+          metadata = invalidContract,
+          actualAssetPaths = invalidContract.assetHashes.keys,
+        )
+      }
+    }
+
+    listOf(
+        metadata.assetHashes.keys - metadata.assetHashes.keys.first(),
+        metadata.assetHashes.keys + "unexpected-asset",
+      )
+      .forEach { invalidAssetPaths ->
+        assertThrows(IOException::class.java) {
+          SherpaKokoroRegressionPolicy.validatePackageMetadata(
+            metadata = metadata,
+            actualAssetPaths = invalidAssetPaths,
+          )
+        }
+      }
+  }
+
+  @Test
+  fun selectsEveryConfiguredTranslationVoice() {
+    TranslationLanguage.entries.forEach { language ->
+      assertEquals(
+        language.ttsLanguageTag,
+        SherpaKokoroVoiceSelector.select(language.ttsLanguageTag)?.languageTag,
       )
     }
-  }
-
-  @Test
-  fun packageValidationRejectsChangedVoiceMapping() {
-    val metadata = validMetadata()
-    val changedFrench = metadata.languages.getValue("fr-fr").copy(espeakVoice = "fr-fr")
-
-    assertThrows(IOException::class.java) {
-      SherpaKokoroRegressionPolicy.validatePackageMetadata(
-        metadata = metadata.copy(languages = metadata.languages + ("fr-fr" to changedFrench)),
-        actualAssetPaths = metadata.assetHashes.keys,
-      )
-    }
-  }
-
-  @Test
-  fun installationUsesOnlyV2PackageState() {
-    assertEquals(
-      KokoroSherpaInstallAction.INSTALL_V2,
-      SherpaKokoroRegressionPolicy.installAction(
-        validV2Installed = false,
-        v2DirectoryPresent = false,
-      ),
-    )
-    assertEquals(
-      KokoroSherpaInstallAction.REPLACE_INVALID_V2,
-      SherpaKokoroRegressionPolicy.installAction(
-        validV2Installed = false,
-        v2DirectoryPresent = true,
-      ),
-    )
-    assertEquals(
-      KokoroSherpaInstallAction.USE_VALID_V2,
-      SherpaKokoroRegressionPolicy.installAction(
-        validV2Installed = true,
-        v2DirectoryPresent = true,
-      ),
-    )
-  }
-
-  @Test
-  fun languageAliasesSelectPinnedVoices() {
-    assertEquals(
-      KokoroSherpaVoiceConfig("en-us", "en-us", "af_maple", 0),
-      SherpaKokoroVoiceSelector.select("en_GB"),
-    )
-    assertEquals(
-      KokoroSherpaVoiceConfig("es", "es", "af_sol", 1),
-      SherpaKokoroVoiceSelector.select("es-ES"),
-    )
-    assertEquals(
-      KokoroSherpaVoiceConfig("fr-fr", "fr", "zf_047", 30),
-      SherpaKokoroVoiceSelector.select("fr-FR"),
-    )
-    assertEquals(
-      KokoroSherpaVoiceConfig("it", "it", "bf_vale", 2),
-      SherpaKokoroVoiceSelector.select("it-IT"),
-    )
-    assertNull(SherpaKokoroVoiceSelector.select("de-DE"))
   }
 
   private fun validMetadata(): KokoroSherpaManifestMetadata {

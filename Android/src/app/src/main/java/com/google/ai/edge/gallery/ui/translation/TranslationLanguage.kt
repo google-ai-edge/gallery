@@ -16,22 +16,16 @@
 
 package com.google.ai.edge.gallery.ui.translation
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
-
-class TranslationTtsModelTest {
-  @Test
-  fun fromStoredValueRestoresEveryModel() {
-    TranslationTtsModel.entries.forEach { model ->
-      assertEquals(model, TranslationTtsModel.fromStoredValue(model.name.lowercase()))
-    }
-  }
-
-  @Test
-  fun fromStoredValueUsesDefaultForUnknownValue() {
-    assertEquals(
-      TranslationTtsModel.SYSTEM,
-      TranslationTtsModel.fromStoredValue("unknown"),
-    )
-  }
+enum class TranslationLanguage(
+  val label: String,
+  val ttsLanguageTag: String,
+) {
+  SPANISH("Spanish", "es"),
+  FRENCH("French", "fr-fr"),
+  HINDI("Hindi", "hi"),
+  ITALIAN("Italian", "it"),
+  BRAZILIAN_PORTUGUESE("Brazilian Portuguese", "pt-br"),
 }
+
+fun buildTranslationSystemPrompt(language: TranslationLanguage) =
+  "Translate into ${language.label}. Output only the translation."

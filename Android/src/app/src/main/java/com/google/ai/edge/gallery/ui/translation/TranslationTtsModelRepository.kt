@@ -18,12 +18,21 @@ package com.google.ai.edge.gallery.ui.translation
 
 import android.content.Context
 
+internal enum class TranslationTtsInstallStage {
+  DOWNLOADING,
+  VERIFYING,
+  EXTRACTING,
+  VALIDATING,
+  FINALIZING,
+}
+
 internal data class TranslationTtsDownloadProgress(
   val currentFileName: String,
   val downloadedBytes: Long,
   val totalBytes: Long,
   val completedFiles: Int,
   val totalFiles: Int,
+  val stage: TranslationTtsInstallStage = TranslationTtsInstallStage.DOWNLOADING,
 ) {
   val fraction: Float?
     get() = if (totalBytes > 0L) downloadedBytes.toFloat() / totalBytes.toFloat() else null
@@ -32,6 +41,7 @@ internal data class TranslationTtsDownloadProgress(
 internal object TranslationTtsModelRepository {
   fun isInstalled(context: Context, model: TranslationTtsModel): Boolean =
     when (model) {
+      TranslationTtsModel.SYSTEM -> false
       TranslationTtsModel.KOKORO -> SherpaKokoroPackageInstaller.findInstalled(context) != null
       TranslationTtsModel.SUPERTONIC_3 ->
         SherpaSupertonicPackageInstaller.findInstalled(context) != null
@@ -43,6 +53,7 @@ internal object TranslationTtsModelRepository {
     onProgress: (TranslationTtsDownloadProgress) -> Unit = {},
   ) {
     when (model) {
+      TranslationTtsModel.SYSTEM -> Unit
       TranslationTtsModel.KOKORO ->
         SherpaKokoroPackageInstaller.ensureInstalled(context, onProgress)
       TranslationTtsModel.SUPERTONIC_3 ->
@@ -53,18 +64,10 @@ internal object TranslationTtsModelRepository {
   suspend fun deleteInstalled(context: Context, model: TranslationTtsModel): Boolean {
     TranslationTtsEngineStore.release(model)
     return when (model) {
+      TranslationTtsModel.SYSTEM -> false
       TranslationTtsModel.KOKORO -> SherpaKokoroPackageInstaller.deleteInstalled(context)
       TranslationTtsModel.SUPERTONIC_3 ->
         SherpaSupertonicPackageInstaller.deleteInstalled(context)
     }
   }
-
-  fun findInstalled(context: Context): KokoroSherpaPackage? =
-    SherpaKokoroPackageInstaller.findInstalled(context = context)
-
-  suspend fun ensureInstalled(
-    context: Context,
-    onProgress: (TranslationTtsDownloadProgress) -> Unit = {},
-  ): KokoroSherpaPackage =
-    SherpaKokoroPackageInstaller.ensureInstalled(context = context, onProgress = onProgress)
 }

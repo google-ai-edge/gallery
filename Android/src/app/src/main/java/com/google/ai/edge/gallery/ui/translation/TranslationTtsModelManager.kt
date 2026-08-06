@@ -16,16 +16,20 @@
 
 package com.google.ai.edge.gallery.ui.translation
 
+import android.text.format.Formatter
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
@@ -38,8 +42,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.GalleryTopAppBar
@@ -87,7 +90,8 @@ internal fun TranslationTtsModelManager(
     val statuses =
       withContext(Dispatchers.IO) {
         TranslationTtsModel.entries.associateWith { model ->
-          TranslationTtsModelRepository.isInstalled(context, model)
+          model == TranslationTtsModel.SYSTEM ||
+            TranslationTtsModelRepository.isInstalled(context, model)
         }
       }
     installedModels.putAll(statuses)
@@ -117,11 +121,26 @@ internal fun TranslationTtsModelManager(
         )
       }
       items(TranslationTtsModel.entries, key = { it.name }) { model ->
-        val installed = installedModels[model] == true
-        val isSelected = selectedModel == model
+        val isSystem = model == TranslationTtsModel.SYSTEM
+        val installed = isSystem || installedModels[model] == true
+        val isSelected = installed && selectedModel == model
         val isDownloading = downloadingModel == model
         Card(
-          modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+          modifier =
+            Modifier.fillMaxWidth()
+              .padding(horizontal = 16.dp)
+              .then(
+                if (installed) {
+                  Modifier.selectable(
+                    selected = isSelected,
+                    enabled = downloadingModel == null,
+                    role = Role.RadioButton,
+                    onClick = { onModelSelected(model) },
+                  )
+                } else {
+                  Modifier
+                }
+              ),
           colors =
             CardDefaults.cardColors(
               containerColor =
@@ -133,131 +152,123 @@ internal fun TranslationTtsModelManager(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
           ) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-              RadioButton(
-                selected = isSelected,
-                enabled = installed && downloadingModel == null,
-                onClick = { onModelSelected(model) },
+            Column(modifier = Modifier.fillMaxWidth()) {
+              Text(
+                text = model.displayName,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
               )
-              Column(modifier = Modifier.weight(1f)) {
-                Text(
-                  text = model.displayName,
-                  style = MaterialTheme.typography.titleMedium,
-                  fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                  text =
-                    if (installed) {
-                      stringResource(R.string.translation_voice_model_installed)
-                    } else {
+              Text(
+                text =
+                  when {
+                    isSelected -> stringResource(R.string.translation_voice_model_selected)
+                    isSystem -> stringResource(R.string.translation_voice_system_available)
+                    installed -> stringResource(R.string.translation_voice_model_installed)
+                    else ->
                       stringResource(
                         R.string.translation_voice_model_download_size,
-                        formatModelSize(model.packageSizeBytes),
+                        Formatter.formatShortFileSize(context, model.packageSizeBytes),
                       )
-                    },
-                  style = MaterialTheme.typography.labelMedium,
-                  color = MaterialTheme.colorScheme.primary,
-                )
-              }
+                  },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+              )
             }
             Text(
               text = model.description,
               style = MaterialTheme.typography.bodyMedium,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Text(
-              text = model.licenseLabel,
-              style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             if (isDownloading) {
               val progress = downloadProgress
-              progress?.fraction?.let { fraction ->
-                LinearProgressIndicator(
-                  progress = { fraction.coerceIn(0f, 1f) },
-                  modifier = Modifier.fillMaxWidth(),
-                )
-              } ?: LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+              if (
+                progress == null || progress.stage != TranslationTtsInstallStage.DOWNLOADING
+              ) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+              } else {
+                progress.fraction?.let { fraction ->
+                  LinearProgressIndicator(
+                    progress = { fraction.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                  )
+                } ?: LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+              }
               Text(
                 text =
-                  progress?.let {
-                    stringResource(
-                      R.string.translation_tts_download_dialog_byte_stats,
-                      formatModelSize(it.downloadedBytes),
-                      formatModelSize(it.totalBytes),
-                    )
-                  } ?: stringResource(R.string.translation_tts_download_dialog_downloading),
+                  when (progress?.stage) {
+                    TranslationTtsInstallStage.VERIFYING ->
+                      stringResource(R.string.translation_voice_model_verifying)
+                    TranslationTtsInstallStage.EXTRACTING ->
+                      stringResource(R.string.translation_voice_model_extracting)
+                    TranslationTtsInstallStage.VALIDATING ->
+                      stringResource(R.string.translation_voice_model_validating)
+                    TranslationTtsInstallStage.FINALIZING ->
+                      stringResource(R.string.translation_voice_model_finalizing)
+                    TranslationTtsInstallStage.DOWNLOADING ->
+                      stringResource(
+                        R.string.translation_tts_download_dialog_byte_stats,
+                        Formatter.formatShortFileSize(context, progress.downloadedBytes),
+                        Formatter.formatShortFileSize(context, progress.totalBytes),
+                      )
+                    null -> stringResource(R.string.translation_tts_download_dialog_downloading)
+                  },
                 style = MaterialTheme.typography.bodySmall,
               )
             }
             errorMessage?.takeIf { downloadingModel == null && errorModel == model }?.let { error ->
               Text(error, color = MaterialTheme.colorScheme.error)
             }
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.End,
-              verticalAlignment = Alignment.CenterVertically,
-            ) {
-              if (installed) {
-                TextButton(
-                  enabled = downloadingModel == null,
-                  onClick = { modelPendingDeletion = model },
-                ) {
-                  Icon(Icons.Outlined.Delete, contentDescription = null)
-                  Text(stringResource(R.string.delete))
-                }
-                if (!isSelected) {
-                  Button(
+            if (!isSystem) {
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+              ) {
+                if (installed) {
+                  TextButton(
                     enabled = downloadingModel == null,
-                    onClick = { onModelSelected(model) },
+                    onClick = { modelPendingDeletion = model },
                   ) {
-                    Text(stringResource(R.string.translation_voice_model_use))
+                    Icon(Icons.Outlined.Delete, contentDescription = null)
+                    Text(stringResource(R.string.delete))
                   }
                 } else {
-                  OutlinedButton(enabled = false, onClick = {}) {
-                    Text(stringResource(R.string.translation_voice_model_selected))
-                  }
-                }
-              } else {
-                Button(
-                  enabled = downloadingModel == null,
-                  onClick = {
-                    scope.launch {
-                      downloadingModel = model
-                      downloadProgress = null
-                      errorMessage = null
-                      errorModel = model
-                      try {
-                        TranslationTtsModelRepository.ensureInstalled(
-                          context = context,
-                          model = model,
-                          onProgress = { progress ->
-                            scope.launch { downloadProgress = progress }
-                          },
-                        )
-                        installedModels[model] = true
-                        errorModel = null
-                        onModelSelected(model)
-                      } catch (exception: CancellationException) {
-                        throw exception
-                      } catch (exception: Exception) {
-                        errorMessage = exception.message ?: "Download failed."
-                      } finally {
-                        downloadingModel = null
+                  Button(
+                    enabled = downloadingModel == null,
+                    onClick = {
+                      scope.launch {
+                        downloadingModel = model
                         downloadProgress = null
+                        errorMessage = null
+                        errorModel = model
+                        try {
+                          TranslationTtsModelRepository.ensureInstalled(
+                            context = context,
+                            model = model,
+                            onProgress = { progress ->
+                              scope.launch { downloadProgress = progress }
+                            },
+                          )
+                          installedModels[model] = true
+                          errorModel = null
+                          onModelSelected(model)
+                        } catch (exception: CancellationException) {
+                          throw exception
+                        } catch (exception: Exception) {
+                          errorMessage = exception.message ?: "Download failed."
+                        } finally {
+                          downloadingModel = null
+                          downloadProgress = null
+                        }
                       }
+                    },
+                  ) {
+                    if (isDownloading) {
+                      CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                      Icon(Icons.Outlined.Download, contentDescription = null)
+                      Text(stringResource(R.string.download))
                     }
-                  },
-                ) {
-                  if (isDownloading) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                  } else {
-                    Icon(Icons.Outlined.Download, contentDescription = null)
-                    Text(stringResource(R.string.download))
                   }
                 }
               }
@@ -265,7 +276,7 @@ internal fun TranslationTtsModelManager(
           }
         }
       }
-      item { Column(modifier = Modifier.padding(bottom = 20.dp)) {} }
+      item { Spacer(modifier = Modifier.height(20.dp)) }
     }
   }
 
@@ -291,8 +302,10 @@ internal fun TranslationTtsModelManager(
                   if (selectedModel == model) {
                     val replacement =
                       TranslationTtsModel.entries.firstOrNull { candidate ->
-                        candidate != model && installedModels[candidate] == true
-                      } ?: TranslationTtsModel.DEFAULT
+                        candidate != TranslationTtsModel.SYSTEM &&
+                          candidate != model &&
+                          installedModels[candidate] == true
+                      } ?: TranslationTtsModel.SYSTEM
                     onModelSelected(replacement)
                   }
                 } else {
@@ -316,16 +329,4 @@ internal fun TranslationTtsModelManager(
       },
     )
   }
-}
-
-private fun formatModelSize(bytes: Long): String {
-  if (bytes <= 0L) return "0 B"
-  val units = listOf("B", "KB", "MB", "GB")
-  var value = bytes.toDouble()
-  var unitIndex = 0
-  while (value >= 1024.0 && unitIndex < units.lastIndex) {
-    value /= 1024.0
-    unitIndex++
-  }
-  return if (unitIndex == 0) "$bytes B" else String.format("%.1f %s", value, units[unitIndex])
 }

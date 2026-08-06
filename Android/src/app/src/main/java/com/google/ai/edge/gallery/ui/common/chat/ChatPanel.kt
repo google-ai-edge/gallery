@@ -23,14 +23,8 @@ import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -54,12 +48,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ThumbDown
@@ -98,7 +90,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -126,7 +117,6 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.AudioAnimation
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.FloatingBanner
-import com.google.ai.edge.gallery.ui.common.getTaskBgGradientColors
 import com.google.ai.edge.gallery.ui.common.RotationalLoader
 import com.google.ai.edge.gallery.ui.common.ScrollToBottomButton
 import com.google.ai.edge.gallery.ui.common.textandvoiceinput.HoldToDictate
@@ -170,6 +160,7 @@ fun ChatPanel(
   voiceInputOnly: Boolean = false,
   voiceInputProcessingStatusText: String? = null,
   emptyStateComposable: @Composable (Model) -> Unit = {},
+  composableBelowMessageList: @Composable (Model) -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -675,6 +666,8 @@ fun ChatPanel(
         }
       }
 
+      composableBelowMessageList(selectedModel)
+
       val modelInitializing =
         modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
       if (voiceInputOnly) {
@@ -818,7 +811,6 @@ private fun VoiceOnlyMessageInput(
       !modelInitializing &&
       !modelPreparing &&
       !holdToDictateUiState.transcribing
-  var amplitude by remember { mutableIntStateOf(0) }
   val transcript = holdToDictateUiState.recognizedText.trim()
   val dictationActive =
     holdToDictateUiState.recognizing || holdToDictateUiState.transcribing
@@ -947,128 +939,18 @@ private fun VoiceOnlyMessageInput(
         }
       }
     } else {
-      TranslationVoiceControl(
+      HoldToDictate(
         task = task,
         viewModel = holdToDictateViewModel,
         enabled = inputEnabled,
-        recognizing = holdToDictateUiState.recognizing,
-        amplitude = amplitude,
-        onAmplitudeChanged = { amplitude = it },
+        modifier = Modifier.fillMaxWidth(),
+        onAmplitudeChanged = {},
         onDone = { recognizedText ->
           recognizedText.trim().takeIf { it.isNotEmpty() }?.let(onSendMessage)
-          amplitude = 0
           holdToDictateViewModel.setRecognizedText("")
         },
       )
     }
-  }
-}
-
-@Composable
-private fun TranslationVoiceControl(
-  task: Task,
-  viewModel: HoldToDictateViewModel,
-  enabled: Boolean,
-  recognizing: Boolean,
-  amplitude: Int,
-  onAmplitudeChanged: (Int) -> Unit,
-  onDone: (String) -> Unit,
-) {
-  val taskColor = getTaskBgGradientColors(task = task)[1]
-  val pulseTransition = rememberInfiniteTransition(label = "translationVoicePulse")
-  val pulse by
-    pulseTransition.animateFloat(
-      initialValue = 0f,
-      targetValue = 1f,
-      animationSpec =
-        infiniteRepeatable(
-          animation = tween(durationMillis = 950, easing = LinearEasing),
-          repeatMode = RepeatMode.Restart,
-        ),
-      label = "translationVoicePulseProgress",
-    )
-  val amplitudeFraction by
-    animateFloatAsState(
-      targetValue = (amplitude / 65535f).coerceIn(0f, 1f),
-      animationSpec = tween(durationMillis = 90),
-      label = "translationVoiceAmplitude",
-    )
-
-  Column(horizontalAlignment = Alignment.CenterHorizontally) {
-    Box(
-      modifier =
-        Modifier.size(132.dp).drawBehind {
-          if (recognizing) {
-            val radius = size.minDimension / 2f
-            drawCircle(
-              color = taskColor.copy(alpha = 0.15f * (1f - pulse)),
-              radius = radius * (0.62f + 0.34f * pulse),
-            )
-            drawCircle(
-              color = taskColor.copy(alpha = 0.14f + 0.10f * amplitudeFraction),
-              radius = radius * (0.61f + 0.08f * amplitudeFraction),
-            )
-          }
-        },
-      contentAlignment = Alignment.Center,
-    ) {
-      HoldToDictate(
-        task = task,
-        viewModel = viewModel,
-        onDone = onDone,
-        onAmplitudeChanged = onAmplitudeChanged,
-        enabled = enabled,
-        modifier =
-          Modifier.graphicsLayer {
-            val activeScale = if (recognizing) 1f + 0.05f * amplitudeFraction else 1f
-            scaleX = activeScale
-            scaleY = activeScale
-          },
-        iconOnly = true,
-        iconButtonSize = 84.dp,
-      )
-    }
-
-    Row(
-      modifier = Modifier.height(34.dp),
-      horizontalArrangement = Arrangement.spacedBy(5.dp),
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      val barWeights = listOf(0.42f, 0.72f, 1f, 0.72f, 0.42f)
-      for (barWeight in barWeights) {
-        val activeHeight =
-          if (recognizing) {
-            7f + barWeight * (8f + 19f * amplitudeFraction) + pulse * 2f
-          } else {
-            5f
-          }
-        Box(
-          modifier =
-            Modifier.width(5.dp)
-              .height(activeHeight.dp)
-              .clip(CircleShape)
-              .background(
-                if (recognizing) taskColor else MaterialTheme.colorScheme.outlineVariant
-              )
-        )
-      }
-    }
-
-    Text(
-      text =
-        stringResource(
-          if (recognizing) {
-            R.string.translation_release_to_translate
-          } else {
-            R.string.translation_hold_to_speak
-          }
-        ),
-      style = MaterialTheme.typography.labelLarge,
-      color =
-        if (enabled) MaterialTheme.colorScheme.onSurface
-        else MaterialTheme.colorScheme.onSurfaceVariant,
-      modifier = Modifier.padding(top = 2.dp),
-    )
   }
 }
 

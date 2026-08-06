@@ -29,9 +29,9 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class SherpaKokoroTtsEngineTest {
   @Test
-  fun arm64SynthesizesValidatedPcmForAllTranslationLanguages() {
+  fun arm64SynthesizesValidatedPcmForEveryConfiguredVoice() {
     assertTrue(
-      "This regression test must run on an arm64 emulator/device; ABIs=" +
+      "Kokoro device tests require arm64; ABIs=" +
         Build.SUPPORTED_ABIS.joinToString(),
       Build.SUPPORTED_ABIS.contains("arm64-v8a"),
     )
@@ -41,17 +41,13 @@ class SherpaKokoroTtsEngineTest {
     try {
       runBlocking {
         engine.preload()
-        val phrases =
-          mapOf(
-            "en-us" to "Hello, this is a test.",
-            "es" to "Hola, esto es una prueba.",
-            "fr-fr" to "Bonjour, ceci est un test.",
-            "it" to "Ciao, questo è un test.",
-          )
-
-        phrases.forEach { (languageTag, phrase) ->
-          val audio = engine.synthesize(text = phrase, languageTag = languageTag)
-          assertEquals(24000, audio.sampleRate)
+        KOKORO_SHERPA_VOICE_CONFIGS.forEach { voice ->
+          val audio =
+            engine.synthesize(
+              text = TEST_TEXT_BY_LANGUAGE.getValue(voice.languageTag),
+              languageTag = voice.languageTag,
+            )
+          assertEquals(KOKORO_SHERPA_SAMPLE_RATE, audio.sampleRate)
           assertTrue(audio.samples.size > TranslationTtsAudioValidator.MIN_SAMPLE_COUNT)
           assertTrue(audio.samples.all(Float::isFinite))
           val metrics = TranslationTtsAudioValidator.validate(audio)
@@ -71,7 +67,12 @@ class SherpaKokoroTtsEngineTest {
 
     try {
       assertThrows(TranslationTtsSynthesisException::class.java) {
-        runBlocking { engine.synthesize(text = "   ", languageTag = "fr-fr") }
+        runBlocking {
+          engine.synthesize(
+            text = "   ",
+            languageTag = KOKORO_SHERPA_VOICE_CONFIGS.first().languageTag,
+          )
+        }
       }
     } finally {
       engine.release()
@@ -79,7 +80,7 @@ class SherpaKokoroTtsEngineTest {
   }
 
   @Test
-  fun arm64StreamsNativePcmBeforeReturningValidatedAudio() {
+  fun arm64StreamsValidatedPcm() {
     val context = InstrumentationRegistry.getInstrumentation().targetContext
     val engine: TranslationTtsEngine = SherpaKokoroTtsEngine(context)
 
@@ -90,13 +91,14 @@ class SherpaKokoroTtsEngineTest {
         runBlocking {
           engine.preload()
           engine.synthesizeStreaming(
-            text = "Hola, esta es una prueba de audio transmitido.",
-            languageTag = "es",
+            text = TEST_TEXT_BY_LANGUAGE.getValue(KOKORO_SHERPA_VOICE_CONFIGS.first().languageTag),
+            languageTag = KOKORO_SHERPA_VOICE_CONFIGS.first().languageTag,
             onPcmChunk = { chunk ->
               callbackCount++
               callbackSampleCount += chunk.samples.size
-              assertEquals(24000, chunk.sampleRate)
+              assertEquals(KOKORO_SHERPA_SAMPLE_RATE, chunk.sampleRate)
               assertTrue(chunk.samples.isNotEmpty())
+              assertTrue(chunk.samples.all(Float::isFinite))
               true
             },
           )
@@ -108,5 +110,17 @@ class SherpaKokoroTtsEngineTest {
     } finally {
       engine.release()
     }
+  }
+
+  companion object {
+    private val TEST_TEXT_BY_LANGUAGE =
+      mapOf(
+        "en-us" to "This is a speech synthesis test.",
+        "es" to "Esta es una prueba de síntesis de voz.",
+        "fr-fr" to "Ceci est un test de synthèse vocale.",
+        "hi" to "यह वाक् संश्लेषण का परीक्षण है।",
+        "it" to "Questo è un test di sintesi vocale.",
+        "pt-br" to "Este é um teste de síntese de voz.",
+      )
   }
 }

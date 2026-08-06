@@ -28,36 +28,27 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.agent.AgentRuntimeConfig
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
 import com.google.ai.edge.gallery.agent.AiChatExecutor
-import com.google.ai.edge.gallery.common.ProjectConfig
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskDataForBuiltinTask
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
-import com.google.ai.edge.gallery.runtime.runtimeHelper
 import com.google.ai.edge.gallery.proto.UserData
-import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.litertlm.Contents
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
-import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGTranslationTask"
-private const val LITERT_WARMUP_PROMPT = "OK"
-private const val LITERT_WARMUP_TIMEOUT_MS = 8_000L
 
 class TranslationTask
 @Inject
@@ -120,70 +111,8 @@ constructor(
             supportAudio = false,
             systemInstruction = systemInstruction?.toString(),
           ),
-        onDone = { error ->
-          if (
-            !ProjectConfig.enableTranslationLlmWarmup ||
-              model.runtimeType == RuntimeType.AICORE ||
-              model.instance == null
-          ) {
-            completeInitialization(error)
-          } else {
-            warmUpLiteRtModel(
-              model = model,
-              systemInstruction = systemInstruction,
-              coroutineScope = coroutineScope,
-              initializationError = error,
-              onDone = completeInitialization,
-            )
-          }
-        },
+        onDone = completeInitialization,
       )
-    }
-  }
-
-  private fun warmUpLiteRtModel(
-    model: Model,
-    systemInstruction: Contents?,
-    coroutineScope: CoroutineScope,
-    initializationError: String,
-    onDone: (String) -> Unit,
-  ) {
-    val completed = AtomicBoolean(false)
-    var timeoutJob: Job? = null
-
-    fun completeWarmup(error: String? = null) {
-      if (!completed.compareAndSet(false, true)) return
-      timeoutJob?.cancel()
-      if (error != null) {
-        Log.w(TAG, "LiteRT LM warmup failed for '${model.name}': $error")
-      }
-      model.runtimeHelper.resetConversation(
-        model = model,
-        supportImage = false,
-        supportAudio = false,
-        systemInstruction = systemInstruction,
-      )
-      Log.d(TAG, "LiteRT LM warmup finished for '${model.name}'")
-      onDone(initializationError)
-    }
-
-    timeoutJob =
-      coroutineScope.launch {
-        delay(LITERT_WARMUP_TIMEOUT_MS)
-        model.runtimeHelper.stopResponse(model)
-        completeWarmup("Timed out")
-      }
-
-    Log.d(TAG, "Starting hidden LiteRT LM warmup for '${model.name}'")
-    try {
-      LlmChatModelHelper.warmUp(
-        model = model,
-        input = LITERT_WARMUP_PROMPT,
-        onDone = { completeWarmup() },
-        onError = { error -> completeWarmup(error) },
-      )
-    } catch (exception: Exception) {
-      completeWarmup(exception.message ?: "Unknown error")
     }
   }
 

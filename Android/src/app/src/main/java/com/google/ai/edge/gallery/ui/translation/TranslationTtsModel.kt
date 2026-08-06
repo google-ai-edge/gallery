@@ -22,15 +22,20 @@ internal enum class TranslationTtsModel(
   val packageSizeBytes: Long,
   val backendId: String,
   val revision: String,
-  val licenseLabel: String,
 ) {
+  SYSTEM(
+    displayName = "Android system voice",
+    description = "Uses the speech service and voices provided by this device.",
+    packageSizeBytes = 0L,
+    backendId = "android-system",
+    revision = "android",
+  ),
   KOKORO(
     displayName = "Kokoro",
     description = "Natural, expressive speech with language-specific voices.",
-    packageSizeBytes = 147_031_220L,
+    packageSizeBytes = 349_418_188L,
     backendId = KOKORO_SHERPA_BACKEND,
     revision = KOKORO_SHERPA_PACKAGE_ID,
-    licenseLabel = "Apache 2.0 model; eSpeak NG GPLv3 runtime component",
   ),
   SUPERTONIC_3(
     displayName = "Supertonic 3",
@@ -38,11 +43,10 @@ internal enum class TranslationTtsModel(
     packageSizeBytes = 128_774_318L,
     backendId = SUPERTONIC_SHERPA_BACKEND,
     revision = SUPERTONIC_SHERPA_PACKAGE_ID,
-    licenseLabel = "OpenRAIL-M model",
   );
 
   companion object {
-    val DEFAULT = KOKORO
+    val DEFAULT = SYSTEM
 
     fun fromStoredValue(value: String): TranslationTtsModel =
       entries.firstOrNull { it.name.equals(value, ignoreCase = true) } ?: DEFAULT

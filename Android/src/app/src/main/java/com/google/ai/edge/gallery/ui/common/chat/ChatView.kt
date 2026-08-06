@@ -368,8 +368,6 @@ fun ChatView(
           Box {
             val curModelDownloadStatus = modelManagerUiState.modelDownloadStatus[selectedModel.name]
 
-            composableBelowMessageList(selectedModel)
-
             Column(
               modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)
             ) {
@@ -416,6 +414,7 @@ fun ChatView(
                       voiceInputOnly = voiceInputOnly,
                       voiceInputProcessingStatusText = voiceInputProcessingStatusText,
                       emptyStateComposable = emptyStateComposable,
+                      composableBelowMessageList = composableBelowMessageList,
                     )
                   // Model download
                   false ->

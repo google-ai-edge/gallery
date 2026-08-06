@@ -33,7 +33,10 @@ class AndroidTranslationSystemTtsFallbackTest {
     try {
       runBlocking {
         withTimeout(15_000L) {
-          fallback.speak(text = "Hello, this is a system speech test.", languageTag = "en-us")
+          fallback.speak(
+            text = "This is a system speech test.",
+            languageTag = TranslationLanguage.entries.first().ttsLanguageTag,
+          )
         }
       }
     } finally {

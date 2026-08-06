@@ -17,19 +17,12 @@
 package com.google.ai.edge.gallery.ui.translation
 
 import android.content.Context
-import java.io.BufferedInputStream
-import java.io.BufferedOutputStream
 import java.io.File
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
-import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
-import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
 import org.json.JSONObject
 
 internal const val SUPERTONIC_SHERPA_BACKEND = "sherpa-onnx-supertonic"
@@ -37,15 +30,19 @@ internal const val SUPERTONIC_SHERPA_PACKAGE_ID =
   "sherpa-onnx-supertonic-3-tts-int8-2026-05-11"
 internal const val SUPERTONIC_SHERPA_SAMPLE_RATE = 44100
 private const val SUPERTONIC_STORAGE_ROOT = "translation_tts/supertonic"
-private const val SUPERTONIC_ARCHIVE_NAME = "$SUPERTONIC_SHERPA_PACKAGE_ID.tar.bz2"
 private const val SUPERTONIC_ARCHIVE_URL =
   "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/" +
-    SUPERTONIC_ARCHIVE_NAME
+    "$SUPERTONIC_SHERPA_PACKAGE_ID.tar.bz2"
 private const val SUPERTONIC_ARCHIVE_SHA256 =
   "82fa96f91c4ef8abaae3a14a3f4153facf88bed821d1f7331cec2700f432c427"
 private const val INSTALL_MANIFEST = "install.json"
-private const val MAX_ARCHIVE_ENTRIES = 100
-private const val MAX_EXTRACTED_BYTES = 512L * 1024L * 1024L
+private val SUPERTONIC_ARCHIVE =
+  SherpaArchive(
+    name = "$SUPERTONIC_SHERPA_PACKAGE_ID.tar.bz2",
+    url = SUPERTONIC_ARCHIVE_URL,
+    sha256 = SUPERTONIC_ARCHIVE_SHA256,
+    maxEntries = 100,
+  )
 
 private val SUPERTONIC_REQUIRED_HASHES =
   mapOf(
@@ -109,10 +106,14 @@ internal object SherpaSupertonicPackageInstaller {
           throw IOException("Unable to clear stale Supertonic download.")
         }
         if (!downloadRoot.mkdirs()) throw IOException("Unable to create download directory.")
-        val archive = downloadRoot.resolve(SUPERTONIC_ARCHIVE_NAME)
+        val archive = downloadRoot.resolve(SUPERTONIC_ARCHIVE.name)
         try {
-          downloadArchive(archive, onProgress)
-          installVerifiedArchive(finalRoot = finalRoot, archive = archive)
+          SUPERTONIC_ARCHIVE.download(archive, onProgress)
+          installVerifiedArchive(
+            finalRoot = finalRoot,
+            archive = archive,
+            onProgress = onProgress,
+          )
         } finally {
           downloadRoot.deleteRecursively()
         }
@@ -131,162 +132,31 @@ internal object SherpaSupertonicPackageInstaller {
   internal suspend fun installFromVerifiedArchive(
     context: Context,
     archiveFile: File,
+    onProgress: (TranslationTtsDownloadProgress) -> Unit = {},
   ): SupertonicSherpaPackage =
     withContext(Dispatchers.IO) {
       installMutex.withLock {
-        installVerifiedArchive(packageDirectory(context), archiveFile)
+        installVerifiedArchive(packageDirectory(context), archiveFile, onProgress)
       }
     }
 
   private fun installVerifiedArchive(
     finalRoot: File,
     archive: File,
+    onProgress: (TranslationTtsDownloadProgress) -> Unit,
   ): SupertonicSherpaPackage {
-    requireFile(archive)
-    val actualArchiveHash = sha256(archive)
-    if (actualArchiveHash != SUPERTONIC_ARCHIVE_SHA256) {
-      throw IOException("Supertonic archive checksum mismatch.")
-    }
-    val parent = finalRoot.parentFile
-      ?: throw IOException("Supertonic package has no parent directory.")
-    if (!parent.isDirectory && !parent.mkdirs()) {
-      throw IOException("Unable to create Supertonic package directory.")
-    }
-    val stagingRoot = parent.resolve(".$SUPERTONIC_SHERPA_PACKAGE_ID.staging")
-    if (stagingRoot.exists() && !stagingRoot.deleteRecursively()) {
-      throw IOException("Unable to clear stale Supertonic staging directory.")
-    }
-    if (!stagingRoot.mkdirs()) throw IOException("Unable to create staging directory.")
-
-    try {
-      extractArchive(archive, stagingRoot)
-      val candidate = stagingRoot.resolve(SUPERTONIC_SHERPA_PACKAGE_ID)
+    SUPERTONIC_ARCHIVE.install(archive, finalRoot, onProgress) { candidate ->
       validateRequiredHashes(candidate)
       writeManifest(candidate)
-      if (finalRoot.exists() && !finalRoot.deleteRecursively()) {
-        throw IOException("Unable to replace existing Supertonic package.")
-      }
-      if (!candidate.renameTo(finalRoot)) {
-        throw IOException("Unable to activate Supertonic package.")
-      }
-      return validatePackage(finalRoot).also { cachedPackage = it }
-    } finally {
-      stagingRoot.deleteRecursively()
     }
-  }
-
-  private fun downloadArchive(
-    destination: File,
-    onProgress: (TranslationTtsDownloadProgress) -> Unit,
-  ) {
-    val connection =
-      (URL(SUPERTONIC_ARCHIVE_URL).openConnection() as HttpURLConnection).apply {
-        connectTimeout = 15_000
-        readTimeout = 30_000
-        requestMethod = "GET"
-        setRequestProperty("User-Agent", "Google-AI-Edge-Gallery")
-      }
-    try {
-      if (connection.responseCode !in 200..299) {
-        throw IOException("Failed to download Supertonic: HTTP ${connection.responseCode}")
-      }
-      val totalBytes = connection.contentLengthLong.takeIf { it > 0L } ?: 0L
-      var downloadedBytes = 0L
-      var lastProgressMillis = 0L
-      onProgress(TranslationTtsDownloadProgress(SUPERTONIC_ARCHIVE_NAME, 0, totalBytes, 0, 1))
-      BufferedInputStream(connection.inputStream).use { input ->
-        BufferedOutputStream(destination.outputStream()).use { output ->
-          val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-          while (true) {
-            val count = input.read(buffer)
-            if (count == -1) break
-            output.write(buffer, 0, count)
-            downloadedBytes += count
-            val now = System.currentTimeMillis()
-            if (now - lastProgressMillis >= 250L) {
-              lastProgressMillis = now
-              onProgress(
-                TranslationTtsDownloadProgress(
-                  SUPERTONIC_ARCHIVE_NAME,
-                  downloadedBytes,
-                  totalBytes,
-                  0,
-                  1,
-                )
-              )
-            }
-          }
-        }
-      }
-      if (downloadedBytes == 0L || (totalBytes > 0 && downloadedBytes != totalBytes)) {
-        throw IOException("Incomplete Supertonic download.")
-      }
-      if (sha256(destination) != SUPERTONIC_ARCHIVE_SHA256) {
-        throw IOException("Downloaded Supertonic archive failed checksum verification.")
-      }
-      onProgress(
-        TranslationTtsDownloadProgress(
-          SUPERTONIC_ARCHIVE_NAME,
-          downloadedBytes,
-          if (totalBytes > 0) totalBytes else downloadedBytes,
-          1,
-          1,
-        )
-      )
-    } finally {
-      connection.disconnect()
-    }
-  }
-
-  private fun extractArchive(archive: File, destination: File) {
-    val canonicalDestination = destination.canonicalFile
-    var entryCount = 0
-    var extractedBytes = 0L
-    TarArchiveInputStream(
-        BZip2CompressorInputStream(BufferedInputStream(archive.inputStream()))
-      )
-      .use { input ->
-        while (true) {
-          val entry = input.nextEntry ?: break
-          entryCount++
-          if (entryCount > MAX_ARCHIVE_ENTRIES) throw IOException("Too many archive entries.")
-          if (entry.isLink || entry.isSymbolicLink) throw IOException("Archive links are blocked.")
-          val output = destination.resolve(entry.name).canonicalFile
-          if (
-            output != canonicalDestination &&
-              !output.path.startsWith(canonicalDestination.path + File.separator)
-          ) {
-            throw IOException("Unsafe Supertonic archive entry: ${entry.name}")
-          }
-          if (entry.isDirectory) {
-            if (!output.isDirectory && !output.mkdirs()) {
-              throw IOException("Unable to create extracted directory.")
-            }
-            continue
-          }
-          if (!entry.isFile) throw IOException("Unsupported archive entry.")
-          output.parentFile?.let { if (!it.isDirectory && !it.mkdirs()) throw IOException("Unable to create extracted directory.") }
-          BufferedOutputStream(output.outputStream()).use { fileOutput ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            while (true) {
-              val count = input.read(buffer)
-              if (count == -1) break
-              extractedBytes += count
-              if (extractedBytes > MAX_EXTRACTED_BYTES) {
-                throw IOException("Supertonic archive exceeds extraction limit.")
-              }
-              fileOutput.write(buffer, 0, count)
-            }
-          }
-        }
-      }
+    return validatePackage(finalRoot).also { cachedPackage = it }
   }
 
   private fun validateRequiredHashes(root: File) {
     SUPERTONIC_REQUIRED_HASHES.forEach { (relativePath, expectedHash) ->
       val file = root.resolve(relativePath)
       requireFile(file)
-      if (sha256(file) != expectedHash) {
+      if (file.sha256() != expectedHash) {
         throw IOException("Supertonic asset checksum mismatch: $relativePath")
       }
     }
@@ -327,20 +197,4 @@ internal object SherpaSupertonicPackageInstaller {
     )
   }
 
-  private fun requireFile(file: File) {
-    if (!file.isFile || file.length() <= 0L) throw IOException("Missing file: ${file.name}")
-  }
-
-  private fun sha256(file: File): String {
-    val digest = MessageDigest.getInstance("SHA-256")
-    file.inputStream().buffered().use { input ->
-      val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-      while (true) {
-        val count = input.read(buffer)
-        if (count == -1) break
-        digest.update(buffer, 0, count)
-      }
-    }
-    return digest.digest().joinToString("") { byte -> "%02x".format(byte) }
-  }
 }

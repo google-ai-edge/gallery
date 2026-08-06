@@ -31,23 +31,40 @@ class TranslationTtsPlayerTest {
   @Test
   fun playsAllTranslationLanguagesOutLoud() {
     val context = InstrumentationRegistry.getInstrumentation().targetContext
-    val player = TranslationTtsPlayer(context)
-    val phrases =
-      listOf(
-        "en-us" to "Hello, this is an English speech test.",
-        "es" to "Hola, esta es una prueba de voz en español.",
-        "fr-fr" to "Bonjour, ceci est un test vocal en français.",
-        "it" to "Ciao, questa è una prova vocale in italiano.",
+    val player = TranslationTtsPlayer(context, model = TranslationTtsModel.KOKORO)
+
+    try {
+      runBlocking {
+        player.preload()
+        TranslationLanguage.entries.forEach { language ->
+          player.speak(text = TEST_TEXT, languageTag = language.ttsLanguageTag)
+        }
+      }
+      assertFalse(player.isSpeaking.value)
+    } finally {
+      player.release()
+    }
+  }
+
+  @Test
+  fun systemVoiceNeverUsesSherpa() {
+    val context = InstrumentationRegistry.getInstrumentation().targetContext
+    val systemFallback = RecordingSystemTtsFallback()
+    val player =
+      TranslationTtsPlayer(
+        context = context,
+        model = TranslationTtsModel.SYSTEM,
+        systemFallback = systemFallback,
+        sherpaEnabled = true,
       )
 
     try {
       runBlocking {
         player.preload()
-        phrases.forEach { (languageTag, phrase) ->
-          player.speak(text = phrase, languageTag = languageTag)
-        }
+        player.speak(text = TEST_TEXT, languageTag = testLanguageTag)
       }
-      assertFalse(player.isSpeaking.value)
+
+      assertEquals(listOf(testLanguageTag), systemFallback.spokenLanguageTags)
     } finally {
       player.release()
     }
@@ -68,11 +85,11 @@ class TranslationTtsPlayerTest {
 
     try {
       runBlocking {
-        player.speak(text = "Bonjour, ceci est un test.", languageTag = "fr-fr")
+        player.speak(text = TEST_TEXT, languageTag = testLanguageTag)
       }
 
       assertEquals(1, failingEngine.synthesisCount)
-      assertEquals(listOf("fr-fr"), systemFallback.spokenLanguageTags)
+      assertEquals(listOf(testLanguageTag), systemFallback.spokenLanguageTags)
       assertFalse(player.isSpeaking.value)
     } finally {
       player.release()
@@ -95,12 +112,12 @@ class TranslationTtsPlayerTest {
     try {
       runBlocking {
         player.preload()
-        player.speak(text = "Hello, this is a test.", languageTag = "en-us")
+        player.speak(text = TEST_TEXT, languageTag = testLanguageTag)
       }
 
       assertEquals(0, failingEngine.preloadCount)
       assertEquals(0, failingEngine.synthesisCount)
-      assertEquals(listOf("en-us"), systemFallback.spokenLanguageTags)
+      assertEquals(listOf(testLanguageTag), systemFallback.spokenLanguageTags)
     } finally {
       player.release()
     }
@@ -121,14 +138,14 @@ class TranslationTtsPlayerTest {
 
     try {
       runBlocking {
-        val sessionId = player.startStreaming(languageTag = "es")
-        assertTrue(player.enqueueStreaming(sessionId, "Hola, primer segmento."))
-        assertTrue(player.enqueueStreaming(sessionId, "Este es el segundo segmento."))
+        val sessionId = player.startStreaming(languageTag = testLanguageTag)
+        assertTrue(player.enqueueStreaming(sessionId, "First speech segment."))
+        assertTrue(player.enqueueStreaming(sessionId, "Second speech segment."))
 
         val result = player.finishStreaming(sessionId)
 
         assertEquals(1, failingEngine.synthesisCount)
-        assertEquals(listOf("es", "es"), systemFallback.spokenLanguageTags)
+        assertEquals(listOf(testLanguageTag, testLanguageTag), systemFallback.spokenLanguageTags)
         assertEquals(2, result.playedChunkCount)
         assertNull(result.error)
       }
@@ -140,7 +157,7 @@ class TranslationTtsPlayerTest {
   @Test
   fun playsValidatedPcmWithoutCreatingAWav() {
     val context = InstrumentationRegistry.getInstrumentation().targetContext
-    val player = TranslationTtsPlayer(context)
+    val player = TranslationTtsPlayer(context, model = TranslationTtsModel.KOKORO)
     val wavFilesBefore =
       context.cacheDir.listFiles()?.filter { file -> file.extension == "wav" }?.map { it.name }
         ?.toSet().orEmpty()
@@ -148,7 +165,7 @@ class TranslationTtsPlayerTest {
     try {
       runBlocking {
         player.preload()
-        player.speak(text = "Bonjour, ceci est un test.", languageTag = "fr-fr")
+        player.speak(text = TEST_TEXT, languageTag = testLanguageTag)
       }
       assertFalse(player.isSpeaking.value)
       val wavFilesAfter =
@@ -163,14 +180,14 @@ class TranslationTtsPlayerTest {
   @Test
   fun streamsQueuedPcmChunksInOrder() {
     val context = InstrumentationRegistry.getInstrumentation().targetContext
-    val player = TranslationTtsPlayer(context)
+    val player = TranslationTtsPlayer(context, model = TranslationTtsModel.KOKORO)
 
     try {
       runBlocking {
         player.preload()
-        val sessionId = player.startStreaming(languageTag = "fr-fr")
-        assertTrue(player.enqueueStreaming(sessionId, "Bonjour, premier segment."))
-        assertTrue(player.enqueueStreaming(sessionId, "Voici le deuxième segment."))
+        val sessionId = player.startStreaming(languageTag = testLanguageTag)
+        assertTrue(player.enqueueStreaming(sessionId, "First speech segment."))
+        assertTrue(player.enqueueStreaming(sessionId, "Second speech segment."))
 
         val result = player.finishStreaming(sessionId)
 
@@ -195,7 +212,7 @@ class TranslationTtsPlayerTest {
 
     override suspend fun synthesize(text: String, languageTag: String): SynthesizedAudio {
       synthesisCount++
-      throw TranslationTtsSynthesisException("Injected Sherpa failure.")
+      throw TranslationTtsSynthesisException("Injected synthesis failure.")
     }
 
     override fun release() = Unit
@@ -205,11 +222,16 @@ class TranslationTtsPlayerTest {
     val spokenLanguageTags = mutableListOf<String>()
 
     override suspend fun speak(text: String, languageTag: String) {
-      spokenLanguageTags += SherpaKokoroVoiceSelector.normalize(languageTag)
+      spokenLanguageTags += languageTag
     }
 
     override fun stop() = Unit
 
     override fun release() = Unit
+  }
+
+  companion object {
+    private const val TEST_TEXT = "This is a speech synthesis test."
+    private val testLanguageTag = TranslationLanguage.entries.first().ttsLanguageTag
   }
 }

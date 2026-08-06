@@ -32,6 +32,7 @@ internal object TranslationTtsEngineStore {
     synchronized(lock) {
       engines.getOrPut(model) {
         when (model) {
+          TranslationTtsModel.SYSTEM -> error("Android system TTS does not use a Sherpa engine.")
           TranslationTtsModel.KOKORO -> SherpaKokoroTtsEngine(context.applicationContext)
           TranslationTtsModel.SUPERTONIC_3 ->
             SherpaSupertonicTtsEngine(context.applicationContext)
@@ -48,6 +49,10 @@ internal object TranslationTtsEngineStore {
     model: TranslationTtsModel = TranslationTtsModel.DEFAULT,
   ) {
     val appContext = context.applicationContext
+    if (model == TranslationTtsModel.SYSTEM) {
+      Log.i(TAG, "outcome=initialization_skipped_system_voice")
+      return
+    }
     if (!TranslationTtsModelRepository.isInstalled(appContext, model)) {
       Log.i(TAG, "outcome=initialization_skipped_package_missing")
       return
