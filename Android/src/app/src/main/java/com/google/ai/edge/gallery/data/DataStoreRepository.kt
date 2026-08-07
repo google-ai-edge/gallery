@@ -31,6 +31,21 @@ import com.google.ai.edge.gallery.proto.UserData
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
+data class OpenAiApiServerPreferences(
+  val enabled: Boolean = false,
+  val port: Int = 8080,
+  val modelName: String = "",
+)
+
+data class FrpPreferences(
+  val enabled: Boolean = false,
+  val serverAddress: String = "",
+  val serverPort: Int = 7000,
+  val token: String = "",
+  val remotePort: Int = 8080,
+  val customDomain: String = "",
+)
+
 // TODO(b/423700720): Change to async (suspend) functions
 interface DataStoreRepository {
   fun saveTextInputHistory(history: List<String>)
@@ -61,6 +76,14 @@ interface DataStoreRepository {
    *   otherwise.
    */
   fun readFirebaseAnalytics(): Boolean
+
+  fun saveOpenAiApiServerPreferences(preferences: OpenAiApiServerPreferences)
+
+  fun readOpenAiApiServerPreferences(): OpenAiApiServerPreferences
+
+  fun saveFrpPreferences(preferences: FrpPreferences)
+
+  fun readFrpPreferences(): FrpPreferences
 
   fun saveSecret(key: String, value: String)
 
@@ -190,6 +213,60 @@ class DefaultDataStoreRepository(
     return runBlocking {
       val settings = dataStore.data.first()
       !settings.disableFirebaseAnalytics
+    }
+  }
+
+  override fun saveOpenAiApiServerPreferences(preferences: OpenAiApiServerPreferences) {
+    runBlocking {
+      dataStore.updateData { settings ->
+        settings
+          .toBuilder()
+          .setOpenaiApiServerEnabled(preferences.enabled)
+          .setOpenaiApiServerPort(preferences.port)
+          .setOpenaiApiServerModel(preferences.modelName)
+          .build()
+      }
+    }
+  }
+
+  override fun readOpenAiApiServerPreferences(): OpenAiApiServerPreferences {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      OpenAiApiServerPreferences(
+        enabled = settings.openaiApiServerEnabled,
+        port = settings.openaiApiServerPort.takeIf { it in 1024..65535 } ?: 8080,
+        modelName = settings.openaiApiServerModel,
+      )
+    }
+  }
+
+  override fun saveFrpPreferences(preferences: FrpPreferences) {
+    runBlocking {
+      dataStore.updateData { settings ->
+        settings
+          .toBuilder()
+          .setFrpEnabled(preferences.enabled)
+          .setFrpServerAddress(preferences.serverAddress)
+          .setFrpServerPort(preferences.serverPort)
+          .setFrpToken(preferences.token)
+          .setFrpRemotePort(preferences.remotePort)
+          .setFrpCustomDomain(preferences.customDomain)
+          .build()
+      }
+    }
+  }
+
+  override fun readFrpPreferences(): FrpPreferences {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      FrpPreferences(
+        enabled = settings.frpEnabled,
+        serverAddress = settings.frpServerAddress,
+        serverPort = settings.frpServerPort,
+        token = settings.frpToken,
+        remotePort = settings.frpRemotePort,
+        customDomain = settings.frpCustomDomain,
+      )
     }
   }
 
