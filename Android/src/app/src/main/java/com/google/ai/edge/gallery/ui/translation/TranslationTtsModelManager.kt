@@ -73,6 +73,8 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun TranslationTtsModelManager(
   selectedModel: TranslationTtsModel,
+  installUiState: TranslationTtsInstallUiState,
+  onDownloadRequested: (TranslationTtsModel) -> Unit,
   onModelSelected: (TranslationTtsModel) -> Unit,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
@@ -80,11 +82,13 @@ internal fun TranslationTtsModelManager(
   val context = LocalContext.current.applicationContext
   val scope = rememberCoroutineScope()
   val installedModels = remember { mutableStateMapOf<TranslationTtsModel, Boolean>() }
-  var downloadingModel by remember { mutableStateOf<TranslationTtsModel?>(null) }
-  var downloadProgress by remember { mutableStateOf<TranslationTtsDownloadProgress?>(null) }
   var errorMessage by remember { mutableStateOf<String?>(null) }
   var errorModel by remember { mutableStateOf<TranslationTtsModel?>(null) }
   var modelPendingDeletion by remember { mutableStateOf<TranslationTtsModel?>(null) }
+  val downloading = installUiState as? TranslationTtsInstallUiState.Downloading
+  val downloadingModel = downloading?.model
+  val downloadProgress = downloading?.progress
+  val downloadFailure = installUiState as? TranslationTtsInstallUiState.Failed
 
   LaunchedEffect(context) {
     val statuses =
@@ -95,6 +99,13 @@ internal fun TranslationTtsModelManager(
         }
       }
     installedModels.putAll(statuses)
+  }
+  LaunchedEffect(installUiState) {
+    if (installUiState is TranslationTtsInstallUiState.Installed) {
+      installedModels[installUiState.model] = true
+      errorMessage = null
+      errorModel = null
+    }
   }
   BackHandler { navigateUp() }
 
@@ -215,7 +226,10 @@ internal fun TranslationTtsModelManager(
                 style = MaterialTheme.typography.bodySmall,
               )
             }
-            errorMessage?.takeIf { downloadingModel == null && errorModel == model }?.let { error ->
+            val modelError =
+              downloadFailure?.takeIf { it.model == model }?.message
+                ?: errorMessage?.takeIf { downloadingModel == null && errorModel == model }
+            modelError?.let { error ->
               Text(error, color = MaterialTheme.colorScheme.error)
             }
             if (!isSystem) {
@@ -236,31 +250,9 @@ internal fun TranslationTtsModelManager(
                   Button(
                     enabled = downloadingModel == null,
                     onClick = {
-                      scope.launch {
-                        downloadingModel = model
-                        downloadProgress = null
-                        errorMessage = null
-                        errorModel = model
-                        try {
-                          TranslationTtsModelRepository.ensureInstalled(
-                            context = context,
-                            model = model,
-                            onProgress = { progress ->
-                              scope.launch { downloadProgress = progress }
-                            },
-                          )
-                          installedModels[model] = true
-                          errorModel = null
-                          onModelSelected(model)
-                        } catch (exception: CancellationException) {
-                          throw exception
-                        } catch (exception: Exception) {
-                          errorMessage = exception.message ?: "Download failed."
-                        } finally {
-                          downloadingModel = null
-                          downloadProgress = null
-                        }
-                      }
+                      errorMessage = null
+                      errorModel = null
+                      onDownloadRequested(model)
                     },
                   ) {
                     if (isDownloading) {

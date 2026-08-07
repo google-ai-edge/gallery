@@ -45,7 +45,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,6 +59,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
@@ -112,12 +112,13 @@ fun TranslationScreen(
   modifier: Modifier = Modifier,
   viewModel: TranslationViewModel,
 ) {
-  val selectedLanguageState by viewModel.targetLanguage.collectAsState()
-  val textInputEnabled by viewModel.textInputEnabled.collectAsState()
-  val liveSpeechEnabled by viewModel.liveSpeechEnabled.collectAsState()
-  val selectedTtsModel by viewModel.ttsModel.collectAsState()
-  val translationUiState by viewModel.uiState.collectAsState()
-  val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+  val selectedLanguageState by viewModel.targetLanguage.collectAsStateWithLifecycle()
+  val textInputEnabled by viewModel.textInputEnabled.collectAsStateWithLifecycle()
+  val liveSpeechEnabled by viewModel.liveSpeechEnabled.collectAsStateWithLifecycle()
+  val selectedTtsModel by viewModel.ttsModel.collectAsStateWithLifecycle()
+  val ttsInstallUiState by viewModel.ttsInstallUiState.collectAsStateWithLifecycle()
+  val translationUiState by viewModel.uiState.collectAsStateWithLifecycle()
+  val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
   val selectedModel = modelManagerUiState.selectedModel
   val baseTask = modelManagerViewModel.getTaskById(id = BuiltInTaskId.LLM_TRANSLATION)
   val context = LocalContext.current
@@ -127,6 +128,8 @@ fun TranslationScreen(
   if (showTtsModelManager) {
     TranslationTtsModelManager(
       selectedModel = selectedTtsModel,
+      installUiState = ttsInstallUiState,
+      onDownloadRequested = { model -> viewModel.downloadTtsModel(context, model) },
       onModelSelected = viewModel::setTtsModel,
       navigateUp = { showTtsModelManager = false },
       modifier = modifier,
@@ -152,7 +155,7 @@ fun TranslationScreen(
       TranslationTtsPlayer(context.applicationContext, selectedTtsModel)
     }
   val sherpaTtsEnabled = BuildConfig.TRANSLATION_TTS_SHERPA_ENABLED
-  val translationSpeaking by translationTtsPlayer.isSpeaking.collectAsState()
+  val translationSpeaking by translationTtsPlayer.isSpeaking.collectAsStateWithLifecycle()
   val ttsStreamState = remember { TranslationTtsStreamState() }
   var selectedTtsPackageInstalled by remember { mutableStateOf<Boolean?>(null) }
 

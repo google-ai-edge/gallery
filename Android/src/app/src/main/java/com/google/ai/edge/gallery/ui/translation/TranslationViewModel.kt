@@ -16,6 +16,8 @@
 
 package com.google.ai.edge.gallery.ui.translation
 
+import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
@@ -26,11 +28,14 @@ import com.google.ai.edge.gallery.proto.UserData
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatViewModelBase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+
+private const val TAG = "TranslationViewModel"
 
 @HiltViewModel
 class TranslationViewModel
@@ -53,6 +58,9 @@ constructor(
   val liveSpeechEnabled = _liveSpeechEnabled.asStateFlow()
   private val _ttsModel = MutableStateFlow(TranslationTtsModel.DEFAULT)
   internal val ttsModel = _ttsModel.asStateFlow()
+  private val _ttsInstallUiState =
+    MutableStateFlow<TranslationTtsInstallUiState>(TranslationTtsInstallUiState.Idle)
+  internal val ttsInstallUiState = _ttsInstallUiState.asStateFlow()
 
   init {
     viewModelScope.launch {
@@ -111,6 +119,37 @@ constructor(
     }
   }
 
+  internal fun downloadTtsModel(context: Context, model: TranslationTtsModel) {
+    if (model == TranslationTtsModel.SYSTEM) return
+    if (_ttsInstallUiState.value is TranslationTtsInstallUiState.Downloading) return
+
+    val appContext = context.applicationContext
+    viewModelScope.launch {
+      _ttsInstallUiState.value = TranslationTtsInstallUiState.Downloading(model)
+      try {
+        TranslationTtsModelRepository.ensureInstalled(
+          context = appContext,
+          model = model,
+          onProgress = { progress ->
+            _ttsInstallUiState.value =
+              TranslationTtsInstallUiState.Downloading(model = model, progress = progress)
+          },
+        )
+        _ttsInstallUiState.value = TranslationTtsInstallUiState.Installed(model)
+        setTtsModel(model)
+      } catch (exception: CancellationException) {
+        throw exception
+      } catch (exception: Exception) {
+        Log.e(TAG, "TTS model download failed: ${model.name}", exception)
+        _ttsInstallUiState.value =
+          TranslationTtsInstallUiState.Failed(
+            model = model,
+            message = exception.message ?: "Download failed.",
+          )
+      }
+    }
+  }
+
   private suspend fun persistTargetLanguage(language: TranslationLanguage) {
     translationUserDataStore.updateData { userData ->
       userData.toBuilder().setTranslationTargetLanguage(language.name).build()
@@ -132,4 +171,21 @@ constructor(
       }
     return mentionedLanguages.singleOrNull()
   }
+}
+
+
+internal sealed interface TranslationTtsInstallUiState {
+  data object Idle : TranslationTtsInstallUiState
+
+  data class Downloading(
+    val model: TranslationTtsModel,
+    val progress: TranslationTtsDownloadProgress? = null,
+  ) : TranslationTtsInstallUiState
+
+  data class Installed(val model: TranslationTtsModel) : TranslationTtsInstallUiState
+
+  data class Failed(
+    val model: TranslationTtsModel,
+    val message: String,
+  ) : TranslationTtsInstallUiState
 }
