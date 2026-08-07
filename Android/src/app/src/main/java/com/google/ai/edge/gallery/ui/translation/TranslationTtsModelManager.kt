@@ -82,8 +82,7 @@ internal fun TranslationTtsModelManager(
   val context = LocalContext.current.applicationContext
   val scope = rememberCoroutineScope()
   val installedModels = remember { mutableStateMapOf<TranslationTtsModel, Boolean>() }
-  var errorMessage by remember { mutableStateOf<String?>(null) }
-  var errorModel by remember { mutableStateOf<TranslationTtsModel?>(null) }
+  var deletionError by remember { mutableStateOf<Pair<TranslationTtsModel, String>?>(null) }
   var modelPendingDeletion by remember { mutableStateOf<TranslationTtsModel?>(null) }
   val downloading = installUiState as? TranslationTtsInstallUiState.Downloading
   val downloadingModel = downloading?.model
@@ -103,8 +102,7 @@ internal fun TranslationTtsModelManager(
   LaunchedEffect(installUiState) {
     if (installUiState is TranslationTtsInstallUiState.Installed) {
       installedModels[installUiState.model] = true
-      errorMessage = null
-      errorModel = null
+      deletionError = null
     }
   }
   BackHandler { navigateUp() }
@@ -192,17 +190,17 @@ internal fun TranslationTtsModelManager(
             )
             if (isDownloading) {
               val progress = downloadProgress
-              if (
-                progress == null || progress.stage != TranslationTtsInstallStage.DOWNLOADING
-              ) {
+              val downloadFraction =
+                progress
+                  ?.takeIf { it.stage == TranslationTtsInstallStage.DOWNLOADING }
+                  ?.fraction
+              if (downloadFraction == null) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
               } else {
-                progress.fraction?.let { fraction ->
-                  LinearProgressIndicator(
-                    progress = { fraction.coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth(),
-                  )
-                } ?: LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                LinearProgressIndicator(
+                  progress = { downloadFraction.coerceIn(0f, 1f) },
+                  modifier = Modifier.fillMaxWidth(),
+                )
               }
               Text(
                 text =
@@ -228,7 +226,9 @@ internal fun TranslationTtsModelManager(
             }
             val modelError =
               downloadFailure?.takeIf { it.model == model }?.message
-                ?: errorMessage?.takeIf { downloadingModel == null && errorModel == model }
+                ?: deletionError
+                  ?.takeIf { downloadingModel == null && it.first == model }
+                  ?.second
             modelError?.let { error ->
               Text(error, color = MaterialTheme.colorScheme.error)
             }
@@ -250,8 +250,7 @@ internal fun TranslationTtsModelManager(
                   Button(
                     enabled = downloadingModel == null,
                     onClick = {
-                      errorMessage = null
-                      errorModel = null
+                      deletionError = null
                       onDownloadRequested(model)
                     },
                   ) {
@@ -284,13 +283,11 @@ internal fun TranslationTtsModelManager(
           onClick = {
             modelPendingDeletion = null
             scope.launch {
-              errorMessage = null
-              errorModel = model
+              deletionError = null
               try {
                 val deleted = TranslationTtsModelRepository.deleteInstalled(context, model)
                 if (deleted) {
                   installedModels[model] = false
-                  errorModel = null
                   if (selectedModel == model) {
                     val replacement =
                       TranslationTtsModel.entries.firstOrNull { candidate ->
@@ -301,12 +298,13 @@ internal fun TranslationTtsModelManager(
                     onModelSelected(replacement)
                   }
                 } else {
-                  errorMessage = "Unable to remove ${model.displayName}."
+                  deletionError = model to "Unable to remove ${model.displayName}."
                 }
               } catch (exception: CancellationException) {
                 throw exception
               } catch (exception: Exception) {
-                errorMessage = exception.message ?: "Unable to remove ${model.displayName}."
+                deletionError =
+                  model to (exception.message ?: "Unable to remove ${model.displayName}.")
               }
             }
           },

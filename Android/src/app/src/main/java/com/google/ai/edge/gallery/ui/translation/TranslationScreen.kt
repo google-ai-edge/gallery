@@ -158,6 +158,10 @@ fun TranslationScreen(
   val translationSpeaking by translationTtsPlayer.isSpeaking.collectAsStateWithLifecycle()
   val ttsStreamState = remember { TranslationTtsStreamState() }
   var selectedTtsPackageInstalled by remember { mutableStateOf<Boolean?>(null) }
+  val ttsReady =
+    !sherpaTtsEnabled ||
+      selectedTtsModel == TranslationTtsModel.SYSTEM ||
+      selectedTtsPackageInstalled == true
 
   DisposableEffect(translationTtsPlayer) {
     onDispose {
@@ -254,14 +258,7 @@ fun TranslationScreen(
       scope.launch {
         val language = selectedLanguage
         val languageTag = language.ttsLanguageTag
-        if (!liveSpeechEnabled) {
-          return@launch
-        }
-        if (
-          sherpaTtsEnabled &&
-            selectedTtsModel != TranslationTtsModel.SYSTEM &&
-            selectedTtsPackageInstalled != true
-        ) {
+        if (!liveSpeechEnabled || !ttsReady) {
           return@launch
         }
 
@@ -292,11 +289,7 @@ fun TranslationScreen(
         val translatedMessage = viewModel.getLastMessage(model) as? ChatMessageText
         val translatedText = translatedMessage?.content?.trim().orEmpty()
         if (translatedMessage?.side == ChatSide.AGENT && translatedText.isNotEmpty()) {
-          if (
-            sherpaTtsEnabled &&
-              selectedTtsModel != TranslationTtsModel.SYSTEM &&
-              selectedTtsPackageInstalled != true
-          ) {
+          if (!ttsReady) {
             ttsStreamState.reset()
           }
           val streamMatchesModel = ttsStreamState.modelName == model.name
@@ -305,12 +298,8 @@ fun TranslationScreen(
             else selectedLanguage
           val languageTag = language.ttsLanguageTag
 
-          val canStreamCompletedTranslation =
-            !sherpaTtsEnabled ||
-              selectedTtsModel == TranslationTtsModel.SYSTEM ||
-              selectedTtsPackageInstalled == true
           val activeSessionId =
-            if (!liveSpeechEnabled && canStreamCompletedTranslation) {
+            if (!liveSpeechEnabled && ttsReady) {
               val completedSessionId =
                 translationTtsPlayer.startStreaming(languageTag = languageTag)
               ttsStreamState.begin(

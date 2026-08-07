@@ -53,7 +53,7 @@ internal data class SherpaArchive(
       val totalBytes = connection.contentLengthLong.takeIf { it > 0L } ?: 0L
       var downloadedBytes = 0L
       var lastProgressMillis = 0L
-      onProgress(TranslationTtsDownloadProgress(name, 0L, totalBytes, 0, 1))
+      onProgress(TranslationTtsDownloadProgress(0L, totalBytes))
       BufferedInputStream(connection.inputStream).use { input ->
         BufferedOutputStream(destination.outputStream()).use { output ->
           val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
@@ -65,7 +65,7 @@ internal data class SherpaArchive(
             val now = System.currentTimeMillis()
             if (now - lastProgressMillis >= 250L) {
               lastProgressMillis = now
-              onProgress(TranslationTtsDownloadProgress(name, downloadedBytes, totalBytes, 0, 1))
+              onProgress(TranslationTtsDownloadProgress(downloadedBytes, totalBytes))
             }
           }
         }
@@ -76,11 +76,8 @@ internal data class SherpaArchive(
       }
       onProgress(
         TranslationTtsDownloadProgress(
-          name,
           downloadedBytes,
           totalBytes.takeIf { it > 0L } ?: downloadedBytes,
-          1,
-          1,
           TranslationTtsInstallStage.VERIFYING,
         )
       )
@@ -159,7 +156,7 @@ internal data class SherpaArchive(
   ) {
     fun report(stage: TranslationTtsInstallStage) {
       val size = file.length()
-      onProgress(TranslationTtsDownloadProgress(name, size, size, 1, 1, stage))
+      onProgress(TranslationTtsDownloadProgress(size, size, stage))
     }
 
     report(TranslationTtsInstallStage.VERIFYING)

@@ -27,11 +27,8 @@ internal enum class TranslationTtsInstallStage {
 }
 
 internal data class TranslationTtsDownloadProgress(
-  val currentFileName: String,
   val downloadedBytes: Long,
   val totalBytes: Long,
-  val completedFiles: Int,
-  val totalFiles: Int,
   val stage: TranslationTtsInstallStage = TranslationTtsInstallStage.DOWNLOADING,
 ) {
   val fraction: Float?
