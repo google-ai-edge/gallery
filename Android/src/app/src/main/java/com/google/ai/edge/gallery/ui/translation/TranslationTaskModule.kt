@@ -130,7 +130,7 @@ constructor(
     val myData = data as CustomTaskDataForBuiltinTask
     val viewModel: TranslationViewModel = hiltViewModel()
     LaunchedEffect(task) { viewModel.loadTargetLanguage(task) }
-    TranslationScreen(
+    TranslationNavHost(
       modelManagerViewModel = myData.modelManagerViewModel,
       navigateUp = myData.onNavUp,
       viewModel = viewModel,

@@ -49,7 +49,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -107,36 +106,22 @@ private class TranslationTtsStreamState {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TranslationScreen(
-  modelManagerViewModel: ModelManagerViewModel,
-  navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
+  modelManagerViewModel: ModelManagerViewModel,
   viewModel: TranslationViewModel,
+  navigateUp: () -> Unit,
+  navigateToVoiceModels: () -> Unit,
 ) {
   val selectedLanguageState by viewModel.targetLanguage.collectAsStateWithLifecycle()
   val textInputEnabled by viewModel.textInputEnabled.collectAsStateWithLifecycle()
   val liveSpeechEnabled by viewModel.liveSpeechEnabled.collectAsStateWithLifecycle()
   val selectedTtsModel by viewModel.ttsModel.collectAsStateWithLifecycle()
-  val ttsInstallUiState by viewModel.ttsInstallUiState.collectAsStateWithLifecycle()
   val translationUiState by viewModel.uiState.collectAsStateWithLifecycle()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
   val selectedModel = modelManagerUiState.selectedModel
   val baseTask = modelManagerViewModel.getTaskById(id = BuiltInTaskId.LLM_TRANSLATION)
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
-  var showTtsModelManager by rememberSaveable { mutableStateOf(false) }
-
-  if (showTtsModelManager) {
-    TranslationTtsModelManager(
-      selectedModel = selectedTtsModel,
-      installUiState = ttsInstallUiState,
-      onDownloadRequested = { model -> viewModel.downloadTtsModel(context, model) },
-      onModelSelected = viewModel::setTtsModel,
-      navigateUp = { showTtsModelManager = false },
-      modifier = modifier,
-    )
-    return
-  }
-
   val selectedLanguage = selectedLanguageState
   if (selectedLanguage == null) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -251,7 +236,7 @@ fun TranslationScreen(
         selectedLanguage = selectedLanguage,
         selectedTtsModel = selectedTtsModel,
         onLanguageSelected = onLanguageSelected,
-        onTtsModelClick = { showTtsModelManager = true },
+        onTtsModelClick = navigateToVoiceModels,
       )
     },
     onGenerateResponsePartial = { model, partialResult, done ->
