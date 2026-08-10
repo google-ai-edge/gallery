@@ -34,6 +34,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ClosedSendChannelException
+import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -46,6 +48,8 @@ import kotlinx.coroutines.withTimeout
 private const val TAG = "AGTranslationTtsPlayer"
 private const val PLAYBACK_POLL_INTERVAL_MILLIS = 10L
 private const val PLAYBACK_COMPLETION_GRACE_MILLIS = 2000L
+private const val TEXT_QUEUE_CAPACITY = 8
+private const val PCM_QUEUE_CAPACITY = 4
 
 internal data class TranslationTtsStreamingResult(
   val queuedChunkCount: Int,
@@ -104,7 +108,7 @@ internal class TranslationTtsPlayer(
           return
         } catch (exception: CancellationException) {
           throw exception
-        } catch (throwable: Throwable) {
+        } catch (_: Throwable) {
           Log.w(
             TAG,
             "backend=${model.backendId} revision=${model.revision} " +
@@ -137,18 +141,23 @@ internal class TranslationTtsPlayer(
     return id
   }
 
-  fun enqueueStreaming(sessionId: Long, text: String): Boolean {
+  suspend fun enqueueStreaming(sessionId: Long, text: String): Boolean {
     val trimmedText = text.trim()
     if (trimmedText.isEmpty()) return false
 
     val session = synchronized(sessionLock) { streamingSession?.takeIf { it.id == sessionId } }
       ?: return false
-    val result = session.textChunks.trySend(trimmedText)
-    if (result.isSuccess) {
+    return try {
+      session.textChunks.send(trimmedText)
       _isSpeaking.value = true
       session.queuedChunkCount.incrementAndGet()
+      true
+    } catch (_: CancellationException) {
+      currentCoroutineContext().ensureActive()
+      false
+    } catch (_: ClosedSendChannelException) {
+      false
     }
-    return result.isSuccess
   }
 
   suspend fun finishStreaming(sessionId: Long): TranslationTtsStreamingResult {
@@ -206,12 +215,16 @@ internal class TranslationTtsPlayer(
               onPcmChunk = { pcmChunk ->
                 emittedPcm = true
                 session.job.isActive &&
-                  session.playbackItems.trySend(TranslationTtsPlaybackItem.PcmChunk(pcmChunk))
+                  session.playbackItems.trySendBlocking(
+                    TranslationTtsPlaybackItem.PcmChunk(pcmChunk)
+                  )
                     .isSuccess
               },
             )
           currentCoroutineContext().ensureActive()
-          session.playbackItems.send(TranslationTtsPlaybackItem.PcmEnd(audio = audio))
+          session.playbackItems.send(
+            TranslationTtsPlaybackItem.PcmEnd(generatedSampleCount = audio.samples.size)
+          )
         } catch (exception: CancellationException) {
           throw exception
         } catch (throwable: Throwable) {
@@ -275,16 +288,16 @@ internal class TranslationTtsPlayer(
               } else {
                 activePlayback.samplesWritten - activePlayback.validatedSamples
               }
-            if (callbackSampleCount != playbackItem.audio.samples.size.toLong()) {
+            if (callbackSampleCount != playbackItem.generatedSampleCount.toLong()) {
               Log.w(
                 TAG,
                 "backend=${model.backendId} revision=${model.revision} " +
                   "language=${SherpaKokoroVoiceSelector.normalize(session.languageTag)} " +
                   "outcome=native_stream_sample_count_mismatch callback_samples=" +
-                  "$callbackSampleCount generated_samples=${playbackItem.audio.samples.size}",
+                  "$callbackSampleCount generated_samples=${playbackItem.generatedSampleCount}",
               )
             }
-            activePlayback?.validatedSamples = activePlayback?.samplesWritten ?: 0L
+            activePlayback?.validatedSamples = activePlayback.samplesWritten
             session.playedChunkCount.incrementAndGet()
           }
           TranslationTtsPlaybackItem.PcmAbort -> {
@@ -610,8 +623,8 @@ internal class TranslationTtsPlayer(
     val id: Long,
     val languageTag: String,
     val job: Job,
-    val textChunks: Channel<String> = Channel(Channel.UNLIMITED),
-    val playbackItems: Channel<TranslationTtsPlaybackItem> = Channel(Channel.UNLIMITED),
+    val textChunks: Channel<String> = Channel(TEXT_QUEUE_CAPACITY),
+    val playbackItems: Channel<TranslationTtsPlaybackItem> = Channel(PCM_QUEUE_CAPACITY),
     val queuedChunkCount: AtomicInteger = AtomicInteger(0),
     val playedChunkCount: AtomicInteger = AtomicInteger(0),
     val error: AtomicReference<Throwable?> = AtomicReference(null),
@@ -629,7 +642,7 @@ internal class TranslationTtsPlayer(
   private sealed interface TranslationTtsPlaybackItem {
     data class PcmChunk(val audio: SynthesizedAudio) : TranslationTtsPlaybackItem
 
-    data class PcmEnd(val audio: SynthesizedAudio) : TranslationTtsPlaybackItem
+    data class PcmEnd(val generatedSampleCount: Int) : TranslationTtsPlaybackItem
 
     data object PcmAbort : TranslationTtsPlaybackItem
 
