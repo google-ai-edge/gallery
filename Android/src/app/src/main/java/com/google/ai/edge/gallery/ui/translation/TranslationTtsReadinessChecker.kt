@@ -16,25 +16,20 @@
 
 package com.google.ai.edge.gallery.ui.translation
 
-import android.content.Context
 import com.google.ai.edge.gallery.BuildConfig
-import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 class TranslationTtsReadinessChecker
 @Inject
-constructor(@param:ApplicationContext private val appContext: Context) {
+internal constructor(
+  private val translationTtsRepository: TranslationTtsModelRepository,
+) {
   internal suspend fun check(model: TranslationTtsModel): TranslationTtsReadiness {
     if (!BuildConfig.TRANSLATION_TTS_SHERPA_ENABLED || model == TranslationTtsModel.SYSTEM) {
       return TranslationTtsReadiness(model = model, isReady = true, preferSherpa = false)
     }
 
-    val installed =
-      withContext(Dispatchers.IO) {
-        TranslationTtsModelRepository.isInstalled(context = appContext, model = model)
-      }
+    val installed = translationTtsRepository.isInstalled(model = model)
     return TranslationTtsReadiness(
       model = model,
       isReady = installed,

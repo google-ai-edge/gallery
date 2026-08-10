@@ -2,7 +2,6 @@ package com.google.ai.edge.gallery.ui.translation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -19,7 +18,6 @@ internal fun TranslationNavHost(
     viewModel: TranslationViewModel,
 ) {
     val navController = rememberNavController()
-    val context = LocalContext.current
 
     NavHost(
         navController = navController,
@@ -43,9 +41,9 @@ internal fun TranslationNavHost(
             TranslationTtsModelManager(
                 selectedModel = selectedModel,
                 installUiState = installState,
-                onDownloadRequested = {
-                    viewModel.downloadTtsModel(context, it)
-                },
+                loadInstallationStatuses = viewModel::getTtsModelInstallationStatuses,
+                onDownloadRequested = viewModel::downloadTtsModel,
+                onDeleteRequested = viewModel::deleteTtsModel,
                 onModelSelected = viewModel::setTtsModel,
                 navigateUp = navController::navigateUp,
             )

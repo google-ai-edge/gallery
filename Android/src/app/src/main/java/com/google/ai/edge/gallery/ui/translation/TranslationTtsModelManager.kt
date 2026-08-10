@@ -65,16 +65,16 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.AppBarAction
 import com.google.ai.edge.gallery.data.AppBarActionType
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TranslationTtsModelManager(
   selectedModel: TranslationTtsModel,
   installUiState: TranslationTtsInstallUiState,
+  loadInstallationStatuses: suspend () -> Map<TranslationTtsModel, Boolean>,
   onDownloadRequested: (TranslationTtsModel) -> Unit,
+  onDeleteRequested: suspend (TranslationTtsModel) -> Boolean,
   onModelSelected: (TranslationTtsModel) -> Unit,
   navigateUp: () -> Unit,
   modifier: Modifier = Modifier,
@@ -89,16 +89,7 @@ internal fun TranslationTtsModelManager(
   val downloadProgress = downloading?.progress
   val downloadFailure = installUiState as? TranslationTtsInstallUiState.Failed
 
-  LaunchedEffect(context) {
-    val statuses =
-      withContext(Dispatchers.IO) {
-        TranslationTtsModel.entries.associateWith { model ->
-          model == TranslationTtsModel.SYSTEM ||
-            TranslationTtsModelRepository.isInstalled(context, model)
-        }
-      }
-    installedModels.putAll(statuses)
-  }
+  LaunchedEffect(Unit) { installedModels.putAll(loadInstallationStatuses()) }
   LaunchedEffect(installUiState) {
     if (installUiState is TranslationTtsInstallUiState.Installed) {
       installedModels[installUiState.model] = true
@@ -285,7 +276,7 @@ internal fun TranslationTtsModelManager(
             scope.launch {
               deletionError = null
               try {
-                val deleted = TranslationTtsModelRepository.deleteInstalled(context, model)
+                val deleted = onDeleteRequested(model)
                 if (deleted) {
                   installedModels[model] = false
                   if (selectedModel == model) {

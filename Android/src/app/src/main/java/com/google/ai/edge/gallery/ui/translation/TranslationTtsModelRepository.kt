@@ -17,6 +17,11 @@
 package com.google.ai.edge.gallery.ui.translation
 
 import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 internal enum class TranslationTtsInstallStage {
   DOWNLOADING,
@@ -35,17 +40,21 @@ internal data class TranslationTtsDownloadProgress(
     get() = if (totalBytes > 0L) downloadedBytes.toFloat() / totalBytes.toFloat() else null
 }
 
-internal object TranslationTtsModelRepository {
-  fun isInstalled(context: Context, model: TranslationTtsModel): Boolean =
-    when (model) {
-      TranslationTtsModel.SYSTEM -> false
-      TranslationTtsModel.KOKORO -> SherpaKokoroPackageInstaller.findInstalled(context) != null
-      TranslationTtsModel.SUPERTONIC_3 ->
-        SherpaSupertonicPackageInstaller.findInstalled(context) != null
+@Singleton
+internal class TranslationTtsModelRepository
+@Inject
+constructor(@param:ApplicationContext private val context: Context) {
+  suspend fun isInstalled(model: TranslationTtsModel): Boolean =
+    withContext(Dispatchers.IO) {
+      when (model) {
+        TranslationTtsModel.SYSTEM -> false
+        TranslationTtsModel.KOKORO -> SherpaKokoroPackageInstaller.findInstalled(context) != null
+        TranslationTtsModel.SUPERTONIC_3 ->
+          SherpaSupertonicPackageInstaller.findInstalled(context) != null
+      }
     }
 
   suspend fun ensureInstalled(
-    context: Context,
     model: TranslationTtsModel,
     onProgress: (TranslationTtsDownloadProgress) -> Unit = {},
   ) {
@@ -58,7 +67,7 @@ internal object TranslationTtsModelRepository {
     }
   }
 
-  suspend fun deleteInstalled(context: Context, model: TranslationTtsModel): Boolean {
+  suspend fun deleteInstalled(model: TranslationTtsModel): Boolean {
     TranslationTtsEngineStore.release(model)
     return when (model) {
       TranslationTtsModel.SYSTEM -> false

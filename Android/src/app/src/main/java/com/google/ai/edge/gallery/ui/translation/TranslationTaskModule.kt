@@ -52,8 +52,9 @@ private const val TAG = "AGTranslationTask"
 
 class TranslationTask
 @Inject
-constructor(
+internal constructor(
   private val translationUserDataStore: DataStore<UserData>,
+  private val translationTtsModelRepository: TranslationTtsModelRepository,
   @AiChatExecutor private val executor: AgentRuntimeExecutor,
 ) : CustomTask {
   override val task: Task =
@@ -86,7 +87,11 @@ constructor(
             TranslationTtsModel.fromStoredValue(
               translationUserDataStore.data.first().translationTtsModel
             )
-          TranslationTtsEngineStore.initializeIfInstalled(context, selectedTtsModel)
+          TranslationTtsEngineStore.initializeIfInstalled(
+            context = context,
+            model = selectedTtsModel,
+            ttsModelRepository = translationTtsModelRepository,
+          )
         } catch (exception: CancellationException) {
           throw exception
         } catch (exception: Exception) {
@@ -145,8 +150,9 @@ internal object TranslationTaskModule {
   @IntoSet
   fun provideTask(
     translationUserDataStore: DataStore<UserData>,
+    translationTtsModelRepository: TranslationTtsModelRepository,
     @AiChatExecutor executor: AgentRuntimeExecutor,
   ): CustomTask {
-    return TranslationTask(translationUserDataStore, executor)
+    return TranslationTask(translationUserDataStore, translationTtsModelRepository, executor)
   }
 }

@@ -47,13 +47,14 @@ internal object TranslationTtsEngineStore {
   suspend fun initializeIfInstalled(
     context: Context,
     model: TranslationTtsModel = TranslationTtsModel.DEFAULT,
+    ttsModelRepository: TranslationTtsModelRepository,
   ) {
     val appContext = context.applicationContext
     if (model == TranslationTtsModel.SYSTEM) {
       Log.i(TAG, "outcome=initialization_skipped_system_voice")
       return
     }
-    if (!TranslationTtsModelRepository.isInstalled(appContext, model)) {
+    if (!ttsModelRepository.isInstalled(model)) {
       Log.i(TAG, "outcome=initialization_skipped_package_missing")
       return
     }

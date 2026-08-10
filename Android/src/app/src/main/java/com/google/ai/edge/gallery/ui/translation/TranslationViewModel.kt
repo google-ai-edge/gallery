@@ -16,7 +16,6 @@
 
 package com.google.ai.edge.gallery.ui.translation
 
-import android.content.Context
 import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.lifecycle.viewModelScope
@@ -40,11 +39,12 @@ private const val TAG = "TranslationViewModel"
 @HiltViewModel
 class TranslationViewModel
 @Inject
-constructor(
+internal constructor(
   private val systemPromptRepository: SystemPromptRepository,
   private val translationUserDataStore: DataStore<UserData>,
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
   private val ttsReadinessChecker: TranslationTtsReadinessChecker,
+  private val translationTtsRepository: TranslationTtsModelRepository,
 ) : LlmChatViewModelBase(
     systemPromptRepository = systemPromptRepository,
     userDataDataStore = translationUserDataStore,
@@ -132,16 +132,14 @@ constructor(
     }
   }
 
-  internal fun downloadTtsModel(context: Context, model: TranslationTtsModel) {
+  internal fun downloadTtsModel(model: TranslationTtsModel) {
     if (model == TranslationTtsModel.SYSTEM) return
     if (_ttsInstallUiState.value is TranslationTtsInstallUiState.Downloading) return
 
-    val appContext = context.applicationContext
     viewModelScope.launch {
       _ttsInstallUiState.value = TranslationTtsInstallUiState.Downloading(model)
       try {
-        TranslationTtsModelRepository.ensureInstalled(
-          context = appContext,
+        translationTtsRepository.ensureInstalled(
           model = model,
           onProgress = { progress ->
             _ttsInstallUiState.value =
@@ -162,6 +160,14 @@ constructor(
       }
     }
   }
+
+  internal suspend fun getTtsModelInstallationStatuses(): Map<TranslationTtsModel, Boolean> =
+    TranslationTtsModel.entries.associateWith { model ->
+      model == TranslationTtsModel.SYSTEM || translationTtsRepository.isInstalled(model)
+    }
+
+  internal suspend fun deleteTtsModel(model: TranslationTtsModel): Boolean =
+    translationTtsRepository.deleteInstalled(model)
 
   private suspend fun persistTargetLanguage(language: TranslationLanguage) {
     translationUserDataStore.updateData { userData ->
