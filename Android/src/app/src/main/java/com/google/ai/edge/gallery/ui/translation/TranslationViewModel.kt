@@ -44,6 +44,7 @@ constructor(
   private val systemPromptRepository: SystemPromptRepository,
   private val translationUserDataStore: DataStore<UserData>,
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
+  private val ttsReadinessChecker: TranslationTtsReadinessChecker,
 ) : LlmChatViewModelBase(
     systemPromptRepository = systemPromptRepository,
     userDataDataStore = translationUserDataStore,
@@ -58,6 +59,15 @@ constructor(
   val liveSpeechEnabled = _liveSpeechEnabled.asStateFlow()
   private val _ttsModel = MutableStateFlow(TranslationTtsModel.DEFAULT)
   internal val ttsModel = _ttsModel.asStateFlow()
+  private val _ttsReadiness =
+    MutableStateFlow(
+      TranslationTtsReadiness(
+        model = TranslationTtsModel.DEFAULT,
+        isReady = true,
+        preferSherpa = false,
+      )
+    )
+  internal val ttsReadiness = _ttsReadiness.asStateFlow()
   private val _ttsInstallUiState =
     MutableStateFlow<TranslationTtsInstallUiState>(TranslationTtsInstallUiState.Idle)
   internal val ttsInstallUiState = _ttsInstallUiState.asStateFlow()
@@ -69,6 +79,9 @@ constructor(
         _liveSpeechEnabled.value = !userData.translationTtsWaitForCompletion
         _ttsModel.value = TranslationTtsModel.fromStoredValue(userData.translationTtsModel)
       }
+    }
+    viewModelScope.launch {
+      _ttsModel.collectLatest(::updateTtsReadiness)
     }
   }
 
@@ -156,6 +169,26 @@ constructor(
     }
   }
 
+  private suspend fun updateTtsReadiness(model: TranslationTtsModel) {
+    _ttsReadiness.value =
+      TranslationTtsReadiness(model = model, isReady = false, preferSherpa = false)
+    val readiness =
+      try {
+        ttsReadinessChecker.check(model)
+      } catch (exception: CancellationException) {
+        throw exception
+      } catch (exception: Exception) {
+        Log.e(TAG, "Failed to check TTS model readiness: ${model.name}", exception)
+        TranslationTtsReadiness(model = model, isReady = false, preferSherpa = false)
+      }
+
+    if (_ttsModel.value != model) return
+    _ttsReadiness.value = readiness
+    if (!readiness.isReady) {
+      setTtsModel(TranslationTtsModel.SYSTEM)
+    }
+  }
+
   private fun languageFromLegacyPrompt(prompt: String?): TranslationLanguage? {
     if (prompt.isNullOrBlank()) {
       return null
@@ -172,7 +205,6 @@ constructor(
     return mentionedLanguages.singleOrNull()
   }
 }
-
 
 internal sealed interface TranslationTtsInstallUiState {
   data object Idle : TranslationTtsInstallUiState

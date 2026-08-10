@@ -44,7 +44,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,7 +58,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageInfo
@@ -70,9 +68,7 @@ import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.emptyStateContent
 import com.google.ai.edge.gallery.ui.theme.emptyStateTitle
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private const val TAG = "AGTranslationScreen"
 
@@ -116,6 +112,7 @@ fun TranslationScreen(
   val textInputEnabled by viewModel.textInputEnabled.collectAsStateWithLifecycle()
   val liveSpeechEnabled by viewModel.liveSpeechEnabled.collectAsStateWithLifecycle()
   val selectedTtsModel by viewModel.ttsModel.collectAsStateWithLifecycle()
+  val ttsReadiness by viewModel.ttsReadiness.collectAsStateWithLifecycle()
   val translationUiState by viewModel.uiState.collectAsStateWithLifecycle()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
   val selectedModel = modelManagerUiState.selectedModel
@@ -139,34 +136,15 @@ fun TranslationScreen(
     remember(context, selectedTtsModel) {
       TranslationTtsPlayer(context.applicationContext, selectedTtsModel)
     }
-  val sherpaTtsEnabled = BuildConfig.TRANSLATION_TTS_SHERPA_ENABLED
   val translationSpeaking by translationTtsPlayer.isSpeaking.collectAsStateWithLifecycle()
-  val ttsStreamState = remember { TranslationTtsStreamState() }
-  var selectedTtsPackageInstalled by remember { mutableStateOf<Boolean?>(null) }
+  val ttsStreamState = remember(selectedTtsModel) { TranslationTtsStreamState() }
   val ttsReady =
-    !sherpaTtsEnabled ||
-      selectedTtsModel == TranslationTtsModel.SYSTEM ||
-      selectedTtsPackageInstalled == true
+    ttsReadiness.model == selectedTtsModel && ttsReadiness.isReady
 
   DisposableEffect(translationTtsPlayer) {
     onDispose {
       translationTtsPlayer.release()
-    }
-  }
-
-  LaunchedEffect(context, selectedLanguage, selectedTtsModel) {
-    val systemVoiceSelected = selectedTtsModel == TranslationTtsModel.SYSTEM
-    val installed =
-      if (sherpaTtsEnabled && !systemVoiceSelected) {
-        withContext(Dispatchers.IO) {
-          TranslationTtsModelRepository.isInstalled(context.applicationContext, selectedTtsModel)
-        }
-      } else {
-        false
-      }
-    selectedTtsPackageInstalled = installed
-    if (sherpaTtsEnabled && !systemVoiceSelected && !installed) {
-      viewModel.setTtsModel(TranslationTtsModel.SYSTEM)
+      ttsStreamState.reset()
     }
   }
 
@@ -174,7 +152,6 @@ fun TranslationScreen(
     if (language != selectedLanguage && task != null) {
       translationTtsPlayer.stop()
       ttsStreamState.reset()
-      selectedTtsPackageInstalled = null
       val newPrompt = buildTranslationSystemPrompt(language)
       viewModel.setTargetLanguage(task = task, language = language)
       viewModel.resetSession(
@@ -338,7 +315,8 @@ fun TranslationScreen(
             translationTtsPlayer.speak(
               text = translatedText,
               languageTag = languageTag,
-              preferSherpa = sherpaTtsEnabled && selectedTtsPackageInstalled == true,
+              preferSherpa =
+                ttsReadiness.model == selectedTtsModel && ttsReadiness.preferSherpa,
             )
           } catch (exception: CancellationException) {
             throw exception
