@@ -16,7 +16,6 @@
 
 package com.google.ai.edge.gallery.ui.translation
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,51 +52,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
-import com.google.ai.edge.gallery.ui.common.chat.ChatMessageInfo
-import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
-import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.ai.edge.gallery.ui.llmchat.ChatViewWrapper
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.emptyStateContent
 import com.google.ai.edge.gallery.ui.theme.emptyStateTitle
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-
-private const val TAG = "AGTranslationScreen"
-
-private class TranslationTtsStreamState {
-  val chunker = TranslationTtsChunker()
-  var sessionId: Long? = null
-  var modelName: String? = null
-  var language: TranslationLanguage? = null
-  var queuedChunkCount: Int = 0
-
-  fun begin(
-    sessionId: Long,
-    modelName: String,
-    language: TranslationLanguage,
-  ) {
-    reset()
-    this.sessionId = sessionId
-    this.modelName = modelName
-    this.language = language
-  }
-
-  fun reset() {
-    chunker.reset()
-    sessionId = null
-    modelName = null
-    language = null
-    queuedChunkCount = 0
-  }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -110,14 +75,12 @@ fun TranslationScreen(
 ) {
   val selectedLanguageState by viewModel.targetLanguage.collectAsStateWithLifecycle()
   val textInputEnabled by viewModel.textInputEnabled.collectAsStateWithLifecycle()
-  val liveSpeechEnabled by viewModel.liveSpeechEnabled.collectAsStateWithLifecycle()
   val selectedTtsModel by viewModel.ttsModel.collectAsStateWithLifecycle()
-  val ttsReadiness by viewModel.ttsReadiness.collectAsStateWithLifecycle()
   val translationUiState by viewModel.uiState.collectAsStateWithLifecycle()
+  val translationSpeaking by viewModel.ttsSpeaking.collectAsStateWithLifecycle()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
   val selectedModel = modelManagerUiState.selectedModel
   val baseTask = modelManagerViewModel.getTaskById(id = BuiltInTaskId.LLM_TRANSLATION)
-  val context = LocalContext.current
   val scope = rememberCoroutineScope()
   val selectedLanguage = selectedLanguageState
   if (selectedLanguage == null) {
@@ -132,43 +95,22 @@ fun TranslationScreen(
     remember(baseTask, translationSystemPrompt) {
       baseTask?.copy(defaultSystemPrompt = translationSystemPrompt)
     }
-  val translationTtsPlayer =
-    remember(context, selectedTtsModel) {
-      TranslationTtsPlayer(context.applicationContext, selectedTtsModel)
-    }
-  val translationSpeaking by translationTtsPlayer.isSpeaking.collectAsStateWithLifecycle()
-  val ttsStreamState = remember(selectedTtsModel) { TranslationTtsStreamState() }
-  val ttsReady =
-    ttsReadiness.model == selectedTtsModel && ttsReadiness.isReady
-
-  DisposableEffect(translationTtsPlayer) {
-    onDispose {
-      translationTtsPlayer.release()
-      ttsStreamState.reset()
-    }
+  DisposableEffect(viewModel) {
+    viewModel.activateTts()
+    onDispose { viewModel.deactivateTts() }
   }
 
   val onLanguageSelected: (TranslationLanguage) -> Unit = { language ->
-    if (language != selectedLanguage && task != null) {
-      translationTtsPlayer.stop()
-      ttsStreamState.reset()
-      val newPrompt = buildTranslationSystemPrompt(language)
-      viewModel.setTargetLanguage(task = task, language = language)
-      viewModel.resetSession(
-        task = task,
+    task?.let { translationTask ->
+      viewModel.selectTargetLanguage(
+        task = translationTask,
         model = selectedModel,
-        systemInstruction = newPrompt,
-        supportImage = false,
-        supportAudio = false,
-        onDone = {
-          viewModel.addMessage(
-            model = selectedModel,
-            message = ChatMessageInfo(content = "Translating to ${language.label}"),
-          )
+        language = language,
+        onApplied = { systemPrompt ->
           modelManagerViewModel.updateActiveModelSystemPrompt(
-            task = task,
+            task = translationTask,
             model = selectedModel,
-            systemPrompt = newPrompt,
+            systemPrompt = systemPrompt,
           )
         },
       )
@@ -217,114 +159,15 @@ fun TranslationScreen(
       )
     },
     onGenerateResponsePartial = { model, partialResult, done ->
-      scope.launch {
-        val language = selectedLanguage
-        val languageTag = language.ttsLanguageTag
-        if (!liveSpeechEnabled || !ttsReady) {
-          return@launch
-        }
-
-        var sessionId = ttsStreamState.sessionId
-        if (
-          sessionId == null ||
-            ttsStreamState.modelName != model.name ||
-            ttsStreamState.language != language
-        ) {
-          sessionId = translationTtsPlayer.startStreaming(languageTag = languageTag)
-          ttsStreamState.begin(
-            sessionId = sessionId,
-            modelName = model.name,
-            language = language,
-          )
-        }
-
-        val chunks = ttsStreamState.chunker.append(partialText = partialResult, flush = done)
-        for (chunk in chunks) {
-          if (translationTtsPlayer.enqueueStreaming(sessionId = sessionId, text = chunk)) {
-            ttsStreamState.queuedChunkCount++
-          }
-        }
-      }
+      viewModel.handleTranslationResponsePartial(
+        modelName = model.name,
+        partialResult = partialResult,
+        done = done,
+        language = selectedLanguage,
+      )
     },
     onGenerateResponseDone = { model ->
-      scope.launch {
-        val translatedMessage = viewModel.getLastMessage(model) as? ChatMessageText
-        val translatedText = translatedMessage?.content?.trim().orEmpty()
-        if (translatedMessage?.side == ChatSide.AGENT && translatedText.isNotEmpty()) {
-          if (!ttsReady) {
-            ttsStreamState.reset()
-          }
-          val streamMatchesModel = ttsStreamState.modelName == model.name
-          val language =
-            if (streamMatchesModel) ttsStreamState.language ?: selectedLanguage
-            else selectedLanguage
-          val languageTag = language.ttsLanguageTag
-
-          val activeSessionId =
-            if (!liveSpeechEnabled && ttsReady) {
-              val completedSessionId =
-                translationTtsPlayer.startStreaming(languageTag = languageTag)
-              ttsStreamState.begin(
-                sessionId = completedSessionId,
-                modelName = model.name,
-                language = language,
-              )
-              val completedChunks =
-                ttsStreamState.chunker.append(partialText = translatedText, flush = true)
-              for (chunk in completedChunks) {
-                if (
-                  translationTtsPlayer.enqueueStreaming(
-                    sessionId = completedSessionId,
-                    text = chunk,
-                  )
-                ) {
-                  ttsStreamState.queuedChunkCount++
-                }
-              }
-              completedSessionId
-            } else {
-              ttsStreamState.sessionId.takeIf { streamMatchesModel }
-            }
-          if (activeSessionId != null) {
-            for (chunk in ttsStreamState.chunker.flush()) {
-              if (
-                translationTtsPlayer.enqueueStreaming(sessionId = activeSessionId, text = chunk)
-              ) {
-                ttsStreamState.queuedChunkCount++
-              }
-            }
-
-            val queuedChunkCount = ttsStreamState.queuedChunkCount
-            ttsStreamState.reset()
-            val streamingResult =
-              translationTtsPlayer.finishStreaming(sessionId = activeSessionId)
-            if (streamingResult.cancelled) {
-              return@launch
-            }
-            if (streamingResult.error == null && queuedChunkCount > 0) {
-              return@launch
-            }
-            if (streamingResult.playedChunkCount > 0) {
-              return@launch
-            }
-          } else {
-            ttsStreamState.reset()
-          }
-
-          try {
-            translationTtsPlayer.speak(
-              text = translatedText,
-              languageTag = languageTag,
-              preferSherpa =
-                ttsReadiness.model == selectedTtsModel && ttsReadiness.preferSherpa,
-            )
-          } catch (exception: CancellationException) {
-            throw exception
-          } catch (exception: Exception) {
-            Log.w(TAG, "Translation speech playback failed.", exception)
-          }
-        }
-      }
+      viewModel.handleTranslationResponseDone(model = model, selectedLanguage = selectedLanguage)
     },
     voiceInputOnly = !textInputEnabled,
     voiceInputProcessingStatusText = voiceInputProcessingStatusText,
