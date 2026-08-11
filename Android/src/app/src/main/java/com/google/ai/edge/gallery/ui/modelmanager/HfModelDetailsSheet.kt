@@ -36,7 +36,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Favorite
@@ -51,6 +50,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -62,7 +64,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.toClipEntry
@@ -92,7 +93,7 @@ private val BADGE_ICON_SIZE = 16.dp
 private val CARD_CORNER_RADIUS = 12.dp
 private const val DISABLED_CONTENT_ALPHA = 0.6f
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HfModelDetailsSheet(
   modelItem: HfModelItemProto,
@@ -101,6 +102,32 @@ fun HfModelDetailsSheet(
   modifier: Modifier = Modifier,
 ) {
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+  val scope = rememberCoroutineScope()
+
+  ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, modifier = modifier) {
+    HfModelDetailsContent(
+      modelItem = modelItem,
+      onImportModelFile = { modelId, fileName ->
+        scope
+          .launch { sheetState.hide() }
+          .invokeOnCompletion {
+            if (!sheetState.isVisible) {
+              onDismiss()
+              onImportModelFile(modelId, fileName)
+            }
+          }
+      },
+    )
+  }
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun HfModelDetailsContent(
+  modelItem: HfModelItemProto,
+  onImportModelFile: (modelId: String, fileName: String) -> Unit,
+  modifier: Modifier = Modifier,
+) {
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
   val clipboard = LocalClipboard.current
@@ -130,198 +157,168 @@ fun HfModelDetailsSheet(
 
   var selectedFileName by
     remember(modelItem) { mutableStateOf(compatibleFiles.firstOrNull()?.fileName) }
-  var showIncompatiblePrompt by remember { mutableStateOf(false) }
+  val snackbarHostState = remember { SnackbarHostState() }
 
   val urlCopiedMessage = stringResource(R.string.url_copied)
   val incompatiblePrompt = stringResource(R.string.incompatible_file_selection_prompt)
 
-  ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, modifier = modifier) {
-    Box(modifier = Modifier.fillMaxWidth()) {
-      Column(modifier = Modifier.fillMaxWidth()) {
-        Column(
-          modifier =
-            Modifier.weight(1f, fill = false)
-              .fillMaxWidth()
-              .verticalScroll(rememberScrollState())
-              .padding(SHEET_PADDING)
-        ) {
+  Box(modifier = modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+      Column(
+        modifier =
+          Modifier.weight(1f, fill = false)
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(SHEET_PADDING)
+      ) {
+        Text(
+          text = modelItem.modelName,
+          style = MaterialTheme.typography.titleLarge,
+          fontWeight = FontWeight.Bold,
+        )
+        Text(
+          text =
+            if (modelItem.author.isNotEmpty()) {
+              modelItem.author
+            } else {
+              modelItem.id.substringBefore("/", "Hugging Face")
+            },
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.primary,
+        )
+
+        Spacer(modifier = Modifier.height(ITEM_SPACING_SMALL))
+
+        // Stats row: Downloads, Likes, Last Updated
+        ModelStatsRow(
+          downloads = modelItem.downloads,
+          likes = modelItem.likes,
+          lastModified = modelItem.lastModified,
+        )
+
+        Spacer(modifier = Modifier.height(SECTION_SPACING))
+
+        if (files.isEmpty()) {
           Text(
-            text = modelItem.modelName,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-          )
-          Text(
-            text =
-              if (modelItem.author.isNotEmpty()) {
-                modelItem.author
-              } else {
-                modelItem.id.substringBefore("/", "Hugging Face")
-              },
+            text = stringResource(R.string.hf_no_model_files_in_card),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(vertical = ITEM_SPACING_XSMALL),
           )
-
-          Spacer(modifier = Modifier.height(ITEM_SPACING_SMALL))
-
-          // Stats row: Downloads, Likes, Last Updated
-          ModelStatsRow(
-            downloads = modelItem.downloads,
-            likes = modelItem.likes,
-            lastModified = modelItem.lastModified,
-          )
-
-          Spacer(modifier = Modifier.height(SECTION_SPACING))
-
-          if (files.isEmpty()) {
+        } else {
+          // Compatible Files section
+          if (compatibleFiles.isNotEmpty()) {
             Text(
-              text = stringResource(R.string.hf_no_model_files_in_card),
-              style = MaterialTheme.typography.bodyMedium,
-              color = MaterialTheme.colorScheme.error,
-              modifier = Modifier.padding(vertical = ITEM_SPACING_XSMALL),
+              text = stringResource(R.string.compatible_files_header, compatibleFiles.size),
+              style = MaterialTheme.typography.titleMedium,
+              fontWeight = FontWeight.Bold,
             )
-          } else {
-            // Compatible Files section
-            if (compatibleFiles.isNotEmpty()) {
-              Text(
-                text = stringResource(R.string.compatible_files_header, compatibleFiles.size),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-              )
-              Spacer(modifier = Modifier.height(ITEM_SPACING_XXSMALL))
-              Text(
-                text = stringResource(R.string.compatible_files_subheader),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
-              Spacer(modifier = Modifier.height(ITEM_SPACING_XSMALL))
+            Spacer(modifier = Modifier.height(ITEM_SPACING_XXSMALL))
+            Text(
+              text = stringResource(R.string.compatible_files_subheader),
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(ITEM_SPACING_XSMALL))
 
-              for (fileInfo in compatibleFiles) {
-                ModelFileItemRow(
-                  fileInfo = fileInfo,
-                  isSelected = fileInfo.fileName == selectedFileName,
-                  modelId = modelItem.id,
-                  onSelect = { selectedFileName = fileInfo.fileName },
-                  onCopyUrl = { modelUrl ->
-                    val clipData = ClipData.newPlainText("model_url", modelUrl)
-                    scope.launch { clipboard.setClipEntry(clipData.toClipEntry()) }
-                    Toast.makeText(context, urlCopiedMessage, Toast.LENGTH_SHORT).show()
-                  },
-                )
-              }
-            }
-
-            // Other Files section
-            if (otherFiles.isNotEmpty()) {
-              if (compatibleFiles.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(SECTION_SPACING))
-              }
-              Text(
-                text = stringResource(R.string.other_files_header, otherFiles.size),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
+            for (fileInfo in compatibleFiles) {
+              ModelFileItemRow(
+                fileInfo = fileInfo,
+                isSelected = fileInfo.fileName == selectedFileName,
+                modelId = modelItem.id,
+                onSelect = {
+                  selectedFileName = fileInfo.fileName
+                  snackbarHostState.currentSnackbarData?.dismiss()
+                },
+                onCopyUrl = { modelUrl ->
+                  val clipData = ClipData.newPlainText("model_url", modelUrl)
+                  scope.launch { clipboard.setClipEntry(clipData.toClipEntry()) }
+                  Toast.makeText(context, urlCopiedMessage, Toast.LENGTH_SHORT).show()
+                },
               )
-              Spacer(modifier = Modifier.height(ITEM_SPACING_XXSMALL))
-              Text(
-                text = stringResource(R.string.other_files_subheader),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
-              Spacer(modifier = Modifier.height(ITEM_SPACING_XSMALL))
-
-              for (fileInfo in otherFiles) {
-                ModelFileItemRow(
-                  fileInfo = fileInfo,
-                  isSelected = fileInfo.fileName == selectedFileName,
-                  modelId = modelItem.id,
-                  onSelect = { showIncompatiblePrompt = true },
-                  onCopyUrl = { modelUrl ->
-                    val clipData = ClipData.newPlainText("model_url", modelUrl)
-                    scope.launch { clipboard.setClipEntry(clipData.toClipEntry()) }
-                    Toast.makeText(context, urlCopiedMessage, Toast.LENGTH_SHORT).show()
-                  },
-                )
-              }
             }
           }
-        }
 
-        // Always-visible Import Selected Model button at bottom
-        if (files.isNotEmpty()) {
-          Surface(color = BottomSheetDefaults.ContainerColor, modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-              HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-              Box(
-                modifier =
-                  Modifier.fillMaxWidth()
-                    .padding(horizontal = SHEET_PADDING, vertical = ITEM_SPACING_MEDIUM)
-                    .navigationBarsPadding()
-              ) {
-                val currentSelectedFile = selectedFileName
-                Button(
-                  onClick = {
-                    if (currentSelectedFile != null) {
-                      scope
-                        .launch { sheetState.hide() }
-                        .invokeOnCompletion {
-                          if (!sheetState.isVisible) {
-                            onDismiss()
-                            onImportModelFile(modelItem.id, currentSelectedFile)
-                          }
-                        }
-                    }
-                  },
-                  enabled = currentSelectedFile != null,
-                  modifier = Modifier.fillMaxWidth(),
-                ) {
-                  Text(
-                    text = stringResource(R.string.import_selected_model),
-                    style = MaterialTheme.typography.titleMedium,
-                  )
-                }
-              }
+          // Other Files section
+          if (otherFiles.isNotEmpty()) {
+            if (compatibleFiles.isNotEmpty()) {
+              Spacer(modifier = Modifier.height(SECTION_SPACING))
+            }
+            Text(
+              text = stringResource(R.string.other_files_header, otherFiles.size),
+              style = MaterialTheme.typography.titleMedium,
+              fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(ITEM_SPACING_XXSMALL))
+            Text(
+              text = stringResource(R.string.other_files_subheader),
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(ITEM_SPACING_XSMALL))
+
+            for (fileInfo in otherFiles) {
+              ModelFileItemRow(
+                fileInfo = fileInfo,
+                isSelected = fileInfo.fileName == selectedFileName,
+                modelId = modelItem.id,
+                onSelect = {
+                  scope.launch {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(
+                      message = incompatiblePrompt,
+                      withDismissAction = true,
+                      duration = SnackbarDuration.Long,
+                    )
+                  }
+                },
+                onCopyUrl = { modelUrl ->
+                  val clipData = ClipData.newPlainText("model_url", modelUrl)
+                  scope.launch { clipboard.setClipEntry(clipData.toClipEntry()) }
+                  Toast.makeText(context, urlCopiedMessage, Toast.LENGTH_SHORT).show()
+                },
+              )
             }
           }
         }
       }
 
-      if (showIncompatiblePrompt) {
-        Surface(
-          shape = RoundedCornerShape(CARD_CORNER_RADIUS),
-          color = MaterialTheme.colorScheme.inverseSurface,
-          contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-          shadowElevation = 6.dp,
-          modifier =
-            Modifier.align(Alignment.BottomCenter)
-              .padding(bottom = 76.dp, start = ITEM_SPACING_MEDIUM, end = ITEM_SPACING_MEDIUM)
-              .fillMaxWidth(),
-        ) {
-          Row(
-            modifier =
-              Modifier.padding(
-                start = ITEM_SPACING_MEDIUM,
-                end = ITEM_SPACING_XSMALL,
-                top = ITEM_SPACING_XSMALL,
-                bottom = ITEM_SPACING_XSMALL,
-              ),
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            Text(
-              text = incompatiblePrompt,
-              style = MaterialTheme.typography.bodyMedium,
-              color = Color.White,
-              modifier = Modifier.weight(1f),
-            )
-            IconButton(onClick = { showIncompatiblePrompt = false }) {
-              Icon(
-                imageVector = Icons.Rounded.Close,
-                contentDescription = stringResource(R.string.dismiss),
-                tint = Color.White,
-              )
+      // Always-visible Import Selected Model button at bottom
+      if (files.isNotEmpty()) {
+        Surface(color = BottomSheetDefaults.ContainerColor, modifier = Modifier.fillMaxWidth()) {
+          Column(modifier = Modifier.fillMaxWidth()) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            Box(
+              modifier =
+                Modifier.fillMaxWidth()
+                  .padding(horizontal = SHEET_PADDING, vertical = ITEM_SPACING_MEDIUM)
+                  .navigationBarsPadding()
+            ) {
+              val currentSelectedFile = selectedFileName
+              Button(
+                onClick = {
+                  if (currentSelectedFile != null) {
+                    onImportModelFile(modelItem.id, currentSelectedFile)
+                  }
+                },
+                enabled = currentSelectedFile != null,
+                modifier = Modifier.fillMaxWidth(),
+              ) {
+                Text(
+                  text = stringResource(R.string.import_selected_model),
+                  style = MaterialTheme.typography.titleMedium,
+                )
+              }
             }
           }
         }
       }
     }
+
+    SnackbarHost(
+      hostState = snackbarHostState,
+      modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 76.dp),
+    )
   }
 }
 

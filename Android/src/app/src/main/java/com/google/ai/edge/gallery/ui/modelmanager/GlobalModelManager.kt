@@ -58,13 +58,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -88,7 +86,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.google.ai.edge.gallery.R
@@ -99,7 +96,6 @@ import com.google.ai.edge.gallery.huggingface.extractHfUrlInfo
 import com.google.ai.edge.gallery.proto.HfModelItemProto
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.ui.common.TaskIcon
-import com.google.ai.edge.gallery.ui.common.buildTrackableUrlAnnotatedString
 import com.google.ai.edge.gallery.ui.common.isHttpOrHttps
 import com.google.ai.edge.gallery.ui.common.modelitem.ModelItem
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
@@ -551,83 +547,51 @@ fun GlobalModelManager(
   }
 
   if (showHuggingFaceUrlDialog) {
-    AlertDialog(
-      onDismissRequest = { showHuggingFaceUrlDialog = false },
-      title = { Text(stringResource(R.string.import_from_hugging_face_title)) },
-      text = {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-          Text(
-            buildAnnotatedString {
-              append(stringResource(R.string.enter_hugging_face_url))
-              append(
-                buildTrackableUrlAnnotatedString(
-                  url = stringResource(R.string.enter_hugging_face_url_example_link),
-                  linkText = stringResource(R.string.enter_hugging_face_url_example_link),
-                )
-              )
+    HuggingFaceUrlDialog(
+      urlInput = huggingFaceUrlInput,
+      onUrlInputChange = { huggingFaceUrlInput = it },
+      onDismiss = { showHuggingFaceUrlDialog = false },
+      onConfirm = {
+        val url = huggingFaceUrlInput.trim()
+        if (url.isNotEmpty()) {
+          showHuggingFaceUrlDialog = false
+          val urlInfo = extractHfUrlInfo(url)
+          when {
+            urlInfo.isDirectModelFile -> {
+              val fileUri =
+                if (urlInfo.modelId != null && urlInfo.fileName != null) {
+                  "https://huggingface.co/${urlInfo.modelId}/resolve/main/${urlInfo.fileName}?download=true"
+                    .toUri()
+                } else {
+                  url.toUri()
+                }
+              processModelUri(fileUri, true)
             }
-          )
-          OutlinedTextField(
-            value = huggingFaceUrlInput,
-            onValueChange = { huggingFaceUrlInput = it },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text(stringResource(R.string.hugging_face_url_placeholder)) },
-            singleLine = true,
-          )
-        }
-      },
-      confirmButton = {
-        Button(
-          onClick = {
-            val url = huggingFaceUrlInput.trim()
-            if (url.isNotEmpty()) {
-              showHuggingFaceUrlDialog = false
-              val urlInfo = extractHfUrlInfo(url)
-              when {
-                urlInfo.isDirectModelFile -> {
-                  val fileUri =
-                    if (urlInfo.modelId != null && urlInfo.fileName != null) {
-                      "https://huggingface.co/${urlInfo.modelId}/resolve/main/${urlInfo.fileName}?download=true"
-                        .toUri()
-                    } else {
-                      url.toUri()
-                    }
-                  processModelUri(fileUri, true)
-                }
-                urlInfo.modelId != null -> {
-                  val targetModelId = urlInfo.modelId
-                  if (targetModelId != null) {
-                    isLoadingModelCardDetails = true
-                    viewModel.fetchModelDetails(targetModelId) { detailedModel ->
-                      isLoadingModelCardDetails = false
-                      if (detailedModel != null) {
-                        selectedModelForDetails = detailedModel
-                        showModelDetailsSheet = true
-                      } else {
-                        unsupportedModelErrorMessage =
-                          getErrorMessage(
-                            context,
-                            R.string.could_not_fetch_model_details,
-                            targetModelId,
-                          )
-                        showUnsupportedModelDialog = true
-                      }
-                    }
+            urlInfo.modelId != null -> {
+              val targetModelId = urlInfo.modelId
+              if (targetModelId != null) {
+                isLoadingModelCardDetails = true
+                viewModel.fetchModelDetails(targetModelId) { detailedModel ->
+                  isLoadingModelCardDetails = false
+                  if (detailedModel != null) {
+                    selectedModelForDetails = detailedModel
+                    showModelDetailsSheet = true
+                  } else {
+                    unsupportedModelErrorMessage =
+                      getErrorMessage(
+                        context,
+                        R.string.could_not_fetch_model_details,
+                        targetModelId,
+                      )
+                    showUnsupportedModelDialog = true
                   }
-                }
-                else -> {
-                  processModelUri(url.toUri(), true)
                 }
               }
             }
+            else -> {
+              processModelUri(url.toUri(), true)
+            }
           }
-        ) {
-          Text(stringResource(R.string.next))
-        }
-      },
-      dismissButton = {
-        TextButton(onClick = { showHuggingFaceUrlDialog = false }) {
-          Text(stringResource(R.string.cancel))
         }
       },
     )
