@@ -92,7 +92,10 @@ fun ModelItem(
   expanded: Boolean? = null,
   showDeleteButton: Boolean = true,
   canExpand: Boolean = true,
-  showBenchmarkButton: Boolean = false,
+  /** Whether the model supports benchmarking. If true, the benchmark option will be available. */
+  isBenchmarkSupported: Boolean = false,
+  /** Whether to show the benchmark action button prominently in the UI. */
+  showBenchmarkActionButton: Boolean = false,
   onExpanded: (Boolean) -> Unit = {},
   modelVariants: List<Model> = listOf(),
   tosViewModel: TosViewModel? = null,
@@ -120,7 +123,7 @@ fun ModelItem(
           if (!model.imported) {
             isExpanded = !isExpanded
             onExpanded(isExpanded)
-          } else if (!showBenchmarkButton) {
+          } else if (!isBenchmarkSupported) {
             onModelClicked(model)
           }
         },
@@ -156,7 +159,9 @@ fun ModelItem(
               model = model,
               modelManagerViewModel = modelManagerViewModel,
               showBenchmarkButton =
-                showBenchmarkButton && downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED,
+                isBenchmarkSupported &&
+                  !showBenchmarkActionButton &&
+                  downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED,
               showDeleteButton =
                 showDeleteButton && model.localFileRelativeDirPathOverride.isEmpty() && !isAicore,
               onBenchmarkClicked = { onBenchmarkClicked(model) },
@@ -210,6 +215,8 @@ fun ModelItem(
               modelManagerViewModel = modelManagerViewModel,
               isExpanded = targetIsExpanded,
               onTryItClicked = { onModelClicked(model) },
+              onBenchmarkClicked = { onBenchmarkClicked(model) },
+              showBenchmarkActionButton = showBenchmarkActionButton,
               tosViewModel = tosViewModel,
             )
           }
@@ -253,7 +260,8 @@ fun ModelItem(
                     downloadStatus = variantDownloadStatus,
                     isExpanded = targetIsExpanded,
                     modelManagerViewModel = modelManagerViewModel,
-                    showBenchmarkButton = showBenchmarkButton,
+                    isBenchmarkSupported = isBenchmarkSupported,
+                    showBenchmarkActionButton = showBenchmarkActionButton,
                     showDeleteButton = showDeleteButton,
                     onBenchmarkClicked = onBenchmarkClicked,
                     modifier = modifier,
@@ -279,6 +287,7 @@ fun ModelItem(
                     task = task,
                     model = variantModel,
                     downloadStatus = targetVariantDownloadStatus?.status,
+                    tosViewModel = tosViewModel,
                     // Use variantDownloadStatus instead of targetVariantDownloadStatus to update
                     // the download progress because targetVariantDownloadStatus is only updated
                     // when the download status is updated, not when the download progress is
@@ -291,6 +300,8 @@ fun ModelItem(
                     modelManagerViewModel = modelManagerViewModel,
                     isExpanded = targetIsExpanded,
                     onTryItClicked = { onModelClicked(variantModel) },
+                    onBenchmarkClicked = { onBenchmarkClicked(variantModel) },
+                    showBenchmarkActionButton = showBenchmarkActionButton,
                     downloadButtonBackgroundColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                   )
                 }
@@ -359,10 +370,11 @@ fun ModelVariantHeader(
   downloadStatus: ModelDownloadStatus?,
   isExpanded: Boolean,
   modelManagerViewModel: ModelManagerViewModel,
-  showBenchmarkButton: Boolean,
+  isBenchmarkSupported: Boolean,
   showDeleteButton: Boolean,
-  onBenchmarkClicked: (Model) -> Unit,
   modifier: Modifier = Modifier,
+  showBenchmarkActionButton: Boolean = false,
+  onBenchmarkClicked: (Model) -> Unit,
   labelModifier: Modifier = Modifier,
   menuModifier: Modifier = Modifier,
 ) {
@@ -395,7 +407,9 @@ fun ModelVariantHeader(
         model = variantModel,
         modelManagerViewModel = modelManagerViewModel,
         showBenchmarkButton =
-          showBenchmarkButton && downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED,
+          isBenchmarkSupported &&
+            !showBenchmarkActionButton &&
+            downloadStatus?.status == ModelDownloadStatusType.SUCCEEDED,
         showDeleteButton =
           showDeleteButton &&
             variantModel.localFileRelativeDirPathOverride.isEmpty() &&

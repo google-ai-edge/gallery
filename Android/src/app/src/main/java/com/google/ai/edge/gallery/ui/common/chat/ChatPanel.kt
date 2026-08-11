@@ -56,7 +56,6 @@ import androidx.compose.material.icons.filled.ThumbDown
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.outlined.ThumbDown
 import androidx.compose.material.icons.outlined.ThumbUp
-import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -570,19 +569,6 @@ fun ChatPanel(
                           label = stringResource(R.string.run_again),
                           icon = Icons.Rounded.Refresh,
                           onClick = { onRunAgainClicked(selectedModel, message) },
-                          enabled = !uiState.inProgress,
-                        )
-                      }
-
-                      // Benchmark button
-                      if (selectedModel.showBenchmarkButton) {
-                        MessageActionButton(
-                          label = stringResource(R.string.run_benchmark),
-                          icon = Icons.Outlined.Timer,
-                          onClick = {
-                            showBenchmarkConfigsDialog = true
-                            benchmarkMessage.value = message
-                          },
                           enabled = !uiState.inProgress,
                         )
                       }

@@ -315,7 +315,8 @@ fun GlobalModelManager(
             onModelClicked = handleClickModel,
             onBenchmarkClicked = onBenchmarkClicked,
             expanded = expanded,
-            showBenchmarkButton = model.supportModelBenchmark,
+            isBenchmarkSupported = model.supportModelBenchmark,
+            showBenchmarkActionButton = true,
             onExpanded = { modelItemExpandedStates[model.name] = it },
             tosViewModel = tosViewModel,
           )
@@ -340,7 +341,8 @@ fun GlobalModelManager(
             onModelClicked = handleClickModel,
             onBenchmarkClicked = onBenchmarkClicked,
             expanded = true,
-            showBenchmarkButton = model.supportModelBenchmark,
+            isBenchmarkSupported = model.supportModelBenchmark,
+            showBenchmarkActionButton = true,
             tosViewModel = tosViewModel,
           )
         }

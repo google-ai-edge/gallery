@@ -191,10 +191,8 @@ data class AllowedModel(
     }
 
     // Misc.
-    var showBenchmarkButton = true
     var showRunAgainButton = true
     if (isLlmModel) {
-      showBenchmarkButton = false
       showRunAgainButton = false
     }
     return Model(
@@ -206,7 +204,6 @@ data class AllowedModel(
       minDeviceMemoryInGb = minDeviceMemoryInGb,
       configs = configs,
       downloadFileName = downloadedFileName,
-      showBenchmarkButton = showBenchmarkButton,
       showRunAgainButton = showRunAgainButton,
       learnMoreUrl = learnMoreUrl,
       llmSupportImage = llmSupportImage == true,

@@ -260,9 +260,6 @@ data class Model(
   /** Whether to show the "run again" button in the UI. */
   val showRunAgainButton: Boolean = true,
 
-  /** Whether to show the "benchmark" button in the UI. */
-  val showBenchmarkButton: Boolean = true,
-
   /** Indicates whether the model is a zip file. */
   val isZip: Boolean = false,
 

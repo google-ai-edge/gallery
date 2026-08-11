@@ -1319,7 +1319,6 @@ constructor(
         configs = configs,
         sizeInBytes = info.fileSize,
         downloadFileName = info.fileName,
-        showBenchmarkButton = false,
         showRunAgainButton = false,
         imported = true,
         llmSupportImage = llmSupportImage,

@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Update
+import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -62,8 +63,10 @@ fun DownloadModelPanel(
   sharedTransitionScope: SharedTransitionScope,
   animatedVisibilityScope: AnimatedVisibilityScope,
   onTryItClicked: () -> Unit,
-  tosViewModel: TosViewModel? = null,
   modifier: Modifier = Modifier,
+  onBenchmarkClicked: (() -> Unit)? = null,
+  showBenchmarkActionButton: Boolean = false,
+  tosViewModel: TosViewModel? = null,
   downloadButtonBackgroundColor: Color = MaterialTheme.colorScheme.surfaceContainer,
 ) {
   with(sharedTransitionScope) {
@@ -76,6 +79,51 @@ fun DownloadModelPanel(
         val downloadFailed = downloadStatus == ModelDownloadStatusType.FAILED
         val isLitertLm = model.runtimeType == RuntimeType.LITERT_LM
         return !downloadFailed || isLitertLm
+      }
+
+      val downloadSucceeded = downloadStatus == ModelDownloadStatusType.SUCCEEDED
+      if (showBenchmarkActionButton && downloadSucceeded) {
+        val expandBenchmarkButton = isExpanded && !model.updatable
+        // Benchmark button.
+        var buttonModifier: Modifier = Modifier.height(42.dp)
+        if (expandBenchmarkButton) {
+          buttonModifier = buttonModifier.weight(1f)
+        }
+        Button(
+          modifier =
+            Modifier.sharedElement(
+                sharedContentState = rememberSharedContentState(key = "benchmark_button"),
+                animatedVisibilityScope = animatedVisibilityScope,
+              )
+              .then(buttonModifier),
+          colors =
+            ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.colorScheme.secondaryContainer
+            ),
+          contentPadding = PaddingValues(horizontal = 12.dp),
+          onClick = { onBenchmarkClicked?.invoke() },
+        ) {
+          val textColor = MaterialTheme.colorScheme.onSecondaryContainer
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Icon(Icons.Rounded.BarChart, contentDescription = null, tint = textColor)
+
+            if (expandBenchmarkButton) {
+              Text(
+                stringResource(R.string.benchmark),
+                color = textColor,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                autoSize =
+                  TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 16.sp, stepSize = 1.sp),
+              )
+            }
+          }
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
       }
 
       // Display an update button if the model is updatable.
