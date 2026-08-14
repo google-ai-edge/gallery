@@ -29,9 +29,16 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TranslationTtsPlayerTest {
   @Test
-  fun playsAllTranslationLanguagesOutLoud() {
+  fun playsEveryConfiguredLanguage() {
     val context = InstrumentationRegistry.getInstrumentation().targetContext
-    val player = TranslationTtsPlayer(context, model = TranslationTtsModel.KOKORO)
+    val engine = RecordingTranslationTtsEngine()
+    val systemFallback = RecordingSystemTtsFallback()
+    val player =
+      TranslationTtsPlayer(
+        context = context,
+        engine = engine,
+        systemFallback = systemFallback,
+      )
 
     try {
       runBlocking {
@@ -40,6 +47,11 @@ class TranslationTtsPlayerTest {
           player.speak(text = TEST_TEXT, languageTag = language.ttsLanguageTag)
         }
       }
+      assertEquals(
+        TranslationLanguage.entries.map { TEST_TEXT to it.ttsLanguageTag },
+        engine.synthesisRequests,
+      )
+      assertTrue(systemFallback.spokenLanguageTags.isEmpty())
       assertFalse(player.isSpeaking.value)
     } finally {
       player.release()
@@ -47,7 +59,7 @@ class TranslationTtsPlayerTest {
   }
 
   @Test
-  fun systemVoiceNeverUsesSherpa() {
+  fun systemVoiceUsesOnlySystemFallback() {
     val context = InstrumentationRegistry.getInstrumentation().targetContext
     val systemFallback = RecordingSystemTtsFallback()
     val player =
@@ -71,7 +83,7 @@ class TranslationTtsPlayerTest {
   }
 
   @Test
-  fun fallsBackToAndroidSystemTtsWhenSherpaFails() {
+  fun fallsBackToSystemTtsWhenEngineFails() {
     val context = InstrumentationRegistry.getInstrumentation().targetContext
     val failingEngine = FailingTranslationTtsEngine()
     val systemFallback = RecordingSystemTtsFallback()
@@ -97,7 +109,7 @@ class TranslationTtsPlayerTest {
   }
 
   @Test
-  fun disabledSherpaFlagUsesOnlyAndroidSystemTts() {
+  fun disabledEngineUsesOnlySystemTts() {
     val context = InstrumentationRegistry.getInstrumentation().targetContext
     val failingEngine = FailingTranslationTtsEngine()
     val systemFallback = RecordingSystemTtsFallback()
@@ -124,7 +136,7 @@ class TranslationTtsPlayerTest {
   }
 
   @Test
-  fun streamingSwitchesToSystemTtsAfterFirstSherpaFailure() {
+  fun streamingSwitchesToSystemTtsAfterFirstEngineFailure() {
     val context = InstrumentationRegistry.getInstrumentation().targetContext
     val failingEngine = FailingTranslationTtsEngine()
     val systemFallback = RecordingSystemTtsFallback()
@@ -157,7 +169,14 @@ class TranslationTtsPlayerTest {
   @Test
   fun playsValidatedPcmWithoutCreatingAWav() {
     val context = InstrumentationRegistry.getInstrumentation().targetContext
-    val player = TranslationTtsPlayer(context, model = TranslationTtsModel.KOKORO)
+    val engine = RecordingTranslationTtsEngine()
+    val systemFallback = RecordingSystemTtsFallback()
+    val player =
+      TranslationTtsPlayer(
+        context = context,
+        engine = engine,
+        systemFallback = systemFallback,
+      )
     val wavFilesBefore =
       context.cacheDir.listFiles()?.filter { file -> file.extension == "wav" }?.map { it.name }
         ?.toSet().orEmpty()
@@ -167,6 +186,8 @@ class TranslationTtsPlayerTest {
         player.preload()
         player.speak(text = TEST_TEXT, languageTag = testLanguageTag)
       }
+      assertEquals(listOf(TEST_TEXT to testLanguageTag), engine.synthesisRequests)
+      assertTrue(systemFallback.spokenLanguageTags.isEmpty())
       assertFalse(player.isSpeaking.value)
       val wavFilesAfter =
         context.cacheDir.listFiles()?.filter { file -> file.extension == "wav" }?.map { it.name }
@@ -180,7 +201,14 @@ class TranslationTtsPlayerTest {
   @Test
   fun streamsQueuedPcmChunksInOrder() {
     val context = InstrumentationRegistry.getInstrumentation().targetContext
-    val player = TranslationTtsPlayer(context, model = TranslationTtsModel.KOKORO)
+    val engine = RecordingTranslationTtsEngine()
+    val systemFallback = RecordingSystemTtsFallback()
+    val player =
+      TranslationTtsPlayer(
+        context = context,
+        engine = engine,
+        systemFallback = systemFallback,
+      )
 
     try {
       runBlocking {
@@ -191,6 +219,14 @@ class TranslationTtsPlayerTest {
 
         val result = player.finishStreaming(sessionId)
 
+        assertEquals(
+          listOf(
+            "First speech segment." to testLanguageTag,
+            "Second speech segment." to testLanguageTag,
+          ),
+          engine.synthesisRequests,
+        )
+        assertTrue(systemFallback.spokenLanguageTags.isEmpty())
         assertEquals(2, result.queuedChunkCount)
         assertEquals(2, result.playedChunkCount)
         assertNull(result.error)
@@ -200,6 +236,22 @@ class TranslationTtsPlayerTest {
     } finally {
       player.release()
     }
+  }
+
+  private class RecordingTranslationTtsEngine : TranslationTtsEngine {
+    val synthesisRequests = mutableListOf<Pair<String, String>>()
+
+    override suspend fun preload() = Unit
+
+    override suspend fun synthesize(text: String, languageTag: String): SynthesizedAudio {
+      synthesisRequests += text to languageTag
+      return SynthesizedAudio(
+        samples = FloatArray(TEST_SAMPLE_COUNT) { 0.05f },
+        sampleRate = TEST_SAMPLE_RATE,
+      )
+    }
+
+    override fun release() = Unit
   }
 
   private class FailingTranslationTtsEngine : TranslationTtsEngine {
@@ -232,6 +284,8 @@ class TranslationTtsPlayerTest {
 
   companion object {
     private const val TEST_TEXT = "This is a speech synthesis test."
+    private const val TEST_SAMPLE_RATE = 24_000
+    private const val TEST_SAMPLE_COUNT = TranslationTtsAudioValidator.MIN_SAMPLE_COUNT + 1
     private val testLanguageTag = TranslationLanguage.entries.first().ttsLanguageTag
   }
 }

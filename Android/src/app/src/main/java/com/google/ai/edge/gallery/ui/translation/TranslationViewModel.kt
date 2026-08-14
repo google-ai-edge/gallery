@@ -245,24 +245,7 @@ internal constructor(
       val languageTag = language.ttsLanguageTag
 
       val activeSessionId =
-        if (!_liveSpeechEnabled.value && ttsReady) {
-          val completedSessionId = player.startStreaming(languageTag = languageTag)
-          ttsStreamState.begin(
-            sessionId = completedSessionId,
-            modelName = model.name,
-            language = language,
-          )
-          val completedChunks =
-            ttsStreamState.chunker.append(partialText = translatedText, flush = true)
-          for (chunk in completedChunks) {
-            if (player.enqueueStreaming(sessionId = completedSessionId, text = chunk)) {
-              ttsStreamState.queuedChunkCount++
-            }
-          }
-          completedSessionId
-        } else {
-          ttsStreamState.sessionId.takeIf { streamMatchesModel }
-        }
+        ttsStreamState.sessionId.takeIf { _liveSpeechEnabled.value && streamMatchesModel }
 
       if (activeSessionId != null) {
         for (chunk in ttsStreamState.chunker.flush()) {

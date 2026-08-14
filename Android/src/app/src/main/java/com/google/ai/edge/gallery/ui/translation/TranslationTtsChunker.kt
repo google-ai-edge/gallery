@@ -128,7 +128,8 @@ internal class TranslationTtsChunker {
   }
 
   private companion object {
-    val SENTENCE_TERMINATORS = setOf('.', '!', '?', '\u3002', '\uFF01', '\uFF1F')
+    val SENTENCE_TERMINATORS =
+      setOf('.', '!', '?', '\u0964', '\u0965', '\u3002', '\uFF01', '\uFF1F')
     val CLAUSE_TERMINATORS = setOf(',', ':', ';', '\u2013', '\u2014')
     val CLOSING_PUNCTUATION = setOf('"', '\'', '\u2019', '\u201D', ')', ']', '}')
   }

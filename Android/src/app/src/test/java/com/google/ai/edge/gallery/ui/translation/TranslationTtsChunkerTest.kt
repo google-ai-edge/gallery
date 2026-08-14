@@ -29,6 +29,14 @@ class TranslationTtsChunkerTest {
   }
 
   @Test
+  fun emitsSentencesAtSupportedUnicodeTerminators() {
+    val chunker = TranslationTtsChunker()
+    val sentences = listOf("One।", "Two॥", "Three。", "Four！", "Five？")
+
+    assertEquals(sentences, chunker.append(sentences.joinToString(" ")))
+  }
+
+  @Test
   fun waitsForLongerPhraseBeforeWhitespaceFallback() {
     val chunker = TranslationTtsChunker()
 

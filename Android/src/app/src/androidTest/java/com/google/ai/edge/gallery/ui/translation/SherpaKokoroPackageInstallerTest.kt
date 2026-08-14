@@ -35,7 +35,7 @@ class SherpaKokoroPackageInstallerTest {
       val archive =
         context.filesDir
           .resolve("translation_tts_installer_test")
-          .resolve("kokoro-multi-lang-v1_0.tar.bz2")
+          .resolve("$KOKORO_SHERPA_PACKAGE_ID.tar.bz2")
       assertTrue("Stage the pinned Kokoro archive at ${archive.absolutePath}", archive.isFile)
 
       val installed =
