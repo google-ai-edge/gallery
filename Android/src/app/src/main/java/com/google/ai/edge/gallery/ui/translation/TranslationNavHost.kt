@@ -1,0 +1,68 @@
+/*
+ * Copyright 2025 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.google.ai.edge.gallery.ui.translation
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+
+private const val ROUTE_TRANSLATION = "translation/main"
+private const val ROUTE_VOICE_MODELS = "translation/voice-models"
+
+@Composable
+internal fun TranslationNavHost(
+    modelManagerViewModel: ModelManagerViewModel,
+    navigateUp: () -> Unit,
+    viewModel: TranslationViewModel,
+) {
+    val navController = rememberNavController()
+
+    NavHost(
+        navController = navController,
+        startDestination = ROUTE_TRANSLATION,
+    ) {
+        composable(ROUTE_TRANSLATION) {
+            TranslationScreen(
+                modelManagerViewModel = modelManagerViewModel,
+                navigateUp = navigateUp,
+                navigateToVoiceModels = {
+                    navController.navigate(ROUTE_VOICE_MODELS) { launchSingleTop = true }
+                },
+                viewModel = viewModel,
+            )
+        }
+
+        composable(ROUTE_VOICE_MODELS) {
+            val selectedModel by viewModel.ttsModel.collectAsStateWithLifecycle()
+            val installState by viewModel.ttsInstallUiState.collectAsStateWithLifecycle()
+
+            TranslationTtsModelManager(
+                selectedModel = selectedModel,
+                installUiState = installState,
+                loadInstallationStatuses = viewModel::getTtsModelInstallationStatuses,
+                onDownloadRequested = viewModel::downloadTtsModel,
+                onDeleteRequested = viewModel::deleteTtsModel,
+                onModelSelected = viewModel::setTtsModel,
+                navigateUp = navController::navigateUp,
+            )
+        }
+    }
+}

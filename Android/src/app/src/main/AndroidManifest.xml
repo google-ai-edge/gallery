@@ -55,6 +55,12 @@
         android:required="false" />
     <uses-feature android:name="android.hardware.npu" android:required="false" />
 
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:name="${applicationName}"
         android:allowBackup="true"

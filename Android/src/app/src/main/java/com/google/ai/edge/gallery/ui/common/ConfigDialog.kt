@@ -471,6 +471,13 @@ fun BooleanSwitchRow(config: BooleanSwitchConfig, values: SnapshotStateMap<Strin
     }
   Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
     Text(stringResource(config.key.labelRes), style = MaterialTheme.typography.titleSmall)
+    if (config.description.isNotEmpty()) {
+      Text(
+        config.description,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
     Switch(checked = switchValue, onCheckedChange = { values[config.key.label] = it })
   }
 }

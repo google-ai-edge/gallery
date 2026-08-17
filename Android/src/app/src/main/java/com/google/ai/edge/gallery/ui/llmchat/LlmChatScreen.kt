@@ -208,6 +208,7 @@ fun ChatViewWrapper(
   onSkillClicked: () -> Unit = {},
   onMcpClicked: () -> Unit = {},
   onFirstToken: (Model) -> Unit = {},
+  onGenerateResponsePartial: (Model, String, Boolean) -> Unit = { _, _, _ -> },
   onGenerateResponseDone: (Model) -> Unit = {},
   onResetSessionClickedOverride: ((Task, Model, List<ChatMessage>, Boolean, () -> Unit) -> Unit)? =
     null,
@@ -219,13 +220,17 @@ fun ChatViewWrapper(
   sendMessageTrigger: SendMessageTrigger? = null,
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
+  voiceInputOnly: Boolean = false,
+  voiceInputProcessingStatusText: String? = null,
+  retainModelOnNavigateUp: Boolean = false,
   getActiveSkills: () -> List<String> = { emptyList() },
   skillCount: Int = 0,
   mcpCount: Int = 0,
   mcpToolsCount: Int = 0,
+  taskOverride: Task? = null,
 ) {
   val context = LocalContext.current
-  val task = modelManagerViewModel.getTaskById(id = taskId)!!
+  val task = taskOverride ?: modelManagerViewModel.getTaskById(id = taskId)!!
   val scope = rememberCoroutineScope()
 
   ChatView(
@@ -261,6 +266,9 @@ fun ChatViewWrapper(
           images = images,
           audioMessages = audioMessages,
           onFirstToken = onFirstToken,
+          onPartialResult = { partialResult, done ->
+            onGenerateResponsePartial(model, partialResult, done)
+          },
           onDone = { onGenerateResponseDone(model) },
           onError = { errorMessage ->
             viewModel.handleError(
@@ -348,5 +356,8 @@ fun ChatViewWrapper(
     onSystemPromptChanged = onSystemPromptChanged,
     sendMessageTrigger = sendMessageTrigger,
     showAudioPicker = showAudioPicker,
+    voiceInputOnly = voiceInputOnly,
+    voiceInputProcessingStatusText = voiceInputProcessingStatusText,
+    retainModelOnNavigateUp = retainModelOnNavigateUp,
   )
 }

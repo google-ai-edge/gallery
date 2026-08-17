@@ -52,7 +52,9 @@ import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.agentchat.agentSkillTopK
 import com.google.ai.edge.gallery.customtasks.agentchat.agentSkillTopKAdjusted
+import com.google.ai.edge.gallery.data.BooleanSwitchConfig
 import com.google.ai.edge.gallery.data.BuiltInTaskId
+import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelCapability
@@ -146,7 +148,9 @@ fun ModelPageAppBar(
     // The config button for the model (if existed).
     actions = {
       val downloadSucceeded = curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
-      val showConfigButton = model.configs.isNotEmpty() && downloadSucceeded
+      val showConfigButton =
+        (model.configs.isNotEmpty() || task.id == BuiltInTaskId.LLM_TRANSLATION) &&
+          downloadSucceeded
       Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
         var configButtonOffset = 0.dp
         if (showConfigButton && shouldShowHistoryButton) {
@@ -216,14 +220,68 @@ fun ModelPageAppBar(
     ) {
       modelConfigs.removeIf { it.key == ConfigKeys.ENABLE_SPECULATIVE_DECODING }
     }
+    val translationTextInputConfig =
+      if (task.id == BuiltInTaskId.LLM_TRANSLATION) {
+        BooleanSwitchConfig(
+          key =
+            ConfigKey(
+              id = "translation_text_input",
+              label = stringResource(R.string.translation_typing_setting_title),
+              labelRes = R.string.translation_typing_setting_title,
+            ),
+          defaultValue = modelManagerViewModel.isTranslationTextInputEnabled(),
+          needReinitialization = false,
+          description = stringResource(R.string.translation_typing_setting_description),
+        )
+      } else {
+        null
+      }
+    val translationLiveSpeechConfig =
+      if (task.id == BuiltInTaskId.LLM_TRANSLATION) {
+        BooleanSwitchConfig(
+          key =
+            ConfigKey(
+              id = "translation_live_speech",
+              label = stringResource(R.string.translation_live_speech_setting_title),
+              labelRes = R.string.translation_live_speech_setting_title,
+            ),
+          defaultValue = modelManagerViewModel.isTranslationLiveSpeechEnabled(),
+          needReinitialization = false,
+          description = stringResource(R.string.translation_live_speech_setting_description),
+        )
+      } else {
+        null
+      }
+    val translationConfigs =
+      listOfNotNull(translationTextInputConfig, translationLiveSpeechConfig)
+    val dialogConfigs = translationConfigs + modelConfigs
+    val initialValues =
+      model.configValues.toMutableMap().apply {
+        translationConfigs.forEach { config -> put(config.key.label, config.defaultValue) }
+      }
     ConfigDialog(
-      title = stringResource(R.string.config_dialog_title),
-      configs = modelConfigs,
-      initialValues = model.configValues,
+      title =
+        if (translationConfigs.isEmpty()) stringResource(R.string.config_dialog_title)
+        else "Translation settings",
+      configs = dialogConfigs,
+      initialValues = initialValues,
       onDismissed = { showConfigDialog = false },
       onOk = { curConfigValues, oldSystemPrompt, newSystemPrompt ->
         // Hide config dialog.
         showConfigDialog = false
+
+        translationTextInputConfig?.let { config ->
+          (curConfigValues[config.key.label] as? Boolean)?.let(
+            modelManagerViewModel::setTranslationTextInputEnabled
+          )
+        }
+        translationLiveSpeechConfig?.let { config ->
+          (curConfigValues[config.key.label] as? Boolean)?.let(
+            modelManagerViewModel::setTranslationLiveSpeechEnabled
+          )
+        }
+        val newModelConfigValues =
+          curConfigValues - translationConfigs.map { config -> config.key.label }
 
         // Check if the configs are changed or not. Also check if the model needs to be
         // re-initialized.
@@ -238,7 +296,7 @@ fun ModelPageAppBar(
             )
           val newValue =
             convertValueToTargetType(
-              value = curConfigValues.getValue(key),
+              value = newModelConfigValues.getValue(key),
               valueType = config.valueType,
             )
           if (oldValue != newValue) {
@@ -273,10 +331,10 @@ fun ModelPageAppBar(
         // Save the config values to Model.
         val oldConfigValues = model.configValues
         model.prevConfigValues = oldConfigValues
-        model.configValues = curConfigValues
+        model.configValues = newModelConfigValues
         if (task.id == BuiltInTaskId.LLM_AGENT_CHAT) {
           model.agentSkillTopKAdjusted = true
-          model.agentSkillTopK = curConfigValues[ConfigKeys.TOPK.label]
+          model.agentSkillTopK = newModelConfigValues[ConfigKeys.TOPK.label]
         }
         modelManagerViewModel.updateConfigValuesUpdateTrigger()
 

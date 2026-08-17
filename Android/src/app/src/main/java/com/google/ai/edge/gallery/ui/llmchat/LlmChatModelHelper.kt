@@ -21,6 +21,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.google.ai.edge.gallery.common.cleanUpMediapipeTaskErrorMessage
 import com.google.ai.edge.gallery.data.Accelerator
+import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
@@ -146,22 +147,22 @@ object LlmChatModelHelper : LlmModelHelper {
     }
     // Create an instance of LiteRT LM engine and conversation.
     try {
-      var speculativeDecoding = false
-      // Check if the model supports speculative decoding for the given task type and if the
-      // speculative decoding is enabled in the settings.
-      if (
+      val speculativeDecoding =
         supportsSpeculativeDecoding &&
-          model.capabilityToTaskTypes[ModelCapability.SPECULATIVE_DECODING]?.contains(taskId) ==
-            true
-      ) {
-        speculativeDecoding =
-          model.getBooleanConfigValue(
-            key = ConfigKeys.ENABLE_SPECULATIVE_DECODING,
-            defaultValue = false,
-          )
-      }
+          (taskId == BuiltInTaskId.LLM_TRANSLATION ||
+            (model.capabilityToTaskTypes[ModelCapability.SPECULATIVE_DECODING]
+                .orEmpty()
+                .contains(taskId) &&
+              model.getBooleanConfigValue(
+                key = ConfigKeys.ENABLE_SPECULATIVE_DECODING,
+                defaultValue = false,
+              )))
       ExperimentalFlags.enableSpeculativeDecoding = speculativeDecoding
-      Log.d(TAG, "Speculative decoding enabled: $speculativeDecoding")
+      Log.d(
+        TAG,
+        "Speculative decoding enabled: $speculativeDecoding " +
+          "(task=$taskId, model_support=$supportsSpeculativeDecoding)",
+      )
       val engine = Engine(engineConfig)
       engine.initialize()
       ExperimentalFlags.enableSpeculativeDecoding = false

@@ -20,7 +20,7 @@ webkit = "1.14.0"
 protobuf = "0.9.5"
 protobufJavaLite = "4.26.1"
 #noinspection GradleDependency
-litertlm = "0.11.0"
+litertlm = "0.15.0"
 commonmark = "1.0.0-alpha02"
 richtext = "1.0.0-alpha02"
 playServicesTfliteJava = "16.4.0"
@@ -43,6 +43,8 @@ mlkit-genai-prompt = "1.0.0-beta2"  # Ref: https://developers.google.com/ml-kit/
 mcp = "0.8.0"
 ktor = "3.4.3"
 tasksVision = "1.0.0"
+sherpaOnnx = "v1.13.4"
+commonsCompress = "1.27.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -101,6 +103,8 @@ mcp-kotlin-sdk = { group = "io.modelcontextprotocol", name = "kotlin-sdk", versi
 ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref = "ktor" }
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
 tasks-vision = { group = "com.google.mediapipe", name = "tasks-vision", version.ref = "tasksVision" }
+sherpa-onnx = { group = "com.github.k2-fsa", name = "sherpa-onnx", version.ref = "sherpaOnnx" }
+commons-compress = { group = "org.apache.commons", name = "commons-compress", version.ref = "commonsCompress" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
