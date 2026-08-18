@@ -22,10 +22,18 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CompletableDeferred
 
+/**
+ * Represents metadata about an additional or supplementary data file that must be downloaded
+ * alongside the main model.
+ */
 data class ModelDataFile(
+  /** The user-facing name of the data file. */
   val name: String,
+  /** The URL to download the data file from. */
   val url: String,
+  /** The name of the downloaded data file. */
   val downloadFileName: String,
+  /** The size of the data file in bytes. */
   val sizeInBytes: Long,
 )
 
