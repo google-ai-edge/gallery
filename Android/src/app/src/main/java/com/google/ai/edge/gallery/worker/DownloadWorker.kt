@@ -103,7 +103,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
     val extraDataFileUrls = inputData.getString(KEY_MODEL_EXTRA_DATA_URLS)?.split(",") ?: listOf()
     val extraDataFileNames =
       inputData.getString(KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES)?.split(",") ?: listOf()
-    val totalBytes = inputData.getLong(KEY_MODEL_TOTAL_BYTES, 0L)
+    var totalBytes = inputData.getLong(KEY_MODEL_TOTAL_BYTES, 0L)
     val accessToken = inputData.getString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN)
 
     return withContext(Dispatchers.IO) {
@@ -192,15 +192,32 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 val byteRange = rangeParts[0].split("-")
                 val startByte = byteRange[0].toLong()
                 val endByte = byteRange[1].toLong()
+                val totalFromRange = rangeParts.getOrNull(1)?.trim()?.toLongOrNull()
 
                 Log.d(
                   TAG,
-                  "Content-Range: $contentRange. Start bytes: ${startByte}, end bytes: $endByte",
+                  "Content-Range: $contentRange. Start bytes: ${startByte}, end bytes: $endByte, total: $totalFromRange",
                 )
+
+                // If the server returned Content-Range (HTTP 206 Partial Content), extract the
+                // authoritative total file size after the slash '/' and update totalBytes.
+                if (
+                  totalFromRange != null &&
+                    totalFromRange > 0L &&
+                    (totalBytes <= 0L || totalBytes < totalFromRange)
+                ) {
+                  totalBytes = totalFromRange
+                }
 
                 downloadedBytes += startByte
               } else {
                 Log.d(TAG, "Download starts from beginning.")
+                // If downloading from the beginning (HTTP 200 OK), resolve the total file size
+                // from the Content-Length header.
+                val contentLength = connection.contentLengthLong
+                if (contentLength > 0L && (totalBytes <= 0L || totalBytes < contentLength)) {
+                  totalBytes = contentLength
+                }
               }
             } else {
               throw IOException("HTTP error code: ${connection.responseCode}")
@@ -245,6 +262,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 setProgress(
                   Data.Builder()
                     .putLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, downloadedBytes)
+                    .putLong(KEY_MODEL_TOTAL_BYTES, totalBytes)
                     .putLong(KEY_MODEL_DOWNLOAD_RATE, (bytesPerMs * 1000).toLong())
                     .putLong(KEY_MODEL_DOWNLOAD_REMAINING_MS, remainingMs.toLong())
                     .build()

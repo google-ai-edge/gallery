@@ -496,13 +496,14 @@ fun GlobalModelManager(
     selectedLocalModelFileUri.value?.let { uri ->
       ModelImportDialog(
         uri = uri,
-        accessToken = viewModel.dataStoreRepository.readAccessTokenData()?.accessToken,
+        huggingFaceApiClient = viewModel.huggingFaceApiClient,
         onDismiss = { showImportDialog = false },
         onDone = { info ->
           selectedImportedModelInfo.value = info
           showImportDialog = false
           showImportingDialog = true
         },
+        accessToken = viewModel.dataStoreRepository.readAccessTokenData()?.accessToken,
       )
     }
   }

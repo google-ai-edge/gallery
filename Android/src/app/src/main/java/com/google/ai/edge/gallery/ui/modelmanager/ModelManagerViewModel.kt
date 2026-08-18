@@ -59,6 +59,7 @@ import com.google.ai.edge.gallery.data.markInitialized
 import com.google.ai.edge.gallery.data.resetInitialization
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.huggingface.HuggingFaceApiClient
+import com.google.ai.edge.gallery.huggingface.ModelAccessibility
 import com.google.ai.edge.gallery.proto.AccessTokenData
 import com.google.ai.edge.gallery.proto.HfModelItemProto
 import com.google.ai.edge.gallery.proto.ImportedModel
@@ -70,8 +71,6 @@ import com.google.gson.JsonSyntaxException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 import javax.inject.Inject
 import kotlin.collections.sortedWith
 import kotlinx.coroutines.Dispatchers
@@ -205,7 +204,7 @@ constructor(
   private val lifecycleProvider: AppLifecycleProvider,
   private val customTasks: Set<@JvmSuppressWildcards CustomTask>,
   private val systemPromptRepository: SystemPromptRepository,
-  private val huggingFaceApiClient: HuggingFaceApiClient,
+  val huggingFaceApiClient: HuggingFaceApiClient,
   @ApplicationContext private val context: Context,
 ) :
   ViewModel()
@@ -670,25 +669,8 @@ constructor(
     firebaseAnalytics?.setAnalyticsCollectionEnabled(enabled)
   }
 
-  fun getModelUrlResponse(model: Model, accessToken: String? = null): Int {
-    try {
-      if (model.url.isEmpty()) {
-        return HttpURLConnection.HTTP_OK
-      }
-      val url = URL(model.url)
-      val connection = url.openConnection() as HttpURLConnection
-      if (accessToken != null) {
-        connection.setRequestProperty("Authorization", "Bearer $accessToken")
-      }
-      connection.connect()
-
-      // Report the result.
-      return connection.responseCode
-    } catch (e: Exception) {
-      Log.e(TAG, "$e")
-      return -1
-    }
-  }
+  suspend fun getModelUrlResponse(model: Model, accessToken: String? = null): ModelAccessibility =
+    huggingFaceApiClient.checkModelAccessibility(modelUrl = model.url, accessToken = accessToken)
 
   fun addImportedLlmModel(info: ImportedModel) {
     Log.d(TAG, "adding imported llm model: $info")

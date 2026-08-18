@@ -79,12 +79,12 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.huggingface.ModelAccessibility
 import com.google.ai.edge.gallery.ui.common.tos.GemmaTermsOfUseDialog
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.TokenRequestResultType
 import com.google.ai.edge.gallery.ui.modelmanager.TokenStatus
-import java.net.HttpURLConnection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -167,6 +167,8 @@ fun DownloadAndTryButton(
 
   // Function to kick off download.
   val startDownload: (accessToken: String?) -> Unit = { accessToken ->
+    downloadStarted = true
+    checkingToken = false
     model.accessToken = accessToken
     checkNotificationPermissionAndStartDownload(
       context = context,
@@ -175,22 +177,76 @@ fun DownloadAndTryButton(
       task = task,
       model = model,
     )
-    checkingToken = false
   }
-
-  // A launcher for opening the custom tabs intent for requesting user agreement ack.
-  // Once the tab is closed, try starting the download process.
-  val agreementAckLauncher: ActivityResultLauncher<Intent> =
-    rememberLauncherForActivityResult(
-      contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-      Log.d(TAG, "User closes the browser tab. Try to start downloading.")
-      startDownload(modelManagerViewModel.curAccessToken)
-    }
 
   // A launcher for handling the authentication flow.
   // It processes the result of the authentication activity and then checks if a user agreement
   // acknowledgement is needed before proceeding with the model download.
+  lateinit var startTokenExchange: () -> Unit
+
+  /**
+   * Checks if the model download URL is accessible with the provided [token] and executes the
+   * appropriate UI transition or download action on the Main thread.
+   *
+   * @param token The Hugging Face OAuth access token (or empty string if none).
+   */
+  fun processModelAccessibility(token: String) {
+    scope.launch {
+      checkingToken = true
+      val accessibility =
+        withContext(Dispatchers.IO) {
+          modelManagerViewModel.getModelUrlResponse(
+            model = model,
+            accessToken = token.ifEmpty { null },
+          )
+        }
+
+      when (accessibility) {
+        ModelAccessibility.ACCESSIBLE -> {
+          Log.d(TAG, "Model '${model.name}' is accessible. Starting download...")
+          startDownload(token.ifEmpty { null })
+        }
+        ModelAccessibility.GATED -> {
+          Log.d(
+            TAG,
+            "Model '${model.name}' is gated (403). Displaying license acknowledgment sheet.",
+          )
+          checkingToken = false
+          downloadStarted = false
+          showAgreementAckSheet = true
+        }
+        ModelAccessibility.NEEDS_TOKEN_EXCHANGE -> {
+          Log.d(TAG, "Model '${model.name}' requires a new token. Initiating OAuth exchange...")
+          checkingToken = false
+          downloadStarted = false
+          startTokenExchange()
+        }
+        ModelAccessibility.ERROR -> {
+          Log.e(TAG, "Unknown network error when accessing model '${model.name}'")
+          checkingToken = false
+          downloadStarted = false
+          showErrorDialog = true
+        }
+      }
+    }
+  }
+
+  // A launcher for opening the custom tabs intent for requesting user agreement ack.
+  // Once the tab is closed, re-probe model accessibility before starting download.
+  val agreementAckLauncher: ActivityResultLauncher<Intent> =
+    rememberLauncherForActivityResult(
+      contract = ActivityResultContracts.StartActivityForResult()
+    ) { _ ->
+      Log.d(TAG, "User closes the browser tab. Re-probe model accessibility before downloading.")
+      scope.launch(Dispatchers.IO) {
+        val token =
+          modelManagerViewModel.curAccessToken.ifEmpty {
+            modelManagerViewModel.getTokenStatusAndData().data?.accessToken ?: ""
+          }
+        processModelAccessibility(token)
+      }
+    }
+
   val authResultLauncher =
     rememberLauncherForActivityResult(
       contract = ActivityResultContracts.StartActivityForResult()
@@ -201,27 +257,7 @@ fun DownloadAndTryButton(
           when (tokenRequestResult.status) {
             TokenRequestResultType.SUCCEEDED -> {
               Log.d(TAG, "Token request succeeded. Checking if we need user to ack user agreement")
-              scope.launch(Dispatchers.IO) {
-                // Check if we can use the current token to access model. If not, we might need to
-                // acknowledge the user agreement.
-                if (
-                  modelManagerViewModel.getModelUrlResponse(
-                    model = model,
-                    accessToken = modelManagerViewModel.curAccessToken,
-                  ) == HttpURLConnection.HTTP_FORBIDDEN
-                ) {
-                  Log.d(TAG, "Model '${model.name}' needs user agreement ack.")
-                  showAgreementAckSheet = true
-                } else {
-                  Log.d(
-                    TAG,
-                    "Model '${model.name}' does NOT need user agreement ack. Start downloading...",
-                  )
-                  withContext(Dispatchers.Main) {
-                    startDownload(modelManagerViewModel.curAccessToken)
-                  }
-                }
-              }
+              processModelAccessibility(modelManagerViewModel.curAccessToken)
             }
 
             TokenRequestResultType.FAILED -> {
@@ -244,7 +280,7 @@ fun DownloadAndTryButton(
     }
 
   // Function to kick off the authentication and token exchange flow.
-  val startTokenExchange = {
+  startTokenExchange = {
     val authRequest = modelManagerViewModel.getAuthorizationRequest()
     val authIntent = modelManagerViewModel.authService.getAuthorizationRequestIntent(authRequest)
     authResultLauncher.launch(authIntent)
@@ -258,26 +294,27 @@ fun DownloadAndTryButton(
   val handleClickButton = {
     scope.launch(Dispatchers.IO) {
       if (needToDownloadFirst) {
-        downloadStarted = true
         // For HuggingFace urls
         if (model.url.startsWith("https://huggingface.co")) {
-          checkingToken = true
+          withContext(Dispatchers.Main) { checkingToken = true }
 
           // Check if the url needs auth.
           Log.d(
             TAG,
             "Model '${model.name}' is from HuggingFace. Checking if the url needs auth to download",
           )
-          val firstResponseCode = modelManagerViewModel.getModelUrlResponse(model = model)
-          if (firstResponseCode == HttpURLConnection.HTTP_OK) {
+          val firstAccessibility = modelManagerViewModel.getModelUrlResponse(model = model)
+          if (firstAccessibility == ModelAccessibility.ACCESSIBLE) {
             Log.d(TAG, "Model '${model.name}' doesn't need auth. Start downloading the model...")
             withContext(Dispatchers.Main) { startDownload(null) }
             return@launch
-          } else if (firstResponseCode < 0) {
-            checkingToken = false
-            downloadStarted = false
-            Log.e(TAG, "Unknown network error")
-            showErrorDialog = true
+          } else if (firstAccessibility == ModelAccessibility.ERROR) {
+            withContext(Dispatchers.Main) {
+              checkingToken = false
+              downloadStarted = false
+              Log.e(TAG, "Unknown network error")
+              showErrorDialog = true
+            }
             return@launch
           }
           Log.d(TAG, "Model '${model.name}' needs auth. Start token exchange process...")
@@ -289,35 +326,18 @@ fun DownloadAndTryButton(
             // If token is not stored or expired, log in and request a new token.
             TokenStatus.NOT_STORED,
             TokenStatus.EXPIRED -> {
-              withContext(Dispatchers.Main) { startTokenExchange() }
+              withContext(Dispatchers.Main) {
+                checkingToken = false
+                downloadStarted = false
+                startTokenExchange()
+              }
             }
 
             // If token is still valid...
             TokenStatus.NOT_EXPIRED -> {
               // Use the current token to check the download url.
               Log.d(TAG, "Checking the download url '${model.url}' with the current token...")
-              val responseCode =
-                modelManagerViewModel.getModelUrlResponse(
-                  model = model,
-                  accessToken = tokenStatusAndData.data!!.accessToken,
-                )
-              if (responseCode == HttpURLConnection.HTTP_OK) {
-                // Download url is accessible. Download the model.
-                Log.d(TAG, "Download url is accessible with the current token.")
-
-                withContext(Dispatchers.Main) {
-                  startDownload(tokenStatusAndData.data!!.accessToken)
-                }
-              }
-              // Download url is NOT accessible. Request a new token.
-              else {
-                Log.d(
-                  TAG,
-                  "Download url is NOT accessible. Response code: ${responseCode}. Trying to request a new token.",
-                )
-
-                withContext(Dispatchers.Main) { startTokenExchange() }
-              }
+              processModelAccessibility(tokenStatusAndData.data!!.accessToken)
             }
           }
         }
@@ -509,6 +529,7 @@ fun DownloadAndTryButton(
       onDismissRequest = {
         showAgreementAckSheet = false
         checkingToken = false
+        downloadStarted = false
       },
       sheetState = sheetState,
       modifier = Modifier.wrapContentHeight(),
@@ -540,6 +561,8 @@ fun DownloadAndTryButton(
             }
             // Dismiss the sheet.
             showAgreementAckSheet = false
+            checkingToken = false
+            downloadStarted = false
           }
         ) {
           Text(stringResource(R.string.open_user_agreement))

@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.huggingface
 
 import android.util.Log
+import androidx.core.net.toUri
 import com.google.ai.edge.gallery.di.IoDispatcher
 import com.google.ai.edge.gallery.proto.HfModelItemProto
 import com.google.ai.edge.gallery.proto.HfSiblingProto
@@ -35,6 +36,21 @@ import kotlinx.coroutines.withContext
 private const val TAG = "AGHfApiClient"
 private const val HF_API_BASE_URL = "https://huggingface.co/api"
 private const val USER_AGENT = "AIEdgeGallery/1.0 (Android)"
+
+/** Accessibility status of a remote model URL when probed with or without an access token. */
+enum class ModelAccessibility {
+  /** The model URL is accessible (HTTP 200 OK) with the provided token or anonymously. */
+  ACCESSIBLE,
+
+  /** The model is gated (HTTP 403 Forbidden); user must acknowledge the license on Hugging Face. */
+  GATED,
+
+  /** The token is invalid/expired or unauthorized (HTTP 401); an OAuth token exchange is needed. */
+  NEEDS_TOKEN_EXCHANGE,
+
+  /** Network connection or other unexpected error when probing the model URL. */
+  ERROR,
+}
 
 open class HuggingFaceApiClient
 @Inject
@@ -124,6 +140,73 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
       return@withContext null
     }
 
+  /**
+   * Fetches the file size in bytes for a specific model file within a Hugging Face repository.
+   *
+   * @param modelId The Hugging Face model repository ID (e.g. "google/gemma-3-1b-it-litertlm").
+   * @param fileName The target model file name or relative path (e.g.
+   *   "gemma-3-1b-it-gpu-int4.litertlm").
+   * @param accessToken Optional Bearer access token for authenticated API quota.
+   * @return The file size in bytes if found and positive, or `null` otherwise.
+   */
+  open suspend fun getModelFileSize(
+    modelId: String,
+    fileName: String,
+    accessToken: String? = null,
+  ): Long? =
+    withContext(ioDispatcher) {
+      val details = getModelDetails(modelId, accessToken = accessToken) ?: return@withContext null
+      val matchingSibling =
+        details.siblingsList.firstOrNull {
+          it.rfilename == fileName || it.rfilename.endsWith("/$fileName")
+        }
+      if (matchingSibling != null && matchingSibling.size > 0L) {
+        return@withContext matchingSibling.size
+      }
+      return@withContext null
+    }
+
+  /**
+   * Probes the accessibility of a Hugging Face model URL using an optional Bearer access token.
+   *
+   * @param modelUrl The download URL of the model.
+   * @param accessToken Optional Bearer access token for authorization.
+   * @return [ModelAccessibility] indicating whether the model is accessible, gated, or needs token
+   *   exchange.
+   */
+  open suspend fun checkModelAccessibility(
+    modelUrl: String,
+    accessToken: String? = null,
+  ): ModelAccessibility =
+    withContext(ioDispatcher) {
+      if (modelUrl.isEmpty()) {
+        return@withContext ModelAccessibility.ACCESSIBLE
+      }
+      try {
+        val url = URL(modelUrl)
+        val connection = url.openConnection() as HttpURLConnection
+        connection.requestMethod = "GET"
+        connection.setRequestProperty("User-Agent", USER_AGENT)
+        if (!accessToken.isNullOrEmpty()) {
+          connection.setRequestProperty("Authorization", "Bearer $accessToken")
+        }
+        connection.connect()
+
+        when (connection.responseCode) {
+          // HTTP 200: The download URL is reachable and authorized.
+          HttpURLConnection.HTTP_OK -> ModelAccessibility.ACCESSIBLE
+          // HTTP 403: The model repository is gated and requires user license agreement on
+          // Hugging Face.
+          HttpURLConnection.HTTP_FORBIDDEN -> ModelAccessibility.GATED
+          // HTTP 401 or other non-OK code: The access token is missing, expired, or invalid.
+          else -> ModelAccessibility.NEEDS_TOKEN_EXCHANGE
+        }
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to probe model accessibility for URL: $modelUrl", e)
+        ModelAccessibility.ERROR
+      }
+    }
+
   private fun executeGetRequest(urlString: String, accessToken: String? = null): String? {
     return try {
       Log.d(TAG, "Executing HF HTTP GET request: $urlString")
@@ -190,4 +273,15 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
 
   private fun JsonObject.getOrNull(member: String) =
     if (has(member) && !get(member).isJsonNull) get(member) else null
+
+  companion object {
+    /** Checks if the given URL belongs to Hugging Face (host contains "huggingface.co"). */
+    fun isHuggingFaceUrl(url: String): Boolean {
+      val trimmed = url.trim()
+      if (trimmed.isEmpty()) return false
+      val uri = (if (trimmed.contains("://")) trimmed else "https://$trimmed").toUri()
+      val host = uri.host?.lowercase()
+      return host == "huggingface.co" || host?.endsWith(".huggingface.co") == true
+    }
+  }
 }
