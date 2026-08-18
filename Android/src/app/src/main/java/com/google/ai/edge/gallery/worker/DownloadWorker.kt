@@ -28,6 +28,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import com.google.ai.edge.gallery.common.getModelStorageDir
 import com.google.ai.edge.gallery.data.KEY_MODEL_COMMIT_HASH
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ERROR_MESSAGE
@@ -67,7 +68,7 @@ private var channelCreated = false
 
 class DownloadWorker(context: Context, params: WorkerParameters) :
   CoroutineWorker(context, params) {
-  private val externalFilesDir = context.getExternalFilesDir(null)
+  private val modelsDir = getModelStorageDir(context)
 
   private val notificationManager =
     context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -141,12 +142,9 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             // Prepare output file's dir.
             val outputDir =
               if (isModelImported) {
-                File(applicationContext.getExternalFilesDir(null), modelDir)
+                File(modelsDir, modelDir)
               } else {
-                File(
-                  applicationContext.getExternalFilesDir(null),
-                  listOf(modelDir, version).joinToString(separator = File.separator),
-                )
+                File(modelsDir, listOf(modelDir, version).joinToString(separator = File.separator))
               }
             if (!outputDir.exists()) {
               outputDir.mkdirs()
@@ -156,13 +154,13 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             val outputTmpFile =
               if (isModelImported) {
                 File(
-                  applicationContext.getExternalFilesDir(null),
+                  modelsDir,
                   listOf(modelDir, "${file.fileName}.$TMP_FILE_EXT")
                     .joinToString(separator = File.separator),
                 )
               } else {
                 File(
-                  applicationContext.getExternalFilesDir(null),
+                  modelsDir,
                   listOf(modelDir, version, "${file.fileName}.$TMP_FILE_EXT")
                     .joinToString(separator = File.separator),
                 )
@@ -279,10 +277,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
               // Prepare target dir.
               val destDir =
-                File(
-                  externalFilesDir,
-                  listOf(modelDir, version, unzippedDir).joinToString(File.separator),
-                )
+                File(modelsDir, listOf(modelDir, version, unzippedDir).joinToString(File.separator))
               if (!destDir.exists()) {
                 destDir.mkdirs()
               }
@@ -290,7 +285,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
               // Unzip.
               val unzipBuffer = ByteArray(4096)
               val zipFilePath =
-                "${externalFilesDir}${File.separator}$modelDir${File.separator}$version${File.separator}${fileName}"
+                "${modelsDir}${File.separator}$modelDir${File.separator}$version${File.separator}${fileName}"
               val zipIn = ZipInputStream(BufferedInputStream(FileInputStream(zipFilePath)))
               var zipEntry: ZipEntry? = zipIn.nextEntry
 
