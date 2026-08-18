@@ -51,6 +51,7 @@ import com.google.ai.edge.gallery.data.SOC
 import com.google.ai.edge.gallery.data.SystemPromptRepository
 import com.google.ai.edge.gallery.data.TMP_FILE_EXT
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.data.UNKNOWN_MODEL_FILE_SIZE
 import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.data.createLlmChatConfigs
 import com.google.ai.edge.gallery.data.markInitializationFailed
@@ -59,6 +60,8 @@ import com.google.ai.edge.gallery.data.markInitialized
 import com.google.ai.edge.gallery.data.resetInitialization
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.huggingface.HuggingFaceApiClient
+import com.google.ai.edge.gallery.huggingface.ModelAccessibility
+import com.google.ai.edge.gallery.huggingface.extractHfUrlInfo
 import com.google.ai.edge.gallery.proto.AccessTokenData
 import com.google.ai.edge.gallery.proto.HfModelItemProto
 import com.google.ai.edge.gallery.proto.ImportedModel
@@ -70,10 +73,9 @@ import com.google.gson.JsonSyntaxException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 import javax.inject.Inject
 import kotlin.collections.sortedWith
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -205,7 +207,7 @@ constructor(
   private val lifecycleProvider: AppLifecycleProvider,
   private val customTasks: Set<@JvmSuppressWildcards CustomTask>,
   private val systemPromptRepository: SystemPromptRepository,
-  private val huggingFaceApiClient: HuggingFaceApiClient,
+  val huggingFaceApiClient: HuggingFaceApiClient,
   @ApplicationContext private val context: Context,
 ) :
   ViewModel()
@@ -670,25 +672,8 @@ constructor(
     firebaseAnalytics?.setAnalyticsCollectionEnabled(enabled)
   }
 
-  fun getModelUrlResponse(model: Model, accessToken: String? = null): Int {
-    try {
-      if (model.url.isEmpty()) {
-        return HttpURLConnection.HTTP_OK
-      }
-      val url = URL(model.url)
-      val connection = url.openConnection() as HttpURLConnection
-      if (accessToken != null) {
-        connection.setRequestProperty("Authorization", "Bearer $accessToken")
-      }
-      connection.connect()
-
-      // Report the result.
-      return connection.responseCode
-    } catch (e: Exception) {
-      Log.e(TAG, "$e")
-      return -1
-    }
-  }
+  suspend fun getModelUrlResponse(model: Model, accessToken: String? = null): ModelAccessibility =
+    huggingFaceApiClient.checkModelAccessibility(modelUrl = model.url, accessToken = accessToken)
 
   fun addImportedLlmModel(info: ImportedModel) {
     Log.d(TAG, "adding imported llm model: $info")
@@ -1207,7 +1192,8 @@ constructor(
     }
 
     // Load imported models.
-    for (importedModel in dataStoreRepository.readImportedModels()) {
+    val storedImportedModels = dataStoreRepository.readImportedModels()
+    for (importedModel in storedImportedModels) {
       Log.d(TAG, "stored imported model: $importedModel")
 
       // Create model.
@@ -1247,6 +1233,8 @@ constructor(
       }
     }
 
+    retryResolvingInvalidModelSizesInBackground(storedImportedModels)
+
     val textInputHistory = dataStoreRepository.readTextInputHistory()
     Log.d(TAG, "text input history: $textInputHistory")
 
@@ -1258,6 +1246,83 @@ constructor(
       modelInitializationStatus = modelInstances,
       textInputHistory = textInputHistory,
     )
+  }
+
+  /**
+   * Identifies imported models with invalid or unknown file sizes (e.g. `<= 0L`) and attempts to
+   * resolve them in the background via [huggingFaceApiClient].
+   */
+  private fun retryResolvingInvalidModelSizesInBackground(importedModels: List<ImportedModel>) {
+    val invalidModels = importedModels.filter {
+      it.fileSize <= UNKNOWN_MODEL_FILE_SIZE && it.url.isNotEmpty()
+    }
+    if (invalidModels.isEmpty()) {
+      return
+    }
+
+    viewModelScope.launch {
+      val token = curAccessToken.ifEmpty { getTokenStatusAndData().data?.accessToken }
+      for (importedModel in invalidModels) {
+        val resolvedSize = resolveImportedModelFileSize(importedModel, token)
+        if (resolvedSize != null && resolvedSize > 0L) {
+          Log.d(
+            TAG,
+            "Resolved missing file size for ${importedModel.fileName}: $resolvedSize bytes",
+          )
+          updateImportedModelFileSize(importedModel.fileName, resolvedSize)
+        }
+      }
+    }
+  }
+
+  /** Resolves the remote file size for an imported model via Hugging Face repository metadata. */
+  private suspend fun resolveImportedModelFileSize(
+    importedModel: ImportedModel,
+    token: String?,
+  ): Long? {
+    val urlInfo = extractHfUrlInfo(importedModel.url)
+    val modelId = urlInfo.modelId ?: return null
+    val fileName = urlInfo.fileName ?: return null
+
+    return try {
+      huggingFaceApiClient.getModelFileSize(
+        modelId = modelId,
+        fileName = fileName,
+        accessToken = token,
+      )
+    } catch (e: Exception) {
+      if (e is CancellationException) throw e
+      Log.w(TAG, "Failed to resolve file size for ${importedModel.fileName} on startup", e)
+      null
+    }
+  }
+
+  /**
+   * Updates in-memory UI state, active task models, and DataStore for an imported model's resolved
+   * size.
+   */
+  private fun updateImportedModelFileSize(fileName: String, resolvedSize: Long) {
+    for (task in uiState.value.tasks) {
+      val model = task.models.firstOrNull { it.name == fileName && it.imported }
+      if (model != null) {
+        model.totalBytes = resolvedSize
+      }
+    }
+    _uiState.update { current ->
+      val updatedStatus = current.modelDownloadStatus.toMutableMap()
+      val existingStatus = updatedStatus[fileName]
+      if (existingStatus != null && existingStatus.totalBytes <= 0L) {
+        updatedStatus[fileName] = existingStatus.copy(totalBytes = resolvedSize)
+      }
+      current.copy(modelDownloadStatus = updatedStatus)
+    }
+
+    val currentImported = dataStoreRepository.readImportedModels().toMutableList()
+    val idx = currentImported.indexOfFirst { it.fileName == fileName }
+    if (idx >= 0) {
+      currentImported[idx] = currentImported[idx].toBuilder().setFileSize(resolvedSize).build()
+      dataStoreRepository.saveImportedModels(currentImported)
+    }
   }
 
   private fun createModelFromImportedModelInfo(info: ImportedModel): Model {

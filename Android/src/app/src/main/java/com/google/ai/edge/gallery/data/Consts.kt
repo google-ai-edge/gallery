@@ -38,6 +38,9 @@ const val KEY_MODEL_UNZIPPED_DIR = "KEY_MODEL_UNZIPPED_DIR"
 const val KEY_MODEL_START_UNZIPPING = "KEY_MODEL_START_UNZIPPING"
 const val KEY_MODEL_IS_IMPORTED = "KEY_MODEL_IS_IMPORTED"
 
+// Sentinel value representing an unknown or unresolved model file size in bytes.
+const val UNKNOWN_MODEL_FILE_SIZE: Long = 0L
+
 // Default values for LLM models.
 const val DEFAULT_MAX_TOKEN = 1024
 const val DEFAULT_TOPK = 64

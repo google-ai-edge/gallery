@@ -41,6 +41,7 @@ import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.worker.DownloadWorker
+import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
 
@@ -184,9 +185,16 @@ class DefaultDownloadRepository(
 
           WorkInfo.State.RUNNING -> {
             val receivedBytes = workInfo.progress.getLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, 0L)
+            val progressTotalBytes = workInfo.progress.getLong(KEY_MODEL_TOTAL_BYTES, 0L)
             val downloadRate = workInfo.progress.getLong(KEY_MODEL_DOWNLOAD_RATE, 0L)
             val remainingSeconds = workInfo.progress.getLong(KEY_MODEL_DOWNLOAD_REMAINING_MS, 0L)
             val startUnzipping = workInfo.progress.getBoolean(KEY_MODEL_START_UNZIPPING, false)
+
+            // Synchronize the model's totalBytes with the actual total size reported by
+            // the download worker (e.g. from HTTP Content-Range or Content-Length headers).
+            if (progressTotalBytes > 0L && model.totalBytes != progressTotalBytes) {
+              model.totalBytes = progressTotalBytes
+            }
 
             if (!startUnzipping) {
               if (receivedBytes != 0L) {
@@ -211,6 +219,12 @@ class DefaultDownloadRepository(
 
           WorkInfo.State.SUCCEEDED -> {
             Log.d("repo", "worker %s success".format(workerId.toString()))
+            // If the model's totalBytes was unknown prior to download, backfill it from the
+            // completed file on disk using the model's standard path resolver.
+            val downloadedFile = File(model.getPath(context))
+            if (downloadedFile.exists() && model.totalBytes <= 0L) {
+              model.totalBytes = downloadedFile.length()
+            }
             onStatusUpdated(model, ModelDownloadStatus(status = ModelDownloadStatusType.SUCCEEDED))
             sendNotification(
               title = context.getString(R.string.notification_title_success),
