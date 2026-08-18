@@ -47,6 +47,7 @@ import com.google.ai.edge.gallery.ui.common.chat.ChatMessageType
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageWarning
 import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.ai.edge.gallery.ui.common.chat.ChatViewModel
+import com.google.ai.edge.gallery.ui.common.chat.convertToLitertMessage
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.Message
@@ -69,6 +70,10 @@ open class LlmChatViewModelBase(
 ) : ChatViewModel(userDataDataStore) {
   private val _uiSystemPrompt = MutableStateFlow("")
   val uiSystemPrompt = _uiSystemPrompt.asStateFlow()
+  // Map to track if the session was stopped by the model for a given model name.
+  private val sessionStoppedByModel = mutableMapOf<String, Boolean>()
+  // The current task ID for the session.
+  private var currentTaskId: String = ""
 
   /**
    * Sets the system prompt in the UI.
@@ -88,6 +93,7 @@ open class LlmChatViewModelBase(
    * @param task The task to load the system prompt for.
    */
   fun loadSystemPrompt(task: Task) {
+    currentTaskId = task.id
     viewModelScope.launch {
       val effectivePrompt =
         SystemPromptHelper.getEffectiveSystemPrompt(systemPromptRepository, task)
@@ -120,8 +126,8 @@ open class LlmChatViewModelBase(
         task = task,
         model = model,
         systemInstruction = newPrompt,
-        supportImage = true,
-        supportAudio = true,
+        supportImage = model.llmSupportImage,
+        supportAudio = model.llmSupportAudio,
         onDone = { addMessage(model, ChatMessageInfo(content = systemPromptUpdatedMessage)) },
       )
     }
@@ -170,6 +176,25 @@ open class LlmChatViewModelBase(
 
       var firstRun = true
       val start = System.currentTimeMillis()
+
+      if (sessionStoppedByModel[model.name] == true) {
+        sessionStoppedByModel[model.name] = false
+        val initialMessages =
+          (uiState.value.messagesByModel[model.name] ?: emptyList())
+            .filterIsInstance<ChatMessageText>()
+            .dropLast(1)
+            .mapNotNull { convertToLitertMessage(it) }
+        val config =
+          AgentRuntimeConfig(
+            model = model,
+            taskId = currentTaskId,
+            supportImage = model.llmSupportImage,
+            supportAudio = model.llmSupportAudio,
+            systemInstruction = _uiSystemPrompt.value.ifEmpty { null },
+            initialMessages = initialMessages,
+          )
+        runtimeExecutor.resetSession(config = config)
+      }
 
       // Run inference.
       runtimeExecutor.executeStream(context = context, request = request).collect { event ->
@@ -305,6 +330,8 @@ open class LlmChatViewModelBase(
     Log.d(TAG, "Stopping response for model ${model.name}...")
     if (getLastMessage(model = model) is ChatMessageLoading) {
       removeLastMessage(model = model)
+    } else {
+      sessionStoppedByModel[model.name] = true
     }
     setInProgress(false)
     runtimeExecutor.interrupt()
@@ -323,12 +350,14 @@ open class LlmChatViewModelBase(
     initialMessages: List<Message> = listOf(),
     clearHistory: Boolean = true,
   ) {
+    currentTaskId = task.id
     viewModelScope.launch(Dispatchers.Default) {
       setIsResettingSession(true)
       if (clearHistory) {
         clearAllMessages(model = model)
       }
       stopResponse(model = model)
+      sessionStoppedByModel[model.name] = false
 
       val config =
         AgentRuntimeConfig(
