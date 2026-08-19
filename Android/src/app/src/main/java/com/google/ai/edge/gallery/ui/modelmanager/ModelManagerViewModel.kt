@@ -205,7 +205,7 @@ constructor(
   private val lifecycleProvider: AppLifecycleProvider,
   private val customTasks: Set<@JvmSuppressWildcards CustomTask>,
   private val systemPromptRepository: SystemPromptRepository,
-  private val huggingFaceApiClient: HuggingFaceApiClient,
+  val huggingFaceApiClient: HuggingFaceApiClient,
   @ApplicationContext private val context: Context,
 ) :
   ViewModel()

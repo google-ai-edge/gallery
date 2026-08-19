@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.huggingface
 
 import android.util.Log
+import androidx.core.net.toUri
 import com.google.ai.edge.gallery.di.IoDispatcher
 import com.google.ai.edge.gallery.proto.HfModelItemProto
 import com.google.ai.edge.gallery.proto.HfSiblingProto
@@ -124,6 +125,32 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
       return@withContext null
     }
 
+  /**
+   * Fetches the file size in bytes for a specific model file within a Hugging Face repository.
+   *
+   * @param modelId The Hugging Face model repository ID (e.g. "google/gemma-3-1b-it-litertlm").
+   * @param fileName The target model file name or relative path (e.g.
+   *   "gemma-3-1b-it-gpu-int4.litertlm").
+   * @param accessToken Optional Bearer access token for authenticated API quota.
+   * @return The file size in bytes if found and positive, or `null` otherwise.
+   */
+  open suspend fun getModelFileSize(
+    modelId: String,
+    fileName: String,
+    accessToken: String? = null,
+  ): Long? =
+    withContext(ioDispatcher) {
+      val details = getModelDetails(modelId, accessToken = accessToken) ?: return@withContext null
+      val matchingSibling =
+        details.siblingsList.firstOrNull {
+          it.rfilename == fileName || it.rfilename.endsWith("/$fileName")
+        }
+      if (matchingSibling != null && matchingSibling.size > 0L) {
+        return@withContext matchingSibling.size
+      }
+      return@withContext null
+    }
+
   private fun executeGetRequest(urlString: String, accessToken: String? = null): String? {
     return try {
       Log.d(TAG, "Executing HF HTTP GET request: $urlString")
@@ -190,4 +217,15 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
 
   private fun JsonObject.getOrNull(member: String) =
     if (has(member) && !get(member).isJsonNull) get(member) else null
+
+  companion object {
+    /** Checks if the given URL belongs to Hugging Face (host contains "huggingface.co"). */
+    fun isHuggingFaceUrl(url: String): Boolean {
+      val trimmed = url.trim()
+      if (trimmed.isEmpty()) return false
+      val uri = (if (trimmed.contains("://")) trimmed else "https://$trimmed").toUri()
+      val host = uri.host?.lowercase()
+      return host == "huggingface.co" || host?.endsWith(".huggingface.co") == true
+    }
+  }
 }
