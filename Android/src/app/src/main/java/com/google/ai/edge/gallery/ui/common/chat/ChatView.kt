@@ -22,7 +22,6 @@ package com.google.ai.edge.gallery.ui.common.chat
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.compose.BackHandler
@@ -87,16 +86,14 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.proto.ChatSessionProto
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
 import com.google.ai.edge.gallery.ui.common.copyBitmapToClipboard
 import com.google.ai.edge.gallery.ui.common.saveBitmapToMediaStore
 import com.google.ai.edge.gallery.ui.common.shareBitmap
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import java.io.File
-import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private const val TAG = "AGChatView"
 
@@ -123,10 +120,10 @@ fun ChatView(
   modifier: Modifier = Modifier,
   skillCount: Int = 0,
   mcpCount: Int = 0,
-  onResetSessionClicked:
-    (model: Model, initialMessages: List<ChatMessage>, clearHistory: Boolean) -> Unit =
-    { _, _, _ ->
-    },
+  /** Callback triggered when a saved chat session is selected from history to be restored. */
+  onRestoreSessionClicked: (ChatSessionProto) -> Unit = {},
+  /** Callback triggered when the user requests to start a new chat session. */
+  onNewChatClicked: () -> Unit = {},
   onStreamImageMessage: (Model, ChatMessageImage) -> Unit = { _, _ -> },
   onStopButtonClicked: (Model) -> Unit = {},
   onSkillClicked: () -> Unit = {},
@@ -160,8 +157,8 @@ fun ChatView(
   val context = LocalContext.current
 
   val currentMessages = uiState.messagesByModel[selectedModel.name] ?: emptyList()
-  LaunchedEffect(uiState.inProgress) {
-    if (!uiState.inProgress && currentMessages.isNotEmpty()) {
+  LaunchedEffect(uiState.inProgress, uiState.isResettingSession) {
+    if (!uiState.inProgress && !uiState.isResettingSession && currentMessages.isNotEmpty()) {
       viewModel.saveSession(
         sessionId = viewModel.currentSessionId,
         messages = currentMessages,
@@ -237,31 +234,20 @@ fun ChatView(
                     },
                   )
 
-                  scope.launch {
-                    viewModel.setIsResettingSession(true)
-                    viewModel.currentSessionId = session.sessionId
-                    val messages =
-                      withContext(Dispatchers.IO) { deserializeProtoMessages(session.messagesList) }
-                    viewModel.clearAllMessages(selectedModel)
-                    for (msg in messages) {
-                      viewModel.addMessage(selectedModel, msg)
-                    }
-                    onResetSessionClicked(selectedModel, messages, /* clearHistory= */ false)
-                  }
+                  onRestoreSessionClicked(session)
                 }
                 scope.launch { drawerState.close() }
               },
               onHistoryItemDeleted = { sessionId ->
+                val wasActiveSession = (sessionId == viewModel.currentSessionId)
                 viewModel.deleteSession(sessionId, context)
-                if (sessionId == viewModel.currentSessionId) {
-                  viewModel.currentSessionId = UUID.randomUUID().toString()
-                  onResetSessionClicked(selectedModel, emptyList(), /* clearHistory= */ true)
+                if (wasActiveSession) {
+                  onNewChatClicked()
                 }
               },
               onHistoryItemsDeleteAll = {
                 viewModel.clearAllSessions(context)
-                viewModel.currentSessionId = UUID.randomUUID().toString()
-                onResetSessionClicked(selectedModel, emptyList(), /* clearHistory= */ true)
+                onNewChatClicked()
                 scope.launch { drawerState.close() }
               },
               onNewChatClicked = {
@@ -279,8 +265,7 @@ fun ChatView(
                   },
                 )
 
-                viewModel.currentSessionId = UUID.randomUUID().toString()
-                onResetSessionClicked(selectedModel, emptyList(), /* clearHistory= */ true)
+                onNewChatClicked()
                 scope.launch { drawerState.close() }
               },
               onDismissed = { scope.launch { drawerState.close() } },
@@ -605,80 +590,4 @@ private fun buildFirstMessageWithHistory(
     hideSenderLabel = originalShortMessage.hideSenderLabel,
     data = originalShortMessage.data,
   )
-}
-
-/**
- * Deserializes a list of [com.google.ai.edge.gallery.proto.ChatMessageProto] from persistent
- * storage into the corresponding [ChatMessage] UI models.
- *
- * @param protoMessages The list of saved protobuf messages.
- * @return The list of restored UI/domain message objects.
- */
-private fun deserializeProtoMessages(
-  protoMessages: List<com.google.ai.edge.gallery.proto.ChatMessageProto>
-): List<ChatMessage> {
-  return protoMessages.mapNotNull { protoMsg ->
-    val side =
-      when (protoMsg.side) {
-        com.google.ai.edge.gallery.proto.ChatSideProto.CHAT_SIDE_USER -> ChatSide.USER
-        com.google.ai.edge.gallery.proto.ChatSideProto.CHAT_SIDE_MODEL -> ChatSide.AGENT
-        com.google.ai.edge.gallery.proto.ChatSideProto.CHAT_SIDE_SYSTEM -> ChatSide.SYSTEM
-        else -> ChatSide.SYSTEM
-      }
-
-    when (protoMsg.messageType) {
-      "TEXT" ->
-        ChatMessageText(
-          content = protoMsg.content,
-          side = side,
-          latencyMs = protoMsg.latencyMs,
-          isMarkdown = protoMsg.isMarkdown,
-          accelerator = protoMsg.accelerator,
-          hideSenderLabel = protoMsg.hideSenderLabel,
-        )
-      "THINKING" ->
-        ChatMessageThinking(
-          content = protoMsg.content,
-          side = side,
-          inProgress = protoMsg.inProgress,
-          accelerator = protoMsg.accelerator,
-          hideSenderLabel = protoMsg.hideSenderLabel,
-        )
-      "INFO" -> ChatMessageInfo(protoMsg.content)
-      "WARNING" -> ChatMessageWarning(protoMsg.content)
-      "ERROR" -> ChatMessageError(protoMsg.content)
-      "IMAGE" -> {
-        val bitmaps =
-          protoMsg.imageFilePathsList.mapNotNull { path -> BitmapFactory.decodeFile(path) }
-        if (bitmaps.isNotEmpty()) {
-          ChatMessageImage(
-            bitmaps = bitmaps,
-            imageBitMaps = bitmaps.map { it.asImageBitmap() },
-            side = side,
-            latencyMs = protoMsg.latencyMs,
-            accelerator = protoMsg.accelerator,
-            hideSenderLabel = protoMsg.hideSenderLabel,
-            persistedPaths = protoMsg.imageFilePathsList.toList(),
-          )
-        } else null
-      }
-      "AUDIO_CLIP" -> {
-        val firstAudio = protoMsg.audioClipsList.firstOrNull()
-        if (firstAudio != null) {
-          try {
-            ChatMessageAudioClip(
-              audioData = File(firstAudio.filePath).readBytes(),
-              sampleRate = firstAudio.sampleRate,
-              side = side,
-              latencyMs = protoMsg.latencyMs,
-              persistedPath = firstAudio.filePath,
-            )
-          } catch (e: Exception) {
-            null
-          }
-        } else null
-      }
-      else -> null
-    }
-  }
 }

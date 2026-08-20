@@ -28,7 +28,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -37,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.agent.sessions.generateSessionId
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelCapability
@@ -46,13 +51,18 @@ import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessageMapper
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
 import com.google.ai.edge.gallery.ui.common.chat.ChatView
 import com.google.ai.edge.gallery.ui.common.chat.SendMessageTrigger
-import com.google.ai.edge.gallery.ui.common.chat.convertToLitertMessage
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.emptyStateContent
 import com.google.ai.edge.gallery.ui.theme.emptyStateTitle
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 private const val TAG = "AGLlmChatScreen"
 
@@ -225,6 +235,7 @@ fun ChatViewWrapper(
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
   val scope = rememberCoroutineScope()
+  var sessionRestoreJob by remember { mutableStateOf<Job?>(null) }
 
   ChatView(
     task = task,
@@ -313,19 +324,56 @@ fun ChatViewWrapper(
       }
     },
     onBenchmarkClicked = { _, _, _, _ -> },
-    onResetSessionClicked = { model, chatMessages, clearHistory ->
-      val litertMessages = chatMessages.mapNotNull { convertToLitertMessage(it) }
+    onRestoreSessionClicked = { session ->
+      sessionRestoreJob?.cancel()
+      val selectedModel = modelManagerViewModel.uiState.value.selectedModel
       if (onResetSessionClickedOverride != null) {
-        onResetSessionClickedOverride(task, model, chatMessages, clearHistory)
+        viewModel.stopResponse(model = selectedModel)
+        viewModel.setIsResettingSession(true)
+        sessionRestoreJob = scope.launch {
+          try {
+            val messages = ChatMessageMapper.deserializeProtoMessages(session.messagesList)
+            ensureActive()
+            viewModel.currentSessionId = session.sessionId
+            viewModel.setRestoredMessages(model = selectedModel, messages = messages)
+            onResetSessionClickedOverride(task, selectedModel, messages, /* clearHistory= */ false)
+          } catch (e: CancellationException) {
+            throw e
+          } catch (e: Exception) {
+            Log.e(TAG, "Failed to restore session: ${e.message}", e)
+          } finally {
+            if (coroutineContext.isActive) {
+              viewModel.setIsResettingSession(false)
+            }
+          }
+        }
       } else {
-        viewModel.resetSession(
+        viewModel.restoreSession(
+          session = session,
           task = task,
-          model = model,
+          model = selectedModel,
           systemInstruction = curSystemPrompt,
           supportImage = showImagePicker,
           supportAudio = showAudioPicker,
-          initialMessages = litertMessages,
-          clearHistory = clearHistory,
+        )
+      }
+    },
+    onNewChatClicked = {
+      sessionRestoreJob?.cancel()
+      val selectedModel = modelManagerViewModel.uiState.value.selectedModel
+      if (onResetSessionClickedOverride != null) {
+        viewModel.stopResponse(model = selectedModel)
+        viewModel.setIsResettingSession(false)
+        viewModel.currentSessionId = generateSessionId()
+        viewModel.clearAllMessages(model = selectedModel)
+        onResetSessionClickedOverride(task, selectedModel, emptyList(), /* clearHistory= */ true)
+      } else {
+        viewModel.startNewSession(
+          task = task,
+          model = selectedModel,
+          systemInstruction = curSystemPrompt,
+          supportImage = showImagePicker,
+          supportAudio = showAudioPicker,
         )
       }
     },

@@ -17,7 +17,6 @@
 package com.google.ai.edge.gallery.ui.common.chat
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
@@ -25,16 +24,9 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.common.processLlmResponse
-import com.google.ai.edge.gallery.data.ChatSessionRepository
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.proto.AudioMessageProto
-import com.google.ai.edge.gallery.proto.ChatMessageProto
 import com.google.ai.edge.gallery.proto.ChatSessionProto
-import com.google.ai.edge.gallery.proto.ChatSideProto
-import java.io.File
-import java.io.FileOutputStream
-import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -69,30 +61,31 @@ data class ChatUiState(
 /**
  * ViewModel responsible for managing the chat UI state and handling chat-related operations.
  *
- * @property chatSessionRepository Optional repository for persisting and retrieving chat sessions.
  * @property runtimeExecutor Optional [AgentRuntimeExecutor] to delegate inference.
- * @property llmSessionManager Optional [LlmSessionManager] to delegate session management and
- *   persistence.
+ * @property llmSessionManager [LlmSessionManager] to delegate session management and persistence.
  */
 abstract class ChatViewModel(
-  val chatSessionRepository: ChatSessionRepository? = null,
   open val runtimeExecutor: AgentRuntimeExecutor? = null,
-  open val llmSessionManager: LlmSessionManager? = null,
+  val llmSessionManager: LlmSessionManager,
 ) : ViewModel() {
   /** The identifier for the current active chat session. */
-  var currentSessionId: String = UUID.randomUUID().toString()
+  open var currentSessionId: String
+    get() =
+      llmSessionManager.activeSessionId
+        ?: error("Cannot get currentSessionId: No active session found in LlmSessionManager")
+    set(value) {
+      llmSessionManager.activeSessionId = value
+    }
 
   private val _uiState = MutableStateFlow(createUiState())
   val uiState = _uiState.asStateFlow()
 
   val historySessions: StateFlow<List<ChatSessionProto>> =
-    chatSessionRepository
-      ?.chatSessions
-      ?.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList(),
-      ) ?: MutableStateFlow(emptyList())
+    llmSessionManager.chatSessions.stateIn(
+      scope = viewModelScope,
+      started = SharingStarted.WhileSubscribed(5000),
+      initialValue = emptyList(),
+    )
 
   fun addMessage(model: Model, message: ChatMessage) {
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
@@ -145,6 +138,20 @@ abstract class ChatViewModel(
     _uiState.update { state ->
       state.copy(
         messagesByModel = state.messagesByModel + (model.name to mutableListOf()),
+      )
+    }
+  }
+
+  /**
+   * Sets the restored messages for a model atomically in the UI state.
+   *
+   * @param model The model associated with the messages.
+   * @param messages The list of restored domain messages.
+   */
+  fun setRestoredMessages(model: Model, messages: List<ChatMessage>) {
+    _uiState.update { state ->
+      state.copy(
+        messagesByModel = state.messagesByModel + (model.name to messages.toMutableList()),
       )
     }
   }
@@ -432,95 +439,8 @@ abstract class ChatViewModel(
   ) {
     val messagesSnapshot = messages.toList()
     viewModelScope.launch(Dispatchers.IO) {
-      val protoMessages = messagesSnapshot.mapNotNull { msg ->
-        val builder = ChatMessageProto.newBuilder()
-        when (msg) {
-          is ChatMessageText -> {
-            builder
-              .setMessageType("TEXT")
-              .setContent(msg.content)
-              .setSide(mapChatSide(msg.side))
-              .setLatencyMs(msg.latencyMs)
-              .setAccelerator(msg.accelerator)
-              .setHideSenderLabel(msg.hideSenderLabel)
-              .setIsMarkdown(msg.isMarkdown)
-          }
-          is ChatMessageThinking -> {
-            builder
-              .setMessageType("THINKING")
-              .setContent(msg.content)
-              .setSide(mapChatSide(msg.side))
-              .setInProgress(msg.inProgress)
-              .setAccelerator(msg.accelerator)
-              .setHideSenderLabel(msg.hideSenderLabel)
-          }
-          is ChatMessageInfo -> {
-            builder.setMessageType("INFO").setContent(msg.content).setSide(mapChatSide(msg.side))
-          }
-          is ChatMessageWarning -> {
-            builder.setMessageType("WARNING").setContent(msg.content).setSide(mapChatSide(msg.side))
-          }
-          is ChatMessageError -> {
-            builder.setMessageType("ERROR").setContent(msg.content).setSide(mapChatSide(msg.side))
-          }
-          is ChatMessageImage -> {
-            builder
-              .setMessageType("IMAGE")
-              .setSide(mapChatSide(msg.side))
-              .setLatencyMs(msg.latencyMs)
-            synchronized(msg) {
-              val cachedPaths = msg.persistedPaths
-              if (cachedPaths != null) {
-                builder.addAllImageFilePaths(cachedPaths)
-              } else if (context != null) {
-                msg.persistedPaths = buildList {
-                  msg.bitmaps.forEachIndexed { index, bitmap ->
-                    val fileName = "img_${sessionId}_${System.currentTimeMillis()}_$index.png"
-                    val file = File(context.cacheDir, fileName)
-                    FileOutputStream(file).use { fos ->
-                      bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
-                    }
-                    add(file.absolutePath)
-                    builder.addImageFilePaths(file.absolutePath)
-                  }
-                }
-              }
-            }
-          }
-          is ChatMessageAudioClip -> {
-            builder
-              .setMessageType("AUDIO_CLIP")
-              .setSide(mapChatSide(msg.side))
-              .setLatencyMs(msg.latencyMs)
-            synchronized(msg) {
-              val cachedPath = msg.persistedPath
-              if (cachedPath != null) {
-                val audioProto =
-                  AudioMessageProto.newBuilder()
-                    .setFilePath(cachedPath)
-                    .setSampleRate(msg.sampleRate)
-                    .build()
-                builder.addAudioClips(audioProto)
-              } else if (context != null) {
-                val fileName = "audio_${sessionId}_${System.currentTimeMillis()}.pcm"
-                val file = File(context.cacheDir, fileName)
-                FileOutputStream(file).use { fos -> fos.write(msg.audioData) }
-                msg.persistedPath = file.absolutePath
-                val audioProto =
-                  AudioMessageProto.newBuilder()
-                    .setFilePath(file.absolutePath)
-                    .setSampleRate(msg.sampleRate)
-                    .build()
-                builder.addAudioClips(audioProto)
-              }
-            }
-          }
-          else -> return@mapNotNull null
-        }
-        builder.build()
-      }
-
-      llmSessionManager?.saveSessionHistory(
+      val protoMessages = ChatMessageMapper.serializeMessages(messagesSnapshot, sessionId, context)
+      llmSessionManager.saveSessionHistory(
         sessionId = sessionId,
         messages = protoMessages,
         originalModel = originalModel,
@@ -535,20 +455,11 @@ abstract class ChatViewModel(
    * @param sessionId The ID of the session to delete.
    */
   fun deleteSession(sessionId: String, context: Context? = null) {
-    viewModelScope.launch(Dispatchers.IO) { llmSessionManager?.deleteSession(sessionId) }
+    viewModelScope.launch(Dispatchers.IO) { llmSessionManager.deleteSession(sessionId) }
   }
 
   /** Clears all saved chat sessions from persistent storage. */
   fun clearAllSessions(context: Context? = null) {
-    viewModelScope.launch(Dispatchers.IO) { llmSessionManager?.clearAllSessions() }
-  }
-
-  /** Maps the domain [ChatSide] enum to its corresponding proto representation. */
-  private fun mapChatSide(side: ChatSide): ChatSideProto {
-    return when (side) {
-      ChatSide.USER -> ChatSideProto.CHAT_SIDE_USER
-      ChatSide.AGENT -> ChatSideProto.CHAT_SIDE_MODEL
-      ChatSide.SYSTEM -> ChatSideProto.CHAT_SIDE_SYSTEM
-    }
+    viewModelScope.launch(Dispatchers.IO) { llmSessionManager.clearAllSessions() }
   }
 }
