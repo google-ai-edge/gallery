@@ -319,8 +319,6 @@ constructor(
       status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
     )
 
-    // TODO: b/494029782 - Both litertlm and aicore download and storage should be unified into a
-    // model repository.
     if (model.runtimeType == RuntimeType.AICORE) {
       AICoreModelHelper.downloadModel(
         context = context,
@@ -371,8 +369,6 @@ constructor(
   }
 
   fun cancelDownloadModel(model: Model) {
-    // TODO: b/494029782 - Both litertlm and aicore download and storage should be unified into a
-    // model repository.
     // AICore models cannot be deleted from the download repository within the app.
     if (model.runtimeType == RuntimeType.AICORE) {
       return
@@ -906,8 +902,6 @@ constructor(
     dataStoreRepository.clearAccessTokenData()
   }
 
-  // TODO: b/494029782 - Both litertlm and aicore download and storage should be unified into a
-  // model repository.
   private fun checkAICoreModelStatuses() {
     viewModelScope.launch(Dispatchers.Main) {
       val aicoreModels =
