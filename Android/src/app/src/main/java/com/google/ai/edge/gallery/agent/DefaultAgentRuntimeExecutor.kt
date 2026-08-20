@@ -18,19 +18,19 @@ package com.google.ai.edge.gallery.agent
 
 import android.content.Context
 import android.util.Log
+import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.awaitInitialization
 import com.google.ai.edge.gallery.runtime.runtimeHelper
 import com.google.ai.edge.gallery.skills.SkillsProvider
 import com.google.ai.edge.gallery.tools.ToolDispatcher
 import com.google.ai.edge.gallery.tools.ToolExecutionContext
 import com.google.ai.edge.gallery.tools.ToolsProvider
 import com.google.ai.edge.litertlm.Contents
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.onFailure
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
@@ -45,29 +45,49 @@ private const val TAG = "AGDefaultAgentRuntimeExecutor"
  * reference. This allows lifecycle operations ([initialize], [executeStream], [interrupt], and
  * [cleanUp]) to be invoked safely across concurrent threads or coroutines without contention, race
  * conditions, or deadlocks.
+ *
+ * @property skillsProvider Provider for retrieving active skills.
+ * @property toolsProvider Provider for retrieving available tools.
+ * @property toolDispatcher Dispatcher for executing tool calls.
+ * @property llmSessionManager Manager for orchestrating LLM session lifecycle and persistence.
  */
 open class DefaultAgentRuntimeExecutor(
   val skillsProvider: SkillsProvider,
   val toolsProvider: ToolsProvider,
   val toolDispatcher: ToolDispatcher,
+  val llmSessionManager: LlmSessionManager,
 ) : AgentRuntimeExecutor {
 
   /** Active session state for the current conversation. */
-  private data class ActiveSession(val model: Model, val toolExecutionContext: ToolExecutionContext)
+  private data class ActiveSession(
+    val sessionId: String,
+    val model: Model,
+    val toolExecutionContext: ToolExecutionContext,
+  )
 
   /** Atomic reference to the active session. */
   private val activeSession = AtomicReference<ActiveSession?>(null)
+
+  override val activeSessionId: String?
+    get() = activeSession.get()?.sessionId
 
   override suspend fun initialize(
     context: Context,
     config: AgentRuntimeConfig,
     onDone: (String) -> Unit,
   ) {
+    val effectiveSessionId = config.sessionId.ifEmpty { UUID.randomUUID().toString() }
     val systemInstruction = Contents.of(config.systemInstruction ?: "")
     val executionContext =
       ToolExecutionContext(taskId = config.taskId, actionChannel = config.actionChannel)
 
-    activeSession.set(ActiveSession(model = config.model, toolExecutionContext = executionContext))
+    activeSession.set(
+      ActiveSession(
+        sessionId = effectiveSessionId,
+        model = config.model,
+        toolExecutionContext = executionContext,
+      )
+    )
 
     toolDispatcher.setupExecutionContext(
       tools = toolsProvider.getAvailableTools(),
@@ -117,52 +137,48 @@ open class DefaultAgentRuntimeExecutor(
         ?.mapNotNull { (k, v) -> if (k is String && v is String) k to v else null }
         ?.toMap()
         ?.ifEmpty { null }
-    if (curModel.instance == null) {
-      try {
-        curModel.awaitInitialization()
-      } catch (e: Exception) {
-        emitEvent(AgentEvent.Error("Model initialization failed: ${e.message}"))
+    val sessionId = (request.metadata[AgentRequest.SESSION_ID] as? String) ?: session.sessionId
+
+    val resultListener = { partialResult: String, done: Boolean, partialThinking: String? ->
+      if (!partialResult.startsWith("<ctrl")) {
+        if (partialResult.isNotEmpty() || !partialThinking.isNullOrEmpty() || done) {
+          emitEvent(
+            AgentEvent.StreamToken(token = partialResult, thinking = partialThinking, done = done)
+          )
+        }
+        if (partialResult.isNotEmpty()) {
+          finalResponse.append(partialResult)
+        }
+      }
+      if (done) {
+        emitEvent(AgentEvent.LoopTerminated(finalResponse = finalResponse.toString()))
         close()
-        return@callbackFlow
       }
     }
-    if (curModel.instance == null) {
-      emitEvent(AgentEvent.Error("Model not initialized."))
+
+    val cleanUpListener = {
+      emitEvent(AgentEvent.LoopCancelled)
       close()
-      return@callbackFlow
+      Unit
     }
-    curModel.runtimeHelper.runInference(
+
+    val onError = { errorMsg: String ->
+      Log.e(TAG, "Error in AgentLoop inference: $errorMsg")
+      emitEvent(AgentEvent.Error(errorMessage = errorMsg))
+      close()
+      Unit
+    }
+
+    llmSessionManager.generateResponse(
+      sessionId = sessionId,
       model = curModel,
       input = request.query,
+      resultListener = resultListener,
+      cleanUpListener = cleanUpListener,
+      onError = onError,
       images = images,
       audioClips = audioClips,
       extraContext = extraContext,
-      resultListener = { partialResult, done, partialThinking ->
-        if (!partialResult.startsWith("<ctrl")) {
-          if (partialResult.isNotEmpty() || !partialThinking.isNullOrEmpty() || done) {
-            emitEvent(
-              AgentEvent.StreamToken(token = partialResult, thinking = partialThinking, done = done)
-            )
-          }
-          if (partialResult.isNotEmpty()) {
-            finalResponse.append(partialResult)
-          }
-        }
-        if (done) {
-          emitEvent(AgentEvent.LoopTerminated(finalResponse = finalResponse.toString()))
-          close()
-        }
-      },
-      cleanUpListener = {
-        // Clean up completed
-        emitEvent(AgentEvent.LoopCancelled)
-        close()
-      },
-      onError = { errorMsg ->
-        Log.e(TAG, "Error in AgentLoop inference: $errorMsg")
-        emitEvent(AgentEvent.Error(errorMessage = errorMsg))
-        close()
-      },
     )
 
     awaitClose {
@@ -193,56 +209,45 @@ open class DefaultAgentRuntimeExecutor(
   }
 
   override fun interrupt() {
-    val curModel = activeSession.get()?.model ?: return
-    Log.d(TAG, "Interrupting session for model: ${curModel.name}")
-    // TODO: we need to reset the conversation in executeStream if user sends a new request.
-    curModel.runtimeHelper.stopResponse(curModel)
+    val session = activeSession.get() ?: return
+    val curModel = session.model
+    val sessionId = session.sessionId
+    Log.d(TAG, "Interrupting session $sessionId for model: ${curModel.name}")
+    llmSessionManager.stopResponse(sessionId = sessionId, model = curModel)
   }
 
   override suspend fun resetSession(config: AgentRuntimeConfig) {
-    val systemInstruction = Contents.of(config.systemInstruction ?: "")
+    val effectiveSessionId =
+      config.sessionId.ifEmpty { activeSession.get()?.sessionId ?: UUID.randomUUID().toString() }
     val executionContext =
       ToolExecutionContext(taskId = config.taskId, actionChannel = config.actionChannel)
 
-    activeSession.set(ActiveSession(model = config.model, toolExecutionContext = executionContext))
+    activeSession.set(
+      ActiveSession(
+        sessionId = effectiveSessionId,
+        model = config.model,
+        toolExecutionContext = executionContext,
+      )
+    )
 
     toolDispatcher.setupExecutionContext(
       tools = toolsProvider.getAvailableTools(),
       context = executionContext,
     )
-    val curModel = config.model
-    val maxRetries = 5
-    val retryDelayMs = 200L
 
-    for (attempt in 1..maxRetries) {
-      try {
-        curModel.runtimeHelper.resetConversation(
-          model = curModel,
-          supportImage = config.supportImage,
-          supportAudio = config.supportAudio,
-          systemInstruction = systemInstruction,
-          tools = toolsProvider.getLiteRtToolProviders(),
-          enableConversationConstrainedDecoding = config.enableConversationConstrainedDecoding,
-          initialMessages = config.initialMessages,
-        )
-        return
-      } catch (e: Exception) {
-        if (attempt == maxRetries) {
-          Log.e(
-            TAG,
-            "Failed to reset session for model: ${curModel.name} after $maxRetries attempts.",
-            e,
-          )
-          return
-        }
-        Log.d(
-          TAG,
-          "Failed to reset session for model: ${curModel.name} (attempt $attempt/$maxRetries). Retrying...",
-          e,
-        )
-        delay(retryDelayMs)
-      }
-    }
+    val effectiveSystemInstruction =
+      if (!config.systemInstruction.isNullOrEmpty()) Contents.of(config.systemInstruction) else null
+    llmSessionManager.updateSessionConfiguration(
+      sessionId = effectiveSessionId,
+      model = config.model,
+      taskId = config.taskId,
+      supportImage = config.supportImage,
+      supportAudio = config.supportAudio,
+      systemInstruction = effectiveSystemInstruction,
+      tools = toolsProvider.getLiteRtToolProviders(),
+      enableConversationConstrainedDecoding = config.enableConversationConstrainedDecoding,
+      initialMessages = config.initialMessages.ifEmpty { null },
+    )
   }
 
   override fun cleanUp(onDone: () -> Unit) {

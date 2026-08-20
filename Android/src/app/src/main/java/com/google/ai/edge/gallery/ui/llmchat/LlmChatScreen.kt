@@ -66,8 +66,7 @@ fun LlmChatScreen(
   onGenerateResponseDone: (Model) -> Unit = {},
   onSkillClicked: () -> Unit = {},
   onMcpClicked: () -> Unit = {},
-  onResetSessionClickedOverride: ((Task, Model, List<ChatMessage>, Boolean, () -> Unit) -> Unit)? =
-    null,
+  onResetSessionClickedOverride: ((Task, Model, List<ChatMessage>, Boolean) -> Unit)? = null,
   composableBelowMessageList: @Composable (Model) -> Unit = {},
   viewModel: LlmChatViewModel = hiltViewModel(),
   allowEditingSystemPrompt: Boolean = false,
@@ -209,8 +208,7 @@ fun ChatViewWrapper(
   onMcpClicked: () -> Unit = {},
   onFirstToken: (Model) -> Unit = {},
   onGenerateResponseDone: (Model) -> Unit = {},
-  onResetSessionClickedOverride: ((Task, Model, List<ChatMessage>, Boolean, () -> Unit) -> Unit)? =
-    null,
+  onResetSessionClickedOverride: ((Task, Model, List<ChatMessage>, Boolean) -> Unit)? = null,
   composableBelowMessageList: @Composable (Model) -> Unit = {},
   emptyStateComposable: @Composable (Model) -> Unit = {},
   allowEditingSystemPrompt: Boolean = false,
@@ -315,10 +313,10 @@ fun ChatViewWrapper(
       }
     },
     onBenchmarkClicked = { _, _, _, _ -> },
-    onResetSessionClicked = { model, chatMessages, clearHistory, onDone ->
+    onResetSessionClicked = { model, chatMessages, clearHistory ->
       val litertMessages = chatMessages.mapNotNull { convertToLitertMessage(it) }
       if (onResetSessionClickedOverride != null) {
-        onResetSessionClickedOverride(task, model, chatMessages, clearHistory, onDone)
+        onResetSessionClickedOverride(task, model, chatMessages, clearHistory)
       } else {
         viewModel.resetSession(
           task = task,
@@ -327,7 +325,6 @@ fun ChatViewWrapper(
           supportImage = showImagePicker,
           supportAudio = showAudioPicker,
           initialMessages = litertMessages,
-          onDone = onDone,
           clearHistory = clearHistory,
         )
       }

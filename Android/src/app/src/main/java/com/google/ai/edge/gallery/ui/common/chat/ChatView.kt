@@ -125,11 +125,8 @@ fun ChatView(
   skillCount: Int = 0,
   mcpCount: Int = 0,
   onResetSessionClicked:
-    (
-      model: Model, initialMessages: List<ChatMessage>, clearHistory: Boolean, onDone: () -> Unit,
-    ) -> Unit =
-    { _, _, _, onDone ->
-      onDone()
+    (model: Model, initialMessages: List<ChatMessage>, clearHistory: Boolean) -> Unit =
+    { _, _, _ ->
     },
   onStreamImageMessage: (Model, ChatMessageImage) -> Unit = { _, _ -> },
   onStopButtonClicked: (Model) -> Unit = {},
@@ -244,17 +241,17 @@ fun ChatView(
                   )
 
                   scope.launch {
+                    // TODO(b/549148002): Consider moving session restoration and ViewModel state
+                    // mutation logic into ViewModel or SessionManager to keep ChatView clean.
                     viewModel.setIsResettingSession(true)
+                    viewModel.currentSessionId = session.sessionId
                     val messages =
                       withContext(Dispatchers.IO) { deserializeProtoMessages(session.messagesList) }
                     viewModel.clearAllMessages(selectedModel)
                     for (msg in messages) {
                       viewModel.addMessage(selectedModel, msg)
                     }
-                    onResetSessionClicked(selectedModel, messages, /* clearHistory= */ false) {
-                      viewModel.setIsResettingSession(false)
-                    }
-                    viewModel.currentSessionId = session.sessionId
+                    onResetSessionClicked(selectedModel, messages, /* clearHistory= */ false)
                   }
                 }
                 scope.launch { drawerState.close() }
@@ -262,14 +259,14 @@ fun ChatView(
               onHistoryItemDeleted = { sessionId ->
                 viewModel.deleteSession(sessionId, context)
                 if (sessionId == viewModel.currentSessionId) {
-                  onResetSessionClicked(selectedModel, emptyList(), /* clearHistory= */ true) {}
                   viewModel.currentSessionId = UUID.randomUUID().toString()
+                  onResetSessionClicked(selectedModel, emptyList(), /* clearHistory= */ true)
                 }
               },
               onHistoryItemsDeleteAll = {
                 viewModel.clearAllSessions(context)
-                onResetSessionClicked(selectedModel, emptyList(), /* clearHistory= */ true) {}
                 viewModel.currentSessionId = UUID.randomUUID().toString()
+                onResetSessionClicked(selectedModel, emptyList(), /* clearHistory= */ true)
                 scope.launch { drawerState.close() }
               },
               onNewChatClicked = {
@@ -287,8 +284,8 @@ fun ChatView(
                   },
                 )
 
-                onResetSessionClicked(selectedModel, emptyList(), /* clearHistory= */ true) {}
                 viewModel.currentSessionId = UUID.randomUUID().toString()
+                onResetSessionClicked(selectedModel, emptyList(), /* clearHistory= */ true)
                 scope.launch { drawerState.close() }
               },
               onDismissed = { scope.launch { drawerState.close() } },

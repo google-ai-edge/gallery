@@ -27,6 +27,7 @@ import com.google.ai.edge.gallery.agent.AgentRuntimeConfig
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
 import com.google.ai.edge.gallery.agent.DefaultAgentRuntimeExecutor
 import com.google.ai.edge.gallery.agent.PromptExpander
+import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskDataForBuiltinTask
 import com.google.ai.edge.gallery.data.BuiltInTaskId
@@ -231,11 +232,13 @@ internal object AgentChatTaskModule {
   fun provideAgentChatExecutor(
     skillManager: SkillManager,
     agentTools: AgentTools,
+    llmSessionManager: LlmSessionManager,
   ): AgentRuntimeExecutor {
     return DefaultAgentRuntimeExecutor(
       skillsProvider = skillManager,
       toolsProvider = agentTools,
       toolDispatcher = RuntimeToolDispatcher(),
+      llmSessionManager = llmSessionManager,
     )
   }
 

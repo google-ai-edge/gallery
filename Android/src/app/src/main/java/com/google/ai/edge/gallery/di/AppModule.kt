@@ -29,7 +29,9 @@ import com.google.ai.edge.gallery.GalleryLifecycleProvider
 import com.google.ai.edge.gallery.SettingsSerializer
 import com.google.ai.edge.gallery.SkillsSerializer
 import com.google.ai.edge.gallery.UserDataSerializer
+import com.google.ai.edge.gallery.data.ChatSessionRepository
 import com.google.ai.edge.gallery.data.DataStoreRepository
+import com.google.ai.edge.gallery.data.DefaultChatSessionRepository
 import com.google.ai.edge.gallery.data.DefaultDataStoreRepository
 import com.google.ai.edge.gallery.data.DefaultDownloadRepository
 import com.google.ai.edge.gallery.data.DownloadRepository
@@ -174,6 +176,13 @@ internal object AppModule {
       benchmarkResultsStore,
       skillsDataStore,
     )
+  }
+
+  // Provides ChatSessionRepository
+  @Provides
+  @Singleton
+  fun provideChatSessionRepository(userDataDataStore: DataStore<UserData>): ChatSessionRepository {
+    return DefaultChatSessionRepository(userDataDataStore)
   }
 
   // Provides DownloadRepository

@@ -45,6 +45,12 @@ import kotlinx.coroutines.flow.Flow
  */
 interface AgentRuntimeExecutor {
   /**
+   * The unique identifier of the currently active conversation session, or null if uninitialized.
+   */
+  val activeSessionId: String?
+    get() = null
+
+  /**
    * Initializes the underlying model engine, tool dispatcher, and prompt context for an agent
    * session.
    *

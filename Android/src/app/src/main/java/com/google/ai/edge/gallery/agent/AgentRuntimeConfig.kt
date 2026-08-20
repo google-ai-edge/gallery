@@ -26,6 +26,7 @@ import kotlinx.coroutines.channels.SendChannel
  *
  * @property model The [Model] instance to be initialized and executed.
  * @property taskId Unique identifier for the active task.
+ * @property sessionId Unique identifier for the conversation session.
  * @property actionChannel Optional channel for sending tool invocation events and UI action
  *   updates.
  * @property supportImage Whether image input modality is supported for model prefill.
@@ -39,6 +40,7 @@ import kotlinx.coroutines.channels.SendChannel
 data class AgentRuntimeConfig(
   val model: Model,
   val taskId: String,
+  val sessionId: String = "",
   val actionChannel: SendChannel<ToolAction>? = null,
   val supportImage: Boolean = true,
   val supportAudio: Boolean = true,

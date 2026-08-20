@@ -16,11 +16,11 @@
 
 package com.google.ai.edge.gallery.customtasks.agentchat
 
-import androidx.datastore.core.DataStore
 import com.google.ai.edge.gallery.agent.AgentChatExecutor
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
+import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
+import com.google.ai.edge.gallery.data.ChatSessionRepository
 import com.google.ai.edge.gallery.data.SystemPromptRepository
-import com.google.ai.edge.gallery.proto.UserData
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -30,7 +30,9 @@ class AgentChatViewModel
 @Inject
 constructor(
   systemPromptRepository: SystemPromptRepository,
-  userDataDataStore: DataStore<UserData>,
+  chatSessionRepository: ChatSessionRepository,
   @AgentChatExecutor runtimeExecutor: AgentRuntimeExecutor,
+  llmSessionManager: LlmSessionManager,
 ) :
-LlmChatViewModel(systemPromptRepository, userDataDataStore, runtimeExecutor)
+LlmChatViewModel(systemPromptRepository, chatSessionRepository, runtimeExecutor,
+llmSessionManager)

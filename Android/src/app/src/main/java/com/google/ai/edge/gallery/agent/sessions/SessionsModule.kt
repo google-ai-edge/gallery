@@ -14,36 +14,30 @@
  * limitations under the License.
  */
 
-package com.google.ai.edge.gallery.agent
+package com.google.ai.edge.gallery.agent.sessions
 
-import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
-import com.google.ai.edge.gallery.skills.NoOpSkillsProvider
-import com.google.ai.edge.gallery.tools.RuntimeToolDispatcher
-import com.google.ai.edge.gallery.tools.RuntimeToolsProvider
+import android.content.Context
+import com.google.ai.edge.gallery.data.ChatSessionRepository
+import com.google.ai.edge.gallery.di.IoDispatcher
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
 
 @Module
 @InstallIn(SingletonComponent::class)
-internal object AgentExecutorModule {
-  @Provides
-  @Singleton
-  @AiChatExecutor
-  fun provideAiChatExecutor(llmSessionManager: LlmSessionManager): AgentRuntimeExecutor {
-    return DefaultAgentRuntimeExecutor(
-      skillsProvider = NoOpSkillsProvider(),
-      toolsProvider = RuntimeToolsProvider(),
-      toolDispatcher = RuntimeToolDispatcher(),
-      llmSessionManager = llmSessionManager,
-    )
-  }
+internal object SessionsModule {
 
   @Provides
   @Singleton
-  fun provideDefaultExecutor(@AiChatExecutor executor: AgentRuntimeExecutor): AgentRuntimeExecutor {
-    return executor
+  fun provideLlmSessionManager(
+    @ApplicationContext context: Context,
+    chatSessionRepository: ChatSessionRepository,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
+  ): LlmSessionManager {
+    return DefaultLlmSessionManager(context, chatSessionRepository, ioDispatcher)
   }
 }

@@ -20,7 +20,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.os.Build
 import android.util.Log
-import androidx.datastore.core.DataStore
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.agent.AgentEvent
 import com.google.ai.edge.gallery.agent.AgentExecutionContext
@@ -29,13 +28,14 @@ import com.google.ai.edge.gallery.agent.AgentRuntimeConfig
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
 import com.google.ai.edge.gallery.agent.AiChatExecutor
 import com.google.ai.edge.gallery.agent.Attachment
+import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.common.SystemPromptHelper
+import com.google.ai.edge.gallery.data.ChatSessionRepository
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.SystemPromptRepository
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.awaitInitialization
-import com.google.ai.edge.gallery.proto.UserData
 import com.google.ai.edge.gallery.tools.ToolAction
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageError
@@ -52,6 +52,7 @@ import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.Message
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.SendChannel
@@ -64,10 +65,11 @@ private const val TAG = "AGLlmChatViewModel"
 @OptIn(ExperimentalApi::class)
 open class LlmChatViewModelBase(
   private val systemPromptRepository: SystemPromptRepository? = null,
-  userDataDataStore: DataStore<UserData>? = null,
+  chatSessionRepository: ChatSessionRepository? = null,
   private val modelFeedbackRepository: Any? = null,
-  val runtimeExecutor: AgentRuntimeExecutor,
-) : ChatViewModel(userDataDataStore) {
+  override val runtimeExecutor: AgentRuntimeExecutor,
+  override val llmSessionManager: LlmSessionManager? = null,
+) : ChatViewModel(chatSessionRepository, runtimeExecutor, llmSessionManager) {
   private val _uiSystemPrompt = MutableStateFlow("")
   val uiSystemPrompt = _uiSystemPrompt.asStateFlow()
   // Map to track if the session was stopped by the model for a given model name.
@@ -164,10 +166,11 @@ open class LlmChatViewModelBase(
           model.getBooleanConfigValue(key = ConfigKeys.ENABLE_THINKING, defaultValue = false)
       val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else emptyMap()
       val metadata =
-        if (extraContext.isNotEmpty()) {
-          mapOf(AgentRequest.LITERTLM_EXTRA_CONTEXT to extraContext)
-        } else {
-          emptyMap()
+        buildMap<String, Any> {
+          put(AgentRequest.SESSION_ID, currentSessionId)
+          if (extraContext.isNotEmpty()) {
+            put(AgentRequest.LITERTLM_EXTRA_CONTEXT, extraContext)
+          }
         }
 
       val request = AgentRequest(query = input, attachments = attachments, metadata = metadata)
@@ -354,6 +357,7 @@ open class LlmChatViewModelBase(
     viewModelScope.launch(Dispatchers.Default) {
       setIsResettingSession(true)
       if (clearHistory) {
+        currentSessionId = UUID.randomUUID().toString()
         clearAllMessages(model = model)
       }
       stopResponse(model = model)
@@ -361,6 +365,7 @@ open class LlmChatViewModelBase(
 
       val config =
         AgentRuntimeConfig(
+          sessionId = currentSessionId,
           model = model,
           taskId = task.id,
           actionChannel = actionChannel,
@@ -465,27 +470,33 @@ open class LlmChatViewModel
 @Inject
 constructor(
   systemPromptRepository: SystemPromptRepository,
-  userDataDataStore: DataStore<UserData>,
+  chatSessionRepository: ChatSessionRepository,
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
+  llmSessionManager: LlmSessionManager,
 ) :
-LlmChatViewModelBase(systemPromptRepository, userDataDataStore, null, runtimeExecutor)
+LlmChatViewModelBase(systemPromptRepository, chatSessionRepository, null, runtimeExecutor,
+llmSessionManager)
 
 @HiltViewModel
 class LlmAskImageViewModel
 @Inject
 constructor(
   systemPromptRepository: SystemPromptRepository,
-  userDataDataStore: DataStore<UserData>,
+  chatSessionRepository: ChatSessionRepository,
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
+  llmSessionManager: LlmSessionManager,
 ) :
-LlmChatViewModelBase(systemPromptRepository, userDataDataStore, null, runtimeExecutor)
+LlmChatViewModelBase(systemPromptRepository, chatSessionRepository, null, runtimeExecutor,
+llmSessionManager)
 
 @HiltViewModel
 class LlmAskAudioViewModel
 @Inject
 constructor(
   systemPromptRepository: SystemPromptRepository,
-  userDataDataStore: DataStore<UserData>,
+  chatSessionRepository: ChatSessionRepository,
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
+  llmSessionManager: LlmSessionManager,
 ) :
-LlmChatViewModelBase(systemPromptRepository, userDataDataStore, null, runtimeExecutor)
+LlmChatViewModelBase(systemPromptRepository, chatSessionRepository, null, runtimeExecutor,
+llmSessionManager)
