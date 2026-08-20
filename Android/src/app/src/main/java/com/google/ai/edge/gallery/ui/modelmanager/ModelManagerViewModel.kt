@@ -41,6 +41,7 @@ import com.google.ai.edge.gallery.data.DownloadRepository
 import com.google.ai.edge.gallery.data.EMPTY_MODEL
 import com.google.ai.edge.gallery.data.IMPORTS_DIR
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.ModelAccessibility
 import com.google.ai.edge.gallery.data.ModelAllowlist
 import com.google.ai.edge.gallery.data.ModelCapability
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
@@ -319,8 +320,6 @@ constructor(
       status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
     )
 
-    // TODO: b/494029782 - Both litertlm and aicore download and storage should be unified into a
-    // model repository.
     if (model.runtimeType == RuntimeType.AICORE) {
       AICoreModelHelper.downloadModel(
         context = context,
@@ -371,8 +370,6 @@ constructor(
   }
 
   fun cancelDownloadModel(model: Model) {
-    // TODO: b/494029782 - Both litertlm and aicore download and storage should be unified into a
-    // model repository.
     // AICore models cannot be deleted from the download repository within the app.
     if (model.runtimeType == RuntimeType.AICORE) {
       return
@@ -670,25 +667,55 @@ constructor(
     firebaseAnalytics?.setAnalyticsCollectionEnabled(enabled)
   }
 
-  fun getModelUrlResponse(model: Model, accessToken: String? = null): Int {
-    try {
+  /**
+   * Checks the accessibility of a remote model URL.
+   *
+   * @param model The model to probe.
+   * @param accessToken Optional Hugging Face or server access token.
+   * @return [ModelAccessibility] indicating if the model URL is accessible, gated, or needs auth.
+   */
+  suspend fun checkModelAccessibility(
+    model: Model,
+    accessToken: String? = null,
+  ): ModelAccessibility =
+    withContext(Dispatchers.IO) {
       if (model.url.isEmpty()) {
-        return HttpURLConnection.HTTP_OK
+        return@withContext ModelAccessibility.ACCESSIBLE
       }
-      val url = URL(model.url)
-      val connection = url.openConnection() as HttpURLConnection
-      if (accessToken != null) {
-        connection.setRequestProperty("Authorization", "Bearer $accessToken")
+      // If it's a Hugging Face URL, delegate to HuggingFaceApiClient.
+      if (HuggingFaceApiClient.isHuggingFaceUrl(model.url)) {
+        return@withContext huggingFaceApiClient.checkModelAccessibility(
+          modelUrl = model.url,
+          accessToken = accessToken,
+        )
       }
-      connection.connect()
 
-      // Report the result.
-      return connection.responseCode
-    } catch (e: Exception) {
-      Log.e(TAG, "$e")
-      return -1
+      val responseCode: Int
+      try {
+        val url = URL(model.url)
+        val connection = url.openConnection() as HttpURLConnection
+        connection.requestMethod = "HEAD"
+        connection.connect()
+
+        responseCode = connection.responseCode
+      } catch (e: Exception) {
+        Log.e(TAG, "Error checking model accessibility for '${model.name}'", e)
+        return@withContext ModelAccessibility.ERROR
+      }
+
+      when (responseCode) {
+        in 200..299 -> ModelAccessibility.ACCESSIBLE
+        HttpURLConnection.HTTP_UNAUTHORIZED -> ModelAccessibility.NEEDS_TOKEN_EXCHANGE
+        HttpURLConnection.HTTP_FORBIDDEN -> ModelAccessibility.GATED
+        else -> {
+          Log.w(
+            TAG,
+            "Unexpected response code checking model accessibility for '${model.name}': $responseCode",
+          )
+          ModelAccessibility.ERROR
+        }
+      }
     }
-  }
 
   fun addImportedLlmModel(info: ImportedModel) {
     Log.d(TAG, "adding imported llm model: $info")
@@ -906,8 +933,6 @@ constructor(
     dataStoreRepository.clearAccessTokenData()
   }
 
-  // TODO: b/494029782 - Both litertlm and aicore download and storage should be unified into a
-  // model repository.
   private fun checkAICoreModelStatuses() {
     viewModelScope.launch(Dispatchers.Main) {
       val aicoreModels =
