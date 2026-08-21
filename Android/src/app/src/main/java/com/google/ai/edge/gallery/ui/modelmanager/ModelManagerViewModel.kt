@@ -28,6 +28,7 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.ProjectConfig
 import com.google.ai.edge.gallery.common.SystemPromptHelper
 import com.google.ai.edge.gallery.common.getJsonResponse
+import com.google.ai.edge.gallery.common.getModelStorageDir
 import com.google.ai.edge.gallery.common.isAICoreSupported
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.data.Accelerator
@@ -212,7 +213,7 @@ constructor(
   ViewModel()
 {
 
-  private val externalFilesDir = context.getExternalFilesDir(null)
+  private val modelsDir = getModelStorageDir(context)
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   open val uiState = _uiState.asStateFlow()
 
@@ -392,7 +393,7 @@ constructor(
     if (model.imported) {
       deleteFilesFromImportDir(model.downloadFileName)
     } else {
-      deleteDirFromExternalFilesDir(model.normalizedName)
+      deleteDirFromModelsDir(model.normalizedName)
     }
 
     // Update model download status to NotDownloaded.
@@ -570,7 +571,7 @@ constructor(
       status.status == ModelDownloadStatusType.FAILED ||
         status.status == ModelDownloadStatusType.NOT_DOWNLOADED
     ) {
-      deleteFileFromExternalFilesDir(curModel.downloadFileName)
+      deleteFileFromModelsDir(curModel.downloadFileName)
     }
 
     _uiState.update { it.copy(modelDownloadStatus = curModelDownloadStatus) }
@@ -720,7 +721,7 @@ constructor(
   fun addImportedLlmModel(info: ImportedModel) {
     Log.d(TAG, "adding imported llm model: $info")
 
-    val importsDir = File(context.getExternalFilesDir(null), IMPORTS_DIR)
+    val importsDir = File(modelsDir, IMPORTS_DIR)
     if (!importsDir.exists()) {
       importsDir.mkdirs()
     }
@@ -1161,7 +1162,7 @@ constructor(
   private fun saveModelAllowlistToDisk(modelAllowlistContent: String) {
     try {
       Log.d(TAG, "Saving model allowlist to disk...")
-      val file = File(externalFilesDir, MODEL_ALLOWLIST_FILENAME)
+      val file = File(modelsDir, MODEL_ALLOWLIST_FILENAME)
       file.writeText(modelAllowlistContent)
       Log.d(TAG, "Done: saving model allowlist to disk.")
     } catch (e: Exception) {
@@ -1175,7 +1176,7 @@ constructor(
     try {
       Log.d(TAG, "Reading model allowlist from disk: $fileName")
       val baseDir =
-        if (fileName == MODEL_ALLOWLIST_TEST_FILENAME) File("/data/local/tmp") else externalFilesDir
+        if (fileName == MODEL_ALLOWLIST_TEST_FILENAME) File("/data/local/tmp") else modelsDir
       val file = File(baseDir, fileName)
       if (file.exists()) {
         val content = file.readText()
@@ -1470,13 +1471,9 @@ constructor(
     )
   }
 
-  private fun isFileInExternalFilesDir(fileName: String): Boolean {
-    if (externalFilesDir != null) {
-      val file = File(externalFilesDir, fileName)
-      return file.exists()
-    } else {
-      return false
-    }
+  private fun isFileInModelsDir(fileName: String): Boolean {
+    val file = File(modelsDir, fileName)
+    return file.exists()
   }
 
   private fun isFileInDataLocalTmpDir(fileName: String): Boolean {
@@ -1484,9 +1481,9 @@ constructor(
     return file.exists()
   }
 
-  private fun deleteFileFromExternalFilesDir(fileName: String) {
-    if (isFileInExternalFilesDir(fileName)) {
-      val file = File(externalFilesDir, fileName)
+  private fun deleteFileFromModelsDir(fileName: String) {
+    if (isFileInModelsDir(fileName)) {
+      val file = File(modelsDir, fileName)
       file.delete()
     }
   }
@@ -1496,12 +1493,10 @@ constructor(
    * prefix.
    */
   private fun deleteFilesFromImportDir(fileName: String) {
-    val dir = context.getExternalFilesDir(null) ?: return
-
     val prefixAbsolutePath =
-      "${context.getExternalFilesDir(null)}${File.separator}$IMPORTS_DIR${File.separator}$fileName"
+      "${modelsDir.absolutePath}${File.separator}$IMPORTS_DIR${File.separator}$fileName"
     val filesToDelete =
-      File(dir, IMPORTS_DIR).listFiles { dirFile, name ->
+      File(modelsDir, IMPORTS_DIR).listFiles { dirFile, name ->
         File(dirFile, name).absolutePath.startsWith(prefixAbsolutePath)
       } ?: arrayOf()
     for (file in filesToDelete) {
@@ -1510,9 +1505,9 @@ constructor(
     }
   }
 
-  private fun deleteDirFromExternalFilesDir(dir: String) {
-    if (isFileInExternalFilesDir(dir)) {
-      val file = File(externalFilesDir, dir)
+  private fun deleteDirFromModelsDir(dir: String) {
+    if (isFileInModelsDir(dir)) {
+      val file = File(modelsDir, dir)
       file.deleteRecursively()
     }
   }
@@ -1575,15 +1570,14 @@ constructor(
       }
     val downloadedFileExists =
       fileName.isNotEmpty() &&
-        ((model.localModelFilePathOverride.isEmpty() &&
-          isFileInExternalFilesDir(modelRelativePath)) ||
+        ((model.localModelFilePathOverride.isEmpty() && isFileInModelsDir(modelRelativePath)) ||
           (model.localModelFilePathOverride.isNotEmpty() &&
             File(model.localModelFilePathOverride).exists()))
 
     val unzippedDirectoryExists =
       model.isZip &&
         model.unzipDir.isNotEmpty() &&
-        isFileInExternalFilesDir(
+        isFileInModelsDir(
           listOf(model.normalizedName, version, model.unzipDir).joinToString(File.separator)
         )
 
