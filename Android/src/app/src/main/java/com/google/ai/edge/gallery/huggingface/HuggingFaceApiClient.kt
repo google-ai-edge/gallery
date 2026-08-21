@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.huggingface
 
 import android.util.Log
 import androidx.core.net.toUri
+import com.google.ai.edge.gallery.data.ModelAccessibility
 import com.google.ai.edge.gallery.di.IoDispatcher
 import com.google.ai.edge.gallery.proto.HfModelItemProto
 import com.google.ai.edge.gallery.proto.HfSiblingProto
@@ -151,15 +152,73 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
       return@withContext null
     }
 
-  private fun executeGetRequest(urlString: String, accessToken: String? = null): String? {
-    return try {
-      Log.d(TAG, "Executing HF HTTP GET request: $urlString")
-      val connection = URL(urlString).openConnection() as HttpURLConnection
-      connection.requestMethod = "GET"
-      connection.setRequestProperty("User-Agent", USER_AGENT)
-      if (!accessToken.isNullOrEmpty()) {
-        connection.setRequestProperty("Authorization", "Bearer $accessToken")
+  /**
+   * Probes the accessibility of a Hugging Face model URL using an optional Bearer access token.
+   *
+   * @param modelUrl The download URL of the model.
+   * @param accessToken Optional Bearer access token for authorization.
+   * @return [ModelAccessibility] indicating whether the model is accessible, gated, or needs token
+   *   exchange.
+   */
+  open suspend fun checkModelAccessibility(
+    modelUrl: String,
+    accessToken: String? = null,
+  ): ModelAccessibility =
+    withContext(ioDispatcher) {
+      if (modelUrl.isEmpty()) {
+        return@withContext ModelAccessibility.ACCESSIBLE
       }
+      val responseCode =
+        try {
+          val connection =
+            openHttpConnection(urlString = modelUrl, method = "HEAD", accessToken = accessToken)
+          connection.connect()
+          connection.responseCode
+        } catch (e: Exception) {
+          Log.e(TAG, "Failed to probe model accessibility for URL: $modelUrl", e)
+          return@withContext ModelAccessibility.ERROR
+        }
+
+      when (responseCode) {
+        in 200..299 -> ModelAccessibility.ACCESSIBLE
+        HttpURLConnection.HTTP_UNAUTHORIZED -> ModelAccessibility.NEEDS_TOKEN_EXCHANGE
+        HttpURLConnection.HTTP_FORBIDDEN -> {
+          if (accessToken.isNullOrEmpty()) {
+            ModelAccessibility.NEEDS_TOKEN_EXCHANGE
+          } else {
+            ModelAccessibility.GATED
+          }
+        }
+        else -> {
+          Log.w(TAG, "Unexpected response code checking HF model accessibility: $responseCode")
+          ModelAccessibility.ERROR
+        }
+      }
+    }
+
+  /**
+   * Opens and configures an [HttpURLConnection] with default headers and optional authorization.
+   */
+  protected open fun openHttpConnection(
+    urlString: String,
+    method: String = "GET",
+    accessToken: String? = null,
+  ): HttpURLConnection {
+    val url = URL(urlString)
+    val connection = url.openConnection() as HttpURLConnection
+    connection.requestMethod = method
+    connection.setRequestProperty("User-Agent", USER_AGENT)
+    if (!accessToken.isNullOrEmpty()) {
+      connection.setRequestProperty("Authorization", "Bearer $accessToken")
+    }
+    return connection
+  }
+
+  private fun executeGetRequest(urlString: String, accessToken: String? = null): String? {
+    Log.d(TAG, "Executing HF HTTP GET request: $urlString")
+    return try {
+      val connection =
+        openHttpConnection(urlString = urlString, method = "GET", accessToken = accessToken)
       connection.connect()
 
       val responseCode = connection.responseCode
