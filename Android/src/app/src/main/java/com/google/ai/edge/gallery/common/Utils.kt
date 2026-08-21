@@ -36,6 +36,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.core.net.toUri
 import androidx.exifinterface.media.ExifInterface
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
@@ -351,6 +352,23 @@ fun readFileToByteBuffer(file: File): ByteBuffer? {
 
 fun isPixel10(): Boolean {
   return Build.MODEL != null && Build.MODEL.lowercase().contains("pixel 10")
+}
+
+fun isPixel11(): Boolean {
+  return Build.MODEL != null && Build.MODEL.lowercase().contains("pixel 11")
+}
+
+/**
+ * Returns the base directory for storing models. On Pixel 11 with "CD1A" builds, internal app
+ * storage (filesDir) is used to avoid FUSE filesystem DMA mapping issues.
+ */
+fun getModelStorageDir(context: Context): File {
+  val isCd1aBuild = Build.ID != null && Build.ID.startsWith("CD1A")
+  return if (isPixel11() && isCd1aBuild) {
+    context.filesDir
+  } else {
+    context.getExternalFilesDir(null) ?: context.filesDir
+  }
 }
 
 fun isPixelDevice(): Boolean {
