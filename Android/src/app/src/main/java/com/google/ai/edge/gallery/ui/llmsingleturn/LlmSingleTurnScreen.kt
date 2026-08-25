@@ -50,12 +50,12 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.core.os.bundleOf
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.data.BuiltInTaskId
+import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
 import com.google.ai.edge.gallery.ui.common.chat.ModelDownloadStatusInfoPanel
-import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
 import kotlinx.coroutines.Dispatchers
@@ -93,10 +93,7 @@ fun LlmSingleTurnScreen(
 
   // Handle system's edge swipe.
   BackHandler {
-    val modelInitializationStatus =
-      modelManagerUiState.modelInitializationStatus[selectedModel.name]
-    val isModelInitializing =
-      modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
+    val isModelInitializing = selectedModel.initializing
     if (!isModelInitializing && !uiState.inProgress) {
       handleNavigateUp()
     }
@@ -116,9 +113,9 @@ fun LlmSingleTurnScreen(
     }
   }
 
-  val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
-  LaunchedEffect(modelInitializationStatus) {
-    showErrorDialog = modelInitializationStatus?.status == ModelInitializationStatusType.ERROR
+  val modelInitStatus by selectedModel.initStatusFlow.collectAsState()
+  LaunchedEffect(modelInitStatus) {
+    showErrorDialog = modelInitStatus is Model.InitializationStatus.Failed
   }
 
   Scaffold(
@@ -225,10 +222,9 @@ fun LlmSingleTurnScreen(
       }
 
       if (showErrorDialog) {
-        ErrorDialog(
-          error = modelInitializationStatus?.error ?: "",
-          onDismiss = { showErrorDialog = false },
-        )
+        val initErrorMessage =
+          (modelInitStatus as? Model.InitializationStatus.Failed)?.error?.message ?: ""
+        ErrorDialog(error = initErrorMessage, onDismiss = { showErrorDialog = false })
       }
     }
   }

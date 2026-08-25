@@ -17,10 +17,14 @@
 package com.google.ai.edge.gallery.data
 
 import android.content.Context
+import com.google.ai.edge.gallery.common.getModelStorageDir
 import com.google.gson.annotations.SerializedName
 import java.io.File
-import java.util.concurrent.ConcurrentHashMap
-import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 
 /**
  * Represents metadata about an additional or supplementary data file that must be downloaded
@@ -310,8 +314,6 @@ data class Model(
   // The following fields are managed by the app. Don't need to set manually.
   //
   var normalizedName: String = "",
-  var instance: Any? = null,
-  var initializing: Boolean = false,
   // TODO(jingjin): use a "queue" system to manage model init and cleanup.
   var cleanUpAfterInit: Boolean = false,
   var configValues: Map<String, Any> = mapOf(),
@@ -344,6 +346,47 @@ data class Model(
     normalizedName = NORMALIZE_NAME_REGEX.replace(name, "_")
   }
 
+  sealed interface InitializationStatus {
+    data object Idle : InitializationStatus
+
+    data object Initializing : InitializationStatus
+
+    data class Initialized(val instance: Any?) : InitializationStatus
+
+    data class Failed(val error: Throwable) : InitializationStatus
+  }
+
+  internal val _initStatusFlow = MutableStateFlow<InitializationStatus>(InitializationStatus.Idle)
+  val initStatusFlow: StateFlow<InitializationStatus> = _initStatusFlow.asStateFlow()
+
+  var instance: Any?
+    get() = (_initStatusFlow.value as? InitializationStatus.Initialized)?.instance
+    set(value) {
+      _initStatusFlow.update {
+        if (value == null) {
+          InitializationStatus.Idle
+        } else {
+          InitializationStatus.Initialized(value)
+        }
+      }
+    }
+
+  var initializing: Boolean
+    get() = _initStatusFlow.value is InitializationStatus.Initializing
+    set(value) {
+      _initStatusFlow.update { current ->
+        if (value) {
+          InitializationStatus.Initializing
+        } else {
+          if (current is InitializationStatus.Initializing) {
+            InitializationStatus.Idle
+          } else {
+            current
+          }
+        }
+      }
+    }
+
   fun preProcess() {
     val configValues: MutableMap<String, Any> = mutableMapOf()
     for (config in this.configs) {
@@ -355,7 +398,7 @@ data class Model(
 
   fun getPath(context: Context, fileName: String = downloadFileName): String {
     if (imported) {
-      return listOf(context.getExternalFilesDir(null)?.absolutePath ?: "", IMPORTS_DIR, fileName)
+      return listOf(getModelStorageDir(context).absolutePath, IMPORTS_DIR, fileName)
         .joinToString(File.separator)
     }
 
@@ -365,7 +408,7 @@ data class Model(
 
     if (localFileRelativeDirPathOverride.isNotEmpty()) {
       return listOf(
-          context.getExternalFilesDir(null)?.absolutePath ?: "",
+          getModelStorageDir(context).absolutePath,
           localFileRelativeDirPathOverride,
           fileName,
         )
@@ -373,7 +416,7 @@ data class Model(
     }
 
     val baseDir =
-      listOf(context.getExternalFilesDir(null)?.absolutePath ?: "", normalizedName, version)
+      listOf(getModelStorageDir(context).absolutePath, normalizedName, version)
         .joinToString(File.separator)
     return if (this.isZip && this.unzipDir.isNotEmpty()) {
       listOf(baseDir, this.unzipDir).joinToString(File.separator)
@@ -447,62 +490,42 @@ val Model.supportModelBenchmark: Boolean
     runtimeType == RuntimeType.LITERT_LM ||
       false
 
-// A map of model name to CompletableDeferred for model initialization.
-private val modelInitDeferreds = ConcurrentHashMap<String, CompletableDeferred<Any?>>()
+/** Marks the model as initialization started. */
+fun Model.markInitializationStarted() {
+  this._initStatusFlow.value = Model.InitializationStatus.Initializing
+}
 
 /**
- * A deferred object for model initialization.
+ * Marks the model as initialized.
  *
- * This field is managed by the app. It is set to a CompletableDeferred object when the model is
- * being initialized, and set to null when the model is initialized or failed to be initialized.
+ * @param instance The initialized model instance.
  */
-internal var Model.initDeferred: CompletableDeferred<Any?>?
-  get() = modelInitDeferreds[name]
-  set(value) {
-    if (value == null) {
-      val unused = modelInitDeferreds.remove(name)
-    } else {
-      modelInitDeferreds[name] = value
-    }
-  }
-
-/** Marks that model initialization has started. */
-fun Model.markInitializationStarted() {
-  initDeferred = CompletableDeferred()
-  initializing = true
-}
-
-/** Marks that the model has been initialized with the given [instance]. */
 fun Model.markInitialized(instance: Any? = this.instance) {
-  this.instance = instance
-  this.initializing = false
-  initDeferred?.complete(instance)
+  this._initStatusFlow.update { current ->
+    val resolved = instance ?: (current as? Model.InitializationStatus.Initialized)?.instance
+    Model.InitializationStatus.Initialized(resolved)
+  }
 }
 
-/** Marks that model initialization has failed with the given [error]. */
+/** Marks the model as initialization failed with the given [error]. */
 fun Model.markInitializationFailed(error: Throwable) {
-  this.initializing = false
-  val current = initDeferred
-  this.initDeferred = null
-  current?.completeExceptionally(error)
+  this._initStatusFlow.value = Model.InitializationStatus.Failed(error)
 }
 
-/** Marks that model initialization has failed with the given [errorMessage]. */
+/** Marks the model as initialization failed with the given [errorMessage]. */
 fun Model.markInitializationFailed(errorMessage: String) {
   markInitializationFailed(IllegalStateException(errorMessage))
 }
 
-/** Resets the model initialization state and cancels any pending initialization. */
+/** Resets the model initialization. */
 fun Model.resetInitialization() {
-  this.instance = null
-  this.initializing = false
-  val current = initDeferred
-  this.initDeferred = null
-  current?.cancel()
+  this._initStatusFlow.value = Model.InitializationStatus.Idle
 }
 
-/** Awaits completion of model initialization if currently in progress and [instance] is null. */
+/** Waits for the model initialization to finish. */
 suspend fun Model.awaitInitialization() {
-  if (instance != null) return
-  initDeferred?.await()
+  val status = initStatusFlow.first { it !is Model.InitializationStatus.Initializing }
+  if (status is Model.InitializationStatus.Failed) {
+    throw status.error
+  }
 }

@@ -117,6 +117,7 @@ import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.data.resetInitialization
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.common.MarkdownText
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageWarning
@@ -127,8 +128,6 @@ import com.google.ai.edge.gallery.ui.common.getTaskIconColor
 import com.google.ai.edge.gallery.ui.common.textandvoiceinput.HoldToDictateViewModel
 import com.google.ai.edge.gallery.ui.common.textandvoiceinput.TextAndVoiceInput
 import com.google.ai.edge.gallery.ui.common.textandvoiceinput.VoiceRecognizerOverlay
-import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatus
-import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.litertlm.ToolProvider
 import kotlinx.coroutines.Dispatchers
@@ -317,10 +316,7 @@ fun MainUi(
   LaunchedEffect(model.configValues) {
     if (model.configValues != initialModelConfigValues) {
       Log.d(TAG, "model config values changed.")
-      modelManagerViewModel.setInitializationStatus(
-        model = model,
-        status = ModelInitializationStatus(status = ModelInitializationStatusType.NOT_INITIALIZED),
-      )
+      model.resetInitialization()
       viewModel.reset()
     }
   }
