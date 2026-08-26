@@ -73,6 +73,7 @@ import androidx.navigation.navArgument
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskData
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskDataForBuiltinTask
+import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.isLegacyTasks
@@ -276,6 +277,7 @@ fun GalleryNavHost(
           task = it,
           enableAnimation = enableModelListAnimation,
           onModelClicked = { model ->
+            modelManagerViewModel.selectModel(model)
             navController.navigate("$ROUTE_MODEL/${it.id}/${model.name}")
           },
           onBenchmarkClicked = { model ->
@@ -338,6 +340,7 @@ fun GalleryNavHost(
             var customNavigateUpCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
             CustomTaskScreen(
               task = customTask.task,
+              initialModel = initialModel,
               modelManagerViewModel = modelManagerViewModel,
               onNavigateUp = {
                 if (customNavigateUpCallback != null) {
@@ -516,6 +519,7 @@ fun GalleryNavHost(
 @Composable
 private fun CustomTaskScreen(
   task: Task,
+  initialModel: Model,
   modelManagerViewModel: ModelManagerViewModel,
   disableAppBarControls: Boolean,
   hideTopBar: Boolean,
@@ -524,7 +528,16 @@ private fun CustomTaskScreen(
   content: @Composable (bottomPadding: Dp) -> Unit,
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
-  val selectedModel = modelManagerUiState.selectedModel
+  // Use currentModel on initial composition to prevent reading stale selectedModel from
+  // ViewModel before selectModel() runs. Once ViewModel synchronizes with the current model,
+  // use the live model instance from uiState to capture ongoing configuration/state updates.
+  var currentModel by remember(initialModel.name) { mutableStateOf(initialModel) }
+  val selectedModel =
+    if (modelManagerUiState.selectedModel.name == currentModel.name) {
+      modelManagerUiState.selectedModel
+    } else {
+      currentModel
+    }
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
   var navigatingUp by remember { mutableStateOf(false) }
@@ -579,6 +592,7 @@ private fun CustomTaskScreen(
           onConfigChanged = { _, _ -> },
           onBackClicked = { handleNavigateUp() },
           onModelSelected = { prevModel, newSelectedModel ->
+            currentModel = newSelectedModel
             val instanceToCleanUp = prevModel.instance
             scope.launch(Dispatchers.Default) {
               // Clean up prev model.
