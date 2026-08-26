@@ -110,12 +110,10 @@ fun ModelPageAppBar(
           val tintColor =
             if (useThemeColor) MaterialTheme.colorScheme.onSurface
             else getTaskIconColor(task = task)
-          Icon(
-            task.icon ?: ImageVector.vectorResource(task.iconVectorResourceId!!),
-            tint = tintColor,
-            modifier = Modifier.size(24.dp),
-            contentDescription = null,
-          )
+          val icon = task.icon ?: task.iconVectorResourceId?.let { ImageVector.vectorResource(it) }
+          if (icon != null) {
+            Icon(icon, tint = tintColor, modifier = Modifier.size(24.dp), contentDescription = null)
+          }
           Text(task.label, style = MaterialTheme.typography.titleMedium, color = tintColor)
         }
 
