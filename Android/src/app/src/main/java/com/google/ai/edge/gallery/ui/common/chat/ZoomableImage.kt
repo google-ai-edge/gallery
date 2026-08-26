@@ -23,6 +23,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,7 +40,12 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.R
 import kotlin.math.max
 import kotlin.math.min
 import kotlinx.coroutines.awaitCancellation
@@ -76,6 +82,28 @@ fun ZoomableImage(
       offsetY.floatValue = 0f
     }
   }
+
+  val doubleTapModifier =
+    if (enabled) {
+      Modifier.pointerInput(minScale, maxScale) {
+        detectTapGestures(
+          onDoubleTap = {
+            if (scale.floatValue > minScale + 0.1f) {
+              scale.floatValue = minScale
+              offsetX.floatValue = 0f
+              offsetY.floatValue = 0f
+            } else {
+              scale.floatValue = minOf(2f, maxScale)
+              offsetX.floatValue = 0f
+              offsetY.floatValue = 0f
+            }
+            onTransformed(offsetX.floatValue, offsetY.floatValue, scale.floatValue)
+          }
+        )
+      }
+    } else {
+      Modifier
+    }
 
   val gestureModifier =
     if (enabled) {
@@ -118,10 +146,42 @@ fun ZoomableImage(
       Modifier
     }
 
+  val zoomInLabel = stringResource(R.string.cd_zoom_in)
+  val zoomOutLabel = stringResource(R.string.cd_zoom_out)
+  val a11yModifier =
+    if (enabled) {
+      Modifier.semantics {
+        customActions =
+          listOf(
+            CustomAccessibilityAction(zoomInLabel) {
+              scale.floatValue = minOf(scale.floatValue * 1.5f, maxScale)
+              onTransformed(offsetX.floatValue, offsetY.floatValue, scale.floatValue)
+              true
+            },
+            CustomAccessibilityAction(zoomOutLabel) {
+              scale.floatValue = maxOf(scale.floatValue / 1.5f, minScale)
+              if (scale.floatValue <= minScale + 0.01f) {
+                offsetX.floatValue = 0f
+                offsetY.floatValue = 0f
+              }
+              onTransformed(offsetX.floatValue, offsetY.floatValue, scale.floatValue)
+              true
+            },
+          )
+      }
+    } else {
+      Modifier
+    }
+
   Box(
     contentAlignment = Alignment.Center,
     modifier =
-      modifier.background(Color.Transparent).clip(RoundedCornerShape(0.dp)).then(gestureModifier),
+      modifier
+        .background(Color.Transparent)
+        .clip(RoundedCornerShape(0.dp))
+        .then(a11yModifier)
+        .then(doubleTapModifier)
+        .then(gestureModifier),
   ) {
     Image(
       bitmap = bitmap,
