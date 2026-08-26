@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.data
 
 import android.content.Context
+import com.google.ai.edge.gallery.common.getModelStorageDir
 import com.google.gson.annotations.SerializedName
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -355,7 +356,7 @@ data class Model(
 
   fun getPath(context: Context, fileName: String = downloadFileName): String {
     if (imported) {
-      return listOf(context.getExternalFilesDir(null)?.absolutePath ?: "", IMPORTS_DIR, fileName)
+      return listOf(getModelStorageDir(context).absolutePath, IMPORTS_DIR, fileName)
         .joinToString(File.separator)
     }
 
@@ -365,7 +366,7 @@ data class Model(
 
     if (localFileRelativeDirPathOverride.isNotEmpty()) {
       return listOf(
-          context.getExternalFilesDir(null)?.absolutePath ?: "",
+          getModelStorageDir(context).absolutePath,
           localFileRelativeDirPathOverride,
           fileName,
         )
@@ -373,7 +374,7 @@ data class Model(
     }
 
     val baseDir =
-      listOf(context.getExternalFilesDir(null)?.absolutePath ?: "", normalizedName, version)
+      listOf(getModelStorageDir(context).absolutePath, normalizedName, version)
         .joinToString(File.separator)
     return if (this.isZip && this.unzipDir.isNotEmpty()) {
       listOf(baseDir, this.unzipDir).joinToString(File.separator)
