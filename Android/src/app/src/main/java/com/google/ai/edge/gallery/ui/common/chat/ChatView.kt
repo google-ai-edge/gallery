@@ -241,8 +241,6 @@ fun ChatView(
                   )
 
                   scope.launch {
-                    // TODO(b/549148002): Consider moving session restoration and ViewModel state
-                    // mutation logic into ViewModel or SessionManager to keep ChatView clean.
                     viewModel.setIsResettingSession(true)
                     viewModel.currentSessionId = session.sessionId
                     val messages =
