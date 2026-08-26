@@ -51,6 +51,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.TextAutoSize
@@ -104,8 +105,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -800,25 +804,29 @@ private fun CategoryTabHeader(
                 if (selectedIndex == index) MaterialTheme.customColors.tabHeaderBgColor
                 else Color.Transparent
             )
-            .clickable {
-              onCategorySelected(index)
+            .selectable(
+              selected = (selectedIndex == index),
+              role = Role.Tab,
+              onClick = {
+                onCategorySelected(index)
 
-              // Scroll to clicked item when the item is not fully inside view.
-              scope.launch {
-                val visibleItems = listState.layoutInfo.visibleItemsInfo
-                val targetItem = visibleItems.find {
-                  // +1 because the first item is the item keyed at spacer_start.
-                  it.index == index + 1
+                // Scroll to clicked item when the item is not fully inside view.
+                scope.launch {
+                  val visibleItems = listState.layoutInfo.visibleItemsInfo
+                  val targetItem = visibleItems.find {
+                    // +1 because the first item is the item keyed at spacer_start.
+                    it.index == index + 1
+                  }
+                  if (
+                    targetItem == null ||
+                      targetItem.offset < 0 ||
+                      targetItem.offset + targetItem.size > listState.layoutInfo.viewportSize.width
+                  ) {
+                    listState.animateScrollToItem(index = index)
+                  }
                 }
-                if (
-                  targetItem == null ||
-                    targetItem.offset < 0 ||
-                    targetItem.offset + targetItem.size > listState.layoutInfo.viewportSize.width
-                ) {
-                  listState.animateScrollToItem(index = index)
-                }
-              }
-            },
+              },
+            ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
       ) {
@@ -1038,14 +1046,19 @@ private fun TaskCard(
       )
     else 1f
 
-  val cbTask = stringResource(R.string.cd_task_card, task.label, task.models.size)
+  val descText = if (description.isNotEmpty()) description else task.shortDescription
+  val baseCbTask = stringResource(R.string.cd_task_card, task.label, task.models.size)
+  val cbTask = if (descText.isNotEmpty()) "$baseCbTask, $descText" else baseCbTask
   Card(
     modifier =
       modifier
         .clip(RoundedCornerShape(24.dp))
         .clickable(onClick = onClick)
         .graphicsLayer { alpha = progress }
-        .semantics { contentDescription = cbTask },
+        .semantics(mergeDescendants = true) {
+          contentDescription = cbTask
+          role = Role.Button
+        },
     colors =
       CardDefaults.cardColors(
         containerColor =
@@ -1068,7 +1081,6 @@ private fun TaskCard(
             curModelCountLabel,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-            modifier = Modifier.clearAndSetSemantics {},
           )
           Text(
             task.label,
@@ -1079,7 +1091,6 @@ private fun TaskCard(
             task.shortDescription,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 14.sp),
-            modifier = Modifier.clearAndSetSemantics {},
             minLines = 2,
             maxLines = 2,
             autoSize =
@@ -1130,9 +1141,7 @@ private fun TaskCard(
             Text(
               description,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
-              style =
-                MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
-              modifier = Modifier.clearAndSetSemantics {},
+              style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
             )
           }
         } else {
@@ -1147,7 +1156,7 @@ private fun TaskCard(
               if (task.experimental) {
                 Icon(
                   painter = painterResource(R.drawable.ic_experiment),
-                  contentDescription = "Experimental",
+                  contentDescription = stringResource(R.string.category_experimental),
                   modifier = Modifier.size(20.dp).padding(start = 4.dp),
                   tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1157,7 +1166,6 @@ private fun TaskCard(
               curModelCountLabel,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               style = MaterialTheme.typography.bodyMedium,
-              modifier = Modifier.clearAndSetSemantics {},
             )
           }
 

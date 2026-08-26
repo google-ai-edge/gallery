@@ -70,6 +70,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -90,8 +91,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -182,6 +190,7 @@ fun BenchmarkResultsViewer(
                 stringResource(R.string.benchmark_results),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() },
               )
               BenchmarkModelPicker(
                 selectedModelName = selectedModelName,
@@ -426,7 +435,7 @@ fun BenchmarkResultsViewer(
                           Accordions(
                             title =
                               "${stringResource(R.string.results)} (${resources.getQuantityString(
-                                R.plurals.runs ,
+                                R.plurals.runs,
                                 llmResult.baiscInfo.numberOfRuns,
                                 llmResult.baiscInfo.numberOfRuns,
                               )})",
@@ -437,17 +446,26 @@ fun BenchmarkResultsViewer(
                             },
                             modifier = Modifier.clip(RoundedCornerShape(12.dp)),
                             titleRowAction = {
-                              if (
-                                (result.benchmarkResult.llmResult?.baiscInfo?.numberOfRuns ?: 0) > 1
-                              ) {
+                              if (llmResult.baiscInfo.numberOfRuns > 1) {
                                 var showAggregationDropdown by remember { mutableStateOf(false) }
+                                val aggCd =
+                                  stringResource(
+                                    R.string.cd_aggregation_dropdown,
+                                    result.aggregation.label,
+                                  )
                                 // Aggregation method.
                                 Box {
                                   Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier =
-                                      Modifier.clip(RoundedCornerShape(8.dp))
-                                        .clickable { showAggregationDropdown = true }
+                                      Modifier.minimumInteractiveComponentSize()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .semantics(mergeDescendants = true) {
+                                          contentDescription = aggCd
+                                        }
+                                        .clickable(role = Role.Button) {
+                                          showAggregationDropdown = true
+                                        }
                                         .background(
                                           MaterialTheme.colorScheme.surfaceContainerLowest
                                         )
@@ -852,8 +870,26 @@ private fun ValueSeriesRow(
       getAggregationValue(valueSeries = baselineValueSeries, aggregation = baselineAggregation)
   }
   var showValueSeriesBottomSheet by remember { mutableStateOf(false) }
+  val locale = LocalConfiguration.current.locales[0]
+  val isMultipleRuns = valueSeries.valueCount > 1
+  val formattedValue = String.format(locale, "%.2f", value)
+  val rowCd = if (unit.isNotEmpty()) "$label: $formattedValue $unit" else "$label: $formattedValue"
+  val actionLabel = stringResource(R.string.cd_view_run_history)
 
-  Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+  Row(
+    modifier =
+      modifier.fillMaxWidth().semantics(mergeDescendants = true) {
+        contentDescription = rowCd
+        if (isMultipleRuns) {
+          role = Role.Button
+          onClick(label = actionLabel) {
+            showValueSeriesBottomSheet = true
+            true
+          }
+        }
+      },
+    verticalAlignment = Alignment.Top,
+  ) {
     // label.
     Text(
       label,
@@ -900,7 +936,7 @@ private fun ValueSeriesRow(
           }
         AnimatedContent(value) { curValue ->
           Text(
-            String.format(Locale.getDefault(), "%.2f", curValue),
+            String.format(locale, "%.2f", curValue),
             style = MaterialTheme.typography.labelMedium,
             color = textColor,
             maxLines = 1,
@@ -915,7 +951,7 @@ private fun ValueSeriesRow(
         ) { curBaselineValue ->
           if (curBaselineValue != null && abs(curBaselineValue) > 1e-6) {
             val pct = (value - curBaselineValue) / curBaselineValue * 100
-            val strPct = String.format(Locale.getDefault(), "%.1f", abs(pct))
+            val strPct = String.format(locale, "%.1f", abs(pct))
             val sign = if (pct >= 0.0) "+" else "-"
             val betterSign = if (lessIsBetter) "-" else "+"
             val color =

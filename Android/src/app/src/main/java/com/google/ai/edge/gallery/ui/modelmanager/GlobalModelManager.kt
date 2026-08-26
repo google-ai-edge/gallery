@@ -84,6 +84,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -249,6 +250,7 @@ fun GlobalModelManager(
                   "${stringResource(R.string.drawer_models_label)} (${builtInModels.size + importedModels.size})",
                 color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() },
               )
             }
           }
@@ -329,7 +331,10 @@ fun GlobalModelManager(
               stringResource(R.string.model_list_imported_models_title),
               color = MaterialTheme.colorScheme.onSurface,
               style = MaterialTheme.typography.labelLarge,
-              modifier = Modifier.padding(horizontal = 16.dp).padding(top = 32.dp, bottom = 8.dp),
+              modifier =
+                Modifier.semantics { heading() }
+                  .padding(horizontal = 16.dp)
+                  .padding(top = 32.dp, bottom = 8.dp),
             )
           }
         }

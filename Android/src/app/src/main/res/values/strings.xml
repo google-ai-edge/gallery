@@ -533,6 +533,26 @@
   <string name="cd_scroll_to_bottom" translatable="true" description="Content description for the button that scrolls the list/chat to the bottom. [CHAR_LIMIT=29]">Scroll to bottom</string>
   <!-- Content description spoken when the "chat history" icon is focused. -->
   <string name="cd_chat_history" translatable="true" description="Content description for the button that shows the chat history. [CHAR_LIMIT=23]">Chat history</string>
+  <!-- State description spoken when an item is expanded. -->
+  <string name="cd_expanded" translatable="true" description="Accessibility state description indicating that an item or card is currently expanded. [CHAR_LIMIT=18]">Expanded</string>
+  <!-- State description spoken when an item is collapsed. -->
+  <string name="cd_collapsed" translatable="true" description="Accessibility state description indicating that an item or card is currently collapsed. [CHAR_LIMIT=18]">Collapsed</string>
+  <!-- State description spoken when the microphone is muted. -->
+  <string name="cd_mic_muted" translatable="true" description="Accessibility state description indicating that the microphone is currently muted. [CHAR_LIMIT=25]">Microphone muted</string>
+  <!-- State description spoken when the microphone is active and recording. -->
+  <string name="cd_mic_active" translatable="true" description="Accessibility state description indicating that the microphone is currently active. [CHAR_LIMIT=25]">Microphone active</string>
+  <!-- Action label spoken to view the run history of a benchmark metric. -->
+  <string name="cd_view_run_history" translatable="true" description="Accessibility action label to view run history of benchmark results. [CHAR_LIMIT=30]">View run history</string>
+  <!-- Content description for the benchmark aggregation selector dropdown. -->
+  <string name="cd_aggregation_dropdown" translatable="true" description="Accessibility content description for benchmark aggregation selector. [CHAR_LIMIT=35]">Aggregation method: %1$s</string>
+  <!-- Content description for download progress. -->
+  <string name="cd_download_progress" translatable="true" description="Accessibility content description for model download progress percentage. [CHAR_LIMIT=25]">%1$d%% downloaded</string>
+  <!-- Announcement when model download finishes successfully. -->
+  <string name="cd_download_completed" translatable="true" description="Accessibility announcement spoken when model download finishes. [CHAR_LIMIT=30]">Download completed</string>
+  <!-- Action label spoken to zoom into an image. -->
+  <string name="cd_zoom_in" translatable="true" description="Accessibility custom action label to zoom into an image. [CHAR_LIMIT=20]">Zoom in</string>
+  <!-- Action label spoken to zoom out of an image. -->
+  <string name="cd_zoom_out" translatable="true" description="Accessibility custom action label to zoom out of an image. [CHAR_LIMIT=20]">Zoom out</string>
 
   <!-- Strings for HomeScreen, Model Manager, Settings, and Chat -->
   <!-- Title of the dialog for importing a model. -->

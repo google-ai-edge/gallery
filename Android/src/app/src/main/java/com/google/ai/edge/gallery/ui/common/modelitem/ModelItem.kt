@@ -56,8 +56,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -116,20 +119,29 @@ fun ModelItem(
       .fillMaxWidth()
       .clip(RoundedCornerShape(size = 12.dp))
       .background(color = MaterialTheme.customColors.taskCardBgColor)
+  val expandedStateDesc =
+    stringResource(if (isExpanded) R.string.cd_expanded else R.string.cd_collapsed)
   boxModifier =
     if (canExpand) {
-      boxModifier.clickable(
-        onClick = {
+      boxModifier
+        .semantics {
+          role = Role.Button
           if (!model.imported) {
-            isExpanded = !isExpanded
-            onExpanded(isExpanded)
-          } else if (!isBenchmarkSupported) {
-            onModelClicked(model)
+            stateDescription = expandedStateDesc
           }
-        },
-        interactionSource = remember { MutableInteractionSource() },
-        indication = ripple(bounded = true, radius = 1000.dp),
-      )
+        }
+        .clickable(
+          onClick = {
+            if (!model.imported) {
+              isExpanded = !isExpanded
+              onExpanded(isExpanded)
+            } else if (!isBenchmarkSupported) {
+              onModelClicked(model)
+            }
+          },
+          interactionSource = remember { MutableInteractionSource() },
+          indication = ripple(bounded = true, radius = 1000.dp),
+        )
     } else {
       boxModifier
     }
@@ -171,10 +183,7 @@ fun ModelItem(
           if (!model.imported) {
             Icon(
               if (isExpanded) Icons.Rounded.UnfoldLess else Icons.Rounded.UnfoldMore,
-              contentDescription =
-                stringResource(
-                  if (isExpanded) R.string.cd_collapse_icon else R.string.cd_expand_icon
-                ),
+              contentDescription = null,
               tint = MaterialTheme.colorScheme.onSurfaceVariant,
               modifier = Modifier.alpha(0.6f),
             )

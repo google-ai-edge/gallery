@@ -23,14 +23,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.ui.common.BufferedFadingMarkdownText
 import com.google.ai.edge.gallery.ui.common.MarkdownText
 
@@ -52,21 +50,20 @@ fun MessageBodyText(
       )
     }
   } else if (message.side == ChatSide.AGENT) {
-    val cdResponse = stringResource(R.string.cd_model_response_text)
     if (message.isMarkdown) {
       BufferedFadingMarkdownText(
         text = message.content,
         inProgress = inProgress,
         modifier =
-          Modifier.padding(vertical = 12.dp).padding(horizontal = horizontalPadding).semantics(
-            mergeDescendants = true
-          ) {
-            contentDescription = cdResponse
-            // Only announce when message is complete.
-            if (!inProgress) {
-              liveRegion = LiveRegionMode.Polite
-            }
-          },
+          Modifier.padding(vertical = 12.dp)
+            .padding(horizontal = horizontalPadding)
+            .testTag("model_response_text")
+            .semantics(mergeDescendants = true) {
+              // Only announce when message is complete.
+              if (!inProgress) {
+                liveRegion = LiveRegionMode.Polite
+              }
+            },
       )
     } else {
       SelectionContainer {
@@ -75,13 +72,15 @@ fun MessageBodyText(
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurface,
           modifier =
-            Modifier.padding(vertical = 12.dp).padding(horizontal = horizontalPadding).semantics {
-              contentDescription = cdResponse
-              // Only announce when message is complete.
-              if (!inProgress) {
-                liveRegion = LiveRegionMode.Polite
-              }
-            },
+            Modifier.padding(vertical = 12.dp)
+              .padding(horizontal = horizontalPadding)
+              .testTag("model_response_text")
+              .semantics {
+                // Only announce when message is complete.
+                if (!inProgress) {
+                  liveRegion = LiveRegionMode.Polite
+                }
+              },
         )
       }
     }
