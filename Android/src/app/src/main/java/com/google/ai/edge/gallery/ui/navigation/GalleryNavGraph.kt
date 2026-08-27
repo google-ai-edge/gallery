@@ -85,7 +85,6 @@ import com.google.ai.edge.gallery.ui.common.chat.ModelDownloadStatusInfoPanel
 import com.google.ai.edge.gallery.ui.home.HomeScreen
 import com.google.ai.edge.gallery.ui.home.PromoScreenGm4
 import com.google.ai.edge.gallery.ui.modelmanager.GlobalModelManager
-import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.notifications.NotificationsScreen
@@ -566,9 +565,9 @@ private fun CustomTaskScreen(
     }
   }
 
-  val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
-  LaunchedEffect(modelInitializationStatus) {
-    showErrorDialog = modelInitializationStatus?.status == ModelInitializationStatusType.ERROR
+  val modelInitStatus by selectedModel.initStatusFlow.collectAsState()
+  LaunchedEffect(modelInitStatus) {
+    showErrorDialog = modelInitStatus is Model.InitializationStatus.Failed
   }
 
   Scaffold(
@@ -659,8 +658,10 @@ private fun CustomTaskScreen(
   }
 
   if (showErrorDialog) {
+    val initErrorMessage =
+      (modelInitStatus as? Model.InitializationStatus.Failed)?.error?.message ?: ""
     ErrorDialog(
-      error = modelInitializationStatus?.error ?: "",
+      error = initErrorMessage,
       onDismiss = {
         showErrorDialog = false
         onNavigateUp()

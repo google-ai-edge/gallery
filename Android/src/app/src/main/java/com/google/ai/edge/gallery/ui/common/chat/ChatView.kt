@@ -91,7 +91,6 @@ import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
 import com.google.ai.edge.gallery.ui.common.copyBitmapToClipboard
 import com.google.ai.edge.gallery.ui.common.saveBitmapToMediaStore
 import com.google.ai.edge.gallery.ui.common.shareBitmap
-import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import java.io.File
 import java.util.UUID
@@ -204,10 +203,7 @@ fun ChatView(
 
   // Handle system's edge swipe.
   BackHandler {
-    val modelInitializationStatus =
-      modelManagerUiState.modelInitializationStatus[selectedModel.name]
-    val isModelInitializing =
-      modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
+    val isModelInitializing = selectedModel.initializing
     if (drawerState.isOpen) {
       scope.launch { drawerState.close() }
     } else if (!isModelInitializing && !uiState.inProgress) {

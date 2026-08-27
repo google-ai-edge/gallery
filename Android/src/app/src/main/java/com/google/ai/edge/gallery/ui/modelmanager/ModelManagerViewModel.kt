@@ -97,25 +97,6 @@ private const val ALLOWLIST_BASE_URL =
 
 private const val TEST_MODEL_ALLOW_LIST = ""
 
-data class ModelInitializationStatus(
-  val status: ModelInitializationStatusType,
-  var error: String = "",
-  var initializedBackends: Set<String> = setOf(),
-) {
-  fun isFirstInitialization(model: Model): Boolean {
-    val backend =
-      model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
-    return !initializedBackends.contains(backend)
-  }
-}
-
-enum class ModelInitializationStatusType {
-  NOT_INITIALIZED,
-  INITIALIZING,
-  INITIALIZED,
-  ERROR,
-}
-
 enum class TokenStatus {
   NOT_STORED,
   EXPIRED,
@@ -142,9 +123,6 @@ data class ModelManagerUiState(
   /** A map that tracks the download status of each model, indexed by model name. */
   val modelDownloadStatus: Map<String, ModelDownloadStatus>,
 
-  /** A map that tracks the initialization status of each model, indexed by model name. */
-  val modelInitializationStatus: Map<String, ModelInitializationStatus>,
-
   /** Whether the app is loading and processing the model allowlist. */
   val loadingModelAllowlist: Boolean = true,
 
@@ -161,13 +139,11 @@ data class ModelManagerUiState(
   val modelImportingUpdateTrigger: Long = 0L,
 ) {
   fun isModelInitialized(model: Model): Boolean {
-    return modelInitializationStatus[model.name]?.status ==
-      ModelInitializationStatusType.INITIALIZED
+    return model.initStatusFlow.value is Model.InitializationStatus.Initialized
   }
 
   fun isModelInitializing(model: Model): Boolean {
-    return modelInitializationStatus[model.name]?.status ==
-      ModelInitializationStatusType.INITIALIZING
+    return model.initializing
   }
 }
 
@@ -233,6 +209,14 @@ constructor(
   private var _allowlistModels: MutableList<Model> = mutableListOf()
   val allowlistModels: List<Model>
     get() = _allowlistModels
+
+  private val initializedBackends = mutableMapOf<String, MutableSet<String>>()
+
+  fun isFirstInitialization(model: Model): Boolean {
+    val backend =
+      model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
+    return !initializedBackends.getOrDefault(model.name, emptySet()).contains(backend)
+  }
 
   val authService = AuthorizationService(context)
   var curAccessToken: String = ""
@@ -400,6 +384,7 @@ constructor(
     val curModelDownloadStatus = uiState.value.modelDownloadStatus.toMutableMap()
     curModelDownloadStatus[model.name] =
       ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED)
+    initializedBackends.remove(model.name)
 
     // Delete model from the list if model is imported as a local model and
     // removeImportedFromModelList is
@@ -441,12 +426,7 @@ constructor(
   ) {
     viewModelScope.launch {
       // Skip if initialized already.
-      if (
-        !force &&
-          model.instance != null &&
-          uiState.value.modelInitializationStatus[model.name]?.status ==
-            ModelInitializationStatusType.INITIALIZED
-      ) {
+      if (!force && model.initStatusFlow.value is Model.InitializationStatus.Initialized) {
         Log.d(TAG, "Model '${model.name}' has been initialized. Skipping.")
         onDone()
         return@launch
@@ -465,18 +445,16 @@ constructor(
       // Start initialization.
       Log.d(TAG, "Initializing model '${model.name}'...")
       model.markInitializationStarted()
-      updateModelInitializationStatus(
-        model = model,
-        status = ModelInitializationStatusType.INITIALIZING,
-      )
 
       val onDoneFn: (error: String) -> Unit = { error ->
         if (model.instance != null) {
           Log.d(TAG, "Model '${model.name}' initialized successfully")
-          updateModelInitializationStatus(
-            model = model,
-            status = ModelInitializationStatusType.INITIALIZED,
-          )
+          val backend =
+            model.getStringConfigValue(
+              key = ConfigKeys.ACCELERATOR,
+              defaultValue = Accelerator.GPU.label,
+            )
+          initializedBackends.getOrPut(model.name) { mutableSetOf() }.add(backend)
           if (model.cleanUpAfterInit) {
             model.markInitializationFailed(
               IllegalStateException("Model cleaned up after initialization")
@@ -490,11 +468,6 @@ constructor(
         } else if (error.isNotEmpty()) {
           model.markInitializationFailed(error)
           Log.d(TAG, "Model '${model.name}' failed to initialize")
-          updateModelInitializationStatus(
-            model = model,
-            status = ModelInitializationStatusType.ERROR,
-            error = error,
-          )
           onError(error)
         } else {
           model.markInitialized(null)
@@ -534,10 +507,6 @@ constructor(
       Log.d(TAG, "Cleaning up model '${model.name}'...")
       val onDoneFn: () -> Unit = {
         model.resetInitialization()
-        updateModelInitializationStatus(
-          model = model,
-          status = ModelInitializationStatusType.NOT_INITIALIZED,
-        )
         Log.d(TAG, "Clean up model '${model.name}' done")
         onDone()
       }
@@ -575,26 +544,6 @@ constructor(
     }
 
     _uiState.update { it.copy(modelDownloadStatus = curModelDownloadStatus) }
-  }
-
-  fun setInitializationStatus(model: Model, status: ModelInitializationStatus) {
-    val curStatus = uiState.value.modelInitializationStatus.toMutableMap()
-    if (curStatus.containsKey(model.name)) {
-      val initializedBackends = curStatus[model.name]?.initializedBackends ?: setOf()
-      val backend =
-        model.getStringConfigValue(
-          key = ConfigKeys.ACCELERATOR,
-          defaultValue = Accelerator.GPU.label,
-        )
-      val newInitializedBackends =
-        if (status.status == ModelInitializationStatusType.INITIALIZED) {
-          initializedBackends + backend
-        } else {
-          initializedBackends
-        }
-      curStatus[model.name] = status.copy(initializedBackends = newInitializedBackends)
-      _uiState.update { it.copy(modelInitializationStatus = curStatus) }
-    }
   }
 
   fun addTextInputHistory(text: String) {
@@ -769,7 +718,6 @@ constructor(
 
     // Add initial status and states.
     val modelDownloadStatus = uiState.value.modelDownloadStatus.toMutableMap()
-    val modelInstances = uiState.value.modelInitializationStatus.toMutableMap()
     if (model.url.isNotEmpty()) {
       modelDownloadStatus[model.name] = getModelDownloadStatus(model = model)
     } else {
@@ -780,15 +728,12 @@ constructor(
           totalBytes = info.fileSize,
         )
     }
-    modelInstances[model.name] =
-      ModelInitializationStatus(status = ModelInitializationStatusType.NOT_INITIALIZED)
 
     // Update ui state.
     _uiState.update {
       it.copy(
         tasks = it.tasks.toList(),
         modelDownloadStatus = modelDownloadStatus,
-        modelInitializationStatus = modelInstances,
         modelImportingUpdateTrigger = System.currentTimeMillis(),
       )
     }
@@ -1209,13 +1154,11 @@ constructor(
       tasks = listOf(),
       tasksByCategory = mapOf(),
       modelDownloadStatus = mapOf(),
-      modelInitializationStatus = mapOf(),
     )
   }
 
   private fun createUiState(): ModelManagerUiState {
     val modelDownloadStatus: MutableMap<String, ModelDownloadStatus> = mutableMapOf()
-    val modelInstances: MutableMap<String, ModelInitializationStatus> = mutableMapOf()
     val tasks: MutableMap<String, Task> = mutableMapOf()
     val checkedModelNames = mutableSetOf<String>()
     for (customTask in getActiveCustomTasks()) {
@@ -1226,8 +1169,6 @@ constructor(
           continue
         }
         modelDownloadStatus[model.name] = getModelDownloadStatus(model = model)
-        modelInstances[model.name] =
-          ModelInitializationStatus(status = ModelInitializationStatusType.NOT_INITIALIZED)
         checkedModelNames.add(model.name)
       }
     }
@@ -1281,7 +1222,6 @@ constructor(
       tasks = getActiveCustomTasks().map { it.task }.toList(),
       tasksByCategory = mapOf(),
       modelDownloadStatus = modelDownloadStatus,
-      modelInitializationStatus = modelInstances,
       textInputHistory = textInputHistory,
     )
   }
@@ -1510,30 +1450,6 @@ constructor(
       val file = File(modelsDir, dir)
       file.deleteRecursively()
     }
-  }
-
-  private fun updateModelInitializationStatus(
-    model: Model,
-    status: ModelInitializationStatusType,
-    error: String = "",
-  ) {
-    val curModelInstance = uiState.value.modelInitializationStatus.toMutableMap()
-    val initializedBackends = curModelInstance[model.name]?.initializedBackends ?: setOf()
-    val backend =
-      model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
-    val newInitializedBackends =
-      if (status == ModelInitializationStatusType.INITIALIZED) {
-        initializedBackends + backend
-      } else {
-        initializedBackends
-      }
-    curModelInstance[model.name] =
-      ModelInitializationStatus(
-        status = status,
-        error = error,
-        initializedBackends = newInitializedBackends,
-      )
-    _uiState.update { it.copy(modelInitializationStatus = curModelInstance) }
   }
 
   fun isModelDownloaded(model: Model): Boolean {

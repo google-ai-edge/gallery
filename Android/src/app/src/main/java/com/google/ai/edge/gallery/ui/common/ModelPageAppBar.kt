@@ -61,7 +61,6 @@ import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.convertValueToTargetType
 import com.google.ai.edge.gallery.firebaseAnalytics
-import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -90,11 +89,9 @@ fun ModelPageAppBar(
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val context = LocalContext.current
   val curDownloadStatus = modelManagerUiState.modelDownloadStatus[model.name]
-  val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[model.name]
-  val isModelInitializing =
-    modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
-  val isModelInitialized =
-    modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZED
+  val initStatus by model.initStatusFlow.collectAsState()
+  val isModelInitializing = initStatus is Model.InitializationStatus.Initializing
+  val isModelInitialized = initStatus is Model.InitializationStatus.Initialized
 
   CenterAlignedTopAppBar(
     title = {
