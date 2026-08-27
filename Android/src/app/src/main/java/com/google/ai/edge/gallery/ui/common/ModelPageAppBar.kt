@@ -61,7 +61,6 @@ import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.convertValueToTargetType
 import com.google.ai.edge.gallery.firebaseAnalytics
-import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -90,11 +89,9 @@ fun ModelPageAppBar(
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val context = LocalContext.current
   val curDownloadStatus = modelManagerUiState.modelDownloadStatus[model.name]
-  val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[model.name]
-  val isModelInitializing =
-    modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
-  val isModelInitialized =
-    modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZED
+  val initStatus by model.initStatusFlow.collectAsState()
+  val isModelInitializing = initStatus is Model.InitializationStatus.Initializing
+  val isModelInitialized = initStatus is Model.InitializationStatus.Initialized
 
   CenterAlignedTopAppBar(
     title = {
@@ -110,12 +107,10 @@ fun ModelPageAppBar(
           val tintColor =
             if (useThemeColor) MaterialTheme.colorScheme.onSurface
             else getTaskIconColor(task = task)
-          Icon(
-            task.icon ?: ImageVector.vectorResource(task.iconVectorResourceId!!),
-            tint = tintColor,
-            modifier = Modifier.size(24.dp),
-            contentDescription = null,
-          )
+          val icon = task.icon ?: task.iconVectorResourceId?.let { ImageVector.vectorResource(it) }
+          if (icon != null) {
+            Icon(icon, tint = tintColor, modifier = Modifier.size(24.dp), contentDescription = null)
+          }
           Text(task.label, style = MaterialTheme.typography.titleMedium, color = tintColor)
         }
 
