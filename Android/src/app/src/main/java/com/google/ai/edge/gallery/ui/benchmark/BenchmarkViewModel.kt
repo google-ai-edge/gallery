@@ -77,14 +77,14 @@ data class BenchmarkUiState(
 )
 
 @HiltViewModel
-class BenchmarkViewModel
+open class BenchmarkViewModel
 @Inject
 constructor(
   @ApplicationContext private val appContext: Context,
-  val dataStoreRepository: DataStoreRepository,
+  open val dataStoreRepository: DataStoreRepository,
 ) : ViewModel() {
   protected val _uiState = MutableStateFlow(BenchmarkUiState())
-  val uiState = _uiState.asStateFlow()
+  open val uiState = _uiState.asStateFlow()
 
   init {
     // Load results from storage.
@@ -300,7 +300,7 @@ constructor(
     }
   }
 
-  fun clearBaseline() {
+  open fun clearBaseline() {
     _uiState.update { _uiState.value.copy(baselineResult = null) }
   }
 

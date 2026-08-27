@@ -245,7 +245,7 @@ constructor(
     return uiState.value.selectedModel
   }
 
-  fun getModelByName(name: String): Model? {
+  open fun getModelByName(name: String): Model? {
     for (task in uiState.value.tasks) {
       for (model in task.models) {
         if (model.name == name) {
@@ -266,7 +266,7 @@ constructor(
     return allModels.toList().sortedBy { it.displayName.ifEmpty { it.name } }
   }
 
-  fun getAllDownloadedModels(): List<Model> {
+  open fun getAllDownloadedModels(): List<Model> {
     return getAllModels().filter {
       uiState.value.modelDownloadStatus[it.name]?.status == ModelDownloadStatusType.SUCCEEDED &&
         it.isLlm

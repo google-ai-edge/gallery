@@ -116,6 +116,7 @@ fun BenchmarkResultsViewer(
   initialModelName: String,
   modelManagerViewModel: ModelManagerViewModel,
   viewModel: BenchmarkViewModel,
+  hideProgressIndicator: Boolean = false,
   onClose: () -> Unit,
 ) {
   val scope = rememberCoroutineScope()
@@ -255,7 +256,9 @@ fun BenchmarkResultsViewer(
                 horizontalAlignment = Alignment.CenterHorizontally,
               ) {
                 // Progress spinner.
-                CircularProgressIndicator(strokeWidth = 4.dp, modifier = Modifier.size(36.dp))
+                if (!hideProgressIndicator) {
+                  CircularProgressIndicator(strokeWidth = 4.dp, modifier = Modifier.size(36.dp))
+                }
                 // Info text.
                 Text(
                   stringResource(R.string.running_benchmark_msg),
