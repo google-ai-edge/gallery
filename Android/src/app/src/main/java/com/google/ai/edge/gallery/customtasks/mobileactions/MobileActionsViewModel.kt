@@ -29,10 +29,11 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.markInitializationFailed
+import com.google.ai.edge.gallery.data.markInitialized
+import com.google.ai.edge.gallery.data.resetInitialization
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.gallery.ui.llmchat.LlmModelInstance
-import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatus
-import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -202,10 +203,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     reset()
 
     viewModelScope.launch(Dispatchers.Default) {
-      modelManagerViewModel.setInitializationStatus(
-        model = model,
-        status = ModelInitializationStatus(status = ModelInitializationStatusType.NOT_INITIALIZED),
-      )
+      model.resetInitialization()
       LlmChatModelHelper.cleanUp(
         model = model,
         onDone = {
@@ -216,13 +214,11 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
             supportImage = false,
             supportAudio = false,
             onDone = { error ->
-              modelManagerViewModel.setInitializationStatus(
-                model = model,
-                status =
-                  ModelInitializationStatus(status = ModelInitializationStatusType.INITIALIZED),
-              )
               if (error.isNotEmpty()) {
+                model.markInitializationFailed(error)
                 onError(error)
+              } else {
+                model.markInitialized()
               }
             },
             systemInstruction = getSystemPrompt(),
