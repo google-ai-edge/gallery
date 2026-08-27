@@ -63,7 +63,6 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.modelitem.StatusIcon
-import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,7 +82,7 @@ fun ModelPickerChip(
   val windowInfo = LocalWindowInfo.current
   val screenWidthDp = remember { with(density) { windowInfo.containerSize.width.toDp() } }
 
-  val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[initialModel.name]
+  val initStatus by initialModel.initStatusFlow.collectAsState()
 
   Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
     Row(
@@ -114,8 +113,7 @@ fun ModelPickerChip(
             downloadStatus = modelManagerUiState.modelDownloadStatus[initialModel.name],
           )
           this@Inner.AnimatedVisibility(
-            visible =
-              modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING,
+            visible = initStatus is Model.InitializationStatus.Initializing,
             enter = scaleIn() + fadeIn(),
             exit = scaleOut() + fadeOut(),
           ) {
