@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.data
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -54,6 +55,7 @@ interface DownloadRepository {
   fun downloadModel(
     task: Task?,
     model: Model,
+    includeExtraDataFiles: Boolean = true,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   )
 
@@ -96,11 +98,13 @@ class DefaultDownloadRepository(
   override fun downloadModel(
     task: Task?,
     model: Model,
+    includeExtraDataFiles: Boolean,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
     // Create input data.
     val builder = Data.Builder()
-    val totalBytes = model.totalBytes + model.extraDataFiles.sumOf { it.sizeInBytes }
+    val extraFiles = if (includeExtraDataFiles) model.extraDataFiles else emptyList()
+    val totalBytes = model.sizeInBytes + extraFiles.sumOf { it.sizeInBytes }
     val inputDataBuilder =
       builder
         .putString(KEY_MODEL_NAME, model.name)
@@ -116,12 +120,12 @@ class DefaultDownloadRepository(
         .putLong(KEY_MODEL_TOTAL_BYTES, totalBytes)
         .putBoolean(KEY_MODEL_IS_IMPORTED, model.imported)
 
-    if (model.extraDataFiles.isNotEmpty()) {
+    if (extraFiles.isNotEmpty()) {
       inputDataBuilder
-        .putString(KEY_MODEL_EXTRA_DATA_URLS, model.extraDataFiles.joinToString(",") { it.url })
+        .putString(KEY_MODEL_EXTRA_DATA_URLS, extraFiles.joinToString(",") { it.url })
         .putString(
           KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES,
-          model.extraDataFiles.joinToString(",") { it.downloadFileName },
+          extraFiles.joinToString(",") { it.downloadFileName },
         )
     }
     if (model.accessToken != null) {
@@ -275,6 +279,7 @@ class DefaultDownloadRepository(
     }
   }
 
+  @SuppressLint("PendingIntentMutability")
   private fun sendNotification(title: String, text: String, taskId: String, modelName: String) {
     // Don't send notification if app is in foreground.
     if (lifecycleProvider.isAppInForeground) {

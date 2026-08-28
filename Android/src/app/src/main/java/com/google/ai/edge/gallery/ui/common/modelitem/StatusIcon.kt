@@ -57,7 +57,7 @@ fun StatusIcon(
   ) {
     val color =
       if (task != null) {
-        getTaskBgGradientColors(task = task)[1]
+        getTaskBgGradientColors(task = task).getOrNull(1) ?: MaterialTheme.colorScheme.primary
       } else {
         MaterialTheme.colorScheme.primary
       }

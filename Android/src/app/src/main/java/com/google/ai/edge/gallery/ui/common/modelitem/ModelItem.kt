@@ -354,6 +354,14 @@ fun ModelItem(
           }
         }
       }
+      if (isExpanded) {
+        OptionalComponentsPanel(
+          model = model,
+          task = task,
+          modelManagerViewModel = modelManagerViewModel,
+          downloadStatus = downloadStatus?.status,
+        )
+      }
     }
   }
 }

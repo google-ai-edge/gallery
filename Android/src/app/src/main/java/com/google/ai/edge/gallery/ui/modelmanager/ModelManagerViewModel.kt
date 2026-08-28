@@ -137,6 +137,12 @@ data class ModelManagerUiState(
   val configValuesUpdateTrigger: Long = 0L,
   // Updated when model is imported of an imported model is deleted.
   val modelImportingUpdateTrigger: Long = 0L,
+
+  /**
+   * A map that tracks whether optional components are enabled for download for each model, indexed
+   * by model name.
+   */
+  val downloadOptionalComponents: Map<String, Boolean> = mapOf(),
 ) {
   fun isModelInitialized(model: Model): Boolean {
     return model.initStatusFlow.value is Model.InitializationStatus.Initialized
@@ -144,6 +150,10 @@ data class ModelManagerUiState(
 
   fun isModelInitializing(model: Model): Boolean {
     return model.initializing
+  }
+
+  fun isDownloadOptionalComponentsEnabled(modelName: String): Boolean {
+    return downloadOptionalComponents[modelName] ?: true
   }
 }
 
@@ -220,6 +230,18 @@ constructor(
 
   val authService = AuthorizationService(context)
   var curAccessToken: String = ""
+
+  open fun isDownloadOptionalComponentsEnabled(modelName: String): Boolean {
+    return _uiState.value.isDownloadOptionalComponentsEnabled(modelName)
+  }
+
+  open fun setDownloadOptionalComponents(modelName: String, enabled: Boolean) {
+    _uiState.update { currentState ->
+      val newMap = currentState.downloadOptionalComponents.toMutableMap()
+      newMap[modelName] = enabled
+      currentState.copy(downloadOptionalComponents = newMap)
+    }
+  }
 
   override fun onCleared() {
     authService.dispose()
@@ -298,7 +320,11 @@ constructor(
     }
   }
 
-  open fun downloadModel(task: Task?, model: Model) {
+  open fun downloadModel(
+    task: Task?,
+    model: Model,
+    includeExtraDataFiles: Boolean = isDownloadOptionalComponentsEnabled(model.name),
+  ) {
     // Update status.
     setDownloadStatus(
       curModel = model,
@@ -350,6 +376,7 @@ constructor(
     downloadRepository.downloadModel(
       task = task,
       model = model,
+      includeExtraDataFiles = includeExtraDataFiles,
       onStatusUpdated = this::setDownloadStatus,
     )
   }
@@ -407,9 +434,12 @@ constructor(
       }
       dataStoreRepository.saveImportedModels(importedModels = importedModels)
     }
+    val updatedDownloadOptionalComponents = _uiState.value.downloadOptionalComponents.toMutableMap()
+    updatedDownloadOptionalComponents.remove(model.name)
     _uiState.update {
       it.copy(
         modelDownloadStatus = curModelDownloadStatus,
+        downloadOptionalComponents = updatedDownloadOptionalComponents,
         tasks = it.tasks.toList(),
         modelImportingUpdateTrigger = System.currentTimeMillis(),
       )
@@ -1223,6 +1253,7 @@ constructor(
       tasksByCategory = mapOf(),
       modelDownloadStatus = modelDownloadStatus,
       textInputHistory = textInputHistory,
+      downloadOptionalComponents = _uiState.value.downloadOptionalComponents,
     )
   }
 
