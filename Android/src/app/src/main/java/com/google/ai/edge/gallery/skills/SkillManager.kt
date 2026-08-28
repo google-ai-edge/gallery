@@ -90,8 +90,10 @@ constructor(
    * Performs disk reads on [kotlinx.coroutines.Dispatchers.IO] and updates [skills] when finished.
    */
   override suspend fun loadSkills(defaultDisabledSkills: Set<String>) {
-    if (!skillLoaded) {
-      withContext(Dispatchers.IO) {
+    withContext(Dispatchers.IO) {
+      // If the skills have not been loaded yet, load them from DataStore and assets and update
+      // the state.
+      if (!skillLoaded) {
         Log.d(TAG, "Loading skills index...")
 
         // 1. Load all skills from DataStore.
@@ -135,6 +137,28 @@ constructor(
         _skills.value = finalSkills
 
         skillLoaded = true
+      } else {
+        // If skills were already loaded, re-apply defaultDisabledSkills of the current model to
+        // built-in skills that haven't been explicitly modified by the user.
+        // This is needed because user may switch to a different model with different
+        // defaultDisabledSkills.
+        val updatedSkills =
+          _skills.value.map { skill ->
+            if (skill.builtIn && !skill.userModifiedSelection) {
+              val shouldBeSelected = skill.name !in defaultDisabledSkills
+              if (skill.selected != shouldBeSelected) {
+                skill.toBuilder().setSelected(shouldBeSelected).build()
+              } else {
+                skill
+              }
+            } else {
+              skill
+            }
+          }
+        if (updatedSkills != _skills.value) {
+          _skills.value = updatedSkills
+          dataStoreRepository.setSkills(updatedSkills)
+        }
       }
     }
   }
@@ -522,7 +546,8 @@ constructor(
     featuredSkills: List<AllowedSkill> = emptyList(),
   ) {
     // Update state.
-    val updatedSkill = skill.toBuilder().setSelected(selected).build()
+    val updatedSkill =
+      skill.toBuilder().setSelected(selected).setUserModifiedSelection(true).build()
 
     firebaseAnalytics?.logEvent(
       GalleryEvent.SKILL_MANAGEMENT.id,
@@ -553,7 +578,9 @@ constructor(
   fun setAllSkillsSelected(selected: Boolean) {
     // Update state.
     _skills.update { currentSkills ->
-      currentSkills.map { skill -> skill.toBuilder().setSelected(selected).build() }
+      currentSkills.map { skill ->
+        skill.toBuilder().setSelected(selected).setUserModifiedSelection(true).build()
+      }
     }
 
     Log.d(

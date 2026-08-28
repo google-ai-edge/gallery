@@ -157,7 +157,7 @@ constructor(
     val initialSystemPrompt = systemInstruction?.toString() ?: task.defaultSystemPrompt
     coroutineScope.launch(Dispatchers.Default) {
       val skillsJob = launch {
-        agentTools.skillsProvider.loadSkills(SkillManagerViewModel.DEFAULT_DISABLED_SKILLS)
+        agentTools.skillsProvider.loadSkills(SkillManagerViewModel.getDefaultDisabledSkills(model))
       }
       val mcpJob = launch { agentTools.mcpManagerViewModel.loadMcpServers() }
       skillsJob.join()

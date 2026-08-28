@@ -93,7 +93,6 @@ import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.ui.common.chat.MessageBubbleShape
-import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
 import com.google.ai.edge.gallery.ui.theme.customColors
@@ -135,7 +134,7 @@ fun PromptTemplatesPanel(
   val focusManager = LocalFocusManager.current
   val interactionSource = remember { MutableInteractionSource() }
   val expandedStates = remember { mutableStateMapOf<String, Boolean>() }
-  val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[model.name]
+  val initStatus by model.initStatusFlow.collectAsState()
 
   // Update input editor values when prompt template changes.
   LaunchedEffect(selectedPromptTemplateType) {
@@ -361,8 +360,7 @@ fun PromptTemplatesPanel(
             )
           }
 
-          val modelInitializing =
-            modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
+          val modelInitializing = initStatus is Model.InitializationStatus.Initializing
           if (inProgress && !modelInitializing && !uiState.preparing) {
             IconButton(
               onClick = { onStopButtonClicked(model) },

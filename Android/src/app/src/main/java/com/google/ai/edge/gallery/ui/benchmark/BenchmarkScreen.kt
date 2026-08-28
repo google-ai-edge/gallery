@@ -89,11 +89,15 @@ fun BenchmarkScreen(
   modelManagerViewModel: ModelManagerViewModel,
   modifier: Modifier = Modifier,
   viewModel: BenchmarkViewModel = hiltViewModel(),
+  hideProgressIndicator: Boolean = false,
+  initialShowConfirmationDialog: Boolean = false,
   onBackClicked: () -> Unit,
 ) {
   val uiState by viewModel.uiState.collectAsState()
   var enableBackButton by remember { mutableStateOf(true) }
-  var showRunBenchmarkConfirmationDialog by remember { mutableStateOf(false) }
+  var showRunBenchmarkConfirmationDialog by remember {
+    mutableStateOf(initialShowConfirmationDialog)
+  }
   val downloadedLlmModelNames = remember {
     modelManagerViewModel
       .getAllDownloadedModels()
@@ -287,6 +291,7 @@ fun BenchmarkScreen(
         initialModelName = selectedModelName,
         modelManagerViewModel = modelManagerViewModel,
         viewModel = viewModel,
+        hideProgressIndicator = hideProgressIndicator,
         onClose = { viewModel.setShowResultsViewer(showResultsViewer = false) },
       )
     }
