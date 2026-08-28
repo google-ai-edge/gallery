@@ -20,6 +20,9 @@ import android.content.Context
 import com.google.ai.edge.gallery.common.getModelStorageDir
 import com.google.gson.annotations.SerializedName
 import java.io.File
+import kotlin.time.Duration
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -349,43 +352,36 @@ data class Model(
   sealed interface InitializationStatus {
     data object Idle : InitializationStatus
 
-    data object Initializing : InitializationStatus
+    data class Initializing(val startTimeMark: TimeMark) : InitializationStatus
 
-    data class Initialized(val instance: Any?) : InitializationStatus
+    data class Initialized(val instance: Any?, val duration: Duration) : InitializationStatus
 
-    data class Failed(val error: Throwable) : InitializationStatus
+    data class Failed(val error: Throwable, val duration: Duration) : InitializationStatus
   }
 
   internal val _initStatusFlow = MutableStateFlow<InitializationStatus>(InitializationStatus.Idle)
   val initStatusFlow: StateFlow<InitializationStatus> = _initStatusFlow.asStateFlow()
 
+  val initDuration: Duration?
+    get() =
+      when (val status = _initStatusFlow.value) {
+        is InitializationStatus.Initialized -> status.duration
+        is InitializationStatus.Failed -> status.duration
+        else -> null
+      }
+
   var instance: Any?
     get() = (_initStatusFlow.value as? InitializationStatus.Initialized)?.instance
     set(value) {
-      _initStatusFlow.update {
-        if (value == null) {
-          InitializationStatus.Idle
-        } else {
-          InitializationStatus.Initialized(value)
-        }
+      if (value == null) {
+        resetInitialization()
+      } else {
+        markInitialized(value)
       }
     }
 
-  var initializing: Boolean
+  val initializing: Boolean
     get() = _initStatusFlow.value is InitializationStatus.Initializing
-    set(value) {
-      _initStatusFlow.update { current ->
-        if (value) {
-          InitializationStatus.Initializing
-        } else {
-          if (current is InitializationStatus.Initializing) {
-            InitializationStatus.Idle
-          } else {
-            current
-          }
-        }
-      }
-    }
 
   fun preProcess() {
     val configValues: MutableMap<String, Any> = mutableMapOf()
@@ -491,8 +487,8 @@ val Model.supportModelBenchmark: Boolean
       false
 
 /** Marks the model as initialization started. */
-fun Model.markInitializationStarted() {
-  this._initStatusFlow.value = Model.InitializationStatus.Initializing
+fun Model.markInitializationStarted(timeSource: TimeSource = TimeSource.Monotonic) {
+  this._initStatusFlow.update { Model.InitializationStatus.Initializing(timeSource.markNow()) }
 }
 
 /**
@@ -502,14 +498,41 @@ fun Model.markInitializationStarted() {
  */
 fun Model.markInitialized(instance: Any? = this.instance) {
   this._initStatusFlow.update { current ->
-    val resolved = instance ?: (current as? Model.InitializationStatus.Initialized)?.instance
-    Model.InitializationStatus.Initialized(resolved)
+    when (current) {
+      is Model.InitializationStatus.Initializing -> {
+        val duration = current.startTimeMark.elapsedNow()
+        Model.InitializationStatus.Initialized(instance = instance, duration = duration)
+      }
+      is Model.InitializationStatus.Initialized -> {
+        val resolved = instance ?: current.instance
+        Model.InitializationStatus.Initialized(instance = resolved, duration = current.duration)
+      }
+      else -> {
+        Model.InitializationStatus.Initialized(instance = instance, duration = Duration.ZERO)
+      }
+    }
   }
 }
 
 /** Marks the model as initialization failed with the given [error]. */
 fun Model.markInitializationFailed(error: Throwable) {
-  this._initStatusFlow.value = Model.InitializationStatus.Failed(error)
+  this._initStatusFlow.update { current ->
+    when (current) {
+      is Model.InitializationStatus.Initializing -> {
+        val duration = current.startTimeMark.elapsedNow()
+        Model.InitializationStatus.Failed(error = error, duration = duration)
+      }
+      is Model.InitializationStatus.Initialized -> {
+        Model.InitializationStatus.Failed(error = error, duration = current.duration)
+      }
+      is Model.InitializationStatus.Failed -> {
+        Model.InitializationStatus.Failed(error = error, duration = current.duration)
+      }
+      else -> {
+        Model.InitializationStatus.Failed(error = error, duration = Duration.ZERO)
+      }
+    }
+  }
 }
 
 /** Marks the model as initialization failed with the given [errorMessage]. */
@@ -519,7 +542,7 @@ fun Model.markInitializationFailed(errorMessage: String) {
 
 /** Resets the model initialization. */
 fun Model.resetInitialization() {
-  this._initStatusFlow.value = Model.InitializationStatus.Idle
+  this._initStatusFlow.update { Model.InitializationStatus.Idle }
 }
 
 /** Waits for the model initialization to finish. */
