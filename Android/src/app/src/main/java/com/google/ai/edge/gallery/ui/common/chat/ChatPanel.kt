@@ -111,7 +111,6 @@ import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.FloatingBanner
 import com.google.ai.edge.gallery.ui.common.RotationalLoader
 import com.google.ai.edge.gallery.ui.common.ScrollToBottomButton
-import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
 import kotlinx.coroutines.android.awaitFrame
@@ -152,7 +151,7 @@ fun ChatPanel(
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val messages = uiState.messagesByModel[selectedModel.name] ?: listOf()
-  val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[selectedModel.name]
+  val modelInitStatus by selectedModel.initStatusFlow.collectAsState()
   val scope = rememberCoroutineScope()
   val snackbarHostState = remember { SnackbarHostState() }
   val context = LocalContext.current
@@ -302,8 +301,8 @@ fun ChatPanel(
   }
 
   // Show the error dialog when the model initialization status is error.
-  LaunchedEffect(modelInitializationStatus) {
-    showErrorDialog = modelInitializationStatus?.status == ModelInitializationStatusType.ERROR
+  LaunchedEffect(modelInitStatus) {
+    showErrorDialog = modelInitStatus is Model.InitializationStatus.Failed
   }
 
   // Scroll to the bottom when the last user message index changes (i.e. when a new user prompt is
@@ -594,8 +593,8 @@ fun ChatPanel(
         }
         // Loading screen when model is initialized for that first time.
         val isFirstInitializing =
-          modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING &&
-            modelInitializationStatus.isFirstInitialization(selectedModel)
+          modelInitStatus is Model.InitializationStatus.Initializing &&
+            modelManagerViewModel.isFirstInitialization(selectedModel)
         Column(
           horizontalAlignment = Alignment.CenterHorizontally,
           verticalArrangement = Arrangement.Center,
@@ -668,8 +667,7 @@ fun ChatPanel(
         audioClipMessageCount = audioClipMesssageCountToLastconfigChange,
         skillCount = skillCount,
         mcpCount = mcpCount,
-        modelInitializing =
-          modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING,
+        modelInitializing = modelInitStatus is Model.InitializationStatus.Initializing,
         textFieldPlaceHolderRes = task.textInputPlaceHolderRes,
         onValueChanged = { curMessage = it },
         onSendMessage = {
@@ -724,8 +722,10 @@ fun ChatPanel(
 
   // Error dialog.
   if (showErrorDialog || customErrorMessage != null) {
+    val initErrorMessage =
+      (modelInitStatus as? Model.InitializationStatus.Failed)?.error?.message ?: ""
     ErrorDialog(
-      error = customErrorMessage ?: modelInitializationStatus?.error ?: "",
+      error = customErrorMessage ?: initErrorMessage,
       onDismiss = {
         if (customErrorMessage != null) {
           customErrorMessage = null
