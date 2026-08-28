@@ -34,6 +34,7 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.SkillTryOutChip
 import com.google.ai.edge.gallery.data.AllowedSkill
 import com.google.ai.edge.gallery.data.DataStoreRepository
+import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.proto.Skill
 import com.google.ai.edge.gallery.skills.SkillManager
 import com.google.ai.edge.gallery.skills.getJsSkillUrl
@@ -48,6 +49,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGSkillManagerVM"
+private val DEFAULT_DISABLED_SKILLS =
+  setOf("calculate-hash", "kitchen-adventure", "text-spinner", "send-email")
 
 fun getTryOutChips(context: Context): List<SkillTryOutChip> =
   listOf(
@@ -137,9 +140,9 @@ class SkillManagerViewModel @Inject constructor(val skillManager: SkillManager) 
     }
   }
 
-  suspend fun loadSkills() {
+  suspend fun loadSkills(model: Model? = null) {
     setLoading(true)
-    skillManager.loadSkills(DEFAULT_DISABLED_SKILLS)
+    skillManager.loadSkills(getDefaultDisabledSkills(model))
     syncSkillsFromManager()
     setLoading(false)
   }
@@ -356,8 +359,17 @@ class SkillManagerViewModel @Inject constructor(val skillManager: SkillManager) 
   }
 
   companion object {
-    val DEFAULT_DISABLED_SKILLS =
-      setOf("calculate-hash", "kitchen-adventure", "text-spinner", "send-email")
+
+    fun getDefaultDisabledSkills(model: Model? = null): Set<String> {
+      val name = model?.name ?: ""
+      val isGemma4E4b = name.equals("Gemma-4-E4B-it", ignoreCase = true)
+      if (isGemma4E4b) {
+        // For Gemma 4 E4B model or above, we enable learn-something-new skill by default.
+        return DEFAULT_DISABLED_SKILLS
+      }
+      // For other models, we disable learn-something-new skill by default.
+      return DEFAULT_DISABLED_SKILLS + "learn-something-new"
+    }
 
     fun convertSkillMdToProto(
       mdContent: String,
