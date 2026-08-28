@@ -38,14 +38,19 @@ import com.google.mlkit.genai.common.DownloadStatus
 import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.prompt.Generation
 import com.google.mlkit.genai.prompt.GenerativeModel
+import com.google.mlkit.genai.prompt.ImagePart
 import com.google.mlkit.genai.prompt.ModelPreference
 import com.google.mlkit.genai.prompt.ModelReleaseStage
 import com.google.mlkit.genai.prompt.TextPart
 import com.google.mlkit.genai.prompt.generateContentRequest
 import com.google.mlkit.genai.prompt.generationConfig
 import com.google.mlkit.genai.prompt.modelConfig
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 private const val TAG = "AICoreModelHelper"
@@ -55,12 +60,17 @@ data class AICoreChatMessage(val isUser: Boolean, val text: String)
 data class AICoreModelInstance(
   val generativeModel: GenerativeModel,
   val chatHistory: MutableList<AICoreChatMessage> = mutableListOf(),
-  var inferenceJob: kotlinx.coroutines.Job? = null,
+  var inferenceJob: Job? = null,
 )
 
 object AICoreModelHelper : LlmModelHelper {
 
-  private val cleanUpListeners: MutableMap<String, CleanUpListener> = mutableMapOf()
+  private val cleanUpListeners = ConcurrentHashMap<String, CleanUpListener>()
+  private val initJobs = ConcurrentHashMap<String, Job>()
+  private val downloadJobs = ConcurrentHashMap<String, Job>()
+
+  internal var defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
+  internal var generativeModelProvider: (Model) -> GenerativeModel = ::getGenerativeModel
 
   override fun initialize(
     context: Context,
@@ -74,15 +84,11 @@ object AICoreModelHelper : LlmModelHelper {
     enableConversationConstrainedDecoding: Boolean,
     coroutineScope: CoroutineScope?,
   ) {
-    // AICore model helper requires a coroutine scope
-    if (coroutineScope == null) {
-      Log.e(TAG, "CoroutineScope is required for AICoreModelHelper")
-      onDone("Initialization failed: CoroutineScope is null")
-      return
-    }
-    val generativeModel = getGenerativeModel(model)
+    val generativeModel = generativeModelProvider(model)
+    val scope = coroutineScope ?: CoroutineScope(defaultDispatcher + Job())
 
-    coroutineScope.launch {
+    initJobs.remove(model.name)?.cancel()
+    val job = scope.launch {
       try {
         val status = generativeModel.checkStatus()
         when (status) {
@@ -122,24 +128,30 @@ object AICoreModelHelper : LlmModelHelper {
             onDone("Unknown feature status: $status")
           }
         }
+      } catch (e: CancellationException) {
+        Log.i(TAG, "Initialization was cancelled for model '${model.name}'.")
       } catch (e: Exception) {
         Log.e(TAG, "Initialization failed", e)
         onDone(cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error"))
       }
     }
+    initJobs[model.name] = job
+    job.invokeOnCompletion { initJobs.remove(model.name, job) }
   }
 
   fun downloadModel(
     context: Context,
-    coroutineScope: CoroutineScope,
+    coroutineScope: CoroutineScope? = null,
     model: Model,
     onProgress: (Long, Long) -> Unit,
     onDone: () -> Unit,
     onError: (String) -> Unit,
   ) {
-    val generativeModel = getGenerativeModel(model)
+    val generativeModel = generativeModelProvider(model)
+    val scope = coroutineScope ?: CoroutineScope(defaultDispatcher + Job())
 
-    coroutineScope.launch {
+    downloadJobs.remove(model.name)?.cancel()
+    val job = scope.launch {
       try {
         val status = generativeModel.checkStatus()
         when (status) {
@@ -175,15 +187,19 @@ object AICoreModelHelper : LlmModelHelper {
             onError("Unknown feature status: $status")
           }
         }
+      } catch (e: CancellationException) {
+        Log.i(TAG, "Download was cancelled for model '${model.name}'.")
       } catch (e: Exception) {
         Log.e(TAG, "Download failed", e)
         onError(cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error"))
       }
     }
+    downloadJobs[model.name] = job
+    job.invokeOnCompletion { downloadJobs.remove(model.name, job) }
   }
 
   suspend fun isModelDownloaded(model: Model): Boolean {
-    val generativeModel = getGenerativeModel(model)
+    val generativeModel = generativeModelProvider(model)
 
     return try {
       generativeModel.checkStatus() == FeatureStatus.AVAILABLE
@@ -214,10 +230,13 @@ object AICoreModelHelper : LlmModelHelper {
   }
 
   override fun cleanUp(model: Model, onDone: () -> Unit) {
-    val instance = model.instance as? AICoreModelInstance
+    initJobs.remove(model.name)?.cancel()
+    downloadJobs.remove(model.name)?.cancel()
 
+    val instance = model.instance as? AICoreModelInstance
     if (instance != null) {
       try {
+        instance.inferenceJob?.cancel()
         instance.generativeModel.close()
       } catch (e: Exception) {
         Log.e(TAG, "Failed to close the engine: ${e.message}")
@@ -256,11 +275,7 @@ object AICoreModelHelper : LlmModelHelper {
       onError("AICore model instance is not initialized.")
       return
     }
-    if (coroutineScope == null) {
-      Log.e(TAG, "CoroutineScope is required for AICoreModelHelper inference")
-      onError("Inference failed: CoroutineScope is null")
-      return
-    }
+    val scope = coroutineScope ?: CoroutineScope(defaultDispatcher + Job())
 
     if (!cleanUpListeners.containsKey(model.name)) {
       cleanUpListeners[model.name] = cleanUpListener
@@ -282,7 +297,7 @@ object AICoreModelHelper : LlmModelHelper {
 
     instance.inferenceJob?.cancel()
 
-    instance.inferenceJob = coroutineScope.launch {
+    instance.inferenceJob = scope.launch {
       executeRunInference(
         instance = instance,
         prompt = prompt,
@@ -312,10 +327,7 @@ object AICoreModelHelper : LlmModelHelper {
       val request =
         if (images.isNotEmpty()) {
           // ML Kit GenAI API currently only supports a single image input per request.
-          generateContentRequest(
-            com.google.mlkit.genai.prompt.ImagePart(images.first()),
-            TextPart(prompt),
-          ) {
+          generateContentRequest(ImagePart(images.first()), TextPart(prompt)) {
             this.temperature = temperature
             this.topK = topK
             this.maxOutputTokens = maxOutputTokens
@@ -370,10 +382,10 @@ object AICoreModelHelper : LlmModelHelper {
   }
 
   // Get the generative model from AICore based on the model config.
-  private fun getGenerativeModel(model: Model) =
+  internal fun getGenerativeModel(model: Model) =
     Generation.getClient(generationConfig { modelConfig = model.toAICoreModelConfig() })
 
-  private fun Model.toAICoreModelConfig() = modelConfig {
+  internal fun Model.toAICoreModelConfig() = modelConfig {
     releaseStage =
       if (aicoreReleaseStage == AICoreModelReleaseStage.PREVIEW) {
         ModelReleaseStage.PREVIEW
