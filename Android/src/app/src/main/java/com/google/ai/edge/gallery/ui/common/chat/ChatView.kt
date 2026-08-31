@@ -211,11 +211,12 @@ fun ChatView(
     }
   }
 
+  val systemLayoutDirection = LocalLayoutDirection.current
   CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
     ModalNavigationDrawer(
       drawerState = drawerState,
       drawerContent = {
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        CompositionLocalProvider(LocalLayoutDirection provides systemLayoutDirection) {
           ModalDrawerSheet {
             ChatHistorySideSheetContent(
               history = historySessions,
@@ -289,7 +290,7 @@ fun ChatView(
       },
       gesturesEnabled = drawerState.isOpen,
     ) {
-      CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+      CompositionLocalProvider(LocalLayoutDirection provides systemLayoutDirection) {
         Scaffold(
           modifier = modifier,
           snackbarHost = { SnackbarHost(snackbarHostState) },

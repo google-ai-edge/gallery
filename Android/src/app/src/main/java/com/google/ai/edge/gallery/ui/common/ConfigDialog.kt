@@ -520,7 +520,7 @@ fun SegmentedButtonRow(config: SegmentedButtonConfig, values: SnapshotStateMap<S
                 .joinToString(",")
           },
           checked = selectionStates[index],
-          label = { Text(label) },
+          label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false) },
         )
       }
     }

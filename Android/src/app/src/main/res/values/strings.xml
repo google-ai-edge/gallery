@@ -78,9 +78,9 @@
   <string name="clear" translatable="true" description="Content description for a button to clear text input. [CHAR_LIMIT=9]">Clear</string>
   <string name="collect" translatable="true" description="Action label to collect items. [CHAR_LIMIT=18]">Collect</string>
   <string name="color" translatable="true" description="Label for color picker or color configuration. [CHAR_LIMIT=18]">Color</string>
-  <string name="config_dialog_tab_model_configs" translatable="true" description="Tab label for model-specific configurations. [CHAR_LIMIT=22]">Model configs</string>
+  <string name="config_dialog_tab_model_configs" translatable="false" description="Tab label for model-specific configurations. [CHAR_LIMIT=22]">Model configs</string>
   <string name="config_dialog_tab_system_prompt" translatable="true" description="Tab label for system prompt configuration. [CHAR_LIMIT=22]">System prompt</string>
-  <string name="config_dialog_title" translatable="true" description="Title of the settings/configuration dialog. [CHAR_LIMIT=26]">Configurations</string>
+  <string name="config_dialog_title" translatable="false" description="Title of the settings/configuration dialog. [CHAR_LIMIT=26]">Configurations</string>
   <string name="benchmark_config_dialog_title" translatable="true" description="Title of the benchmark configuration dialog. [CHAR_LIMIT=29]">Benchmark configs</string>
   <string name="start" translatable="true" description="Button label to start benchmarking. [CHAR_LIMIT=9]">Start</string>
   <string name="continue_button_label" translatable="true" description="Button label to proceed to next step. [CHAR_LIMIT=18]">Continue</string>
@@ -553,11 +553,11 @@
   <!-- Button label to view licenses of third-party libraries. -->
   <string name="view_licenses" translatable="true" description="Label for the button that opens the screen displaying licenses for third-party libraries. [CHAR_LIMIT=49]">View licenses</string>
   <!-- Label for 'Auto' theme option. -->
-  <string name="theme_auto" translatable="true" description="Label for the system-default or automatic theme option, which follows the system settings. [CHAR_LIMIT=16]">Auto</string>
+  <string name="theme_auto" translatable="true" description="Label for the system-default or automatic theme option, which follows the system settings. [CHAR_LIMIT=7]">Auto</string>
   <!-- Label for 'Light' theme option. -->
-  <string name="theme_light" translatable="true" description="Label for the light theme option. [CHAR_LIMIT=16]">Light</string>
+  <string name="theme_light" translatable="true" description="Label for the light theme option. [CHAR_LIMIT=7]">Light</string>
   <!-- Label for 'Dark' theme option. -->
-  <string name="theme_dark" translatable="true" description="Label for the dark theme option. [CHAR_LIMIT=16]">Dark</string>
+  <string name="theme_dark" translatable="true" description="Label for the dark theme option. [CHAR_LIMIT=7]">Dark</string>
   <!-- General fallback label for unknown values. -->
   <string name="unknown" translatable="true" description="Fallback label when the theme state is unknown or undefined. [CHAR_LIMIT=18]">Unknown</string>
   <!-- Label for stats button or section. -->

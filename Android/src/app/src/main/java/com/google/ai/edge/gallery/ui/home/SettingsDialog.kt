@@ -72,6 +72,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.google.ai.edge.gallery.BuildConfig
@@ -186,7 +188,14 @@ fun SettingsDialog(
                     }
                   },
                   checked = theme == selectedTheme,
-                  label = { Text(stringResource(themeLabelRes(theme))) },
+                  label = {
+                    Text(
+                      stringResource(themeLabelRes(theme)),
+                      maxLines = 1,
+                      overflow = TextOverflow.Ellipsis,
+                      softWrap = false,
+                    )
+                  },
                 )
               }
             }
@@ -354,12 +363,14 @@ fun SettingsDialog(
             ClickableLink(
               url = "https://ai.google.dev/gemma/terms",
               linkText = stringResource(R.string.tos_dialog_title_gemma),
-              modifier = Modifier.padding(top = 4.dp),
+              textAlign = TextAlign.Start,
+              modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             )
             ClickableLink(
               url = "https://ai.google.dev/gemma/prohibited_use_policy",
               linkText = stringResource(R.string.settings_dialog_gemma_prohibited_use_policy),
-              modifier = Modifier.padding(top = 8.dp),
+              textAlign = TextAlign.Start,
+              modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
           }
         }

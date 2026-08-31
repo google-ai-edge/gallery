@@ -81,9 +81,10 @@ fun ClickableLink(
 ) {
   val annotatedText = buildTrackableUrlAnnotatedString(url, linkText)
 
+  val isStart = textAlign == TextAlign.Start || textAlign == TextAlign.Left
   Row(
     verticalAlignment = Alignment.CenterVertically,
-    horizontalArrangement = Arrangement.Center,
+    horizontalArrangement = if (isStart) Arrangement.Start else Arrangement.Center,
     modifier = modifier,
   ) {
     if (icon != null) {
