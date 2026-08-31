@@ -113,6 +113,7 @@
   <string name="enter_instruction" translatable="true" description="Placeholder text for instructing the model or agent. [CHAR_LIMIT=30]">Enter instruction</string>
   <string name="expand_all" translatable="true" description="Button label to expand all collapsed sections. [CHAR_LIMIT=20]">Expand all</string>
   <string name="failed_to_save" translatable="true" description="Title of error dialog shown when saving a skill fails. [CHAR_LIMIT=26]">Failed to save</string>
+  <string name="camera_init_failed" translatable="true" description="Toast message shown when the camera fails to initialize. [CHAR_LIMIT=60]">Failed to initialize camera</string>
   <string name="flashlight_off_message" translatable="true" description="Chat message response confirming the flashlight was turned off. [CHAR_LIMIT=110]">I\'ve turned off the flashlight.</string>
   <string name="flashlight_on_message" translatable="true" description="Chat message response confirming the flashlight was turned on. [CHAR_LIMIT=110]">I\'ve turned on the flashlight.</string>
   <string name="function_name" translatable="true" description="Label for the name of a function called by the agent. [CHAR_LIMIT=22]">Function name</string>

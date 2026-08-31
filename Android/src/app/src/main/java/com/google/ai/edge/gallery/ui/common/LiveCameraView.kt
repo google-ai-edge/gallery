@@ -21,7 +21,9 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Matrix
+import android.util.Log
 import android.util.Size
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -43,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
@@ -55,7 +58,9 @@ import androidx.compose.ui.unit.IntSize
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import java.util.concurrent.Executors
+import com.google.ai.edge.gallery.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.launch
 
 @Composable
@@ -67,6 +72,8 @@ fun LiveCameraView(
   outputImageFormat: Int = ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888,
   renderPreview: Boolean = true,
   cameraSelector: CameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA,
+  isPaused: Boolean = false,
+  onError: (() -> Unit)? = null,
 ) {
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
@@ -74,9 +81,15 @@ fun LiveCameraView(
   var imageBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
   var cameraProvider: ProcessCameraProvider? by remember { mutableStateOf(null) }
 
+  val currentOnBitmap by rememberUpdatedState(onBitmap)
+  val currentIsPaused by rememberUpdatedState(isPaused)
+  val currentOnError by rememberUpdatedState(onError)
+
   val onBitmapFn: (Bitmap, ImageProxy) -> Unit = { bitmap, imageProxy ->
-    imageBitmap = bitmap.asImageBitmap()
-    onBitmap(bitmap, imageProxy)
+    if (!currentIsPaused) {
+      imageBitmap = bitmap.asImageBitmap()
+    }
+    currentOnBitmap(bitmap, imageProxy)
   }
 
   val liveCameraPermissionLauncher =
@@ -92,6 +105,7 @@ fun LiveCameraView(
               preferredSize = preferredSize,
               outputImageFormat = outputImageFormat,
               cameraSelector = cameraSelector,
+              onError = currentOnError,
             )
         }
       }
@@ -110,6 +124,7 @@ fun LiveCameraView(
             preferredSize = preferredSize,
             outputImageFormat = outputImageFormat,
             cameraSelector = cameraSelector,
+            onError = currentOnError,
           )
       }
 
@@ -173,6 +188,7 @@ private suspend fun startCamera(
   preferredSize: Int,
   @ImageAnalysis.OutputImageFormat outputImageFormat: Int,
   cameraSelector: CameraSelector,
+  onError: (() -> Unit)? = null,
 ): ProcessCameraProvider {
   val cameraProvider = ProcessCameraProvider.awaitInstance(context)
 
@@ -192,7 +208,7 @@ private suspend fun startCamera(
       .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
       .build()
       .also {
-        it.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->
+        it.setAnalyzer(Dispatchers.Default.asExecutor()) { imageProxy ->
           var bitmap = imageProxy.toBitmap()
           val rotation = imageProxy.imageInfo.rotationDegrees
           val matrix = Matrix()
@@ -213,7 +229,9 @@ private suspend fun startCamera(
     cameraProvider.unbindAll()
     cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, imageAnalysis)
   } catch (exc: Exception) {
-    // todo: Handle exceptions (e.g., camera initialization failure)
+    Log.e("LiveCameraView", "Failed to start camera", exc)
+    Toast.makeText(context, R.string.camera_init_failed, Toast.LENGTH_LONG).show()
+    onError?.invoke()
   }
   return cameraProvider
 }
