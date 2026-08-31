@@ -451,7 +451,7 @@ fun ModelItemActionMenu(
       )
     }
     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-      if (showBenchmarkButton) {
+      if (showBenchmarkButton && model.isLlm) {
         DropdownMenuItem(
           text = {
             Row(

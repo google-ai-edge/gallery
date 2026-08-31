@@ -82,7 +82,7 @@ fun DownloadModelPanel(
       }
 
       val downloadSucceeded = downloadStatus == ModelDownloadStatusType.SUCCEEDED
-      if (showBenchmarkActionButton && downloadSucceeded) {
+      if (showBenchmarkActionButton && downloadSucceeded && model.isLlm) {
         val expandBenchmarkButton = isExpanded && !model.updatable
         // Benchmark button.
         var buttonModifier: Modifier = Modifier.height(42.dp)
