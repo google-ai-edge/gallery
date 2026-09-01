@@ -348,16 +348,18 @@ fun GalleryNavHost(
                   enableModelListAnimation = false
                   navController.navigateUp()
 
-                  // clean up all models.
-                  for (curModel in customTask.task.models) {
-                    val instanceToCleanUp = curModel.instance
-                    scope.launch(Dispatchers.Default) {
-                      modelManagerViewModel.cleanupModel(
-                        context = context,
-                        task = customTask.task,
-                        model = curModel,
-                        instanceToCleanUp = instanceToCleanUp,
-                      )
+                  if (!customTask.keepModelAlive) {
+                    // clean up all models.
+                    for (curModel in customTask.task.models) {
+                      val instanceToCleanUp = curModel.instance
+                      scope.launch(Dispatchers.Default) {
+                        modelManagerViewModel.cleanupModel(
+                          context = context,
+                          task = customTask.task,
+                          model = curModel,
+                          instanceToCleanUp = instanceToCleanUp,
+                        )
+                      }
                     }
                   }
                 }
