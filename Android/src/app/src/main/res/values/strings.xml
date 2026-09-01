@@ -739,10 +739,10 @@
   <string name="remove" translatable="true" description="Text on a button that removes an optional component or item. [CHAR_LIMIT=15]">Remove</string>
   <!-- Title for the optional components section in model details. [CHAR_LIMIT=30] -->
   <string name="optional_components" translatable="true" description="Title for the optional components section in model details. [CHAR_LIMIT=30]">Optional components</string>
-  <!-- Checkbox label to download sample images with model in Instant Local Search. [CHAR_LIMIT=50] -->
-  <string name="download_sample_images_optional" translatable="true" description="Checkbox label to download sample images with model in Instant Local Search. [CHAR_LIMIT=50]">Download sample images (optional)</string>
-  <!-- Label for sample images optional component in Instant Local Search. [CHAR_LIMIT=30] -->
-  <string name="sample_images" translatable="true" description="Label for sample images optional component in Instant Local Search. [CHAR_LIMIT=30]">Sample images</string>
+  <!-- Checkbox label to download sample images with model in Instant Media Search. [CHAR_LIMIT=50] -->
+  <string name="download_sample_images_optional" translatable="true" description="Checkbox label to download sample images with model in Instant Media Search. [CHAR_LIMIT=50]">Download sample images (optional)</string>
+  <!-- Label for sample images optional component in Instant Media Search. [CHAR_LIMIT=30] -->
+  <string name="sample_images" translatable="true" description="Label for sample images optional component in Instant Media Search. [CHAR_LIMIT=30]">Sample images</string>
   <!-- Description for the Agent Skills task. [CHAR_LIMIT=100] -->
   <string name="task_desc_agent_skills" translatable="true" description="Description for the Agent Skills task. [CHAR_LIMIT=106]">Chat with on-device large language models with skills and tools</string>
   <!-- Short description for the Agent Skills task. [CHAR_LIMIT=35] -->
