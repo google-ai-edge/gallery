@@ -354,7 +354,13 @@ fun ModelItem(
           }
         }
       }
-      if (isExpanded) {
+      // Only show the optional components panel if there is at least one extra data file that
+      // either targets all tasks (empty targetTaskTypes) or targets the currently active task.
+      val shouldShowOptionalComponents =
+        model.extraDataFiles.any { extraFile ->
+          extraFile.targetTaskTypes.isEmpty() || task?.id in extraFile.targetTaskTypes
+        }
+      if (isExpanded && shouldShowOptionalComponents) {
         OptionalComponentsPanel(
           model = model,
           task = task,

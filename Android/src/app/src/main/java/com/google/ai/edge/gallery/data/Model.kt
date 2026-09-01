@@ -42,6 +42,8 @@ data class ModelDataFile(
   val downloadFileName: String,
   /** The size of the data file in bytes. */
   val sizeInBytes: Long,
+  /** The task types this data file is targeted for. */
+  val targetTaskTypes: List<String> = emptyList(),
 )
 
 const val IMPORTS_DIR = "__imports"
