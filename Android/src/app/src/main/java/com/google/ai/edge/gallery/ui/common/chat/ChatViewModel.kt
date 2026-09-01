@@ -79,19 +79,8 @@ abstract class ChatViewModel(
   open val runtimeExecutor: AgentRuntimeExecutor? = null,
   open val llmSessionManager: LlmSessionManager? = null,
 ) : ViewModel() {
-  private var _currentSessionId: String = UUID.randomUUID().toString()
-
-  /**
-   * The identifier for the current active chat session.
-   *
-   * Delegates to the underlying [runtimeExecutor.activeSessionId] if initialized, or falls back to
-   * the local session identifier.
-   */
-  var currentSessionId: String
-    get() = runtimeExecutor?.activeSessionId ?: _currentSessionId
-    set(value) {
-      _currentSessionId = value
-    }
+  /** The identifier for the current active chat session. */
+  var currentSessionId: String = UUID.randomUUID().toString()
 
   private val _uiState = MutableStateFlow(createUiState())
   val uiState = _uiState.asStateFlow()
