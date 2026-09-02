@@ -259,6 +259,83 @@
   <string name="mobile_actions_challenge_email_colab" translatable="true" description="Button label to send the link to the guide/colab to the user's email. [CHAR_LIMIT=30]">Email guide to myself</string>
   <string name="mobile_actions_challenge_load_model" translatable="true" description="Button label to initiate loading the custom-built model. [CHAR_LIMIT=20]">Load Model</string>
 
+  <!-- Strings for Scrapbook -->
+  <string name="blur_inner_desc" translatable="true" description="This string appears within the Scrapbook cutout editor as a setting description within the blur effects panel. It means the blur effect is applied inside the border only. [CHAR_LIMIT=100]">Blur inside the border, draw nothing outside</string>
+  <string name="blur_inner_label" translatable="true" description="This string appears within the Scrapbook cutout editor as a setting label within the blur effects panel. It means the inner blur effect. [CHAR_LIMIT=30]">Inner</string>
+  <string name="blur_normal_desc" translatable="true" description="This string appears within the Scrapbook cutout editor as a setting description within the blur effects panel. It means the blur effect is applied normally across the border. [CHAR_LIMIT=100]">Blur inside and outside stroke</string>
+  <string name="blur_normal_label" translatable="true" description="This string appears within the Scrapbook cutout editor as a setting label within the blur effects panel. It means the normal blur effect. [CHAR_LIMIT=30]">Normal</string>
+  <string name="blur_outer_desc" translatable="true" description="This string appears within the Scrapbook cutout editor as a setting description within the blur effects panel. It means the blur effect is applied outside the border only. [CHAR_LIMIT=100]">Draw nothing inside the border, blur outside</string>
+  <string name="blur_outer_label" translatable="true" description="This string appears within the Scrapbook cutout editor as a setting label within the blur effects panel. It means the outer blur effect. [CHAR_LIMIT=30]">Outer</string>
+  <string name="blur_solid_desc" translatable="true" description="This string appears within the Scrapbook cutout editor as a setting description within the blur effects panel. It means the border is solid inside and blurred outside. [CHAR_LIMIT=100]">Draw solid inside the border, blur outside</string>
+  <string name="blur_solid_label" translatable="true" description="This string appears within the Scrapbook cutout editor as a setting label within the blur effects panel. It means the solid blur effect. [CHAR_LIMIT=30]">Solid</string>
+  <string name="blur_type" translatable="true" description="This string appears within the Scrapbook cutout editor as a section header within the blur effects panel. It means the category of blur effects. [CHAR_LIMIT=30]">Blur type</string>
+  <string name="border_width" translatable="true" description="This string appears within the Scrapbook cutout editor as a slider label within the stroke settings. It means the width of the border stroke. [CHAR_LIMIT=30]">Border width</string>
+  <string name="brush_size" translatable="true" description="This string appears within the Scrapbook cutout editor as a slider label within the brush settings. It means the size of the drawing brush. [CHAR_LIMIT=30]">Size</string>
+  <string name="brush_softness" translatable="true" description="This string appears within the Scrapbook cutout editor as a slider label within the brush settings. It means the softness of the drawing brush. [CHAR_LIMIT=30]">Softness</string>
+  <string name="change_background" translatable="true" description="This string appears within the Scrapbook collage editor as a button label within the bottom action bar. It means to change the background image of the collage. [CHAR_LIMIT=40]">Change background</string>
+  <string name="change_picture" translatable="true" description="This string appears within the Scrapbook collage editor as a button label within the bottom action bar. It means to change the picture. [CHAR_LIMIT=40]">Change picture</string>
+  <string name="clear_selection" translatable="true" description="This string appears within the Scrapbook collage editor as a button label within the top action bar. It means to clear the currently selected items. [CHAR_LIMIT=40]">Clear selection</string>
+  <string name="clone" translatable="true" description="This string appears within the Scrapbook collage editor as a context menu action within the item selection. It means to duplicate the selected item. [CHAR_LIMIT=30]">Clone</string>
+  <string name="collage" translatable="true" description="This string appears within the Scrapbook main screen as a tab label within the top navigation. It means the collage feature. [CHAR_LIMIT=30]">Collage</string>
+  <string name="collage_editor_instruction" translatable="true" description="This string appears within the Scrapbook collage editor as an instructional text within the empty state canvas. It means to tap to add items or long press to edit. [CHAR_LIMIT=100]">
+    Tap to add · Long press to edit
+  </string>
+  <string name="colored_background" translatable="true" description="This string appears within the Scrapbook collage editor as an item label within the background selection drawer. It means a solid or gradient colored background. [CHAR_LIMIT=50]">Colored background</string>
+  <string name="colorize" translatable="true" description="This string appears within the Scrapbook cutout editor as a toggle label within the editing tools. It means to apply colorization to the cutout. [CHAR_LIMIT=30]">Colorize</string>
+  <string name="columns" translatable="true" description="This string appears within the Scrapbook grid maker as a slider label within the grid settings. It means the number of columns in the grid. [CHAR_LIMIT=30]">Columns</string>
+  <string name="create_horizonal_grid" translatable="true" description="This string appears within the Scrapbook collage editor as a dialog button within the grid maker. It means to create a grid with horizontal layout. [CHAR_LIMIT=50]">Create horizontal grid</string>
+  <string name="create_new_collage_button_label" translatable="true" description="This string appears within the Scrapbook main screen as a primary action button within the Collage tab. It means to start creating a new collage. [CHAR_LIMIT=40]">Create new collage</string>
+  <string name="create_new_cutout_button_label" translatable="true" description="This string appears within the Scrapbook main screen as a primary action button within the Cutout tab. It means to start creating a new cutout. [CHAR_LIMIT=40]">Create new cutout</string>
+  <string name="create_collage_empty_state_info" translatable="true" description="This string appears within the Scrapbook main screen as a heading within the empty Collage tab. It means an invitation to create a collage from cutouts. [CHAR_LIMIT=80]">Create collage from your cutouts</string>
+  <string name="create_collage_empty_state_description" translatable="true" description="This string appears within the Scrapbook main screen as a body text within the empty Collage tab. It means the step by step process to create a scrapbook. [CHAR_LIMIT=120]">Pick a backdrop, layer your cutouts, and create your own scrapbook</string>
+  <string name="create_cutout_empty_state_info" translatable="true" description="This string appears within the Scrapbook main screen as a heading within the empty Cutout tab. It means an invitation to create cutouts from pictures. [CHAR_LIMIT=80]">Create cutouts from your pictures</string>
+  <string name="create_cutout_empty_state_description" translatable="true" description="This string appears within the Scrapbook main screen as a body text within the empty Cutout tab. It means the step by step process to create a cutout. [CHAR_LIMIT=120]">Select a picture and brush over objects to create a cutout</string>
+  <string name="create_vertical_grid" translatable="true" description="This string appears within the Scrapbook collage editor as a dialog button within the grid maker. It means to create a grid with vertical layout. [CHAR_LIMIT=50]">Create vertical grid</string>
+  <string name="cutout_manager_info_message" translatable="true" description="This string appears within the Scrapbook main screen as an informational banner within the Cutout manager. It means instructions on how to select and edit cutouts. [CHAR_LIMIT=100]">Tap to edit · Long press to multi-select</string>
+  <plurals name="cutouts_count_label" translatable="true" description="This string appears within the Scrapbook main screen as a sub title within the Cutout manager. It means the total number of cutouts saved. [CHAR_LIMIT=50]">
+    <item quantity="one">%d Cutout</item>
+    <item quantity="other">%d Cutouts</item>
+  </plurals>
+  <string name="delete_selected_cutouts_msg" translatable="true" description="This string appears within the Scrapbook cutout manager as a dialog message within the delete confirmation. It means to confirm deletion of multiple cutouts. [CHAR_LIMIT=150]">Are you sure you want to delete the selected cutouts? They will also be removed from the \"Collage\" screen.</string>
+  <string name="delete_cutout_msg" translatable="true" description="This string appears within the Scrapbook cutout manager as a dialog message within the delete confirmation. It means to confirm deletion of a single cutout. [CHAR_LIMIT=100]">Are you sure you want to delete the cutout?</string>
+  <string name="delete_selected_cutouts_title" translatable="true" description="This string appears within the Scrapbook cutout manager as a dialog title within the delete confirmation. It means the title for deleting multiple cutouts. [CHAR_LIMIT=50]">Delete selected cutouts</string>
+  <string name="delete_cutout_title" translatable="true" description="This string appears within the Scrapbook cutout manager as a dialog title within the delete confirmation. It means the title for deleting a single cutout. [CHAR_LIMIT=50]">Delete cutout</string>
+  <string name="editor_tab_edit" translatable="true" description="This string appears within the Scrapbook cutout editor as a tab label within the bottom tools. It means the editing tools panel. [CHAR_LIMIT=30]">Edit cutout</string>
+  <string name="editor_tab_draw" translatable="true" description="This string appears within the Scrapbook cutout editor as a tab label within the bottom tools. It means the drawing tools panel. [CHAR_LIMIT=30]">Draw</string>
+  <string name="fill_color" translatable="true" description="This string appears within the Scrapbook colored background settings as a section header within the color picker. It means the fill color to use. [CHAR_LIMIT=40]">Fill color</string>
+  <string name="fill_mode" translatable="true" description="This string appears within the Scrapbook colored background settings as a section header within the fill selection. It means the mode of filling the color. [CHAR_LIMIT=40]">Fill mode</string>
+  <string name="grid_cell_padding" translatable="true" description="This string appears within the Scrapbook grid maker as a slider label within the grid settings. It means the padding around grid cells. [CHAR_LIMIT=30]">Padding</string>
+  <string name="grid_cell_size" translatable="true" description="This string appears within the Scrapbook grid maker as a slider label within the grid settings. It means the size of the grid cells. [CHAR_LIMIT=30]">Cell size</string>
+  <string name="horizontal" translatable="true" description="This string appears within the Scrapbook grid maker as a layout option within the grid generator. It means horizontal orientation. [CHAR_LIMIT=30]">Horizontal</string>
+  <string name="linear_gradient_color" translatable="true" description="This string appears within the Scrapbook colored background settings as a gradient option within the fill mode. It means linear gradient style. [CHAR_LIMIT=40]">Linear gradient</string>
+  <string name="radial_gradient_color" translatable="true" description="This string appears within the Scrapbook colored background settings as a gradient option within the fill mode. It means radial gradient style. [CHAR_LIMIT=40]">Radial gradient</string>
+  <string name="rotate" translatable="true" description="This string appears within the Scrapbook cutout editor as a button label within the bottom tools. It means to rotate the image. [CHAR_LIMIT=30]">Rotate</string>
+  <string name="revert" translatable="true" description="This string appears within the Scrapbook cutout editor as a button label within the top action bar. It means to revert changes. [CHAR_LIMIT=30]">Revert</string>
+  <string name="revert_confirmation_msg" translatable="true" description="This string appears within the Scrapbook cutout editor as a dialog message within the revert confirmation. It means asking if the user wants to revert to the original. [CHAR_LIMIT=100]">Are you sure you want to revert it to original?</string>
+  <string name="revert_to_original" translatable="true" description="This string appears within the Scrapbook cutout editor as a dialog title within the revert confirmation. It means reverting to the original version. [CHAR_LIMIT=50]">Revert to original</string>
+  <string name="rows" translatable="true" description="This string appears within the Scrapbook grid maker as a slider label within the grid settings. It means the number of rows in the grid. [CHAR_LIMIT=30]">Rows</string>
+  <string name="save_cutout" translatable="true" description="This string appears within the Scrapbook cutout editor as a primary button within the bottom action bar. It means to save the edited cutout. [CHAR_LIMIT=40]">Save cutout</string>
+  <string name="segmentation_instruction_add" translatable="true" description="This string appears within the Scrapbook cutout editor as an instructional banner within the segmentation view. It means how to add to the selection. [CHAR_LIMIT=100]">Brush over an area to add to the selection</string>
+  <string name="segmentation_instruction_subtract" translatable="true" description="This string appears within the Scrapbook cutout editor as an instructional banner within the segmentation view. It means how to remove from the selection. [CHAR_LIMIT=100]">Brush over an area to remove from the selection</string>
+  <string name="segmentation_instruction_lasso" translatable="true" description="This string appears within the Scrapbook cutout editor as an instructional banner within the segmentation view. It means how to use the lasso tool. [CHAR_LIMIT=100]">Draw a circle around an area to select</string>
+  <plurals name="snackbar_save_cutouts_to_album_success" translatable="true" description="This string appears within the Scrapbook main screen as a snackbar notification within the cutout manager. It means the cutouts were successfully saved to the device album. [CHAR_LIMIT=100]">
+    <item quantity="one">Saved %d cutout to photo album</item>
+    <item quantity="other">Saved %d cutouts to photo album</item>
+  </plurals>
+  <string name="snackbar_save_to_my_cutouts_success" translatable="true" description="This string appears within the Scrapbook main screen as a snackbar notification within the cutout manager. It means the cutout was successfully saved to the app. [CHAR_LIMIT=150]">Cutout successfully created! To use your new cutout, go to the \"Collage\" tab. </string>
+  <string name="solid" translatable="true" description="This string appears within the Scrapbook cutout editor as a setting label within the fill mode options. It means the cutout will be filled with a solid color. [CHAR_LIMIT=30]">Solid</string>
+  <string name="solid_color" translatable="true" description="This string appears within the Scrapbook colored background as a fill option within the settings. It means a solid color fill. [CHAR_LIMIT=30]">Solid</string>
+  <string name="tab_collage" translatable="true" description="This string appears within the Scrapbook main screen as a navigation tab within the top bar. It means the collage section. [CHAR_LIMIT=30]">Collage</string>
+  <string name="tab_collage_empty_warning" translatable="true" description="This string appears within the Scrapbook main screen as a warning text within a disabled Collage tab. It means the user needs cutouts first. [CHAR_LIMIT=100]">Create some cutouts first before creating collage</string>
+  <string name="tab_my_cutouts_empty_warning" translatable="true" description="This string appears within the Scrapbook main screen as a warning text within an empty My Cutouts tab. It means there are no cutouts yet. [CHAR_LIMIT=100]">No cutouts created yet</string>
+  <string name="tab_create_cutout" translatable="true" description="This string appears within the Scrapbook main screen as a navigation tab within the top bar. It means the create cutout section. [CHAR_LIMIT=40]">Create cutout</string>
+  <string name="tab_my_cutouts" translatable="true" description="This string appears within the Scrapbook main screen as a navigation tab within the top bar. It means the user's cutouts section. [CHAR_LIMIT=40]">My cutouts</string>
+  <string name="unsaved_changes" translatable="true" description="This string appears within the Scrapbook editors as a dialog title within the exit confirmation. It means there are unsaved changes. [CHAR_LIMIT=50]">Unsaved changes</string>
+  <string name="unsaved_changes_message" translatable="true" description="This string appears within the Scrapbook editors as a dialog message within the exit confirmation. It means asking if the user wants to leave without saving. [CHAR_LIMIT=100]">Are you sure you want to exit? You have unsaved changes.</string>
+  <string name="unsaved_changes_stay" translatable="true" description="This string appears within the Scrapbook editors as a dialog button within the exit confirmation. It means to cancel exiting and stay. [CHAR_LIMIT=30]">Stay</string>
+  <string name="unsaved_changes_exit" translatable="true" description="This string appears within the Scrapbook editors as a dialog button within the exit confirmation. It means to confirm exiting and lose changes. [CHAR_LIMIT=30]">Exit</string>
+  <string name="vertical" translatable="true" description="This string appears within the Scrapbook grid maker as a layout option within the grid generator. It means vertical orientation. [CHAR_LIMIT=30]">Vertical</string>
+
   <!-- Strings for skills -->
   <string name="aichat_emptystate_title" translatable="false">AI Chat</string>
   <string name="aichat_emptystate_content" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining what it does. [CHAR_LIMIT=110]">Chat with on-device large language models.</string>
@@ -535,6 +612,41 @@
   <string name="cd_scroll_to_bottom" translatable="true" description="Content description for the button that scrolls the list/chat to the bottom. [CHAR_LIMIT=29]">Scroll to bottom</string>
   <!-- Content description spoken when the "chat history" icon is focused. -->
   <string name="cd_chat_history" translatable="true" description="Content description for the button that shows the chat history. [CHAR_LIMIT=23]">Chat history</string>
+
+
+  <!-- Content description for scrapbook -->
+  <!-- Content description spoken when the "add border" icon is focused. -->
+  <string name="cd_add_border" translatable="true" description="Content description for the editor control button to add a border to an image cutout. [CHAR_LIMIT=20]">Add border</string>
+  <!-- Content description spoken when the "change picture" button is focused. -->
+  <string name="cd_change_picture" translatable="true" description="Content description for the button to change the selected picture or background. [CHAR_LIMIT=26]">Change picture</string>
+  <!-- Content description spoken when the "create new cutout" button is focused. -->
+  <string name="cd_create_new_cutout" translatable="true" description="Content description for the button to create a new cutout from an image segment. [CHAR_LIMIT=30]">Create new cutout</string>
+  <!-- Content description spoken when the "customize color" button is focused. -->
+  <string name="cd_customize_color" translatable="true" description="Content description for a button to customize or select a color. [CHAR_LIMIT=28]">Customize color</string>
+  <!-- Content description spoken when the "exit multi-select" button is focused. -->
+  <string name="cd_exit_multi_select" translatable="true" description="Content description for the button to exit multi-select mode. [CHAR_LIMIT=30]">Exit multi-select</string>
+  <!-- Content description spoken when the "fill color" option is focused. -->
+  <string name="cd_fill_color" translatable="true" description="Content description for the editor control button to fill a cutout with color. [CHAR_LIMIT=20]">Fill color</string>
+  <!-- Content description spoken when the "free draw" tool is focused. -->
+  <string name="cd_free_draw" translatable="true" description="Content description for a tool or button to draw freely on the screen. [CHAR_LIMIT=18]">Free draw</string>
+  <!-- Content description spoken when a missing cutout is indicated. -->
+  <string name="cd_missing_cutout_with_index" translatable="true" description="Content description for a placeholder icon when a specific cutout image (identified by index) fails to load. [CHAR_LIMIT=30]">Missing cutout %d</string>
+  <!-- Content description spoken when the "redo" button is focused. -->
+  <string name="cd_redo" translatable="true" description="Content description for the redo button to reapply the last undone action. [CHAR_LIMIT=18]">Redo</string>
+  <!-- Content description spoken when the "resize" button is focused. -->
+  <string name="cd_resize" translatable="true" description="Content description for a tool or button to resize an element. [CHAR_LIMIT=18]">Resize</string>
+  <!-- Content description spoken when the "revert to original" button is focused. -->
+  <string name="cd_revert_to_original" translatable="true" description="Content description for the button to revert edits and restore the original image. [CHAR_LIMIT=30]">Revert to original</string>
+  <!-- Content description spoken when the "rotate" button is focused. -->
+  <string name="cd_rotate" translatable="true" description="Content description for the control to rotate an image or cutout. [CHAR_LIMIT=90]">Rotate</string>
+  <!-- Content description spoken when the "save" icon is focused. -->
+  <string name="cd_save_icon" translatable="true" description="Content description for the button to save the current work (e.g., collage) to the device. [CHAR_LIMIT=18]">Save</string>
+  <!-- Content description spoken when the "share" icon is focused. -->
+  <string name="cd_share" translatable="true" description="Content description for the button to share the image. [CHAR_LIMIT=18]">Share</string>
+  <!-- Content description spoken when a cutout with a specific index is focused. -->
+  <string name="cd_cutout_with_index" translatable="true" description="Content description for a specific cutout image in a list, indicating its index. [CHAR_LIMIT=90]">Cutout %d</string>
+  <!-- Content description spoken when the "undo" button is focused. -->
+  <string name="cd_undo" translatable="true" description="Content description for the undo button to revert the last action. [CHAR_LIMIT=18]">Undo</string>
 
   <!-- Strings for HomeScreen, Model Manager, Settings, and Chat -->
   <!-- Title of the dialog for importing a model. -->
