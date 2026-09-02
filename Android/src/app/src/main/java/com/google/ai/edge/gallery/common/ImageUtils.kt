@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.common
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlinx.coroutines.CoroutineDispatcher
@@ -61,4 +62,33 @@ object ImageUtils {
 
       tgaData
     }
+
+  /**
+   * Decodes an image byte array (supporting standard formats JPEG/PNG/WEBP as well as TGA) into a
+   * [Bitmap].
+   */
+  fun decodeBitmap(bytes: ByteArray): Bitmap? {
+    // 1. Try decoding with BitmapFactory for standard formats (JPEG, PNG, WEBP, etc.)
+    val standardBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+    if (standardBitmap != null) {
+      return standardBitmap
+    }
+
+    // 2. Check if the byte array is a 32-bit TGA image (as produced by encodeTga)
+    if (bytes.size >= 20 && bytes[2] == 2.toByte() && bytes[16] == 32.toByte()) {
+      try {
+        val width = (bytes[12].toInt() and 0xFF) or ((bytes[13].toInt() and 0xFF) shl 8)
+        val height = (bytes[14].toInt() and 0xFF) or ((bytes[15].toInt() and 0xFF) shl 8)
+        if (width > 0 && height > 0 && bytes.size >= 20 + width * height * 4) {
+          val buffer = ByteBuffer.wrap(bytes, 20, width * height * 4).order(ByteOrder.LITTLE_ENDIAN)
+          val pixels = IntArray(width * height)
+          buffer.asIntBuffer().get(pixels)
+          return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
+        }
+      } catch (e: Exception) {
+        // Ignored
+      }
+    }
+    return null
+  }
 }
