@@ -118,31 +118,35 @@ data class AllowedModel(
       acceleratorsStr = acceleratorsStr?.replace(Regex("\\bnpu\\b"), "tpu")
     }
 
+    if (acceleratorsStr != null) {
+      val items = acceleratorsStr.split(",")
+      val parsedAccelerators = mutableListOf<Accelerator>()
+      for (item in items) {
+        if (item == "cpu") {
+          parsedAccelerators.add(Accelerator.CPU)
+        } else if (item == "gpu") {
+          parsedAccelerators.add(Accelerator.GPU)
+        } else if (item == "npu") {
+          parsedAccelerators.add(Accelerator.NPU)
+        } else if (item == "tpu") {
+          parsedAccelerators.add(Accelerator.TPU)
+        }
+      }
+      // Remove GPU from pixel 10 devices.
+      if (isPixel10()) {
+        parsedAccelerators.remove(Accelerator.GPU)
+      }
+      if (parsedAccelerators.isNotEmpty()) {
+        accelerators = parsedAccelerators
+      }
+    }
+
     if (isLlmModel) {
       val defaultTopK: Int = defaultConfig?.topK ?: DEFAULT_TOPK
       val defaultTopP: Float = defaultConfig?.topP ?: DEFAULT_TOPP
       val defaultTemperature: Float = defaultConfig?.temperature ?: DEFAULT_TEMPERATURE
       llmMaxToken = defaultConfig?.maxTokens ?: 1024
       llmMaxContextLength = defaultConfig?.maxContextLength
-      if (acceleratorsStr != null) {
-        val items = acceleratorsStr.split(",")
-        accelerators = mutableListOf()
-        for (item in items) {
-          if (item == "cpu") {
-            accelerators.add(Accelerator.CPU)
-          } else if (item == "gpu") {
-            accelerators.add(Accelerator.GPU)
-          } else if (item == "npu") {
-            accelerators.add(Accelerator.NPU)
-          } else if (item == "tpu") {
-            accelerators.add(Accelerator.TPU)
-          }
-        }
-        // Remove GPU from pixel 10 devices.
-        if (isPixel10()) {
-          accelerators.remove(Accelerator.GPU)
-        }
-      }
       defaultConfig?.visionAccelerator?.let { accelerator ->
         if (accelerator == "cpu") {
           visionAccelerator = Accelerator.CPU
