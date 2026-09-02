@@ -68,6 +68,13 @@ interface CustomTask {
   val task: Task
 
   /**
+   * Whether models used by this task should be kept alive when navigating away from the task.
+   * Defaults to false.
+   */
+  val keepModelAlive: Boolean
+    get() = false
+
+  /**
    * Called to initialize and prepare a model for use with an optional system instruction.
    *
    * This function will be called from a coroutine with Dispatchers.Default dispatcher.
