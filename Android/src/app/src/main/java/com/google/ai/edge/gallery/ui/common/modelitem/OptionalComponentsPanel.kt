@@ -45,6 +45,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -151,7 +152,10 @@ fun OptionalComponentsPanel(
   }
 
   var isExpanded by rememberSaveable { mutableStateOf(true) }
-  val isCheckboxChecked = modelManagerViewModel.isDownloadOptionalComponentsEnabled(model.name)
+  val uiState by modelManagerViewModel.uiState.collectAsState()
+  val isCheckboxChecked =
+    uiState.downloadOptionalComponents[model.name]
+      ?: modelManagerViewModel.isDownloadOptionalComponentsEnabled(model.name)
 
   val optionalComponentsSizeBytes = model.extraDataFiles.sumOf { it.sizeInBytes }
   val optionalComponentsSizeText = formatOptionalComponentSize(optionalComponentsSizeBytes)
