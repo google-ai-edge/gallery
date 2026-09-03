@@ -401,6 +401,13 @@ constructor(
       }
     }
 
+    for (curTask in uiState.value.tasks) {
+      if (curTask.models.any { it.name == model.name }) {
+        val customTask = getCustomTaskByTaskId(id = curTask.id)
+        customTask?.onDeleteModelFn(context = context, model = model)
+      }
+    }
+
     if (model.imported) {
       deleteFilesFromImportDir(model.downloadFileName)
     } else {
