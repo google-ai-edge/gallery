@@ -145,13 +145,17 @@ fun OptionalComponentsPanel(
   }
 
   val isModelDownloaded = downloadStatus == ModelDownloadStatusType.SUCCEEDED
+  val isDownloadStarted =
+    downloadStatus == ModelDownloadStatusType.IN_PROGRESS ||
+      downloadStatus == ModelDownloadStatusType.UNZIPPING ||
+      downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
 
   // If model is downloaded and there are no optional components present, do not show the section.
   if (isModelDownloaded && !hasOptionalComponents) {
     return
   }
 
-  var isExpanded by rememberSaveable { mutableStateOf(true) }
+  var isExpanded by rememberSaveable { mutableStateOf(false) }
   val uiState by modelManagerViewModel.uiState.collectAsState()
   val isCheckboxChecked =
     uiState.downloadOptionalComponents[model.name]
@@ -216,12 +220,13 @@ fun OptionalComponentsPanel(
           Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier =
-              Modifier.fillMaxWidth().clickable {
+              Modifier.fillMaxWidth().clickable(enabled = !isDownloadStarted) {
                 modelManagerViewModel.setDownloadOptionalComponents(model.name, !isCheckboxChecked)
               },
           ) {
             Checkbox(
               checked = isCheckboxChecked,
+              enabled = !isDownloadStarted,
               onCheckedChange = {
                 modelManagerViewModel.setDownloadOptionalComponents(model.name, it)
               },
