@@ -887,4 +887,5 @@
   <string name="task_desc_tiny_garden" translatable="true" description="Description for the Tiny Garden task. [CHAR_LIMIT=468]">Use natural language to plant, water, and harvest in this fully offline mini-game.\n\nNote: This is powered by the experimental FunctionGemma model optimized for latency. Due to its compact size (270M), it works well on simple instructions but responses may vary to more complex interactions.</string>
   <!-- Short description for the Tiny Garden task. [CHAR_LIMIT=35] -->
   <string name="task_short_desc_tiny_garden" translatable="true" description="Short description for the Tiny Garden task. [CHAR_LIMIT=45]">Use natural language to plant</string>
+
 </resources>

@@ -29,9 +29,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 data class EmptyStateButtonConfig(
@@ -47,22 +49,22 @@ data class EmptyStateButtonConfig(
  */
 @Composable
 fun EmptyState(
-  icon: ImageVector,
   @StringRes titleResId: Int,
   @StringRes descriptionResId: Int,
+  icon: ImageVector? = null,
   buttonConfig: EmptyStateButtonConfig? = null,
+  horizontalPadding: Dp = 48.dp,
+  iconSize: Dp = 56.dp,
+  iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
   Column(
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.spacedBy(16.dp),
-    modifier = Modifier.padding(horizontal = 48.dp),
+    modifier = Modifier.padding(horizontal = horizontalPadding),
   ) {
-    Icon(
-      icon,
-      contentDescription = null,
-      modifier = Modifier.size(56.dp),
-      tint = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    if (icon != null) {
+      Icon(icon, contentDescription = null, modifier = Modifier.size(iconSize), tint = iconTint)
+    }
     Text(
       stringResource(titleResId),
       style = MaterialTheme.typography.headlineMedium,
