@@ -111,6 +111,15 @@ interface CustomTask {
   )
 
   /**
+   * Called when a model associated with this task is deleted from the model repository. Allows
+   * tasks to clean up task-specific database files, cancel workers, or release resources.
+   *
+   * @param context The application context.
+   * @param model The `Model` object being deleted.
+   */
+  fun onDeleteModelFn(context: Context, model: Model) {}
+
+  /**
    * The main Composable UI for your custom task's detail screen.
    *
    * @param data The data sent from the app. It will typically be a [CustomTaskData].
