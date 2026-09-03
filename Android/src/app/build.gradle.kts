@@ -20,7 +20,6 @@ plugins {
   alias(libs.plugins.android.application)
   // Note: set apply to true to enable google-services (requires google-services.json).
   alias(libs.plugins.google.services) apply false
-  alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.protobuf)
@@ -118,6 +117,8 @@ dependencies {
   implementation(libs.androidx.exifinterface)
   implementation(libs.moshi.kotlin)
   ksp(libs.hilt.android.compiler)
+  ksp("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.0")
+  annotationProcessor("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.0")
   testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.junit)
   androidTestImplementation(libs.androidx.espresso.core)
@@ -132,6 +133,10 @@ dependencies {
   implementation(libs.ktor.client.android)
   implementation(libs.ktor.client.core)
   implementation(libs.tasks.vision)
+}
+
+configurations.all {
+  resolutionStrategy.force("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.0")
 }
 
 protobuf {
