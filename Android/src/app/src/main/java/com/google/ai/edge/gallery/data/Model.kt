@@ -18,7 +18,6 @@ package com.google.ai.edge.gallery.data
 
 import android.content.Context
 import com.google.ai.edge.gallery.common.getModelStorageDir
-import com.google.gson.annotations.SerializedName
 import java.io.File
 import kotlin.time.Duration
 import kotlin.time.TimeMark
@@ -29,53 +28,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 
-/**
- * Represents metadata about an additional or supplementary data file that must be downloaded
- * alongside the main model.
- */
-data class ModelDataFile(
-  /** The user-facing name of the data file. */
-  val name: String,
-  /** The URL to download the data file from. */
-  val url: String,
-  /** The name of the downloaded data file. */
-  val downloadFileName: String,
-  /** The size of the data file in bytes. */
-  val sizeInBytes: Long,
-  /** The task types this data file is targeted for. */
-  val targetTaskTypes: List<String> = emptyList(),
-)
-
 const val IMPORTS_DIR = "__imports"
 private val NORMALIZE_NAME_REGEX = Regex("[^a-zA-Z0-9]")
 
 data class PromptTemplate(val title: String, val description: String, val prompt: String)
-
-enum class ModelCapability {
-  @SerializedName("llm_thinking") LLM_THINKING,
-  @SerializedName("speculative_decoding") SPECULATIVE_DECODING,
-}
-
-enum class RuntimeType {
-  @SerializedName("unknown") UNKNOWN,
-  @SerializedName("litert_lm") LITERT_LM,
-  @SerializedName("aicore") AICORE,
-}
-
-enum class AICoreModelReleaseStage {
-  @SerializedName("stable") STABLE,
-  @SerializedName("preview") PREVIEW,
-}
-
-enum class AICoreModelPreference {
-  @SerializedName("fast") FAST,
-  @SerializedName("full") FULL,
-}
-
-data class ModelFile(
-  @SerializedName("fileName") val fileName: String,
-  @SerializedName("commitHash") val commitHash: String,
-)
 
 /**
  * A model for a task (see [Task]).
@@ -458,24 +414,6 @@ data class Model(
     )
   }
 }
-
-enum class ModelDownloadStatusType {
-  NOT_DOWNLOADED,
-  PARTIALLY_DOWNLOADED,
-  IN_PROGRESS,
-  UNZIPPING,
-  SUCCEEDED,
-  FAILED,
-}
-
-data class ModelDownloadStatus(
-  val status: ModelDownloadStatusType,
-  val totalBytes: Long = 0,
-  val receivedBytes: Long = 0,
-  val errorMessage: String = "",
-  val bytesPerSecond: Long = 0,
-  val remainingMs: Long = 0,
-)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Configs.
