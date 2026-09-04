@@ -212,7 +212,6 @@ fun GalleryNavHost(
             },
             onModelsClicked = { navController.navigate(ROUTE_MODEL_MANAGER) },
             onNotificationsClicked = { navController.navigate(ROUTE_NOTIFICATIONS) },
-            gm4 = true,
           )
         }
 
