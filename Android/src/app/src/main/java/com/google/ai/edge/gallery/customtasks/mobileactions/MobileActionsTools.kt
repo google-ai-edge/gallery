@@ -24,7 +24,7 @@ private const val TAG = "AGMATools"
 
 class MobileActionsTools(val onFunctionCalled: (Action) -> Unit) : ToolSet {
   /** Turns on flashlight. */
-  @Tool(description = "Turns the flashlight on")
+  @Tool(description = "Turns the flashlight on.")
   fun turnOnFlashlight(): Map<String, String> {
     Log.d(TAG, "turn on flashlight")
 
@@ -36,7 +36,7 @@ class MobileActionsTools(val onFunctionCalled: (Action) -> Unit) : ToolSet {
   }
 
   /** Turns off flashlight. */
-  @Tool(description = "Turns the flashlight off")
+  @Tool(description = "Turns the flashlight off.")
   fun turnOffFlashlight(): Map<String, String> {
     Log.d(TAG, "turn off flashlight")
 
@@ -52,8 +52,8 @@ class MobileActionsTools(val onFunctionCalled: (Action) -> Unit) : ToolSet {
   fun createContact(
     @ToolParam(description = "The first name of the contact.") firstName: String,
     @ToolParam(description = "The last name of the contact.") lastName: String,
-    @ToolParam(description = "The phone number of the contact.") phoneNumber: String,
-    @ToolParam(description = "The email address of the contact.") email: String,
+    @ToolParam(description = "The phone number of the contact.") phoneNumber: String? = null,
+    @ToolParam(description = "The email address of the contact.") email: String? = null,
   ): Map<String, String> {
     Log.d(
       TAG,
@@ -64,18 +64,12 @@ class MobileActionsTools(val onFunctionCalled: (Action) -> Unit) : ToolSet {
       CreateContactAction(
         firstName = firstName,
         lastName = lastName,
-        phoneNumber = phoneNumber,
-        email = email,
+        phoneNumber = phoneNumber ?: "",
+        email = email ?: "",
       )
     )
 
-    return mapOf(
-      "result" to "success",
-      "first_name" to firstName,
-      "last_name" to lastName,
-      "phone_number" to phoneNumber,
-      "email" to email,
-    )
+    return mapOf("result" to "success", "first_name" to firstName, "last_name" to lastName)
   }
 
   /** Sends email. */
@@ -83,33 +77,35 @@ class MobileActionsTools(val onFunctionCalled: (Action) -> Unit) : ToolSet {
   fun sendEmail(
     @ToolParam(description = "The email address of the recipient.") to: String,
     @ToolParam(description = "The subject of the email.") subject: String,
-    @ToolParam(description = "The body of the email.") body: String,
+    @ToolParam(description = "The body of the email.") body: String? = null,
   ): Map<String, String> {
     Log.d(TAG, "send email. To: '$to', subject: '$subject', body: '$body'")
 
-    onFunctionCalled(SendEmailAction(to = to, subject = subject, body = body))
+    onFunctionCalled(SendEmailAction(to = to, subject = subject, body = body ?: ""))
 
-    return mapOf("result" to "success", "to" to to, "subject" to subject, "body" to body)
+    return mapOf("result" to "success", "to" to to, "subject" to subject)
   }
 
   /** Shows location on map. */
   @Tool(description = "Shows a location on the map.")
-  fun showLocationOnMap(
+  // fun showLocationOnMap(
+  fun showMap(
     @ToolParam(
       description =
         "The location to search for. May be the name of a place, a business, or an address."
     )
-    location: String
+    // location: String
+    query: String
   ): Map<String, String> {
-    Log.d(TAG, "Show location on map. Location: '$location'")
+    Log.d(TAG, "Show location on map. Location: '$query'")
 
-    onFunctionCalled(ShowLocationOnMap(location = location))
+    onFunctionCalled(ShowLocationOnMap(location = query))
 
-    return mapOf("result" to "success", "location" to location)
+    return mapOf("result" to "success", "query" to query)
   }
 
   /** Opens wifi settings. */
-  @Tool(description = "Opens the WiFi settings.")
+  @Tool(description = "Opens the Wi-Fi settings.")
   fun openWifiSettings(): Map<String, String> {
     Log.d(TAG, "Open wifi settings")
 
