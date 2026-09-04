@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.ui.llmchat
 
+import com.google.ai.edge.litertlm.Capabilities
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
@@ -138,7 +139,7 @@ object LlmChatModelHelper : LlmModelHelper {
     var supportsSpeculativeDecoding = false
     // Check if the model file supports speculative decoding.
     try {
-      com.google.ai.edge.litertlm.Capabilities(modelPath).use {
+      Capabilities(modelPath).use {
         supportsSpeculativeDecoding = it.hasSpeculativeDecodingSupport()
       }
     } catch (e: Exception) {

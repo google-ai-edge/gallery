@@ -63,6 +63,8 @@ import com.google.ai.edge.gallery.data.convertValueToTargetType
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 
+import com.google.ai.edge.litertlm.Capabilities
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModelPageAppBar(
@@ -199,7 +201,7 @@ fun ModelPageAppBar(
     var supportsSpeculativeDecoding = false
     // Check if the model file supports speculative decoding.
     try {
-      com.google.ai.edge.litertlm.Capabilities(model.getPath(context)).use {
+      Capabilities(model.getPath(context)).use {
         supportsSpeculativeDecoding = it.hasSpeculativeDecodingSupport()
       }
     } catch (e: Exception) {
