@@ -28,11 +28,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.GalleryEvent
@@ -136,7 +137,11 @@ fun LlmAskImageScreen(
           horizontalAlignment = Alignment.CenterHorizontally,
           verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-          Text(stringResource(R.string.askimage_emptystate_title), style = emptyStateTitle)
+          Text(
+            stringResource(R.string.askimage_emptystate_title),
+            style = emptyStateTitle,
+            modifier = Modifier.semantics { heading() },
+          )
           val contentRes =
             if (model.runtimeType == RuntimeType.AICORE) {
               R.string.askimage_emptystate_content_aicore
@@ -184,7 +189,11 @@ fun LlmAskAudioScreen(
           horizontalAlignment = Alignment.CenterHorizontally,
           verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-          Text(stringResource(R.string.askaudio_emptystate_title), style = emptyStateTitle)
+          Text(
+            stringResource(R.string.askaudio_emptystate_title),
+            style = emptyStateTitle,
+            modifier = Modifier.semantics { heading() },
+          )
           Text(
             stringResource(R.string.askaudio_emptystate_content),
             style = emptyStateContent,
@@ -224,7 +233,6 @@ fun ChatViewWrapper(
 ) {
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
-  val scope = rememberCoroutineScope()
 
   ChatView(
     task = task,

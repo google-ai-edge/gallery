@@ -612,6 +612,16 @@
   <string name="cd_scroll_to_bottom" translatable="true" description="Content description for the button that scrolls the list/chat to the bottom. [CHAR_LIMIT=29]">Scroll to bottom</string>
   <!-- Content description spoken when the "chat history" icon is focused. -->
   <string name="cd_chat_history" translatable="true" description="Content description for the button that shows the chat history. [CHAR_LIMIT=23]">Chat history</string>
+  <!-- State description spoken when an item is expanded. -->
+  <string name="cd_expanded" translatable="true" description="Accessibility state description indicating that an item or card is currently expanded. [CHAR_LIMIT=18]">Expanded</string>
+  <!-- State description spoken when an item is collapsed. -->
+  <string name="cd_collapsed" translatable="true" description="Accessibility state description indicating that an item or card is currently collapsed. [CHAR_LIMIT=18]">Collapsed</string>
+  <!-- State description spoken when the microphone is muted. -->
+  <string name="cd_mic_muted" translatable="true" description="Accessibility state description indicating that the microphone is currently muted. [CHAR_LIMIT=25]">Microphone muted</string>
+  <!-- State description spoken when the microphone is active and recording. -->
+  <string name="cd_mic_active" translatable="true" description="Accessibility state description indicating that the microphone is currently active. [CHAR_LIMIT=25]">Microphone active</string>
+  <!-- Action label spoken to view the run history of a benchmark metric. -->
+  <string name="cd_view_run_history" translatable="true" description="Accessibility action label to view run history of benchmark results. [CHAR_LIMIT=30]">View run history</string>
 
 
   <!-- Content description for scrapbook -->
