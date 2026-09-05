@@ -29,18 +29,20 @@ import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
 import com.google.ai.edge.gallery.agent.AiChatExecutor
 import com.google.ai.edge.gallery.agent.Attachment
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
+import com.google.ai.edge.gallery.agent.sessions.generateSessionId
 import com.google.ai.edge.gallery.common.SystemPromptHelper
-import com.google.ai.edge.gallery.data.ChatSessionRepository
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.SystemPromptRepository
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.awaitInitialization
+import com.google.ai.edge.gallery.proto.ChatSessionProto
 import com.google.ai.edge.gallery.tools.ToolAction
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageError
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageInfo
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageLoading
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessageMapper
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageThinking
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageType
@@ -54,8 +56,11 @@ import com.google.ai.edge.litertlm.Message
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -65,17 +70,18 @@ private const val TAG = "AGLlmChatViewModel"
 @OptIn(ExperimentalApi::class)
 open class LlmChatViewModelBase(
   private val systemPromptRepository: SystemPromptRepository? = null,
-  chatSessionRepository: ChatSessionRepository? = null,
   private val modelFeedbackRepository: Any? = null,
   override val runtimeExecutor: AgentRuntimeExecutor,
-  override val llmSessionManager: LlmSessionManager? = null,
-) : ChatViewModel(chatSessionRepository, runtimeExecutor, llmSessionManager) {
+  llmSessionManager: LlmSessionManager,
+) : ChatViewModel(runtimeExecutor, llmSessionManager) {
   private val _uiSystemPrompt = MutableStateFlow("")
   val uiSystemPrompt = _uiSystemPrompt.asStateFlow()
   // Map to track if the session was stopped by the model for a given model name.
   private val sessionStoppedByModel = mutableMapOf<String, Boolean>()
   // The current task ID for the session.
   private var currentTaskId: String = ""
+  // Active session transition job to ensure transitions (restore, new session, reset) do not race.
+  private var sessionTransitionJob: Job? = null
 
   /**
    * Sets the system prompt in the UI.
@@ -354,10 +360,40 @@ open class LlmChatViewModelBase(
     clearHistory: Boolean = true,
   ) {
     currentTaskId = task.id
-    viewModelScope.launch(Dispatchers.Default) {
-      setIsResettingSession(true)
+    sessionTransitionJob?.cancel()
+    sessionTransitionJob =
+      viewModelScope.launch(Dispatchers.Default) {
+        executeResetSession(
+          task = task,
+          model = model,
+          systemInstruction = systemInstruction,
+          actionChannel = actionChannel,
+          supportImage = supportImage,
+          supportAudio = supportAudio,
+          onDone = onDone,
+          enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+          initialMessages = initialMessages,
+          clearHistory = clearHistory,
+        )
+      }
+  }
+
+  private suspend fun executeResetSession(
+    task: Task,
+    model: Model,
+    systemInstruction: String? = null,
+    actionChannel: SendChannel<ToolAction>? = null,
+    supportImage: Boolean = false,
+    supportAudio: Boolean = false,
+    onDone: () -> Unit = {},
+    enableConversationConstrainedDecoding: Boolean = false,
+    initialMessages: List<Message> = listOf(),
+    clearHistory: Boolean = true,
+  ) {
+    setIsResettingSession(true)
+    try {
       if (clearHistory) {
-        currentSessionId = UUID.randomUUID().toString()
+        currentSessionId = generateSessionId()
         clearAllMessages(model = model)
       }
       stopResponse(model = model)
@@ -379,7 +415,97 @@ open class LlmChatViewModelBase(
 
       setIsResettingSession(false)
       onDone()
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to reset session: ${e.message}", e)
+      setIsResettingSession(false)
     }
+  }
+
+  /**
+   * Restores a saved chat session from persistent storage into the UI state and model runtime.
+   *
+   * @param session The protobuf representation of the session to restore.
+   * @param task The task associated with this session.
+   * @param model The active model to restore into.
+   * @param systemInstruction Optional system instruction prompt to apply.
+   * @param supportImage Whether image input is supported.
+   * @param supportAudio Whether audio input is supported.
+   * @param onDone Callback invoked when restoration is complete.
+   */
+  open fun restoreSession(
+    session: ChatSessionProto,
+    task: Task,
+    model: Model,
+    systemInstruction: String? = null,
+    supportImage: Boolean = false,
+    supportAudio: Boolean = false,
+    onDone: () -> Unit = {},
+  ) {
+    currentTaskId = task.id
+    sessionTransitionJob?.cancel()
+    sessionTransitionJob =
+      viewModelScope.launch(Dispatchers.Default) {
+        setIsResettingSession(true)
+        stopResponse(model = model)
+
+        try {
+          val messages = ChatMessageMapper.deserializeProtoMessages(session.messagesList)
+          ensureActive()
+
+          currentSessionId = session.sessionId
+          setRestoredMessages(model = model, messages = messages)
+
+          val litertMessages = messages.mapNotNull { convertToLitertMessage(it) }
+          executeResetSession(
+            task = task,
+            model = model,
+            systemInstruction = systemInstruction ?: _uiSystemPrompt.value.ifEmpty { null },
+            supportImage = supportImage,
+            supportAudio = supportAudio,
+            initialMessages = litertMessages,
+            clearHistory = false,
+            onDone = onDone,
+          )
+        } catch (e: CancellationException) {
+          throw e
+        } catch (e: Exception) {
+          Log.e(TAG, "Failed to restore session: ${e.message}", e)
+          setIsResettingSession(false)
+        }
+      }
+  }
+
+  /**
+   * Starts a new empty chat session, resetting both UI state and model runtime.
+   *
+   * @param task The task associated with the new session.
+   * @param model The active model for the new session.
+   * @param systemInstruction Optional system instruction prompt to apply.
+   * @param supportImage Whether image input is supported.
+   * @param supportAudio Whether audio input is supported.
+   * @param onDone Callback invoked when creation is complete.
+   */
+  open fun startNewSession(
+    task: Task,
+    model: Model,
+    systemInstruction: String? = null,
+    supportImage: Boolean = false,
+    supportAudio: Boolean = false,
+    onDone: () -> Unit = {},
+  ) {
+    currentTaskId = task.id
+    resetSession(
+      task = task,
+      model = model,
+      systemInstruction = systemInstruction ?: _uiSystemPrompt.value.ifEmpty { null },
+      supportImage = supportImage,
+      supportAudio = supportAudio,
+      initialMessages = emptyList(),
+      clearHistory = true,
+      onDone = onDone,
+    )
   }
 
   fun runAgain(
@@ -470,11 +596,10 @@ open class LlmChatViewModel
 @Inject
 constructor(
   systemPromptRepository: SystemPromptRepository,
-  chatSessionRepository: ChatSessionRepository,
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
 ) :
-LlmChatViewModelBase(systemPromptRepository, chatSessionRepository, null, runtimeExecutor,
+LlmChatViewModelBase(systemPromptRepository, null, runtimeExecutor,
 llmSessionManager)
 
 @HiltViewModel
@@ -482,11 +607,10 @@ class LlmAskImageViewModel
 @Inject
 constructor(
   systemPromptRepository: SystemPromptRepository,
-  chatSessionRepository: ChatSessionRepository,
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
 ) :
-LlmChatViewModelBase(systemPromptRepository, chatSessionRepository, null, runtimeExecutor,
+LlmChatViewModelBase(systemPromptRepository, null, runtimeExecutor,
 llmSessionManager)
 
 @HiltViewModel
@@ -494,9 +618,8 @@ class LlmAskAudioViewModel
 @Inject
 constructor(
   systemPromptRepository: SystemPromptRepository,
-  chatSessionRepository: ChatSessionRepository,
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
 ) :
-LlmChatViewModelBase(systemPromptRepository, chatSessionRepository, null, runtimeExecutor,
+LlmChatViewModelBase(systemPromptRepository, null, runtimeExecutor,
 llmSessionManager)
