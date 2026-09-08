@@ -70,6 +70,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -437,7 +438,7 @@ fun BenchmarkResultsViewer(
                           Accordions(
                             title =
                               "${stringResource(R.string.results)} (${resources.getQuantityString(
-                                R.plurals.runs ,
+                                R.plurals.runs,
                                 llmResult.baiscInfo.numberOfRuns,
                                 llmResult.baiscInfo.numberOfRuns,
                               )})",
@@ -450,23 +451,35 @@ fun BenchmarkResultsViewer(
                             titleRowAction = {
                               if (llmResult.baiscInfo.numberOfRuns > 1) {
                                 var showAggregationDropdown by remember { mutableStateOf(false) }
+                                val aggCd =
+                                  stringResource(
+                                    R.string.cd_aggregation_dropdown,
+                                    result.aggregation.label,
+                                  )
                                 // Aggregation method.
                                 Box {
                                   Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier =
-                                      Modifier.clip(RoundedCornerShape(8.dp))
-                                        .clickable { showAggregationDropdown = true }
+                                      Modifier.height(24.dp)
                                         .background(
-                                          MaterialTheme.colorScheme.surfaceContainerLowest
+                                          MaterialTheme.colorScheme.surfaceContainerLowest,
+                                          shape = RoundedCornerShape(8.dp),
                                         )
                                         .border(
                                           width = 1.dp,
                                           color = MaterialTheme.colorScheme.outlineVariant,
                                           shape = RoundedCornerShape(8.dp),
                                         )
-                                        .padding(start = 8.dp, end = 0.dp)
-                                        .height(24.dp),
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .minimumInteractiveComponentSize()
+                                        .semantics(mergeDescendants = true) {
+                                          contentDescription = aggCd
+                                        }
+                                        .clickable(role = Role.Button) {
+                                          showAggregationDropdown = true
+                                        }
+                                        .padding(start = 8.dp, end = 0.dp),
                                   ) {
                                     Text(
                                       result.aggregation.label,

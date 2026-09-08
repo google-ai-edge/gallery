@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -112,7 +113,7 @@ fun ModelNameAndStatus(
           Modifier.padding(bottom = 10.dp)
             .then(
               if (model.updateInfo.isNotEmpty()) {
-                Modifier.clickable { showUpdateDialog = true }
+                Modifier.clickable(role = Role.Button) { showUpdateDialog = true }
               } else {
                 Modifier
               }

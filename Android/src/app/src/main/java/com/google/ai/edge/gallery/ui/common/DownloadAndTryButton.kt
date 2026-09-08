@@ -66,8 +66,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -160,6 +164,15 @@ fun DownloadAndTryButton(
   val isPartiallyDownloaded = downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
   val showDownloadProgress =
     !downloadSucceeded && (downloadStarted || checkingToken || inProgress || isPartiallyDownloaded)
+
+  val view = LocalView.current
+  val completedCd = stringResource(R.string.cd_download_completed)
+  LaunchedEffect(downloadSucceeded) {
+    if (downloadSucceeded && downloadStarted) {
+      downloadStarted = false
+      view.announceForAccessibility(completedCd)
+    }
+  }
 
   // A launcher for requesting notification permission.
   val permissionLauncher =
@@ -425,22 +438,38 @@ fun DownloadAndTryButton(
           modifier = if (!compact) Modifier.fillMaxWidth() else Modifier.padding(horizontal = 4.dp),
         )
       } else {
+        val progressPercent = (downloadProgress * 100).toInt()
+        val progressCd = stringResource(R.string.cd_download_progress, progressPercent)
+        val textSemanticsModifier =
+          if (compact) {
+            Modifier.semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(downloadProgress, 0f..1f)
+                contentDescription = progressCd
+              }
+              .padding(start = 12.dp)
+              .width(32.dp)
+          } else {
+            Modifier.clearAndSetSemantics {}.padding(start = 12.dp).width(44.dp)
+          }
         Text(
-          "${(downloadProgress * 100).toInt()}%",
+          "$progressPercent%",
           style =
             MaterialTheme.typography.bodyMedium.copy(
               // This stops numbers from "jumping around" when being updated.
               fontFeatureSettings = "tnum"
             ),
           color = MaterialTheme.colorScheme.onSurface,
-          modifier = Modifier.padding(start = 12.dp).width(if (compact) 32.dp else 44.dp),
+          modifier = textSemanticsModifier,
         )
         if (!compact) {
           val color =
             if (task != null) getTaskBgGradientColors(task = task)[1]
             else MaterialTheme.colorScheme.primary
           LinearProgressIndicator(
-            modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+            modifier =
+              Modifier.weight(1f).padding(horizontal = 4.dp).semantics {
+                contentDescription = progressCd
+              },
             progress = { animatedProgress.value },
             color = color,
             trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
