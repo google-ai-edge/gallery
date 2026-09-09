@@ -375,6 +375,7 @@ fun ModelItem(
           task = task,
           modelManagerViewModel = modelManagerViewModel,
           downloadStatus = downloadStatus?.status,
+          modelVariants = modelVariants,
         )
       }
     }

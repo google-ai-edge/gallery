@@ -124,6 +124,7 @@ fun OptionalComponentsPanel(
   modelManagerViewModel: ModelManagerViewModel,
   downloadStatus: ModelDownloadStatusType?,
   modifier: Modifier = Modifier,
+  modelVariants: List<Model> = listOf(),
   downloadLabel: String? = null,
   componentLabel: String? = null,
 ) {
@@ -134,8 +135,19 @@ fun OptionalComponentsPanel(
     return
   }
 
+  val allModels = remember(model, modelVariants) { listOf(model) + modelVariants }
   val firstExtraFile = model.extraDataFiles.first()
-  var hasOptionalComponents by remember { mutableStateOf(false) }
+
+  val uiState by modelManagerViewModel.uiState.collectAsState()
+  val allDownloadStatuses = allModels.mapNotNull { m ->
+    if (m.name == model.name && downloadStatus != null) {
+      downloadStatus
+    } else {
+      uiState.modelDownloadStatus[m.name]?.status
+    }
+  }
+
+  var hasOptionalComponents by remember(model, downloadStatus) { mutableStateOf(false) }
 
   // Re-check optional components availability when download status changes.
   LaunchedEffect(model, downloadStatus) {
@@ -145,10 +157,11 @@ fun OptionalComponentsPanel(
   }
 
   val isModelDownloaded = downloadStatus == ModelDownloadStatusType.SUCCEEDED
-  val isDownloadStarted =
-    downloadStatus == ModelDownloadStatusType.IN_PROGRESS ||
-      downloadStatus == ModelDownloadStatusType.UNZIPPING ||
-      downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
+  val isDownloadStarted = allDownloadStatuses.any {
+    it == ModelDownloadStatusType.IN_PROGRESS ||
+      it == ModelDownloadStatusType.UNZIPPING ||
+      it == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
+  }
 
   // If model is downloaded and there are no optional components present, do not show the section.
   if (isModelDownloaded && !hasOptionalComponents) {
@@ -156,10 +169,15 @@ fun OptionalComponentsPanel(
   }
 
   var isExpanded by rememberSaveable { mutableStateOf(false) }
-  val uiState by modelManagerViewModel.uiState.collectAsState()
   val isCheckboxChecked =
     uiState.downloadOptionalComponents[model.name]
       ?: modelManagerViewModel.isDownloadOptionalComponentsEnabled(model.name)
+
+  val setOptionalComponentsEnabled: (Boolean) -> Unit = { enabled ->
+    for (m in allModels) {
+      modelManagerViewModel.setDownloadOptionalComponents(m.name, enabled)
+    }
+  }
 
   val optionalComponentsSizeBytes = model.extraDataFiles.sumOf { it.sizeInBytes }
   val optionalComponentsSizeText = formatOptionalComponentSize(optionalComponentsSizeBytes)
@@ -221,28 +239,36 @@ fun OptionalComponentsPanel(
             verticalAlignment = Alignment.CenterVertically,
             modifier =
               Modifier.fillMaxWidth().clickable(enabled = !isDownloadStarted) {
-                modelManagerViewModel.setDownloadOptionalComponents(model.name, !isCheckboxChecked)
+                setOptionalComponentsEnabled(!isCheckboxChecked)
               },
           ) {
             Checkbox(
               checked = isCheckboxChecked,
               enabled = !isDownloadStarted,
-              onCheckedChange = {
-                modelManagerViewModel.setDownloadOptionalComponents(model.name, it)
-              },
+              onCheckedChange = { setOptionalComponentsEnabled(it) },
             )
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
               Text(
                 text = resolvedDownloadLabel,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.onSurface,
+                color =
+                  if (isDownloadStarted) {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                  } else {
+                    MaterialTheme.colorScheme.onSurface
+                  },
               )
               if (optionalComponentsSizeText.isNotEmpty()) {
                 Text(
                   text = optionalComponentsSizeText,
                   style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  color =
+                    if (isDownloadStarted) {
+                      MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                    } else {
+                      MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 )
               }
             }
