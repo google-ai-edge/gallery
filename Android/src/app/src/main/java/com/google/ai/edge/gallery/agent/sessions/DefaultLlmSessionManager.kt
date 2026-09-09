@@ -29,37 +29,17 @@ import com.google.ai.edge.gallery.proto.ChatSideProto
 import com.google.ai.edge.gallery.runtime.CleanUpListener
 import com.google.ai.edge.gallery.runtime.ResultListener
 import com.google.ai.edge.gallery.runtime.runtimeHelper
-import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Message
-import com.google.ai.edge.litertlm.ToolProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
 private const val TAG = "AGDefaultLlmSessionMgr"
-
-/**
- * Data class representing session configuration (model, taskId, system prompt, tools).
- *
- * @property model The [Model] associated with this session.
- * @property taskId The task ID associated with this session.
- * @property supportImage Whether image input is enabled for this session.
- * @property supportAudio Whether audio input is enabled for this session.
- * @property systemInstruction Optional system instruction prompt prefix.
- * @property tools List of tool providers available to the model.
- */
-data class SessionConfig(
-  val model: Model,
-  val taskId: String,
-  val supportImage: Boolean = false,
-  val supportAudio: Boolean = false,
-  val systemInstruction: Contents?,
-  val tools: List<ToolProvider> = emptyList(),
-)
 
 /**
  * Data class representing feedback submission link for a session.
@@ -86,8 +66,16 @@ constructor(
   @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : LlmSessionManager {
 
-  private val sessionConfigs = ConcurrentHashMap<String, SessionConfig>()
   private val feedbackLinks = ConcurrentHashMap<String, MutableList<SessionFeedbackLink>>()
+  private val activeSessionIdRef = AtomicReference<String?>(generateSessionId())
+
+  override var activeSessionId: String?
+    get() = activeSessionIdRef.get()
+    set(value) {
+      activeSessionIdRef.set(value)
+    }
+
+  override val chatSessions: Flow<List<ChatSessionProto>> = chatSessionRepository.chatSessions
 
   private suspend fun ensureModelInitialized(model: Model, operation: String) {
     try {
@@ -98,27 +86,24 @@ constructor(
     }
   }
 
-  override suspend fun createNewSession(
-    model: Model,
-    taskId: String,
-    supportImage: Boolean,
-    supportAudio: Boolean,
-    systemInstruction: Contents?,
-    tools: List<ToolProvider>,
-  ): String =
+  override suspend fun createSession(config: SessionConfig): String =
     withContext(ioDispatcher) {
-      val sessionId = UUID.randomUUID().toString()
-      Log.d(TAG, "Creating new session $sessionId for model ${model.name} and task $taskId")
+      val sessionId = generateSessionId()
+      activeSessionIdRef.set(sessionId)
+      Log.d(
+        TAG,
+        "Creating new session $sessionId for model ${config.model.name} and task ${config.taskId}",
+      )
 
-      ensureModelInitialized(model, "createNewSession")
+      ensureModelInitialized(config.model, "createSession")
 
       try {
-        model.runtimeHelper.resetConversation(
-          model = model,
-          supportImage = supportImage,
-          supportAudio = supportAudio,
-          systemInstruction = systemInstruction,
-          tools = tools,
+        config.model.runtimeHelper.resetConversation(
+          model = config.model,
+          supportImage = config.supportImage,
+          supportAudio = config.supportAudio,
+          systemInstruction = config.systemInstruction,
+          tools = config.tools,
           initialMessages = emptyList(),
         )
       } catch (e: Exception) {
@@ -126,64 +111,31 @@ constructor(
         throw e
       }
 
-      val placeholderSession =
-        ChatSessionProto.newBuilder()
-          .setSessionId(sessionId)
-          .setTitle("New Chat Session")
-          .setTimestampMs(System.currentTimeMillis())
-          .setOriginalModel(model.name)
-          .setTaskId(taskId)
-          .build()
-
-      chatSessionRepository.saveChatSession(placeholderSession)
-      sessionConfigs[sessionId] =
-        SessionConfig(
-          model = model,
-          taskId = taskId,
-          supportImage = supportImage,
-          supportAudio = supportAudio,
-          systemInstruction = systemInstruction,
-          tools = tools,
-        )
-
       sessionId
     }
 
   override suspend fun loadSession(
     sessionId: String,
-    model: Model,
-    taskId: String?,
-    supportImage: Boolean,
-    supportAudio: Boolean,
-    defaultSystemPrompt: String?,
+    config: SessionConfig,
   ): List<ChatMessageProto> =
     withContext(ioDispatcher) {
-      Log.d(TAG, "Loading session $sessionId for model ${model.name}")
+      activeSessionIdRef.set(sessionId)
+      Log.d(TAG, "Loading session $sessionId for model ${config.model.name}")
       val allSessions = chatSessionRepository.getAllChatSessions()
       val session = allSessions.firstOrNull { it.sessionId == sessionId }
       val history = session?.messagesList ?: emptyList()
 
       val litertMessages = history.mapNotNull { protoToLitertMessage(it) }
 
-      ensureModelInitialized(model, "loadSession")
-
-      val config = sessionConfigs[sessionId]
-      val systemInstruction =
-        config?.systemInstruction
-          ?: if (!defaultSystemPrompt.isNullOrEmpty()) {
-            Contents.of(defaultSystemPrompt)
-          } else {
-            null
-          }
-      val tools = config?.tools ?: emptyList()
+      ensureModelInitialized(config.model, "loadSession")
 
       try {
-        model.runtimeHelper.resetConversation(
-          model = model,
-          supportImage = supportImage,
-          supportAudio = supportAudio,
-          systemInstruction = systemInstruction,
-          tools = tools,
+        config.model.runtimeHelper.resetConversation(
+          model = config.model,
+          supportImage = config.supportImage,
+          supportAudio = config.supportAudio,
+          systemInstruction = config.systemInstruction,
+          tools = config.tools,
           initialMessages = litertMessages,
         )
       } catch (e: Exception) {
@@ -191,17 +143,35 @@ constructor(
         throw e
       }
 
-      sessionConfigs[sessionId] =
-        SessionConfig(
-          model = model,
-          taskId = taskId ?: session?.taskId ?: config?.taskId ?: "",
-          supportImage = supportImage,
-          supportAudio = supportAudio,
-          systemInstruction = systemInstruction,
-          tools = tools,
-        )
-
       history
+    }
+
+  override suspend fun resetSession(
+    sessionId: String,
+    config: SessionConfig,
+    initialMessages: List<Message>,
+    enableConversationConstrainedDecoding: Boolean,
+  ): Unit =
+    withContext(ioDispatcher) {
+      activeSessionIdRef.set(sessionId)
+      Log.d(TAG, "Resetting session $sessionId on model ${config.model.name}")
+
+      ensureModelInitialized(config.model, "resetSession")
+
+      try {
+        config.model.runtimeHelper.resetConversation(
+          model = config.model,
+          supportImage = config.supportImage,
+          supportAudio = config.supportAudio,
+          systemInstruction = config.systemInstruction,
+          tools = config.tools,
+          enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+          initialMessages = initialMessages,
+        )
+      } catch (e: Exception) {
+        Log.e(TAG, "Error resetting session: ${e.message}", e)
+        throw e
+      }
     }
 
   override suspend fun listSessions(taskId: String?): List<ChatSessionProto> =
@@ -218,9 +188,9 @@ constructor(
 
   override suspend fun deleteSession(sessionId: String): Unit =
     withContext(ioDispatcher) {
+      activeSessionIdRef.compareAndSet(sessionId, generateSessionId())
       Log.d(TAG, "Deleting session $sessionId")
       chatSessionRepository.deleteChatSession(sessionId)
-      sessionConfigs.remove(sessionId)
       feedbackLinks.remove(sessionId)
 
       val files = context.cacheDir.listFiles()
@@ -235,9 +205,9 @@ constructor(
 
   override suspend fun clearAllSessions(): Unit =
     withContext(ioDispatcher) {
+      activeSessionIdRef.set(generateSessionId())
       Log.d(TAG, "Clearing all chat sessions")
       chatSessionRepository.clearAllChatSessions()
-      sessionConfigs.clear()
       feedbackLinks.clear()
 
       val files = context.cacheDir.listFiles()
@@ -257,14 +227,9 @@ constructor(
     withContext(ioDispatcher) {
       val existingSessions = chatSessionRepository.getAllChatSessions()
       val existing = existingSessions.firstOrNull { it.sessionId == sessionId }
-      val config = sessionConfigs[sessionId]
       val resolvedOriginalModel =
-        originalModel?.ifEmpty { null }
-          ?: existing?.originalModel?.ifEmpty { null }
-          ?: config?.model?.name
-          ?: ""
-      val resolvedTaskId =
-        taskId?.ifEmpty { null } ?: existing?.taskId?.ifEmpty { null } ?: config?.taskId ?: ""
+        originalModel?.ifEmpty { null } ?: existing?.originalModel?.ifEmpty { null } ?: ""
+      val resolvedTaskId = taskId?.ifEmpty { null } ?: existing?.taskId?.ifEmpty { null } ?: ""
 
       val firstTextMessage =
         messages
@@ -324,63 +289,10 @@ constructor(
     )
   }
 
-  override fun stopResponse(sessionId: String, model: Model?) {
-    Log.d(TAG, "Stopping response for session $sessionId")
-    val targetModel = sessionConfigs[sessionId]?.model ?: model
-    if (targetModel != null) {
-      targetModel.runtimeHelper.stopResponse(targetModel)
-    }
+  override fun stopResponse(sessionId: String, model: Model) {
+    Log.d(TAG, "Stopping response for session $sessionId on model ${model.name}")
+    model.runtimeHelper.stopResponse(model)
   }
-
-  override suspend fun updateSessionConfiguration(
-    sessionId: String,
-    model: Model,
-    taskId: String,
-    supportImage: Boolean,
-    supportAudio: Boolean,
-    systemInstruction: Contents?,
-    tools: List<ToolProvider>,
-    enableConversationConstrainedDecoding: Boolean,
-    initialMessages: List<Message>?,
-  ): Unit =
-    withContext(ioDispatcher) {
-      Log.d(TAG, "Updating session configuration for session $sessionId")
-      val litertMessages =
-        initialMessages
-          ?: run {
-            val allSessions = chatSessionRepository.getAllChatSessions()
-            val session = allSessions.firstOrNull { it.sessionId == sessionId }
-            val history = session?.messagesList ?: emptyList()
-            history.mapNotNull { protoToLitertMessage(it) }
-          }
-
-      ensureModelInitialized(model, "updateSessionConfiguration")
-
-      sessionConfigs[sessionId] =
-        SessionConfig(
-          model = model,
-          taskId = taskId,
-          supportImage = supportImage,
-          supportAudio = supportAudio,
-          systemInstruction = systemInstruction,
-          tools = tools,
-        )
-
-      try {
-        model.runtimeHelper.resetConversation(
-          model = model,
-          supportImage = supportImage,
-          supportAudio = supportAudio,
-          systemInstruction = systemInstruction,
-          tools = tools,
-          enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
-          initialMessages = litertMessages,
-        )
-      } catch (e: Exception) {
-        Log.e(TAG, "Error updating session configuration: ${e.message}", e)
-        throw e
-      }
-    }
 
   override suspend fun linkFeedbackToSession(
     sessionId: String,
