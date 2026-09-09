@@ -72,6 +72,7 @@ data class AllowedModel(
   val updatableModelFiles: List<ModelFile>? = null,
   val updateInfo: String? = null,
   val extraDataFiles: List<ModelDataFile>? = null,
+  val metadata: ModelMetadata? = null,
 ) {
   fun toModel(): Model {
     // Construct HF download url.
@@ -232,6 +233,7 @@ data class AllowedModel(
       updateInfo = updateInfo ?: "",
       extraDataFiles = extraDataFiles ?: listOf(),
       latestModelFile = ModelFile(fileName = downloadedFileName, commitHash = version),
+      metadata = metadata ?: ModelMetadata(),
     )
   }
 

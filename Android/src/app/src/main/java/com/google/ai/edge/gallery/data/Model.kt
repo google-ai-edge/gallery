@@ -272,6 +272,9 @@ data class Model(
   /** A map of model capability to the task type ids that the model capability is allowed for. */
   val capabilityToTaskTypes: Map<ModelCapability, List<String>> = mapOf(),
 
+  /** (optional) Strongly-typed metadata for the model. See [ModelMetadata] for more details. */
+  val metadata: ModelMetadata = ModelMetadata(),
+
   // The following fields are managed by the app. Don't need to set manually.
   //
   var normalizedName: String = "",
