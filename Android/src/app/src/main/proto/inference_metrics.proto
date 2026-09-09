@@ -1,0 +1,113 @@
+/* Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+syntax = "proto3";
+
+package com.google.ai.edge.gallery.common.metrics;
+
+import "battery_metrics.proto";
+import "memory_metrics.proto";
+import "settings.proto";
+
+option java_multiple_files = true;
+option java_package = "com.google.ai.edge.gallery.common.metrics";
+
+// Cancellation reason for the inference turn.
+enum CancellationReason {
+  CANCELLATION_REASON_UNSPECIFIED = 0;
+  USER_CANCELLED = 1;
+  SESSION_RESET = 2;
+  MODEL_SWITCHED = 3;
+  TIMEOUT = 4;
+}
+
+// Execution status of the inference turn.
+message InferenceStatus {
+  enum Code {
+    CODE_UNSPECIFIED = 0;
+    SUCCESS = 1;
+    CANCELLED = 2;
+    ERROR = 3;
+  }
+
+  Code code = 1;
+  string error_message = 2;
+  CancellationReason cancellation_reason = 3;
+}
+
+// Model and session metadata.
+message InferenceMetadata {
+  string model_name = 1;
+  string accelerator = 2;
+  InferenceStatus status = 3;
+  string task_id = 4;
+  com.google.ai.edge.gallery.proto.LlmConfig llm_config = 5;
+}
+
+// Latency and throughput performance measurements.
+message LatencyMetrics {
+  // Time from prompt submission to first generated token arrival in
+  // milliseconds (ms).
+  optional int64 ttft_ms = 1;
+  // Prompt processing speed in tokens per second (tps).
+  optional float prefill_speed_tps = 2;
+  // Token generation speed in tokens per second (tps).
+  optional float decode_speed_tps = 3;
+  // Total turn duration from prompt submit to completion in milliseconds (ms).
+  optional int64 total_latency_ms = 4;
+  // Token decoding duration (from 1st token to completion) in milliseconds
+  // (ms).
+  optional int64 decode_duration_ms = 5;
+  // User-perceived model initialization/loading duration in milliseconds (ms).
+  optional int64 init_duration_ms = 6;
+}
+
+// Token counts specifically for the current inference turn.
+message TurnTokenMetrics {
+  // Number of tokens in this turn's input prompt (derived from KV-cache delta -
+  // output_tokens at turn end).
+  optional int32 prompt_tokens = 1;
+  // Number of tokens generated in this turn's response.
+  // Calculated via onMessage streaming chunks; might differ by 1-2 tokens for
+  // multi-byte Unicode/emojis, but accurate 99% of the time.
+  optional int32 output_tokens = 2;
+  // Total tokens in this turn (prompt_tokens + output_tokens, exact KV-cache
+  // positions).
+  optional int32 total_tokens = 3;
+}
+
+// Context window capacity across the active conversation session.
+message ContextMetrics {
+  // Total tokens currently stored in the model's conversation context buffer.
+  optional int32 consumed_context_tokens = 1;
+  // Maximum supported/configured context window capacity in tokens (e.g.,
+  // 4096).
+  optional int32 max_context_tokens = 2;
+}
+
+// Core inference telemetry calculated for a turn.
+message TurnInferenceMetrics {
+  LatencyMetrics latency = 1;
+  TurnTokenMetrics tokens = 2;
+  ContextMetrics context = 3;
+}
+
+// Root container for all end-to-end inference turn telemetry.
+message InferenceMetrics {
+  InferenceMetadata metadata = 1;
+  TurnInferenceMetrics inference = 2;
+  MemoryMetrics memory = 3;
+  BatteryMetrics battery = 4;
+}
