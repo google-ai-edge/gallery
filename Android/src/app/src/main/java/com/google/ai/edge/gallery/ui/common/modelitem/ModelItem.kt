@@ -102,6 +102,7 @@ fun ModelItem(
   onExpanded: (Boolean) -> Unit = {},
   modelVariants: List<Model> = listOf(),
   tosViewModel: TosViewModel? = null,
+  showProgressIndicator: Boolean = true,
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val downloadStatus by remember {
@@ -363,18 +364,17 @@ fun ModelItem(
           }
         }
       }
-      // Only show the optional components panel if there is at least one extra data file that
-      // either targets all tasks (empty targetTaskTypes) or targets the currently active task.
-      val shouldShowOptionalComponents =
-        model.extraDataFiles.any { extraFile ->
-          extraFile.targetTaskTypes.isEmpty() || task?.id in extraFile.targetTaskTypes
-        }
-      if (isExpanded && shouldShowOptionalComponents) {
+      if (
+        isExpanded &&
+          (model.hasOptionalComponents(task?.id) ||
+            modelVariants.any { it.hasOptionalComponents(task?.id) })
+      ) {
         OptionalComponentsPanel(
           model = model,
           task = task,
           modelManagerViewModel = modelManagerViewModel,
           downloadStatus = downloadStatus?.status,
+          showProgressIndicator = showProgressIndicator,
           modelVariants = modelVariants,
         )
       }

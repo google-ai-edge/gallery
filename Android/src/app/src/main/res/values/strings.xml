@@ -875,6 +875,18 @@
   <string name="download_sample_images_optional" translatable="true" description="Checkbox label to download sample images with model in Instant Media Search. [CHAR_LIMIT=50]">Download sample images (optional)</string>
   <!-- Label for sample images optional component in Instant Media Search. [CHAR_LIMIT=30] -->
   <string name="sample_images" translatable="true" description="Label for sample images optional component in Instant Media Search. [CHAR_LIMIT=30]">Sample images</string>
+  <!-- Download progress display format for optional components showing downloaded size and total size, e.g., '10 MB / 71.9 MB'. First placeholder is the completed size, second is the total size. [CHAR_LIMIT=30] -->
+  <string name="modelitem_optional_components_progress_format" translatable="true" description="Download progress display format for optional components showing downloaded size and total size, e.g., '10 MB / 71.9 MB'. First placeholder is the completed size, second is the total size. [CHAR_LIMIT=30]">%1$s / %2$s</string>
+  <!-- Checkbox label format to download an optional component with a model, where %1$s is the component name. [CHAR_LIMIT=50] -->
+  <string name="download_optional_component_format" translatable="true" description="Checkbox label format to download an optional component with a model, where %1$s is the component name. [CHAR_LIMIT=50]">Download %1$s (optional)</string>
+  <!-- Notification title when an extra data file download succeeds. [CHAR_LIMIT=45] -->
+  <string name="download_extra_data_notification_title_success" translatable="true" description="Title of system notification when an extra data file download succeeds. [CHAR_LIMIT=45]">Extra data file download succeeded</string>
+  <!-- Notification content when an extra data file download succeeds, where %1$s is the component label. [CHAR_LIMIT=60] -->
+  <string name="download_extra_data_notification_content_success" translatable="true" description="Content of system notification when an extra data file download succeeds, where %1$s is the component label. [CHAR_LIMIT=60]">Extra data file \'%1$s\' has been downloaded</string>
+  <!-- Notification title when an extra data file download fails. [CHAR_LIMIT=35] -->
+  <string name="download_extra_data_notification_title_fail" translatable="true" description="Title of system notification when an extra data file download fails. [CHAR_LIMIT=35]">Extra data file download failed</string>
+  <!-- Notification content when an extra data file download fails, where %1$s is the component label. [CHAR_LIMIT=60] -->
+  <string name="download_extra_data_notification_content_fail" translatable="true" description="Content of system notification when an extra data file download fails, where %1$s is the component label. [CHAR_LIMIT=60]">Failed to download extra data file \'%1$s\'</string>
   <!-- Description for the Agent Skills task. [CHAR_LIMIT=100] -->
   <string name="task_desc_agent_skills" translatable="true" description="Description for the Agent Skills task. [CHAR_LIMIT=106]">Chat with on-device large language models with skills and tools</string>
   <!-- Short description for the Agent Skills task. [CHAR_LIMIT=35] -->

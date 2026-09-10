@@ -120,6 +120,15 @@ interface CustomTask {
   fun onDeleteModelFn(context: Context, model: Model) {}
 
   /**
+   * Called when optional extra data files associated with this task's model are removed. Allows
+   * tasks to clean up task-specific database files, cancel workers, or release resources.
+   *
+   * @param context The application context.
+   * @param model The `Model` object whose extra data files are being deleted.
+   */
+  fun onDeleteExtraDataFn(context: Context, model: Model) {}
+
+  /**
    * The main Composable UI for your custom task's detail screen.
    *
    * @param data The data sent from the app. It will typically be a [CustomTaskData].

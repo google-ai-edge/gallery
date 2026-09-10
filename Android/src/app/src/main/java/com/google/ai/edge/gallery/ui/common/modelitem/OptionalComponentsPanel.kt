@@ -38,6 +38,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowRight
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -45,11 +46,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -59,63 +58,55 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.ui.common.formatZeroBytes
+import com.google.ai.edge.gallery.ui.common.humanReadableSize
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import java.io.File
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private const val TAG = "OptionalComponents"
 
 internal fun getModelDirectory(context: Context, model: Model): File {
   return File(model.getPath(context = context, fileName = "placeholder")).parentFile
     ?: File(model.getPath(context = context, fileName = "placeholder"))
 }
 
-internal fun areOptionalComponentsPresent(context: Context, model: Model): Boolean {
-  if (model.extraDataFiles.isEmpty()) return false
-  val modelDir = getModelDirectory(context, model)
-  if (!modelDir.exists()) return false
+internal fun areOptionalComponentsPresent(
+  context: Context,
+  model: Model,
+  taskId: String? = null,
+  modelVariants: List<Model> = listOf(),
+): Boolean {
+  val modelsToCheck = listOf(model) + modelVariants
+  return modelsToCheck.any { m ->
+    val extraFiles = m.extraDataFiles(taskId)
+    if (extraFiles.isEmpty()) return@any false
+    val modelDir = getModelDirectory(context, m)
+    if (!modelDir.exists()) return@any false
 
-  return model.extraDataFiles.any { extraFile ->
-    val directFile = File(modelDir, extraFile.downloadFileName)
-    if (directFile.exists()) return@any true
-    val nameFile = File(modelDir, extraFile.name)
-    if (nameFile.exists()) return@any true
-    val folderName = extraFile.downloadFileName.substringBeforeLast(".")
-    val dirFile = File(modelDir, folderName)
-    if (dirFile.exists()) return@any true
-    false
-  }
-}
-
-internal fun deleteOptionalComponents(context: Context, model: Model) {
-  val modelDir = getModelDirectory(context, model)
-  if (!modelDir.exists()) return
-
-  for (extraFile in model.extraDataFiles) {
-    val directFile = File(modelDir, extraFile.downloadFileName)
-    if (directFile.exists()) {
-      directFile.deleteRecursively()
-    }
-    val folderName = extraFile.downloadFileName.substringBeforeLast(".")
-    val dirFile = File(modelDir, folderName)
-    if (dirFile.exists()) {
-      dirFile.deleteRecursively()
-    }
-    val nameFile = File(modelDir, extraFile.name)
-    if (nameFile.exists()) {
-      nameFile.deleteRecursively()
+    extraFiles.any { extraFile ->
+      val directFile = File(modelDir, extraFile.downloadFileName)
+      if (directFile.exists()) return@any true
+      val nameFile = File(modelDir, extraFile.name)
+      if (nameFile.exists()) return@any true
+      val folderName = extraFile.downloadFileName.substringBeforeLast(".")
+      val dirFile = File(modelDir, folderName)
+      if (dirFile.exists()) return@any true
+      false
     }
   }
 }
 
 /**
  * An expandable section under the model download panel that displays optional components such as
- * extra files that can be downloaded alongside the model or removed after download.
+ * extra files that can be downloaded alongside the model or removed/downloaded after download.
  */
 @Composable
 fun OptionalComponentsPanel(
@@ -127,18 +118,17 @@ fun OptionalComponentsPanel(
   modelVariants: List<Model> = listOf(),
   downloadLabel: String? = null,
   componentLabel: String? = null,
+  showProgressIndicator: Boolean = true,
 ) {
   val context = LocalContext.current
-  val coroutineScope = rememberCoroutineScope()
 
-  if (model.extraDataFiles.isEmpty()) {
+  val allModels = remember(model, modelVariants) { listOf(model) + modelVariants }
+
+  if (allModels.none { it.hasOptionalComponents(task?.id) }) {
     return
   }
 
-  val allModels = remember(model, modelVariants) { listOf(model) + modelVariants }
-  val firstExtraFile = model.extraDataFiles.first()
-
-  val uiState by modelManagerViewModel.uiState.collectAsState()
+  val uiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
   val allDownloadStatuses = allModels.mapNotNull { m ->
     if (m.name == model.name && downloadStatus != null) {
       downloadStatus
@@ -147,25 +137,13 @@ fun OptionalComponentsPanel(
     }
   }
 
-  var hasOptionalComponents by remember(model, downloadStatus) { mutableStateOf(false) }
+  var hasOptionalComponents by remember(model, modelVariants) { mutableStateOf(false) }
 
-  // Re-check optional components availability when download status changes.
-  LaunchedEffect(model, downloadStatus) {
-    withContext(Dispatchers.IO) {
-      hasOptionalComponents = areOptionalComponentsPresent(context, model)
-    }
-  }
-
-  val isModelDownloaded = downloadStatus == ModelDownloadStatusType.SUCCEEDED
+  val isModelDownloaded = allDownloadStatuses.any { it == ModelDownloadStatusType.SUCCEEDED }
   val isDownloadStarted = allDownloadStatuses.any {
     it == ModelDownloadStatusType.IN_PROGRESS ||
       it == ModelDownloadStatusType.UNZIPPING ||
       it == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
-  }
-
-  // If model is downloaded and there are no optional components present, do not show the section.
-  if (isModelDownloaded && !hasOptionalComponents) {
-    return
   }
 
   var isExpanded by rememberSaveable { mutableStateOf(false) }
@@ -179,14 +157,47 @@ fun OptionalComponentsPanel(
     }
   }
 
-  val optionalComponentsSizeBytes = model.extraDataFiles.sumOf { it.sizeInBytes }
+  val allExtraDataStatuses = allModels.mapNotNull { uiState.extraDataDownloadStatus[it.name] }
+  val extraDataStatus =
+    allExtraDataStatuses.find {
+      it.status == ModelDownloadStatusType.IN_PROGRESS ||
+        it.status == ModelDownloadStatusType.UNZIPPING
+    } ?: uiState.extraDataDownloadStatus[model.name] ?: allExtraDataStatuses.firstOrNull()
+  val isExtraDataDownloading =
+    extraDataStatus?.status == ModelDownloadStatusType.IN_PROGRESS ||
+      extraDataStatus?.status == ModelDownloadStatusType.UNZIPPING
+
+  LaunchedEffect(model, modelVariants, allDownloadStatuses, allExtraDataStatuses) {
+    if (
+      allExtraDataStatuses.isNotEmpty() &&
+        allExtraDataStatuses.all { it.status == ModelDownloadStatusType.NOT_DOWNLOADED }
+    ) {
+      hasOptionalComponents = false
+    } else if (allExtraDataStatuses.any { it.status == ModelDownloadStatusType.SUCCEEDED }) {
+      hasOptionalComponents = true
+    } else {
+      withContext(Dispatchers.IO) {
+        hasOptionalComponents =
+          areOptionalComponentsPresent(context, model, task?.id, modelVariants)
+      }
+    }
+  }
+
+  val targetedExtraFiles =
+    allModels.firstNotNullOfOrNull { m -> m.extraDataFiles(task?.id).takeIf { it.isNotEmpty() } }
+      ?: emptyList()
+  val optionalComponentsSizeBytes = targetedExtraFiles.sumOf { it.sizeInBytes }
   val optionalComponentsSizeText = formatOptionalComponentSize(optionalComponentsSizeBytes)
 
-  val resolvedDownloadLabel = downloadLabel ?: "Download ${firstExtraFile.name} (optional)"
+  val resolvedDownloadLabel =
+    downloadLabel
+      ?: model.optionalComponentsDownloadLabel(context, task?.id).ifEmpty {
+        targetedExtraFiles.firstOrNull()?.downloadLabel(context) ?: ""
+      }
   val resolvedComponentLabel =
     componentLabel
-      ?: firstExtraFile.name.replaceFirstChar {
-        if (it.isLowerCase()) it.titlecase() else it.toString()
+      ?: model.optionalComponentsLabel(context, task?.id).ifEmpty {
+        targetedExtraFiles.firstOrNull()?.componentLabel(context) ?: ""
       }
 
   Column(modifier = modifier.fillMaxWidth()) {
@@ -234,7 +245,7 @@ fun OptionalComponentsPanel(
             .padding(horizontal = 12.dp, vertical = 8.dp)
       ) {
         if (!isModelDownloaded) {
-          // Before download: Checkbox to download optional components (default: ticked)
+          // Before model download: Checkbox to download optional components
           Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier =
@@ -274,7 +285,7 @@ fun OptionalComponentsPanel(
             }
           }
         } else {
-          // After download: Show component label with "Remove" button if present
+          // After model download: Show component label, size/progress, and action
           Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -286,7 +297,30 @@ fun OptionalComponentsPanel(
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurface,
               )
-              if (optionalComponentsSizeText.isNotEmpty()) {
+              if (isExtraDataDownloading) {
+                val totalBytes =
+                  extraDataStatus?.totalBytes?.takeIf { it > 0L } ?: optionalComponentsSizeBytes
+                val receivedBytes = extraDataStatus?.receivedBytes ?: 0L
+                val progressText =
+                  if (receivedBytes == 0L) {
+                    stringResource(
+                      R.string.modelitem_optional_components_progress_format,
+                      formatZeroBytes(totalBytes),
+                      totalBytes.humanReadableSize(),
+                    )
+                  } else {
+                    stringResource(
+                      R.string.modelitem_optional_components_progress_format,
+                      receivedBytes.humanReadableSize(),
+                      totalBytes.humanReadableSize(),
+                    )
+                  }
+                Text(
+                  text = progressText,
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              } else if (optionalComponentsSizeText.isNotEmpty()) {
                 Text(
                   text = optionalComponentsSizeText,
                   style = MaterialTheme.typography.bodySmall,
@@ -294,19 +328,70 @@ fun OptionalComponentsPanel(
                 )
               }
             }
-            TextButton(
-              onClick = {
-                coroutineScope.launch(Dispatchers.IO) {
-                  deleteOptionalComponents(context, model)
-                  withContext(Dispatchers.Main) { hasOptionalComponents = false }
+
+            if (isExtraDataDownloading) {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                if (showProgressIndicator) {
+                  CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                  )
+                } else {
+                  Spacer(modifier = Modifier.size(20.dp))
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                TextButton(
+                  onClick = {
+                    modelManagerViewModel.cancelDownloadExtraDataFiles(model, modelVariants)
+                  }
+                ) {
+                  Text(
+                    text = stringResource(R.string.cancel),
+                    color = MaterialTheme.colorScheme.primary,
+                    style =
+                      MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                  )
                 }
               }
-            ) {
-              Text(
-                text = stringResource(R.string.remove),
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-              )
+            } else if (hasOptionalComponents) {
+              TextButton(
+                enabled = !isDownloadStarted,
+                onClick = {
+                  modelManagerViewModel.deleteExtraDataFiles(model, task, modelVariants) {
+                    hasOptionalComponents = false
+                  }
+                },
+              ) {
+                Text(
+                  text = stringResource(R.string.remove),
+                  color =
+                    if (isDownloadStarted) {
+                      MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    } else {
+                      MaterialTheme.colorScheme.primary
+                    },
+                  style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                )
+              }
+            } else {
+              TextButton(
+                enabled = !isDownloadStarted,
+                onClick = {
+                  modelManagerViewModel.downloadExtraDataFiles(task, model, modelVariants)
+                },
+              ) {
+                Text(
+                  text = stringResource(R.string.download),
+                  color =
+                    if (isDownloadStarted) {
+                      MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    } else {
+                      MaterialTheme.colorScheme.primary
+                    },
+                  style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                )
+              }
             }
           }
         }

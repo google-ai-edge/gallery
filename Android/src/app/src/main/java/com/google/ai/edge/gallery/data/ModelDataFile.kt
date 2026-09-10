@@ -16,6 +16,8 @@
 
 package com.google.ai.edge.gallery.data
 
+import android.content.Context
+import com.google.ai.edge.gallery.R
 import com.google.gson.annotations.SerializedName
 
 /**
@@ -33,7 +35,44 @@ data class ModelDataFile(
   val sizeInBytes: Long,
   /** The task types this data file is targeted for. */
   val targetTaskTypes: List<String> = emptyList(),
-)
+) {
+  /**
+   * The user-facing label for this optional component with capitalized first letter (e.g. "Sample
+   * images").
+   */
+  fun componentLabel(context: Context? = null): String {
+    if (context != null && name.equals("sample images", ignoreCase = true)) {
+      return context.getString(R.string.sample_images)
+    }
+    return name.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+  }
+
+  val componentLabel: String
+    get() = componentLabel(null)
+
+  /** Localized checkbox label to download this optional component with a model. */
+  fun downloadLabel(context: Context): String {
+    if (name.equals("sample images", ignoreCase = true)) {
+      return context.getString(R.string.download_sample_images_optional)
+    }
+    val displayComponent = componentLabel(context)
+    return context.getString(R.string.download_optional_component_format, displayComponent)
+  }
+
+  /**
+   * Returns whether this data file targets the given task id. If [targetTaskTypes] is empty, it
+   * targets all tasks.
+   */
+  fun isTargeted(taskId: String? = null): Boolean {
+    if (targetTaskTypes.isEmpty()) {
+      return true
+    }
+    if (taskId == null) {
+      return false
+    }
+    return targetTaskTypes.contains(taskId)
+  }
+}
 
 data class ModelFile(
   @SerializedName("fileName") val fileName: String,

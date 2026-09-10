@@ -94,6 +94,8 @@ private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
 private const val MODEL_ALLOWLIST_TEST_FILENAME = "model_allowlist_test.json"
 private const val ALLOWLIST_BASE_URL =
   "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlists"
+private const val PLACEHOLDER_FILENAME = "placeholder"
+private const val UNPACKED_FILE_EXT = "unpacked"
 
 private const val TEST_MODEL_ALLOW_LIST = ""
 
@@ -143,6 +145,9 @@ data class ModelManagerUiState(
    * by model name.
    */
   val downloadOptionalComponents: Map<String, Boolean> = mapOf(),
+
+  /** A map that tracks the download status of optional extra data files, indexed by model name. */
+  val extraDataDownloadStatus: Map<String, ModelDownloadStatus> = mapOf(),
 ) {
   fun isModelInitialized(model: Model): Boolean {
     return model.initStatusFlow.value is Model.InitializationStatus.Initialized
@@ -154,6 +159,10 @@ data class ModelManagerUiState(
 
   fun isDownloadOptionalComponentsEnabled(modelName: String): Boolean {
     return downloadOptionalComponents[modelName] ?: true
+  }
+
+  fun getExtraDataDownloadStatus(modelName: String): ModelDownloadStatus? {
+    return extraDataDownloadStatus[modelName]
   }
 }
 
@@ -370,13 +379,24 @@ constructor(
     }
 
     // Delete the model files first.
-    deleteModel(model = model, removeImportedFromModelList = false)
+    deleteModel(
+      model = model,
+      removeImportedFromModelList = false,
+      preserveOptionalComponentsState = true,
+    )
+
+    val family = getModelFamily(model)
+    val isExtraDataAlreadyDownloaded =
+      family.any {
+        uiState.value.extraDataDownloadStatus[it.name]?.status == ModelDownloadStatusType.SUCCEEDED
+      } || family.any { isExtraDataPresentOnDisk(it, task?.id) }
+    val actualIncludeExtraDataFiles = includeExtraDataFiles && !isExtraDataAlreadyDownloaded
 
     // Start to send download request.
     downloadRepository.downloadModel(
       task = task,
       model = model,
-      includeExtraDataFiles = includeExtraDataFiles,
+      includeExtraDataFiles = actualIncludeExtraDataFiles,
       onStatusUpdated = this::setDownloadStatus,
     )
   }
@@ -390,7 +410,205 @@ constructor(
     deleteModel(model = model, removeImportedFromModelList = false)
   }
 
-  fun deleteModel(model: Model, removeImportedFromModelList: Boolean = true) {
+  private fun isExtraDataPresentOnDisk(model: Model, taskId: String? = null): Boolean {
+    val extraFiles = model.extraDataFiles(taskId)
+    if (extraFiles.isEmpty()) return false
+    val modelDir =
+      File(model.getPath(context = context, fileName = PLACEHOLDER_FILENAME)).parentFile
+        ?: File(model.getPath(context = context, fileName = PLACEHOLDER_FILENAME))
+    if (!modelDir.exists()) return false
+
+    return extraFiles.any { extraFile ->
+      val directFile = File(modelDir, extraFile.downloadFileName)
+      if (directFile.exists()) return@any true
+      val nameFile = File(modelDir, extraFile.name)
+      if (nameFile.exists()) return@any true
+      val folderName = extraFile.downloadFileName.substringBeforeLast(".")
+      val dirFile = File(modelDir, folderName)
+      if (dirFile.exists()) return@any true
+      false
+    }
+  }
+
+  fun getModelFamily(model: Model, modelVariants: List<Model> = emptyList()): List<Model> {
+    val rootName = model.parentModelName ?: model.name
+    val allModels = (listOf(model) + modelVariants + getAllModels()).distinctBy { it.name }
+    val family = allModels.filter { it.name == rootName || it.parentModelName == rootName }
+    return family.ifEmpty { listOf(model) }
+  }
+
+  fun syncExtraDataAcrossFamily(model: Model, modelVariants: List<Model> = emptyList()) {
+    val family = getModelFamily(model, modelVariants)
+    val sourceModel = family.firstOrNull { isExtraDataPresentOnDisk(it) } ?: return
+    val srcModelDir =
+      File(sourceModel.getPath(context = context, fileName = PLACEHOLDER_FILENAME)).parentFile
+        ?: File(sourceModel.getPath(context = context, fileName = PLACEHOLDER_FILENAME))
+    if (!srcModelDir.exists()) return
+    for (targetVariant in family) {
+      if (
+        targetVariant.name != sourceModel.name &&
+          (uiState.value.modelDownloadStatus[targetVariant.name]?.status ==
+            ModelDownloadStatusType.SUCCEEDED || targetVariant.name == model.name)
+      ) {
+        val destModelDir =
+          File(targetVariant.getPath(context = context, fileName = PLACEHOLDER_FILENAME)).parentFile
+            ?: File(targetVariant.getPath(context = context, fileName = PLACEHOLDER_FILENAME))
+        if (srcModelDir.absolutePath != destModelDir.absolutePath) {
+          if (!destModelDir.exists()) destModelDir.mkdirs()
+          for (extraFile in sourceModel.extraDataFiles) {
+            val folderName = extraFile.downloadFileName.substringBeforeLast(".")
+            val candidates =
+              listOf(
+                extraFile.downloadFileName,
+                "${extraFile.downloadFileName}.$UNPACKED_FILE_EXT",
+                folderName,
+                extraFile.name,
+              )
+            for (candidate in candidates) {
+              val srcFile = File(srcModelDir, candidate)
+              val destFile = File(destModelDir, candidate)
+              if (srcFile.exists() && !destFile.exists()) {
+                try {
+                  srcFile.copyRecursively(destFile, overwrite = false)
+                } catch (e: Exception) {
+                  Log.w(TAG, "Failed to sync extra data file $candidate: ${e.message}")
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  fun setExtraDataDownloadStatus(curModel: Model, status: ModelDownloadStatus) {
+    _uiState.update { currentState ->
+      val curStatus = currentState.extraDataDownloadStatus.toMutableMap()
+      curStatus[curModel.name] = status
+      currentState.copy(extraDataDownloadStatus = curStatus)
+    }
+  }
+
+  open fun downloadExtraDataFiles(
+    task: Task?,
+    model: Model,
+    modelVariants: List<Model> = emptyList(),
+  ) {
+    val family = getModelFamily(model, modelVariants)
+    for (m in family) {
+      setDownloadOptionalComponents(m.name, true)
+    }
+    val downloadedModels = family.filter {
+      uiState.value.modelDownloadStatus[it.name]?.status == ModelDownloadStatusType.SUCCEEDED
+    }
+    val targetModel = downloadedModels.firstOrNull() ?: model
+    val extraFiles = targetModel.extraDataFiles(task?.id)
+    if (extraFiles.isEmpty()) return
+    val totalBytes = extraFiles.sumOf { it.sizeInBytes }
+    val initialStatus =
+      ModelDownloadStatus(
+        status = ModelDownloadStatusType.IN_PROGRESS,
+        receivedBytes = 0L,
+        totalBytes = totalBytes,
+      )
+    for (m in family) {
+      setExtraDataDownloadStatus(curModel = m, status = initialStatus)
+    }
+    downloadRepository.downloadExtraDataFiles(
+      task = task,
+      model = targetModel,
+      onStatusUpdated = { _, status ->
+        if (status.status == ModelDownloadStatusType.SUCCEEDED) {
+          syncExtraDataAcrossFamily(targetModel, family)
+        }
+        for (m in family) {
+          setExtraDataDownloadStatus(m, status)
+        }
+      },
+    )
+  }
+
+  fun cancelDownloadExtraDataFiles(model: Model, modelVariants: List<Model> = emptyList()) {
+    val family = getModelFamily(model, modelVariants)
+    for (m in family) {
+      downloadRepository.cancelDownloadExtraDataFiles(m)
+      val modelDir =
+        File(m.getPath(context = context, fileName = PLACEHOLDER_FILENAME)).parentFile
+          ?: File(m.getPath(context = context, fileName = PLACEHOLDER_FILENAME))
+      if (modelDir.exists()) {
+        for (extraFile in m.extraDataFiles) {
+          val tmpFile = File(modelDir, "${extraFile.downloadFileName}.$TMP_FILE_EXT")
+          if (tmpFile.exists()) tmpFile.delete()
+        }
+      }
+      setExtraDataDownloadStatus(
+        curModel = m,
+        status = ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED),
+      )
+    }
+  }
+
+  open fun deleteExtraDataFiles(
+    model: Model,
+    task: Task? = null,
+    modelVariants: List<Model> = emptyList(),
+    onComplete: (() -> Unit)? = null,
+  ) {
+    viewModelScope.launch(Dispatchers.IO) {
+      deleteExtraDataFilesInternal(model, task, modelVariants)
+      withContext(Dispatchers.Main) { onComplete?.invoke() }
+    }
+  }
+
+  internal fun deleteExtraDataFilesInternal(
+    model: Model,
+    task: Task? = null,
+    modelVariants: List<Model> = emptyList(),
+  ) {
+    val family = getModelFamily(model, modelVariants)
+    for (m in family) {
+      for (curTask in uiState.value.tasks) {
+        if (task == null || curTask.id == task.id) {
+          if (curTask.models.any { it.name == m.name }) {
+            val customTask = getCustomTaskByTaskId(id = curTask.id)
+            customTask?.onDeleteExtraDataFn(context = context, model = m)
+          }
+        }
+      }
+
+      val modelDir =
+        File(m.getPath(context = context, fileName = PLACEHOLDER_FILENAME)).parentFile
+          ?: File(m.getPath(context = context, fileName = PLACEHOLDER_FILENAME))
+      if (modelDir.exists()) {
+        val extraFiles = m.extraDataFiles(task?.id)
+        for (extraFile in extraFiles) {
+          val directFile = File(modelDir, extraFile.downloadFileName)
+          if (directFile.exists()) directFile.deleteRecursively()
+          val tmpFile = File(modelDir, "${extraFile.downloadFileName}.$TMP_FILE_EXT")
+          if (tmpFile.exists()) tmpFile.delete()
+          val markerFile = File(modelDir, "${extraFile.downloadFileName}.$UNPACKED_FILE_EXT")
+          if (markerFile.exists()) markerFile.delete()
+          val folderName = extraFile.downloadFileName.substringBeforeLast(".")
+          val dirFile = File(modelDir, folderName)
+          if (dirFile.exists()) dirFile.deleteRecursively()
+          val nameFile = File(modelDir, extraFile.name)
+          if (nameFile.exists()) nameFile.deleteRecursively()
+        }
+      }
+
+      setDownloadOptionalComponents(m.name, false)
+      setExtraDataDownloadStatus(
+        curModel = m,
+        status = ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED),
+      )
+    }
+  }
+
+  fun deleteModel(
+    model: Model,
+    removeImportedFromModelList: Boolean = true,
+    preserveOptionalComponentsState: Boolean = false,
+  ) {
     // If the currently downloaded model is an updatable version, reset the model to its latest
     // version and mark it as not updatable upon deletion.
     if (model.updatable) {
@@ -408,16 +626,52 @@ constructor(
       }
     }
 
+    val family = getModelFamily(model)
+    val remainingDownloadedVariants = family.filter {
+      it.name != model.name &&
+        uiState.value.modelDownloadStatus[it.name]?.status == ModelDownloadStatusType.SUCCEEDED
+    }
+
+    if (remainingDownloadedVariants.isNotEmpty() && !model.imported) {
+      val targetVariant = remainingDownloadedVariants.first()
+      val srcModelDir =
+        File(model.getPath(context = context, fileName = PLACEHOLDER_FILENAME)).parentFile
+          ?: File(model.getPath(context = context, fileName = PLACEHOLDER_FILENAME))
+      val destModelDir =
+        File(targetVariant.getPath(context = context, fileName = PLACEHOLDER_FILENAME)).parentFile
+          ?: File(targetVariant.getPath(context = context, fileName = PLACEHOLDER_FILENAME))
+      if (srcModelDir.exists() && srcModelDir.absolutePath != destModelDir.absolutePath) {
+        if (!destModelDir.exists()) destModelDir.mkdirs()
+        for (extraFile in model.extraDataFiles) {
+          val folderName = extraFile.downloadFileName.substringBeforeLast(".")
+          val candidates =
+            listOf(
+              extraFile.downloadFileName,
+              "${extraFile.downloadFileName}.$UNPACKED_FILE_EXT",
+              folderName,
+              extraFile.name,
+            )
+          for (candidate in candidates) {
+            val srcFile = File(srcModelDir, candidate)
+            val destFile = File(destModelDir, candidate)
+            if (srcFile.exists() && !destFile.exists()) {
+              try {
+                srcFile.copyRecursively(destFile, overwrite = false)
+              } catch (e: Exception) {
+                Log.w(TAG, "Failed to migrate extra data file $candidate: ${e.message}")
+              }
+            }
+          }
+        }
+      }
+    }
+
     if (model.imported) {
       deleteFilesFromImportDir(model.downloadFileName)
     } else {
       deleteDirFromModelsDir(model.normalizedName)
     }
 
-    // Update model download status to NotDownloaded.
-    val curModelDownloadStatus = uiState.value.modelDownloadStatus.toMutableMap()
-    curModelDownloadStatus[model.name] =
-      ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED)
     initializedBackends.remove(model.name)
 
     // Delete model from the list if model is imported as a local model and
@@ -431,7 +685,6 @@ constructor(
         }
         curTask.updateTrigger.value = System.currentTimeMillis()
       }
-      curModelDownloadStatus.remove(model.name)
 
       // Update data store.
       val importedModels = dataStoreRepository.readImportedModels().toMutableList()
@@ -441,13 +694,32 @@ constructor(
       }
       dataStoreRepository.saveImportedModels(importedModels = importedModels)
     }
-    val updatedDownloadOptionalComponents = _uiState.value.downloadOptionalComponents.toMutableMap()
-    updatedDownloadOptionalComponents.remove(model.name)
-    _uiState.update {
-      it.copy(
+    _uiState.update { currentState ->
+      val curModelDownloadStatus = currentState.modelDownloadStatus.toMutableMap()
+      if (model.imported && removeImportedFromModelList) {
+        curModelDownloadStatus.remove(model.name)
+      } else {
+        curModelDownloadStatus[model.name] =
+          ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED)
+      }
+      val updatedDownloadOptionalComponents = currentState.downloadOptionalComponents.toMutableMap()
+      val curExtraDownloadStatus = currentState.extraDataDownloadStatus.toMutableMap()
+      if (!preserveOptionalComponentsState) {
+        if (remainingDownloadedVariants.isEmpty()) {
+          for (m in family) {
+            updatedDownloadOptionalComponents.remove(m.name)
+            curExtraDownloadStatus.remove(m.name)
+          }
+        } else {
+          updatedDownloadOptionalComponents.remove(model.name)
+          curExtraDownloadStatus.remove(model.name)
+        }
+      }
+      currentState.copy(
         modelDownloadStatus = curModelDownloadStatus,
         downloadOptionalComponents = updatedDownloadOptionalComponents,
-        tasks = it.tasks.toList(),
+        extraDataDownloadStatus = curExtraDownloadStatus,
+        tasks = currentState.tasks.toList(),
         modelImportingUpdateTrigger = System.currentTimeMillis(),
       )
     }
@@ -569,9 +841,6 @@ constructor(
   }
 
   fun setDownloadStatus(curModel: Model, status: ModelDownloadStatus) {
-    // Update model download progress.
-    val curModelDownloadStatus = uiState.value.modelDownloadStatus.toMutableMap()
-    curModelDownloadStatus[curModel.name] = status
     // Delete downloaded file if status is failed or not_downloaded.
     if (
       status.status == ModelDownloadStatusType.FAILED ||
@@ -580,7 +849,25 @@ constructor(
       deleteFileFromModelsDir(curModel.downloadFileName)
     }
 
-    _uiState.update { it.copy(modelDownloadStatus = curModelDownloadStatus) }
+    if (status.status == ModelDownloadStatusType.SUCCEEDED) {
+      syncExtraDataAcrossFamily(curModel)
+      val family = getModelFamily(curModel)
+      if (
+        (isDownloadOptionalComponentsEnabled(curModel.name) &&
+          curModel.extraDataFiles.isNotEmpty()) || family.any { isExtraDataPresentOnDisk(it) }
+      ) {
+        val succeededStatus = ModelDownloadStatus(status = ModelDownloadStatusType.SUCCEEDED)
+        for (m in family) {
+          setExtraDataDownloadStatus(curModel = m, status = succeededStatus)
+        }
+      }
+    }
+
+    _uiState.update { currentState ->
+      val curModelDownloadStatus = currentState.modelDownloadStatus.toMutableMap()
+      curModelDownloadStatus[curModel.name] = status
+      currentState.copy(modelDownloadStatus = curModelDownloadStatus)
+    }
   }
 
   fun addTextInputHistory(text: String) {
@@ -1196,8 +1483,10 @@ constructor(
 
   private fun createUiState(): ModelManagerUiState {
     val modelDownloadStatus: MutableMap<String, ModelDownloadStatus> = mutableMapOf()
+    val extraDataDownloadStatus = _uiState.value.extraDataDownloadStatus.toMutableMap()
     val tasks: MutableMap<String, Task> = mutableMapOf()
     val checkedModelNames = mutableSetOf<String>()
+    val checkedModels = mutableListOf<Model>()
     for (customTask in getActiveCustomTasks()) {
       val task = customTask.task
       tasks.put(key = task.id, value = task)
@@ -1207,6 +1496,17 @@ constructor(
         }
         modelDownloadStatus[model.name] = getModelDownloadStatus(model = model)
         checkedModelNames.add(model.name)
+        checkedModels.add(model)
+      }
+    }
+
+    for (model in checkedModels) {
+      if (
+        extraDataDownloadStatus[model.name] == null &&
+          getModelFamily(model).any { isExtraDataPresentOnDisk(it) }
+      ) {
+        extraDataDownloadStatus[model.name] =
+          ModelDownloadStatus(status = ModelDownloadStatusType.SUCCEEDED)
       }
     }
 
@@ -1261,6 +1561,7 @@ constructor(
       modelDownloadStatus = modelDownloadStatus,
       textInputHistory = textInputHistory,
       downloadOptionalComponents = _uiState.value.downloadOptionalComponents,
+      extraDataDownloadStatus = extraDataDownloadStatus,
     )
   }
 

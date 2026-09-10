@@ -97,6 +97,18 @@ fun Long.humanReadableSize(si: Boolean = true, extraDecimalForGbAndAbove: Boolea
   return formatString.format(bytes / unit.toDouble().pow(exp.toDouble()), pre)
 }
 
+/**
+ * Formats zero bytes to match the unit of [matchingUnitOfTotalBytes] (e.g., "0 MB" when total is
+ * 71.9 MB).
+ */
+fun formatZeroBytes(matchingUnitOfTotalBytes: Long, si: Boolean = true): String {
+  val unit = if (si) 1000 else 1024
+  if (matchingUnitOfTotalBytes < unit) return "0 B"
+  val exp = (ln(matchingUnitOfTotalBytes.toDouble()) / ln(unit.toDouble())).toInt()
+  val pre = (if (si) "kMGTPE" else "KMGTPE")[exp - 1] + if (si) "" else "i"
+  return "0 ${pre}B"
+}
+
 fun Float.humanReadableDuration(): String {
   val milliseconds = this
   if (milliseconds < 1000) {

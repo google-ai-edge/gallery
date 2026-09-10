@@ -410,6 +410,28 @@ data class Model(
     return extraDataFiles.find { it.name == name }
   }
 
+  fun extraDataFiles(taskId: String? = null): List<ModelDataFile> {
+    if (taskId != null) {
+      return extraDataFiles.filter { it.isTargeted(taskId) }
+    }
+    return extraDataFiles
+  }
+
+  fun hasOptionalComponents(taskId: String? = null): Boolean {
+    if (taskId != null) {
+      return extraDataFiles.any { it.isTargeted(taskId) }
+    }
+    return extraDataFiles.isNotEmpty()
+  }
+
+  fun optionalComponentsDownloadLabel(context: Context, taskId: String? = null): String {
+    return extraDataFiles(taskId).firstOrNull()?.downloadLabel(context) ?: ""
+  }
+
+  fun optionalComponentsLabel(context: Context? = null, taskId: String? = null): String {
+    return extraDataFiles(taskId).firstOrNull()?.componentLabel(context) ?: ""
+  }
+
   private fun getTypedConfigValue(key: ConfigKey, valueType: ValueType, defaultValue: Any): Any {
     return convertValueToTargetType(
       value = configValues.getOrDefault(key.label, defaultValue),
