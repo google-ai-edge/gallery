@@ -61,7 +61,7 @@ fun StatusIcon(
       } else {
         MaterialTheme.colorScheme.primary
       }
-    if (model.localFileRelativeDirPathOverride.isNotEmpty()) {
+    if (model.downloadInfo.localRelativeDirPathOverride.isNotEmpty()) {
       Icon(
         Icons.Filled.DownloadForOffline,
         tint = color,

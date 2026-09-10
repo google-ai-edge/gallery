@@ -157,7 +157,7 @@ fun DownloadAndTryButton(
   val needToDownloadFirst =
     (downloadStatus == ModelDownloadStatusType.NOT_DOWNLOADED ||
       downloadStatus == ModelDownloadStatusType.FAILED) &&
-      model.localFileRelativeDirPathOverride.isEmpty() &&
+      model.downloadInfo.localRelativeDirPathOverride.isEmpty() &&
       model.runtimeType != RuntimeType.AICORE
   val inProgress = downloadStatus == ModelDownloadStatusType.IN_PROGRESS
   val downloadSucceeded = downloadStatus == ModelDownloadStatusType.SUCCEEDED
@@ -184,7 +184,7 @@ fun DownloadAndTryButton(
   val startDownload: (accessToken: String?) -> Unit = { accessToken ->
     downloadStarted = true
     checkingToken = false
-    model.accessToken = accessToken
+    model.downloadInfo.accessToken = accessToken
     checkNotificationPermissionAndStartDownload(
       context = context,
       launcher = permissionLauncher,
@@ -294,7 +294,7 @@ fun DownloadAndTryButton(
   val handleClickButton = {
     if (needToDownloadFirst) {
       // For HuggingFace urls
-      if (HuggingFaceApiClient.isHuggingFaceUrl(model.url)) {
+      if (HuggingFaceApiClient.isHuggingFaceUrl(model.downloadInfo.url)) {
         Log.d(
           TAG,
           "Model '${model.name}' is from HuggingFace. Checking token status and model accessibility.",
@@ -341,7 +341,7 @@ fun DownloadAndTryButton(
           containerColor =
             if (
               (!downloadSucceeded || !canShowTryIt) &&
-                model.localFileRelativeDirPathOverride.isEmpty()
+                model.downloadInfo.localRelativeDirPathOverride.isEmpty()
             ) {
               downloadButtonBackgroundColor
             } else if (task != null) {
@@ -358,7 +358,7 @@ fun DownloadAndTryButton(
 
         // Check TOS before downloading.
         if (
-          model.url.startsWith("https://dl.google.com/google-ai-edge-gallery/") &&
+          model.downloadInfo.url.startsWith("https://dl.google.com/google-ai-edge-gallery/") &&
             MODEL_NAMES_TO_SHOW_GEMMA_LICENSES.contains(model.name) &&
             !tosViewModel.getIsGemmaTermsOfUseAccepted()
         ) {
@@ -372,7 +372,9 @@ fun DownloadAndTryButton(
         if (!enabled) {
           // Define the color for disabled button.
           MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-        } else if (!downloadSucceeded && model.localFileRelativeDirPathOverride.isEmpty()) {
+        } else if (
+          !downloadSucceeded && model.downloadInfo.localRelativeDirPathOverride.isEmpty()
+        ) {
           MaterialTheme.colorScheme.onSurface
         } else if (task != null) {
           Color.White
@@ -530,10 +532,10 @@ fun DownloadAndTryButton(
         Button(
           onClick = {
             // Get agreement url from model url.
-            val index = model.url.indexOf("/resolve/")
+            val index = model.downloadInfo.url.indexOf("/resolve/")
             // Show it in a tab.
             if (index >= 0) {
-              val agreementUrl = model.url.substring(0, index)
+              val agreementUrl = model.downloadInfo.url.substring(0, index)
 
               val customTabsIntent = CustomTabsIntent.Builder().build()
               customTabsIntent.intent.setData(agreementUrl.toUri())

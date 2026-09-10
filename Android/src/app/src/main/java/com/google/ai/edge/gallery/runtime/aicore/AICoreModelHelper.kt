@@ -161,7 +161,7 @@ object AICoreModelHelper : LlmModelHelper {
           }
           FeatureStatus.DOWNLOADABLE,
           FeatureStatus.DOWNLOADING -> {
-            var totalBytesToDownload = model.sizeInBytes
+            var totalBytesToDownload = model.downloadInfo.sizeInBytes
             generativeModel.download().collect { downloadStatus ->
               when (downloadStatus) {
                 is DownloadStatus.DownloadStarted -> {

@@ -32,4 +32,6 @@ data class ModelDownloadStatus(
   val errorMessage: String = "",
   val bytesPerSecond: Long = 0,
   val remainingMs: Long = 0,
+  val isUpdatable: Boolean = false,
+  val installedModelFile: ModelFile? = null,
 )

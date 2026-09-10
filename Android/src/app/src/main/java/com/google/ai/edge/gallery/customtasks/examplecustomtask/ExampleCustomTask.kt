@@ -24,6 +24,7 @@ import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskData
 import com.google.ai.edge.gallery.data.CategoryInfo
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.ModelDownloadInfo
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.litertlm.Contents
@@ -41,7 +42,7 @@ import kotlinx.coroutines.launch
  *
  * This class provides two primary examples of how to configure models:
  * 1. A "Local model" that expects a file (`model.txt`) to be manually pushed to the device. The
- *    `localFileRelativeDirPathOverride` field is used to specify this behavior.
+ *    `localRelativeDirPathOverride` field is used to specify this behavior.
  * 2. A "Remote model" that downloads a file (`README.md`) from a URL. The `url` and
  *    `downloadFileName` fields are used for this configuration.
  *
@@ -80,7 +81,7 @@ class ExampleCustomTask @Inject constructor() : CustomTask {
             name = "Local model",
             info =
               "Expects to read the model file `model.txt` manually pushed to `{ext_files_dir}/example_task/`.",
-            localFileRelativeDirPathOverride = "example_task/",
+            downloadInfo = ModelDownloadInfo(localRelativeDirPathOverride = "example_task/"),
             bestForTaskIds = listOf("example_custom_task"),
             configs = EXAMPLE_CUSTOM_TASK_CONFIGS,
           ),
@@ -88,10 +89,13 @@ class ExampleCustomTask @Inject constructor() : CustomTask {
             name = "Remote model",
             info =
               "Downloads the model file (a README.md file for demonstration purpose) from internet.",
-            url =
-              "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/README.md",
-            sizeInBytes = 3798L,
-            downloadFileName = "README.md",
+            downloadInfo =
+              ModelDownloadInfo(
+                url =
+                  "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/README.md",
+                sizeInBytes = 3798L,
+                downloadFileName = "README.md",
+              ),
             configs = EXAMPLE_CUSTOM_TASK_CONFIGS,
           ),
         ),
@@ -110,7 +114,7 @@ class ExampleCustomTask @Inject constructor() : CustomTask {
         // Read model file content.
         val file =
           // Remote model
-          if (model.localFileRelativeDirPathOverride.isEmpty())
+          if (model.downloadInfo.localRelativeDirPathOverride.isEmpty())
             File(model.getPath(context = context))
           // Local model
           else File(model.getPath(context = context, fileName = "model.txt"))

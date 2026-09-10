@@ -183,9 +183,9 @@ fun GlobalModelManager(
             }
         )
     builtInModels.clear()
-    builtInModels.addAll(sortedModels.filter { !it.imported })
+    builtInModels.addAll(sortedModels.filter { !it.downloadInfo.imported })
     importedModels.clear()
-    importedModels.addAll(sortedModels.filter { it.imported })
+    importedModels.addAll(sortedModels.filter { it.downloadInfo.imported })
   }
 
   // Calculate model variants by grouping models with a parentModelName.

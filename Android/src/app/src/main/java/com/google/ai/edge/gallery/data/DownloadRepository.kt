@@ -116,22 +116,23 @@ class DefaultDownloadRepository(
   ) {
     // Create input data.
     val builder = Data.Builder()
-    val extraFiles = if (includeExtraDataFiles) model.extraDataFiles(task?.id) else emptyList()
-    val totalBytes = model.sizeInBytes + extraFiles.sumOf { it.sizeInBytes }
+    val extraFiles =
+      if (includeExtraDataFiles) model.downloadInfo.extraDataFiles(task?.id) else emptyList()
+    val totalBytes = model.downloadInfo.sizeInBytes + extraFiles.sumOf { it.sizeInBytes }
     val inputDataBuilder =
       builder
         .putString(KEY_MODEL_NAME, model.name)
-        .putString(KEY_MODEL_URL, model.url)
-        .putString(KEY_MODEL_COMMIT_HASH, model.version)
+        .putString(KEY_MODEL_URL, model.downloadInfo.url)
+        .putString(KEY_MODEL_COMMIT_HASH, model.downloadInfo.version)
         .putString(
           KEY_MODEL_DOWNLOAD_MODEL_DIR,
-          if (model.imported) IMPORTS_DIR else model.normalizedName,
+          if (model.downloadInfo.imported) IMPORTS_DIR else model.normalizedName,
         )
-        .putString(KEY_MODEL_DOWNLOAD_FILE_NAME, model.downloadFileName)
-        .putBoolean(KEY_MODEL_IS_ZIP, model.isZip)
-        .putString(KEY_MODEL_UNZIPPED_DIR, model.unzipDir)
+        .putString(KEY_MODEL_DOWNLOAD_FILE_NAME, model.downloadInfo.downloadFileName)
+        .putBoolean(KEY_MODEL_IS_ZIP, model.downloadInfo.isZip)
+        .putString(KEY_MODEL_UNZIPPED_DIR, model.downloadInfo.unzipDir)
         .putLong(KEY_MODEL_TOTAL_BYTES, totalBytes)
-        .putBoolean(KEY_MODEL_IS_IMPORTED, model.imported)
+        .putBoolean(KEY_MODEL_IS_IMPORTED, model.downloadInfo.imported)
 
     if (extraFiles.isNotEmpty()) {
       inputDataBuilder
@@ -141,8 +142,8 @@ class DefaultDownloadRepository(
           extraFiles.joinToString(",") { it.downloadFileName },
         )
     }
-    if (model.accessToken != null) {
-      inputDataBuilder.putString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN, model.accessToken)
+    if (model.downloadInfo.accessToken != null) {
+      inputDataBuilder.putString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN, model.downloadInfo.accessToken)
     }
     val inputData = inputDataBuilder.build()
 
@@ -176,20 +177,20 @@ class DefaultDownloadRepository(
     model: Model,
     onStatusUpdated: (model: Model, status: ModelDownloadStatus) -> Unit,
   ) {
-    val extraFiles = model.extraDataFiles(task?.id)
+    val extraFiles = model.downloadInfo.extraDataFiles(task?.id)
     if (extraFiles.isEmpty()) return
     val totalBytes = extraFiles.sumOf { it.sizeInBytes }
 
     val inputData =
       Data.Builder()
         .putString(KEY_MODEL_NAME, model.name)
-        .putString(KEY_MODEL_COMMIT_HASH, model.version)
+        .putString(KEY_MODEL_COMMIT_HASH, model.downloadInfo.version)
         .putString(
           KEY_MODEL_DOWNLOAD_MODEL_DIR,
-          if (model.imported) IMPORTS_DIR else model.normalizedName,
+          if (model.downloadInfo.imported) IMPORTS_DIR else model.normalizedName,
         )
         .putLong(KEY_MODEL_TOTAL_BYTES, totalBytes)
-        .putBoolean(KEY_MODEL_IS_IMPORTED, model.imported)
+        .putBoolean(KEY_MODEL_IS_IMPORTED, model.downloadInfo.imported)
         .putBoolean(KEY_MODEL_EXTRA_DATA_ONLY, true)
         .putString(KEY_MODEL_EXTRA_DATA_URLS, extraFiles.joinToString(",") { it.url })
         .putString(
@@ -197,8 +198,8 @@ class DefaultDownloadRepository(
           extraFiles.joinToString(",") { it.downloadFileName },
         )
         .apply {
-          if (model.accessToken != null) {
-            putString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN, model.accessToken)
+          if (model.downloadInfo.accessToken != null) {
+            putString(KEY_MODEL_DOWNLOAD_ACCESS_TOKEN, model.downloadInfo.accessToken)
           }
         }
         .build()
@@ -296,8 +297,8 @@ class DefaultDownloadRepository(
                     val totalBytes =
                       if (expectedTotalBytes > 0L) expectedTotalBytes
                       else if (isExtraDataOnly)
-                        model.extraDataFiles(task?.id).sumOf { it.sizeInBytes }
-                      else model.totalBytes
+                        model.downloadInfo.extraDataFiles(task?.id).sumOf { it.sizeInBytes }
+                      else model.downloadInfo.totalBytes
                     onStatusUpdated(
                       model,
                       ModelDownloadStatus(
@@ -332,7 +333,9 @@ class DefaultDownloadRepository(
                       context
                         .getString(R.string.download_extra_data_notification_content_success)
                         .format(
-                          model.optionalComponentsLabel(context, task?.id).ifEmpty { model.name }
+                          model.downloadInfo.optionalComponentsLabel(context, task?.id).ifEmpty {
+                            model.name
+                          }
                         ),
                     taskId = task?.id ?: DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID,
                     modelName = model.name,
@@ -378,7 +381,9 @@ class DefaultDownloadRepository(
                         context
                           .getString(R.string.download_extra_data_notification_content_fail)
                           .format(
-                            model.optionalComponentsLabel(context, task?.id).ifEmpty { model.name }
+                            model.downloadInfo.optionalComponentsLabel(context, task?.id).ifEmpty {
+                              model.name
+                            }
                           ),
                       taskId = "",
                       modelName = "",

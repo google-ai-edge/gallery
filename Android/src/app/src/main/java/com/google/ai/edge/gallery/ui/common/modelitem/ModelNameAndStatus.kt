@@ -105,14 +105,14 @@ fun ModelNameAndStatus(
 
     // Show "Update available" info message label if the model is updatable.
     // Tap to show the detailed update info in a dialog.
-    if (model.updatable) {
+    if (downloadStatus?.isUpdatable == true) {
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier =
           Modifier.padding(bottom = 10.dp)
             .then(
-              if (model.updateInfo.isNotEmpty()) {
+              if (model.downloadInfo.updateInfo.isNotEmpty()) {
                 Modifier.clickable(role = Role.Button) { showUpdateDialog = true }
               } else {
                 Modifier
@@ -137,7 +137,7 @@ fun ModelNameAndStatus(
       AlertDialog(
         onDismissRequest = { showUpdateDialog = false },
         title = { Text(stringResource(R.string.about_this_update)) },
-        text = { Text(model.updateInfo) },
+        text = { Text(model.downloadInfo.updateInfo) },
         confirmButton = {
           TextButton(onClick = { showUpdateDialog = false }) {
             Text(stringResource(android.R.string.ok))
@@ -167,7 +167,7 @@ fun ModelNameAndStatus(
     }
 
     // Learn more url.
-    if (!model.imported && model.learnMoreUrl.isNotEmpty()) {
+    if (!model.downloadInfo.imported && model.learnMoreUrl.isNotEmpty()) {
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -222,9 +222,9 @@ fun ModelStatusDetails(
     }
     // Status label
     else {
-      var sizeLabel = model.totalBytes.humanReadableSize()
-      if (model.localFileRelativeDirPathOverride.isNotEmpty()) {
-        sizeLabel = "{ext_files_dir}/${model.localFileRelativeDirPathOverride}"
+      var sizeLabel = model.downloadInfo.totalBytes.humanReadableSize()
+      if (model.downloadInfo.localRelativeDirPathOverride.isNotEmpty()) {
+        sizeLabel = "{ext_files_dir}/${model.downloadInfo.localRelativeDirPathOverride}"
       }
 
       // Populate the status label.
@@ -233,7 +233,7 @@ fun ModelStatusDetails(
         if (inProgress || isPartiallyDownloaded) {
           var totalSize = downloadStatus.totalBytes
           if (totalSize == 0L) {
-            totalSize = model.totalBytes
+            totalSize = model.downloadInfo.totalBytes
           }
           sizeLabel =
             "${downloadStatus.receivedBytes.humanReadableSize(extraDecimalForGbAndAbove = true)} of ${totalSize.humanReadableSize()}"

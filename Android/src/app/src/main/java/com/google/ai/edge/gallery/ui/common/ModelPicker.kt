@@ -130,10 +130,10 @@ fun ModelPicker(
                 downloadStatus = modelManagerUiState.modelDownloadStatus[model.name],
               )
               Text(
-                if (model.localFileRelativeDirPathOverride.isEmpty()) {
-                  model.sizeInBytes.humanReadableSize()
+                if (model.downloadInfo.localRelativeDirPathOverride.isEmpty()) {
+                  model.downloadInfo.sizeInBytes.humanReadableSize()
                 } else {
-                  "{ext_file_dir}/${model.localFileRelativeDirPathOverride}"
+                  "{ext_file_dir}/${model.downloadInfo.localRelativeDirPathOverride}"
                 },
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = labelSmallNarrow.copy(lineHeight = 10.sp),

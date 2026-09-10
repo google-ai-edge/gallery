@@ -254,7 +254,7 @@ fun ModelPageAppBar(
             Bundle().apply {
               putString("model_id", model.name)
               putString("capability_name", task.id)
-              putString("model_version", model.version)
+              putString("model_version", model.downloadInfo.version)
               putString("app_version", BuildConfig.VERSION_NAME)
             },
           )

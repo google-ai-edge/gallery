@@ -68,6 +68,7 @@ fun DownloadModelPanel(
   showBenchmarkActionButton: Boolean = false,
   tosViewModel: TosViewModel? = null,
   downloadButtonBackgroundColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+  isUpdatable: Boolean = false,
 ) {
   with(sharedTransitionScope) {
     Row(
@@ -83,7 +84,7 @@ fun DownloadModelPanel(
 
       val downloadSucceeded = downloadStatus == ModelDownloadStatusType.SUCCEEDED
       if (showBenchmarkActionButton && downloadSucceeded && model.isLlm) {
-        val expandBenchmarkButton = isExpanded && !model.updatable
+        val expandBenchmarkButton = isExpanded && !isUpdatable
         // Benchmark button.
         var buttonModifier: Modifier = Modifier.height(42.dp)
         if (expandBenchmarkButton) {
@@ -127,7 +128,7 @@ fun DownloadModelPanel(
       }
 
       // Display an update button if the model is updatable.
-      if (model.updatable) {
+      if (isUpdatable) {
         var buttonModifier: Modifier = Modifier.height(42.dp)
         if (isExpanded) {
           buttonModifier = buttonModifier.weight(1f)
@@ -145,14 +146,7 @@ fun DownloadModelPanel(
               containerColor = MaterialTheme.colorScheme.secondaryContainer
             ),
           contentPadding = PaddingValues(horizontal = 12.dp),
-          onClick = {
-            model.latestModelFile?.let {
-              model.version = it.commitHash
-              model.downloadFileName = it.fileName
-            }
-            model.updatable = false
-            modelManagerViewModel.downloadModel(task, model)
-          },
+          onClick = { modelManagerViewModel.downloadModel(task, model) },
         ) {
           val textColor = MaterialTheme.colorScheme.onSecondaryContainer
           Row(
