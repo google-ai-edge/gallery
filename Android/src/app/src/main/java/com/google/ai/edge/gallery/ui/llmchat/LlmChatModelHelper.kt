@@ -21,6 +21,9 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import com.google.ai.edge.gallery.common.cleanUpMediapipeTaskErrorMessage
+import com.google.ai.edge.gallery.common.metrics.InferenceStatus
+import com.google.ai.edge.gallery.common.metrics.MetricsTracker
+import com.google.ai.edge.gallery.common.metrics.asSession
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
@@ -35,6 +38,7 @@ import com.google.ai.edge.gallery.data.markInitializationFailed
 import com.google.ai.edge.gallery.data.markInitializationStarted
 import com.google.ai.edge.gallery.data.markInitialized
 import com.google.ai.edge.gallery.data.resetInitialization
+import com.google.ai.edge.gallery.data.supportModelBenchmark
 import com.google.ai.edge.gallery.runtime.CleanUpListener
 import com.google.ai.edge.gallery.runtime.LlmModelHelper
 import com.google.ai.edge.gallery.runtime.ResultListener
@@ -161,11 +165,14 @@ object LlmChatModelHelper : LlmModelHelper {
             defaultValue = false,
           )
       }
+      val enableBenchmark = false
+      ExperimentalFlags.enableBenchmark = enableBenchmark
       ExperimentalFlags.enableSpeculativeDecoding = speculativeDecoding
       Log.d(TAG, "Speculative decoding enabled: $speculativeDecoding")
       val engine = Engine(engineConfig)
       engine.initialize()
       ExperimentalFlags.enableSpeculativeDecoding = false
+      ExperimentalFlags.enableBenchmark = false
 
       ExperimentalFlags.enableConversationConstrainedDecoding =
         enableConversationConstrainedDecoding
@@ -305,6 +312,7 @@ object LlmChatModelHelper : LlmModelHelper {
     audioClips: List<ByteArray>,
     coroutineScope: CoroutineScope?,
     extraContext: Map<String, String>?,
+    metricsTracker: MetricsTracker?,
   ) {
     val instance = model.instance as? LlmModelInstance
     if (instance == null) {
@@ -317,8 +325,11 @@ object LlmChatModelHelper : LlmModelHelper {
       cleanUpListeners[model.name] = cleanUpListener
     }
 
+    // Step 1: Initialize turn telemetry with active Conversation.
     val conversation = instance.conversation
+    metricsTracker?.startTurn(conversation.asSession())
 
+    // Step 2: Assemble multimodal prompt attachments (images, audio clips, and text).
     val contents = mutableListOf<Content>()
     for (image in images) {
       contents.add(Content.ImageBytes(image.toPngByteArray()))
@@ -326,33 +337,49 @@ object LlmChatModelHelper : LlmModelHelper {
     for (audioClip in audioClips) {
       contents.add(Content.AudioBytes(audioClip))
     }
-    // add the text after image and audio for the accurate last token
+    // Add text after images/audio to ensure proper autoregressive token sequencing.
     if (input.trim().isNotEmpty()) {
       contents.add(Content.Text(input))
     }
 
-    // Set enable_thinking to false by default using boolean literals for proper JSON serialization.
+    // Step 3: Configure extra runtime parameters (such as thinking reasoning mode).
     val enableThinking = extraContext?.get("enable_thinking") == "true"
     val finalExtraContext: Map<String, Any> =
       (extraContext ?: emptyMap()) + ("enable_thinking" to enableThinking)
 
+    // Step 4: Dispatch asynchronous streaming inference to the native LiteRT-LM engine.
     conversation.sendMessageAsync(
       Contents.of(contents),
       object : MessageCallback {
         override fun onMessage(message: Message) {
-          resultListener(message.toString(), false, message.channels[THOUGHT_CHANNEL])
+          val text = message.toString()
+          val thinking = message.channels[THOUGHT_CHANNEL]
+          // Record streaming token to lock TTFT on first token and update live metrics.
+          metricsTracker?.onNewToken(tokenText = text, thinkingText = thinking)
+          resultListener(text, false, thinking)
         }
 
         override fun onDone() {
+          // Finalize turn metrics with SUCCESS status.
+          val unused =
+            metricsTracker?.endTurn(statusCode = InferenceStatus.Code.SUCCESS, errorMessage = null)
           resultListener("", true, null)
         }
 
         override fun onError(throwable: Throwable) {
           if (throwable is CancellationException) {
+            // User or system cancelled inference: reconcile context tokens and mark CANCELLED.
             Log.i(TAG, "The inference is cancelled.")
+            val unused = metricsTracker?.cancelTurn()
             resultListener("", true, null)
           } else {
+            // Engine error or crash: record ERROR status with error message.
             Log.e(TAG, "onError", throwable)
+            val unused =
+              metricsTracker?.endTurn(
+                statusCode = InferenceStatus.Code.ERROR,
+                errorMessage = throwable.message ?: "Unknown error",
+              )
             onError("Error: ${throwable.message}")
           }
         }
