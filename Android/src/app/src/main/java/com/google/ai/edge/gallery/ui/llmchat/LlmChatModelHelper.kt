@@ -126,11 +126,13 @@ object LlmChatModelHelper : LlmModelHelper {
     Log.d(TAG, "Preferred backend: $preferredBackend")
 
     val modelPath = model.getPath(context = context)
-    val engineConfig =
+    fun buildEngineConfig(visionBackendOverride: Backend?, mainBackendOverride: Backend?) =
       EngineConfig(
         modelPath = modelPath,
-        backend = preferredBackend,
-        visionBackend = if (shouldEnableImage) visionBackend else null, // must be GPU for Gemma 3n
+        backend = mainBackendOverride ?: preferredBackend,
+        visionBackend =
+          if (shouldEnableImage) (visionBackendOverride ?: visionBackend)
+          else null, // must be GPU for Gemma 3n
         audioBackend = if (shouldEnableAudio) Backend.CPU() else null, // must be CPU for Gemma 3n
         maxNumTokens = maxTokens,
         cacheDir =
@@ -149,52 +151,133 @@ object LlmChatModelHelper : LlmModelHelper {
     } catch (e: Exception) {
       // Ignore exceptions and assume not supported.
     }
+
+    // Attempts to create the engine using the given config. Returns the created engine, or null if
+    // the attempt failed (in which case the exception is logged but not rethrown, allowing the
+    // caller to retry with a different config).
+    fun tryCreateEngine(engineConfig: EngineConfig, attemptDescription: String): Engine? {
+      return try {
+        var speculativeDecoding = false
+        // Check if the model supports speculative decoding for the given task type and if the
+        // speculative decoding is enabled in the settings.
+        if (
+          supportsSpeculativeDecoding &&
+            model.capabilityToTaskTypes[ModelCapability.SPECULATIVE_DECODING]?.contains(taskId) ==
+              true
+        ) {
+          speculativeDecoding =
+            model.getBooleanConfigValue(
+              key = ConfigKeys.ENABLE_SPECULATIVE_DECODING,
+              defaultValue = false,
+            )
+        }
+        ExperimentalFlags.enableBenchmark = false
+        ExperimentalFlags.enableSpeculativeDecoding = speculativeDecoding
+        Log.d(TAG, "Speculative decoding enabled: $speculativeDecoding")
+        val engine = Engine(engineConfig)
+        engine.initialize()
+        ExperimentalFlags.enableSpeculativeDecoding = false
+        ExperimentalFlags.enableBenchmark = false
+        engine
+      } catch (e: Exception) {
+        ExperimentalFlags.enableSpeculativeDecoding = false
+        ExperimentalFlags.enableBenchmark = false
+        Log.e(TAG, "Failed to create engine ($attemptDescription): ${e.message}")
+        null
+      }
+    }
+
+    // Attempts to create the engine AND the conversation using the given config. The vision
+    // encoder's delegate graph is compiled lazily on the first createConversation() call (not
+    // during engine.initialize()), so GPU/NPU delegate compilation failures for the vision
+    // encoder (e.g. "Failed to modify graph with delegate") only surface here. Returns the
+    // created LlmModelInstance, or null if the attempt failed (the exception is logged but not
+    // rethrown, allowing the caller to retry with a different config). If conversation creation
+    // fails, the now-unusable engine is closed before returning null.
+    fun tryCreateEngineAndConversation(
+      engineConfig: EngineConfig,
+      finalPreferredBackend: Backend,
+      attemptDescription: String,
+    ): LlmModelInstance? {
+      val engine = tryCreateEngine(engineConfig, attemptDescription) ?: return null
+      return try {
+        ExperimentalFlags.enableConversationConstrainedDecoding =
+          enableConversationConstrainedDecoding
+        val conversation =
+          engine.createConversation(
+            ConversationConfig(
+              samplerConfig =
+                if (finalPreferredBackend is Backend.NPU) {
+                  null
+                } else {
+                  SamplerConfig(
+                    topK = topK,
+                    topP = topP.toDouble(),
+                    temperature = temperature.toDouble(),
+                  )
+                },
+              systemInstruction = systemInstruction,
+              tools = tools,
+            )
+          )
+        ExperimentalFlags.enableConversationConstrainedDecoding = false
+        LlmModelInstance(engine = engine, conversation = conversation)
+      } catch (e: Exception) {
+        ExperimentalFlags.enableConversationConstrainedDecoding = false
+        Log.e(TAG, "Failed to create conversation ($attemptDescription): ${e.message}")
+        try {
+          engine.close()
+        } catch (closeException: Exception) {
+          Log.e(TAG, "Failed to close engine after conversation failure: ${closeException.message}")
+        }
+        null
+      }
+    }
+
     // Create an instance of LiteRT LM engine and conversation.
     try {
-      var speculativeDecoding = false
-      // Check if the model supports speculative decoding for the given task type and if the
-      // speculative decoding is enabled in the settings.
-      if (
-        supportsSpeculativeDecoding &&
-          model.capabilityToTaskTypes[ModelCapability.SPECULATIVE_DECODING]?.contains(taskId) ==
-            true
-      ) {
-        speculativeDecoding =
-          model.getBooleanConfigValue(
-            key = ConfigKeys.ENABLE_SPECULATIVE_DECODING,
-            defaultValue = false,
+      var engineConfig = buildEngineConfig(visionBackendOverride = null, mainBackendOverride = null)
+      var instance =
+        tryCreateEngineAndConversation(engineConfig, preferredBackend, "preferred backend")
+
+      // If creation failed and the vision backend is hardware-accelerated (not already CPU), the
+      // failure is often caused by GPU/NPU delegate compilation issues for the vision encoder on
+      // this specific device. Retry once with the vision backend forced to CPU before giving up
+      // entirely.
+      if (instance == null && shouldEnableImage && visionBackend !is Backend.CPU) {
+        Log.w(TAG, "Retrying engine/conversation creation with vision backend forced to CPU.")
+        engineConfig =
+          buildEngineConfig(visionBackendOverride = Backend.CPU(), mainBackendOverride = null)
+        instance =
+          tryCreateEngineAndConversation(
+            engineConfig,
+            preferredBackend,
+            "vision backend forced to CPU",
           )
       }
-      val enableBenchmark = false
-      ExperimentalFlags.enableBenchmark = enableBenchmark
-      ExperimentalFlags.enableSpeculativeDecoding = speculativeDecoding
-      Log.d(TAG, "Speculative decoding enabled: $speculativeDecoding")
-      val engine = Engine(engineConfig)
-      engine.initialize()
-      ExperimentalFlags.enableSpeculativeDecoding = false
-      ExperimentalFlags.enableBenchmark = false
 
-      ExperimentalFlags.enableConversationConstrainedDecoding =
-        enableConversationConstrainedDecoding
-      val conversation =
-        engine.createConversation(
-          ConversationConfig(
-            samplerConfig =
-              if (preferredBackend is Backend.NPU) {
-                null
-              } else {
-                SamplerConfig(
-                  topK = topK,
-                  topP = topP.toDouble(),
-                  temperature = temperature.toDouble(),
-                )
-              },
-            systemInstruction = systemInstruction,
-            tools = tools,
+      // If it still fails and the main backend is hardware-accelerated (not already CPU), retry
+      // once more with the main backend also forced to CPU.
+      if (instance == null && preferredBackend !is Backend.CPU) {
+        Log.w(TAG, "Retrying engine/conversation creation with main backend forced to CPU.")
+        engineConfig =
+          buildEngineConfig(
+            visionBackendOverride = if (shouldEnableImage) Backend.CPU() else null,
+            mainBackendOverride = Backend.CPU(),
           )
-        )
-      ExperimentalFlags.enableConversationConstrainedDecoding = false
-      model.instance = LlmModelInstance(engine = engine, conversation = conversation)
+        instance =
+          tryCreateEngineAndConversation(
+            engineConfig,
+            Backend.CPU(),
+            "main and vision backend forced to CPU",
+          )
+      }
+
+      if (instance == null) {
+        throw IllegalStateException("Failed to create engine/conversation after fallback attempts.")
+      }
+
+      model.instance = instance
     } catch (e: Exception) {
       val errorMsg = cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error")
       model.markInitializationFailed(errorMsg)
