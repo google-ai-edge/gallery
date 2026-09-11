@@ -124,8 +124,8 @@ fun ModelList(
         if (trigger >= 0) {
           task.models
             .toList()
-            .filter { it.parentModelName != null }
-            .groupBy { it.parentModelName!! }
+            .filter { it.isVariant }
+            .groupBy { it.hierarchy.parentModelName.orEmpty() }
         } else {
           mapOf()
         }
@@ -325,7 +325,7 @@ fun ModelList(
 
       // List of models within a task.
       items(items = models) { model ->
-        if (model.parentModelName.isNullOrEmpty()) {
+        if (!model.isVariant) {
           val expanded = modelItemExpandedStates.getOrDefault(model.name, null)
           ModelItem(
             model = model,

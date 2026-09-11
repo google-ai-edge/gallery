@@ -32,6 +32,7 @@ import com.google.ai.edge.gallery.common.getModelStorageDir
 import com.google.ai.edge.gallery.common.isAICoreSupported
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.data.Accelerator
+import com.google.ai.edge.gallery.data.BackendSpec
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.CategoryInfo
@@ -342,7 +343,7 @@ constructor(
       status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
     )
 
-    if (model.runtimeType == RuntimeType.AICORE) {
+    if (model.isAiCore) {
       AICoreModelHelper.downloadModel(
         context = context,
         coroutineScope = viewModelScope,
@@ -405,7 +406,7 @@ constructor(
 
   fun cancelDownloadModel(model: Model) {
     // AICore models cannot be deleted from the download repository within the app.
-    if (model.runtimeType == RuntimeType.AICORE) {
+    if (model.isAiCore) {
       return
     }
     downloadRepository.cancelDownloadModel(model)
@@ -433,9 +434,11 @@ constructor(
   }
 
   fun getModelFamily(model: Model, modelVariants: List<Model> = emptyList()): List<Model> {
-    val rootName = model.parentModelName ?: model.name
+    val rootName = model.hierarchy.parentModelName ?: model.name
     val allModels = (listOf(model) + modelVariants + getAllModels()).distinctBy { it.name }
-    val family = allModels.filter { it.name == rootName || it.parentModelName == rootName }
+    val family = allModels.filter {
+      it.name == rootName || it.hierarchy.parentModelName == rootName
+    }
     return family.ifEmpty { listOf(model) }
   }
 
@@ -1200,10 +1203,7 @@ constructor(
   private fun checkAICoreModelStatuses() {
     viewModelScope.launch(Dispatchers.Main) {
       val aicoreModels =
-        uiState.value.tasks
-          .flatMap { it.models }
-          .filter { it.runtimeType == RuntimeType.AICORE }
-          .distinctBy { it.name }
+        uiState.value.tasks.flatMap { it.models }.filter { it.isAiCore }.distinctBy { it.name }
 
       // Proactively attempt AICore model download upon app startup.
       for (model in aicoreModels) {
@@ -1637,7 +1637,7 @@ constructor(
         accelerators = accelerators,
         // We assume all imported models are LLM for now.
         isLlm = true,
-        runtimeType = RuntimeType.LITERT_LM,
+        backendSpec = BackendSpec(runtimeType = RuntimeType.LITERT_LM),
       )
     model.preProcess()
 

@@ -115,28 +115,14 @@ data class Model(
    */
   val downloadInfo: ModelDownloadInfo = ModelDownloadInfo(),
 
+  /** Platform and runtime backend configuration. */
+  val backendSpec: BackendSpec = BackendSpec(),
+
+  /** Model family hierarchy and variant configuration. */
+  val hierarchy: ModelHierarchy = ModelHierarchy(),
+
   /** Whether the model is LLM or not. */
   val isLlm: Boolean = false,
-
-  /** The release stage of the AICore model. */
-  val aicoreReleaseStage: AICoreModelReleaseStage? = null,
-
-  /** The preference of the AICore model. */
-  val aicorePreference: AICoreModelPreference? = null,
-
-  /**
-   * The name of the parent model that this model is a variant of.
-   *
-   * If set, this model will be displayed as a variant (an item in a list) of the parent model's
-   * model card,
-   */
-  val parentModelName: String? = null,
-
-  /** The label of the model variant. */
-  val variantLabel: String? = null,
-
-  /** The type of local runtime environment to use for running the model. */
-  val runtimeType: RuntimeType = RuntimeType.UNKNOWN,
 
   // The following fields are only used for built-in tasks. Can ignore if you are creating your own
   // custom tasks.
@@ -189,6 +175,18 @@ data class Model(
   init {
     normalizedName = NORMALIZE_NAME_REGEX.replace(name, "_")
   }
+
+  /** Indicates whether this model configuration represents a variant of a parent model. */
+  val isVariant: Boolean
+    get() = hierarchy.isVariant
+
+  /** Indicates whether the runtime type is AICore. */
+  val isAiCore: Boolean
+    get() = backendSpec.isAiCore
+
+  /** Indicates whether the runtime type is LiteRT-LM. */
+  val isLiteRtLm: Boolean
+    get() = backendSpec.isLiteRtLm
 
   sealed interface InitializationStatus {
     data object Idle : InitializationStatus
@@ -335,7 +333,7 @@ val EMPTY_MODEL: Model =
 
 val Model.supportModelBenchmark: Boolean
   get() =
-    runtimeType == RuntimeType.LITERT_LM ||
+    isLiteRtLm ||
       false
 
 /** Marks the model as initialization started. */

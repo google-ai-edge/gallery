@@ -220,6 +220,13 @@ data class AllowedModel(
       showRunAgainButton = showRunAgainButton,
       learnMoreUrl = learnMoreUrl,
       downloadInfo = downloadInfo,
+      backendSpec =
+        BackendSpec(
+          runtimeType = runtimeType ?: RuntimeType.LITERT_LM,
+          aicoreReleaseStage = aicoreReleaseStage,
+          aicorePreference = aicorePreference,
+        ),
+      hierarchy = ModelHierarchy(parentModelName = parentModelName, variantLabel = variantLabel),
       llmSupportImage = llmSupportImage == true,
       llmSupportAudio = llmSupportAudio == true,
       llmSupportTinyGarden = llmSupportTinyGarden == true,
@@ -230,11 +237,6 @@ data class AllowedModel(
       visionAccelerator = visionAccelerator,
       bestForTaskIds = bestForTaskTypes ?: listOf(),
       isLlm = isLlmModel,
-      runtimeType = runtimeType ?: RuntimeType.LITERT_LM,
-      aicoreReleaseStage = aicoreReleaseStage,
-      aicorePreference = aicorePreference,
-      parentModelName = parentModelName,
-      variantLabel = variantLabel,
       capabilityToTaskTypes = capabilityToTaskTypes ?: emptyMap(),
       metadata = metadata ?: ModelMetadata(),
     )

@@ -171,7 +171,7 @@ fun GlobalModelManager(
       viewModel
         .getAllModels()
         // Filter to include only top-level models (those without a parent).
-        .filter { it.parentModelName.isNullOrEmpty() }
+        .filter { !it.isVariant }
         .sortedWith(
           compareBy<Model> { model ->
               // Sort by the index in allowlistModels. Models not in the allowlist come last.
@@ -193,7 +193,7 @@ fun GlobalModelManager(
     remember(uiState.modelImportingUpdateTrigger) {
       derivedStateOf {
         val allModels = uiState.tasks.flatMap { it.models }.distinct()
-        allModels.filter { it.parentModelName != null }.groupBy { it.parentModelName!! }
+        allModels.filter { it.isVariant }.groupBy { it.hierarchy.parentModelName.orEmpty() }
       }
     }
 

@@ -389,13 +389,13 @@ object AICoreModelHelper : LlmModelHelper {
 
   internal fun Model.toAICoreModelConfig() = modelConfig {
     releaseStage =
-      if (aicoreReleaseStage == AICoreModelReleaseStage.PREVIEW) {
+      if (backendSpec.aicoreReleaseStage == AICoreModelReleaseStage.PREVIEW) {
         ModelReleaseStage.PREVIEW
       } else {
         ModelReleaseStage.STABLE
       }
     preference =
-      if (aicorePreference == AICoreModelPreference.FULL) {
+      if (backendSpec.aicorePreference == AICoreModelPreference.FULL) {
         ModelPreference.FULL
       } else {
         ModelPreference.FAST

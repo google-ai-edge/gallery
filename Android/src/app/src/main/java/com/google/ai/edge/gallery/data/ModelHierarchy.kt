@@ -14,21 +14,16 @@
  * limitations under the License.
  */
 
-package com.google.ai.edge.gallery.runtime
+package com.google.ai.edge.gallery.data
 
-import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.runtime.aicore.AICoreModelHelper
-import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
-
-var testingModelHelper: LlmModelHelper? = null
-
-val Model.runtimeHelper: LlmModelHelper
-  get() {
-    testingModelHelper?.let {
-      return it
-    }
-    if (this.isAiCore) {
-      return AICoreModelHelper
-    }
-    return LlmChatModelHelper
-  }
+/**
+ * Model family hierarchy and variant configuration.
+ *
+ * @property parentModelName The name of the parent model that this model is a variant of.
+ * @property variantLabel The label of the model variant.
+ */
+data class ModelHierarchy(val parentModelName: String? = null, val variantLabel: String? = null) {
+  /** Indicates whether this model configuration represents a variant of a parent model. */
+  val isVariant: Boolean
+    get() = !parentModelName.isNullOrEmpty()
+}
