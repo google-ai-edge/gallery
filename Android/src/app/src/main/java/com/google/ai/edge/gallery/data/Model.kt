@@ -158,6 +158,9 @@ data class Model(
   /** Accelerator for running vision encoder. */
   val visionAccelerator: Accelerator = Accelerator.GPU,
 
+  /** Accelerator for running audio encoder. */
+  val audioAccelerator: Accelerator? = null,
+
   /** A map of model capability to the task type ids that the model capability is allowed for. */
   val capabilityToTaskTypes: Map<ModelCapability, List<String>> = mapOf(),
 
