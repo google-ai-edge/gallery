@@ -16,9 +16,15 @@
 
 package com.google.ai.edge.gallery.agent
 
+import com.google.ai.edge.gallery.common.metrics.MetricsTracker
+
 /**
  * Encapsulates the runtime execution context and observability metadata for an agent turn.
  *
  * @property metadata Additional execution-scoped key-value configuration flags.
+ * @property metricsTracker Optional telemetry tracker for the current execution turn.
  */
-data class AgentExecutionContext(val metadata: Map<String, Any> = emptyMap())
+data class AgentExecutionContext(
+  val metadata: Map<String, Any> = emptyMap(),
+  val metricsTracker: MetricsTracker? = null,
+)

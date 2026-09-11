@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery.agent.sessions
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import com.google.ai.edge.gallery.common.metrics.MetricsTracker
 import com.google.ai.edge.gallery.data.ChatSessionRepository
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.awaitInitialization
@@ -263,6 +264,7 @@ constructor(
     images: List<Bitmap>,
     audioClips: List<ByteArray>,
     extraContext: Map<String, String>?,
+    metricsTracker: MetricsTracker?,
   ) {
     if (model.instance == null) {
       try {
@@ -286,6 +288,7 @@ constructor(
       resultListener = resultListener,
       cleanUpListener = cleanUpListener,
       onError = onError,
+      metricsTracker = metricsTracker,
     )
   }
 
