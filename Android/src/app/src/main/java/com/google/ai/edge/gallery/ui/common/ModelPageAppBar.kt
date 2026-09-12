@@ -93,6 +93,10 @@ fun ModelPageAppBar(
   val initStatus by model.initStatusFlow.collectAsState()
   val isModelInitializing = initStatus is Model.InitializationStatus.Initializing
   val isModelInitialized = initStatus is Model.InitializationStatus.Initialized
+  val isModelInitializationFailed = initStatus is Model.InitializationStatus.Failed
+  // Allow the user to open the config dialog even if the model failed to initialize, so they can
+  // change the config (e.g. switch accelerator) and retry.
+  val canConfigureModel = isModelInitialized || isModelInitializationFailed
 
   CenterAlignedTopAppBar(
     title = {
@@ -149,7 +153,7 @@ fun ModelPageAppBar(
           configButtonOffset = (-40).dp
         }
         if (showConfigButton) {
-          val enableConfigButton = !isModelInitializing && !inProgress && isModelInitialized
+          val enableConfigButton = !isModelInitializing && !inProgress && canConfigureModel
           IconButton(
             onClick = { showConfigDialog = true },
             enabled = enableConfigButton,
