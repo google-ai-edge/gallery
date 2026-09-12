@@ -86,7 +86,7 @@ internal fun areOptionalComponentsPresent(
 ): Boolean {
   val modelsToCheck = listOf(model) + modelVariants
   return modelsToCheck.any { m ->
-    val extraFiles = m.extraDataFiles(taskId)
+    val extraFiles = m.downloadInfo.extraDataFiles(taskId)
     if (extraFiles.isEmpty()) return@any false
     val modelDir = getModelDirectory(context, m)
     if (!modelDir.exists()) return@any false
@@ -124,7 +124,7 @@ fun OptionalComponentsPanel(
 
   val allModels = remember(model, modelVariants) { listOf(model) + modelVariants }
 
-  if (allModels.none { it.hasOptionalComponents(task?.id) }) {
+  if (allModels.none { it.downloadInfo.hasOptionalComponents(task?.id) }) {
     return
   }
 
@@ -184,19 +184,20 @@ fun OptionalComponentsPanel(
   }
 
   val targetedExtraFiles =
-    allModels.firstNotNullOfOrNull { m -> m.extraDataFiles(task?.id).takeIf { it.isNotEmpty() } }
-      ?: emptyList()
+    allModels.firstNotNullOfOrNull { m ->
+      m.downloadInfo.extraDataFiles(task?.id).takeIf { it.isNotEmpty() }
+    } ?: emptyList()
   val optionalComponentsSizeBytes = targetedExtraFiles.sumOf { it.sizeInBytes }
   val optionalComponentsSizeText = formatOptionalComponentSize(optionalComponentsSizeBytes)
 
   val resolvedDownloadLabel =
     downloadLabel
-      ?: model.optionalComponentsDownloadLabel(context, task?.id).ifEmpty {
+      ?: model.downloadInfo.optionalComponentsDownloadLabel(context, task?.id).ifEmpty {
         targetedExtraFiles.firstOrNull()?.downloadLabel(context) ?: ""
       }
   val resolvedComponentLabel =
     componentLabel
-      ?: model.optionalComponentsLabel(context, task?.id).ifEmpty {
+      ?: model.downloadInfo.optionalComponentsLabel(context, task?.id).ifEmpty {
         targetedExtraFiles.firstOrNull()?.componentLabel(context) ?: ""
       }
 

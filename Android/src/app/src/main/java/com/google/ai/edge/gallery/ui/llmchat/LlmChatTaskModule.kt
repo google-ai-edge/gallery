@@ -49,7 +49,6 @@ import com.google.ai.edge.gallery.customtasks.common.CustomTaskDataForBuiltinTas
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.theme.emptyStateContent
 import com.google.ai.edge.gallery.ui.theme.emptyStateTitle
@@ -165,14 +164,14 @@ constructor(
             val multimodalRes =
               when {
                 model.llmSupportImage && model.llmSupportAudio -> {
-                  if (model.runtimeType == RuntimeType.AICORE) {
+                  if (model.isAiCore) {
                     R.string.aichat_emptystate_support_image_aicore_audio
                   } else {
                     R.string.aichat_emptystate_support_image_audio
                   }
                 }
                 model.llmSupportImage -> {
-                  if (model.runtimeType == RuntimeType.AICORE) {
+                  if (model.isAiCore) {
                     R.string.aichat_emptystate_support_image_aicore
                   } else {
                     R.string.aichat_emptystate_support_image

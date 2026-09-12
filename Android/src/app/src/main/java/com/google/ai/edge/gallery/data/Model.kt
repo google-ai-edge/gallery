@@ -106,125 +106,23 @@ data class Model(
    */
   val minDeviceMemoryInGb: Int? = null,
 
-  //////////////////////////////////////////////////////////////////////////////////////////////////
-  // Fill in the following fields if the model file needs to be downloaded from internet.
-  //
-  // If you want to manually manage model files without downloading them from internet, set the
-  // `localFilePathOverride` field below.
-
   /**
-   * The URL to download the model from.
+   * Download and storage metadata for the model files.
    *
-   * If the url is from HuggingFace, we will automatically prompt users to fetch access token if the
-   * model is gated.
+   * Fill in this field if the model file needs to be downloaded from the internet. If you want to
+   * manually manage model files without downloading them from the internet, set the
+   * [ModelDownloadInfo.localRelativeDirPathOverride] field in `downloadInfo`.
    */
-  val url: String = "",
+  val downloadInfo: ModelDownloadInfo = ModelDownloadInfo(),
 
-  /**
-   * The size of the model file in bytes.
-   *
-   * This will be used to calculate download progress.
-   */
-  val sizeInBytes: Long = 0L,
+  /** Platform and runtime backend configuration. */
+  val backendSpec: BackendSpec = BackendSpec(),
 
-  /**
-   * The name of the downloaded model file.
-   *
-   * It will be used to define the file path on local device to store the downloaded model.
-   * {context.getExternalFilesDir}/{normalizedName}/{version}/{downloadFileName}
-   */
-  var downloadFileName: String = "_",
-
-  /**
-   * (optional)
-   *
-   * The version of the model.
-   *
-   * It will be used to define the file path on local device to store the downloaded model.
-   * {context.getExternalFilesDir}/{normalizedName}/{version}/{downloadFileName}
-   */
-  var version: String = "_",
-
-  /**
-   * (optional, experimental)
-   *
-   * A list of additional data files required by the model.
-   */
-  val extraDataFiles: List<ModelDataFile> = listOf(),
+  /** Model family hierarchy and variant configuration. */
+  val hierarchy: ModelHierarchy = ModelHierarchy(),
 
   /** Whether the model is LLM or not. */
   val isLlm: Boolean = false,
-
-  /** The release stage of the AICore model. */
-  val aicoreReleaseStage: AICoreModelReleaseStage? = null,
-
-  /** The preference of the AICore model. */
-  val aicorePreference: AICoreModelPreference? = null,
-
-  /**
-   * The name of the parent model that this model is a variant of.
-   *
-   * If set, this model will be displayed as a variant (an item in a list) of the parent model's
-   * model card,
-   */
-  val parentModelName: String? = null,
-
-  /** The label of the model variant. */
-  val variantLabel: String? = null,
-
-  /**
-   * The model files that this model can be upgraded from.
-   *
-   * If a model with the same name is already downloaded, and its information matches one of the
-   * [ModelFile] entries in this list, the UI will show users some extra UI elements (e.g., an
-   * update button or update info) for them to choose to update.
-   */
-  val updatableModelFiles: List<ModelFile> = listOf(),
-
-  /**
-   * The information about the model update.
-   *
-   * If set, the UI will show users this information when they tap on the update info.
-   */
-  val updateInfo: String = "",
-
-  // End of model download related fields.
-  //////////////////////////////////////////////////////////////////////////////////////////////////
-
-  /** The type of local runtime environment to use for running the model. */
-  val runtimeType: RuntimeType = RuntimeType.UNKNOWN,
-
-  /**
-   * Set this to a relative path pointing to a dir (e.g., my_model/local_dir/) if you want to
-   * manually manage model files instead of downloading them. This dir is relative to the app's
-   * "External Files Directory", which is: /storage/emulated/0/Android/data/<app_id>/files/.
-   *
-   * The <app_id> depends on how the app was built:
-   * - `com.google.aiedge.gallery` for builds from the GitHub source.
-   * - `com.google.ai.edge.gallery` for other builds (Play store, internal, etc).
-   *
-   * For example, if this field is set to "my_model/local_dir/", then the location you should push
-   * files to is (assuming non-github builds):
-   *
-   * /storage/emulated/0/Android/data/com.google.ai.edge.gallery/files/my_model/local_dir/
-   *
-   * You can get the full path to a specific file within your code using `Model.getPath(Context,
-   * fileNameToGet)`.
-   *
-   * Using this field is recommended when:
-   * - Your model files are not publicly accessible on the internet (e.g. private models).
-   * - Your "model" or experience requires multiple files. Manually pushing these files to the
-   *   device and using Model.getPath() for each one is often simpler than downloading them,
-   *   especially for demos.
-   */
-  val localFileRelativeDirPathOverride: String = "",
-
-  /**
-   * When set, the app will try to use this path to find the model file.
-   *
-   * For testing purpose only.
-   */
-  val localModelFilePathOverride: String = "",
 
   // The following fields are only used for built-in tasks. Can ignore if you are creating your own
   // custom tasks.
@@ -232,12 +130,6 @@ data class Model(
 
   /** Whether to show the "run again" button in the UI. */
   val showRunAgainButton: Boolean = true,
-
-  /** Indicates whether the model is a zip file. */
-  val isZip: Boolean = false,
-
-  /** The name of the directory to unzip the model to (if it's a zip file). */
-  val unzipDir: String = "",
 
   /** The prompt templates for the model (only for LLM). */
   val llmPromptTemplates: List<PromptTemplate> = listOf(),
@@ -266,9 +158,6 @@ data class Model(
   /** Accelerator for running vision encoder. */
   val visionAccelerator: Accelerator = Accelerator.GPU,
 
-  /** Whether the model is imported or not. */
-  val imported: Boolean = false,
-
   /** A map of model capability to the task type ids that the model capability is allowed for. */
   val capabilityToTaskTypes: Map<ModelCapability, List<String>> = mapOf(),
 
@@ -282,33 +171,22 @@ data class Model(
   var cleanUpAfterInit: Boolean = false,
   var configValues: Map<String, Any> = mapOf(),
   var prevConfigValues: Map<String, Any> = mapOf(),
-  var totalBytes: Long = 0L,
-  var accessToken: String? = null,
-
-  /**
-   * Indicates whether the model currently on the device is an older version that can be updated.
-   *
-   * This field is managed by the app. It is set to true when the app detects that one of the
-   * [updatableModelFiles] (a previous version of the model) is already downloaded on the device
-   * instead of the latest one.
-   */
-  var updatable: Boolean = false,
-
-  /**
-   * Stores the latest model file details (such as filename and commit hash) corresponding to this
-   * model as available in the allowlist.
-   *
-   * This field is populated when the [Model] object is created from the allowlist data. Its primary
-   * purpose is to enable resetting the model to its latest version (for example, if an older
-   * updatable version was previously downloaded and is subsequently deleted). It is also used when
-   * the "Update" button is clicked in the UI to set the correct `version` and `downloadFileName`
-   * for the update.
-   */
-  var latestModelFile: ModelFile? = null,
 ) {
   init {
     normalizedName = NORMALIZE_NAME_REGEX.replace(name, "_")
   }
+
+  /** Indicates whether this model configuration represents a variant of a parent model. */
+  val isVariant: Boolean
+    get() = hierarchy.isVariant
+
+  /** Indicates whether the runtime type is AICore. */
+  val isAiCore: Boolean
+    get() = backendSpec.isAiCore
+
+  /** Indicates whether the runtime type is LiteRT-LM. */
+  val isLiteRtLm: Boolean
+    get() = backendSpec.isLiteRtLm
 
   sealed interface InitializationStatus {
     data object Idle : InitializationStatus
@@ -350,36 +228,66 @@ data class Model(
       configValues[config.key.label] = config.defaultValue
     }
     this.configValues = configValues
-    this.totalBytes = this.sizeInBytes + this.extraDataFiles.sumOf { it.sizeInBytes }
   }
 
-  fun getPath(context: Context, fileName: String = downloadFileName): String {
-    if (imported) {
+  fun getPath(context: Context, fileName: String = downloadInfo.downloadFileName): String {
+    if (downloadInfo.imported) {
       return listOf(getModelStorageDir(context).absolutePath, IMPORTS_DIR, fileName)
         .joinToString(File.separator)
     }
 
-    if (localModelFilePathOverride.isNotEmpty()) {
-      return localModelFilePathOverride
+    if (downloadInfo.localModelFilePathOverride.isNotEmpty()) {
+      return downloadInfo.localModelFilePathOverride
     }
 
-    if (localFileRelativeDirPathOverride.isNotEmpty()) {
+    if (downloadInfo.localRelativeDirPathOverride.isNotEmpty()) {
       return listOf(
           getModelStorageDir(context).absolutePath,
-          localFileRelativeDirPathOverride,
+          downloadInfo.localRelativeDirPathOverride,
           fileName,
         )
         .joinToString(File.separator)
     }
 
+    val activeFile = resolveActiveModelFile(context)
+    val activeVersion = activeFile?.first ?: downloadInfo.version
+    val targetFileName =
+      if (fileName == downloadInfo.downloadFileName && activeFile != null) {
+        activeFile.second
+      } else {
+        fileName
+      }
+
     val baseDir =
-      listOf(getModelStorageDir(context).absolutePath, normalizedName, version)
+      listOf(getModelStorageDir(context).absolutePath, normalizedName, activeVersion)
         .joinToString(File.separator)
-    return if (this.isZip && this.unzipDir.isNotEmpty()) {
-      listOf(baseDir, this.unzipDir).joinToString(File.separator)
+    return if (
+      downloadInfo.isZip &&
+        downloadInfo.unzipDir.isNotEmpty() &&
+        fileName == downloadInfo.downloadFileName
+    ) {
+      listOf(baseDir, downloadInfo.unzipDir).joinToString(File.separator)
     } else {
-      listOf(baseDir, fileName).joinToString(File.separator)
+      listOf(baseDir, targetFileName).joinToString(File.separator)
     }
+  }
+
+  private fun resolveActiveModelFile(context: Context): Pair<String, String>? {
+    val storageDir = getModelStorageDir(context)
+    val latestDir = File(storageDir, "$normalizedName${File.separator}${downloadInfo.version}")
+    if (latestDir.exists()) {
+      return Pair(downloadInfo.version, downloadInfo.downloadFileName)
+    }
+
+    for (updatable in downloadInfo.updatableModelFiles) {
+      if (updatable.commitHash.isEmpty()) continue
+      val legacyDir = File(storageDir, "$normalizedName${File.separator}${updatable.commitHash}")
+      if (legacyDir.exists()) {
+        return Pair(updatable.commitHash, updatable.fileName)
+      }
+    }
+
+    return null
   }
 
   fun getIntConfigValue(key: ConfigKey, defaultValue: Int = 0): Int {
@@ -406,32 +314,6 @@ data class Model(
       as String
   }
 
-  fun getExtraDataFile(name: String): ModelDataFile? {
-    return extraDataFiles.find { it.name == name }
-  }
-
-  fun extraDataFiles(taskId: String? = null): List<ModelDataFile> {
-    if (taskId != null) {
-      return extraDataFiles.filter { it.isTargeted(taskId) }
-    }
-    return extraDataFiles
-  }
-
-  fun hasOptionalComponents(taskId: String? = null): Boolean {
-    if (taskId != null) {
-      return extraDataFiles.any { it.isTargeted(taskId) }
-    }
-    return extraDataFiles.isNotEmpty()
-  }
-
-  fun optionalComponentsDownloadLabel(context: Context, taskId: String? = null): String {
-    return extraDataFiles(taskId).firstOrNull()?.downloadLabel(context) ?: ""
-  }
-
-  fun optionalComponentsLabel(context: Context? = null, taskId: String? = null): String {
-    return extraDataFiles(taskId).firstOrNull()?.componentLabel(context) ?: ""
-  }
-
   private fun getTypedConfigValue(key: ConfigKey, valueType: ValueType, defaultValue: Any): Any {
     return convertValueToTargetType(
       value = configValues.getOrDefault(key.label, defaultValue),
@@ -444,11 +326,14 @@ data class Model(
 // Configs.
 
 val EMPTY_MODEL: Model =
-  Model(name = "empty", downloadFileName = "empty.tflite", url = "", sizeInBytes = 0L)
+  Model(
+    name = "empty",
+    downloadInfo = ModelDownloadInfo(downloadFileName = "empty.tflite", url = "", sizeInBytes = 0L),
+  )
 
 val Model.supportModelBenchmark: Boolean
   get() =
-    runtimeType == RuntimeType.LITERT_LM ||
+    isLiteRtLm ||
       false
 
 /** Marks the model as initialization started. */

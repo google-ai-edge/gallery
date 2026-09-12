@@ -25,12 +25,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -141,12 +135,6 @@ fun GlobalModelManager(
   val snackbarHostState = remember { SnackbarHostState() }
   val modelItemExpandedStates = remember { mutableStateMapOf<String, Boolean>() }
 
-  val promoId = "gm4_banner"
-  var showPromo by remember { mutableStateOf(false) }
-  LaunchedEffect(Unit) {
-    showPromo = !viewModel.dataStoreRepository.hasViewedPromo(promoId = promoId)
-  }
-
   val processModelUri: (Uri, Boolean) -> Unit = { uri, isWebImport ->
     validateAndProcessModelUri(
       uri = uri,
@@ -183,7 +171,7 @@ fun GlobalModelManager(
       viewModel
         .getAllModels()
         // Filter to include only top-level models (those without a parent).
-        .filter { it.parentModelName.isNullOrEmpty() }
+        .filter { !it.isVariant }
         .sortedWith(
           compareBy<Model> { model ->
               // Sort by the index in allowlistModels. Models not in the allowlist come last.
@@ -195,9 +183,9 @@ fun GlobalModelManager(
             }
         )
     builtInModels.clear()
-    builtInModels.addAll(sortedModels.filter { !it.imported })
+    builtInModels.addAll(sortedModels.filter { !it.downloadInfo.imported })
     importedModels.clear()
-    importedModels.addAll(sortedModels.filter { it.imported })
+    importedModels.addAll(sortedModels.filter { it.downloadInfo.imported })
   }
 
   // Calculate model variants by grouping models with a parentModelName.
@@ -205,7 +193,7 @@ fun GlobalModelManager(
     remember(uiState.modelImportingUpdateTrigger) {
       derivedStateOf {
         val allModels = uiState.tasks.flatMap { it.models }.distinct()
-        allModels.filter { it.parentModelName != null }.groupBy { it.parentModelName!! }
+        allModels.filter { it.isVariant }.groupBy { it.hierarchy.parentModelName.orEmpty() }
       }
     }
 
@@ -292,21 +280,6 @@ fun GlobalModelManager(
         contentPadding =
           PaddingValues(top = 16.dp, bottom = innerPadding.calculateBottomPadding() + 80.dp),
       ) {
-        item(key = "promo") {
-          AnimatedVisibility(
-            visible = showPromo,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { -it / 2 }) + expandVertically(),
-            exit = fadeOut() + shrinkVertically(),
-          ) {
-            PromoBannerGm4(
-              onDismiss = {
-                showPromo = false
-                viewModel.dataStoreRepository.addViewedPromoId(promoId = promoId)
-              }
-            )
-          }
-        }
-
         items(builtInModels) { model ->
           val expanded = modelItemExpandedStates.getOrDefault(model.name, true)
           ModelItem(

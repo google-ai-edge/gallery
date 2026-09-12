@@ -19,7 +19,6 @@ package com.google.ai.edge.gallery.common.metrics
 import android.content.Context
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.supportModelBenchmark
 import com.google.ai.edge.gallery.proto.LlmConfig
 import com.google.ai.edge.gallery.proto.llmConfig

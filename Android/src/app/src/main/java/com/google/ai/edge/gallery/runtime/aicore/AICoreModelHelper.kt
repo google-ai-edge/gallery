@@ -161,7 +161,7 @@ object AICoreModelHelper : LlmModelHelper {
           }
           FeatureStatus.DOWNLOADABLE,
           FeatureStatus.DOWNLOADING -> {
-            var totalBytesToDownload = model.sizeInBytes
+            var totalBytesToDownload = model.downloadInfo.sizeInBytes
             generativeModel.download().collect { downloadStatus ->
               when (downloadStatus) {
                 is DownloadStatus.DownloadStarted -> {
@@ -389,13 +389,13 @@ object AICoreModelHelper : LlmModelHelper {
 
   internal fun Model.toAICoreModelConfig() = modelConfig {
     releaseStage =
-      if (aicoreReleaseStage == AICoreModelReleaseStage.PREVIEW) {
+      if (backendSpec.aicoreReleaseStage == AICoreModelReleaseStage.PREVIEW) {
         ModelReleaseStage.PREVIEW
       } else {
         ModelReleaseStage.STABLE
       }
     preference =
-      if (aicorePreference == AICoreModelPreference.FULL) {
+      if (backendSpec.aicorePreference == AICoreModelPreference.FULL) {
         ModelPreference.FULL
       } else {
         ModelPreference.FAST

@@ -200,6 +200,7 @@ open class DefaultAgentRuntimeExecutor(
       images = images,
       audioClips = audioClips,
       extraContext = extraContext,
+      metricsTracker = context.metricsTracker,
     )
 
     awaitClose {

@@ -45,7 +45,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
-import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.DownloadAndTryButton
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
@@ -68,6 +67,7 @@ fun DownloadModelPanel(
   showBenchmarkActionButton: Boolean = false,
   tosViewModel: TosViewModel? = null,
   downloadButtonBackgroundColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+  isUpdatable: Boolean = false,
 ) {
   with(sharedTransitionScope) {
     Row(
@@ -77,13 +77,13 @@ fun DownloadModelPanel(
     ) {
       fun isDownloadButtonEnabled(downloadStatus: ModelDownloadStatusType?, model: Model): Boolean {
         val downloadFailed = downloadStatus == ModelDownloadStatusType.FAILED
-        val isLitertLm = model.runtimeType == RuntimeType.LITERT_LM
+        val isLitertLm = model.isLiteRtLm
         return !downloadFailed || isLitertLm
       }
 
       val downloadSucceeded = downloadStatus == ModelDownloadStatusType.SUCCEEDED
       if (showBenchmarkActionButton && downloadSucceeded && model.isLlm) {
-        val expandBenchmarkButton = isExpanded && !model.updatable
+        val expandBenchmarkButton = isExpanded && !isUpdatable
         // Benchmark button.
         var buttonModifier: Modifier = Modifier.height(42.dp)
         if (expandBenchmarkButton) {
@@ -127,7 +127,7 @@ fun DownloadModelPanel(
       }
 
       // Display an update button if the model is updatable.
-      if (model.updatable) {
+      if (isUpdatable) {
         var buttonModifier: Modifier = Modifier.height(42.dp)
         if (isExpanded) {
           buttonModifier = buttonModifier.weight(1f)
@@ -145,14 +145,7 @@ fun DownloadModelPanel(
               containerColor = MaterialTheme.colorScheme.secondaryContainer
             ),
           contentPadding = PaddingValues(horizontal = 12.dp),
-          onClick = {
-            model.latestModelFile?.let {
-              model.version = it.commitHash
-              model.downloadFileName = it.fileName
-            }
-            model.updatable = false
-            modelManagerViewModel.downloadModel(task, model)
-          },
+          onClick = { modelManagerViewModel.downloadModel(task, model) },
         ) {
           val textColor = MaterialTheme.colorScheme.onSecondaryContainer
           Row(

@@ -201,17 +201,32 @@ data class AllowedModel(
     if (isLlmModel) {
       showRunAgainButton = false
     }
+    val downloadInfo =
+      ModelDownloadInfo(
+        url = downloadUrl,
+        sizeInBytes = sizeInBytes,
+        downloadFileName = downloadedFileName,
+        version = version,
+        extraDataFiles = extraDataFiles ?: emptyList(),
+        localModelFilePathOverride = localModelFilePathOverride ?: "",
+        updatableModelFiles = updatableModelFiles ?: emptyList(),
+        updateInfo = updateInfo ?: "",
+      )
     return Model(
       name = name,
-      version = version,
       info = finalDescription,
-      url = downloadUrl,
-      sizeInBytes = sizeInBytes,
       minDeviceMemoryInGb = minDeviceMemoryInGb,
       configs = configs,
-      downloadFileName = downloadedFileName,
       showRunAgainButton = showRunAgainButton,
       learnMoreUrl = learnMoreUrl,
+      downloadInfo = downloadInfo,
+      backendSpec =
+        BackendSpec(
+          runtimeType = runtimeType ?: RuntimeType.LITERT_LM,
+          aicoreReleaseStage = aicoreReleaseStage,
+          aicorePreference = aicorePreference,
+        ),
+      hierarchy = ModelHierarchy(parentModelName = parentModelName, variantLabel = variantLabel),
       llmSupportImage = llmSupportImage == true,
       llmSupportAudio = llmSupportAudio == true,
       llmSupportTinyGarden = llmSupportTinyGarden == true,
@@ -221,18 +236,8 @@ data class AllowedModel(
       accelerators = accelerators,
       visionAccelerator = visionAccelerator,
       bestForTaskIds = bestForTaskTypes ?: listOf(),
-      localModelFilePathOverride = localModelFilePathOverride ?: "",
       isLlm = isLlmModel,
-      runtimeType = runtimeType ?: RuntimeType.LITERT_LM,
-      aicoreReleaseStage = aicoreReleaseStage,
-      aicorePreference = aicorePreference,
-      parentModelName = parentModelName,
-      variantLabel = variantLabel,
       capabilityToTaskTypes = capabilityToTaskTypes ?: emptyMap(),
-      updatableModelFiles = updatableModelFiles ?: listOf(),
-      updateInfo = updateInfo ?: "",
-      extraDataFiles = extraDataFiles ?: listOf(),
-      latestModelFile = ModelFile(fileName = downloadedFileName, commitHash = version),
       metadata = metadata ?: ModelMetadata(),
     )
   }

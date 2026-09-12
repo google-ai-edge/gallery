@@ -16,22 +16,14 @@
 
 package com.google.ai.edge.gallery.data
 
-enum class ModelDownloadStatusType {
-  NOT_DOWNLOADED,
-  PARTIALLY_DOWNLOADED,
-  IN_PROGRESS,
-  UNZIPPING,
-  SUCCEEDED,
-  FAILED,
+/**
+ * Model family hierarchy and variant configuration.
+ *
+ * @property parentModelName The name of the parent model that this model is a variant of.
+ * @property variantLabel The label of the model variant.
+ */
+data class ModelHierarchy(val parentModelName: String? = null, val variantLabel: String? = null) {
+  /** Indicates whether this model configuration represents a variant of a parent model. */
+  val isVariant: Boolean
+    get() = !parentModelName.isNullOrEmpty()
 }
-
-data class ModelDownloadStatus(
-  val status: ModelDownloadStatusType,
-  val totalBytes: Long = 0,
-  val receivedBytes: Long = 0,
-  val errorMessage: String = "",
-  val bytesPerSecond: Long = 0,
-  val remainingMs: Long = 0,
-  val isUpdatable: Boolean = false,
-  val installedModelFile: ModelFile? = null,
-)

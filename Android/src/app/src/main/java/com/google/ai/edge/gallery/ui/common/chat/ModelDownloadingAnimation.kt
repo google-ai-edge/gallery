@@ -84,13 +84,13 @@ fun ModelDownloadingAnimation(
       Spacer(modifier = Modifier.height(32.dp))
 
       // Download stats
-      var sizeLabel = model.totalBytes.humanReadableSize()
+      var sizeLabel = model.downloadInfo.totalBytes.humanReadableSize()
       if (curDownloadStatus != null) {
         // For in-progress model, show {receivedSize} / {totalSize} - {rate} - {remainingTime}
         if (inProgress || isPartiallyDownloaded) {
           var totalSize = curDownloadStatus.totalBytes
           if (totalSize == 0L) {
-            totalSize = model.totalBytes
+            totalSize = model.downloadInfo.totalBytes
           }
           sizeLabel =
             "${curDownloadStatus.receivedBytes.humanReadableSize(extraDecimalForGbAndAbove = true)} of ${totalSize.humanReadableSize()}"
