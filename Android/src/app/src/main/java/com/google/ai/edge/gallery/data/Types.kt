@@ -21,4 +21,14 @@ enum class Accelerator(val label: String) {
   GPU(label = "GPU"),
   NPU(label = "NPU"),
   TPU(label = "TPU"),
+  ;
+
+  companion object {
+    fun fromLabel(label: String?): Accelerator? {
+      if (label == null) return null
+      return entries.firstOrNull {
+        it.label.equals(label, ignoreCase = true) || it.name.equals(label, ignoreCase = true)
+      }
+    }
+  }
 }

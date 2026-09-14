@@ -30,6 +30,7 @@ data class DefaultConfig(
   @SerializedName("temperature") val temperature: Float?,
   @SerializedName("accelerators") val accelerators: String?,
   @SerializedName("visionAccelerator") val visionAccelerator: String?,
+  @SerializedName("audioAccelerator") val audioAccelerator: String? = null,
   @SerializedName("maxContextLength") val maxContextLength: Int?,
   @SerializedName("maxTokens") val maxTokens: Int?,
 )
@@ -123,15 +124,7 @@ data class AllowedModel(
       val items = acceleratorsStr.split(",")
       val parsedAccelerators = mutableListOf<Accelerator>()
       for (item in items) {
-        if (item == "cpu") {
-          parsedAccelerators.add(Accelerator.CPU)
-        } else if (item == "gpu") {
-          parsedAccelerators.add(Accelerator.GPU)
-        } else if (item == "npu") {
-          parsedAccelerators.add(Accelerator.NPU)
-        } else if (item == "tpu") {
-          parsedAccelerators.add(Accelerator.TPU)
-        }
+        Accelerator.fromLabel(item.trim())?.let { parsedAccelerators.add(it) }
       }
       // Remove GPU from pixel 10 devices.
       if (isPixel10()) {
@@ -142,21 +135,15 @@ data class AllowedModel(
       }
     }
 
+    Accelerator.fromLabel(defaultConfig?.visionAccelerator)?.let { visionAccelerator = it }
+    val audioAccelerator = Accelerator.fromLabel(defaultConfig?.audioAccelerator)
+
     if (isLlmModel) {
       val defaultTopK: Int = defaultConfig?.topK ?: DEFAULT_TOPK
       val defaultTopP: Float = defaultConfig?.topP ?: DEFAULT_TOPP
       val defaultTemperature: Float = defaultConfig?.temperature ?: DEFAULT_TEMPERATURE
       llmMaxToken = defaultConfig?.maxTokens ?: 1024
       llmMaxContextLength = defaultConfig?.maxContextLength
-      defaultConfig?.visionAccelerator?.let { accelerator ->
-        if (accelerator == "cpu") {
-          visionAccelerator = Accelerator.CPU
-        } else if (accelerator == "gpu") {
-          visionAccelerator = Accelerator.GPU
-        } else if (accelerator == "npu") {
-          visionAccelerator = Accelerator.NPU
-        }
-      }
       val npuOnly =
         accelerators.size == 1 &&
           (accelerators[0] == Accelerator.NPU || accelerators[0] == Accelerator.TPU)
@@ -235,6 +222,7 @@ data class AllowedModel(
       llmMaxToken = llmMaxToken,
       accelerators = accelerators,
       visionAccelerator = visionAccelerator,
+      audioAccelerator = audioAccelerator,
       bestForTaskIds = bestForTaskTypes ?: listOf(),
       isLlm = isLlmModel,
       capabilityToTaskTypes = capabilityToTaskTypes ?: emptyMap(),
