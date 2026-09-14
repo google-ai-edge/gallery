@@ -191,6 +191,12 @@ data class Model(
   val isLiteRtLm: Boolean
     get() = backendSpec.isLiteRtLm
 
+  /** Indicates whether this model supports NPU (or TPU). */
+  val supportsNpu: Boolean
+    get() = accelerators.any {
+      it == Accelerator.NPU || it == Accelerator.TPU
+    }
+
   sealed interface InitializationStatus {
     data object Idle : InitializationStatus
 
