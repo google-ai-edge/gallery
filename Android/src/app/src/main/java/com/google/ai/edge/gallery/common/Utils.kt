@@ -431,6 +431,26 @@ fun logErrorToFirebase(event: GalleryEvent, errorType: String, errorMessage: Str
   )
 }
 
+/**
+ * Reports a button press to Firebase as a [GalleryEvent.BUTTON_CLICKED] event.
+ *
+ * [eventType] identifies the button and must be unique per button, so that two different buttons
+ * are never distinguished by their parameters alone. Pass [buttonId] only for a single button that
+ * carries a value, such as one segment of a segmented button. Use [extras] to report any further
+ * parameters describing the press; it cannot overwrite the two keys above, which are always written
+ * last.
+ */
+fun logButtonClick(eventType: String, buttonId: String? = null, extras: Bundle.() -> Unit = {}) {
+  firebaseAnalytics?.logEvent(
+    GalleryEvent.BUTTON_CLICKED.id,
+    Bundle().apply {
+      extras()
+      putString("event_type", eventType)
+      buttonId?.let { putString("button_id", it) }
+    },
+  )
+}
+
 fun convertStringToJsonObject(jsonString: String): JsonObject {
   return try {
     JsonParser.parseString(jsonString).asJsonObject
