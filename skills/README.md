@@ -541,6 +541,14 @@ access to real-time console logs.
   comments.
   <br>![JS](https://img.shields.io/badge/JS-0a9396) ![Webview](https://img.shields.io/badge/Webview-ee9b00)
 
+- [**Currency converter**](built-in/currency-converter)
+  <br>
+  Convert amounts between different world currencies with real-time exchange rates and interactive calculator.
+  <br>
+  ![JS](https://img.shields.io/badge/JS-0a9396)
+  ![API](https://img.shields.io/badge/API-2dc653)
+  ![Webview](https://img.shields.io/badge/Webview-ee9b00)
+
 - [**Virtual piano**](featured/virtual-piano)
   <br>Show a virtual piano to play music
   <br>
