@@ -17,7 +17,6 @@
 package com.google.ai.edge.gallery.agent.sessions
 
 import android.graphics.Bitmap
-import com.google.ai.edge.gallery.common.metrics.MetricsTracker
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.proto.ChatMessageProto
 import com.google.ai.edge.gallery.proto.ChatSessionProto
@@ -175,7 +174,6 @@ interface LlmSessionManager {
    * @param images Optional input images.
    * @param audioClips Optional input audio clips.
    * @param extraContext Optional key-value parameters for inference.
-   * @param metricsTracker Optional metrics tracker utility to record inference telemetry.
    */
   suspend fun generateResponse(
     sessionId: String,
@@ -187,7 +185,6 @@ interface LlmSessionManager {
     images: List<Bitmap> = emptyList(),
     audioClips: List<ByteArray> = emptyList(),
     extraContext: Map<String, String>? = null,
-    metricsTracker: MetricsTracker? = null,
   )
 
   /**

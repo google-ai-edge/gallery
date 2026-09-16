@@ -56,15 +56,31 @@ import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 
 private const val TAG = "AGLlmChatModelHelper"
 
-data class LlmModelInstance(val engine: Engine, var conversation: Conversation)
+/**
+ * A model instance with its associated engine, conversation, and metrics tracker.
+ *
+ * @property metricsTracker Telemetry for this model instance, or null when the instance was built
+ *   outside [LlmChatModelHelper.initialize] and so is not measured. Tracks nothing when the model
+ *   does not support benchmark telemetry.
+ */
+data class LlmModelInstance(
+  val engine: Engine,
+  var conversation: Conversation,
+  val metricsTracker: MetricsTracker? = null,
+)
 
 object LlmChatModelHelper : LlmModelHelper {
   // Indexed by model name.
   private val cleanUpListeners: MutableMap<String, CleanUpListener> = mutableMapOf()
+
+  @Suppress("GlobalCoroutineDispatchers", "AndroidLintDispatcherUsage")
+  internal var ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 
   @OptIn(ExperimentalApi::class) // opt-in experimental flags
   override fun initialize(
@@ -179,7 +195,18 @@ object LlmChatModelHelper : LlmModelHelper {
           )
         )
       ExperimentalFlags.enableConversationConstrainedDecoding = false
-      model.instance = LlmModelInstance(engine = engine, conversation = conversation)
+      model.instance =
+        LlmModelInstance(
+          engine = engine,
+          conversation = conversation,
+          metricsTracker =
+            MetricsTracker.create(
+              context = context,
+              model = model,
+              taskId = taskId,
+              ioDispatcher = ioDispatcher,
+            ),
+        )
     } catch (e: Exception) {
       val errorMsg = cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error")
       model.markInitializationFailed(errorMsg)
@@ -238,6 +265,10 @@ object LlmChatModelHelper : LlmModelHelper {
         )
       ExperimentalFlags.enableConversationConstrainedDecoding = false
       instance.conversation = newConversation
+      // The replacement conversation starts on an empty KV cache, so per-session token accounting
+      // and sensor histories are rewound to match. This also clears a turn left active by closing
+      // the old conversation mid-flight.
+      instance.metricsTracker?.resetSession()
 
       Log.d(TAG, "Resetting done")
     } catch (e: Exception) {
@@ -263,6 +294,8 @@ object LlmChatModelHelper : LlmModelHelper {
     } catch (e: Exception) {
       Log.e(TAG, "Failed to close the engine: ${e.message}")
     }
+
+    instance.metricsTracker?.resetSession()
 
     val onCleanUp = cleanUpListeners.remove(model.name)
     if (onCleanUp != null) {
@@ -293,7 +326,6 @@ object LlmChatModelHelper : LlmModelHelper {
     audioClips: List<ByteArray>,
     coroutineScope: CoroutineScope?,
     extraContext: Map<String, String>?,
-    metricsTracker: MetricsTracker?,
   ) {
     val instance = model.instance as? LlmModelInstance
     if (instance == null) {
@@ -308,7 +340,7 @@ object LlmChatModelHelper : LlmModelHelper {
 
     // Step 1: Initialize turn telemetry with active Conversation.
     val conversation = instance.conversation
-    metricsTracker?.startTurn(conversation.asSession())
+    instance.metricsTracker?.startTurn(conversation.asSession())
 
     // Step 2: Assemble multimodal prompt attachments (images, audio clips, and text).
     val contents = mutableListOf<Content>()
@@ -336,14 +368,17 @@ object LlmChatModelHelper : LlmModelHelper {
           val text = message.toString()
           val thinking = message.channels[THOUGHT_CHANNEL]
           // Record streaming token to lock TTFT on first token and update live metrics.
-          metricsTracker?.onNewToken(tokenText = text, thinkingText = thinking)
+          instance.metricsTracker?.onNewToken(tokenText = text, thinkingText = thinking)
           resultListener(text, false, thinking)
         }
 
         override fun onDone() {
           // Finalize turn metrics with SUCCESS status.
           val unused =
-            metricsTracker?.endTurn(statusCode = InferenceStatus.Code.SUCCESS, errorMessage = null)
+            instance.metricsTracker?.endTurn(
+              statusCode = InferenceStatus.Code.SUCCESS,
+              errorMessage = null,
+            )
           resultListener("", true, null)
         }
 
@@ -351,13 +386,13 @@ object LlmChatModelHelper : LlmModelHelper {
           if (throwable is CancellationException) {
             // User or system cancelled inference: reconcile context tokens and mark CANCELLED.
             Log.i(TAG, "The inference is cancelled.")
-            val unused = metricsTracker?.cancelTurn()
+            val unused = instance.metricsTracker?.cancelTurn()
             resultListener("", true, null)
           } else {
             // Engine error or crash: record ERROR status with error message.
             Log.e(TAG, "onError", throwable)
             val unused =
-              metricsTracker?.endTurn(
+              instance.metricsTracker?.endTurn(
                 statusCode = InferenceStatus.Code.ERROR,
                 errorMessage = throwable.message ?: "Unknown error",
               )

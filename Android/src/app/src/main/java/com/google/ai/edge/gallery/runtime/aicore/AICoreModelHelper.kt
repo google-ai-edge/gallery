@@ -20,7 +20,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import com.google.ai.edge.gallery.common.cleanUpMediapipeTaskErrorMessage
-import com.google.ai.edge.gallery.common.metrics.MetricsTracker
 import com.google.ai.edge.gallery.data.AICoreModelPreference
 import com.google.ai.edge.gallery.data.AICoreModelReleaseStage
 import com.google.ai.edge.gallery.data.ConfigKeys
@@ -270,7 +269,6 @@ object AICoreModelHelper : LlmModelHelper {
     audioClips: List<ByteArray>,
     coroutineScope: CoroutineScope?,
     extraContext: Map<String, String>?,
-    metricsTracker: MetricsTracker?,
   ) {
     val instance = model.instance as? AICoreModelInstance
     if (instance == null) {
