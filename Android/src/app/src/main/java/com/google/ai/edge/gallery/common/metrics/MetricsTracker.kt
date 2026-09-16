@@ -125,7 +125,6 @@ interface MetricsTracker {
       taskId: String,
       ioDispatcher: CoroutineDispatcher,
       config: MetricsTrackerConfig = MetricsTrackerConfig(),
-      scope: CoroutineScope = CoroutineScope(ioDispatcher + SupervisorJob()),
       timeSource: TimeSource = TimeSource.Monotonic,
     ): MetricsTracker {
 
@@ -138,11 +137,10 @@ interface MetricsTracker {
       }
 
       return LitertlmMetricsTracker(
-        context = context,
+        context = context.applicationContext,
         model = model,
         taskId = taskId,
         config = config,
-        scope = scope,
         ioDispatcher = ioDispatcher,
         timeSource = timeSource,
       )
@@ -181,7 +179,6 @@ internal constructor(
   private val context: Context,
   override val model: Model,
   override val taskId: String,
-  private val scope: CoroutineScope,
   ioDispatcher: CoroutineDispatcher,
   timeSource: TimeSource = TimeSource.Monotonic,
   private val config: MetricsTrackerConfig = MetricsTrackerConfig(),
@@ -216,6 +213,13 @@ internal constructor(
   private val baseMetadata: InferenceMetadata = buildBaseMetadata()
 
   private val isTurnActive = AtomicBoolean(false)
+
+  /**
+   * Scope the periodic sensor samplers run on, kept off the main thread by `ioDispatcher`. A
+   * [SupervisorJob] keeps one failing sampler from tearing down the others. Sampling jobs launched
+   * on this scope are stopped at turn end, turn cancellation, or session reset.
+   */
+  private val scope = CoroutineScope(ioDispatcher + SupervisorJob())
 
   override fun startTurn(session: ConversationSession) {
     // Step 1: Validate session & conversation preconditions.
