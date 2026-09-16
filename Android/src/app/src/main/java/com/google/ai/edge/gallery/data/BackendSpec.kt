@@ -45,6 +45,18 @@ data class BackendSpec(
   val isLiteRtLm: Boolean
     get() = runtimeType == RuntimeType.LITERT_LM
 
+  /** Whether models using this backend are downloaded via [DownloadRepository]. */
+  val downloadsViaRepository: Boolean
+    get() = runtimeType.downloadsViaRepository
+
+  /** Whether models using this backend automatically initiate download/probing on app startup. */
+  val autoDownloadsOnStartup: Boolean
+    get() = runtimeType.autoDownloadsOnStartup
+
+  /** Whether models using this backend can be deleted from within the app. */
+  val supportsDelete: Boolean
+    get() = runtimeType.supportsDelete
+
   /**
    * The default accelerator for this model.
    *
