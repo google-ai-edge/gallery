@@ -21,71 +21,127 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-private const val TAG = "AGHTD"
-
-private const val AUDIO_METER_MIN_DB = -2.0f
-private const val AUDIO_METER_MAX_DB = 100.0f
+private const val TAG = "AGHoldToDictateVM"
+private const val RECORDING_DONE_DELAY = 500L
 
 /** The UI state of the HoldToDictateViewModel. */
 data class HoldToDictateUiState(val recognizing: Boolean = false, val recognizedText: String = "")
 
 @HiltViewModel
-class HoldToDictateViewModel @Inject constructor(@ApplicationContext private val context: Context) :
-  ViewModel(), RecognitionListener {
+class HoldToDictateViewModel
+@Inject
+constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
   protected val _uiState = MutableStateFlow(HoldToDictateUiState())
   val uiState = _uiState.asStateFlow()
 
-  private val speechRecognizer: SpeechRecognizer
-  private val recognizerIntent: Intent
-  private var onRecognitionDone: ((String) -> Unit)? = null
-  private var onAmplitudeChanged: ((Int) -> Unit)? = null
-
-  init {
-    // Initialize SpeechRecognizer
-    speechRecognizer =
-      SpeechRecognizer.createSpeechRecognizer(context).apply {
-        setRecognitionListener(this@HoldToDictateViewModel)
-      }
-
-    // Initialize Intent (used for language/model settings)
-    recognizerIntent =
-      Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
-        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-        putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-      }
-  }
+  private var speechRecognizer: SpeechRecognizer? = null
+  private lateinit var recognizerIntent: Intent
+  private var recognitionListener: RecognitionListener? = null
+  private var currentOnDone: ((String) -> Unit)? = null
+  private var currentOnAmplitudeChanged: ((Int) -> Unit)? = null
 
   fun startSpeechRecognition(onDone: (String) -> Unit, onAmplitudeChanged: (Int) -> Unit) {
-    onRecognitionDone = onDone
-    this.onAmplitudeChanged = onAmplitudeChanged
+    startSpeechRecognition(
+      context = appContext,
+      onDone = onDone,
+      onAmplitudeChanged = onAmplitudeChanged,
+    )
+  }
 
-    speechRecognizer.startListening(recognizerIntent)
-    setRecognizedText(text = "")
+  private fun startSpeechRecognition(
+    context: Context,
+    onDone: (String) -> Unit,
+    onAmplitudeChanged: (Int) -> Unit,
+  ) {
+    currentOnDone = onDone
+    currentOnAmplitudeChanged = onAmplitudeChanged
+
+    if (speechRecognizer == null) {
+      recognitionListener =
+        object : RecognitionListener {
+          override fun onReadyForSpeech(params: Bundle?) {}
+
+          override fun onBeginningOfSpeech() {}
+
+          override fun onRmsChanged(rmsdB: Float) {
+            currentOnAmplitudeChanged?.invoke(convertRmsDbToAmplitude(rmsdB = rmsdB))
+          }
+
+          override fun onBufferReceived(buffer: ByteArray?) {}
+
+          override fun onEndOfSpeech() {}
+
+          override fun onError(error: Int) {
+            Log.d(TAG, "onError: $error")
+          }
+
+          override fun onResults(results: Bundle?) {
+            val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+            if (matches != null && matches.size > 0) {
+              val text = matches[0] ?: ""
+              _uiState.update { uiState.value.copy(recognizedText = text) }
+              currentOnDone?.invoke(text)
+            }
+            setRecognizing(recognizing = false)
+          }
+
+          override fun onPartialResults(partialResults: Bundle?) {
+            val matches =
+partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+            if (matches != null && matches.size > 0) {
+              _uiState.update { uiState.value.copy(recognizedText = matches[0] ?: "") }
+            }
+          }
+
+          override fun onEvent(eventType: Int, params: Bundle?) {}
+        }
+
+      speechRecognizer =
+        SpeechRecognizer.createSpeechRecognizer(context).apply {
+          setRecognitionListener(recognitionListener)
+        }
+
+      recognizerIntent =
+        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+          putExtra(
+            RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+          )
+          putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+          putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+    }
+
+    _uiState.update { uiState.value.copy(recognizedText = "") }
+    speechRecognizer?.startListening(recognizerIntent)
     setRecognizing(recognizing = true)
   }
 
   fun stopSpeechRecognition() {
-    viewModelScope.launch {
-      delay(500)
-      speechRecognizer.stopListening()
-      setRecognizing(recognizing = false)
+    viewModelScope.launch(Dispatchers.Default) {
+      delay(RECORDING_DONE_DELAY)
+      viewModelScope.launch(Dispatchers.Main) {
+        speechRecognizer?.stopListening()
+        setRecognizing(recognizing = false)
+      }
     }
   }
 
   fun cancelSpeechRecognition() {
+    speechRecognizer?.cancel()
     setRecognizing(recognizing = false)
   }
 
@@ -93,58 +149,16 @@ class HoldToDictateViewModel @Inject constructor(@ApplicationContext private val
     _uiState.update { uiState.value.copy(recognizing = recognizing) }
   }
 
-  fun setRecognizedText(text: String) {
-    _uiState.update { uiState.value.copy(recognizedText = text) }
+  fun clearRecognizedText() {
+    _uiState.update { uiState.value.copy(recognizedText = "") }
   }
-
-  override fun onReadyForSpeech(params: Bundle?) {}
-
-  override fun onBeginningOfSpeech() {}
-
-  override fun onRmsChanged(rmsdB: Float) {
-    onAmplitudeChanged?.invoke(convertRmsDbToAmplitude(rmsdB = rmsdB))
-  }
-
-  override fun onBufferReceived(buffer: ByteArray?) {}
-
-  override fun onEndOfSpeech() {}
-
-  override fun onError(error: Int) {}
-
-  override fun onResults(results: Bundle?) {
-    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-    if (matches != null && matches.size > 0) {
-      setRecognizedText(matches.get(0) ?: "")
-    } else {
-      setRecognizedText("")
-    }
-
-    val curOnRecognitionDone = onRecognitionDone
-    if (curOnRecognitionDone != null) {
-      curOnRecognitionDone(uiState.value.recognizedText)
-    }
-
-    setRecognizing(recognizing = false)
-  }
-
-  override fun onPartialResults(partialResults: Bundle?) {
-    val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-    if (matches != null && matches.size > 0) {
-      setRecognizedText(matches.get(0) ?: "")
-    } else {
-      setRecognizedText("")
-    }
-  }
-
-  override fun onEvent(eventType: Int, params: Bundle?) {}
 }
 
 private fun convertRmsDbToAmplitude(rmsdB: Float): Int {
-  // Clamp the input value to the defined range
-  var clampedRmsdB = Math.max(rmsdB, AUDIO_METER_MIN_DB)
-  clampedRmsdB = Math.min(clampedRmsdB, AUDIO_METER_MAX_DB)
+  // Clamp the input value to a reasonable range
+  var clampedRmsdB = Math.max(rmsdB, -2.0f)
+  clampedRmsdB = Math.min(clampedRmsdB, 10.0f)
 
-  // Linear scaling to a 0-65535 range
-  return ((clampedRmsdB - AUDIO_METER_MIN_DB) * 65535f / (AUDIO_METER_MAX_DB - AUDIO_METER_MIN_DB))
-    .toInt()
+  // Linearly scale to a 0-65535 range
+  return ((clampedRmsdB + 2f) * 65535f / 12f).toInt()
 }

@@ -20,7 +20,6 @@ package com.google.ai.edge.gallery.ui.common
 // import com.google.ai.edge.gallery.ui.preview.MODEL_TEST1
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.util.Log
-import androidx.annotation.StringRes
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -107,13 +106,10 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "AGConfigDialog"
 
-private data class Tab(@StringRes val labelResId: Int)
-
-private val TABS =
-  listOf(
-    Tab(labelResId = R.string.config_dialog_tab_model_configs),
-    Tab(labelResId = R.string.config_dialog_tab_system_prompt),
-  )
+private enum class ConfigTab {
+  MODEL_CONFIGS,
+  SYSTEM_PROMPT,
+}
 
 /**
  * Displays a configuration dialog allowing users to modify settings through various input controls.
@@ -139,6 +135,19 @@ fun ConfigDialog(
   var selectedTabIndex by remember { mutableIntStateOf(0) }
   val savedSystemPrompt = remember { curSystemPrompt }
   var systemPrompt by remember { mutableStateOf(curSystemPrompt) }
+
+  val modelConfigsTabTitle = stringResource(R.string.config_dialog_tab_model_configs)
+  val systemPromptTabTitle = stringResource(R.string.config_dialog_tab_system_prompt)
+  val tabs =
+    remember(showSystemPromptEditorTab, modelConfigsTabTitle, systemPromptTabTitle) {
+      buildList {
+        add(ConfigTab.MODEL_CONFIGS to modelConfigsTabTitle)
+        if (showSystemPromptEditorTab) {
+          add(ConfigTab.SYSTEM_PROMPT to systemPromptTabTitle)
+        }
+      }
+    }
+  val selectedTab = tabs.getOrElse(selectedTabIndex) { tabs.first() }.first
 
   Dialog(onDismissRequest = onDismissed) {
     val focusManager = LocalFocusManager.current
@@ -177,55 +186,53 @@ fun ConfigDialog(
         }
 
         // Tab.
-        if (showSystemPromptEditorTab) {
+        if (tabs.size > 1) {
           PrimaryTabRow(selectedTabIndex = selectedTabIndex, containerColor = Color.Transparent) {
-            TABS.forEachIndexed { index, tab ->
+            tabs.forEachIndexed { index, (_, tabTitle) ->
               Tab(
                 selected = selectedTabIndex == index,
                 onClick = { selectedTabIndex = index },
                 text = {
-                  Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                  ) {
-                    val titleColor =
-                      if (selectedTabIndex == index) MaterialTheme.colorScheme.primary
-                      else MaterialTheme.colorScheme.onSurfaceVariant
-                    Text(stringResource(tab.labelResId), color = titleColor)
-                  }
+                  val titleColor =
+                    if (selectedTabIndex == index) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                  Text(tabTitle, color = titleColor)
                 },
               )
             }
           }
         }
 
-        if (selectedTabIndex == 0) {
-          // List of config rows.
-          Column(
-            modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-          ) {
-            ConfigEditorsPanel(configs = configs, values = values)
+        when (selectedTab) {
+          ConfigTab.MODEL_CONFIGS -> {
+            // List of config rows.
+            Column(
+              modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
+              verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+              ConfigEditorsPanel(configs = configs, values = values)
+            }
           }
-        } else if (selectedTabIndex == 1) {
-          OutlinedTextField(
-            value = systemPrompt,
-            modifier = Modifier.weight(1f, fill = false),
-            textStyle = MaterialTheme.typography.bodySmall,
-            onValueChange = { systemPrompt = it },
-            placeholder = {
-              Text(
-                text = stringResource(R.string.system_prompt_placeholder),
-                modifier = Modifier.offset(y = (4).dp), // Adjust to align the cursor with the text.
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-              )
-            },
-          )
+          ConfigTab.SYSTEM_PROMPT ->
+            OutlinedTextField(
+              value = systemPrompt,
+              modifier = Modifier.weight(1f, fill = false),
+              textStyle = MaterialTheme.typography.bodySmall,
+              onValueChange = { systemPrompt = it },
+              placeholder = {
+                Text(
+                  text = stringResource(R.string.system_prompt_placeholder),
+                  modifier =
+                    Modifier.offset(y = (4).dp), // Adjust to align the cursor with the text.
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                )
+              },
+            )
         }
 
         // Button row(s).
-        if (showSystemPromptEditorTab && selectedTabIndex == 1) {
+        if (selectedTab == ConfigTab.SYSTEM_PROMPT) {
           Row(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             horizontalArrangement = Arrangement.Start,

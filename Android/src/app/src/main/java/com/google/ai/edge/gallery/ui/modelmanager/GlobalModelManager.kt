@@ -275,9 +275,9 @@ fun GlobalModelManager(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurface,
               )
+              val totalModelCount = builtInModels.size + importedModels.size
               Text(
-                text =
-                  "${stringResource(R.string.drawer_models_label)} (${builtInModels.size + importedModels.size})",
+                text = stringResource(R.string.model_manager_models_count_title, totalModelCount),
                 color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics { heading() },
@@ -299,72 +299,82 @@ fun GlobalModelManager(
       )
     },
     floatingActionButton = {
-      // A floating action button to show "import model" bottom sheet.
-      val cdImportModelFab = stringResource(R.string.cd_import_model_button)
-      SmallFloatingActionButton(
-        onClick = { showImportModelSheet = true },
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.secondary,
-        modifier = Modifier.semantics { contentDescription = cdImportModelFab },
-      ) {
-        Icon(Icons.Filled.Add, contentDescription = null)
+      val showImportFab = true
+      if (showImportFab) {
+        // A floating action button to show "import model" bottom sheet.
+        val cdImportModelFab = stringResource(R.string.cd_import_model_button)
+        SmallFloatingActionButton(
+          onClick = { showImportModelSheet = true },
+          containerColor = MaterialTheme.colorScheme.secondaryContainer,
+          contentColor = MaterialTheme.colorScheme.secondary,
+          modifier = Modifier.semantics { contentDescription = cdImportModelFab },
+        ) {
+          Icon(Icons.Filled.Add, contentDescription = null)
+        }
       }
     },
   ) { innerPadding ->
     Box() {
-      LazyColumn(
+      Column(
         modifier =
           Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(top = innerPadding.calculateTopPadding()),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding =
-          PaddingValues(top = 16.dp, bottom = innerPadding.calculateBottomPadding() + 80.dp),
+            .padding(top = innerPadding.calculateTopPadding())
       ) {
-        items(builtInModels) { model ->
-          val expanded = modelItemExpandedStates.getOrDefault(model.name, true)
-          ModelItem(
-            model = model,
-            modelVariants = modelVariants.getOrDefault(model.name, listOf()),
-            task = null,
-            modelManagerViewModel = viewModel,
-            onModelClicked = handleClickModel,
-            onBenchmarkClicked = onBenchmarkClicked,
-            expanded = expanded,
-            isBenchmarkSupported = model.supportModelBenchmark,
-            showBenchmarkActionButton = true,
-            onExpanded = { modelItemExpandedStates[model.name] = it },
-            tosViewModel = tosViewModel,
-          )
-        }
 
-        // Imported models.
-        if (importedModels.isNotEmpty()) {
-          item(key = "imported_models_label") {
-            Text(
-              stringResource(R.string.model_list_imported_models_title),
-              color = MaterialTheme.colorScheme.onSurface,
-              style = MaterialTheme.typography.labelLarge,
-              modifier =
-                Modifier.semantics { heading() }
-                  .padding(horizontal = 16.dp)
-                  .padding(top = 32.dp, bottom = 8.dp),
-            )
+        LazyColumn(
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+          contentPadding =
+            PaddingValues(top = 16.dp, bottom = innerPadding.calculateBottomPadding() + 80.dp),
+        ) {
+          val showSupplementaryTab = false
+          if (!showSupplementaryTab) {
+            items(builtInModels) { model ->
+              val expanded = modelItemExpandedStates.getOrDefault(model.name, true)
+              ModelItem(
+                model = model,
+                modelVariants = modelVariants.getOrDefault(model.name, listOf()),
+                task = null,
+                modelManagerViewModel = viewModel,
+                onModelClicked = handleClickModel,
+                onBenchmarkClicked = onBenchmarkClicked,
+                expanded = expanded,
+                isBenchmarkSupported = model.supportModelBenchmark,
+                showBenchmarkActionButton = true,
+                onExpanded = { modelItemExpandedStates[model.name] = it },
+                tosViewModel = tosViewModel,
+              )
+            }
+
+            // Imported models.
+            if (importedModels.isNotEmpty()) {
+              item(key = "imported_models_label") {
+                Text(
+                  stringResource(R.string.model_list_imported_models_title),
+                  color = MaterialTheme.colorScheme.onSurface,
+                  style = MaterialTheme.typography.labelLarge,
+                  modifier =
+                    Modifier.semantics { heading() }
+                      .padding(horizontal = 16.dp)
+                      .padding(top = 32.dp, bottom = 8.dp),
+                )
+              }
+            }
+            items(importedModels, key = { it.name }) { model ->
+              ModelItem(
+                model = model,
+                task = null,
+                modelManagerViewModel = viewModel,
+                onModelClicked = handleClickModel,
+                onBenchmarkClicked = onBenchmarkClicked,
+                expanded = true,
+                isBenchmarkSupported = model.supportModelBenchmark,
+                showBenchmarkActionButton = true,
+                tosViewModel = tosViewModel,
+              )
+            }
           }
-        }
-        items(importedModels, key = { it.name }) { model ->
-          ModelItem(
-            model = model,
-            task = null,
-            modelManagerViewModel = viewModel,
-            onModelClicked = handleClickModel,
-            onBenchmarkClicked = onBenchmarkClicked,
-            expanded = true,
-            isBenchmarkSupported = model.supportModelBenchmark,
-            showBenchmarkActionButton = true,
-            tosViewModel = tosViewModel,
-          )
         }
       }
 
