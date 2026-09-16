@@ -258,4 +258,6 @@ data class DeviceRequirements(
 data class ModelAllowlist(
   val models: List<AllowedModel>,
   @SerializedName("aicoreRequirements") val aicoreRequirements: DeviceRequirements? = null,
+  /** Flag overrides configured remotely via the allowlist. */
+  @SerializedName("flags") val flags: Map<String, Boolean> = emptyMap(),
 )
