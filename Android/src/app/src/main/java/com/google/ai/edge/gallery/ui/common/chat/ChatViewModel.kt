@@ -214,6 +214,7 @@ abstract class ChatViewModel(
             latencyMs = latencyMs,
             accelerator = lastMessage.accelerator,
             hideSenderLabel = lastMessage.hideSenderLabel,
+            id = lastMessage.id,
           )
         newMessages.removeAt(newMessages.size - 1)
         newMessages.add(newLastMessage)

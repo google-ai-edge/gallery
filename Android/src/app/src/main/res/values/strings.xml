@@ -78,6 +78,8 @@
   <string name="clear" translatable="true" description="Content description for a button to clear text input. [CHAR_LIMIT=9]">Clear</string>
   <string name="collect" translatable="true" description="Action label to collect items. [CHAR_LIMIT=18]">Collect</string>
   <string name="color" translatable="true" description="Label for color picker or color configuration. [CHAR_LIMIT=18]">Color</string>
+  <string name="config_dialog_tab_basic" translatable="true" description="Tab label for basic model configurations. [CHAR_LIMIT=15]">Basic</string>
+  <string name="config_dialog_tab_advanced" translatable="true" description="Tab label for advanced model configurations. [CHAR_LIMIT=15]">Advanced</string>
   <string name="config_dialog_tab_model_configs" translatable="false" description="Tab label for model-specific configurations. [CHAR_LIMIT=22]">Model configs</string>
   <string name="config_dialog_tab_system_prompt" translatable="true" description="Tab label for system prompt configuration. [CHAR_LIMIT=22]">System prompt</string>
   <string name="config_dialog_title" translatable="false" description="Title of the settings/configuration dialog. [CHAR_LIMIT=26]">Configurations</string>
@@ -95,6 +97,7 @@
   <string name="download" translatable="true" description="Button label to start downloading a model. [CHAR_LIMIT=18]">Download</string>
   <string name="downloaded_size" translatable="true" description="Label showing how much data has been downloaded (e.g. '1.2 GB downloaded'). [CHAR_LIMIT=25]">%1$s downloaded</string>
   <string name="drawer_settings_label" translatable="true" description="Label for the settings item in the navigation drawer. [CHAR_LIMIT=26]">Settings</string>
+
   <string name="drawer_settings_description" translatable="true" description="Description for the settings item in the navigation drawer. [CHAR_LIMIT=45]">Manage application settings</string>
   <string name="drawer_models_label" translatable="true" description="Label for the models item in the navigation drawer. [CHAR_LIMIT=18]">Models</string>
   <string name="drawer_models_description" translatable="true" description="Description for the models item in the navigation drawer. [CHAR_LIMIT=45]">Browse, try, and benchmark models</string>
