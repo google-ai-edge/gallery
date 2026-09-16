@@ -129,7 +129,7 @@ data class Task(
   val updateTrigger: MutableState<Long> = mutableLongStateOf(0),
 ) {
   fun allowCapability(capability: ModelCapability, model: Model): Boolean {
-    return model.capabilityToTaskTypes[capability]?.contains(id) == true
+    return model.allowCapability(capability = capability, taskId = id)
   }
 }
 

@@ -70,6 +70,7 @@ import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.ConfigKeys
+import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.SegmentedButtonConfig
@@ -125,7 +126,7 @@ fun BenchmarkScreen(
           NumberSliderConfig(
             key = ConfigKeys.PREFILL_TOKENS,
             sliderMin = 16f,
-            sliderMax = selectedModel.llmMaxToken.toFloat(),
+            sliderMax = (selectedModel.llmProfile?.maxTokens ?: DEFAULT_MAX_TOKEN).toFloat(),
             defaultValue = 256f,
             valueType = ValueType.INT,
           )
@@ -163,7 +164,7 @@ fun BenchmarkScreen(
   val sumOfPrefillAndDecodeTokens =
     getIntConfigValue(values = values, key = ConfigKeys.PREFILL_TOKENS) +
       getIntConfigValue(values = values, key = ConfigKeys.DECODE_TOKENS)
-  val maxToken = selectedModel.llmMaxToken
+  val maxToken = selectedModel.llmProfile?.maxTokens ?: DEFAULT_MAX_TOKEN
 
   // Update filteredResults when selected model is changed.
   LaunchedEffect(selectedModelName, uiState.results) {

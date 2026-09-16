@@ -681,7 +681,7 @@ fun ChatPanel(
             selectedModel,
             listOf(
               ChatMessagePromptTemplates(
-                templates = selectedModel.llmPromptTemplates,
+                templates = selectedModel.llmProfile?.promptTemplates ?: emptyList(),
                 showMakeYourOwn = false,
               )
             ),

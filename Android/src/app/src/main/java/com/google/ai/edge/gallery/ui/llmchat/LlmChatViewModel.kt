@@ -134,8 +134,8 @@ open class LlmChatViewModelBase(
         task = task,
         model = model,
         systemInstruction = newPrompt,
-        supportImage = model.llmSupportImage,
-        supportAudio = model.llmSupportAudio,
+        supportImage = model.supportImage,
+        supportAudio = model.supportAudio,
         onDone = { addMessage(model, ChatMessageInfo(content = systemPromptUpdatedMessage)) },
       )
     }
@@ -197,8 +197,8 @@ open class LlmChatViewModelBase(
           AgentRuntimeConfig(
             model = model,
             taskId = currentTaskId,
-            supportImage = model.llmSupportImage,
-            supportAudio = model.llmSupportAudio,
+            supportImage = model.supportImage,
+            supportAudio = model.supportAudio,
             systemInstruction = _uiSystemPrompt.value.ifEmpty { null },
             initialMessages = initialMessages,
           )

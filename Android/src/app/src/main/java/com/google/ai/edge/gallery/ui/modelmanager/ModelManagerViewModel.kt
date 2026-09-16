@@ -38,10 +38,12 @@ import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.CategoryInfo
 import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
+import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.DownloadRepository
 import com.google.ai.edge.gallery.data.EMPTY_MODEL
 import com.google.ai.edge.gallery.data.IMPORTS_DIR
+import com.google.ai.edge.gallery.data.LlmProfile
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelAccessibility
 import com.google.ai.edge.gallery.data.ModelAllowlist
@@ -1017,10 +1019,12 @@ constructor(
         task.models.removeAt(modelIndex)
       }
       if (
-        (task.id == BuiltInTaskId.LLM_ASK_IMAGE && model.llmSupportImage) ||
-          (task.id == BuiltInTaskId.LLM_ASK_AUDIO && model.llmSupportAudio) ||
-          (task.id == BuiltInTaskId.LLM_TINY_GARDEN && model.llmSupportTinyGarden) ||
-          (task.id == BuiltInTaskId.LLM_MOBILE_ACTIONS && model.llmSupportMobileActions) ||
+        (task.id == BuiltInTaskId.LLM_ASK_IMAGE && model.supportImage) ||
+          (task.id == BuiltInTaskId.LLM_ASK_AUDIO && model.supportAudio) ||
+          (task.id == BuiltInTaskId.LLM_TINY_GARDEN &&
+            model.llmProfile?.supportTinyGarden == true) ||
+          (task.id == BuiltInTaskId.LLM_MOBILE_ACTIONS &&
+            model.llmProfile?.supportMobileActions == true) ||
           (task.id != BuiltInTaskId.LLM_ASK_IMAGE &&
             task.id != BuiltInTaskId.LLM_ASK_AUDIO &&
             task.id != BuiltInTaskId.LLM_TINY_GARDEN &&
@@ -1518,20 +1522,20 @@ constructor(
       tasks.get(key = BuiltInTaskId.LLM_CHAT)?.models?.add(model)
       tasks.get(key = BuiltInTaskId.LLM_PROMPT_LAB)?.models?.add(model)
       tasks.get(key = BuiltInTaskId.LLM_AGENT_CHAT)?.models?.add(model)
-      if (model.llmSupportImage) {
+      if (model.supportImage) {
         tasks.get(key = BuiltInTaskId.LLM_ASK_IMAGE)?.models?.add(model)
       }
-      if (model.llmSupportAudio) {
+      if (model.supportAudio) {
         tasks.get(key = BuiltInTaskId.LLM_ASK_AUDIO)?.models?.add(model)
       }
-      if (model.llmSupportTinyGarden) {
+      if (model.llmProfile?.supportTinyGarden == true) {
         tasks.get(key = BuiltInTaskId.LLM_TINY_GARDEN)?.models?.add(model)
         val newConfigs = model.configs.toMutableList()
         newConfigs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
         model.configs = newConfigs
         model.preProcess()
       }
-      if (model.llmSupportMobileActions) {
+      if (model.llmProfile?.supportMobileActions == true) {
         tasks.get(key = BuiltInTaskId.LLM_MOBILE_ACTIONS)?.models?.add(model)
       }
 
@@ -1575,7 +1579,7 @@ constructor(
           }
         }
         .toMutableList()
-    val llmMaxToken = info.llmConfig.defaultMaxTokens
+    val llmMaxToken = info.llmConfig.defaultMaxTokens.takeIf { it > 0 } ?: DEFAULT_MAX_TOKEN
     val llmSupportImage = info.llmConfig.supportImage
     val llmSupportAudio = info.llmConfig.supportAudio
     val llmSupportTinyGarden = info.llmConfig.supportTinyGarden
@@ -1621,22 +1625,25 @@ constructor(
         downloadFileName = info.fileName,
         imported = true,
       )
+    // We assume all imported models are LLM for now.
+    val llmProfile =
+      LlmProfile(
+        supportTinyGarden = llmSupportTinyGarden,
+        supportMobileActions = llmSupportMobileActions,
+        maxTokens = llmMaxToken,
+      )
     val model =
       Model(
         name = info.fileName,
         configs = configs,
         showRunAgainButton = false,
         downloadInfo = downloadInfo,
-        llmSupportImage = llmSupportImage,
-        llmSupportAudio = llmSupportAudio,
-        llmSupportTinyGarden = llmSupportTinyGarden,
-        llmSupportMobileActions = llmSupportMobileActions,
+        llmProfile = llmProfile,
+        supportImage = llmSupportImage,
+        supportAudio = llmSupportAudio,
         capabilities = capabilities.toList(),
         capabilityToTaskTypes = capabilityToTaskTypes.toMap(),
-        llmMaxToken = llmMaxToken,
         accelerators = accelerators,
-        // We assume all imported models are LLM for now.
-        isLlm = true,
         backendSpec = BackendSpec(runtimeType = RuntimeType.LITERT_LM),
       )
     model.preProcess()
