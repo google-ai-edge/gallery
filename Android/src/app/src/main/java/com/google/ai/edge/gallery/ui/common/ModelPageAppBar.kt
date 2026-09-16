@@ -34,6 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,8 +62,13 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.convertValueToTargetType
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 import com.google.ai.edge.litertlm.Capabilities
+
+private val speculativeDecodingCache = ConcurrentHashMap<String, Boolean>()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,6 +99,26 @@ fun ModelPageAppBar(
   val initStatus by model.initStatusFlow.collectAsState()
   val isModelInitializing = initStatus is Model.InitializationStatus.Initializing
   val isModelInitialized = initStatus is Model.InitializationStatus.Initialized
+
+  var supportsSpeculativeDecoding by
+    remember(model.name) { mutableStateOf(speculativeDecodingCache[model.name] ?: false) }
+
+  LaunchedEffect(model.name) {
+    if (!speculativeDecodingCache.containsKey(model.name)) {
+      withContext(Dispatchers.IO) {
+        val supported =
+          try {
+            Capabilities(model.getPath(context)).use {
+              it.hasSpeculativeDecodingSupport()
+            }
+          } catch (e: Exception) {
+            false
+          }
+        speculativeDecodingCache[model.name] = supported
+        supportsSpeculativeDecoding = supported
+      }
+    }
+  }
 
   CenterAlignedTopAppBar(
     title = {
@@ -196,15 +222,6 @@ fun ModelPageAppBar(
     }
     if (!task.allowCapability(ModelCapability.LLM_THINKING, model)) {
       modelConfigs.removeIf { it.key == ConfigKeys.ENABLE_THINKING }
-    }
-    var supportsSpeculativeDecoding = false
-    // Check if the model file supports speculative decoding.
-    try {
-      Capabilities(model.getPath(context)).use {
-        supportsSpeculativeDecoding = it.hasSpeculativeDecodingSupport()
-      }
-    } catch (e: Exception) {
-      // Ignore exceptions and assume not supported.
     }
     if (
       !supportsSpeculativeDecoding ||
