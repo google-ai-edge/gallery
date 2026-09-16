@@ -139,7 +139,6 @@ object LlmChatModelHelper : LlmModelHelper {
           else null,
       )
 
-    // Check if the model file supports speculative decoding.
     var supportsSpeculativeDecoding = false
     // Check if the model file supports speculative decoding.
     try {
