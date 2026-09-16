@@ -124,6 +124,12 @@ data class Model(
   /** LLM-specific parameters and capability flags. */
   val llmProfile: LlmProfile? = null,
 
+  /**
+   * The model category declared by the allowlist, or `null` to derive it from the attached profile.
+   * See [modelType].
+   */
+  private val declaredModelType: ModelType? = null,
+
   // The following fields are only used for built-in tasks. Can ignore if you are creating your own
   // custom tasks.
   //
@@ -157,6 +163,20 @@ data class Model(
   val isLlm: Boolean
     get() = llmProfile != null
 
+  /**
+   * The model category. Models other than [ModelType.TASK] are supplementary models that are not
+   * bound to a task.
+   */
+  val modelType: ModelType
+    get() =
+      declaredModelType
+        ?: when {
+          else -> ModelType.TASK
+        }
+
+  val isSupplementary: Boolean
+    get() = modelType != ModelType.TASK
+
   init {
     normalizedName = NORMALIZE_NAME_REGEX.replace(name, "_")
   }
@@ -172,6 +192,18 @@ data class Model(
   /** Indicates whether the runtime type is LiteRT-LM. */
   val isLiteRtLm: Boolean
     get() = backendSpec.isLiteRtLm
+
+  /** Whether this model is downloaded as a local file via [DownloadRepository]. */
+  val downloadsViaRepository: Boolean
+    get() = backendSpec.downloadsViaRepository
+
+  /** Whether this model automatically initiates download/probing on app startup. */
+  val autoDownloadsOnStartup: Boolean
+    get() = backendSpec.autoDownloadsOnStartup
+
+  /** Whether this model can be deleted by the user from within the app. */
+  val supportsDelete: Boolean
+    get() = backendSpec.supportsDelete
 
   /**
    * Indicates whether the model is allowed to use [capability] for the task identified by [taskId].
