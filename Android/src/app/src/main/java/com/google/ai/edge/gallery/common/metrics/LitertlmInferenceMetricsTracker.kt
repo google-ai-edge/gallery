@@ -47,7 +47,7 @@ class LitertlmInferenceMetricsTracker(
   private val maxContextTokens: Int =
     model.getIntConfigValue(
       key = ConfigKeys.MAX_TOKENS,
-      defaultValue = if (model.llmMaxToken > 0) model.llmMaxToken else DEFAULT_MAX_TOKEN,
+      defaultValue = model.llmProfile?.maxTokens ?: DEFAULT_MAX_TOKEN,
     )
 
   /** Encapsulates ephemeral state and timing for an active inference turn. */

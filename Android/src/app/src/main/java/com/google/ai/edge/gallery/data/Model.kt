@@ -121,8 +121,8 @@ data class Model(
   /** Model family hierarchy and variant configuration. */
   val hierarchy: ModelHierarchy = ModelHierarchy(),
 
-  /** Whether the model is LLM or not. */
-  val isLlm: Boolean = false,
+  /** LLM-specific parameters and capability flags. */
+  val llmProfile: LlmProfile? = null,
 
   // The following fields are only used for built-in tasks. Can ignore if you are creating your own
   // custom tasks.
@@ -131,26 +131,17 @@ data class Model(
   /** Whether to show the "run again" button in the UI. */
   val showRunAgainButton: Boolean = true,
 
-  /** The prompt templates for the model (only for LLM). */
-  val llmPromptTemplates: List<PromptTemplate> = listOf(),
+  /** Whether the model supports image input. */
+  val supportImage: Boolean = false,
 
-  /** Whether the LLM model supports image input. */
-  val llmSupportImage: Boolean = false,
-
-  /** Whether the LLM model supports audio input. */
-  val llmSupportAudio: Boolean = false,
-
-  /** Whether the LLM model supports tiny garden. */
-  val llmSupportTinyGarden: Boolean = false,
-
-  /** Whether the LLM model supports mobile actions. */
-  val llmSupportMobileActions: Boolean = false,
+  /** Whether the model supports audio input. */
+  val supportAudio: Boolean = false,
 
   /** The capabilities of the model. */
   val capabilities: List<ModelCapability> = listOf(),
 
-  /** The max token for llm model. */
-  val llmMaxToken: Int = 0,
+  /** A map of model capability to the task type ids that the model capability is allowed for. */
+  val capabilityToTaskTypes: Map<ModelCapability, List<String>> = mapOf(),
 
   /** Compatible accelerators. */
   val accelerators: List<Accelerator> = listOf(),
@@ -160,9 +151,6 @@ data class Model(
 
   /** Accelerator for running audio encoder. */
   val audioAccelerator: Accelerator? = null,
-
-  /** A map of model capability to the task type ids that the model capability is allowed for. */
-  val capabilityToTaskTypes: Map<ModelCapability, List<String>> = mapOf(),
 
   /** (optional) Strongly-typed metadata for the model. See [ModelMetadata] for more details. */
   val metadata: ModelMetadata = ModelMetadata(),
@@ -175,6 +163,9 @@ data class Model(
   var configValues: Map<String, Any> = mapOf(),
   var prevConfigValues: Map<String, Any> = mapOf(),
 ) {
+  val isLlm: Boolean
+    get() = llmProfile != null
+
   init {
     normalizedName = NORMALIZE_NAME_REGEX.replace(name, "_")
   }
@@ -190,6 +181,12 @@ data class Model(
   /** Indicates whether the runtime type is LiteRT-LM. */
   val isLiteRtLm: Boolean
     get() = backendSpec.isLiteRtLm
+
+  /**
+   * Indicates whether the model is allowed to use [capability] for the task identified by [taskId].
+   */
+  fun allowCapability(capability: ModelCapability, taskId: String): Boolean =
+    capabilityToTaskTypes[capability]?.contains(taskId) == true
 
   /** Indicates whether this model supports NPU (or TPU). */
   val supportsNpu: Boolean

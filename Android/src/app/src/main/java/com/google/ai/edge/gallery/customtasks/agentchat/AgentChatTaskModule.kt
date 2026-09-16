@@ -185,8 +185,8 @@ constructor(
           model = model,
           taskId = task.id,
           actionChannel = agentTools.sendActionChannel,
-          supportImage = model.llmSupportImage,
-          supportAudio = model.llmSupportAudio,
+          supportImage = model.supportImage,
+          supportAudio = model.supportAudio,
           enableConversationConstrainedDecoding = true,
           systemInstruction = finalSystemPrompt,
         )

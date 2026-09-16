@@ -101,8 +101,8 @@ constructor(
         AgentRuntimeConfig(
           model = model,
           taskId = task.id,
-          supportImage = model.llmSupportImage,
-          supportAudio = model.llmSupportAudio,
+          supportImage = model.supportImage,
+          supportAudio = model.supportAudio,
           systemInstruction = systemInstruction?.toString(),
         )
       executor.initialize(context = context, config = config, onDone = onDone)
@@ -163,21 +163,21 @@ constructor(
             )
             val multimodalRes =
               when {
-                model.llmSupportImage && model.llmSupportAudio -> {
+                model.supportImage && model.supportAudio -> {
                   if (model.isAiCore) {
                     R.string.aichat_emptystate_support_image_aicore_audio
                   } else {
                     R.string.aichat_emptystate_support_image_audio
                   }
                 }
-                model.llmSupportImage -> {
+                model.supportImage -> {
                   if (model.isAiCore) {
                     R.string.aichat_emptystate_support_image_aicore
                   } else {
                     R.string.aichat_emptystate_support_image
                   }
                 }
-                model.llmSupportAudio -> R.string.aichat_emptystate_support_audio
+                model.supportAudio -> R.string.aichat_emptystate_support_audio
                 else -> null
               }
 

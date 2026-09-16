@@ -107,7 +107,7 @@ data class AllowedModel(
         taskTypes.contains(BuiltInTaskId.LLM_MOBILE_ACTIONS) ||
         taskTypes.contains(BuiltInTaskId.LLM_TINY_GARDEN)
     var configs: MutableList<Config> = mutableListOf()
-    var llmMaxToken = 1024
+    var llmMaxToken = DEFAULT_MAX_TOKEN
     var llmMaxContextLength: Int? = null
     var accelerators: List<Accelerator> = DEFAULT_ACCELERATORS
     var visionAccelerator: Accelerator = DEFAULT_VISION_ACCELERATOR
@@ -142,7 +142,7 @@ data class AllowedModel(
       val defaultTopK: Int = defaultConfig?.topK ?: DEFAULT_TOPK
       val defaultTopP: Float = defaultConfig?.topP ?: DEFAULT_TOPP
       val defaultTemperature: Float = defaultConfig?.temperature ?: DEFAULT_TEMPERATURE
-      llmMaxToken = defaultConfig?.maxTokens ?: 1024
+      llmMaxToken = defaultConfig?.maxTokens?.takeIf { it > 0 } ?: DEFAULT_MAX_TOKEN
       llmMaxContextLength = defaultConfig?.maxContextLength
       val npuOnly =
         accelerators.size == 1 &&
@@ -199,6 +199,16 @@ data class AllowedModel(
         updatableModelFiles = updatableModelFiles ?: emptyList(),
         updateInfo = updateInfo ?: "",
       )
+    val llmProfile =
+      if (isLlmModel) {
+        LlmProfile(
+          supportTinyGarden = llmSupportTinyGarden == true,
+          supportMobileActions = llmSupportMobileActions == true,
+          maxTokens = llmMaxToken,
+        )
+      } else {
+        null
+      }
     return Model(
       name = name,
       info = finalDescription,
@@ -214,18 +224,15 @@ data class AllowedModel(
           aicorePreference = aicorePreference,
         ),
       hierarchy = ModelHierarchy(parentModelName = parentModelName, variantLabel = variantLabel),
-      llmSupportImage = llmSupportImage == true,
-      llmSupportAudio = llmSupportAudio == true,
-      llmSupportTinyGarden = llmSupportTinyGarden == true,
-      llmSupportMobileActions = llmSupportMobileActions == true,
+      llmProfile = llmProfile,
+      supportImage = llmSupportImage == true,
+      supportAudio = llmSupportAudio == true,
       capabilities = capabilities ?: emptyList(),
-      llmMaxToken = llmMaxToken,
+      capabilityToTaskTypes = capabilityToTaskTypes ?: emptyMap(),
       accelerators = accelerators,
       visionAccelerator = visionAccelerator,
       audioAccelerator = audioAccelerator,
       bestForTaskIds = bestForTaskTypes ?: listOf(),
-      isLlm = isLlmModel,
-      capabilityToTaskTypes = capabilityToTaskTypes ?: emptyMap(),
       metadata = metadata ?: ModelMetadata(),
     )
   }

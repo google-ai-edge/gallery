@@ -155,8 +155,7 @@ object LlmChatModelHelper : LlmModelHelper {
       // speculative decoding is enabled in the settings.
       if (
         supportsSpeculativeDecoding &&
-          model.capabilityToTaskTypes[ModelCapability.SPECULATIVE_DECODING]?.contains(taskId) ==
-            true
+          model.allowCapability(capability = ModelCapability.SPECULATIVE_DECODING, taskId = taskId)
       ) {
         speculativeDecoding =
           model.getBooleanConfigValue(
