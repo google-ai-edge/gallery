@@ -24,7 +24,6 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.common.processLlmResponse
-import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.proto.ChatSessionProto
 import kotlinx.coroutines.Dispatchers
@@ -280,7 +279,7 @@ abstract class ChatViewModel(
     addItemDescription: String,
     customData: Any? = null,
   ) {
-    val accelerator = model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = "")
+    val accelerator = model.currentAccelerator?.name ?: ""
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
     val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
 

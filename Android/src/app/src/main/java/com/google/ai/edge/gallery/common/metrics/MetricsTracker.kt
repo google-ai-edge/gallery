@@ -292,11 +292,7 @@ internal constructor(
   private fun buildBaseMetadata(): InferenceMetadata {
     return inferenceMetadata {
       this.modelName = model.name
-      this.accelerator =
-        model.getStringConfigValue(
-          ConfigKeys.ACCELERATOR,
-          model.accelerators.firstOrNull()?.name ?: "",
-        )
+      this.accelerator = model.currentAccelerator?.name ?: ""
       this.taskId = this@LitertlmMetricsTracker.taskId
       this.llmConfig = model.toLlmConfig()
     }

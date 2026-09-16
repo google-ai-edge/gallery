@@ -151,7 +151,7 @@ open class LlmChatViewModelBase(
     onError: (String) -> Unit,
     allowThinking: Boolean = false,
   ) {
-    val accelerator = model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = "")
+    val accelerator = model.currentAccelerator?.name ?: ""
     viewModelScope.launch(Dispatchers.Default) {
       setInProgress(true)
       setPreparing(true)

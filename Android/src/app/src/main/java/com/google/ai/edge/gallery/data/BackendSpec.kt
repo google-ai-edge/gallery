@@ -22,11 +22,20 @@ package com.google.ai.edge.gallery.data
  * @property runtimeType The type of local runtime environment to use for running the model.
  * @property aicoreReleaseStage The release stage of the AICore model.
  * @property aicorePreference The preference of the AICore model.
+ * @property accelerators The accelerators this model is compatible with, in preference order. The
+ *   first entry is the one the model runs on by default.
+ * @property visionAccelerator The accelerator the vision encoder runs on.
+ * @property audioAccelerator The accelerator the audio encoder runs on, or `null` to inherit the
+ *   runtime's base delegate. Unlike [visionAccelerator], this is tri-state: the runtime only
+ *   overrides the audio delegate when an accelerator is explicitly configured.
  */
 data class BackendSpec(
   val runtimeType: RuntimeType = RuntimeType.UNKNOWN,
   val aicoreReleaseStage: AICoreModelReleaseStage? = null,
   val aicorePreference: AICoreModelPreference? = null,
+  val accelerators: List<Accelerator> = emptyList(),
+  val visionAccelerator: Accelerator = DEFAULT_VISION_ACCELERATOR,
+  val audioAccelerator: Accelerator? = null,
 ) {
   /** Indicates whether the runtime type is AICore. */
   val isAiCore: Boolean
@@ -35,4 +44,12 @@ data class BackendSpec(
   /** Indicates whether the runtime type is LiteRT-LM. */
   val isLiteRtLm: Boolean
     get() = runtimeType == RuntimeType.LITERT_LM
+
+  /**
+   * The default accelerator for this model.
+   *
+   * This is the first accelerator in the [accelerators] list, or `null` if the list is empty.
+   */
+  val defaultAccelerator: Accelerator?
+    get() = accelerators.firstOrNull()
 }

@@ -117,8 +117,9 @@ fun BenchmarkScreen(
         add(
           SegmentedButtonConfig(
             key = ConfigKeys.ACCELERATOR,
-            defaultValue = selectedModel.accelerators.getOrNull(0)?.label ?: Accelerator.CPU.label,
-            options = selectedModel.accelerators.map { it.label },
+            defaultValue =
+              selectedModel.backendSpec.defaultAccelerator?.label ?: Accelerator.CPU.label,
+            options = selectedModel.backendSpec.accelerators.map { it.label },
             allowMultiple = false,
           )
         )

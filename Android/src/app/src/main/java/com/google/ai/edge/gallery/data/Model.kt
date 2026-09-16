@@ -143,15 +143,6 @@ data class Model(
   /** A map of model capability to the task type ids that the model capability is allowed for. */
   val capabilityToTaskTypes: Map<ModelCapability, List<String>> = mapOf(),
 
-  /** Compatible accelerators. */
-  val accelerators: List<Accelerator> = listOf(),
-
-  /** Accelerator for running vision encoder. */
-  val visionAccelerator: Accelerator = Accelerator.GPU,
-
-  /** Accelerator for running audio encoder. */
-  val audioAccelerator: Accelerator? = null,
-
   /** (optional) Strongly-typed metadata for the model. See [ModelMetadata] for more details. */
   val metadata: ModelMetadata = ModelMetadata(),
 
@@ -190,8 +181,35 @@ data class Model(
 
   /** Indicates whether this model supports NPU (or TPU). */
   val supportsNpu: Boolean
-    get() = accelerators.any {
-      it == Accelerator.NPU || it == Accelerator.TPU
+    get() =
+      backendSpec.accelerators.any {
+        it == Accelerator.NPU || it == Accelerator.TPU
+      }
+
+  /**
+   * The current accelerator for this model.
+   *
+   * If the user has set the accelerator, the value is returned. Otherwise, the first accelerator in
+   * the [BackendSpec.accelerators] list is returned.
+   */
+  val currentAccelerator: Accelerator?
+    get() {
+      val accelerator =
+        Accelerator.fromLabel(getStringConfigValue(ConfigKeys.ACCELERATOR, "").trim())
+      return accelerator ?: backendSpec.defaultAccelerator
+    }
+
+  /**
+   * The current vision accelerator for this model.
+   *
+   * If the user has set the accelerator, the value is returned. Otherwise, the
+   * [BackendSpec.visionAccelerator] is returned.
+   */
+  val currentVisionAccelerator: Accelerator
+    get() {
+      val accelerator =
+        Accelerator.fromLabel(getStringConfigValue(ConfigKeys.VISION_ACCELERATOR, "").trim())
+      return accelerator ?: backendSpec.visionAccelerator
     }
 
   sealed interface InitializationStatus {
@@ -315,16 +333,16 @@ data class Model(
       as Boolean
   }
 
-  fun getStringConfigValue(key: ConfigKey, defaultValue: String = ""): String {
-    return getTypedConfigValue(key = key, valueType = ValueType.STRING, defaultValue = defaultValue)
-      as String
-  }
-
   private fun getTypedConfigValue(key: ConfigKey, valueType: ValueType, defaultValue: Any): Any {
     return convertValueToTargetType(
       value = configValues.getOrDefault(key.label, defaultValue),
       valueType = valueType,
     )
+  }
+
+  private fun getStringConfigValue(key: ConfigKey, defaultValue: String = ""): String {
+    return getTypedConfigValue(key = key, valueType = ValueType.STRING, defaultValue = defaultValue)
+      as String
   }
 }
 

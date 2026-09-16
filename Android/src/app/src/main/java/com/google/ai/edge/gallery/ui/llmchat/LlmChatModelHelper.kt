@@ -30,7 +30,6 @@ import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
 import com.google.ai.edge.gallery.data.DEFAULT_TOPK
 import com.google.ai.edge.gallery.data.DEFAULT_TOPP
-import com.google.ai.edge.gallery.data.DEFAULT_VISION_ACCELERATOR
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelCapability
 import com.google.ai.edge.gallery.data.THOUGHT_CHANNEL
@@ -94,34 +93,22 @@ object LlmChatModelHelper : LlmModelHelper {
     val topP = model.getFloatConfigValue(key = ConfigKeys.TOPP, defaultValue = DEFAULT_TOPP)
     val temperature =
       model.getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
-    val accelerator =
-      model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
-    val visionAccelerator =
-      model.getStringConfigValue(
-        key = ConfigKeys.VISION_ACCELERATOR,
-        defaultValue = DEFAULT_VISION_ACCELERATOR.label,
-      )
     val visionBackend =
-      when (visionAccelerator) {
-        Accelerator.CPU.label -> Backend.CPU()
-        Accelerator.GPU.label -> Backend.GPU()
-        Accelerator.NPU.label ->
-          Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
-        Accelerator.TPU.label ->
-          Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
+      when (model.currentVisionAccelerator) {
+        Accelerator.CPU -> Backend.CPU()
+        Accelerator.GPU -> Backend.GPU()
+        Accelerator.NPU -> Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
+        Accelerator.TPU -> Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
         else -> Backend.GPU()
       }
     val shouldEnableImage = supportImage
     val shouldEnableAudio = supportAudio
     val preferredBackend =
-      when (accelerator) {
-        Accelerator.CPU.label -> Backend.CPU()
-        Accelerator.GPU.label -> Backend.GPU()
-        Accelerator.NPU.label ->
-          Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
-        Accelerator.TPU.label ->
-          Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
-        else -> Backend.CPU()
+      when (model.currentAccelerator ?: Accelerator.GPU) {
+        Accelerator.CPU -> Backend.CPU()
+        Accelerator.GPU -> Backend.GPU()
+        Accelerator.NPU -> Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
+        Accelerator.TPU -> Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
       }
     Log.d(TAG, "Preferred backend: $preferredBackend")
 
@@ -228,18 +215,14 @@ object LlmChatModelHelper : LlmModelHelper {
       val shouldEnableAudio = supportAudio
       Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
 
-      val accelerator =
-        model.getStringConfigValue(
-          key = ConfigKeys.ACCELERATOR,
-          defaultValue = Accelerator.GPU.label,
-        )
+      val accelerator = model.currentAccelerator ?: Accelerator.GPU
       ExperimentalFlags.enableConversationConstrainedDecoding =
         enableConversationConstrainedDecoding
       val newConversation =
         engine.createConversation(
           ConversationConfig(
             samplerConfig =
-              if (accelerator == Accelerator.NPU.label || accelerator == Accelerator.TPU.label) {
+              if (accelerator == Accelerator.NPU || accelerator == Accelerator.TPU) {
                 null
               } else {
                 SamplerConfig(

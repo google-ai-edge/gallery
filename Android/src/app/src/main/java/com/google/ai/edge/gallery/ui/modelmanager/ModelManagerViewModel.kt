@@ -79,6 +79,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlin.collections.sortedWith
 import kotlinx.coroutines.Dispatchers
@@ -234,12 +235,12 @@ constructor(
   val allowlistModels: List<Model>
     get() = _allowlistModels
 
-  private val initializedBackends = mutableMapOf<String, MutableSet<String>>()
+  // Tracks the initialized backends for each model by model name.
+  private val initializedBackends = ConcurrentHashMap<String, MutableSet<Accelerator>>()
 
   fun isFirstInitialization(model: Model): Boolean {
-    val backend =
-      model.getStringConfigValue(key = ConfigKeys.ACCELERATOR, defaultValue = Accelerator.GPU.label)
-    return !initializedBackends.getOrDefault(model.name, emptySet()).contains(backend)
+    val backend = getModelCurrentAccelerator(model)
+    return initializedBackends[model.name]?.contains(backend) != true
   }
 
   val authService = AuthorizationService(context)
@@ -755,12 +756,9 @@ constructor(
       val onDoneFn: (error: String) -> Unit = { error ->
         if (model.instance != null) {
           Log.d(TAG, "Model '${model.name}' initialized successfully")
-          val backend =
-            model.getStringConfigValue(
-              key = ConfigKeys.ACCELERATOR,
-              defaultValue = Accelerator.GPU.label,
-            )
-          initializedBackends.getOrPut(model.name) { mutableSetOf() }.add(backend)
+          val backend = getModelCurrentAccelerator(model)
+          initializedBackends.getOrPut(model.name) { ConcurrentHashMap.newKeySet() }.add(backend)
+
           if (model.cleanUpAfterInit) {
             model.markInitializationFailed(
               IllegalStateException("Model cleaned up after initialization")
@@ -1643,8 +1641,7 @@ constructor(
         supportAudio = llmSupportAudio,
         capabilities = capabilities.toList(),
         capabilityToTaskTypes = capabilityToTaskTypes.toMap(),
-        accelerators = accelerators,
-        backendSpec = BackendSpec(runtimeType = RuntimeType.LITERT_LM),
+        backendSpec = BackendSpec(runtimeType = RuntimeType.LITERT_LM, accelerators = accelerators),
       )
     model.preProcess()
 
@@ -1874,4 +1871,14 @@ constructor(
 
 private fun getAllowlistUrl(version: String): String {
   return "$ALLOWLIST_BASE_URL/${version}.json"
+}
+
+/**
+ * Returns the current accelerator for the given model.
+ *
+ * If the model does not have a current accelerator, returns the default accelerator for the model's
+ * backend spec, and if that is not available, returns GPU.
+ */
+private fun getModelCurrentAccelerator(model: Model): Accelerator {
+  return model.currentAccelerator ?: Accelerator.GPU
 }
