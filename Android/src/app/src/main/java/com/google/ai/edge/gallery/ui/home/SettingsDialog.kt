@@ -55,6 +55,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -228,6 +229,58 @@ fun SettingsDialog(
                 },
               )
             }
+
+          // Local API server toggle.
+          var localApiServerEnabled by remember { mutableStateOf(false) }
+          var localApiServerPort by remember { mutableStateOf(8080) }
+          var localApiServerToken by remember { mutableStateOf("") }
+          LaunchedEffect(Unit) {
+            modelManagerViewModel.readLocalApiServerEnabled { localApiServerEnabled = it }
+            modelManagerViewModel.readLocalApiServerPort { localApiServerPort = it }
+            modelManagerViewModel.readLocalApiServerToken { localApiServerToken = it }
+          }
+          Column(
+            modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+              Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                Text(
+                  "Expose local API server",
+                  style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+                )
+                Text(
+                  "Lets other devices on this WiFi network call the loaded model as an" +
+                    " OpenAI-compatible /v1/chat/completions endpoint.",
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
+              Switch(
+                checked = localApiServerEnabled,
+                onCheckedChange = { checked ->
+                  localApiServerEnabled = checked
+                  modelManagerViewModel.setLocalApiServerEnabled(checked)
+                },
+              )
+            }
+            if (localApiServerEnabled) {
+              Text(
+                "Port: $localApiServerPort",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+              Text(
+                "Token: $localApiServerToken",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            }
+          }
 
           // HF Token management.
           Column(

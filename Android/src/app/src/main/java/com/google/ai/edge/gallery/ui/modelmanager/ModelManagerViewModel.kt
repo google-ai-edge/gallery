@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.ui.modelmanager
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.activity.result.ActivityResult
 import androidx.core.net.toUri
@@ -25,6 +26,8 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.AppLifecycleProvider
 import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.apiserver.LocalApiForegroundService
+import com.google.ai.edge.gallery.apiserver.LocalApiServerPreferences
 import com.google.ai.edge.gallery.common.ProjectConfig
 import com.google.ai.edge.gallery.common.SystemPromptHelper
 import com.google.ai.edge.gallery.common.getJsonResponse
@@ -209,6 +212,7 @@ constructor(
   private val customTasks: Set<@JvmSuppressWildcards CustomTask>,
   private val systemPromptRepository: SystemPromptRepository,
   val huggingFaceApiClient: HuggingFaceApiClient,
+  private val localApiServerPreferences: LocalApiServerPreferences,
   @ApplicationContext private val context: Context,
 ) :
   ViewModel()
@@ -935,6 +939,34 @@ constructor(
   fun saveFirebaseAnalytics(enabled: Boolean) {
     dataStoreRepository.saveFirebaseAnalytics(enabled = enabled)
     firebaseAnalytics?.setAnalyticsCollectionEnabled(enabled)
+  }
+
+  fun readLocalApiServerEnabled(onResult: (Boolean) -> Unit) {
+    viewModelScope.launch { onResult(localApiServerPreferences.readEnabled()) }
+  }
+
+  fun readLocalApiServerPort(onResult: (Int) -> Unit) {
+    viewModelScope.launch { onResult(localApiServerPreferences.readPort()) }
+  }
+
+  fun readLocalApiServerToken(onResult: (String) -> Unit) {
+    viewModelScope.launch { onResult(localApiServerPreferences.readOrCreateToken()) }
+  }
+
+  fun regenerateLocalApiServerToken(onResult: (String) -> Unit) {
+    viewModelScope.launch { onResult(localApiServerPreferences.regenerateToken()) }
+  }
+
+  fun setLocalApiServerEnabled(enabled: Boolean) {
+    viewModelScope.launch {
+      localApiServerPreferences.saveEnabled(enabled)
+      val intent = Intent(context, LocalApiForegroundService::class.java)
+      if (enabled) {
+        context.startForegroundService(intent)
+      } else {
+        context.stopService(intent)
+      }
+    }
   }
 
   /**
