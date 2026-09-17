@@ -975,6 +975,19 @@ constructor(
     }
   }
 
+  fun readLocalApiServerSelectedModel(onResult: (String?) -> Unit) {
+    viewModelScope.launch { onResult(localApiServerPreferences.readSelectedModelName()) }
+  }
+
+  fun setLocalApiServerSelectedModel(modelName: String) {
+    viewModelScope.launch {
+      localApiServerPreferences.saveSelectedModelName(modelName)
+      if (localApiServerPreferences.readEnabled()) {
+        context.startForegroundService(Intent(context, LocalApiForegroundService::class.java))
+      }
+    }
+  }
+
   /**
    * Checks the accessibility of a remote model URL.
    *

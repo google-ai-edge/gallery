@@ -44,6 +44,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -269,6 +271,44 @@ fun SettingsDialog(
               )
             }
             if (localApiServerEnabled) {
+              val downloadedModels = modelManagerViewModel.getAllDownloadedModels()
+              var selectedModelName by remember { mutableStateOf<String?>(null) }
+              var modelPickerExpanded by remember { mutableStateOf(false) }
+              LaunchedEffect(Unit) {
+                modelManagerViewModel.readLocalApiServerSelectedModel { selectedModelName = it }
+              }
+              Column {
+                Text(
+                  "Model to serve",
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Box {
+                  Text(
+                    selectedModelName ?: downloadedModels.firstOrNull()?.name ?: "No downloaded models",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier =
+                      Modifier.clickable(enabled = downloadedModels.isNotEmpty()) {
+                        modelPickerExpanded = true
+                      },
+                  )
+                  DropdownMenu(
+                    expanded = modelPickerExpanded,
+                    onDismissRequest = { modelPickerExpanded = false },
+                  ) {
+                    downloadedModels.forEach { model ->
+                      DropdownMenuItem(
+                        text = { Text(model.name) },
+                        onClick = {
+                          selectedModelName = model.name
+                          modelPickerExpanded = false
+                          modelManagerViewModel.setLocalApiServerSelectedModel(model.name)
+                        },
+                      )
+                    }
+                  }
+                }
+              }
               Text(
                 "Port: $localApiServerPort",
                 style = MaterialTheme.typography.bodySmall,
