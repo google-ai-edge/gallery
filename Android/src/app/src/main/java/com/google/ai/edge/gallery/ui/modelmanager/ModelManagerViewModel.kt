@@ -28,6 +28,7 @@ import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.apiserver.LocalApiForegroundService
 import com.google.ai.edge.gallery.apiserver.LocalApiServerPreferences
+import com.google.ai.edge.gallery.apiserver.ModelCatalogCache
 import com.google.ai.edge.gallery.common.ProjectConfig
 import com.google.ai.edge.gallery.common.SystemPromptHelper
 import com.google.ai.edge.gallery.common.getJsonResponse
@@ -213,6 +214,7 @@ constructor(
   private val systemPromptRepository: SystemPromptRepository,
   val huggingFaceApiClient: HuggingFaceApiClient,
   private val localApiServerPreferences: LocalApiServerPreferences,
+  private val modelCatalogCache: ModelCatalogCache,
   @ApplicationContext private val context: Context,
 ) :
   ViewModel()
@@ -221,6 +223,10 @@ constructor(
   private val modelsDir = getModelStorageDir(context)
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   open val uiState = _uiState.asStateFlow()
+
+  init {
+    viewModelScope.launch { uiState.collect { modelCatalogCache.update(getAllDownloadedModels()) } }
+  }
 
   fun fetchModelDetails(modelId: String, onResult: (HfModelItemProto?) -> Unit) {
     viewModelScope.launch {
