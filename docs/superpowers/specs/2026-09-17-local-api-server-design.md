@@ -43,100 +43,99 @@ at it with a config change and no code changes on the ARTEMIS side.
 
 - Single Android module: `Android/src/app`, package
   `com.google.ai.edge.gallery`, Kotlin + Jetpack Compose + Hilt DI.
-- Inference seam: `LlmChatModelHelper` (object, in
-  `ui/llmchat/LlmChatModelHelper.kt`) wraps the LiteRT-LM `Engine` /
-  `Conversation` API:
-  - `initialize(context, model, taskId, ...)` — loads the model file into an
-    `Engine`, creates a `Conversation`, stores both on `model.instance`.
-  - `resetConversation(model, ..., initialMessages: List<Message>)` — closes
-    the current `Conversation` and opens a new one, optionally pre-seeded
-    with prior turns.
-  - `runInference(model, input: String, resultListener, images: List<Bitmap>, ...)` —
-    sends one turn (text + optional images) to the active `Conversation` and
-    streams tokens back via `resultListener(text, done, thinking)`.
-  - `stopResponse(model)` — cancels an in-flight turn.
-- Each `Model` object holds its own `instance` (engine + conversation); the
-  engine is expensive (a multi-GB model loaded into RAM/GPU), so the app
-  only ever keeps one chat model initialized at a time in practice.
-- `ModelManagerViewModel` (`@HiltViewModel`) is the existing source of truth
-  for which model is loaded, but as a `@HiltViewModel` it requires a
-  `ViewModelStoreOwner` (the Activity) — it cannot be injected into a plain
-  background `Service`. This is why the design introduces a separate
-  `@Singleton` registry (below) instead of reusing it directly.
+- **`AgentRuntimeExecutor`** (`agent/AgentRuntimeExecutor.kt`) is the real
+  seam to build on — it's a higher-level, already-session-aware wrapper
+  around the LiteRT-LM engine that every chat surface in the app uses
+  (`LlmChatTaskModule`, `LlmAskImageTask`, agent chat, etc. all inject the
+  same Hilt singleton via `@AiChatExecutor`, provided in
+  `agent/AgentExecutorModule.kt`):
+  - `suspend fun initialize(context, config: AgentRuntimeConfig, onDone)` —
+    loads the model, starts a session (called by whichever screen the user
+    opens).
+  - `suspend fun resetSession(config: AgentRuntimeConfig)` — closes the
+    active session and opens a new one, seeded with
+    `config.initialMessages: List<Message>` (litertlm's turn type; build one
+    from plain text with the existing `Message.user(text)` /
+    `Message.model(text)` factories — see `ui/common/chat/ChatMessage.kt:441`,
+    `convertToLitertMessage`).
+  - `suspend fun execute(context: AgentExecutionContext, request: AgentRequest): AgentResponse` —
+    runs one turn (text + `Attachment.ImageBitmap` images) to completion and
+    returns `AgentResponse(output: String, isSuccessful: Boolean)`. This is
+    already the non-streaming, wait-for-full-response call we need — no new
+    streaming/aggregation code required.
+  - `DefaultAgentRuntimeExecutor` (the concrete impl,
+    `agent/DefaultAgentRuntimeExecutor.kt`) keeps the current model + task
+    config in an internal `AtomicReference<ActiveSession?>`
+    (`activeSession`), cleared by `cleanUp()`. `LlmChatViewModel.kt:189-206`
+    already shows this exact reset-then-run pattern (for a different edge
+    case — resuming a session the model itself stopped).
+  - This executor already exists as an app-wide singleton with the
+    "currently active model" tracked internally — it replaces the need for
+    a bespoke registry class or any hook into per-screen ViewModels.
+- **One small addition needed**: `activeSession` isn't currently readable
+  from outside `DefaultAgentRuntimeExecutor`. Add a read-only property to
+  the `AgentRuntimeExecutor` interface, following the same
+  default-null-getter pattern already used for `activeSessionId`:
+  ```kotlin
+  val activeModelInfo: ActiveModelInfo?
+    get() = null
+  ```
+  with `data class ActiveModelInfo(val model: Model, val taskId: String, val supportImage: Boolean)`,
+  and override it in `DefaultAgentRuntimeExecutor` as
+  `activeSession.get()?.sessionConfig?.let { ActiveModelInfo(it.model, it.taskId, it.supportImage) }`.
+  This is the only change to existing runtime code this feature needs.
 - Manifest already declares `FOREGROUND_SERVICE`,
   `FOREGROUND_SERVICE_DATA_SYNC`, `INTERNET`, `POST_NOTIFICATIONS` — no new
   dangerous permissions needed, just a new `<service>` entry.
 - Settings UI lives in `ui/home/SettingsDialog.kt`.
-- Hilt singletons are provided in `di/AppModule.kt`
-  (`@InstallIn(SingletonComponent::class)`); DataStore-backed prefs already
-  follow a `Serializer<T>` + `DataStore<T>` pattern there (see
-  `provideSettingsSerializer` / `provideSettingsDataStore`).
-- No existing HTTP server dependency in the app; `kotlinx.serialization.json`
-  is already a dependency (used for request/response models).
+- Hilt singletons are provided in `di/AppModule.kt` and
+  `agent/AgentExecutorModule.kt` (`@InstallIn(SingletonComponent::class)`).
+- **Ktor is already a dependency** (`gradle/libs.versions.toml`: `ktor =
+  "3.4.3"`, used today for the MCP client's `ktor-client-*` artifacts). We
+  only need to add the server artifacts (`ktor-server-core`,
+  `ktor-server-cio`, `ktor-server-content-negotiation`,
+  `ktor-serialization-kotlinx-json`) under the same version ref — no new
+  version to vet.
+- `kotlinx.serialization.json` is already a dependency (used for
+  request/response models).
+- For the settings toggle/port/token, use a small **Preferences DataStore**
+  (`androidx.datastore:datastore-preferences`, new artifact, same `dataStore`
+  version), not the app's existing protobuf-based `Settings` — that proto is
+  shared across many unrelated features and editing its schema is out of
+  scope and unnecessarily wide blast radius for three primitive values.
 
 ## Architecture
 
-Four new pieces, one hook into existing code:
+One small interface addition, one new foreground service, one new settings
+store:
 
 ```
                     ┌─────────────────────────┐
    ARTEMIS (PC) ───▶│  LocalApiForegroundService │
    POST /v1/chat/... │  (Ktor CIO, 0.0.0.0:port) │
                     └────────────┬────────────┘
-                                 │ reads
+                                 │ reads .activeModelInfo,
+                                 │ calls resetSession()/execute()
                                  ▼
                     ┌─────────────────────────┐
-                    │   ActiveModelRegistry    │◀── setActive()/clear() ──┐
-                    │  (Singleton StateFlow)   │                          │
-                    └────────────┬────────────┘                          │
-                                 │ Model + taskId                        │
-                                 ▼                                       │
-                    ┌─────────────────────────┐              ┌──────────┴─────────┐
-                    │   LlmChatModelHelper     │              │  LlmChatViewModel   │
-                    │ (existing, unchanged)    │              │ (existing, +1 hook) │
-                    └─────────────────────────┘              └────────────────────┘
+                    │  AgentRuntimeExecutor     │  (existing Hilt singleton,
+                    │  @AiChatExecutor          │   @AiChatExecutor,
+                    │  (+1 property added)      │   already used by every
+                    └─────────────────────────┘   chat screen in the app)
 ```
 
-### 1. `ActiveModelRegistry` (new)
+### 1. `AgentRuntimeExecutor` interface + `DefaultAgentRuntimeExecutor` (existing files, +1 property each)
 
-`com.google.ai.edge.gallery.apiserver.ActiveModelRegistry`, `@Singleton`,
-provided from `AppModule.kt`.
+See "Codebase context" above — add `activeModelInfo` (default `null` on the
+interface, real implementation reading `activeSession` in
+`DefaultAgentRuntimeExecutor`). This is the only change to existing runtime
+code.
 
-```kotlin
-data class ActiveChatModel(val model: Model, val taskId: String, val supportsImage: Boolean)
-
-@Singleton
-class ActiveModelRegistry @Inject constructor() {
-  private val _current = MutableStateFlow<ActiveChatModel?>(null)
-  val current: StateFlow<ActiveChatModel?> = _current.asStateFlow()
-
-  fun setActive(model: Model, taskId: String, supportsImage: Boolean) {
-    _current.value = ActiveChatModel(model, taskId, supportsImage)
-  }
-
-  fun clear(model: Model) {
-    if (_current.value?.model?.name == model.name) _current.value = null
-  }
-}
-```
-
-### 2. Hook into `LlmChatViewModel.kt` (existing file, +2 call sites)
-
-- After a successful `LlmChatModelHelper.initialize(...)` callback
-  (`onDone("")` with no error), call
-  `activeModelRegistry.setActive(model, taskId, supportImage)`.
-- In the model cleanup path (wherever `LlmChatModelHelper.cleanUp` is
-  invoked for that model, e.g. switching models or leaving the chat
-  screen), call `activeModelRegistry.clear(model)`.
-
-`LlmChatViewModel` needs `ActiveModelRegistry` field-injected (it's already
-Hilt-constructed).
-
-### 3. `LocalApiForegroundService` (new)
+### 2. `LocalApiForegroundService` (new)
 
 `com.google.ai.edge.gallery.apiserver.LocalApiForegroundService`, extends
-`Service`, `@AndroidEntryPoint`, field-injects `ActiveModelRegistry` and the
-new settings DataStore (below).
+`Service`, `@AndroidEntryPoint`, field-injects `@AiChatExecutor
+AgentRuntimeExecutor` and the new settings DataStore (below).
 
 Responsibilities:
 - `onCreate`: build and start an embedded Ktor server, engine `CIO`, bound
@@ -154,10 +153,10 @@ New Gradle dependencies (`Android/src/app/build.gradle.kts`):
 `io.ktor:ktor-server-core`, `ktor-server-cio`,
 `ktor-server-content-negotiation`, `ktor-serialization-kotlinx-json`.
 
-### 4. Settings & auth token (new)
+### 3. Settings & auth token (new)
 
-A small new `DataStore<LocalApiServerSettings>` (own proto/serializer,
-following the existing pattern in `AppModule.kt`) holding:
+A small new Preferences `DataStore` (see "Codebase context" for why not the
+existing protobuf `Settings`) holding:
 
 ```
 enabled: Boolean = false
@@ -224,11 +223,19 @@ limited phone RAM). ARTEMIS/LangChain's `ChatOpenAI` client is stateless
 per call — it resends the full `messages` history every time and expects a
 fresh answer, not accumulation on the server side.
 
-Reconciliation (per request):
-1. `LlmChatModelHelper.resetConversation(model, ..., initialMessages = req.messages.dropLast(1).map(::toLiteRtMessage))`
-2. Decode any `image_url` data-URIs in the last message to `Bitmap`.
-3. `LlmChatModelHelper.runInference(model, input = lastMessage.text, images = decodedImages, resultListener = { text, done, _ -> accumulate })`.
-4. On `done`, return the accumulated text as the response body.
+Reconciliation (per request), using the executor described in Architecture:
+1. Read `executor.activeModelInfo` → 503 if `null` (see Error handling).
+2. Build `AgentRuntimeConfig(model, taskId, supportImage, initialMessages = req.messages.dropLast(1).map(::toLiteRtMessage))`,
+   where `toLiteRtMessage` maps `role: "user"` → `Message.user(text)` and
+   `role: "assistant"` → `Message.model(text)` (same mapping as the
+   existing `convertToLitertMessage` in `ChatMessage.kt`).
+3. `executor.resetSession(config)`.
+4. Decode any `image_url` data-URIs in the last message to `Bitmap`, wrap as
+   `Attachment.ImageBitmap`.
+5. `executor.execute(AgentExecutionContext(), AgentRequest(query = lastMessage.text, attachments = images))`
+   → `AgentResponse(output, isSuccessful)`.
+6. Return `output` as the response body (200 if `isSuccessful`, 500
+   otherwise — see Error handling).
 
 This makes each API call behave like a stateless OpenAI call. **Accepted
 limitation**: this reset also wipes whatever conversation is active in the
@@ -242,9 +249,9 @@ server for ARTEMIS while the feature is in use.
 | Condition | Response |
 |---|---|
 | Missing/invalid `Authorization` header | `401 {"error":{"message":"Invalid or missing API token"}}` |
-| No model currently loaded (`ActiveModelRegistry.current == null`) | `503 {"error":{"message":"No model loaded in Gallery. Open the app and load a model first."}}` |
+| No model currently loaded (`executor.activeModelInfo == null`) | `503 {"error":{"message":"No model loaded in Gallery. Open the app and load a model first."}}` |
 | Malformed JSON / missing `messages` | `400 {"error":{"message":"..."}}` |
-| Inference engine error (`onError` callback) | `500 {"error":{"message":"<underlying message>"}}` |
+| `AgentResponse.isSuccessful == false` (engine/tool error surfaced by the executor) | `500 {"error":{"message":"<AgentResponse.output>"}}` |
 | Port already bound at service start | Service logs the failure, shows a notification ("Could not start local API server: port in use"), stops itself; app itself keeps working normally |
 
 Requests are serialized behind a `Mutex` in the service — the on-device
