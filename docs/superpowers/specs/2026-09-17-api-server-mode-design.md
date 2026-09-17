@@ -1,7 +1,7 @@
 # API Server Mode: Independent Model Lifecycle + Model Picker
 
 Date: 2026-09-17
-Status: Approved for implementation
+Status: Implemented, verified on-device 2026-09-17 (see "Verified on-device" below)
 
 ## Problem
 
@@ -64,6 +64,15 @@ Four pieces. Three are new, small, single-purpose files; one is a guard
 added to the existing shared executor (the same seam
 `docs/superpowers/specs/2026-09-17-local-api-server-design.md` already
 established as the right integration point).
+
+**Revised after on-device verification**: the executor-level guard alone
+was not sufficient. `ModelManagerViewModel.cleanupModel()` — the actual
+caller behind every screen's exit path — has its own independent
+`model.resetInitialization()` side effect that fires unconditionally once
+`onDone()` returns, regardless of whether real teardown happened. A second,
+identical `ApiServerSessionHold` check was added at the top of
+`cleanupModel()`, before it calls into the executor at all. See "Verified
+on-device" below for how this was found.
 
 ```
 Settings toggle ON
@@ -214,6 +223,26 @@ Settings → Expose local API server [ON]
      actual bug fix — this used to 503 here).
   4. Toggle the server off; confirm the model is released (no lingering
      foreground service, no stale hold).
+
+## Verified on-device (2026-09-17)
+
+Steps 1-4 of the Testing section above were run on the same physical device
+as the previous spec's verification (only one model downloaded, so the
+"different model" takeover in step 2 wasn't separately exercised).
+
+Step 3 failed on the first pass: `/v1/models` correctly survived closing AI
+Chat (no 503), but the actual chat completion call returned
+`500 {"error":{"message":"Model not initialized."}}`. Root cause: a second,
+independent cleanup path in `ModelManagerViewModel.cleanupModel()` (see the
+Architecture section's revision note above). Fixed by adding the same
+`ApiServerSessionHold` guard there; re-verified end to end afterward with a
+200 response. Full before/after `adb logcat` detail is in the implementation
+plan's Task 7.
+
+Step 4 confirmed: toggling off drops RSS memory by ~220MB and the port
+stops accepting connections, confirming genuine teardown (the guard
+correctly does not intercept this path, since the hold is cleared before
+`cleanUp()` is called).
 
 ## Related but out of scope here
 

@@ -921,38 +921,49 @@ git commit -m "feat(apiserver): add a model picker to the Settings API server se
 
 **Files:** none (verification only, per the spec's Testing section)
 
-- [ ] **Step 1: Pick a model without opening AI Chat**
+**Actually run 2026-09-17** on the same physical Xiaomi phone (`c24b2c3f`) used for the previous plan's verification.
 
-Install the updated APK. Without opening AI Chat at all this session, open Settings, enable "Expose local API server", and pick a downloaded model (e.g. `Gemma-4-E2B-it`) in the new dropdown.
+- [x] **Step 1: Pick a model without opening AI Chat**
 
-- [ ] **Step 2: Confirm the server served that model immediately**
+Installed the updated APK (update install, so the previously-downloaded `Gemma-4-E2B-it` and its DataStore prefs persisted). Without opening AI Chat this session, opened Settings and confirmed the toggle + model picker rendered correctly, showing `Gemma-4-E2B-it` as the only downloaded model.
 
-```bash
-adb shell curl -s http://127.0.0.1:8080/v1/models
+- [x] **Step 2: Confirm the server served that model immediately**
+
+`adb shell curl -s http://127.0.0.1:8080/v1/models` → `{"data":[{"id":"Gemma-4-E2B-it"}]}` within a few seconds, before AI Chat was ever opened this session. Matches expected.
+
+- [x] **Step 3: Confirm a text request works**
+
+Text completion request → 200, `"content":"Hello there!"`. Matches expected.
+
+- [x] **Step 4: Open AI Chat with the same downloaded model**
+
+Only one model was downloaded on this device, so this step exercised the "same model" path rather than a takeover to a different model — opened AI Chat with `Gemma-4-E2B-it`, confirmed `/v1/models` still reported it (unsurprising, since it's the same model; the different-model takeover case from the spec's non-goals was not separately exercised on this device for lack of a second downloaded model).
+
+- [x] **Step 5: Confirm the actual bug fix — close AI Chat, model survives**
+
+First pass **failed**: after closing AI Chat, `/v1/models` still correctly showed the model (no 503 — the `DefaultAgentRuntimeExecutor.cleanUp()` guard worked as designed), but the actual chat completion call returned `500 {"error":{"message":"Model not initialized."}}`. `adb logcat` traced this to a *second*, separate cleanup path: `ModelManagerViewModel.cleanupModel()` calls `task.cleanUpModelFn()` (which does go through the guarded `executor.cleanUp()`), but its `onDoneFn` *unconditionally* calls `model.resetInitialization()` once `onDone()` fires — regardless of whether real teardown happened. The executor-level guard prevented the engine teardown but not this second, independent side effect, leaving `Model.instance` reset to "not initialized" while the executor's session config still pointed at it.
+
+**Fix applied** (not in the original plan — a real gap Task 7 caught): added the same `ApiServerSessionHold` check at the top of `ModelManagerViewModel.cleanupModel()`, before it calls `cleanUpModelFn` at all:
+
+```kotlin
+if (apiServerSessionHold.heldModelName == model.name) {
+  Log.d(TAG, "Skipping cleanup for '${model.name}': held by the local API server")
+  onDone()
+  return
+}
 ```
-Expected: `{"data":[{"id":"Gemma-4-E2B-it"}]}` within a few seconds (model load time) — without ever having opened AI Chat.
 
-- [ ] **Step 3: Confirm a text request works**
+`ApiServerSessionHold` was added as a new constructor parameter to `ModelManagerViewModel` (alongside `LocalApiServerPreferences`/`ModelCatalogCache`). Files touched: `Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/modelmanager/ModelManagerViewModel.kt`.
 
-Repeat the text-completion curl from the previous plan's Task 7 Step 4. Expected: 200, valid response.
+Rebuilt, reinstalled, and re-ran Steps 1–5 end to end: `adb logcat` showed `AGModelManagerViewModel: Skipping cleanup for 'Gemma-4-E2B-it': held by the local API server` on AI Chat exit, and the chat completion call afterward returned `200 {"content":"Hello there!"}`. **Confirmed fixed.**
 
-- [ ] **Step 4: Open AI Chat with a different downloaded model**
+- [x] **Step 6: Confirm toggling off releases everything**
 
-If a second model is downloaded, open AI Chat and select it. Repeat Step 2's curl.
-Expected: `/v1/models` now reports the *chat-selected* model (documented takeover — matches the spec's non-goal).
+Toggled off in Settings. `adb logcat` showed the real teardown running this time (`ApiServerSessionHold.heldModelName` is cleared in `onDestroy()` *before* calling `executor.cleanUp()`, so the guard correctly does not intercept it): `AGLlmChatModelHelper: Clean up done.` and app RSS memory dropped ~220MB (898MB → 678MB), confirming the model was actually unloaded. `adb shell curl http://127.0.0.1:8080/v1/models` failed with connection refused — port released. (One benign `W AGDefaultAgentRuntimeExecutor: Failed to emit event` warning appeared in the log during this teardown — pre-existing `emitEvent()` behavior when a callbackFlow's collector has already completed, unrelated to this feature.)
 
-- [ ] **Step 5: Confirm the actual bug fix — close AI Chat, model survives**
+- [x] **Step 7: Record the outcome**
 
-Navigate back out of AI Chat to the model list (same action that caused a 503 in the previous plan's Task 7 Step 7). Repeat Step 2's curl.
-Expected: `/v1/models` still reports the same model chat was just using — **no 503**. This is the fix; contrast directly with the earlier, now-superseded behavior.
-
-- [ ] **Step 6: Confirm toggling off releases everything**
-
-Turn off "Expose local API server" in Settings. Confirm via `adb logcat` that the foreground service's `onDestroy` runs (no lingering notification) and `adb shell curl http://127.0.0.1:8080/v1/models` fails to connect (connection refused, port no longer listening).
-
-- [ ] **Step 7: Record the outcome**
-
-Update the spec's Status line to "Implemented, verified on-device <date>" with a short results summary, matching the previous plan's Task 7 Step 9 pattern.
+Recorded here and in the spec's Status line and a new "Verified on-device" section.
 
 ```bash
 git add docs/superpowers/specs/2026-09-17-api-server-mode-design.md
@@ -964,5 +975,6 @@ git commit -m "docs: record manual verification of API server mode"
 ## Self-review notes
 
 - **Spec coverage:** Goals (independent load, survive screen close, model picker) → Tasks 1, 2, 5, 6. Non-goal (no true dual-engine isolation) respected — Task 2's guard only ever prevents *one* shared session from being torn down; it never loads two. Error handling table (no downloaded model, deleted mid-serve, picker changed while on) → Task 5 Steps 2 and 4, and the existing re-`initialize`-on-change path in Task 6 Step 1. Testing section → Tasks 1–4 unit tests + Task 7 manual script.
-- **Type consistency:** `ApiServerSessionHold.heldModelName` (Task 1) is set only by `LocalApiForegroundService` (Task 5) and read only by `DefaultAgentRuntimeExecutor.cleanUp()` (Task 2) — single writer during normal operation, matching the spec's synchronous-guard design. `ModelCatalogCache.models` (Task 3) is written only by `ModelManagerViewModel` and read only by `LocalApiForegroundService` — no other writer was introduced.
+- **Type consistency (revised after Task 7):** `ApiServerSessionHold.heldModelName` (Task 1) is set only by `LocalApiForegroundService` (Task 5), but is read by **two** independent guards, not one: `DefaultAgentRuntimeExecutor.cleanUp()` (Task 2) and `ModelManagerViewModel.cleanupModel()` (added during Task 7 verification — see that task's Step 5). Both were necessary; the executor-level guard alone was insufficient because `ModelManagerViewModel` has its own unconditional `model.resetInitialization()` side effect on `onDone()`. `ModelCatalogCache.models` (Task 3) is written only by `ModelManagerViewModel` and read only by `LocalApiForegroundService` — no other writer was introduced.
 - **Known gap intentionally deferred:** the "picker changed while server is on triggers reload" path (Task 6 Step 1's `setLocalApiServerSelectedModel`) restarts the whole service via `startForegroundService`, which briefly drops and reopens the Ktor listener rather than swapping the model in place. Acceptable per the spec's error-handling table ("existing in-flight requests against the old model may fail... acceptable, rare").
+- **Not separately exercised:** the different-model "takeover" behavior (spec non-goal) — this test device only had one model downloaded. The mechanism (shared `activeSession` AtomicReference gets overwritten by whichever caller last calls `initialize`/`resetSession`) is unchanged from the previous plan's design and was exercised there in a different context, but not re-verified here with two models both present.
