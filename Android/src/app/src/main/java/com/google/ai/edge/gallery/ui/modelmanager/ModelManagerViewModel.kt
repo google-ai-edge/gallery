@@ -26,6 +26,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.AppLifecycleProvider
 import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.apiserver.ApiServerSessionHold
 import com.google.ai.edge.gallery.apiserver.LocalApiForegroundService
 import com.google.ai.edge.gallery.apiserver.LocalApiServerPreferences
 import com.google.ai.edge.gallery.apiserver.ModelCatalogCache
@@ -215,6 +216,7 @@ constructor(
   val huggingFaceApiClient: HuggingFaceApiClient,
   private val localApiServerPreferences: LocalApiServerPreferences,
   private val modelCatalogCache: ModelCatalogCache,
+  private val apiServerSessionHold: ApiServerSessionHold,
   @ApplicationContext private val context: Context,
 ) :
   ViewModel()
@@ -812,6 +814,12 @@ constructor(
   ) {
     if (instanceToCleanUp != null && instanceToCleanUp !== model.instance) {
       Log.d(TAG, "Stale cleanup request for ${model.name}. Aborting.")
+      onDone()
+      return
+    }
+
+    if (apiServerSessionHold.heldModelName == model.name) {
+      Log.d(TAG, "Skipping cleanup for '${model.name}': held by the local API server")
       onDone()
       return
     }
