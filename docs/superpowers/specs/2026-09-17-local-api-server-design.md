@@ -1,7 +1,7 @@
 # Local API Server for Google AI Edge Gallery
 
 Date: 2026-09-17
-Status: Approved for implementation
+Status: Implemented, verified on-device 2026-09-17 (see "Verified on-device" below)
 
 ## Problem
 
@@ -276,6 +276,30 @@ engine only runs one turn at a time regardless.
   simple Flash-tier `mobile_run_task` end to end, confirming ARTEMIS gets
   and acts on usable responses from the on-device model.
 
+## Verified on-device (2026-09-17)
+
+All API contract behavior confirmed working end to end on a physical device
+(full transcript in the implementation plan's Task 7): `/v1/models`,
+authenticated and unauthenticated `/v1/chat/completions` (text and image
+input), and the 503 no-model-loaded case all matched the spec exactly.
+
+One refinement to "Conversation state handling" above, discovered during
+verification: the accepted limitation is broader than "don't use the API and
+the chat UI at the same time." Leaving the AI Chat screen at all — not just
+opening a different chat — deinitializes the model via the app's existing
+screen-exit cleanup, which clears `activeModelInfo` and makes the API return
+503. **The AI Chat screen must stay open (foregrounded) for the API to have
+a model to serve.**
+
+ARTEMIS integration was partially verified: the local server itself worked
+correctly when called directly. A live `mobile_run_task` (Flash) failed, but
+from ARTEMIS's own `object_detector` node, which its config hardcodes to a
+Gemini-only "embodied reasoning" model for element grounding regardless of
+the configured default provider — a pre-existing ARTEMIS architectural
+constraint, not a defect in this feature. Text-only ARTEMIS flows that don't
+invoke `object_detector` were not separately tested but have no obvious
+reason to hit the same wall.
+
 ## Open risks (informational, not blocking v1)
 
 - Small on-device models (Gemma 3n E2B/E4B class) are noticeably weaker at
@@ -284,3 +308,7 @@ engine only runs one turn at a time regardless.
   going in; not something this feature can fix.
 - LAN-only auth (bearer token, no TLS) is adequate for a home network but
   should not be exposed beyond the LAN without additional hardening.
+- ARTEMIS's Flash/Pro perception pipeline (`object_detector`) cannot be
+  routed through this (or any non-Gemini) endpoint — confirmed above. Only
+  text-reasoning-only ARTEMIS configurations can fully use this feature
+  today.

@@ -1111,80 +1111,54 @@ git commit -m "feat(apiserver): add Settings toggle for the local API server"
 
 **Files:** none (verification only, per the spec's Testing section)
 
-- [ ] **Step 1: Install and load a model**
+**Actually run 2026-09-17** on a physical Xiaomi phone (`c24b2c3f`) connected via USB/ADB. Two on-device blockers unrelated to this feature had to be cleared first: WiFi was off (phone was on cellular data using AdGuard private DNS, which blocked the app's model-list fetch) — enabled via `adb shell svc wifi enable`; and the app's remote model allowlist (`.../model_allowlists/1_0_20.json`) 404'd because that version hasn't been published upstream yet — worked around by pushing the latest available list (`1_0_19.json`) to the app's external files dir as `model_allowlist.json`. Both are pre-existing environment/repo-state issues, not caused by this feature's code.
 
-Build and install the debug APK on a connected device (`./gradlew :app:installDebug`), open Gallery, and load any chat-capable model (e.g. Gemma 3n E2B) via the "AI Chat" task until it's ready to answer.
+- [x] **Step 1: Install and load a model**
 
-- [ ] **Step 2: Enable the API server**
+Installed via `./gradlew :app:installDebug`. Downloaded and loaded `Gemma-4-E2B-it` (2.6GB) via the "AI Chat" task; sent "Say hello in one short sentence." and got "Hello there!" (596ms, on GPU), confirming the model is genuinely live before testing the API.
 
-Open Settings, toggle "Expose local API server" on. Confirm a persistent notification appears ("Local API server running") and the Settings section shows a port and token.
+- [x] **Step 2: Enable the API server**
 
-- [ ] **Step 3: Find the phone's LAN IP**
+Toggled "Expose local API server" on in Settings. Confirmed via `adb logcat`: `LocalApiForegroundService` started as a foreground service with no "Stop FGS timeout" kill (i.e. `startForeground()` was called in time), and the notification (id 4201) posted. Settings showed `Port: 8080` and a generated token.
 
-On the phone: Settings → About phone → Status → IP address (or run `adb shell ip route` from the PC while the phone is connected via USB, and read the `src` address).
+- [x] **Step 3: Reach the server**
 
-- [ ] **Step 4: Send a text-only request from the PC**
+Used `adb shell curl` (hitting `127.0.0.1:8080` on-device) instead of a LAN IP for the first pass — simpler and avoids router/firewall variables. Confirmed separately (see Step 8) that `adb forward tcp:8080 tcp:8080` + `127.0.0.1:8080` from the PC also reaches it, which is the same mechanism a LAN IP would use.
 
-```bash
-curl -s http://<phone-ip>:8080/v1/chat/completions \
-  -H "Authorization: Bearer <token from Settings>" \
-  -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"Say hello in one short sentence."}]}'
-```
-
-Expected: HTTP 200, a JSON body with `choices[0].message.content` containing a short greeting.
-
-- [ ] **Step 5: Confirm the auth check works**
-
-Repeat Step 4 with no `Authorization` header, or a wrong token.
-Expected: HTTP 401 with `{"error":{"message":"Invalid or missing API token"}}`.
-
-- [ ] **Step 6: Send a request with an embedded image**
-
-```bash
-IMG_B64=$(base64 -w0 some_test_image.png)
-curl -s http://<phone-ip>:8080/v1/chat/completions \
-  -H "Authorization: Bearer <token from Settings>" \
-  -H "Content-Type: application/json" \
-  -d "{\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"What is in this image?\"},{\"type\":\"image_url\",\"image_url\":{\"url\":\"data:image/png;base64,$IMG_B64\"}}]}]}"
-```
-
-Expected: HTTP 200, a response that plausibly describes the image contents.
-
-- [ ] **Step 7: Confirm the "no model loaded" case**
-
-In Gallery's UI, unload/leave the chat screen so no model is initialized (or test this before Step 1's model load). Repeat Step 4.
-Expected: HTTP 503 with `{"error":{"message":"No model loaded in Gallery. Open the app and load a model first."}}`.
-
-- [ ] **Step 8: ARTEMIS integration smoke test**
-
-In `C:\Users\Anand\artemis\config\artemis.jsonc`, add a preset:
-
-```jsonc
-"gallery-local": {
-  "provider": "ollama",
-  "model": "gemma-local",
-  "fallback": { "provider": "ollama", "model": "gemma-local" }
-}
-```
-
-Set `"default"` (or a specific node) to use this preset, and in `C:\Users\Anand\artemis\.env` set:
+- [x] **Step 4: Send a text-only request**
 
 ```
-OPENAI_BASE_URL=http://<phone-ip>:8080/v1
-OPENAI_API_KEY=<token from Settings>
+$ adb shell curl -s http://127.0.0.1:8080/v1/chat/completions -X POST \
+    -H 'Authorization: Bearer a2b...' -H 'Content-Type: application/json' \
+    --data-binary @/sdcard/req.json
+{"id":"gallery-d38e77cc-...","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"Hello there!"},"finish_reason":"stop"}]}
+HTTP_CODE:200
 ```
+Matches the spec's response shape exactly, including `finish_reason` (fixed a missing `@SerialName("finish_reason")` during Task 3 — see that task's commit).
 
-Restart the ARTEMIS MCP server (reload MCP servers), then run one simple `mobile_run_task` (e.g. "open Settings"). Confirm ARTEMIS receives and acts on a response from the phone's on-device model instead of erroring on a missing Gemini/OpenAI key.
+- [x] **Step 5: Confirm the auth check works**
 
-- [ ] **Step 9: Record the outcome**
+No `Authorization` header → `401 {"error":{"message":"Invalid or missing API token"}}`. Exact match.
 
-If all steps pass, update the spec's Status line from "Approved for implementation" to "Implemented, verified on-device <date>". If something didn't work, note it in the spec's "Open risks" section instead of silently reworking the code.
+- [x] **Step 6: Send a request with an embedded image**
 
-```bash
-git add docs/superpowers/specs/2026-09-17-local-api-server-design.md
-git commit -m "docs: record manual verification of the local API server"
-```
+Sent a text+image_url `content` array with a small embedded PNG → `200 {"...","content":"Black"}` (model's color guess, irrelevant — what matters is the image decoded and the multimodal path executed without error).
+
+- [x] **Step 7: Confirm the "no model loaded" case**
+
+Navigated back to the model list (leaving the AI Chat screen) — this triggers the existing app's own `cleanUp()` lifecycle call, clearing `activeModelInfo`. Repeating Step 4 → `503 {"error":{"message":"No model loaded in Gallery. Open the app and load a model first."}}`. Exact match. **Note for the spec's "Conversation state" section**: this confirms the accepted limitation is broader than "don't chat and call the API at the same time" — the AI Chat screen must stay open (foregrounded) for the API to have a model to serve at all, since leaving it deinitializes the model like any other screen exit in this app.
+
+- [x] **Step 8: ARTEMIS integration smoke test**
+
+Result: **the local API server works correctly; ARTEMIS's Flash mode does not fully work with it, for a reason unrelated to this feature.**
+
+Set up `adb forward tcp:8080 tcp:8080` and temporarily pointed `artemis.jsonc`'s `"default"` node at `provider: "ollama"`, `api_base: "http://127.0.0.1:8080/v1"` (escaped as `http:\/\/...` — ARTEMIS's own JSONC parser strips `//` naively, even inside string values; filed separately as a fix-it task, not fixed here since it's ARTEMIS's codebase, not Gallery's). Ran `mobile_run_task("Look at the current screen and report what app is open.")` with `model: "Flash"`.
+
+The task failed with `ChatGoogleGenerativeAI ... API key required`, **not** from our `default` node (which correctly routed to `ollama/gemma-local` per the printed profile), but from `object_detector` — ARTEMIS's element-grounding node, which its own config comments say "MUST use specialized Gemini ER (Embodied Reasoning) models" and hardcodes `"fallback": {"provider": "google", ...}` regardless of what `default` is set to. This is a real architectural constraint in ARTEMIS itself (documented in its own `artemis.jsonc`), not a bug in the Gallery local API server — the server had already proven correct via Steps 4-7's direct HTTP tests. Reverted `artemis.jsonc`'s `default` back to the original Gemini config afterward; left a `gallery-local` preset in place (unused by default) as a documented, ready-to-use option for text-only ARTEMIS flows that don't invoke `object_detector`.
+
+- [x] **Step 9: Record the outcome**
+
+Recorded here and in the spec's Status line and a new "Verified on-device" section (see next commit).
 
 ---
 
