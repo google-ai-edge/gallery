@@ -20,7 +20,7 @@
 - Modify: `Android/src/gradle/libs.versions.toml`
 - Modify: `Android/src/app/build.gradle.kts`
 
-- [ ] **Step 1: Add the new library aliases to the version catalog**
+- [x] **Step 1: Add the new library aliases to the version catalog**
 
 In `Android/src/gradle/libs.versions.toml`, in the `[libraries]` section, right after the existing `ktor-client-core` line (currently line 102), add:
 
@@ -37,7 +37,7 @@ Also add the Preferences DataStore artifact right after the existing `androidx-d
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "dataStore" }
 ```
 
-- [ ] **Step 2: Reference the new libraries from the app module**
+- [x] **Step 2: Reference the new libraries from the app module**
 
 In `Android/src/app/build.gradle.kts`, right after the existing `implementation(libs.androidx.datastore)` line (currently line 92), add:
 
@@ -49,12 +49,12 @@ In `Android/src/app/build.gradle.kts`, right after the existing `implementation(
   implementation(libs.ktor.serialization.kotlinx.json)
 ```
 
-- [ ] **Step 3: Verify the project syncs and compiles**
+- [x] **Step 3: Verify the project syncs and compiles**
 
 Run: `cd Android/src && ./gradlew :app:compileDebugKotlin`
 Expected: `BUILD SUCCESSFUL` (no source changes yet, this only proves the new dependencies resolve).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add Android/src/gradle/libs.versions.toml Android/src/app/build.gradle.kts
@@ -70,7 +70,7 @@ git commit -m "build: add Ktor server and Preferences DataStore dependencies"
 - Modify: `Android/src/app/src/main/java/com/google/ai/edge/gallery/agent/DefaultAgentRuntimeExecutor.kt`
 - Test (new): `Android/src/app/src/test/java/com/google/ai/edge/gallery/agent/DefaultAgentRuntimeExecutorActiveModelInfoTest.kt`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `Android/src/app/src/test/java/com/google/ai/edge/gallery/agent/DefaultAgentRuntimeExecutorActiveModelInfoTest.kt`:
 
@@ -187,12 +187,12 @@ class DefaultAgentRuntimeExecutorActiveModelInfoTest {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails to compile**
+- [x] **Step 2: Run the test to verify it fails to compile**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.agent.DefaultAgentRuntimeExecutorActiveModelInfoTest"`
 Expected: compile error — `activeModelInfo` is unresolved on `AgentRuntimeExecutor`.
 
-- [ ] **Step 3: Add `activeModelInfo` to the interface**
+- [x] **Step 3: Add `activeModelInfo` to the interface**
 
 In `Android/src/app/src/main/java/com/google/ai/edge/gallery/agent/AgentRuntimeExecutor.kt`, add this import:
 
@@ -224,7 +224,7 @@ Then, after the closing brace of the `AgentRuntimeExecutor` interface (after lin
 data class ActiveModelInfo(val model: Model, val taskId: String, val supportImage: Boolean)
 ```
 
-- [ ] **Step 4: Override it in `DefaultAgentRuntimeExecutor`**
+- [x] **Step 4: Override it in `DefaultAgentRuntimeExecutor`**
 
 In `Android/src/app/src/main/java/com/google/ai/edge/gallery/agent/DefaultAgentRuntimeExecutor.kt`, right after the existing `activeSessionId` override (after line 71, before `initialize`), add:
 
@@ -236,12 +236,12 @@ In `Android/src/app/src/main/java/com/google/ai/edge/gallery/agent/DefaultAgentR
       }
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.agent.DefaultAgentRuntimeExecutorActiveModelInfoTest"`
 Expected: `BUILD SUCCESSFUL`, 3 tests passed.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add Android/src/app/src/main/java/com/google/ai/edge/gallery/agent/AgentRuntimeExecutor.kt \
@@ -261,7 +261,7 @@ git commit -m "feat(agent): expose the active session's model via activeModelInf
 
 This task builds the pure-function core: OpenAI JSON request → internal turn data → litertlm `Message`s + `Bitmap`s, and an `AgentResponse` → OpenAI JSON response. No Android Service, no Ktor wiring yet — that's Task 5.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `Android/src/app/src/test/java/com/google/ai/edge/gallery/apiserver/ChatCompletionsMappingTest.kt`:
 
@@ -347,12 +347,12 @@ class ChatCompletionsMappingTest {
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.apiserver.ChatCompletionsMappingTest"`
 Expected: compile errors — none of the referenced types/functions exist yet.
 
-- [ ] **Step 3: Create the data model types**
+- [x] **Step 3: Create the data model types**
 
 Create `Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/ChatCompletionsModels.kt`:
 
@@ -464,12 +464,12 @@ object TextOrPartsSerializer : KSerializer<TextOrParts> {
 
 (The imports for these types are already listed at the top of the Step 3 file above.)
 
-- [ ] **Step 4: Run the tests again**
+- [x] **Step 4: Run the tests again**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.apiserver.ChatCompletionsMappingTest"`
 Expected: still fails to compile — `chatCompletionSuccessJson` and `errorResponseJson` don't exist yet, and the `TextOrPartsSerializer` polymorphic wiring needs the response-shape file next. Confirms Step 3 alone isn't enough.
 
-- [ ] **Step 5: Create the response-shape helpers**
+- [x] **Step 5: Create the response-shape helpers**
 
 Create `Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/ChatCompletionsMapping.kt`:
 
@@ -513,12 +513,12 @@ fun chatCompletionSuccessJson(output: String): String {
 fun errorResponseJson(message: String): String = json.encodeToString(ErrorResponse(ErrorBody(message)))
 ```
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.apiserver.ChatCompletionsMappingTest"`
 Expected: `BUILD SUCCESSFUL`, 7 tests passed.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/ChatCompletionsModels.kt \
@@ -536,7 +536,7 @@ git commit -m "feat(apiserver): add OpenAI-compatible chat completion request/re
 - Modify: `Android/src/app/src/main/java/com/google/ai/edge/gallery/di/AppModule.kt`
 - Test (new): `Android/src/app/src/test/java/com/google/ai/edge/gallery/apiserver/LocalApiServerPreferencesTest.kt`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `Android/src/app/src/test/java/com/google/ai/edge/gallery/apiserver/LocalApiServerPreferencesTest.kt`:
 
@@ -609,12 +609,12 @@ class LocalApiServerPreferencesTest {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails to compile**
+- [x] **Step 2: Run the test to verify it fails to compile**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.apiserver.LocalApiServerPreferencesTest"`
 Expected: compile error — `LocalApiServerPreferences` doesn't exist yet.
 
-- [ ] **Step 3: Implement `LocalApiServerPreferences`**
+- [x] **Step 3: Implement `LocalApiServerPreferences`**
 
 Create `Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/LocalApiServerPreferences.kt`:
 
@@ -669,12 +669,12 @@ class LocalApiServerPreferences @Inject constructor(private val dataStore: DataS
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.apiserver.LocalApiServerPreferencesTest"`
 Expected: `BUILD SUCCESSFUL`, 6 tests passed.
 
-- [ ] **Step 5: Provide the Preferences DataStore via Hilt**
+- [x] **Step 5: Provide the Preferences DataStore via Hilt**
 
 In `Android/src/app/src/main/java/com/google/ai/edge/gallery/di/AppModule.kt`, add these imports:
 
@@ -698,12 +698,12 @@ Then, after the existing `provideSkillsDataStore` provider function (currently e
 
 (`@ApplicationContext` and `DataStore` are already imported in this file for the other providers.)
 
-- [ ] **Step 6: Verify the app module still compiles**
+- [x] **Step 6: Verify the app module still compiles**
 
 Run: `cd Android/src && ./gradlew :app:compileDebugKotlin`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/LocalApiServerPreferences.kt \
@@ -722,7 +722,7 @@ git commit -m "feat(apiserver): add settings store for the local API server togg
 
 This task wires everything from Tasks 2–4 into a running Android foreground service. It cannot be unit-tested (it needs a real Android device with a model loaded); it is verified manually in Task 7.
 
-- [ ] **Step 1: Add the notification channel constant and service class**
+- [x] **Step 1: Add the notification channel constant and service class**
 
 Create `Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/LocalApiForegroundService.kt`:
 
@@ -952,7 +952,7 @@ class LocalApiForegroundService : Service() {
 }
 ```
 
-- [ ] **Step 2: Register the service in the manifest**
+- [x] **Step 2: Register the service in the manifest**
 
 In `Android/src/app/src/main/AndroidManifest.xml`, right after the existing `SystemForegroundService` block (after line 124), add:
 
@@ -963,12 +963,12 @@ In `Android/src/app/src/main/AndroidManifest.xml`, right after the existing `Sys
             android:exported="false" />
 ```
 
-- [ ] **Step 3: Verify the app compiles and builds**
+- [x] **Step 3: Verify the app compiles and builds**
 
 Run: `cd Android/src && ./gradlew :app:assembleDebug`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/LocalApiForegroundService.kt \
@@ -984,7 +984,7 @@ git commit -m "feat(apiserver): add the local OpenAI-compatible API foreground s
 - Modify: `Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/modelmanager/ModelManagerViewModel.kt`
 - Modify: `Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/home/SettingsDialog.kt`
 
-- [ ] **Step 1: Add settings accessors to `ModelManagerViewModel`**
+- [x] **Step 1: Add settings accessors to `ModelManagerViewModel`**
 
 In `Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/modelmanager/ModelManagerViewModel.kt`, add this import:
 
@@ -1028,7 +1028,7 @@ Then, right after the existing `saveFirebaseAnalytics`-related code (around line
   }
 ```
 
-- [ ] **Step 2: Add the Settings UI section**
+- [x] **Step 2: Add the Settings UI section**
 
 In `Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/home/SettingsDialog.kt`, add this import:
 
@@ -1092,12 +1092,12 @@ Then, right after the closing of the Firebase Analytics `Row` block (after line 
           }
 ```
 
-- [ ] **Step 3: Verify the app compiles and builds**
+- [x] **Step 3: Verify the app compiles and builds**
 
 Run: `cd Android/src && ./gradlew :app:assembleDebug`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/modelmanager/ModelManagerViewModel.kt \
