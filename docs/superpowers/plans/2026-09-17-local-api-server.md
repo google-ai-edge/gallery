@@ -359,10 +359,18 @@ Create `Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/ChatC
 ```kotlin
 package com.google.ai.edge.gallery.apiserver
 
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonContentPolymorphicSerializer
-import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.descriptors.SerialKind
+import kotlinx.serialization.descriptors.buildSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonEncoder
 import kotlinx.serialization.json.JsonPrimitive
 
 /** Request body for `POST /v1/chat/completions`, matching the OpenAI API's shape. */
@@ -408,29 +416,53 @@ enum class LiteRtRole {
 /** A message's `content` field, which OpenAI allows to be either a plain string or a parts array. */
 @Serializable(with = TextOrPartsSerializer::class)
 sealed interface TextOrParts {
-  @Serializable data class Text(val value: String) : TextOrParts
+  data class Text(val value: String) : TextOrParts
 
-  @Serializable data class Parts(val parts: List<ContentPart>) : TextOrParts
+  data class Parts(val parts: List<ContentPart>) : TextOrParts
 }
 
 @Serializable
 sealed interface ContentPart {
-  @Serializable data class Text(val text: String) : ContentPart
+  @Serializable @SerialName("text") data class Text(val text: String) : ContentPart
 
-  @Serializable data class ImageUrl(val imageUrl: ImageUrlValue) : ContentPart
+  @Serializable @SerialName("image_url") data class ImageUrl(val imageUrl: ImageUrlValue) : ContentPart
 }
 
 @Serializable data class ImageUrlValue(val url: String)
 
-object TextOrPartsSerializer : JsonContentPolymorphicSerializer<TextOrParts>(TextOrParts::class) {
-  override fun selectDeserializer(element: JsonElement) =
-    if (element is JsonArray) TextOrParts.Parts.serializer() else TextOrPartsText.serializer()
-}
+/**
+ * Hand-written serializer for [TextOrParts]: a bare JSON string decodes to [TextOrParts.Text], a
+ * JSON array decodes to [TextOrParts.Parts]. `JsonContentPolymorphicSerializer` only discriminates
+ * between object shapes, not between a primitive and an array, so this reads/writes the raw
+ * [JsonElement] directly instead.
+ */
+object TextOrPartsSerializer : KSerializer<TextOrParts> {
+  override val descriptor = buildSerialDescriptor("TextOrParts", SerialKind.CONTEXTUAL)
 
-/** Internal helper so a bare JSON string deserializes into [TextOrParts.Text]. */
-@Serializable
-private data class TextOrPartsText(val value: String)
+  override fun deserialize(decoder: Decoder): TextOrParts {
+    val jsonDecoder = decoder as? JsonDecoder ?: error("TextOrParts can only be decoded from JSON")
+    return when (val element = jsonDecoder.decodeJsonElement()) {
+      is JsonArray ->
+        TextOrParts.Parts(jsonDecoder.json.decodeFromJsonElement(ListSerializer(ContentPart.serializer()), element))
+      is JsonPrimitive -> TextOrParts.Text(element.content)
+      else -> error("Unsupported `content` shape: $element")
+    }
+  }
+
+  override fun serialize(encoder: Encoder, value: TextOrParts) {
+    val jsonEncoder = encoder as? JsonEncoder ?: error("TextOrParts can only be encoded to JSON")
+    val element: JsonElement =
+      when (value) {
+        is TextOrParts.Text -> JsonPrimitive(value.value)
+        is TextOrParts.Parts ->
+          jsonEncoder.json.encodeToJsonElement(ListSerializer(ContentPart.serializer()), value.parts)
+      }
+    jsonEncoder.encodeJsonElement(element)
+  }
+}
 ```
+
+(The imports for these types are already listed at the top of the Step 3 file above.)
 
 - [ ] **Step 4: Run the tests again**
 
