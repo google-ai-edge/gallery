@@ -70,6 +70,12 @@ open class DefaultAgentRuntimeExecutor(
   override val activeSessionId: String?
     get() = llmSessionManager.activeSessionId
 
+  override val activeModelInfo: ActiveModelInfo?
+    get() =
+      activeSession.get()?.sessionConfig?.let {
+        ActiveModelInfo(model = it.model, taskId = it.taskId, supportImage = it.supportImage)
+      }
+
   override suspend fun initialize(
     context: Context,
     config: AgentRuntimeConfig,
