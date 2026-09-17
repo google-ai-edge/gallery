@@ -105,6 +105,7 @@ fun LiveCameraView(
               preferredSize = preferredSize,
               outputImageFormat = outputImageFormat,
               cameraSelector = cameraSelector,
+              isPausedProvider = { currentIsPaused },
               onError = currentOnError,
             )
         }
@@ -124,6 +125,7 @@ fun LiveCameraView(
             preferredSize = preferredSize,
             outputImageFormat = outputImageFormat,
             cameraSelector = cameraSelector,
+            isPausedProvider = { currentIsPaused },
             onError = currentOnError,
           )
       }
@@ -188,6 +190,7 @@ private suspend fun startCamera(
   preferredSize: Int,
   @ImageAnalysis.OutputImageFormat outputImageFormat: Int,
   cameraSelector: CameraSelector,
+  isPausedProvider: () -> Boolean,
   onError: (() -> Unit)? = null,
 ): ProcessCameraProvider {
   val cameraProvider = ProcessCameraProvider.awaitInstance(context)
@@ -209,6 +212,12 @@ private suspend fun startCamera(
       .build()
       .also {
         it.setAnalyzer(Dispatchers.Default.asExecutor()) { imageProxy ->
+          // When paused (e.g. during LLM inference), avoid any bitmap decoding or CPU overhead.
+          if (isPausedProvider()) {
+            imageProxy.close()
+            return@setAnalyzer
+          }
+
           var bitmap = imageProxy.toBitmap()
           val rotation = imageProxy.imageInfo.rotationDegrees
           val matrix = Matrix()
@@ -218,7 +227,14 @@ private suspend fun startCamera(
           if (cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA) {
             matrix.postScale(-1f, 1f)
           }
-          bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+          if (!matrix.isIdentity) {
+            val transformed =
+              Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            if (transformed != bitmap) {
+              bitmap.recycle()
+              bitmap = transformed
+            }
+          }
           //  The caller is responsible of calling `.close` on imageProxy to mark that the
           //  processing of the current frame is done.
           onBitmap(bitmap, imageProxy)
