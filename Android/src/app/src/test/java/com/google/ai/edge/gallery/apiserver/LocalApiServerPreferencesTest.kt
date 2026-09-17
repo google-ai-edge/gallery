@@ -74,4 +74,15 @@ class LocalApiServerPreferencesTest {
     assertNotEquals(first, second)
     assertEquals(second, prefs.readOrCreateToken())
   }
+
+  @Test
+  fun `selected model name defaults to null`() = runBlocking {
+    assertEquals(null, prefs.readSelectedModelName())
+  }
+
+  @Test
+  fun `selected model name round-trips through save and read`() = runBlocking {
+    prefs.saveSelectedModelName("Gemma-4-E2B-it")
+    assertEquals("Gemma-4-E2B-it", prefs.readSelectedModelName())
+  }
 }

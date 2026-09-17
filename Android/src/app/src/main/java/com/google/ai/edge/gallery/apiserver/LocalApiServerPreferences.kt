@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.first
 private val ENABLED_KEY = booleanPreferencesKey("local_api_server_enabled")
 private val PORT_KEY = intPreferencesKey("local_api_server_port")
 private val TOKEN_KEY = stringPreferencesKey("local_api_server_token")
+private val SELECTED_MODEL_NAME_KEY = stringPreferencesKey("local_api_server_selected_model_name")
 
 const val DEFAULT_LOCAL_API_SERVER_PORT = 8080
 
@@ -44,5 +45,11 @@ class LocalApiServerPreferences @Inject constructor(private val dataStore: DataS
     val token = UUID.randomUUID().toString()
     dataStore.edit { it[TOKEN_KEY] = token }
     return token
+  }
+
+  suspend fun readSelectedModelName(): String? = dataStore.data.first()[SELECTED_MODEL_NAME_KEY]
+
+  suspend fun saveSelectedModelName(modelName: String) {
+    dataStore.edit { it[SELECTED_MODEL_NAME_KEY] = modelName }
   }
 }
