@@ -95,7 +95,13 @@ class LocalApiForegroundService : Service() {
           AgentRuntimeConfig(
             model = modelToServe,
             taskId = BuiltInTaskId.LLM_CHAT,
-            supportImage = true,
+            // Hardcoding these to true broke models missing the corresponding
+            // encoder (e.g. MobileActions-270M has neither vision nor audio):
+            // engine creation failed outright with "TF_LITE_VISION_ENCODER"/
+            // "TF_LITE_AUDIO_ENCODER_HW not found in the model." Use each
+            // model's own declared capability instead.
+            supportImage = modelToServe.supportImage,
+            supportAudio = modelToServe.supportAudio,
           ),
         onDone = { errorMsg ->
           if (errorMsg.isEmpty()) {
