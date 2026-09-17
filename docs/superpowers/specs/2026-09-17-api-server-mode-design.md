@@ -244,6 +244,28 @@ stops accepting connections, confirming genuine teardown (the guard
 correctly does not intercept this path, since the hold is cleared before
 `cleanUp()` is called).
 
+## Follow-up fix: serve a model's own declared capabilities (2026-09-18)
+
+While testing the ARTEMIS-side Local profile against other downloaded
+models, selecting `MobileActions-270M` (a text-only, no-vision-encoder
+model) in the picker made the server fail engine creation outright:
+`Failed to create engine: NOT_FOUND: TF_LITE_VISION_ENCODER not found in
+the model.` `LocalApiForegroundService.onStartCommand()` hardcoded
+`supportImage = true` (and, once that was fixed, the same failure recurred
+for `supportAudio = true`: `TF_LITE_AUDIO_ENCODER_HW not found`) regardless
+of which model was actually selected. Fixed to use the model's own
+`supportImage`/`supportAudio` fields instead — the same fields the native
+Mobile Actions task (`MobileActionsViewModel.resetEngine`) already reads
+when loading this exact model with `supportImage = false, supportAudio =
+false`.
+
+Note: even with this fixed, `MobileActions-270M` cannot serve as a general
+chat-completions backend the way `Gemma-4-E2B-it`/`Gemma-4-E4B-it` do — it
+refuses any request without a real function-calling `tools` schema
+(`"I am FunctionGemma, a model optimized for function calls..."`), which
+this server's `ChatCompletionsModels.kt` does not parse or forward at all.
+Adding that would be its own feature, not a follow-up fix.
+
 ## Related but out of scope here
 
 - **B (from the parent conversation)**: some models fail to download in
