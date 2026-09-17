@@ -20,7 +20,7 @@
 - Create: `Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/ApiServerSessionHold.kt`
 - Test (new): `Android/src/app/src/test/java/com/google/ai/edge/gallery/apiserver/ApiServerSessionHoldTest.kt`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `Android/src/app/src/test/java/com/google/ai/edge/gallery/apiserver/ApiServerSessionHoldTest.kt`:
 
@@ -54,12 +54,12 @@ class ApiServerSessionHoldTest {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails to compile**
+- [x] **Step 2: Run the test to verify it fails to compile**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.apiserver.ApiServerSessionHoldTest"`
 Expected: compile error — `ApiServerSessionHold` doesn't exist yet.
 
-- [ ] **Step 3: Implement `ApiServerSessionHold`**
+- [x] **Step 3: Implement `ApiServerSessionHold`**
 
 Create `Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/ApiServerSessionHold.kt`:
 
@@ -83,12 +83,12 @@ class ApiServerSessionHold @Inject constructor() {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.apiserver.ApiServerSessionHoldTest"`
 Expected: `BUILD SUCCESSFUL`, 3 tests passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/ApiServerSessionHold.kt \
@@ -108,7 +108,7 @@ git commit -m "feat(apiserver): add ApiServerSessionHold to guard shared-session
 
 `DefaultAgentRuntimeExecutor` is constructed in two places (`@AiChatExecutor` for AI Chat/Ask Image/Prompt Lab/etc., and `@AgentChatExecutor` for Agent Skills) — both need the new constructor parameter since it's the same class, even though only `@AiChatExecutor` is ever actually held by the API server.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `Android/src/app/src/test/java/com/google/ai/edge/gallery/agent/DefaultAgentRuntimeExecutorCleanUpHoldTest.kt`:
 
@@ -227,12 +227,12 @@ class DefaultAgentRuntimeExecutorCleanUpHoldTest {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails to compile**
+- [x] **Step 2: Run the test to verify it fails to compile**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.agent.DefaultAgentRuntimeExecutorCleanUpHoldTest"`
 Expected: compile error — `DefaultAgentRuntimeExecutor` has no `apiServerSessionHold` parameter yet.
 
-- [ ] **Step 3: Add the constructor parameter and guard**
+- [x] **Step 3: Add the constructor parameter and guard**
 
 In `Android/src/app/src/main/java/com/google/ai/edge/gallery/agent/DefaultAgentRuntimeExecutor.kt`, add this import:
 
@@ -301,7 +301,7 @@ with:
   }
 ```
 
-- [ ] **Step 4: Update both provider modules**
+- [x] **Step 4: Update both provider modules**
 
 In `Android/src/app/src/main/java/com/google/ai/edge/gallery/agent/AgentExecutorModule.kt`, add this import:
 
@@ -377,22 +377,22 @@ to:
 
 (`ApiServerSessionHold` has an `@Inject constructor()`, so Hilt supplies it to both `@Provides` functions automatically — no new `@Provides` needed for it.)
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.agent.DefaultAgentRuntimeExecutorCleanUpHoldTest"`
 Expected: `BUILD SUCCESSFUL`, 3 tests passed.
 
-- [ ] **Step 6: Run the full existing agent test suite to check for regressions**
+- [x] **Step 6: Run the full existing agent test suite to check for regressions**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.agent.*"`
 Expected: `BUILD SUCCESSFUL`, all tests (including `DefaultAgentRuntimeExecutorActiveModelInfoTest` from the previous plan) still pass.
 
-- [ ] **Step 7: Verify the app still builds**
+- [x] **Step 7: Verify the app still builds**
 
 Run: `cd Android/src && ./gradlew :app:compileDebugKotlin`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add Android/src/app/src/main/java/com/google/ai/edge/gallery/agent/DefaultAgentRuntimeExecutor.kt \
@@ -411,7 +411,7 @@ git commit -m "fix(agent): don't unload the model the API server holds when a sc
 - Modify: `Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/modelmanager/ModelManagerViewModel.kt`
 - Test (new): `Android/src/app/src/test/java/com/google/ai/edge/gallery/apiserver/ModelCatalogCacheTest.kt`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `Android/src/app/src/test/java/com/google/ai/edge/gallery/apiserver/ModelCatalogCacheTest.kt`:
 
@@ -451,12 +451,12 @@ class ModelCatalogCacheTest {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails to compile**
+- [x] **Step 2: Run the test to verify it fails to compile**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.apiserver.ModelCatalogCacheTest"`
 Expected: compile error — `ModelCatalogCache` doesn't exist yet.
 
-- [ ] **Step 3: Implement `ModelCatalogCache`**
+- [x] **Step 3: Implement `ModelCatalogCache`**
 
 Create `Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/ModelCatalogCache.kt`:
 
@@ -490,12 +490,12 @@ class ModelCatalogCache @Inject constructor() {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.apiserver.ModelCatalogCacheTest"`
 Expected: `BUILD SUCCESSFUL`, 3 tests passed.
 
-- [ ] **Step 5: Wire `ModelManagerViewModel` to push into the cache**
+- [x] **Step 5: Wire `ModelManagerViewModel` to push into the cache**
 
 In `Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/modelmanager/ModelManagerViewModel.kt`, add this import:
 
@@ -519,12 +519,12 @@ Then, right after the `uiState` declaration (currently `open val uiState = _uiSt
   }
 ```
 
-- [ ] **Step 6: Verify the app compiles**
+- [x] **Step 6: Verify the app compiles**
 
 Run: `cd Android/src && ./gradlew :app:compileDebugKotlin`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/ModelCatalogCache.kt \
@@ -541,7 +541,7 @@ git commit -m "feat(apiserver): mirror the downloaded-model list into a Service-
 - Modify: `Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/LocalApiServerPreferences.kt`
 - Modify: `Android/src/app/src/test/java/com/google/ai/edge/gallery/apiserver/LocalApiServerPreferencesTest.kt`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `Android/src/app/src/test/java/com/google/ai/edge/gallery/apiserver/LocalApiServerPreferencesTest.kt`, add these test methods inside the existing `LocalApiServerPreferencesTest` class (after `regenerateToken produces a different token`):
 
@@ -558,12 +558,12 @@ In `Android/src/app/src/test/java/com/google/ai/edge/gallery/apiserver/LocalApiS
   }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail to compile**
+- [x] **Step 2: Run the tests to verify they fail to compile**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.apiserver.LocalApiServerPreferencesTest"`
 Expected: compile error — `readSelectedModelName`/`saveSelectedModelName` don't exist yet.
 
-- [ ] **Step 3: Add the preference field**
+- [x] **Step 3: Add the preference field**
 
 In `Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/LocalApiServerPreferences.kt`, add this key alongside the existing ones:
 
@@ -581,12 +581,12 @@ Add these two methods inside the `LocalApiServerPreferences` class, after `regen
   }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `cd Android/src && ./gradlew :app:testDebugUnitTest --tests "com.google.ai.edge.gallery.apiserver.LocalApiServerPreferencesTest"`
 Expected: `BUILD SUCCESSFUL` — 8 tests total, 7 passed, 1 skipped (the pre-existing `@Ignore`d `regenerateToken` test from the previous plan; the 2 new tests both pass).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/LocalApiServerPreferences.kt \
@@ -603,7 +603,7 @@ git commit -m "feat(apiserver): add selected-model preference for the API server
 
 Manual/integration only (needs a real device + downloaded models); verified in Task 7.
 
-- [ ] **Step 1: Add the new dependencies and a service-scoped coroutine scope**
+- [x] **Step 1: Add the new dependencies and a service-scoped coroutine scope**
 
 Add these imports:
 
@@ -620,7 +620,7 @@ Add these fields to the class, alongside the existing `@Inject` fields:
   private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 ```
 
-- [ ] **Step 2: Resolve and initialize the chosen model in `onStartCommand`**
+- [x] **Step 2: Resolve and initialize the chosen model in `onStartCommand`**
 
 Replace the current `onStartCommand`:
 
@@ -719,7 +719,7 @@ with:
 
 (The server starts immediately rather than waiting for model init to finish; `/v1/models` and `/v1/chat/completions` already handle `activeModelInfo == null` with an empty list / 503 respectively, which is the correct behavior during the brief load window.)
 
-- [ ] **Step 3: Release the hold and clean up properly in `onDestroy`**
+- [x] **Step 3: Release the hold and clean up properly in `onDestroy`**
 
 Replace:
 
@@ -746,7 +746,7 @@ with:
 
 (Clearing the hold *before* calling `cleanUp()` matters: otherwise the guard added in Task 2 would see its own hold still set and skip the real teardown.)
 
-- [ ] **Step 4: Add the "no model" notification helper**
+- [x] **Step 4: Add the "no model" notification helper**
 
 Add this method near `buildNotification`:
 
@@ -772,19 +772,19 @@ Add this method near `buildNotification`:
   }
 ```
 
-- [ ] **Step 5: Add the remaining imports**
+- [x] **Step 5: Add the remaining imports**
 
 ```kotlin
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 ```
 
-- [ ] **Step 6: Verify the app builds**
+- [x] **Step 6: Verify the app builds**
 
 Run: `cd Android/src && ./gradlew :app:assembleDebug`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add Android/src/app/src/main/java/com/google/ai/edge/gallery/apiserver/LocalApiForegroundService.kt
@@ -799,7 +799,7 @@ git commit -m "feat(apiserver): load the selected model on server start, indepen
 - Modify: `Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/modelmanager/ModelManagerViewModel.kt`
 - Modify: `Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/home/SettingsDialog.kt`
 
-- [ ] **Step 1: Add picker read/write methods to `ModelManagerViewModel`**
+- [x] **Step 1: Add picker read/write methods to `ModelManagerViewModel`**
 
 Add these methods after the existing `setLocalApiServerEnabled` (added in the previous plan):
 
@@ -818,7 +818,7 @@ Add these methods after the existing `setLocalApiServerEnabled` (added in the pr
   }
 ```
 
-- [ ] **Step 2: Add the dropdown to `SettingsDialog.kt`**
+- [x] **Step 2: Add the dropdown to `SettingsDialog.kt`**
 
 Add these imports:
 
@@ -902,12 +902,12 @@ with:
             }
 ```
 
-- [ ] **Step 3: Verify the app builds**
+- [x] **Step 3: Verify the app builds**
 
 Run: `cd Android/src && ./gradlew :app:assembleDebug`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/modelmanager/ModelManagerViewModel.kt \
