@@ -18,6 +18,7 @@ import com.google.ai.edge.gallery.agent.AgentRuntimeConfig
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
 import com.google.ai.edge.gallery.agent.AiChatExecutor
 import com.google.ai.edge.gallery.agent.Attachment
+import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.litertlm.Message
 import dagger.hilt.android.AndroidEntryPoint
 import io.ktor.http.ContentType
@@ -39,6 +40,8 @@ import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -53,22 +56,56 @@ class LocalApiForegroundService : Service() {
 
   @Inject @AiChatExecutor lateinit var executor: AgentRuntimeExecutor
   @Inject lateinit var preferences: LocalApiServerPreferences
+  @Inject lateinit var apiServerSessionHold: ApiServerSessionHold
+  @Inject lateinit var modelCatalogCache: ModelCatalogCache
 
   private val requestMutex = Mutex()
   private var server: EmbeddedServer<*, *>? = null
   private val requestJson = Json { ignoreUnknownKeys = true }
+  private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
   override fun onBind(intent: Intent?): IBinder? = null
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     val port = runBlocking { preferences.readPort() }
     val token = runBlocking { preferences.readOrCreateToken() }
+    val selectedModelName = runBlocking { preferences.readSelectedModelName() }
+
+    val downloadedModels = modelCatalogCache.models.value
+    val modelToServe =
+      downloadedModels.firstOrNull { it.name == selectedModelName } ?: downloadedModels.firstOrNull()
+
+    if (modelToServe == null) {
+      Log.e(TAG, "No downloaded model available to serve")
+      showNoModelNotification()
+      stopSelf()
+      return START_NOT_STICKY
+    }
 
     startForeground(
       NOTIFICATION_ID,
       buildNotification(port),
       ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
     )
+
+    serviceScope.launch {
+      executor.initialize(
+        context = applicationContext,
+        config =
+          AgentRuntimeConfig(
+            model = modelToServe,
+            taskId = BuiltInTaskId.LLM_CHAT,
+            supportImage = true,
+          ),
+        onDone = { errorMsg ->
+          if (errorMsg.isEmpty()) {
+            apiServerSessionHold.heldModelName = modelToServe.name
+          } else {
+            Log.e(TAG, "Failed to initialize ${modelToServe.name}: $errorMsg")
+          }
+        },
+      )
+    }
 
     try {
       server =
@@ -89,8 +126,11 @@ class LocalApiForegroundService : Service() {
   }
 
   override fun onDestroy() {
+    apiServerSessionHold.heldModelName = null
+    executor.cleanUp()
     server?.stop(gracePeriodMillis = 200, timeoutMillis = 1000)
     server = null
+    serviceScope.cancel()
     super.onDestroy()
   }
 
@@ -198,6 +238,26 @@ class LocalApiForegroundService : Service() {
       Log.w(TAG, "Failed to decode an image_url payload", e)
       null
     }
+
+  private fun showNoModelNotification() {
+    val manager = getSystemService(NotificationManager::class.java)
+    if (manager.getNotificationChannel(NOTIFICATION_CHANNEL_ID) == null) {
+      manager.createNotificationChannel(
+        NotificationChannel(
+          NOTIFICATION_CHANNEL_ID,
+          "Local API server",
+          NotificationManager.IMPORTANCE_LOW,
+        )
+      )
+    }
+    val notification =
+      NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+        .setContentTitle("Local API server: no model to serve")
+        .setContentText("Download one in AI Chat first")
+        .setSmallIcon(android.R.drawable.ic_menu_share)
+        .build()
+    manager.notify(NOTIFICATION_ID, notification)
+  }
 
   private fun buildNotification(port: Int): Notification {
     val manager = getSystemService(NotificationManager::class.java)
