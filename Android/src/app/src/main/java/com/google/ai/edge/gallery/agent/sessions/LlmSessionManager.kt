@@ -164,7 +164,7 @@ interface LlmSessionManager {
    *
    * Assumes only one session and inference operation can run at a time in the application.
    *
-   * @param sessionId The session identifier.
+   * @param sessionId The session identifier for conversation lifecycle and telemetry correlation.
    * @param model The model to run inference on.
    * @param input The text query input.
    * @param resultListener Callback receiving partial tokens, completion status, and thinking
@@ -173,7 +173,10 @@ interface LlmSessionManager {
    * @param onError Callback invoked upon an error during inference.
    * @param images Optional input images.
    * @param audioClips Optional input audio clips.
-   * @param extraContext Optional key-value parameters for inference.
+   * @param extraContext Optional key-value parameters for engine inference (e.g.
+   *   "enable_thinking").
+   * @param messageIndex Optional sequential message index within the conversation for telemetry
+   *   correlation.
    */
   suspend fun generateResponse(
     sessionId: String,
@@ -185,6 +188,7 @@ interface LlmSessionManager {
     images: List<Bitmap> = emptyList(),
     audioClips: List<ByteArray> = emptyList(),
     extraContext: Map<String, String>? = null,
+    messageIndex: Int? = null,
   )
 
   /**

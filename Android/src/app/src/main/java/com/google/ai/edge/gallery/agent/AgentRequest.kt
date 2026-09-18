@@ -31,5 +31,6 @@ data class AgentRequest(
   companion object {
     const val LITERTLM_EXTRA_CONTEXT = "litertlm_extra_context"
     const val SESSION_ID = "sessionId"
+    const val MESSAGE_INDEX = "messageIndex"
   }
 }

@@ -171,9 +171,19 @@ open class LlmChatViewModelBase(
         allowThinking &&
           model.getBooleanConfigValue(key = ConfigKeys.ENABLE_THINKING, defaultValue = false)
       val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else emptyMap()
+      // ChatMessageLoading was already appended above as the placeholder for the upcoming agent
+      // response (and is replaced in-place when streaming starts), so `currentMessages.size - 1`
+      // is the 0-based message list index of this turn's inference output (matching
+      // `agentMessageIndex` in `submitFeedback` / `linkFeedbackToSession`).
+      val currentMessages = uiState.value.messagesByModel[model.name] ?: emptyList()
+      val messageIndex = currentMessages.size - 1
+
       val metadata =
         buildMap<String, Any> {
           put(AgentRequest.SESSION_ID, currentSessionId)
+          if (messageIndex >= 0) {
+            put(AgentRequest.MESSAGE_INDEX, messageIndex)
+          }
           if (extraContext.isNotEmpty()) {
             put(AgentRequest.LITERTLM_EXTRA_CONTEXT, extraContext)
           }

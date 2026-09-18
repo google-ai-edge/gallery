@@ -22,7 +22,9 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.supportModelBenchmark
 import com.google.ai.edge.gallery.proto.LlmConfig
 import com.google.ai.edge.gallery.proto.llmConfig
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineDispatcher
@@ -59,9 +61,12 @@ interface MetricsTracker {
    * Starts tracking an inference turn using a [ConversationSession] abstraction.
    *
    * @param session Active session abstraction for ground-truth telemetry.
+   * @param sessionId Optional conversation session ID for telemetry correlation.
+   * @param turnIndex Optional 0-based message list index or sequential turn index for telemetry
+   *   correlation.
    * @throws IllegalStateException if a previous turn was not ended, or if [session] is dead.
    */
-  fun startTurn(session: ConversationSession)
+  fun startTurn(session: ConversationSession, sessionId: String? = null, turnIndex: Int? = null)
 
   /**
    * Universal streaming token callback.
@@ -154,7 +159,7 @@ interface MetricsTracker {
  */
 class NoOpMetricsTracker(override val model: Model, override val taskId: String) : MetricsTracker {
 
-  override fun startTurn(session: ConversationSession) {}
+  override fun startTurn(session: ConversationSession, sessionId: String?, turnIndex: Int?) {}
 
   override fun onNewToken(tokenText: String, thinkingText: String?) {}
 
@@ -212,7 +217,10 @@ internal constructor(
   // Immutable metadata captured at construction time.
   private val baseMetadata: InferenceMetadata = buildBaseMetadata()
 
+  private data class TurnContext(val sessionId: String, val turnIndex: Int)
+
   private val isTurnActive = AtomicBoolean(false)
+  private val turnContext = AtomicReference<TurnContext?>(null)
 
   /**
    * Scope the periodic sensor samplers run on, kept off the main thread by `ioDispatcher`. A
@@ -221,7 +229,7 @@ internal constructor(
    */
   private val scope = CoroutineScope(ioDispatcher + SupervisorJob())
 
-  override fun startTurn(session: ConversationSession) {
+  override fun startTurn(session: ConversationSession, sessionId: String?, turnIndex: Int?) {
     // Step 1: Validate session & conversation preconditions.
     check(session.isAlive) {
       "Cannot start turn for '${model.name}': conversation is not alive (already closed or uninitialized)."
@@ -230,7 +238,16 @@ internal constructor(
       "Cannot start turn: previous turn for model '${model.name}' is still in progress."
     }
 
-    // Step 2: Start inference turn tracker and hardware sensor monitors if enabled.
+    // Step 2: Synchronize session ID and turn counter from caller if provided, or continue
+    // from the previous turn in this session, or initialize turn 0 with a fresh UUID.
+    turnContext.updateAndGet { previous ->
+      TurnContext(
+        sessionId = sessionId ?: previous?.sessionId ?: UUID.randomUUID().toString(),
+        turnIndex = turnIndex ?: ((previous?.turnIndex ?: -1) + 1),
+      )
+    }
+
+    // Step 3: Start inference turn tracker and hardware sensor monitors if enabled.
     inferenceTracker.startTurn(session = session)
     if (memoryMonitor != null) memoryMonitor.start(scope)
     if (powerMonitor != null) powerMonitor.start(scope)
@@ -249,6 +266,7 @@ internal constructor(
 
   override fun resetSession() {
     isTurnActive.set(false)
+    turnContext.set(null)
     inferenceTracker.resetSession()
     if (memoryMonitor != null) memoryMonitor.reset()
     if (powerMonitor != null) powerMonitor.reset()
@@ -266,10 +284,11 @@ internal constructor(
     cancellationReason: CancellationReason = CancellationReason.CANCELLATION_REASON_UNSPECIFIED,
     errorMessage: String? = null,
   ): InferenceMetrics {
-    // Step 1: Validate turn state.
+    // Step 1: Validate turn state and claim the active turn's correlation context.
     check(isTurnActive.compareAndSet(true, false)) {
       "Cannot end turn: No active turn in progress for model '${model.name}'."
     }
+    val currentTurn = turnContext.get()
 
     // Step 2: Finalize sensor measurements (process memory and battery power) if enabled.
     val memoryMetrics =
@@ -282,7 +301,7 @@ internal constructor(
 
     // Step 4: Construct final immutable InferenceMetrics protobuf.
     val finalMetrics = inferenceMetrics {
-      this.metadata = buildMetadata(statusCode, cancellationReason, errorMessage)
+      this.metadata = buildMetadata(currentTurn, statusCode, cancellationReason, errorMessage)
       this.inference = turnMetrics
       this.memory = memoryMetrics
       this.battery = batteryMetrics
@@ -303,10 +322,17 @@ internal constructor(
   }
 
   private fun buildMetadata(
+    turnContext: TurnContext?,
     statusCode: InferenceStatus.Code,
     cancellationReason: CancellationReason = CancellationReason.CANCELLATION_REASON_UNSPECIFIED,
     errorMessage: String? = null,
   ): InferenceMetadata = baseMetadata.copy {
+    if (turnContext != null) {
+      if (turnContext.turnIndex >= 0) {
+        this.turnIndex = turnContext.turnIndex
+      }
+      this.sessionId = turnContext.sessionId
+    }
     this.status = inferenceStatus {
       this.code = statusCode
       if (cancellationReason != CancellationReason.CANCELLATION_REASON_UNSPECIFIED) {
@@ -319,7 +345,11 @@ internal constructor(
   }
 }
 
-/** Extension function converting [Model] sampler configuration into a [LlmConfig] protobuf. */
+/**
+ * Extension function converting the active runtime [Model] sampler and capability configuration
+ * into a [LlmConfig] protobuf (populating the shared `settings.proto` `default_*` and `support_*`
+ * fields with the actual values configured for the active session).
+ */
 internal fun Model.toLlmConfig(): LlmConfig = llmConfig {
   this.defaultTopk = getIntConfigValue(ConfigKeys.TOPK, 0)
   this.defaultTopp = getFloatConfigValue(ConfigKeys.TOPP, 0.0f)
@@ -328,4 +358,6 @@ internal fun Model.toLlmConfig(): LlmConfig = llmConfig {
   this.supportThinking = getBooleanConfigValue(ConfigKeys.ENABLE_THINKING, false)
   this.supportSpeculativeDecoding =
     getBooleanConfigValue(ConfigKeys.ENABLE_SPECULATIVE_DECODING, false)
+  this.supportImage = this@toLlmConfig.supportImage
+  this.supportAudio = this@toLlmConfig.supportAudio
 }

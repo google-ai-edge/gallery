@@ -326,6 +326,8 @@ object LlmChatModelHelper : LlmModelHelper {
     audioClips: List<ByteArray>,
     coroutineScope: CoroutineScope?,
     extraContext: Map<String, String>?,
+    sessionId: String?,
+    messageIndex: Int?,
   ) {
     val instance = model.instance as? LlmModelInstance
     if (instance == null) {
@@ -338,9 +340,16 @@ object LlmChatModelHelper : LlmModelHelper {
       cleanUpListeners[model.name] = cleanUpListener
     }
 
-    // Step 1: Initialize turn telemetry with active Conversation.
+    // Step 1: Initialize turn telemetry with active Conversation and caller-provided correlation
+    // IDs.
     val conversation = instance.conversation
-    instance.metricsTracker?.startTurn(conversation.asSession())
+    instance.metricsTracker?.startTurn(
+      session = conversation.asSession(),
+      sessionId = sessionId,
+      // Since each turn consists of two back-and-forth messages, we divide the message index by
+      // 2 to get the turn index.
+      turnIndex = if (messageIndex == null) null else messageIndex / 2,
+    )
 
     // Step 2: Assemble multimodal prompt attachments (images, audio clips, and text).
     val contents = mutableListOf<Content>()

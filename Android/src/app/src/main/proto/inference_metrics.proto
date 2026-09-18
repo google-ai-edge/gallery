@@ -53,7 +53,17 @@ message InferenceMetadata {
   string accelerator = 2;
   InferenceStatus status = 3;
   string task_id = 4;
+  // Active runtime sampler and capability configuration applied to the model
+  // for this inference session (reuses the LlmConfig schema from
+  // settings.proto; default_* fields hold the active runtime values rather than
+  // static defaults).
   com.google.ai.edge.gallery.proto.LlmConfig llm_config = 5;
+  // 0-based sequential conversation turn index (0, 1, 2, ...) corresponding
+  // to this inference output (e.g. derived as message_index / 2 from UI message
+  // lists).
+  optional int32 turn_index = 6;
+  // Unique session identifier for the conversation lifecycle.
+  optional string session_id = 7;
 }
 
 // Latency and throughput performance measurements.
