@@ -21,6 +21,9 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStoreFile
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStoreFile
 import com.google.ai.edge.gallery.AppLifecycleProvider
 import com.google.ai.edge.gallery.BenchmarkResultsSerializer
 import com.google.ai.edge.gallery.BuildConfig
@@ -149,6 +152,15 @@ internal object AppModule {
     return DataStoreFactory.create(
       serializer = skillsSerializer,
       produceFile = { context.dataStoreFile("skills.pb") },
+    )
+  }
+
+  // Provides DataStore<Preferences> for the local API server's settings (toggle, port, token).
+  @Provides
+  @Singleton
+  fun provideLocalApiServerDataStore(@ApplicationContext context: Context): DataStore<Preferences> {
+    return PreferenceDataStoreFactory.create(
+      produceFile = { context.preferencesDataStoreFile("local_api_server_prefs") }
     )
   }
 
