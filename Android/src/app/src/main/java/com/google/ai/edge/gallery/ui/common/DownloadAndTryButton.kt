@@ -83,6 +83,7 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelAccessibility
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.data.isForTestOnly
 import com.google.ai.edge.gallery.huggingface.HuggingFaceApiClient
 import com.google.ai.edge.gallery.ui.common.tos.GemmaTermsOfUseDialog
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
@@ -403,7 +404,7 @@ fun DownloadAndTryButton(
             )
           } else if (canShowTryIt) {
             Text(
-              stringResource(R.string.try_it),
+              stringResource(if (model.isForTestOnly) R.string.test_it else R.string.try_it),
               color = textColor,
               style = MaterialTheme.typography.titleMedium,
               maxLines = 1,

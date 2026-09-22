@@ -47,11 +47,11 @@ import com.google.ai.edge.gallery.data.LlmProfile
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelAccessibility
 import com.google.ai.edge.gallery.data.ModelAllowlist
-import com.google.ai.edge.gallery.data.ModelCapability
 import com.google.ai.edge.gallery.data.ModelDownloadInfo
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.ModelFile
+import com.google.ai.edge.gallery.data.ModelUtils
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.SOC
@@ -60,6 +60,7 @@ import com.google.ai.edge.gallery.data.TMP_FILE_EXT
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.data.createLlmChatConfigs
+import com.google.ai.edge.gallery.data.getTargetTaskIdsForImportedModel
 import com.google.ai.edge.gallery.data.markInitializationFailed
 import com.google.ai.edge.gallery.data.markInitializationStarted
 import com.google.ai.edge.gallery.data.markInitialized
@@ -998,44 +999,19 @@ constructor(
     // Create model.
     val model = createModelFromImportedModelInfo(info = info)
 
-    val setOfTasks =
-      mutableSetOf(
-        BuiltInTaskId.LLM_CHAT,
-        BuiltInTaskId.LLM_ASK_IMAGE,
-        BuiltInTaskId.LLM_ASK_AUDIO,
-        BuiltInTaskId.LLM_PROMPT_LAB,
-        BuiltInTaskId.LLM_TINY_GARDEN,
-        BuiltInTaskId.LLM_MOBILE_ACTIONS,
-        BuiltInTaskId.LLM_AGENT_CHAT,
-      )
-    for (task in getTasksByIds(ids = setOfTasks)) {
-      // Remove duplicated imported model if existed.
+    // Remove duplicated imported model if existed across all tasks.
+    for (task in uiState.value.tasks) {
       val modelIndex =
         task.models.indexOfFirst { info.fileName == it.name && it.downloadInfo.imported }
       if (modelIndex >= 0) {
         Log.d(TAG, "duplicated imported model found in task. Removing it first")
         task.models.removeAt(modelIndex)
+        task.updateTrigger.value = System.currentTimeMillis()
       }
-      if (
-        (task.id == BuiltInTaskId.LLM_ASK_IMAGE && model.supportImage) ||
-          (task.id == BuiltInTaskId.LLM_ASK_AUDIO && model.supportAudio) ||
-          (task.id == BuiltInTaskId.LLM_TINY_GARDEN &&
-            model.llmProfile?.supportTinyGarden == true) ||
-          (task.id == BuiltInTaskId.LLM_MOBILE_ACTIONS &&
-            model.llmProfile?.supportMobileActions == true) ||
-          (task.id != BuiltInTaskId.LLM_ASK_IMAGE &&
-            task.id != BuiltInTaskId.LLM_ASK_AUDIO &&
-            task.id != BuiltInTaskId.LLM_TINY_GARDEN &&
-            task.id != BuiltInTaskId.LLM_MOBILE_ACTIONS)
-      ) {
-        task.models.add(model)
-        if (task.id == BuiltInTaskId.LLM_TINY_GARDEN) {
-          val newConfigs = model.configs.toMutableList()
-          newConfigs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
-          model.configs = newConfigs
-          model.preProcess()
-        }
-      }
+    }
+
+    for (task in getTasksByIds(ids = model.getTargetTaskIdsForImportedModel())) {
+      task.models.add(model)
       task.updateTrigger.value = System.currentTimeMillis()
     }
 
@@ -1350,6 +1326,7 @@ constructor(
           _allowlistModels.add(model)
           nameToModel.put(model.name, model)
           for (taskType in allowedModel.taskTypes) {
+            if (taskType == BuiltInTaskId.LLM_TEST) continue
             val task = curTasks.find { it.id == taskType }
             task?.models?.add(model)
 
@@ -1517,24 +1494,8 @@ constructor(
       val model = createModelFromImportedModelInfo(info = importedModel)
 
       // Add to task.
-      tasks.get(key = BuiltInTaskId.LLM_CHAT)?.models?.add(model)
-      tasks.get(key = BuiltInTaskId.LLM_PROMPT_LAB)?.models?.add(model)
-      tasks.get(key = BuiltInTaskId.LLM_AGENT_CHAT)?.models?.add(model)
-      if (model.supportImage) {
-        tasks.get(key = BuiltInTaskId.LLM_ASK_IMAGE)?.models?.add(model)
-      }
-      if (model.supportAudio) {
-        tasks.get(key = BuiltInTaskId.LLM_ASK_AUDIO)?.models?.add(model)
-      }
-      if (model.llmProfile?.supportTinyGarden == true) {
-        tasks.get(key = BuiltInTaskId.LLM_TINY_GARDEN)?.models?.add(model)
-        val newConfigs = model.configs.toMutableList()
-        newConfigs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
-        model.configs = newConfigs
-        model.preProcess()
-      }
-      if (model.llmProfile?.supportMobileActions == true) {
-        tasks.get(key = BuiltInTaskId.LLM_MOBILE_ACTIONS)?.models?.add(model)
+      for (taskId in model.getTargetTaskIdsForImportedModel()) {
+        tasks.get(key = taskId)?.models?.add(model)
       }
 
       // Update status.
@@ -1576,6 +1537,7 @@ constructor(
             else -> null // Ignore unknown accelerator labels
           }
         }
+        .ifEmpty { listOf(Accelerator.CPU) }
         .toMutableList()
     val llmMaxToken = info.llmConfig.defaultMaxTokens.takeIf { it > 0 } ?: DEFAULT_MAX_TOKEN
     val llmSupportImage = info.llmConfig.supportImage
@@ -1584,6 +1546,7 @@ constructor(
     val llmSupportMobileActions = info.llmConfig.supportMobileActions
     val llmSupportThinking = info.llmConfig.supportThinking
     val llmSupportSpeculativeDecoding = info.llmConfig.supportSpeculativeDecoding
+    val isForTestOnly = ModelUtils.isImportedUrlForTestOnly(info.url)
     val configs: MutableList<Config> =
       createLlmChatConfigs(
           defaultMaxToken = llmMaxToken,
@@ -1595,27 +1558,15 @@ constructor(
           supportSpeculativeDecoding = llmSupportSpeculativeDecoding,
         )
         .toMutableList()
-    val capabilities: MutableList<ModelCapability> = mutableListOf()
-    val capabilityToTaskTypes: MutableMap<ModelCapability, List<String>> = mutableMapOf()
-    if (llmSupportThinking) {
-      capabilities.add(ModelCapability.LLM_THINKING)
-      capabilityToTaskTypes[ModelCapability.LLM_THINKING] =
-        listOf(
-          BuiltInTaskId.LLM_CHAT,
-          BuiltInTaskId.LLM_ASK_IMAGE,
-          BuiltInTaskId.LLM_ASK_AUDIO,
-        )
+    if (llmSupportTinyGarden && !isForTestOnly) {
+      configs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
     }
-    if (llmSupportSpeculativeDecoding) {
-      capabilities.add(ModelCapability.SPECULATIVE_DECODING)
-      capabilityToTaskTypes[ModelCapability.SPECULATIVE_DECODING] =
-        listOf(
-          BuiltInTaskId.LLM_CHAT,
-          BuiltInTaskId.LLM_ASK_IMAGE,
-          BuiltInTaskId.LLM_ASK_AUDIO,
-          BuiltInTaskId.LLM_PROMPT_LAB,
-        )
-    }
+    val capabilityToTaskTypes =
+      ModelUtils.buildImportedModelCapabilityToTaskTypes(
+        supportThinking = llmSupportThinking,
+        supportSpeculativeDecoding = llmSupportSpeculativeDecoding,
+        isForTestOnly = isForTestOnly,
+      )
     val downloadInfo =
       ModelDownloadInfo(
         url = info.url,
@@ -1639,8 +1590,8 @@ constructor(
         llmProfile = llmProfile,
         supportImage = llmSupportImage,
         supportAudio = llmSupportAudio,
-        capabilities = capabilities.toList(),
-        capabilityToTaskTypes = capabilityToTaskTypes.toMap(),
+        capabilities = capabilityToTaskTypes.keys.toList(),
+        capabilityToTaskTypes = capabilityToTaskTypes,
         backendSpec = BackendSpec(runtimeType = RuntimeType.LITERT_LM, accelerators = accelerators),
       )
     model.preProcess()
@@ -1649,7 +1600,7 @@ constructor(
   }
 
   private fun groupTasksByCategory(): Map<String, List<Task>> {
-    val tasks = getActiveCustomTasks().map { it.task }
+    val tasks = getActiveCustomTasks().map { it.task }.filter { it.id != BuiltInTaskId.LLM_TEST }
 
     val categoryMap: Map<String, CategoryInfo> =
       tasks.associateBy { it.category.id }.mapValues { it.value.category }

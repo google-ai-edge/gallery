@@ -509,9 +509,11 @@
   <string name="hf_no_model_files_in_card" translatable="true" description="Error message when no LiteRT model files are found in a Hugging Face repository card. [CHAR_LIMIT=100]">No LiteRT model files (.litertlm) found in this model card.</string>
   <string name="hf_last_updated" translatable="true" description="Label showing when a model was last updated. [CHAR_LIMIT=21]">Updated %1$s</string>
   <string name="could_not_fetch_model_details" translatable="true" description="Error message when fetching Hugging Face model details fails. [CHAR_LIMIT=123]">Unable to load model details for %1$s. Please check the URL and try again.</string>
-  <string name="task_label_test" translatable="true" description="Title for the Test chat task screen where side-loaded models are tested. [CHAR_LIMIT=20]">Test chat</string>
+  <string name="test_chat" translatable="true" description="Title for the Test chat task screen where side-loaded models are tested. [CHAR_LIMIT=20]">Test chat</string>
   <string name="task_desc_test" translatable="true" description="Empty state subtitle and description for the Test chat task screen. [CHAR_LIMIT=80]">Try testing a side-loaded model with chat!</string>
   <string name="test_it" translatable="true" description="Action button label in the Model Manager to open the Test it task for a user-imported OSS model. [CHAR_LIMIT=15]">Test it</string>
+  <string name="test_chat_limited_functionality_note" translatable="true" description="Notice banner shown at the top of the Test chat screen informing users that side-loaded models have limited functionality for chat. [CHAR_LIMIT=80]">Note: side-loaded models have limited functionality for chat.</string>
+  <string name="dont_show_again" translatable="true" description="Action button label on a notice banner to permanently dismiss the banner and not show it again. [CHAR_LIMIT=25]">Don\'t show again</string>
   <string name="hf_explore_title" translatable="true" description="Title of the Hugging Face Exploration screen. [CHAR_LIMIT=30]">Explore Hugging Face</string>
   <string name="hf_explore_search_placeholder" translatable="true" description="Placeholder text for the generic search input field (not a product name) on the Hugging Face Exploration screen. [CHAR_LIMIT=35]">Search LiteRT-LM models&#8230;</string>
   <string name="hf_explore_sort_trending" translatable="true" description="Sort chip label for trending Hugging Face models. [CHAR_LIMIT=16]">Trending</string>

@@ -121,6 +121,8 @@ import kotlinx.coroutines.launch
 private const val TAG = "AGChatPanel"
 private const val SCROLL_ANIMATION_DURATION_MS = 300
 
+private const val TEST_CHAT_LIMITED_NOTE_PROMO_ID = "test_chat_limited_functionality_note"
+
 /** Composable function for the main chat panel, displaying messages and handling user input. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -209,6 +211,13 @@ fun ChatPanel(
   var pickedAudioClipsCount by remember { mutableIntStateOf(0) }
 
   var showImageLimitBanner by remember { mutableStateOf(false) }
+  var showTestChatLimitedBanner by
+    remember(task.id) {
+      mutableStateOf(
+        task.id == BuiltInTaskId.LLM_TEST &&
+          !modelManagerViewModel.dataStoreRepository.hasViewedPromo(TEST_CHAT_LIMITED_NOTE_PROMO_ID)
+      )
+    }
 
   // Stores the heights of the items in the list, indexed by the item index.
   val itemHeights = remember { mutableStateMapOf<Int, Int>() }
@@ -633,6 +642,20 @@ fun ChatPanel(
         FloatingBanner(
           visible = showImageLimitBanner,
           text = stringResource(R.string.aicore_image_limit_message),
+          modifier =
+            Modifier.align(Alignment.TopCenter).padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+
+        FloatingBanner(
+          visible = showTestChatLimitedBanner,
+          text = stringResource(R.string.test_chat_limited_functionality_note),
+          actionLabel = stringResource(R.string.dont_show_again),
+          onActionClick = {
+            showTestChatLimitedBanner = false
+            modelManagerViewModel.dataStoreRepository.addViewedPromoId(
+              TEST_CHAT_LIMITED_NOTE_PROMO_ID
+            )
+          },
           modifier =
             Modifier.align(Alignment.TopCenter).padding(horizontal = 16.dp, vertical = 8.dp),
         )

@@ -20,6 +20,16 @@ import androidx.annotation.StringRes
 import com.google.ai.edge.gallery.R
 import kotlin.math.abs
 
+private const val MIN_MAX_TOKEN = 100
+private const val MAX_MAX_TOKEN = 4096
+private const val MIN_TOPK = 1
+private const val MAX_TOPK = 100
+private const val MIN_TOPP = 0.0f
+private const val MAX_TOPP = 1.0f
+private const val MIN_TEMPERATURE = 0.0f
+private const val MAX_TEMPERATURE = 2.0f
+private const val MAX_TEMPERATURE_AI_CORE = 1.0f
+
 /**
  * The types of configuration editors available.
  *
@@ -151,7 +161,47 @@ open class Config(
   // Changes on any configs with this field set to true will automatically trigger a model
   // re-initialization.
   open val needReinitialization: Boolean = true,
-)
+) {
+  companion object {
+    /**
+     * Creates the configuration settings displayed when importing an LLM model.
+     *
+     * When [isForTestOnly] is true, specialized task toggles (`SUPPORT_TINY_GARDEN` and
+     * `SUPPORT_MOBILE_ACTIONS`) are omitted.
+     */
+    fun createLlmImportConfigs(
+      accelerators: List<Accelerator> = DEFAULT_ACCELERATORS,
+      isForTestOnly: Boolean = false,
+    ): List<Config> {
+      return buildList {
+        add(LabelConfig(key = ConfigKeys.NAME))
+        add(LabelConfig(key = ConfigKeys.MODEL_TYPE))
+        add(createMaxTokensSliderConfig(key = ConfigKeys.DEFAULT_MAX_TOKENS))
+        add(createTopKSliderConfig(key = ConfigKeys.DEFAULT_TOPK))
+        add(createTopPSliderConfig(key = ConfigKeys.DEFAULT_TOPP))
+        add(createTemperatureSliderConfig(key = ConfigKeys.DEFAULT_TEMPERATURE))
+        add(BooleanSwitchConfig(key = ConfigKeys.SUPPORT_IMAGE, defaultValue = false))
+        add(BooleanSwitchConfig(key = ConfigKeys.SUPPORT_AUDIO, defaultValue = false))
+        if (!isForTestOnly) {
+          add(BooleanSwitchConfig(key = ConfigKeys.SUPPORT_TINY_GARDEN, defaultValue = false))
+          add(BooleanSwitchConfig(key = ConfigKeys.SUPPORT_MOBILE_ACTIONS, defaultValue = false))
+        }
+        add(BooleanSwitchConfig(key = ConfigKeys.SUPPORT_THINKING, defaultValue = false))
+        add(
+          BooleanSwitchConfig(key = ConfigKeys.SUPPORT_SPECULATIVE_DECODING, defaultValue = false)
+        )
+        add(
+          SegmentedButtonConfig(
+            key = ConfigKeys.COMPATIBLE_ACCELERATORS,
+            defaultValue = accelerators.firstOrNull()?.label.orEmpty(),
+            options = accelerators.map { it.label },
+            allowMultiple = true,
+          )
+        )
+      }
+    }
+  }
+}
 
 /** Configuration setting for a label. */
 class LabelConfig(override val key: ConfigKey, override val defaultValue: String = "") :
@@ -273,6 +323,57 @@ fun convertValueToTargetType(value: Any, valueType: ValueType): Any {
   }
 }
 
+private fun createMaxTokensSliderConfig(
+  key: ConfigKey,
+  sliderMin: Int = MIN_MAX_TOKEN,
+  sliderMax: Int = MAX_MAX_TOKEN,
+  defaultValue: Int = DEFAULT_MAX_TOKEN,
+): NumberSliderConfig =
+  NumberSliderConfig(
+    key = key,
+    sliderMin = sliderMin.toFloat(),
+    sliderMax = sliderMax.toFloat(),
+    defaultValue = defaultValue.toFloat(),
+    valueType = ValueType.INT,
+  )
+
+private fun createTopKSliderConfig(
+  key: ConfigKey = ConfigKeys.TOPK,
+  defaultValue: Int = DEFAULT_TOPK,
+): NumberSliderConfig =
+  NumberSliderConfig(
+    key = key,
+    sliderMin = MIN_TOPK.toFloat(),
+    sliderMax = MAX_TOPK.toFloat(),
+    defaultValue = defaultValue.toFloat(),
+    valueType = ValueType.INT,
+  )
+
+private fun createTopPSliderConfig(
+  key: ConfigKey = ConfigKeys.TOPP,
+  defaultValue: Float = DEFAULT_TOPP,
+): NumberSliderConfig =
+  NumberSliderConfig(
+    key = key,
+    sliderMin = MIN_TOPP,
+    sliderMax = MAX_TOPP,
+    defaultValue = defaultValue,
+    valueType = ValueType.FLOAT,
+  )
+
+private fun createTemperatureSliderConfig(
+  key: ConfigKey = ConfigKeys.TEMPERATURE,
+  sliderMax: Float = MAX_TEMPERATURE,
+  defaultValue: Float = DEFAULT_TEMPERATURE,
+): NumberSliderConfig =
+  NumberSliderConfig(
+    key = key,
+    sliderMin = MIN_TEMPERATURE,
+    sliderMax = sliderMax,
+    defaultValue = defaultValue,
+    valueType = ValueType.FLOAT,
+  )
+
 fun createLlmChatConfigs(
   defaultMaxToken: Int = DEFAULT_MAX_TOKEN,
   defaultMaxContextLength: Int? = null,
@@ -287,38 +388,19 @@ fun createLlmChatConfigs(
     LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken")
   if (defaultMaxContextLength != null) {
     maxTokensConfig =
-      NumberSliderConfig(
+      createMaxTokensSliderConfig(
         key = ConfigKeys.MAX_TOKENS,
-        sliderMin = 2000f,
-        sliderMax = defaultMaxContextLength.toFloat(),
-        defaultValue = defaultMaxToken.toFloat(),
-        valueType = ValueType.INT,
+        sliderMin = 2000,
+        sliderMax = defaultMaxContextLength,
+        defaultValue = defaultMaxToken,
       )
   }
   val configs =
     listOf(
         maxTokensConfig,
-        NumberSliderConfig(
-          key = ConfigKeys.TOPK,
-          sliderMin = 1f,
-          sliderMax = 100f,
-          defaultValue = defaultTopK.toFloat(),
-          valueType = ValueType.INT,
-        ),
-        NumberSliderConfig(
-          key = ConfigKeys.TOPP,
-          sliderMin = 0.0f,
-          sliderMax = 1.0f,
-          defaultValue = defaultTopP,
-          valueType = ValueType.FLOAT,
-        ),
-        NumberSliderConfig(
-          key = ConfigKeys.TEMPERATURE,
-          sliderMin = 0.0f,
-          sliderMax = 2.0f,
-          defaultValue = defaultTemperature,
-          valueType = ValueType.FLOAT,
-        ),
+        createTopKSliderConfig(defaultValue = defaultTopK),
+        createTopPSliderConfig(defaultValue = defaultTopP),
+        createTemperatureSliderConfig(defaultValue = defaultTemperature),
         SegmentedButtonConfig(
           key = ConfigKeys.ACCELERATOR,
           defaultValue = accelerators[0].label,
@@ -371,26 +453,14 @@ fun createAICoreConfigs(
 ): List<Config> {
   return listOf(
     LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken"),
-    NumberSliderConfig(
+    createMaxTokensSliderConfig(
       key = ConfigKeys.MAX_OUTPUT_TOKENS,
-      sliderMin = 100f,
-      sliderMax = 4096f,
-      defaultValue = defaultMaxOutputTokens.toFloat(),
-      valueType = ValueType.INT,
+      defaultValue = defaultMaxOutputTokens,
     ),
-    NumberSliderConfig(
-      key = ConfigKeys.TOPK,
-      sliderMin = 1f,
-      sliderMax = 100f,
-      defaultValue = defaultTopK.toFloat(),
-      valueType = ValueType.INT,
-    ),
-    NumberSliderConfig(
-      key = ConfigKeys.TEMPERATURE,
-      sliderMin = 0.0f,
-      sliderMax = 1.0f,
+    createTopKSliderConfig(defaultValue = defaultTopK),
+    createTemperatureSliderConfig(
+      sliderMax = MAX_TEMPERATURE_AI_CORE,
       defaultValue = defaultTemperature,
-      valueType = ValueType.FLOAT,
     ),
     SegmentedButtonConfig(
       key = ConfigKeys.ACCELERATOR,

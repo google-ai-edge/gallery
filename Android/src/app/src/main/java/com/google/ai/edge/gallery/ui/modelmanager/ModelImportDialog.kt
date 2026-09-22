@@ -66,25 +66,15 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.getModelStorageDir
 import com.google.ai.edge.gallery.common.isPixel10
 import com.google.ai.edge.gallery.data.Accelerator
-import com.google.ai.edge.gallery.data.BooleanSwitchConfig
 import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.ConfigKeys
-import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
-import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
-import com.google.ai.edge.gallery.data.DEFAULT_TOPK
-import com.google.ai.edge.gallery.data.DEFAULT_TOPP
 import com.google.ai.edge.gallery.data.IMPORTS_DIR
-import com.google.ai.edge.gallery.data.LabelConfig
-import com.google.ai.edge.gallery.data.NumberSliderConfig
-import com.google.ai.edge.gallery.data.SegmentedButtonConfig
-import com.google.ai.edge.gallery.data.ValueType
-import com.google.ai.edge.gallery.data.convertValueToTargetType
+import com.google.ai.edge.gallery.data.ModelUtils
 import com.google.ai.edge.gallery.huggingface.HuggingFaceApiClient
 import com.google.ai.edge.gallery.huggingface.extractHfUrlInfo
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.proto.importedModel
-import com.google.ai.edge.gallery.proto.llmConfig
 import com.google.ai.edge.gallery.ui.common.ConfigEditorsPanel
 import com.google.ai.edge.gallery.ui.common.ensureValidFileName
 import com.google.ai.edge.gallery.ui.common.humanReadableSize
@@ -98,6 +88,7 @@ import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -110,52 +101,6 @@ private val SUPPORTED_ACCELERATORS: List<Accelerator> =
   } else {
     listOf(Accelerator.CPU, Accelerator.GPU, Accelerator.NPU)
   }
-
-private val IMPORT_CONFIGS_LLM: List<Config> =
-  listOf(
-    LabelConfig(key = ConfigKeys.NAME),
-    LabelConfig(key = ConfigKeys.MODEL_TYPE),
-    NumberSliderConfig(
-      key = ConfigKeys.DEFAULT_MAX_TOKENS,
-      sliderMin = 100f,
-      sliderMax = 4096f,
-      defaultValue = DEFAULT_MAX_TOKEN.toFloat(),
-      valueType = ValueType.INT,
-    ),
-    NumberSliderConfig(
-      key = ConfigKeys.DEFAULT_TOPK,
-      sliderMin = 1f,
-      sliderMax = 100f,
-      defaultValue = DEFAULT_TOPK.toFloat(),
-      valueType = ValueType.INT,
-    ),
-    NumberSliderConfig(
-      key = ConfigKeys.DEFAULT_TOPP,
-      sliderMin = 0.0f,
-      sliderMax = 1.0f,
-      defaultValue = DEFAULT_TOPP,
-      valueType = ValueType.FLOAT,
-    ),
-    NumberSliderConfig(
-      key = ConfigKeys.DEFAULT_TEMPERATURE,
-      sliderMin = 0.0f,
-      sliderMax = 2.0f,
-      defaultValue = DEFAULT_TEMPERATURE,
-      valueType = ValueType.FLOAT,
-    ),
-    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_IMAGE, defaultValue = false),
-    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_AUDIO, defaultValue = false),
-    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_TINY_GARDEN, defaultValue = false),
-    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_MOBILE_ACTIONS, defaultValue = false),
-    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_THINKING, defaultValue = false),
-    BooleanSwitchConfig(key = ConfigKeys.SUPPORT_SPECULATIVE_DECODING, defaultValue = false),
-    SegmentedButtonConfig(
-      key = ConfigKeys.COMPATIBLE_ACCELERATORS,
-      defaultValue = SUPPORTED_ACCELERATORS[0].label,
-      options = SUPPORTED_ACCELERATORS.map { it.label },
-      allowMultiple = true,
-    ),
-  )
 
 @Composable
 fun ModelImportDialog(
@@ -170,6 +115,13 @@ fun ModelImportDialog(
   val info = remember { getFileSizeAndDisplayNameFromUri(context = context, uri = uri) }
   var fileSize by remember { mutableLongStateOf(info.first) }
   val fileName by remember { mutableStateOf(ensureValidFileName(info.second)) }
+  val importConfigs =
+    remember(uri) {
+      Config.createLlmImportConfigs(
+        accelerators = SUPPORTED_ACCELERATORS,
+        isForTestOnly = ModelUtils.isImportedUrlForTestOnly(uri.toString()),
+      )
+    }
 
   // Indicates that the file size is still being fetched and we should disable the import button
   // until it's done.
@@ -200,7 +152,7 @@ fun ModelImportDialog(
 
   val initialValues: Map<String, Any> = remember {
     mutableMapOf<String, Any>().apply {
-      for (config in IMPORT_CONFIGS_LLM) {
+      for (config in importConfigs) {
         put(config.key.label, config.defaultValue)
       }
       put(ConfigKeys.NAME.label, fileName)
@@ -245,7 +197,7 @@ fun ModelImportDialog(
           verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
           // Default configs for users to set.
-          ConfigEditorsPanel(configs = IMPORT_CONFIGS_LLM, values = values)
+          ConfigEditorsPanel(configs = importConfigs, values = values)
         }
 
         // Button row.
@@ -261,91 +213,12 @@ fun ModelImportDialog(
             // Disable the import button while fetching file size for URI.
             enabled = !isFetchingSize,
             onClick = {
-              val supportedAccelerators =
-                (convertValueToTargetType(
-                    value = values.get(ConfigKeys.COMPATIBLE_ACCELERATORS.label)!!,
-                    valueType = ValueType.STRING,
-                  )
-                    as String)
-                  .split(",")
-              val defaultMaxTokens =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.DEFAULT_MAX_TOKENS.label)!!,
-                  valueType = ValueType.INT,
-                )
-                  as Int
-              val defaultTopk =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.DEFAULT_TOPK.label)!!,
-                  valueType = ValueType.INT,
-                )
-                  as Int
-              val defaultTopp =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.DEFAULT_TOPP.label)!!,
-                  valueType = ValueType.FLOAT,
-                )
-                  as Float
-              val defaultTemperature =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.DEFAULT_TEMPERATURE.label)!!,
-                  valueType = ValueType.FLOAT,
-                )
-                  as Float
-              val supportImage =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.SUPPORT_IMAGE.label)!!,
-                  valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
-              val supportAudio =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.SUPPORT_AUDIO.label)!!,
-                  valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
-              val supportTinyGarden =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.SUPPORT_TINY_GARDEN.label)!!,
-                  valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
-              val supportMobileActions =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.SUPPORT_MOBILE_ACTIONS.label)!!,
-                  valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
-              val supportThinking =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.SUPPORT_THINKING.label)!!,
-                  valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
-              val supportSpeculativeDecoding =
-                convertValueToTargetType(
-                  value = values.get(ConfigKeys.SUPPORT_SPECULATIVE_DECODING.label)!!,
-                  valueType = ValueType.BOOLEAN,
-                )
-                  as Boolean
               val downloadUrl = getDownloadUrl(uri)
               val importedModel = importedModel {
                 this.fileName = fileName
                 this.fileSize = fileSize
                 this.url = if (isHttpOrHttps(uri)) downloadUrl else ""
-                this.llmConfig = llmConfig {
-                  compatibleAccelerators += supportedAccelerators
-                  this.defaultMaxTokens = defaultMaxTokens
-                  this.defaultTopk = defaultTopk
-                  this.defaultTopp = defaultTopp
-                  this.defaultTemperature = defaultTemperature
-                  this.supportImage = supportImage
-                  this.supportAudio = supportAudio
-                  this.supportMobileActions = supportMobileActions
-                  this.supportThinking = supportThinking
-                  this.supportTinyGarden = supportTinyGarden
-                  this.supportSpeculativeDecoding = supportSpeculativeDecoding
-                }
+                this.llmConfig = ModelUtils.createImportedLlmConfig(values)
               }
 
               onDone(importedModel)
@@ -481,7 +354,7 @@ private fun importModel(
       //   onProgress(i.toFloat() / 10f)
       // }
       Log.d(TAG, "import done for web model")
-      onDone()
+      withContext(Dispatchers.Main) { onDone() }
       return@launch
     }
 
@@ -508,6 +381,7 @@ private fun importModel(
     try {
       if (inputStream != null) {
         while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+          ensureActive()
           outputStream.write(buffer, 0, bytesRead)
           importedBytes += bytesRead
 
@@ -522,17 +396,23 @@ private fun importModel(
           }
         }
       }
+    } catch (e: CancellationException) {
+      throw e
     } catch (e: Exception) {
-      e.printStackTrace()
-      onError(e.message ?: context.getString(R.string.failed_to_import))
+      Log.e(TAG, "Failed to import model", e)
+      withContext(Dispatchers.Main) {
+        onError(e.message ?: context.getString(R.string.failed_to_import))
+      }
       return@launch
     } finally {
       inputStream?.close()
       outputStream.close()
     }
     Log.d(TAG, "import done")
-    onProgress(1f)
-    onDone()
+    withContext(Dispatchers.Main) {
+      onProgress(1f)
+      onDone()
+    }
   }
 }
 
