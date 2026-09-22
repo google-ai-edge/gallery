@@ -257,7 +257,10 @@ val HfSortOptionProto.queryValue: String
       HfSortOptionProto.HF_SORT_OPTION_DOWNLOADS -> "downloads"
       HfSortOptionProto.HF_SORT_OPTION_LIKES -> "likes"
       HfSortOptionProto.HF_SORT_OPTION_RECENT -> "lastModified"
-      else -> "downloads"
+      HfSortOptionProto.HF_SORT_OPTION_TRENDING -> "trendingScore"
+      // Fallback to downloads for unspecified values.
+      HfSortOptionProto.HF_SORT_OPTION_UNSPECIFIED,
+      HfSortOptionProto.UNRECOGNIZED -> "downloads"
     }
 
 /**
@@ -281,6 +284,7 @@ private fun getSortMetric(model: HfModelItemProto, sort: HfSortOptionProto): Com
     HfSortOptionProto.HF_SORT_OPTION_DOWNLOADS -> model.downloads
     HfSortOptionProto.HF_SORT_OPTION_LIKES -> model.likes
     HfSortOptionProto.HF_SORT_OPTION_RECENT -> model.lastModified
+    HfSortOptionProto.HF_SORT_OPTION_TRENDING -> model.trendingScore
     else -> model.downloads
   }
 }

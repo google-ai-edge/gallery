@@ -509,6 +509,23 @@
   <string name="hf_no_model_files_in_card" translatable="true" description="Error message when no LiteRT model files are found in a Hugging Face repository card. [CHAR_LIMIT=100]">No LiteRT model files (.litertlm) found in this model card.</string>
   <string name="hf_last_updated" translatable="true" description="Label showing when a model was last updated. [CHAR_LIMIT=21]">Updated %1$s</string>
   <string name="could_not_fetch_model_details" translatable="true" description="Error message when fetching Hugging Face model details fails. [CHAR_LIMIT=123]">Unable to load model details for %1$s. Please check the URL and try again.</string>
+  <string name="task_label_test" translatable="true" description="Title for the Test chat task screen where side-loaded models are tested. [CHAR_LIMIT=20]">Test chat</string>
+  <string name="task_desc_test" translatable="true" description="Empty state subtitle and description for the Test chat task screen. [CHAR_LIMIT=80]">Try testing a side-loaded model with chat!</string>
+  <string name="test_it" translatable="true" description="Action button label in the Model Manager to open the Test it task for a user-imported OSS model. [CHAR_LIMIT=15]">Test it</string>
+  <string name="hf_explore_title" translatable="true" description="Title of the Hugging Face Exploration screen. [CHAR_LIMIT=30]">Explore Hugging Face</string>
+  <string name="hf_explore_search_placeholder" translatable="true" description="Placeholder text for the generic search input field (not a product name) on the Hugging Face Exploration screen. [CHAR_LIMIT=35]">Search LiteRT-LM models&#8230;</string>
+  <string name="hf_explore_sort_trending" translatable="true" description="Sort chip label for trending Hugging Face models. [CHAR_LIMIT=16]">Trending</string>
+  <string name="hf_explore_sort_downloads" translatable="true" description="Sort chip label for Hugging Face models ordered by download count. [CHAR_LIMIT=16]">Downloads</string>
+  <string name="hf_explore_sort_likes" translatable="true" description="Sort chip label for Hugging Face models ordered by like count. [CHAR_LIMIT=12]">Likes</string>
+  <string name="hf_explore_sort_recent" translatable="true" description="Sort chip label for recently updated Hugging Face models. [CHAR_LIMIT=12]">Recent</string>
+  <string name="hf_explore_recommended_badge" translatable="true" description="Badge label indicating that a Hugging Face model is recommended by the LiteRT community. [CHAR_LIMIT=18]">Recommended</string>
+  <string name="hf_explore_compatible_badge" translatable="true" description="Badge label indicating that a Hugging Face model card has files compatible with the current device. [CHAR_LIMIT=18]">Compatible</string>
+  <string name="hf_explore_incompatible_badge" translatable="true" description="Badge label indicating that a Hugging Face model card may not be compatible with the current device. [CHAR_LIMIT=30]">May be incompatible</string>
+  <string name="hf_explore_empty_results" translatable="true" description="Message shown when no matching LiteRT-LM models are returned on the Hugging Face Exploration screen. [CHAR_LIMIT=50]">No matching LiteRT-LM models found.</string>
+  <string name="hf_explore_error_loading" translatable="true" description="Message shown when loading models from the Hugging Face API fails. [CHAR_LIMIT=60]">Failed to load models from Hugging Face.</string>
+  <string name="hf_explore_retry" translatable="true" description="Button label to retry fetching models on the Hugging Face Exploration screen. [CHAR_LIMIT=12]">Retry</string>
+  <string name="cd_hf_import_from_url_button" translatable="true" description="Accessibility description for the top-right plus button on the Hugging Face Exploration screen that opens the URL import dialog. [CHAR_LIMIT=40]">Import from Hugging Face URL</string>
+  <string name="cd_clear_search_button" translatable="true" description="Accessibility description for the clear search query button. [CHAR_LIMIT=20]">Clear search</string>
 
   <!-- The following entries are for accessibility -->
 

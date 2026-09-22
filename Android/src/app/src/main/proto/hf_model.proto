@@ -33,6 +33,7 @@ enum HfSortOptionProto {
   HF_SORT_OPTION_DOWNLOADS = 1;
   HF_SORT_OPTION_LIKES = 2;
   HF_SORT_OPTION_RECENT = 3;
+  HF_SORT_OPTION_TRENDING = 4;
 }
 
 message HfModelItemProto {
@@ -44,4 +45,5 @@ message HfModelItemProto {
   repeated string tags = 6;
   string last_modified = 7;
   repeated HfSiblingProto siblings = 8;
+  int64 trending_score = 9;
 }
