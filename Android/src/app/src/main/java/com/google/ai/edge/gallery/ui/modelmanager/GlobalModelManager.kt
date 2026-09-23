@@ -84,6 +84,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.supportModelBenchmark
@@ -94,8 +95,6 @@ import com.google.ai.edge.gallery.ui.common.TaskIcon
 import com.google.ai.edge.gallery.ui.common.isHttpOrHttps
 import com.google.ai.edge.gallery.ui.common.modelitem.ModelItem
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
-import kotlin.text.endsWith
-import kotlin.text.lowercase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -118,6 +117,7 @@ fun GlobalModelManager(
   var modelForTaskCandidate by remember { mutableStateOf<Model?>(null) }
   var showTaskSelectorBottomSheet by remember { mutableStateOf(false) }
   var showImportModelSheet by remember { mutableStateOf(false) }
+  var showHfExploreScreen by remember { mutableStateOf(false) }
   var showHuggingFaceUrlDialog by remember { mutableStateOf(false) }
   var huggingFaceUrlInput by remember { mutableStateOf("") }
   var showUnsupportedModelDialog by remember { mutableStateOf(false) }
@@ -380,7 +380,11 @@ fun GlobalModelManager(
                 .padding(horizontal = 16.dp, vertical = 4.dp),
           ) {
             Text(
-              task.label,
+              if (task.id == BuiltInTaskId.LLM_TEST) {
+                stringResource(R.string.test_chat)
+              } else {
+                task.label
+              },
               color = MaterialTheme.colorScheme.onSurface,
               style = MaterialTheme.typography.titleMedium,
             )
@@ -469,6 +473,17 @@ fun GlobalModelManager(
     }
   }
 
+  if (showHfExploreScreen) {
+    HfExploreScreen(
+      onNavigateUp = { showHfExploreScreen = false },
+      onOpenUrlImportDialog = { showHuggingFaceUrlDialog = true },
+      onModelCardSelected = { detailedModel ->
+        selectedModelForDetails = detailedModel
+        showModelDetailsSheet = true
+      },
+    )
+  }
+
   // Import dialog
   if (showImportDialog) {
     selectedLocalModelFileUri.value?.let { uri ->
@@ -479,6 +494,7 @@ fun GlobalModelManager(
         onDone = { info ->
           selectedImportedModelInfo.value = info
           showImportDialog = false
+          showHfExploreScreen = false
           showImportingDialog = true
         },
         accessToken = viewModel.dataStoreRepository.readAccessTokenData()?.accessToken,

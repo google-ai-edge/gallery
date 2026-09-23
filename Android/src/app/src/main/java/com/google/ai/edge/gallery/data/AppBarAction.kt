@@ -23,6 +23,7 @@ enum class AppBarActionType {
   DOWNLOAD_MANAGER,
   NAVIGATE_UP,
   MENU,
+  IMPORT_FROM_URL,
 }
 
 class AppBarAction(val actionType: AppBarActionType, val actionFn: () -> Unit)
