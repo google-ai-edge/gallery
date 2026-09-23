@@ -42,8 +42,6 @@ import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.gson.Gson
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 import java.io.File
 import java.io.FileInputStream
 import java.net.HttpURLConnection
@@ -55,10 +53,25 @@ import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 
 private const val TAG = "AGUtils"
 
 const val LOCAL_URL_BASE = "https://appassets.androidplatform.net"
+
+/**
+ * Parser for [convertStringToJsonObject].
+ *
+ * Lenient because the Gson `JsonParser.parseString` this replaced parsed in lenient mode, and the
+ * input is model-written, so unquoted keys and values are common and used to be accepted. The
+ * default [Json] rejects them.
+ *
+ * This is not full parity: kotlinx leniency has no notion of single-quoted strings, so `{'a':'b'}`
+ * yields the key `'a'` rather than `a`. There is no [Json] option for that.
+ */
+private val lenientJson = Json { isLenient = true }
 
 fun cleanUpMediapipeTaskErrorMessage(message: String): String {
   val index = message.indexOf("=== Source Location Trace")
@@ -453,8 +466,9 @@ fun logButtonClick(eventType: String, buttonId: String? = null, extras: Bundle.(
 
 fun convertStringToJsonObject(jsonString: String): JsonObject {
   return try {
-    JsonParser.parseString(jsonString).asJsonObject
+    lenientJson.parseToJsonElement(jsonString).jsonObject
   } catch (e: Exception) {
-    JsonObject()
+    Log.w(TAG, "Could not parse JSON string; using an empty object", e)
+    JsonObject(emptyMap())
   }
 }

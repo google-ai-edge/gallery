@@ -17,8 +17,6 @@
 package com.google.ai.edge.gallery.tools
 
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolRequestParams
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
 
 import android.os.Bundle
 import android.util.Log
@@ -103,12 +101,14 @@ class RunMcpTool(
               addItemDescription = "- Input: $input",
             )
           )
+        // `input` is written by the model and is often not valid JSON. Call the tool with no
+        // arguments in that case rather than failing the call outright.
         val result =
         client.callTool(
           request = CallToolRequest(
             CallToolRequestParams(
               name = toolName,
-              arguments = kotlinx.serialization.json.Json.parseToJsonElement(input).jsonObject
+              arguments = convertStringToJsonObject(input)
             )
           )
         )
