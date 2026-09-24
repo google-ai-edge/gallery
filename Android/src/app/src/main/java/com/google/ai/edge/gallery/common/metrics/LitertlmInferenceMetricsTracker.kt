@@ -176,25 +176,29 @@ class LitertlmInferenceMetricsTracker(
       val output: Int?
       val total: Int?
 
-      if (benchmark?.prefillTokenCount != null && benchmark.prefillTokenCount > 0) {
-        prompt = benchmark.prefillTokenCount
-        output = benchmark.decodeTokenCount?.takeIf { it > 0 } ?: streamedOutput.takeIf { it > 0 }
-        total = if (output != null) prompt + output else prompt
-      } else if (sessionTokens != null && sessionTokens >= 0) {
-        output = streamedOutput.takeIf { it > 0 }
-        val prevTokens = snapshot.previousCumulativeTokens ?: 0
-        val delta = (sessionTokens - prevTokens).takeIf { it > 0 }
-        prompt =
-          if (delta != null && output != null) {
-            (delta - output).coerceAtLeast(0).takeIf { it > 0 }
-          } else {
-            null
-          }
-        total = delta ?: output
-      } else {
-        prompt = null
-        output = streamedOutput.takeIf { it > 0 }
-        total = output
+      when {
+        benchmark?.prefillTokenCount != null && benchmark.prefillTokenCount > 0 -> {
+          prompt = benchmark.prefillTokenCount
+          output = benchmark.decodeTokenCount?.takeIf { it > 0 } ?: streamedOutput.takeIf { it > 0 }
+          total = if (output != null) prompt + output else prompt
+        }
+        sessionTokens != null && sessionTokens >= 0 -> {
+          output = streamedOutput.takeIf { it > 0 }
+          val prevTokens = snapshot.previousCumulativeTokens ?: 0
+          val delta = (sessionTokens - prevTokens).takeIf { it > 0 }
+          prompt =
+            if (delta != null && output != null) {
+              (delta - output).coerceAtLeast(0).takeIf { it > 0 }
+            } else {
+              null
+            }
+          total = delta ?: output
+        }
+        else -> {
+          prompt = null
+          output = streamedOutput.takeIf { it > 0 }
+          total = output
+        }
       }
 
       val newCumulative =
@@ -225,7 +229,7 @@ class LitertlmInferenceMetricsTracker(
 
     private fun buildLatencyMetrics(): LatencyMetrics = latencyMetrics {
       val benchmark = snapshot.diagnostics.benchmark
-      val ttft = benchmark?.timeToFirstToken ?: snapshot.streamedTtft
+      val ttft = snapshot.streamedTtft
       val totalDuration = snapshot.turnDuration
       val decodeDuration = if (ttft != null && totalDuration >= ttft) totalDuration - ttft else null
 

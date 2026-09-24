@@ -31,7 +31,6 @@ import kotlin.time.Duration.Companion.seconds
  * from app-level observation.
  */
 data class InferenceBenchmark(
-  val timeToFirstToken: Duration? = null,
   val prefillTokenCount: Int? = null,
   val decodeTokenCount: Int? = null,
   val prefillSpeedTps: Float? = null,
@@ -76,7 +75,6 @@ fun Conversation.asSession(): ConversationSession =
 /** Converts a LiteRT-LM [BenchmarkInfo] instance into an engine-agnostic [InferenceBenchmark]. */
 internal fun BenchmarkInfo.toInferenceBenchmark(): InferenceBenchmark =
   InferenceBenchmark(
-    timeToFirstToken = timeToFirstTokenInSecond.takeIf { it > 0.0 }?.seconds,
     prefillTokenCount = lastPrefillTokenCount.takeIf { it > 0 },
     decodeTokenCount = lastDecodeTokenCount.takeIf { it > 0 },
     prefillSpeedTps = lastPrefillTokensPerSecond.takeIf { it > 0.0 }?.toFloat(),
