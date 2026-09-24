@@ -245,8 +245,9 @@ class LitertlmInferenceMetricsTracker(
       decodeDuration?.let { this.decodeDurationMs = it.inWholeMilliseconds }
       prefillSpeed?.takeIf { it > 0f }?.let { this.prefillSpeedTps = it }
       decodeSpeed?.takeIf { it > 0f }?.let { this.decodeSpeedTps = it }
-      val initDuration = benchmark?.initDuration ?: snapshot.modelInitDuration
-      initDuration?.takeIf { it.isPositive() }?.let { this.initDurationMs = it.inWholeMilliseconds }
+      snapshot.modelInitDuration
+        ?.takeIf { it.isPositive() }
+        ?.let { this.initDurationMs = it.inWholeMilliseconds }
     }
 
     private fun buildContextMetrics(): ContextMetrics = contextMetrics {

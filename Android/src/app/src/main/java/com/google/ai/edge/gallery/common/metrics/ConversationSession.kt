@@ -19,8 +19,6 @@ package com.google.ai.edge.gallery.common.metrics
 import com.google.ai.edge.litertlm.BenchmarkInfo
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ExperimentalApi
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * Engine-agnostic benchmark telemetry and performance diagnostics reported directly by the
@@ -35,7 +33,6 @@ data class InferenceBenchmark(
   val decodeTokenCount: Int? = null,
   val prefillSpeedTps: Float? = null,
   val decodeSpeedTps: Float? = null,
-  val initDuration: Duration? = null,
 )
 
 /**
@@ -79,5 +76,4 @@ internal fun BenchmarkInfo.toInferenceBenchmark(): InferenceBenchmark =
     decodeTokenCount = lastDecodeTokenCount.takeIf { it > 0 },
     prefillSpeedTps = lastPrefillTokensPerSecond.takeIf { it > 0.0 }?.toFloat(),
     decodeSpeedTps = lastDecodeTokensPerSecond.takeIf { it > 0.0 }?.toFloat(),
-    initDuration = initTimeInSecond.takeIf { it > 0.0 }?.seconds,
   )
