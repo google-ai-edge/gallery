@@ -1,0 +1,360 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Currency Converter Logic Runner</title>
+</head>
+<body>
+  <script>
+    // Offline fallback exchange rates (relative to 1 USD)
+    const OFFLINE_RATES_BASE_USD = {
+      USD: 1.0,
+      EUR: 0.92,
+      GBP: 0.79,
+      JPY: 154.5,
+      CAD: 1.38,
+      AUD: 1.52,
+      CHF: 0.89,
+      CNY: 7.24,
+      INR: 83.5,
+      BRL: 5.45,
+      MXN: 18.2,
+      KRW: 1380.0,
+      SGD: 1.35,
+      NZD: 1.64,
+      HKD: 7.81,
+      SEK: 10.6,
+      NOK: 10.75,
+      DKK: 6.86,
+      PLN: 3.96,
+      ZAR: 18.15,
+      AED: 3.67,
+      SAR: 3.75,
+      THB: 36.7,
+      IDR: 16250.0,
+      TRY: 32.8,
+      PHP: 58.7,
+      MYR: 4.71,
+      TWD: 32.4,
+      ILS: 3.72,
+      CZK: 23.3,
+      HUF: 365.0,
+      CLP: 935.0,
+      COP: 4100.0,
+      EGP: 47.7,
+      VND: 25400.0
+    };
+
+    const SYMBOL_TO_CODE = {
+      '$': 'USD',
+      'US$': 'USD',
+      '€': 'EUR',
+      '£': 'GBP',
+      '¥': 'JPY',
+      '₹': 'INR',
+      'C$': 'CAD',
+      'CA$': 'CAD',
+      'A$': 'AUD',
+      'AU$': 'AUD',
+      'R$': 'BRL',
+      '₩': 'KRW',
+      'FR': 'CHF',
+      'S$': 'SGD',
+      'NZ$': 'NZD',
+      'HK$': 'HKD',
+      'KR': 'SEK',
+      'R': 'ZAR',
+      '฿': 'THB',
+      'RP': 'IDR',
+      '₺': 'TRY',
+      '₱': 'PHP',
+      'RM': 'MYR',
+      'NT$': 'TWD',
+      '₪': 'ILS',
+      'KČ': 'CZK',
+      'FT': 'HUF',
+      '₫': 'VND'
+    };
+
+    const NAME_TO_CODE = {
+      'DOLLAR': 'USD',
+      'DOLLARS': 'USD',
+      'US DOLLAR': 'USD',
+      'US DOLLARS': 'USD',
+      'USD': 'USD',
+      'EURO': 'EUR',
+      'EUROS': 'EUR',
+      'EUR': 'EUR',
+      'POUND': 'GBP',
+      'POUNDS': 'GBP',
+      'STERLING': 'GBP',
+      'BRITISH POUND': 'GBP',
+      'BRITISH POUNDS': 'GBP',
+      'GBP': 'GBP',
+      'YEN': 'JPY',
+      'JAPANESE YEN': 'JPY',
+      'JPY': 'JPY',
+      'INDIAN RUPEE': 'INR',
+      'INDIAN RUPEES': 'INR',
+      'RUPEE': 'INR',
+      'RUPEES': 'INR',
+      'INR': 'INR',
+      'CANADIAN DOLLAR': 'CAD',
+      'CANADIAN DOLLARS': 'CAD',
+      'CAD': 'CAD',
+      'AUSTRALIAN DOLLAR': 'AUD',
+      'AUSTRALIAN DOLLARS': 'AUD',
+      'AUD': 'AUD',
+      'SWISS FRANC': 'CHF',
+      'SWISS FRANCS': 'CHF',
+      'FRANC': 'CHF',
+      'FRANCS': 'CHF',
+      'CHF': 'CHF',
+      'YUAN': 'CNY',
+      'CHINESE YUAN': 'CNY',
+      'RENMINBI': 'CNY',
+      'RMB': 'CNY',
+      'CNY': 'CNY',
+      'BRAZILIAN REAL': 'BRL',
+      'REAL': 'BRL',
+      'REAIS': 'BRL',
+      'BRL': 'BRL',
+      'MEXICAN PESO': 'MXN',
+      'MEXICAN PESOS': 'MXN',
+      'PESO': 'MXN',
+      'PESOS': 'MXN',
+      'MXN': 'MXN',
+      'SOUTH KOREAN WON': 'KRW',
+      'KOREAN WON': 'KRW',
+      'WON': 'KRW',
+      'KRW': 'KRW',
+      'SINGAPORE DOLLAR': 'SGD',
+      'SINGAPORE DOLLARS': 'SGD',
+      'SGD': 'SGD',
+      'NEW ZEALAND DOLLAR': 'NZD',
+      'NZD': 'NZD',
+      'HONG KONG DOLLAR': 'HKD',
+      'HKD': 'HKD',
+      'SWEDISH KRONA': 'SEK',
+      'SWEDISH KRONOR': 'SEK',
+      'SEK': 'SEK',
+      'NORWEGIAN KRONE': 'NOK',
+      'NOK': 'NOK',
+      'DANISH KRONE': 'DKK',
+      'DKK': 'DKK',
+      'POLISH ZLOTY': 'PLN',
+      'ZLOTY': 'PLN',
+      'PLN': 'PLN',
+      'SOUTH AFRICAN RAND': 'ZAR',
+      'RAND': 'ZAR',
+      'ZAR': 'ZAR',
+      'UAE DIRHAM': 'AED',
+      'DIRHAM': 'AED',
+      'AED': 'AED',
+      'SAUDI RIYAL': 'SAR',
+      'RIYAL': 'SAR',
+      'SAR': 'SAR',
+      'THAI BAHT': 'THB',
+      'BAHT': 'THB',
+      'THB': 'THB',
+      'INDONESIAN RUPIAH': 'IDR',
+      'RUPIAH': 'IDR',
+      'IDR': 'IDR',
+      'TURKISH LIRA': 'TRY',
+      'LIRA': 'TRY',
+      'TRY': 'TRY',
+      'PHILIPPINE PESO': 'PHP',
+      'PHP': 'PHP',
+      'MALAYSIAN RINGGIT': 'MYR',
+      'RINGGIT': 'MYR',
+      'MYR': 'MYR',
+      'NEW TAIWAN DOLLAR': 'TWD',
+      'TWD': 'TWD',
+      'ISRAELI SHEKEL': 'ILS',
+      'SHEKEL': 'ILS',
+      'ILS': 'ILS',
+      'CZECH KORUNA': 'CZK',
+      'CZK': 'CZK',
+      'HUNGARIAN FORINT': 'HUF',
+      'FORINT': 'HUF',
+      'HUF': 'HUF',
+      'CHILEAN PESO': 'CLP',
+      'CLP': 'CLP',
+      'COLOMBIAN PESO': 'COP',
+      'COP': 'COP',
+      'EGYPTIAN POUND': 'EGP',
+      'EGP': 'EGP',
+      'VIETNAMESE DONG': 'VND',
+      'DONG': 'VND',
+      'VND': 'VND'
+    };
+
+    function normalizeCurrency(input) {
+      if (!input || typeof input !== 'string') return '';
+      const clean = input.trim().toUpperCase();
+
+      if (SYMBOL_TO_CODE[clean]) return SYMBOL_TO_CODE[clean];
+      if (NAME_TO_CODE[clean]) return NAME_TO_CODE[clean];
+
+      // Remove non-alphanumeric
+      const alphaOnly = clean.replace(/[^A-Z]/g, '');
+      if (NAME_TO_CODE[alphaOnly]) return NAME_TO_CODE[alphaOnly];
+
+      if (alphaOnly.length === 3) return alphaOnly;
+      return clean;
+    }
+
+    function parseAmount(amountInput) {
+      if (typeof amountInput === 'number') {
+        return isNaN(amountInput) || amountInput < 0 ? 1 : amountInput;
+      }
+      if (typeof amountInput === 'string') {
+        const sanitized = amountInput.replace(/[^0-9.-]/g, '');
+        const parsed = parseFloat(sanitized);
+        return isNaN(parsed) || parsed < 0 ? 1 : parsed;
+      }
+      return 1;
+    }
+
+    async function fetchWithTimeout(url, timeoutMs = 4000) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    }
+
+    async function getExchangeRate(from, to) {
+      // 1. Primary: open.er-api.com
+      try {
+        const data = await fetchWithTimeout(`https://open.er-api.com/v6/latest/${from}`, 4000);
+        if (data && data.rates && data.rates[to] !== undefined) {
+          const rate = data.rates[to];
+          const date = data.time_last_update_utc ? new Date(data.time_last_update_utc).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : new Date().toISOString().split('T')[0];
+          return { rate, date, source: 'Live Market Rate' };
+        }
+      } catch (err) {
+        console.warn('Primary exchange rate API failed:', err.message);
+      }
+
+      // 2. Secondary: Frankfurter API (ECB rates)
+      try {
+        const data = await fetchWithTimeout(`https://api.frankfurter.app/latest?from=${from}&to=${to}`, 3500);
+        if (data && data.rates && data.rates[to] !== undefined) {
+          const rate = data.rates[to];
+          return { rate, date: data.date || new Date().toISOString().split('T')[0], source: 'ECB Reference Rate' };
+        }
+      } catch (err) {
+        console.warn('Secondary exchange rate API failed:', err.message);
+      }
+
+      // 3. Tertiary: Offline cache fallback
+      const fromUsd = OFFLINE_RATES_BASE_USD[from];
+      const toUsd = OFFLINE_RATES_BASE_USD[to];
+      if (fromUsd !== undefined && toUsd !== undefined) {
+        const rate = toUsd / fromUsd;
+        return {
+          rate,
+          date: 'Baseline Reference',
+          source: 'Offline Fallback Rate'
+        };
+      }
+
+      throw new Error(`Unsupported currency pair: ${from} to ${to}`);
+    }
+
+    function formatNumber(num) {
+      if (num === 0) return '0.00';
+      if (num >= 1000) {
+        return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      if (num >= 1) {
+        return num.toFixed(2);
+      }
+      if (num >= 0.0001) {
+        return num.toFixed(4);
+      }
+      return num.toFixed(6);
+    }
+
+    window['ai_edge_gallery_get_result'] = async (dataStr) => {
+      try {
+        let input = {};
+        if (dataStr) {
+          input = typeof dataStr === 'string' ? JSON.parse(dataStr) : dataStr;
+        }
+
+        const amount = parseAmount(input.amount !== undefined ? input.amount : 1);
+        let from = normalizeCurrency(input.from || 'USD');
+        let to = normalizeCurrency(input.to || (from === 'USD' ? 'EUR' : 'USD'));
+
+        if (!from) from = 'USD';
+        if (!to) to = 'EUR';
+
+        // Same currency trivial case
+        if (from === to) {
+          const formattedAmount = formatNumber(amount);
+          const resultText = `${formattedAmount} ${from} = ${formattedAmount} ${to} (Exchange Rate: 1.0000)`;
+          const webviewUrl = `webview.html?amount=${amount}&from=${from}&to=${to}&result=${amount}&rate=1&date=${encodeURIComponent('Current')}&source=${encodeURIComponent('Direct')}`;
+          return JSON.stringify({
+            result: resultText,
+            webview: {
+              url: webviewUrl,
+              aspectRatio: 1.15
+            }
+          });
+        }
+
+        const { rate, date, source } = await getExchangeRate(from, to);
+        const converted = amount * rate;
+        const inverseRate = 1 / rate;
+
+        const formattedFromAmount = formatNumber(amount);
+        const formattedConverted = formatNumber(converted);
+        const formattedRate = formatNumber(rate);
+        const formattedInverse = formatNumber(inverseRate);
+
+        const resultText = `${formattedFromAmount} ${from} = ${formattedConverted} ${to} (Exchange Rate: 1 ${from} = ${formattedRate} ${to}, 1 ${to} = ${formattedInverse} ${from} | Date: ${date} | Source: ${source})`;
+
+        const webviewUrl = `webview.html?amount=${encodeURIComponent(amount)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&result=${encodeURIComponent(converted)}&rate=${encodeURIComponent(rate)}&date=${encodeURIComponent(date)}&source=${encodeURIComponent(source)}`;
+
+        return JSON.stringify({
+          result: resultText,
+          webview: {
+            url: webviewUrl,
+            aspectRatio: 1.15
+          }
+        });
+      } catch (e) {
+        console.error('Currency conversion error:', e);
+        return JSON.stringify({
+          error: `Currency conversion failed: ${e.message}`
+        });
+      }
+    };
+  </script>
+</body>
+</html>
