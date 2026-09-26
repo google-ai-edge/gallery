@@ -21,14 +21,18 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.ui.common.BufferedFadingMarkdownText
 import com.google.ai.edge.gallery.ui.common.MarkdownText
 
@@ -50,39 +54,39 @@ fun MessageBodyText(
       )
     }
   } else if (message.side == ChatSide.AGENT) {
-    if (message.isMarkdown) {
-      BufferedFadingMarkdownText(
-        text = message.content,
-        inProgress = inProgress,
-        modifier =
-          Modifier.padding(vertical = 12.dp)
-            .padding(horizontal = horizontalPadding)
-            .testTag("model_response_text")
-            .semantics(mergeDescendants = true) {
-              // Only announce when message is complete.
-              if (!inProgress) {
-                liveRegion = LiveRegionMode.Polite
-              }
-            },
-      )
-    } else {
-      SelectionContainer {
-        Text(
-          message.content,
-          style = MaterialTheme.typography.bodyMedium,
-          color = MaterialTheme.colorScheme.onSurface,
+      if (message.isMarkdown) {
+        BufferedFadingMarkdownText(
+          text = message.content,
+          inProgress = inProgress,
           modifier =
             Modifier.padding(vertical = 12.dp)
               .padding(horizontal = horizontalPadding)
               .testTag("model_response_text")
-              .semantics {
+              .semantics(mergeDescendants = true) {
                 // Only announce when message is complete.
                 if (!inProgress) {
                   liveRegion = LiveRegionMode.Polite
                 }
               },
         )
+      } else {
+        SelectionContainer {
+          Text(
+            message.content,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier =
+              Modifier.padding(vertical = 12.dp)
+                .padding(horizontal = horizontalPadding)
+                .testTag("model_response_text")
+                .semantics {
+                  // Only announce when message is complete.
+                  if (!inProgress) {
+                    liveRegion = LiveRegionMode.Polite
+                  }
+                },
+          )
+        }
       }
-    }
   }
 }

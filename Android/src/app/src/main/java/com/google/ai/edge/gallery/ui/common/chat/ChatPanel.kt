@@ -27,10 +27,12 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
@@ -67,6 +69,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
@@ -102,6 +105,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
@@ -353,6 +357,7 @@ fun ChatPanel(
     Column(
       modifier = modifier.padding(innerPadding).consumeWindowInsets(innerPadding).imePadding()
     ) {
+
       Box(
         contentAlignment = Alignment.BottomCenter,
         modifier =
@@ -432,11 +437,25 @@ fun ChatPanel(
                 agentName = "$agentName on ${message.accelerator}"
               }
               if (!message.hideSenderLabel) {
-                MessageSender(
-                  message = message,
-                  agentName = agentName,
-                  imageHistoryCurIndex = imageHistoryCurIndex.intValue,
-                )
+                if (message.side == ChatSide.AGENT) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                  ) {
+                    MessageSender(
+                      message = message,
+                      agentName = agentName,
+                      imageHistoryCurIndex = imageHistoryCurIndex.intValue,
+                    )
+                  }
+                } else {
+                  MessageSender(
+                    message = message,
+                    agentName = agentName,
+                    imageHistoryCurIndex = imageHistoryCurIndex.intValue,
+                  )
+                }
               }
 
               // Message body.
