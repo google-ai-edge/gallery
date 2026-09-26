@@ -58,6 +58,13 @@ interface MetricsTracker {
   val taskId: String
 
   /**
+   * Records the model's initialization outcome (`Initialized` or `Failed`), duration, and active
+   * sampler configuration from [model], dispatching telemetry to Logcat and Firebase Analytics when
+   * metrics tracking is enabled.
+   */
+  fun onModelInitialized()
+
+  /**
    * Starts tracking an inference turn using a [ConversationSession] abstraction.
    *
    * @param session Active session abstraction for ground-truth telemetry.
@@ -159,6 +166,8 @@ interface MetricsTracker {
  */
 class NoOpMetricsTracker(override val model: Model, override val taskId: String) : MetricsTracker {
 
+  override fun onModelInitialized() {}
+
   override fun startTurn(session: ConversationSession, sessionId: String?, turnIndex: Int?) {}
 
   override fun onNewToken(tokenText: String, thinkingText: String?) {}
@@ -187,7 +196,7 @@ internal constructor(
   ioDispatcher: CoroutineDispatcher,
   timeSource: TimeSource = TimeSource.Monotonic,
   private val config: MetricsTrackerConfig = MetricsTrackerConfig(),
-  private val metricsLogger: MetricsLogger = MetricsLogger(model = model, taskId = taskId),
+  internal val metricsLogger: MetricsLogger = MetricsLogger(model = model, taskId = taskId),
   private val memoryMonitor: PeriodicSensorMonitor<MemoryMetrics>? =
     if (config.enableSystemSampling) {
       MemoryMonitor(samplingInterval = config.memorySamplingInterval, dispatcher = ioDispatcher)
@@ -228,6 +237,10 @@ internal constructor(
    * on this scope are stopped at turn end, turn cancellation, or session reset.
    */
   private val scope = CoroutineScope(ioDispatcher + SupervisorJob())
+
+  override fun onModelInitialized() {
+    metricsLogger.logModelInitialization()
+  }
 
   override fun startTurn(session: ConversationSession, sessionId: String?, turnIndex: Int?) {
     // Step 1: Validate session & conversation preconditions.

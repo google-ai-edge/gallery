@@ -63,9 +63,14 @@ import kotlinx.coroutines.Dispatchers
 private const val TAG = "AGLlmChatModelHelper"
 
 /**
- * A model instance with its associated engine, conversation, and metrics tracker.
+ * Holds the runtime state for an initialized LiteRT-LM model.
  *
- * @property metricsTracker Telemetry for this model instance, or null when the instance was built
+ * @param engine The underlying LiteRT-LM [Engine] managing model weights and hardware acceleration.
+ * @param conversation The active [Conversation] session handling prompt history and token
+ *   generation.
+ * @param metricsTracker Optional [MetricsTracker] collecting per-turn latency, throughput, memory,
+ *   and battery telemetry. Null when the instance is handed in from an external cache (e.g. a
+ *   shared agent conversation manager), because the engine initialization for that path runs
  *   outside [LlmChatModelHelper.initialize] and so is not measured. Tracks nothing when the model
  *   does not support benchmark telemetry.
  */
@@ -151,21 +156,28 @@ object LlmChatModelHelper : LlmModelHelper {
     } catch (e: Exception) {
       // Ignore exceptions and assume not supported.
     }
+    var speculativeDecoding = false
+    // Check if the model supports speculative decoding for the given task type and if the
+    // speculative decoding is enabled in the settings.
+    if (
+      supportsSpeculativeDecoding &&
+        model.allowCapability(capability = ModelCapability.SPECULATIVE_DECODING, taskId = taskId)
+    ) {
+      speculativeDecoding =
+        model.getBooleanConfigValue(
+          key = ConfigKeys.ENABLE_SPECULATIVE_DECODING,
+          defaultValue = false,
+        )
+    }
+    val metricsTracker =
+      MetricsTracker.create(
+        context = context,
+        model = model,
+        taskId = taskId,
+        ioDispatcher = ioDispatcher,
+      )
     // Create an instance of LiteRT LM engine and conversation.
     try {
-      var speculativeDecoding = false
-      // Check if the model supports speculative decoding for the given task type and if the
-      // speculative decoding is enabled in the settings.
-      if (
-        supportsSpeculativeDecoding &&
-          model.allowCapability(capability = ModelCapability.SPECULATIVE_DECODING, taskId = taskId)
-      ) {
-        speculativeDecoding =
-          model.getBooleanConfigValue(
-            key = ConfigKeys.ENABLE_SPECULATIVE_DECODING,
-            defaultValue = false,
-          )
-      }
       val enableBenchmark = false
       ExperimentalFlags.enableBenchmark = enableBenchmark
       ExperimentalFlags.enableSpeculativeDecoding = speculativeDecoding
@@ -199,21 +211,17 @@ object LlmChatModelHelper : LlmModelHelper {
         LlmModelInstance(
           engine = engine,
           conversation = conversation,
-          metricsTracker =
-            MetricsTracker.create(
-              context = context,
-              model = model,
-              taskId = taskId,
-              ioDispatcher = ioDispatcher,
-            ),
+          metricsTracker = metricsTracker,
         )
     } catch (e: Exception) {
       val errorMsg = cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error")
       model.markInitializationFailed(errorMsg)
+      metricsTracker.onModelInitialized()
       onDone(errorMsg)
       return
     }
     model.markInitialized()
+    metricsTracker.onModelInitialized()
     onDone("")
   }
 
