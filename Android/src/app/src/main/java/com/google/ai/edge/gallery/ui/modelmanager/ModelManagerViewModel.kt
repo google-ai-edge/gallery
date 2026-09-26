@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.ui.modelmanager
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.activity.result.ActivityResult
 import androidx.core.net.toUri
@@ -25,6 +26,10 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.AppLifecycleProvider
 import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.apiserver.ApiServerSessionHold
+import com.google.ai.edge.gallery.apiserver.LocalApiForegroundService
+import com.google.ai.edge.gallery.apiserver.LocalApiServerPreferences
+import com.google.ai.edge.gallery.apiserver.ModelCatalogCache
 import com.google.ai.edge.gallery.common.ProjectConfig
 import com.google.ai.edge.gallery.common.SystemPromptHelper
 import com.google.ai.edge.gallery.common.getJsonResponse
@@ -210,6 +215,9 @@ constructor(
   private val customTasks: Set<@JvmSuppressWildcards CustomTask>,
   private val systemPromptRepository: SystemPromptRepository,
   val huggingFaceApiClient: HuggingFaceApiClient,
+  private val localApiServerPreferences: LocalApiServerPreferences,
+  private val modelCatalogCache: ModelCatalogCache,
+  private val apiServerSessionHold: ApiServerSessionHold,
   @ApplicationContext private val context: Context,
 ) :
   ViewModel()
@@ -218,6 +226,10 @@ constructor(
   private val modelsDir = getModelStorageDir(context)
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   open val uiState = _uiState.asStateFlow()
+
+  init {
+    viewModelScope.launch { uiState.collect { modelCatalogCache.update(getAllDownloadedModels()) } }
+  }
 
   fun fetchModelDetails(modelId: String, onResult: (HfModelItemProto?) -> Unit) {
     viewModelScope.launch {
@@ -807,6 +819,12 @@ constructor(
       return
     }
 
+    if (apiServerSessionHold.heldModelName == model.name) {
+      Log.d(TAG, "Skipping cleanup for '${model.name}': held by the local API server")
+      onDone()
+      return
+    }
+
     if (model.instance != null) {
       model.cleanUpAfterInit = false
       Log.d(TAG, "Cleaning up model '${model.name}'...")
@@ -936,6 +954,47 @@ constructor(
   fun saveFirebaseAnalytics(enabled: Boolean) {
     dataStoreRepository.saveFirebaseAnalytics(enabled = enabled)
     firebaseAnalytics?.setAnalyticsCollectionEnabled(enabled)
+  }
+
+  fun readLocalApiServerEnabled(onResult: (Boolean) -> Unit) {
+    viewModelScope.launch { onResult(localApiServerPreferences.readEnabled()) }
+  }
+
+  fun readLocalApiServerPort(onResult: (Int) -> Unit) {
+    viewModelScope.launch { onResult(localApiServerPreferences.readPort()) }
+  }
+
+  fun readLocalApiServerToken(onResult: (String) -> Unit) {
+    viewModelScope.launch { onResult(localApiServerPreferences.readOrCreateToken()) }
+  }
+
+  fun regenerateLocalApiServerToken(onResult: (String) -> Unit) {
+    viewModelScope.launch { onResult(localApiServerPreferences.regenerateToken()) }
+  }
+
+  fun setLocalApiServerEnabled(enabled: Boolean) {
+    viewModelScope.launch {
+      localApiServerPreferences.saveEnabled(enabled)
+      val intent = Intent(context, LocalApiForegroundService::class.java)
+      if (enabled) {
+        context.startForegroundService(intent)
+      } else {
+        context.stopService(intent)
+      }
+    }
+  }
+
+  fun readLocalApiServerSelectedModel(onResult: (String?) -> Unit) {
+    viewModelScope.launch { onResult(localApiServerPreferences.readSelectedModelName()) }
+  }
+
+  fun setLocalApiServerSelectedModel(modelName: String) {
+    viewModelScope.launch {
+      localApiServerPreferences.saveSelectedModelName(modelName)
+      if (localApiServerPreferences.readEnabled()) {
+        context.startForegroundService(Intent(context, LocalApiForegroundService::class.java))
+      }
+    }
   }
 
   /**

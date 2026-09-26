@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.agent
 
 import android.content.Context
+import com.google.ai.edge.gallery.data.Model
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -48,6 +49,13 @@ interface AgentRuntimeExecutor {
    * The unique identifier of the currently active conversation session, or null if uninitialized.
    */
   val activeSessionId: String?
+    get() = null
+
+  /**
+   * The model, task ID, and image-support flag of the currently active session, or null if no
+   * session has been initialized yet (or it was cleared by [cleanUp]).
+   */
+  val activeModelInfo: ActiveModelInfo?
     get() = null
 
   /**
@@ -131,3 +139,12 @@ interface AgentRuntimeExecutor {
    */
   fun cleanUp(onDone: () -> Unit = {})
 }
+
+/**
+ * Snapshot of the model backing the currently active [AgentRuntimeExecutor] session.
+ *
+ * @property model The model currently loaded for the active session.
+ * @property taskId The task ID the active session was configured for.
+ * @property supportImage Whether the active session accepts image attachments.
+ */
+data class ActiveModelInfo(val model: Model, val taskId: String, val supportImage: Boolean)
