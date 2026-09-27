@@ -353,6 +353,7 @@ fun ChatPanel(
     Column(
       modifier = modifier.padding(innerPadding).consumeWindowInsets(innerPadding).imePadding()
     ) {
+
       Box(
         contentAlignment = Alignment.BottomCenter,
         modifier =
@@ -432,11 +433,25 @@ fun ChatPanel(
                 agentName = "$agentName on ${message.accelerator}"
               }
               if (!message.hideSenderLabel) {
-                MessageSender(
-                  message = message,
-                  agentName = agentName,
-                  imageHistoryCurIndex = imageHistoryCurIndex.intValue,
-                )
+                if (message.side == ChatSide.AGENT) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                  ) {
+                    MessageSender(
+                      message = message,
+                      agentName = agentName,
+                      imageHistoryCurIndex = imageHistoryCurIndex.intValue,
+                    )
+                  }
+                } else {
+                  MessageSender(
+                    message = message,
+                    agentName = agentName,
+                    imageHistoryCurIndex = imageHistoryCurIndex.intValue,
+                  )
+                }
               }
 
               // Message body.

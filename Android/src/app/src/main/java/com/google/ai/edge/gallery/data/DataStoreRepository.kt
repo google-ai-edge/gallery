@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.data
 
+import android.content.Context
 import androidx.datastore.core.DataStore
 import com.google.ai.edge.gallery.proto.AccessTokenData
 import com.google.ai.edge.gallery.proto.BenchmarkResult
