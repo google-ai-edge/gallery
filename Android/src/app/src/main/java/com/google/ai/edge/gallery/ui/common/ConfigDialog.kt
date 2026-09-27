@@ -21,20 +21,36 @@ package com.google.ai.edge.gallery.ui.common
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.util.Log
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -47,10 +63,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MultiChoiceSegmentedButtonRow
@@ -60,6 +80,7 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -83,6 +104,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
@@ -91,6 +113,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BooleanSwitchConfig
 import com.google.ai.edge.gallery.data.BottomSheetSelectorConfig
@@ -140,127 +164,209 @@ fun ConfigDialog(
   val savedSystemPrompt = remember { curSystemPrompt }
   var systemPrompt by remember { mutableStateOf(curSystemPrompt) }
 
-  Dialog(onDismissRequest = onDismissed) {
+  val tabTitles =
+    remember(showSystemPromptEditorTab) {
+      val list = mutableListOf("Model configs")
+      if (showSystemPromptEditorTab) {
+        list.add("System prompt")
+      }
+      list
+    }
+
+  Dialog(
+    onDismissRequest = onDismissed,
+    properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+  ) {
+    val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
     val focusManager = LocalFocusManager.current
-    Card(
-      modifier =
-        Modifier.fillMaxWidth()
-          .clickable(
-            interactionSource = interactionSource,
-            indication = null, // Disable the ripple effect
+
+    Box(modifier = Modifier.fillMaxSize()) {
+      // 1. Scrim background: tap outside to dismiss
+      Box(
+        modifier =
+          Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)).clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
           ) {
-            focusManager.clearFocus()
+            onDismissed()
           }
-          .imePadding(),
-      shape = RoundedCornerShape(16.dp),
-    ) {
-      Column(
-        modifier = Modifier.padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+      )
+
+      // 2. Right-anchored sliding sheet
+      AnimatedVisibility(
+        visibleState = visibleState,
+        enter =
+          slideInHorizontally(
+            initialOffsetX = { it },
+            animationSpec = tween(300, easing = FastOutSlowInEasing),
+          ) + fadeIn(tween(200)),
+        exit =
+          slideOutHorizontally(
+            targetOffsetX = { it },
+            animationSpec = tween(250, easing = FastOutSlowInEasing),
+          ) + fadeOut(tween(150)),
+        modifier = Modifier.align(Alignment.CenterEnd),
       ) {
-        // Dialog title and subtitle.
-        Column {
-          Text(
-            title,
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 8.dp),
-          )
-          // Subtitle.
-          if (subtitle.isNotEmpty()) {
-            Text(
-              subtitle,
-              style = labelSmallNarrow,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier = Modifier.offset(y = (-6).dp),
-            )
-          }
-        }
-
-        // Tab.
-        if (showSystemPromptEditorTab) {
-          PrimaryTabRow(selectedTabIndex = selectedTabIndex, containerColor = Color.Transparent) {
-            TABS.forEachIndexed { index, tab ->
-              Tab(
-                selected = selectedTabIndex == index,
-                onClick = { selectedTabIndex = index },
-                text = {
-                  Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                  ) {
-                    val titleColor =
-                      if (selectedTabIndex == index) MaterialTheme.colorScheme.primary
-                      else MaterialTheme.colorScheme.onSurfaceVariant
-                    Text(stringResource(tab.labelResId), color = titleColor)
-                  }
-                },
-              )
-            }
-          }
-        }
-
-        if (selectedTabIndex == 0) {
-          // List of config rows.
+        Surface(
+          modifier =
+            Modifier.fillMaxHeight()
+              .fillMaxWidth(0.85f)
+              .widthIn(max = 420.dp)
+              .statusBarsPadding()
+              .navigationBarsPadding()
+              .imePadding()
+              .clickable(interactionSource = interactionSource, indication = null) {
+                focusManager.clearFocus()
+              },
+          shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp),
+          color = MaterialTheme.colorScheme.surfaceContainer,
+          tonalElevation = 6.dp,
+          shadowElevation = 8.dp,
+        ) {
           Column(
-            modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
+            modifier = Modifier.fillMaxSize().padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
           ) {
-            ConfigEditorsPanel(configs = configs, values = values)
-          }
-        } else if (selectedTabIndex == 1) {
-          OutlinedTextField(
-            value = systemPrompt,
-            modifier = Modifier.weight(1f, fill = false),
-            textStyle = MaterialTheme.typography.bodySmall,
-            onValueChange = { systemPrompt = it },
-            placeholder = {
-              Text(
-                text = stringResource(R.string.system_prompt_placeholder),
-                modifier = Modifier.offset(y = (4).dp), // Adjust to align the cursor with the text.
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-              )
-            },
-          )
-        }
-
-        // Button row(s).
-        if (showSystemPromptEditorTab && selectedTabIndex == 1) {
-          Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            // Restore default button to restore system prompt.
-            OutlinedButton(
-              onClick = { systemPrompt = defaultSystemPrompt },
-              contentPadding = SMALL_BUTTON_CONTENT_PADDING,
+            // Header: Title and Close button.
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
             ) {
-              Text(stringResource(R.string.restore_default))
+              Column(modifier = Modifier.weight(1f)) {
+                Text(
+                  if (hasTtsTab) "Configure settings" else title,
+                  style = MaterialTheme.typography.titleLarge,
+                  modifier = Modifier.padding(bottom = 4.dp),
+                )
+                if (subtitle.isNotEmpty()) {
+                  Text(
+                    subtitle,
+                    style = labelSmallNarrow,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  )
+                }
+              }
+              IconButton(onClick = onDismissed) {
+                Icon(
+                  Icons.Rounded.Close,
+                  contentDescription = stringResource(R.string.cancel),
+                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
             }
-          }
-        }
 
-        Row(
-          modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-          horizontalArrangement = Arrangement.End,
-          verticalAlignment = Alignment.CenterVertically,
-        ) {
-          // Cancel button.
-          if (showCancel) {
-            TextButton(onClick = { onDismissed() }) { Text(stringResource(R.string.cancel)) }
-          }
-
-          Spacer(modifier = Modifier.width(8.dp))
-
-          // Ok button
-          Button(
-            onClick = {
-              Log.d(TAG, "Values from dialog: $values")
-              onOk(values.toMap(), savedSystemPrompt, systemPrompt)
+            // Tab bar.
+            if (tabTitles.size > 1) {
+              PrimaryTabRow(
+                selectedTabIndex = selectedTabIndex,
+                containerColor = Color.Transparent,
+              ) {
+                tabTitles.forEachIndexed { index, tabTitle ->
+                  Tab(
+                    selected = selectedTabIndex == index,
+                    onClick = { selectedTabIndex = index },
+                    text = {
+                      val titleColor =
+                        if (selectedTabIndex == index) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                      Text(tabTitle, color = titleColor)
+                    },
+                  )
+                }
+              }
             }
-          ) {
-            Text(okBtnLabel)
+
+            // Content tab (scrollable inside weight(1f)).
+            val isBasicTab = hasTtsTab && selectedTabIndex == 0
+            val isModelConfigsTab =
+              (!hasTtsTab && selectedTabIndex == 0) || (hasTtsTab && selectedTabIndex == 1)
+            val isSystemPromptTab =
+              (hasTtsTab && selectedTabIndex == 2) || (!hasTtsTab && selectedTabIndex == 1)
+
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+              if (isBasicTab) {
+                BasicModelSettingsPanel(
+                  manager = resolvedSupplementaryManager,
+                  modifier = Modifier.fillMaxSize(),
+                  currentModelName = currentModelName,
+                  availableModelNames = availableModelNames,
+                  onSelectModelName = onSelectModelName,
+                  showAutoPlayToggle = showAutoPlayToggle,
+                )
+              } else if (isModelConfigsTab) {
+                Column(
+                  modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                  verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                  ConfigEditorsPanel(configs = configs, values = values)
+                }
+              } else if (isSystemPromptTab) {
+                OutlinedTextField(
+                  value = systemPrompt,
+                  modifier = Modifier.fillMaxSize(),
+                  textStyle = MaterialTheme.typography.bodySmall,
+                  onValueChange = { systemPrompt = it },
+                  placeholder = {
+                    Text(
+                      text = stringResource(R.string.system_prompt_placeholder),
+                      modifier = Modifier.offset(y = (4).dp),
+                      style = MaterialTheme.typography.bodySmall,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    )
+                  },
+                )
+              }
+            }
+
+            // Footer action bar: Restore default on the left, Cancel and OK on the right.
+            Row(
+              modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              OutlinedButton(
+                onClick = {
+                  if (isBasicTab) {
+                    resolvedSupplementaryManager.setSelectedTtsModelID(
+                      TtsModelIdentifier.ANDROID_NATIVE
+                    )
+                    resolvedSupplementaryManager.setSelectedTtsVoice("System Default")
+                    resolvedSupplementaryManager.setSelectedAsrModelID(
+                      SupplementaryModelManager.ASR_SYSTEM_DEFAULT
+                    )
+                    resolvedSupplementaryManager.setAutoPlayTts(false)
+                  } else if (isModelConfigsTab) {
+                    for (config in configs) {
+                      values[config.key.label] = config.defaultValue
+                    }
+                  } else if (isSystemPromptTab) {
+                    systemPrompt = defaultSystemPrompt
+                  }
+                },
+                contentPadding = SMALL_BUTTON_CONTENT_PADDING,
+              ) {
+                Text(stringResource(R.string.restore_default))
+              }
+
+              Row(
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+              ) {
+                if (showCancel) {
+                  TextButton(onClick = onDismissed) { Text(stringResource(R.string.cancel)) }
+                  Spacer(modifier = Modifier.width(8.dp))
+                }
+                Button(
+                  onClick = {
+                    Log.d(TAG, "Values from dialog: $values")
+                    onOk(values.toMap(), savedSystemPrompt, systemPrompt)
+                  }
+                ) {
+                  Text(okBtnLabel)
+                }
+              }
+            }
           }
         }
       }

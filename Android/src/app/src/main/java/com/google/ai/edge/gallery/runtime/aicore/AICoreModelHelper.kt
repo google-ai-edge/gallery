@@ -344,6 +344,7 @@ object AICoreModelHelper : LlmModelHelper {
       val flow = instance.generativeModel.generateContentStream(request)
 
       var fullResponse = ""
+      var doneEmitted = false
       flow.collect { response ->
         val candidate = response.candidates.firstOrNull()
         val text = candidate?.text ?: ""
@@ -352,6 +353,7 @@ object AICoreModelHelper : LlmModelHelper {
         val isDone = candidate?.finishReason != null
 
         if (isDone) {
+          doneEmitted = true
           instance.chatHistory.add(AICoreChatMessage(isUser = true, text = input))
           instance.chatHistory.add(AICoreChatMessage(isUser = false, text = fullResponse))
           resultListener(text, true, null)
@@ -359,9 +361,14 @@ object AICoreModelHelper : LlmModelHelper {
           resultListener(text, false, null)
         }
       }
+      if (!doneEmitted) {
+        instance.chatHistory.add(AICoreChatMessage(isUser = true, text = input))
+        instance.chatHistory.add(AICoreChatMessage(isUser = false, text = fullResponse))
+        resultListener("", true, null)
+      }
     } catch (e: CancellationException) {
       Log.i(TAG, "The inference is cancelled.")
-      // Skip invoking resultListener to avoid ambiguous cancellation state
+      resultListener("", true, null)
     } catch (e: Exception) {
       Log.e(TAG, "onError", e)
       onError("Error: ${e.message}")
