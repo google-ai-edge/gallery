@@ -52,10 +52,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -63,6 +65,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -81,6 +84,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.google.ai.edge.gallery.R
@@ -269,80 +273,81 @@ fun GlobalModelManager(
       }
     },
   ) { innerPadding ->
-    Box() {
-      LazyColumn(
-        modifier =
-          Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(top = innerPadding.calculateTopPadding()),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding =
-          PaddingValues(top = 16.dp, bottom = innerPadding.calculateBottomPadding() + 80.dp),
-      ) {
-        items(builtInModels) { model ->
-          val expanded = modelItemExpandedStates.getOrDefault(model.name, true)
-          ModelItem(
-            model = model,
-            modelVariants = modelVariants.getOrDefault(model.name, listOf()),
-            task = null,
-            modelManagerViewModel = viewModel,
-            onModelClicked = handleClickModel,
-            onBenchmarkClicked = onBenchmarkClicked,
-            expanded = expanded,
-            isBenchmarkSupported = model.supportModelBenchmark,
-            showBenchmarkActionButton = true,
-            onExpanded = { modelItemExpandedStates[model.name] = it },
-            tosViewModel = tosViewModel,
-          )
-        }
 
-        // Imported models.
-        if (importedModels.isNotEmpty()) {
-          item(key = "imported_models_label") {
-            Text(
-              stringResource(R.string.model_list_imported_models_title),
-              color = MaterialTheme.colorScheme.onSurface,
-              style = MaterialTheme.typography.labelLarge,
-              modifier =
-                Modifier.semantics { heading() }
-                  .padding(horizontal = 16.dp)
-                  .padding(top = 32.dp, bottom = 8.dp),
-            )
-          }
-        }
-        items(importedModels, key = { it.name }) { model ->
-          ModelItem(
-            model = model,
-            task = null,
-            modelManagerViewModel = viewModel,
-            onModelClicked = handleClickModel,
-            onBenchmarkClicked = onBenchmarkClicked,
-            expanded = true,
-            isBenchmarkSupported = model.supportModelBenchmark,
-            showBenchmarkActionButton = true,
-            tosViewModel = tosViewModel,
-          )
-        }
-      }
+    Column(modifier = Modifier.fillMaxWidth().padding(top = innerPadding.calculateTopPadding())) {
 
-      SnackbarHost(
-        hostState = snackbarHostState,
-        modifier = Modifier.align(alignment = Alignment.BottomCenter).padding(bottom = 32.dp),
-      )
-
-      // Gradient overlay at the bottom.
-      Box(
-        modifier =
-          Modifier.fillMaxWidth()
-            .height(innerPadding.calculateBottomPadding())
-            .background(
-              Brush.verticalGradient(
-                colors = listOf(Color.Transparent, MaterialTheme.colorScheme.surfaceContainer)
+      Box(modifier = Modifier.weight(1f)) {
+          LazyColumn(
+            modifier =
+              Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding =
+              PaddingValues(top = 16.dp, bottom = innerPadding.calculateBottomPadding() + 80.dp),
+          ) {
+            items(builtInModels) { model ->
+              val expanded = modelItemExpandedStates.getOrDefault(model.name, true)
+              ModelItem(
+                model = model,
+                modelVariants = modelVariants.getOrDefault(model.name, listOf()),
+                task = null,
+                modelManagerViewModel = viewModel,
+                onModelClicked = handleClickModel,
+                onBenchmarkClicked = onBenchmarkClicked,
+                expanded = expanded,
+                isBenchmarkSupported = model.supportModelBenchmark,
+                showBenchmarkActionButton = true,
+                onExpanded = { modelItemExpandedStates[model.name] = it },
+                tosViewModel = tosViewModel,
               )
-            )
-            .align(Alignment.BottomCenter)
-      )
+            }
+
+            // Imported models.
+            if (importedModels.isNotEmpty()) {
+              item(key = "imported_models_label") {
+                Text(
+                  stringResource(R.string.model_list_imported_models_title),
+                  color = MaterialTheme.colorScheme.onSurface,
+                  style = MaterialTheme.typography.labelLarge,
+                  modifier =
+                    Modifier.padding(horizontal = 16.dp).padding(top = 32.dp, bottom = 8.dp),
+                )
+              }
+            }
+            items(importedModels, key = { it.name }) { model ->
+              ModelItem(
+                model = model,
+                task = null,
+                modelManagerViewModel = viewModel,
+                onModelClicked = handleClickModel,
+                onBenchmarkClicked = onBenchmarkClicked,
+                expanded = true,
+                isBenchmarkSupported = model.supportModelBenchmark,
+                showBenchmarkActionButton = true,
+                tosViewModel = tosViewModel,
+              )
+            }
+          }
+
+        SnackbarHost(
+          hostState = snackbarHostState,
+          modifier = Modifier.align(alignment = Alignment.BottomCenter).padding(bottom = 32.dp),
+        )
+
+        // Gradient overlay at the bottom.
+        Box(
+          modifier =
+            Modifier.fillMaxWidth()
+              .height(innerPadding.calculateBottomPadding())
+              .background(
+                Brush.verticalGradient(
+                  colors = listOf(Color.Transparent, MaterialTheme.colorScheme.surfaceContainer)
+                )
+              )
+              .align(Alignment.BottomCenter)
+        )
+      }
     }
   }
 
