@@ -21,6 +21,7 @@ package com.google.ai.edge.gallery.ui.common
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.util.Log
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -49,6 +50,8 @@ import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -91,6 +94,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BooleanSwitchConfig
 import com.google.ai.edge.gallery.data.BottomSheetSelectorConfig
@@ -140,6 +144,15 @@ fun ConfigDialog(
   val savedSystemPrompt = remember { curSystemPrompt }
   var systemPrompt by remember { mutableStateOf(curSystemPrompt) }
 
+  val tabTitles =
+    remember(showSystemPromptEditorTab) {
+      val list = mutableListOf("Model configs")
+      if (showSystemPromptEditorTab) {
+        list.add("System prompt")
+      }
+      list
+    }
+
   Dialog(onDismissRequest = onDismissed) {
     val focusManager = LocalFocusManager.current
     Card(
@@ -177,29 +190,26 @@ fun ConfigDialog(
         }
 
         // Tab.
-        if (showSystemPromptEditorTab) {
+        if (tabTitles.size > 1) {
           PrimaryTabRow(selectedTabIndex = selectedTabIndex, containerColor = Color.Transparent) {
-            TABS.forEachIndexed { index, tab ->
+            tabTitles.forEachIndexed { index, tabTitle ->
               Tab(
                 selected = selectedTabIndex == index,
                 onClick = { selectedTabIndex = index },
                 text = {
-                  Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                  ) {
-                    val titleColor =
-                      if (selectedTabIndex == index) MaterialTheme.colorScheme.primary
-                      else MaterialTheme.colorScheme.onSurfaceVariant
-                    Text(stringResource(tab.labelResId), color = titleColor)
-                  }
+                  val titleColor =
+                    if (selectedTabIndex == index) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                  Text(tabTitle, color = titleColor)
                 },
               )
             }
           }
         }
 
-        if (selectedTabIndex == 0) {
+          val isModelConfigsTab = selectedTabIndex == 0
+          val isSystemPromptTab = selectedTabIndex == 1
+          if (isModelConfigsTab) {
           // List of config rows.
           Column(
             modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
@@ -207,7 +217,7 @@ fun ConfigDialog(
           ) {
             ConfigEditorsPanel(configs = configs, values = values)
           }
-        } else if (selectedTabIndex == 1) {
+        } else if (isSystemPromptTab) {
           OutlinedTextField(
             value = systemPrompt,
             modifier = Modifier.weight(1f, fill = false),
@@ -225,7 +235,7 @@ fun ConfigDialog(
         }
 
         // Button row(s).
-        if (showSystemPromptEditorTab && selectedTabIndex == 1) {
+        if (isSystemPromptTab) {
           Row(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             horizontalArrangement = Arrangement.Start,
