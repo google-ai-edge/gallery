@@ -23,7 +23,20 @@ enum class ModelDownloadStatusType {
   UNZIPPING,
   SUCCEEDED,
   FAILED,
+  UNAVAILABLE,
 }
+
+/** Reason why a model is unavailable on the current device or environment. */
+enum class ModelUnavailabilityReason {
+  UNSUPPORTED_HARDWARE_TENSOR_G3,
+  SPEECH_SERVICES_OUTDATED_OR_MISSING,
+  AICORE_UNAVAILABLE,
+  MISSING_RESOURCE_PROVIDER,
+  UNSUPPORTED_MODEL,
+}
+
+/** Structured unavailability metadata for a model with [ModelDownloadStatusType.UNAVAILABLE]. */
+data class ModelUnavailability(val reason: ModelUnavailabilityReason, val guideUrl: String? = null)
 
 data class ModelDownloadStatus(
   val status: ModelDownloadStatusType,
@@ -34,4 +47,5 @@ data class ModelDownloadStatus(
   val remainingMs: Long = 0,
   val isUpdatable: Boolean = false,
   val installedModelFile: ModelFile? = null,
+  val unavailability: ModelUnavailability? = null,
 )
