@@ -155,7 +155,7 @@ fun ModelNameAndStatus(
     )
 
     // Status icon + size + download progress details.
-    if (!model.isAiCore && showModelSizeAndDownloadProgressLabel) {
+    if (!model.autoDownloadsOnStartup && showModelSizeAndDownloadProgressLabel) {
       ModelStatusDetails(
         model = model,
         task = task,
@@ -212,7 +212,9 @@ fun ModelStatusDetails(
     if (downloadStatus != null && downloadStatus.status == ModelDownloadStatusType.FAILED) {
       Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-          downloadStatus.errorMessage,
+          downloadStatus.errorMessage.ifEmpty {
+            stringResource(R.string.model_download_failed_status)
+          },
           color = MaterialTheme.colorScheme.error,
           style = labelSmallNarrow,
           overflow = TextOverflow.Ellipsis,
@@ -230,31 +232,39 @@ fun ModelStatusDetails(
       if (downloadStatus != null) {
         // For in-progress model, show {receivedSize} / {totalSize} - {rate} - {remainingTime}
         if (inProgress || isPartiallyDownloaded) {
-          var totalSize = downloadStatus.totalBytes
-          if (totalSize == 0L) {
-            totalSize = model.downloadInfo.totalBytes
-          }
-          sizeLabel =
-            "${downloadStatus.receivedBytes.humanReadableSize(extraDecimalForGbAndAbove = true)} of ${totalSize.humanReadableSize()}"
-          if (downloadStatus.bytesPerSecond > 0) {
-            sizeLabel = "$sizeLabel · ${downloadStatus.bytesPerSecond.humanReadableSize()} / s"
-            // if (downloadStatus.remainingMs >= 0) {
-            //   sizeLabel =
-            //     "$sizeLabel\n${downloadStatus.remainingMs.formatToHourMinSecond()} left"
-            // }
-          }
-          if (isPartiallyDownloaded) {
-            sizeLabel = "$sizeLabel (resuming...)"
-          }
-          curDownloadProgress =
-            downloadStatus.receivedBytes.toFloat() / downloadStatus.totalBytes.toFloat()
-          if (curDownloadProgress.isNaN()) {
-            curDownloadProgress = 0f
+          if (!model.downloadsViaRepository && downloadStatus.totalBytes == 0L) {
+            sizeLabel = stringResource(R.string.cd_downloading_icon)
+          } else {
+            var totalSize = downloadStatus.totalBytes
+            if (totalSize == 0L) {
+              totalSize = model.downloadInfo.totalBytes
+            }
+            sizeLabel =
+              "${downloadStatus.receivedBytes.humanReadableSize(extraDecimalForGbAndAbove = true)} of ${totalSize.humanReadableSize()}"
+            if (downloadStatus.bytesPerSecond > 0) {
+              sizeLabel = "$sizeLabel · ${downloadStatus.bytesPerSecond.humanReadableSize()} / s"
+              // if (downloadStatus.remainingMs >= 0) {
+              //   sizeLabel =
+              //     "$sizeLabel\n${downloadStatus.remainingMs.formatToHourMinSecond()} left"
+              // }
+            }
+            if (isPartiallyDownloaded) {
+              sizeLabel = "$sizeLabel (resuming...)"
+            }
+            curDownloadProgress =
+              downloadStatus.receivedBytes.toFloat() / downloadStatus.totalBytes.toFloat()
+            if (!curDownloadProgress.isFinite()) {
+              curDownloadProgress = 0f
+            }
           }
         }
         // Status for unzipping.
         else if (downloadStatus.status == ModelDownloadStatusType.UNZIPPING) {
           sizeLabel = "Unzipping..."
+        }
+        // Status for unavailable model.
+        else if (downloadStatus.status == ModelDownloadStatusType.UNAVAILABLE) {
+          sizeLabel = stringResource(R.string.model_unavailable_status)
         }
       }
 
