@@ -21,6 +21,7 @@ import android.util.Log
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.agent.sessions.SessionConfig
 import com.google.ai.edge.gallery.agent.sessions.generateSessionId
+import com.google.ai.edge.gallery.apiserver.ApiServerSessionHold
 import com.google.ai.edge.gallery.runtime.runtimeHelper
 import com.google.ai.edge.gallery.skills.SkillsProvider
 import com.google.ai.edge.gallery.tools.ToolDispatcher
@@ -56,6 +57,7 @@ open class DefaultAgentRuntimeExecutor(
   val toolsProvider: ToolsProvider,
   val toolDispatcher: ToolDispatcher,
   val llmSessionManager: LlmSessionManager,
+  val apiServerSessionHold: ApiServerSessionHold,
 ) : AgentRuntimeExecutor {
 
   /** Active session state for the current conversation. */
@@ -69,6 +71,12 @@ open class DefaultAgentRuntimeExecutor(
 
   override val activeSessionId: String?
     get() = llmSessionManager.activeSessionId
+
+  override val activeModelInfo: ActiveModelInfo?
+    get() =
+      activeSession.get()?.sessionConfig?.let {
+        ActiveModelInfo(model = it.model, taskId = it.taskId, supportImage = it.supportImage)
+      }
 
   override suspend fun initialize(
     context: Context,
@@ -275,13 +283,19 @@ open class DefaultAgentRuntimeExecutor(
   }
 
   override fun cleanUp(onDone: () -> Unit) {
-    val session = activeSession.getAndSet(null)
-    if (session == null) {
+    val session = activeSession.get()
+    if (session != null && apiServerSessionHold.heldModelName == session.sessionConfig.model.name) {
+      // The local API server still needs this model kept alive; skip teardown.
       onDone()
       return
     }
-    session.sessionConfig.model.runtimeHelper.cleanUp(
-      model = session.sessionConfig.model,
+    val cleared = activeSession.getAndSet(null)
+    if (cleared == null) {
+      onDone()
+      return
+    }
+    cleared.sessionConfig.model.runtimeHelper.cleanUp(
+      model = cleared.sessionConfig.model,
       onDone = onDone,
     )
   }

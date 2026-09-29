@@ -123,6 +123,11 @@
             tools:node="merge">
         </service>
 
+        <service
+            android:name="com.google.ai.edge.gallery.apiserver.LocalApiForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
         <!-- For Firebase Analytics. -->
         <receiver
             android:name="com.google.android.gms.measurement.AppMeasurementReceiver"

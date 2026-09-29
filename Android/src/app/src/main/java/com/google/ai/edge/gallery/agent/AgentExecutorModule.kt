@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.agent
 
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
+import com.google.ai.edge.gallery.apiserver.ApiServerSessionHold
 import com.google.ai.edge.gallery.skills.NoOpSkillsProvider
 import com.google.ai.edge.gallery.tools.RuntimeToolDispatcher
 import com.google.ai.edge.gallery.tools.RuntimeToolsProvider
@@ -32,12 +33,16 @@ internal object AgentExecutorModule {
   @Provides
   @Singleton
   @AiChatExecutor
-  fun provideAiChatExecutor(llmSessionManager: LlmSessionManager): AgentRuntimeExecutor {
+  fun provideAiChatExecutor(
+    llmSessionManager: LlmSessionManager,
+    apiServerSessionHold: ApiServerSessionHold,
+  ): AgentRuntimeExecutor {
     return DefaultAgentRuntimeExecutor(
       skillsProvider = NoOpSkillsProvider(),
       toolsProvider = RuntimeToolsProvider(),
       toolDispatcher = RuntimeToolDispatcher(),
       llmSessionManager = llmSessionManager,
+      apiServerSessionHold = apiServerSessionHold,
     )
   }
 
