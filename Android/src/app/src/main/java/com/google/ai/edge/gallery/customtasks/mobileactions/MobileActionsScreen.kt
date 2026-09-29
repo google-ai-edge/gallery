@@ -115,6 +115,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.resetInitialization
@@ -290,6 +291,8 @@ fun MainUi(
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val model = modelManagerUiState.selectedModel
+  val initStatus by model.initStatusFlow.collectAsState()
+  val isModelInitialized = initStatus is Model.InitializationStatus.Initialized
   val initialModelConfigValues = remember { model.configValues }
   val holdToDictateUiState by holdToDictateViewModel.uiState.collectAsState()
   val uiState by viewModel.uiState.collectAsState()
@@ -309,7 +312,7 @@ fun MainUi(
   val curDownloadStatus = modelManagerUiState.modelDownloadStatus[model.name]?.status
   setAppBarControlsDisabled(
     curDownloadStatus == ModelDownloadStatusType.SUCCEEDED &&
-      (!modelManagerUiState.isModelInitialized(model = model) || uiState.processing)
+      (!isModelInitialized || uiState.processing)
   )
 
   // Reset states on config changes.
@@ -324,7 +327,7 @@ fun MainUi(
   DisposableEffect(Unit) { onDispose { viewModel.cleanUp() } }
 
   // Show a loading indicator before the model is initialized.
-  if (!modelManagerUiState.isModelInitialized(model = model)) {
+  if (!isModelInitialized) {
     Row(
       modifier = Modifier.fillMaxSize(),
       verticalAlignment = Alignment.CenterVertically,

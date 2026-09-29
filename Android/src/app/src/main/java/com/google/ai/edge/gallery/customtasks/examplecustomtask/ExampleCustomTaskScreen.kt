@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.ConfigKey
+import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
@@ -113,6 +114,7 @@ fun ExampleCustomTaskScreen(
   val colors = listOf(MaterialTheme.colorScheme.onSurface, Color.Red, Color.Green, Color.Blue)
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val model = modelManagerUiState.selectedModel
+  val initStatus by model.initStatusFlow.collectAsState()
   val uiState by viewModel.uiState.collectAsState()
   val textColor = uiState.textColor
 
@@ -129,7 +131,9 @@ fun ExampleCustomTaskScreen(
   // Set initial text color.
   LaunchedEffect(Unit) { viewModel.updateTextColor(color = colors[0]) }
 
-  if (modelManagerUiState.isModelInitialized(model = model)) {
+  // Collect `initStatusFlow` (rather than reading its `.value`) so that this screen recomposes when
+  // the model finishes initializing.
+  if (initStatus is Model.InitializationStatus.Initialized) {
     val instance = model.instance as ExampleCustomTaskModelInstance
     Column {
       // A list of colors user can click to set the text color.
