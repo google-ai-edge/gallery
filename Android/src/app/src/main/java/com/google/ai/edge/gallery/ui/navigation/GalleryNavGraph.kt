@@ -92,6 +92,7 @@ private const val ROUTE_MODEL_LIST = "model_list"
 private const val ROUTE_MODEL = "route_model"
 private const val ROUTE_BENCHMARK = "benchmark"
 private const val ROUTE_MODEL_MANAGER = "model_manager"
+private const val ARG_IMPORT_URL = "import_url"
 private const val ROUTE_NOTIFICATIONS = "notifications"
 private const val ENTER_ANIMATION_DURATION_MS = 500
 private val ENTER_ANIMATION_EASING = EaseOutExpo
@@ -339,7 +340,15 @@ fun GalleryNavHost(
 
     // Global model manager page.
     composable(
-      route = ROUTE_MODEL_MANAGER,
+      route = "$ROUTE_MODEL_MANAGER?$ARG_IMPORT_URL={$ARG_IMPORT_URL}",
+      arguments =
+        listOf(
+          navArgument(ARG_IMPORT_URL) {
+            type = NavType.StringType
+            nullable = true
+            defaultValue = null
+          }
+        ),
       enterTransition = {
         if (
           initialState.destination.route?.startsWith(ROUTE_BENCHMARK) == true ||
@@ -361,9 +370,11 @@ fun GalleryNavHost(
         }
       },
     ) { backStackEntry ->
+      val importUrl = backStackEntry.arguments?.getString(ARG_IMPORT_URL)
       GlobalModelManager(
         viewModel = modelManagerViewModel,
         tosViewModel = tosViewModel,
+        initialImportUrl = importUrl,
         navigateUp = {
           enableHomeScreenAnimation = false
           navController.navigateUp()
@@ -438,8 +449,10 @@ fun GalleryNavHost(
       } else {
         Log.e(TAG, "Malformed deep link URI received: $data")
       }
-    } else if (uriStr == "com.google.ai.edge.gallery://global_model_manager") {
-      navController.navigate(ROUTE_MODEL_MANAGER)
+    } else if (data.host == "global_model_manager" || data.host == "import") {
+      val route =
+          ROUTE_MODEL_MANAGER
+      navController.navigate(route)
     } else {
       // 2. Dynamic task-level deep links: com.google.ai.edge.gallery://<taskId>
       val host = data.host

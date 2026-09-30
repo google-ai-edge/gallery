@@ -211,7 +211,7 @@ constructor(
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   open val uiState = _uiState.asStateFlow()
 
-  fun fetchModelDetails(modelId: String, onResult: (HfModelItemProto?) -> Unit) {
+  open fun fetchModelDetails(modelId: String, onResult: (HfModelItemProto?) -> Unit) {
     viewModelScope.launch {
       try {
         val token = getTokenStatusAndData().data?.accessToken
