@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.customtasks.agentchat
 
 import android.os.Bundle
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import androidx.datastore.core.DataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -35,9 +36,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.sse.SSE
-import io.modelcontextprotocol.kotlin.sdk.Implementation
 import io.modelcontextprotocol.kotlin.sdk.client.Client
 import io.modelcontextprotocol.kotlin.sdk.client.StreamableHttpClientTransport
+import io.modelcontextprotocol.kotlin.sdk.types.Implementation
+import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -49,6 +51,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val TAG = "AGMcpManagerVM"
+
+/** Builds the JSON schema stored for an MCP tool. It always has `properties` and `required`. */
+@VisibleForTesting
+internal fun toolInputSchemaJson(schema: ToolSchema): String {
+  // A tool with no arguments may omit `properties`.
+  val propertiesJson = schema.properties?.toString() ?: "{}"
+  val requiredJson =
+    schema.required?.joinToString(prefix = "[", postfix = "]") { "\"$it\"" } ?: "[]"
+  return """{"type":"object","properties":$propertiesJson,"required":$requiredJson}"""
+}
 
 data class McpManagerUiState(
   val mcpServers: List<McpServerState> = emptyList(),
@@ -426,22 +438,13 @@ constructor(
     client.connect(transport)
     val toolsResponse = client.listTools()
     val mcpTools =
-      toolsResponse?.tools.orEmpty().map { tool ->
+      toolsResponse.tools.map { tool ->
         val isEnabled = savedToolsMap?.get(tool.name) ?: true
         val isAlwaysAllow = savedAlwaysAllowMap?.get(tool.name) ?: false
-        // Manually build a valid JSON schema string using public SDK object properties.
-        // This avoids restricted library visibility constraints while ensuring robust JSON
-        // formatting
-        // for cached tools and UI rendering.
-        val propertiesJson = tool.inputSchema.properties.toString()
-        val requiredJson =
-          tool.inputSchema.required?.joinToString(prefix = "[", postfix = "]") { "\"$it\"" } ?: "[]"
-        val schemaJson =
-          """{"type":"object","properties":$propertiesJson,"required":$requiredJson}"""
         McpTool.newBuilder()
           .setName(tool.name)
           .setDescription(tool.description ?: "")
-          .setInputSchema(schemaJson)
+          .setInputSchema(toolInputSchemaJson(tool.inputSchema))
           .setEnabled(isEnabled)
           .setAlwaysAllow(isAlwaysAllow)
           .build()

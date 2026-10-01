@@ -16,8 +16,6 @@
 
 package com.google.ai.edge.gallery.tools
 
-import io.modelcontextprotocol.kotlin.sdk.types.CallToolRequestParams
-
 import android.os.Bundle
 import android.util.Log
 import com.google.ai.edge.gallery.GalleryEvent
@@ -27,8 +25,9 @@ import com.google.ai.edge.gallery.mcp.McpServersProvider
 import com.google.ai.edge.gallery.skills.SkillsProvider
 import com.google.ai.edge.litertlm.Tool
 import com.google.ai.edge.litertlm.ToolParam
-import io.modelcontextprotocol.kotlin.sdk.CallToolRequest
-import io.modelcontextprotocol.kotlin.sdk.TextContent
+import io.modelcontextprotocol.kotlin.sdk.types.CallToolRequest
+import io.modelcontextprotocol.kotlin.sdk.types.CallToolRequestParams
+import io.modelcontextprotocol.kotlin.sdk.types.TextContent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 
@@ -104,32 +103,16 @@ class RunMcpTool(
         // `input` is written by the model and is often not valid JSON. Call the tool with no
         // arguments in that case rather than failing the call outright.
         val result =
-        client.callTool(
-          request = CallToolRequest(
-            CallToolRequestParams(
-              name = toolName,
-              arguments = convertStringToJsonObject(input)
-            )
-          )
-        )
-
-        if (result == null) {
-          Log.d(TAG, "Tool execution returned null result")
-          executionContext
-            ?.actionChannel
-            ?.send(
-              SkillProgressToolAction(
-                label = "Failed to call MCP tool \"$toolName\"",
-                inProgress = false,
+          client.callTool(
+            request =
+              CallToolRequest(
+                CallToolRequestParams(name = toolName, arguments = convertStringToJsonObject(input))
               )
-            )
-          logMcpExecution(success = false, errorType = "null_result")
-          return@runBlocking mapOf("error" to "Null result", "status" to "failed")
-        }
+          )
 
         if (result.isError == true) {
           val errorText =
-            result.content.filterIsInstance<TextContent>().joinToString("\n") { it.text ?: "" }
+            result.content.filterIsInstance<TextContent>().joinToString("\n") { it.text }
           Log.e(TAG, "MCP tool \"$toolName\" failed: $errorText")
           executionContext
             ?.actionChannel
@@ -145,7 +128,7 @@ class RunMcpTool(
           return@runBlocking mapOf("error" to errorText, "status" to "failed")
         } else {
           val successText =
-            result.content.filterIsInstance<TextContent>().joinToString("\n") { it.text ?: "" }
+            result.content.filterIsInstance<TextContent>().joinToString("\n") { it.text }
           Log.d(TAG, "MCP tool \"$toolName\" succeeded:\n$successText")
           executionContext
             ?.actionChannel
