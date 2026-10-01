@@ -48,6 +48,8 @@ enum class GalleryEvent(val id: String) {
   MODEL_CONFIG_CHANGE(id = "model_config_change"),
   MODEL_INITIALIZE(id = "model_initialize"),
   INFERENCE_METRICS(id = "inference_metrics"),
+  CONTEXT_COMPRESSION(id = "context_compression"),
+  AUTO_COMPACTION_ENABLE(id = "auto_compaction_enable"),
 }
 
 /** Strongly typed Firebase Analytics parameter keys for inference and model lifecycle telemetry. */

@@ -471,6 +471,25 @@ fun BooleanSwitchRow(config: BooleanSwitchConfig, values: SnapshotStateMap<Strin
     }
   Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
     Text(stringResource(config.key.labelRes), style = MaterialTheme.typography.titleSmall)
+    val descriptionRes = config.descriptionRes
+    when {
+      descriptionRes != null -> {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          stringResource(descriptionRes),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+      config.description.isNotEmpty() -> {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          config.description,
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+    }
     Switch(checked = switchValue, onCheckedChange = { values[config.key.label] = it })
   }
 }

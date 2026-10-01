@@ -39,6 +39,7 @@ import com.google.ai.edge.gallery.data.markInitialized
 import com.google.ai.edge.gallery.data.resetInitialization
 import com.google.ai.edge.gallery.data.supportModelBenchmark
 import com.google.ai.edge.gallery.runtime.CleanUpListener
+import com.google.ai.edge.gallery.runtime.LlmConversationInstance
 import com.google.ai.edge.gallery.runtime.LlmModelHelper
 import com.google.ai.edge.gallery.runtime.ResultListener
 import com.google.ai.edge.litertlm.Backend
@@ -78,7 +79,12 @@ data class LlmModelInstance(
   val engine: Engine,
   var conversation: Conversation,
   val metricsTracker: MetricsTracker? = null,
-)
+) : LlmConversationInstance {
+  override fun getTokenCount(): Int =
+  0
+
+  override fun sendMessage(prompt: String): Message = conversation.sendMessage(prompt)
+}
 
 object LlmChatModelHelper : LlmModelHelper {
   // Indexed by model name.
@@ -239,8 +245,11 @@ object LlmChatModelHelper : LlmModelHelper {
       Log.d(TAG, "Resetting conversation for model '${model.name}'")
 
       val instance = model.instance as LlmModelInstance? ?: return
-      instance.conversation.close()
-
+      try {
+        instance.conversation.close()
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to close previous conversation: ${e.message}", e)
+      }
       val engine = instance.engine
       val topK = model.getIntConfigValue(key = ConfigKeys.TOPK, defaultValue = DEFAULT_TOPK)
       val topP = model.getFloatConfigValue(key = ConfigKeys.TOPP, defaultValue = DEFAULT_TOPP)

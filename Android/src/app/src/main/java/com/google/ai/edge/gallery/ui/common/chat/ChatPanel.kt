@@ -104,6 +104,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
+import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.AudioAnimation
@@ -149,6 +150,7 @@ fun ChatPanel(
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
   emptyStateComposable: @Composable (Model) -> Unit = {},
+  onNewChatClicked: () -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -678,6 +680,51 @@ fun ChatPanel(
       val modelNotSupportImageMsg = stringResource(R.string.model_not_support_image_message)
       val modelNotSupportAudioMsg = stringResource(R.string.model_not_support_audio_message)
       val imageLimitIgnoredMsg = stringResource(R.string.image_limit_ignored_message)
+      val contextCompactionFailedMsg = stringResource(R.string.context_compaction_failed_message)
+
+      val contextCompactEnabled = Config.isContextCompactEnabled()
+      val contextCompactionStatus =
+        if (contextCompactEnabled) {
+          uiState.contextCompactionStatusByModel[selectedModel.name] ?: ContextCompactionStatus.IDLE
+        } else {
+          ContextCompactionStatus.IDLE
+        }
+      val isContextLimitReached =
+        contextCompactEnabled &&
+          (contextCompactionStatus == ContextCompactionStatus.TOKEN_LIMIT_REACHED ||
+            contextCompactionStatus == ContextCompactionStatus.COMPACTING)
+
+      if (contextCompactEnabled) {
+        val isAutoCompactEnabled =
+          uiState.autoCompactByModel[selectedModel.name]
+            ?: viewModel.isAutoCompactEnabled(selectedModel)
+
+        ContextCompactionBanner(
+          status = contextCompactionStatus,
+          initialDefaultToBehavior = isAutoCompactEnabled,
+          onDefaultToBehaviorChanged = { defaultToBehavior ->
+            viewModel.setAutoCompact(selectedModel, defaultToBehavior)
+            modelManagerViewModel.updateConfigValuesUpdateTrigger()
+          },
+          onCompressClicked = { defaultToBehavior ->
+            viewModel.setAutoCompact(selectedModel, defaultToBehavior)
+            modelManagerViewModel.updateConfigValuesUpdateTrigger()
+            viewModel.compactContext(
+              model = selectedModel,
+              taskId = task.id,
+              triggerType = ContextCompactionTriggerType.MANUAL,
+              onError = { customErrorMessage = contextCompactionFailedMsg },
+            )
+          },
+          onNewChatClicked = {
+            viewModel.setContextCompactionStatus(selectedModel, ContextCompactionStatus.IDLE)
+            onNewChatClicked()
+          },
+          onDismissClicked = {
+            viewModel.setContextCompactionStatus(selectedModel, ContextCompactionStatus.IDLE)
+          },
+        )
+      }
 
       MessageInputText(
         task = task,
@@ -728,6 +775,7 @@ fun ChatPanel(
         showImagePicker = showImagePicker,
         showAudioPicker = showAudioPicker,
         showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
+        isContextLimitReached = isContextLimitReached,
         onImageLimitExceeded = { showImageLimitBanner = true },
         onImagesIgnored = {
           scope.launch {

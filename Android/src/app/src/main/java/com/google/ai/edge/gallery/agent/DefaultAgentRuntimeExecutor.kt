@@ -96,8 +96,6 @@ open class DefaultAgentRuntimeExecutor(
       ActiveSession(sessionConfig = sessionConfig, toolExecutionContext = executionContext)
     )
 
-    llmSessionManager.activeSessionId = effectiveSessionId
-
     toolDispatcher.setupExecutionContext(
       tools = toolsProvider.getAvailableTools(),
       context = executionContext,
@@ -115,14 +113,12 @@ open class DefaultAgentRuntimeExecutor(
       enableConversationConstrainedDecoding = config.enableConversationConstrainedDecoding,
     )
 
-    if (config.initialMessages.isNotEmpty()) {
-      llmSessionManager.resetSession(
-        sessionId = effectiveSessionId,
-        config = sessionConfig,
-        initialMessages = config.initialMessages,
-        enableConversationConstrainedDecoding = config.enableConversationConstrainedDecoding,
-      )
-    }
+    llmSessionManager.resetSession(
+      sessionId = effectiveSessionId,
+      config = sessionConfig,
+      initialMessages = config.initialMessages,
+      enableConversationConstrainedDecoding = config.enableConversationConstrainedDecoding,
+    )
   }
 
   private fun ProducerScope<AgentEvent>.emitEvent(event: AgentEvent) {
@@ -153,8 +149,7 @@ open class DefaultAgentRuntimeExecutor(
       (request.metadata[AgentRequest.LITERTLM_EXTRA_CONTEXT] as? Map<*, *>)
         ?.entries
         ?.mapNotNull { (k, v) -> if (k is String && v is String) k to v else null }
-        ?.toMap()
-        ?.ifEmpty { null }
+        ?.toMap() ?: emptyMap()
     val sessionId =
       (request.metadata[AgentRequest.SESSION_ID] as? String)
         ?: llmSessionManager.activeSessionId
@@ -191,6 +186,11 @@ open class DefaultAgentRuntimeExecutor(
       Unit
     }
 
+    val onCompactionStart = { emitEvent(AgentEvent.ContextCompactionStarted) }
+    val onCompactionFinished = { success: Boolean ->
+      emitEvent(AgentEvent.ContextCompactionFinished(success = success))
+    }
+
     llmSessionManager.generateResponse(
       sessionId = sessionId,
       model = curModel,
@@ -198,6 +198,8 @@ open class DefaultAgentRuntimeExecutor(
       resultListener = resultListener,
       cleanUpListener = cleanUpListener,
       onError = onError,
+      onCompactionStart = onCompactionStart,
+      onCompactionFinished = onCompactionFinished,
       images = images,
       audioClips = audioClips,
       extraContext = extraContext,

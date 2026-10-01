@@ -44,6 +44,8 @@ fun generateSessionId(): String = UUID.randomUUID().toString()
  * @property supportAudio Whether audio input is enabled for this session.
  * @property systemInstruction Optional system instruction prompt prefix.
  * @property tools List of tool providers available to the model.
+ * @property enableConversationConstrainedDecoding Whether conversation constrained decoding is
+ *   enabled for this session.
  */
 data class SessionConfig(
   val model: Model,
@@ -52,6 +54,7 @@ data class SessionConfig(
   val supportAudio: Boolean = false,
   val systemInstruction: Contents? = null,
   val tools: List<ToolProvider> = emptyList(),
+  val enableConversationConstrainedDecoding: Boolean = false,
 )
 
 /**
@@ -171,6 +174,10 @@ interface LlmSessionManager {
    *   channel output.
    * @param cleanUpListener Callback invoked when inference cleanup finishes.
    * @param onError Callback invoked upon an error during inference.
+   * @param onCompactionStart Callback invoked immediately when compaction is triggered, before
+   *   summarization and reset begin.
+   * @param onCompactionFinished Callback invoked when triggered compaction finishes, with `true` if
+   *   context was compacted and conversation reset, or `false` if compaction failed.
    * @param images Optional input images.
    * @param audioClips Optional input audio clips.
    * @param extraContext Optional key-value parameters for engine inference (e.g.
@@ -185,9 +192,11 @@ interface LlmSessionManager {
     resultListener: ResultListener,
     cleanUpListener: CleanUpListener = {},
     onError: (message: String) -> Unit = {},
+    onCompactionStart: () -> Unit = {},
+    onCompactionFinished: (Boolean) -> Unit = {},
     images: List<Bitmap> = emptyList(),
     audioClips: List<ByteArray> = emptyList(),
-    extraContext: Map<String, String>? = null,
+    extraContext: Map<String, String> = emptyMap(),
     messageIndex: Int? = null,
   )
 
@@ -212,4 +221,31 @@ interface LlmSessionManager {
     feedbackId: String,
     messageIndex: Int? = null,
   )
+
+  /**
+   * Checks the active conversation token budget against model limits and performs
+   * auto-summarization and conversation KV-cache reset if approaching token limits.
+   *
+   * @param sessionId The session identifier.
+   * @param model The model whose conversation context should be inspected and compacted.
+   * @param onCompactionStart Optional callback invoked immediately when compaction is triggered,
+   *   before summarization and reset begin.
+   * @param force Whether to force compaction regardless of token budget thresholds.
+   * @return True if context was compacted and conversation was reset, false otherwise.
+   */
+  suspend fun compactContextIfNeeded(
+    sessionId: String,
+    model: Model,
+    onCompactionStart: (() -> Unit)? = null,
+    force: Boolean = false,
+  ): Boolean
+
+  /**
+   * Checks whether the active conversation has reached or is approaching the model's token limit.
+   *
+   * @param sessionId The session identifier.
+   * @param model The target model instance.
+   * @return True if the token limit is reached, false otherwise.
+   */
+  fun isTokenLimitReached(sessionId: String, model: Model): Boolean = false
 }

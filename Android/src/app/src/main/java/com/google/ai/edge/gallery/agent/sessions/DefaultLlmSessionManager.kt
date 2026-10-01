@@ -20,6 +20,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import com.google.ai.edge.gallery.data.ChatSessionRepository
+import com.google.ai.edge.gallery.data.Config
+import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.awaitInitialization
 import com.google.ai.edge.gallery.di.IoDispatcher
@@ -35,8 +37,11 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 private const val TAG = "AGDefaultLlmSessionMgr"
@@ -63,11 +68,17 @@ class DefaultLlmSessionManager
 constructor(
   @ApplicationContext private val context: Context,
   private val chatSessionRepository: ChatSessionRepository,
+  private val contextCompactor: ContextCompactor? = null,
   @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : LlmSessionManager {
 
   private val feedbackLinks = ConcurrentHashMap<String, MutableList<SessionFeedbackLink>>()
+  private val sessionConfigs = ConcurrentHashMap<String, SessionConfig>()
+  private val sessionMutexes = ConcurrentHashMap<String, Mutex>()
   private val activeSessionIdRef = AtomicReference<String?>(generateSessionId())
+
+  private fun sessionMutex(sessionId: String): Mutex =
+    sessionMutexes.getOrPut(sessionId) { Mutex() }
 
   override var activeSessionId: String?
     get() = activeSessionIdRef.get()
@@ -80,6 +91,8 @@ constructor(
   private suspend fun ensureModelInitialized(model: Model, operation: String) {
     try {
       model.awaitInitialization()
+    } catch (e: CancellationException) {
+      throw e
     } catch (e: Exception) {
       Log.e(TAG, "Model initialization await failed for $operation: ${e.message}", e)
       throw e
@@ -89,29 +102,32 @@ constructor(
   override suspend fun createSession(config: SessionConfig): String =
     withContext(ioDispatcher) {
       val sessionId = generateSessionId()
-      activeSessionIdRef.set(sessionId)
-      Log.d(
-        TAG,
-        "Creating new session $sessionId for model ${config.model.name} and task ${config.taskId}",
-      )
-
-      ensureModelInitialized(config.model, "createSession")
-
-      try {
-        config.model.runtimeHelper.resetConversation(
-          model = config.model,
-          supportImage = config.supportImage,
-          supportAudio = config.supportAudio,
-          systemInstruction = config.systemInstruction,
-          tools = config.tools,
-          initialMessages = emptyList(),
+      sessionMutex(sessionId).withLock {
+        activeSessionIdRef.set(sessionId)
+        Log.d(
+          TAG,
+          "Creating new session $sessionId for model ${config.model.name} and task ${config.taskId}",
         )
-      } catch (e: Exception) {
-        Log.e(TAG, "Error resetting conversation for new session: ${e.message}", e)
-        throw e
-      }
 
-      sessionId
+        ensureModelInitialized(config.model, "createSession")
+
+        try {
+          config.model.runtimeHelper.resetConversation(
+            model = config.model,
+            supportImage = config.supportImage,
+            supportAudio = config.supportAudio,
+            systemInstruction = config.systemInstruction,
+            tools = config.tools,
+            enableConversationConstrainedDecoding = config.enableConversationConstrainedDecoding,
+            initialMessages = emptyList(),
+          )
+        } catch (e: Exception) {
+          Log.e(TAG, "Error resetting conversation for new session: ${e.message}", e)
+          throw e
+        }
+        sessionConfigs[sessionId] = config
+        sessionId
+      }
     }
 
   override suspend fun loadSession(
@@ -119,31 +135,36 @@ constructor(
     config: SessionConfig,
   ): List<ChatMessageProto> =
     withContext(ioDispatcher) {
-      activeSessionIdRef.set(sessionId)
-      Log.d(TAG, "Loading session $sessionId for model ${config.model.name}")
-      val allSessions = chatSessionRepository.getAllChatSessions()
-      val session = allSessions.firstOrNull { it.sessionId == sessionId }
-      val history = session?.messagesList ?: emptyList()
+      sessionMutex(sessionId).withLock {
+        activeSessionIdRef.set(sessionId)
+        Log.d(TAG, "Loading session $sessionId for model ${config.model.name}")
+        val allSessions = chatSessionRepository.getAllChatSessions()
+        val session = allSessions.firstOrNull { it.sessionId == sessionId }
+        val history = session?.messagesList ?: emptyList()
 
-      val litertMessages = history.mapNotNull { protoToLitertMessage(it) }
+        val litertMessages = history.mapNotNull { protoToLitertMessage(it) }
 
-      ensureModelInitialized(config.model, "loadSession")
+        ensureModelInitialized(config.model, "loadSession")
 
-      try {
-        config.model.runtimeHelper.resetConversation(
-          model = config.model,
-          supportImage = config.supportImage,
-          supportAudio = config.supportAudio,
-          systemInstruction = config.systemInstruction,
-          tools = config.tools,
-          initialMessages = litertMessages,
-        )
-      } catch (e: Exception) {
-        Log.e(TAG, "Error resetting conversation on session load: ${e.message}", e)
-        throw e
+        try {
+          config.model.runtimeHelper.resetConversation(
+            model = config.model,
+            supportImage = config.supportImage,
+            supportAudio = config.supportAudio,
+            systemInstruction = config.systemInstruction,
+            tools = config.tools,
+            enableConversationConstrainedDecoding = config.enableConversationConstrainedDecoding,
+            initialMessages = litertMessages,
+          )
+        } catch (e: Exception) {
+          Log.e(TAG, "Error resetting conversation on session load: ${e.message}", e)
+          throw e
+        }
+
+        sessionConfigs[sessionId] = config
+
+        history
       }
-
-      history
     }
 
   override suspend fun resetSession(
@@ -153,24 +174,29 @@ constructor(
     enableConversationConstrainedDecoding: Boolean,
   ): Unit =
     withContext(ioDispatcher) {
-      activeSessionIdRef.set(sessionId)
-      Log.d(TAG, "Resetting session $sessionId on model ${config.model.name}")
+      sessionMutex(sessionId).withLock {
+        activeSessionIdRef.set(sessionId)
+        Log.d(TAG, "Resetting session $sessionId on model ${config.model.name}")
 
-      ensureModelInitialized(config.model, "resetSession")
+        ensureModelInitialized(config.model, "resetSession")
 
-      try {
-        config.model.runtimeHelper.resetConversation(
-          model = config.model,
-          supportImage = config.supportImage,
-          supportAudio = config.supportAudio,
-          systemInstruction = config.systemInstruction,
-          tools = config.tools,
-          enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
-          initialMessages = initialMessages,
-        )
-      } catch (e: Exception) {
-        Log.e(TAG, "Error resetting session: ${e.message}", e)
-        throw e
+        try {
+          config.model.runtimeHelper.resetConversation(
+            model = config.model,
+            supportImage = config.supportImage,
+            supportAudio = config.supportAudio,
+            systemInstruction = config.systemInstruction,
+            tools = config.tools,
+            enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+            initialMessages = initialMessages,
+          )
+        } catch (e: Exception) {
+          Log.e(TAG, "Error resetting session: ${e.message}", e)
+          throw e
+        }
+
+        sessionConfigs[sessionId] =
+          config.copy(enableConversationConstrainedDecoding = enableConversationConstrainedDecoding)
       }
     }
 
@@ -190,6 +216,8 @@ constructor(
     withContext(ioDispatcher) {
       activeSessionIdRef.compareAndSet(sessionId, generateSessionId())
       Log.d(TAG, "Deleting session $sessionId")
+      sessionConfigs.remove(sessionId)
+      sessionMutexes.remove(sessionId)
       chatSessionRepository.deleteChatSession(sessionId)
       feedbackLinks.remove(sessionId)
 
@@ -208,6 +236,8 @@ constructor(
       activeSessionIdRef.set(generateSessionId())
       Log.d(TAG, "Clearing all chat sessions")
       chatSessionRepository.clearAllChatSessions()
+      sessionConfigs.clear()
+      sessionMutexes.clear()
       feedbackLinks.clear()
 
       val files = context.cacheDir.listFiles()
@@ -260,16 +290,48 @@ constructor(
     resultListener: ResultListener,
     cleanUpListener: CleanUpListener,
     onError: (message: String) -> Unit,
+    onCompactionStart: () -> Unit,
+    onCompactionFinished: (Boolean) -> Unit,
     images: List<Bitmap>,
     audioClips: List<ByteArray>,
-    extraContext: Map<String, String>?,
+    extraContext: Map<String, String>,
     messageIndex: Int?,
   ) {
+    var compactionStarted = false
+    try {
+      val compacted =
+        compactContextIfNeeded(
+          sessionId = sessionId,
+          model = model,
+          onCompactionStart = {
+            compactionStarted = true
+            onCompactionStart()
+          },
+        )
+      if (compactionStarted) {
+        onCompactionFinished(compacted)
+      }
+      if (compacted) {
+        Log.d(TAG, "Context compacted before inference for session $sessionId")
+      } else {
+        Log.d(TAG, "Context compaction not needed before inference for session $sessionId")
+      }
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      if (compactionStarted) {
+        onCompactionFinished(false)
+      }
+      Log.w(TAG, "Context compaction check failed for session $sessionId: ${e.message}", e)
+    }
+
     if (model.instance == null) {
       try {
         model.awaitInitialization()
+      } catch (e: CancellationException) {
+        throw e
       } catch (e: Exception) {
-        Log.w(TAG, "Model initialization await failed: ${e.message}")
+        Log.w(TAG, "Model initialization await failed: ${e.message}", e)
         onError("Model initialization failed: ${e.message}")
         return
       }
@@ -283,7 +345,7 @@ constructor(
       input = input,
       images = images,
       audioClips = audioClips,
-      extraContext = extraContext,
+      extraContext = extraContext.ifEmpty { null },
       sessionId = sessionId,
       messageIndex = messageIndex,
       resultListener = resultListener,
@@ -292,9 +354,45 @@ constructor(
     )
   }
 
+  override suspend fun compactContextIfNeeded(
+    sessionId: String,
+    model: Model,
+    onCompactionStart: (() -> Unit)?,
+    force: Boolean,
+  ): Boolean =
+    withContext(ioDispatcher) {
+      if (!Config.isContextCompactEnabled()) {
+        return@withContext false
+      }
+      if (
+        !force &&
+          !model.getBooleanConfigValue(
+            key = ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT,
+            defaultValue = false,
+          )
+      ) {
+        return@withContext false
+      }
+      val compactor = contextCompactor ?: return@withContext false
+      sessionMutex(sessionId).withLock {
+        val config = sessionConfigs[sessionId]
+        compactor.compactContextIfNeeded(sessionId, model, config, onCompactionStart, force)
+      }
+    }
+
+  override fun isTokenLimitReached(sessionId: String, model: Model): Boolean {
+    if (!Config.isContextCompactEnabled()) {
+      return false
+    }
+    val compactor = contextCompactor ?: return false
+    val config = sessionConfigs[sessionId]
+    return compactor.isTokenLimitReached(sessionId, model, config)
+  }
+
   override fun stopResponse(sessionId: String, model: Model) {
     Log.d(TAG, "Stopping response for session $sessionId on model ${model.name}")
-    model.runtimeHelper.stopResponse(model)
+    val targetModel = sessionConfigs[sessionId]?.model ?: model
+    targetModel.runtimeHelper.stopResponse(targetModel)
   }
 
   override suspend fun linkFeedbackToSession(

@@ -768,6 +768,10 @@
   <string name="config_label_enable_thinking" translatable="false">Enable thinking</string>
   <!-- Label for the 'Enable speculative decoding' option in the model configuration dialog. -->
   <string name="config_label_enable_speculative_decoding" translatable="false">Enable speculative decoding</string>
+  <!-- Label for the 'Enable context compression' option in the model configuration dialog. -->
+  <string name="config_label_enable_context_compression" translatable="true" description="This string appears as a switch label in the model configuration dialog, allowing the user to toggle automatic conversation context compression when approaching the token limit. [CHAR_LIMIT=45]">Automatically compress context</string>
+  <!-- Description for the 'Automatically compress context' option in the model configuration dialog. -->
+  <string name="config_desc_enable_context_compression" translatable="true" description="This string appears as helper text below the 'Automatically compress context' switch in the model configuration dialog, explaining that the chat context will be automatically compressed when approaching the token limit. [CHAR_LIMIT=160]">When a chat approaches the token limit, automatically compress the chat context so I can keep chatting.</string>
   <!-- Label for the 'Max result count' option in the model configuration dialog. -->
   <string name="config_label_max_result_count" translatable="false">Max result count</string>
   <!-- Label for the 'Use GPU' option in the model configuration dialog. -->
@@ -942,4 +946,12 @@
   <!-- Short description for the Tiny Garden task. [CHAR_LIMIT=35] -->
   <string name="task_short_desc_tiny_garden" translatable="true" description="Short description for the Tiny Garden task. [CHAR_LIMIT=45]">Use natural language to plant</string>
 
+  <!-- Context Compaction / Token Limit Banner strings -->
+  <string name="token_limit_reached_message" translatable="true" description="This string appears within the chat panel above the input box as an informational card banner when the model reaches its token limit. It explains that the token limit has been reached and tells the user they can compress context or start a new chat. [CHAR_LIMIT=200]">You are approaching the token limit for this chat. You can &lt;b&gt;compress context and continue this chat&lt;/b&gt; or start a &lt;b&gt;new chat&lt;/b&gt;.</string>
+  <string name="compress_and_continue_button" translatable="true" description="This string appears within the token limit banner as a button label. When tapped, it triggers conversation context compression and allows the user to continue chatting. [CHAR_LIMIT=30]">Compress and continue</string>
+  <string name="new_chat_button" translatable="true" description="This string appears within the token limit banner as a button label. When tapped, it starts a new chat session with cleared history. [CHAR_LIMIT=20]">New chat</string>
+  <string name="compressing_context" translatable="true" description="This string appears within the chat banner alongside a loading spinner while the conversation context is being summarized and compressed. [CHAR_LIMIT=70]">Token limit approaching. Compressing context…</string>
+  <string name="context_compressed_success" translatable="true" description="This string appears within the chat banner as a confirmation message indicating that conversation context compression completed successfully. [CHAR_LIMIT=70]">Context compressed! You may continue chatting.</string>
+  <string name="token_limit_default_behavior_checkbox" translatable="true" description="This string appears within the token limit banner as a checkbox label, allowing the user to remember this compression behavior for future sessions. [CHAR_LIMIT=80]">Default to this behavior next time I run out of context</string>
+  <string name="context_compaction_failed_message" translatable="true" description="This string appears in an error dialog when compressing the conversation context fails. [CHAR_LIMIT=120]">Failed to compress conversation context. Please try again.</string>
 </resources>
