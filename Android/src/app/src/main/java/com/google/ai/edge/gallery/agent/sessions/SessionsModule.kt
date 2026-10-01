@@ -33,11 +33,23 @@ internal object SessionsModule {
 
   @Provides
   @Singleton
+  fun provideContextCompactor(): ContextCompactor {
+    return SummarizationContextCompactor()
+  }
+
+  @Provides
+  @Singleton
   fun provideLlmSessionManager(
     @ApplicationContext context: Context,
     chatSessionRepository: ChatSessionRepository,
+    contextCompactor: ContextCompactor,
     @IoDispatcher ioDispatcher: CoroutineDispatcher,
   ): LlmSessionManager {
-    return DefaultLlmSessionManager(context, chatSessionRepository, ioDispatcher)
+    return DefaultLlmSessionManager(
+      context = context,
+      chatSessionRepository = chatSessionRepository,
+      contextCompactor = contextCompactor,
+      ioDispatcher = ioDispatcher,
+    )
   }
 }

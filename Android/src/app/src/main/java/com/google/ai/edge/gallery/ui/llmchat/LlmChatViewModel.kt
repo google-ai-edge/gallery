@@ -49,6 +49,8 @@ import com.google.ai.edge.gallery.ui.common.chat.ChatMessageType
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageWarning
 import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.ai.edge.gallery.ui.common.chat.ChatViewModel
+import com.google.ai.edge.gallery.ui.common.chat.ContextCompactionStatus
+import com.google.ai.edge.gallery.ui.common.chat.ContextCompactionTriggerType
 import com.google.ai.edge.gallery.ui.common.chat.convertToLitertMessage
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.litertlm.ExperimentalApi
@@ -191,9 +193,10 @@ open class LlmChatViewModelBase(
 
       val request = AgentRequest(query = input, attachments = attachments, metadata = metadata)
 
-      val context = AgentExecutionContext()
+      val executionContext = AgentExecutionContext()
 
       var firstRun = true
+      var compactionSucceeded = false
       val start = System.currentTimeMillis()
 
       if (sessionStoppedByModel[model.name] == true) {
@@ -216,9 +219,23 @@ open class LlmChatViewModelBase(
       }
 
       // Run inference.
-      runtimeExecutor.executeStream(context = context, request = request).collect { event ->
+      runtimeExecutor.executeStream(context = executionContext, request = request).collect { event
+        ->
         when (event) {
           is AgentEvent.LoopInitiated -> {}
+          is AgentEvent.ContextCompactionStarted -> {
+            compactionSucceeded = false
+            setContextCompactionStatus(model, ContextCompactionStatus.COMPACTING)
+          }
+          is AgentEvent.ContextCompactionFinished -> {
+            compactionSucceeded = event.success
+            if (
+              !event.success &&
+                getContextCompactionStatus(model) == ContextCompactionStatus.COMPACTING
+            ) {
+              setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
+            }
+          }
           is AgentEvent.StreamToken -> {
             val lastMessage = getLastMessage(model = model)
             val wasLoading = lastMessage?.type == ChatMessageType.LOADING
@@ -326,17 +343,48 @@ open class LlmChatViewModelBase(
                 )
               }
             }
-            setInProgress(false)
+            if (getContextCompactionStatus(model) == ContextCompactionStatus.COMPACTING) {
+              setContextCompactionStatus(
+                model,
+                if (compactionSucceeded) {
+                  ContextCompactionStatus.COMPACTED
+                } else {
+                  ContextCompactionStatus.IDLE
+                },
+              )
+            }
             setPreparing(false)
+            val isLimitReached = llmSessionManager.isTokenLimitReached(currentSessionId, model)
+            try {
+              if (isLimitReached) {
+                if (isAutoCompactEnabled(model)) {
+                  executeCompactContext(
+                    model = model,
+                    taskId = currentTaskId,
+                    triggerType = ContextCompactionTriggerType.AUTO,
+                  )
+                } else {
+                  setContextCompactionStatus(model, ContextCompactionStatus.TOKEN_LIMIT_REACHED)
+                }
+              }
+            } finally {
+              setInProgress(false)
+            }
             onDone()
           }
           is AgentEvent.Error -> {
             Log.e(TAG, "Error occurred while running inference: ${event.errorMessage}")
+            if (getContextCompactionStatus(model) == ContextCompactionStatus.COMPACTING) {
+              setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
+            }
             setInProgress(false)
             setPreparing(false)
             onError(event.errorMessage)
           }
           is AgentEvent.LoopCancelled -> {
+            if (getContextCompactionStatus(model) == ContextCompactionStatus.COMPACTING) {
+              setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
+            }
             setInProgress(false)
             setPreparing(false)
           }
@@ -347,6 +395,10 @@ open class LlmChatViewModelBase(
 
   fun stopResponse(model: Model) {
     Log.d(TAG, "Stopping response for model ${model.name}...")
+    cancelCompaction()
+    if (getContextCompactionStatus(model) == ContextCompactionStatus.COMPACTING) {
+      setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
+    }
     if (getLastMessage(model = model) is ChatMessageLoading) {
       removeLastMessage(model = model)
     } else {

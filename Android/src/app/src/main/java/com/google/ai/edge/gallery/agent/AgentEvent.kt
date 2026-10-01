@@ -61,4 +61,14 @@ sealed interface AgentEvent {
    * @property errorMessage A human-readable description of the failure.
    */
   data class Error(val errorMessage: String) : AgentEvent
+
+  /** Emitted when conversation context compaction begins due to approaching token limits. */
+  data object ContextCompactionStarted : AgentEvent
+
+  /**
+   * Emitted when conversation context compaction finishes.
+   *
+   * @property success Whether the context was successfully summarized and reset.
+   */
+  data class ContextCompactionFinished(val success: Boolean) : AgentEvent
 }

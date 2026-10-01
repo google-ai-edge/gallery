@@ -27,6 +27,7 @@ import com.google.ai.edge.gallery.common.Classification
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.PromptTemplate
 import com.google.ai.edge.litertlm.Message
+import kotlinx.coroutines.sync.Mutex
 
 private const val TAG = "AGChatMessage"
 
@@ -167,6 +168,9 @@ class ChatMessageImage(
     accelerator = accelerator,
     hideSenderLabel = hideSenderLabel,
   ) {
+  /** Mutex guarding [persistedPaths] initialization during concurrent serialization. */
+  internal val persistenceMutex = Mutex()
+
   override fun clone(): ChatMessageImage {
     return ChatMessageImage(
       bitmaps = bitmaps.toList(),
@@ -191,6 +195,9 @@ class ChatMessageAudioClip(
    */
   var persistedPath: String? = null,
 ) : ChatMessage(type = ChatMessageType.AUDIO_CLIP, side = side, latencyMs = latencyMs) {
+  /** Mutex guarding [persistedPath] initialization during concurrent serialization. */
+  internal val persistenceMutex = Mutex()
+
   override fun clone(): ChatMessageAudioClip {
     return ChatMessageAudioClip(
       audioData = audioData,

@@ -17,16 +17,23 @@
 package com.google.ai.edge.gallery.ui.common.chat
 
 import android.content.Context
+import android.os.Bundle
 import android.util.Log
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.common.processLlmResponse
+import com.google.ai.edge.gallery.data.Config
+import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.ChatSessionProto
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +43,19 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGChatViewModel"
+
+enum class ContextCompactionStatus {
+  IDLE,
+  TOKEN_LIMIT_REACHED,
+  COMPACTING,
+  COMPACTED,
+}
+
+/** Source that triggered context compaction. */
+enum class ContextCompactionTriggerType(val value: String) {
+  AUTO("auto"),
+  MANUAL("manual"),
+}
 
 data class ChatUiState(
   /** Indicates whether the runtime is currently processing a message. */
@@ -54,6 +74,12 @@ data class ChatUiState(
 
   /** A map of model names to the currently streaming chat message. */
   val streamingMessagesByModel: Map<String, ChatMessage> = mapOf(),
+
+  /** A map of model names to their context compaction status. */
+  val contextCompactionStatusByModel: Map<String, ContextCompactionStatus> = mapOf(),
+
+  /** A map of model names to whether auto-compaction is enabled by default in the thread. */
+  val autoCompactByModel: Map<String, Boolean> = mapOf(),
 
 )
 
@@ -79,6 +105,14 @@ abstract class ChatViewModel(
   private val _uiState = MutableStateFlow(createUiState())
   val uiState = _uiState.asStateFlow()
 
+  private var compactionJob: Job? = null
+
+  /** Cancels any in-flight context compaction coroutine. */
+  protected fun cancelCompaction() {
+    compactionJob?.cancel()
+    compactionJob = null
+  }
+
   val historySessions: StateFlow<List<ChatSessionProto>> =
     llmSessionManager.chatSessions.stateIn(
       scope = viewModelScope,
@@ -87,15 +121,27 @@ abstract class ChatViewModel(
     )
 
   fun addMessage(model: Model, message: ChatMessage) {
-    val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
-    val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
-    newMessagesByModel[model.name] = newMessages
-    // Remove prompt template message if it is the current last message.
-    if (newMessages.size > 0 && newMessages.last().type == ChatMessageType.PROMPT_TEMPLATES) {
-      newMessages.removeAt(newMessages.size - 1)
+    _uiState.update { state ->
+      val newMessagesByModel = state.messagesByModel.toMutableMap()
+      val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
+      newMessagesByModel[model.name] = newMessages
+      // Remove prompt template message if it is the current last message.
+      if (newMessages.isNotEmpty() && newMessages.last().type == ChatMessageType.PROMPT_TEMPLATES) {
+        newMessages.removeAt(newMessages.size - 1)
+      }
+      newMessages.add(message)
+      val status = state.contextCompactionStatusByModel[model.name]
+      val newStatusMap =
+        if (status == ContextCompactionStatus.COMPACTED && message.side == ChatSide.USER) {
+          state.contextCompactionStatusByModel + (model.name to ContextCompactionStatus.IDLE)
+        } else {
+          state.contextCompactionStatusByModel
+        }
+      state.copy(
+        messagesByModel = newMessagesByModel,
+        contextCompactionStatusByModel = newStatusMap,
+      )
     }
-    newMessages.add(message)
-    _uiState.update { it.copy(messagesByModel = newMessagesByModel) }
   }
 
   fun insertMessageAfter(model: Model, anchorMessage: ChatMessage, messageToAdd: ChatMessage) {
@@ -134,10 +180,232 @@ abstract class ChatViewModel(
   }
 
   fun clearAllMessages(model: Model) {
+    cancelCompaction()
     _uiState.update { state ->
       state.copy(
         messagesByModel = state.messagesByModel + (model.name to mutableListOf()),
+        contextCompactionStatusByModel =
+          state.contextCompactionStatusByModel + (model.name to ContextCompactionStatus.IDLE),
       )
+    }
+  }
+
+  /**
+   * Updates whether automatic context compaction is enabled for the given [model] in both the
+   * model's configuration values and the UI state.
+   *
+   * @param model The model for which to update the auto-compaction setting.
+   * @param enabled Whether automatic context compaction should be enabled.
+   */
+  fun setAutoCompact(model: Model, enabled: Boolean) {
+    val newConfigValues = model.configValues.toMutableMap()
+    newConfigValues[ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label] = enabled
+    model.configValues = newConfigValues
+    _uiState.update { state ->
+      state.copy(autoCompactByModel = state.autoCompactByModel + (model.name to enabled))
+    }
+  }
+
+  /**
+   * Returns whether automatic context compaction is enabled for the given [model].
+   *
+   * Checks the UI state override first, falling back to the model's
+   * [ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT] configuration value (`false` by default).
+   *
+   * @param model The model to check.
+   * @return `true` if automatic context compaction is enabled for [model], `false` otherwise.
+   */
+  fun isAutoCompactEnabled(model: Model): Boolean {
+    return _uiState.value.autoCompactByModel[model.name]
+      ?: model.getBooleanConfigValue(
+        key = ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT,
+        defaultValue = false,
+      )
+  }
+
+  /**
+   * Updates the [ContextCompactionStatus] for the given [model] in the UI state.
+   *
+   * @param model The model whose compaction status is being updated.
+   * @param status The new [ContextCompactionStatus] to set.
+   */
+  fun setContextCompactionStatus(model: Model, status: ContextCompactionStatus) {
+    _uiState.update { state ->
+      state.copy(
+        contextCompactionStatusByModel =
+          state.contextCompactionStatusByModel + (model.name to status)
+      )
+    }
+  }
+
+  /**
+   * Returns the current [ContextCompactionStatus] for the given [model], defaulting to
+   * [ContextCompactionStatus.IDLE] if no status has been recorded.
+   *
+   * @param model The model whose compaction status to retrieve.
+   * @return The current [ContextCompactionStatus] for [model].
+   */
+  fun getContextCompactionStatus(model: Model): ContextCompactionStatus {
+    return _uiState.value.contextCompactionStatusByModel[model.name] ?: ContextCompactionStatus.IDLE
+  }
+
+  /**
+   * Triggers context compaction for the active chat session on the given [model].
+   *
+   * Logs analytics events for the compaction request, updates the model's [ContextCompactionStatus]
+   * in the UI state while compaction runs asynchronously, and invokes [onSuccess] or [onError]
+   * based on the outcome.
+   *
+   * @param model The model whose session context should be compacted.
+   * @param taskId The identifier of the task or capability associated with the chat session.
+   * @param triggerType The [ContextCompactionTriggerType] indicating what initiated compaction.
+   * @param onSuccess Callback invoked when context compaction completes and compacts the session.
+   * @param onError Callback invoked if context compaction fails with an exception.
+   */
+  open fun compactContext(
+    model: Model,
+    taskId: String = "",
+    triggerType: ContextCompactionTriggerType =
+      if (isAutoCompactEnabled(model)) {
+        ContextCompactionTriggerType.AUTO
+      } else {
+        ContextCompactionTriggerType.MANUAL
+      },
+    onSuccess: () -> Unit = {},
+    onError: () -> Unit = {},
+  ) {
+    val unused =
+      startCompactionJob(
+        model = model,
+        taskId = taskId,
+        triggerType = triggerType,
+        onSuccess = onSuccess,
+        onError = onError,
+      )
+  }
+
+  /**
+   * Suspends while executing context compaction for the active chat session on the given [model].
+   *
+   * Launches compaction in a dedicated [compactionJob] so that calling [cancelCompaction] cancels
+   * only the compaction work and not the caller's coroutine (e.g., an active generation loop).
+   */
+  protected open suspend fun executeCompactContext(
+    model: Model,
+    taskId: String = "",
+    triggerType: ContextCompactionTriggerType =
+      if (isAutoCompactEnabled(model)) {
+        ContextCompactionTriggerType.AUTO
+      } else {
+        ContextCompactionTriggerType.MANUAL
+      },
+    onSuccess: () -> Unit = {},
+    onError: () -> Unit = {},
+  ) {
+    val job =
+      startCompactionJob(
+        model = model,
+        taskId = taskId,
+        triggerType = triggerType,
+        onSuccess = onSuccess,
+        onError = onError,
+      ) ?: return
+    try {
+      job.join()
+    } catch (e: CancellationException) {
+      job.cancel()
+      throw e
+    }
+  }
+
+  private fun startCompactionJob(
+    model: Model,
+    taskId: String,
+    triggerType: ContextCompactionTriggerType,
+    onSuccess: () -> Unit,
+    onError: () -> Unit,
+  ): Job? {
+    if (!Config.isContextCompactEnabled()) {
+      return null
+    }
+    cancelCompaction()
+    val job = viewModelScope.launch {
+      runCompaction(
+        model = model,
+        taskId = taskId,
+        triggerType = triggerType,
+        onSuccess = onSuccess,
+        onError = onError,
+      )
+    }
+    compactionJob = job
+    return job
+  }
+
+  private suspend fun runCompaction(
+    model: Model,
+    taskId: String,
+    triggerType: ContextCompactionTriggerType,
+    onSuccess: () -> Unit,
+    onError: () -> Unit,
+  ) {
+    val defaultToBehavior = isAutoCompactEnabled(model)
+    Log.d(
+      TAG,
+      "Analytics: context_compression, capability_name=$taskId, model_id=${model.name}, model_version=${model.downloadInfo.version}, trigger_type=${triggerType.value}, default_to_behavior=$defaultToBehavior",
+    )
+    firebaseAnalytics?.logEvent(
+      GalleryEvent.CONTEXT_COMPRESSION.id,
+      Bundle().apply {
+        putString("capability_name", taskId)
+        putString("model_id", model.name)
+        putString("model_version", model.downloadInfo.version)
+        putString("trigger_type", triggerType.value)
+        putBoolean("default_to_behavior", defaultToBehavior)
+      },
+    )
+    if (triggerType == ContextCompactionTriggerType.MANUAL && defaultToBehavior) {
+      Log.d(
+        TAG,
+        "Analytics: auto_compaction_enable, capability_name=$taskId, model_id=${model.name}, model_version=${model.downloadInfo.version}",
+      )
+      firebaseAnalytics?.logEvent(
+        GalleryEvent.AUTO_COMPACTION_ENABLE.id,
+        Bundle().apply {
+          putString("capability_name", taskId)
+          putString("model_id", model.name)
+          putString("model_version", model.downloadInfo.version)
+        },
+      )
+    }
+    val thisJob = compactionJob
+    setContextCompactionStatus(model, ContextCompactionStatus.COMPACTING)
+    try {
+      val success = llmSessionManager.compactContextIfNeeded(currentSessionId, model, force = true)
+      if (success) {
+        Log.d(TAG, "Context compacted for session $currentSessionId on model ${model.name}")
+        setContextCompactionStatus(model, ContextCompactionStatus.COMPACTED)
+        onSuccess()
+      } else {
+        Log.d(
+          TAG,
+          "Context compaction did not occur for session $currentSessionId on model ${model.name}",
+        )
+        setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
+      }
+    } catch (e: CancellationException) {
+      if (getContextCompactionStatus(model) == ContextCompactionStatus.COMPACTING) {
+        setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
+      }
+      throw e
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to compact context for session $currentSessionId", e)
+      setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
+      onError()
+    } finally {
+      if (compactionJob === thisJob) {
+        compactionJob = null
+      }
     }
   }
 

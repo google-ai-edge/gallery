@@ -104,6 +104,12 @@ object ConfigKeys {
       "Enable speculative decoding",
       R.string.config_label_enable_speculative_decoding,
     )
+  val ENABLE_AUTO_CONTEXT_COMPACT =
+    ConfigKey(
+      "enable_auto_context_compact",
+      "Automatically compress context",
+      R.string.config_label_enable_context_compression,
+    )
   val MAX_RESULT_COUNT =
     ConfigKey("max_result_count", "Max result count", R.string.config_label_max_result_count)
   val USE_GPU = ConfigKey("use_gpu", "Use GPU", R.string.config_label_use_gpu)
@@ -163,6 +169,9 @@ open class Config(
   open val needReinitialization: Boolean = true,
 ) {
   companion object {
+    /** Returns whether the context compaction feature is enabled via feature flags. */
+    fun isContextCompactEnabled(): Boolean = false
+
     /**
      * Creates the configuration settings displayed when importing an LLM model.
      *
@@ -238,6 +247,8 @@ class BooleanSwitchConfig(
   override val key: ConfigKey,
   override val defaultValue: Boolean,
   override val needReinitialization: Boolean = true,
+  @StringRes val descriptionRes: Int? = null,
+  val description: String = "",
 ) :
   Config(
     type = ConfigEditorType.BOOLEAN_SWITCH,
@@ -383,6 +394,7 @@ fun createLlmChatConfigs(
   accelerators: List<Accelerator> = DEFAULT_ACCELERATORS,
   supportThinking: Boolean = false,
   supportSpeculativeDecoding: Boolean = false,
+  supportContextCompression: Boolean = true,
 ): List<Config> {
   var maxTokensConfig: Config =
     LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken")
@@ -417,6 +429,9 @@ fun createLlmChatConfigs(
       BooleanSwitchConfig(key = ConfigKeys.ENABLE_SPECULATIVE_DECODING, defaultValue = false)
     )
   }
+  if (supportContextCompression && Config.isContextCompactEnabled()) {
+    configs.add(createAutoContextCompactConfig())
+  }
   return configs
 }
 
@@ -428,16 +443,28 @@ fun createLlmChatConfigs(
 fun createLlmChatConfigsForNpuModel(
   defaultMaxToken: Int = DEFAULT_MAX_TOKEN,
   accelerators: List<Accelerator> = DEFAULT_ACCELERATORS,
-): List<Config> {
-  return listOf(
-    LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken"),
+  supportContextCompression: Boolean = true,
+): List<Config> = buildList {
+  add(LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken"))
+  add(
     SegmentedButtonConfig(
       key = ConfigKeys.ACCELERATOR,
       defaultValue = accelerators[0].label,
       options = accelerators.map { it.label },
-    ),
+    )
   )
+  if (supportContextCompression && Config.isContextCompactEnabled()) {
+    add(createAutoContextCompactConfig())
+  }
 }
+
+private fun createAutoContextCompactConfig(): Config =
+  BooleanSwitchConfig(
+    key = ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT,
+    defaultValue = false,
+    needReinitialization = false,
+    descriptionRes = R.string.config_desc_enable_context_compression,
+  )
 
 /**
  * Creates the configuration settings for an AICore model.

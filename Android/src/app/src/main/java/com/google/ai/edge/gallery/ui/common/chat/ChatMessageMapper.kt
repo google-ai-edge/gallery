@@ -28,9 +28,10 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-private const val TAG = "ChatMessageMapper"
+private const val TAG = "AGChatMessageMapper"
 
 /**
  * Mapper utility for bidirectional serialization and deserialization between [ChatMessage] UI
@@ -221,7 +222,7 @@ object ChatMessageMapper {
         }
         is ChatMessageImage -> {
           builder.setMessageType("IMAGE").setSide(mapChatSide(msg.side)).setLatencyMs(msg.latencyMs)
-          synchronized(msg) {
+          msg.persistenceMutex.withLock {
             val cachedPaths = msg.persistedPaths
             if (cachedPaths != null) {
               builder.addAllImageFilePaths(cachedPaths)
@@ -249,7 +250,7 @@ object ChatMessageMapper {
             .setMessageType("AUDIO_CLIP")
             .setSide(mapChatSide(msg.side))
             .setLatencyMs(msg.latencyMs)
-          synchronized(msg) {
+          msg.persistenceMutex.withLock {
             val cachedPath = msg.persistedPath
             if (cachedPath != null) {
               val audioProto =
