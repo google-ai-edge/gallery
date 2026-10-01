@@ -14,5 +14,6 @@ description: Show an interactive map view for the given location.
 
 Call the `run_js` tool with the following exact parameters:
 
+- script name: `index.html`.
 - data: A JSON string with the following field
   - location: The location to show on the map.
