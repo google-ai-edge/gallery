@@ -46,8 +46,6 @@ android {
     manifestPlaceholders["applicationName"] = "com.google.ai.edge.gallery.GalleryApplication"
     manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
 
-    buildConfigField("String", "FEEDBACK_API_KEY", "\"\"")
-
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
