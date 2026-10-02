@@ -345,7 +345,7 @@ constructor(
       input = input,
       images = images,
       audioClips = audioClips,
-      extraContext = extraContext.ifEmpty { null },
+      extraContext = extraContext,
       sessionId = sessionId,
       messageIndex = messageIndex,
       resultListener = resultListener,

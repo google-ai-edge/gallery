@@ -22,6 +22,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.di.DefaultDispatcher
 import com.google.ai.edge.gallery.proto.BenchmarkResult
 import com.google.ai.edge.gallery.proto.LlmBenchmarkBasicInfo
 import com.google.ai.edge.gallery.proto.LlmBenchmarkResult
@@ -34,12 +35,15 @@ import com.google.ai.edge.litertlm.benchmark
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import kotlin.coroutines.resume
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.random.Random
-import kotlinx.coroutines.Dispatchers
+import kotlin.time.DurationUnit
+import kotlin.time.TimeSource
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -75,13 +79,32 @@ data class BenchmarkUiState(
   val completedRunCount: Int = 0,
 )
 
+/**
+ * Holds the state of the LLM benchmark screen and runs benchmarks.
+ *
+ * Hilt constructs it through the secondary constructor; the primary constructor lets tests supply a
+ * [benchmarkDispatcher] (which the benchmark, including AICore inference, runs on) and a
+ * [timeSource] for latency measurements.
+ */
 @HiltViewModel
-open class BenchmarkViewModel
-@Inject
-constructor(
-  @ApplicationContext private val appContext: Context,
+open class BenchmarkViewModel(
+  private val appContext: Context,
   open val dataStoreRepository: DataStoreRepository,
+  private val benchmarkDispatcher: CoroutineDispatcher,
+  private val timeSource: TimeSource,
 ) : ViewModel() {
+  @Inject
+  constructor(
+    @ApplicationContext appContext: Context,
+    dataStoreRepository: DataStoreRepository,
+    @DefaultDispatcher defaultDispatcher: CoroutineDispatcher,
+  ) : this(
+    appContext = appContext,
+    dataStoreRepository = dataStoreRepository,
+    benchmarkDispatcher = defaultDispatcher,
+    timeSource = TimeSource.Monotonic,
+  )
+
   protected val _uiState = MutableStateFlow(BenchmarkUiState())
   open val uiState = _uiState.asStateFlow()
 
@@ -101,7 +124,7 @@ constructor(
     decodeTokens: Int,
     runCount: Int,
   ) {
-    viewModelScope.launch(Dispatchers.Default) {
+    viewModelScope.launch(benchmarkDispatcher) {
       setRunning(running = true)
       setRunProgress(completedRunCount = 0)
       setTotalRunCount(totalRunCount = runCount)

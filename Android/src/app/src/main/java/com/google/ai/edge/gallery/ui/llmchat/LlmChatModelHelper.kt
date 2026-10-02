@@ -342,7 +342,7 @@ object LlmChatModelHelper : LlmModelHelper {
     images: List<Bitmap>,
     audioClips: List<ByteArray>,
     coroutineScope: CoroutineScope?,
-    extraContext: Map<String, String>?,
+    extraContext: Map<String, String>,
     sessionId: String?,
     messageIndex: Int?,
   ) {
@@ -382,9 +382,8 @@ object LlmChatModelHelper : LlmModelHelper {
     }
 
     // Step 3: Configure extra runtime parameters (such as thinking reasoning mode).
-    val enableThinking = extraContext?.get("enable_thinking") == "true"
-    val finalExtraContext: Map<String, Any> =
-      (extraContext ?: emptyMap()) + ("enable_thinking" to enableThinking)
+    val enableThinking = extraContext["enable_thinking"] == "true"
+    val finalExtraContext: Map<String, Any> = extraContext + ("enable_thinking" to enableThinking)
 
     // Step 4: Dispatch asynchronous streaming inference to the native LiteRT-LM engine.
     conversation.sendMessageAsync(

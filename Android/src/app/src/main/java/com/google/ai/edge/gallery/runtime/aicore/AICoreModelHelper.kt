@@ -28,6 +28,7 @@ import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
 import com.google.ai.edge.gallery.data.DEFAULT_TOPK
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.runtime.CleanUpListener
+import com.google.ai.edge.gallery.runtime.EXTRA_CONTEXT_MAX_OUTPUT_TOKENS
 import com.google.ai.edge.gallery.runtime.LlmModelHelper
 import com.google.ai.edge.gallery.runtime.ResultListener
 import com.google.ai.edge.litertlm.Contents
@@ -259,6 +260,29 @@ object AICoreModelHelper : LlmModelHelper {
     instance.inferenceJob?.cancel()
   }
 
+  override suspend fun countTokens(model: Model, text: String): Int? {
+    val instance = model.instance as? AICoreModelInstance ?: return null
+    return countPromptTokens(instance = instance, prompt = text)
+  }
+
+  override suspend fun countInputTokens(model: Model, input: String): Int? {
+    val instance = model.instance as? AICoreModelInstance ?: return null
+    return countPromptTokens(
+      instance = instance,
+      prompt = formatChatPrompt(chatHistory = instance.chatHistory, input = input),
+    )
+  }
+
+  private suspend fun countPromptTokens(instance: AICoreModelInstance, prompt: String): Int? =
+    try {
+      instance.generativeModel.countTokens(generateContentRequest(TextPart(prompt)) {}).totalTokens
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      Log.w(TAG, "Failed to count tokens", e)
+      null
+    }
+
   override fun runInference(
     model: Model,
     input: String,
@@ -268,7 +292,7 @@ object AICoreModelHelper : LlmModelHelper {
     images: List<Bitmap>,
     audioClips: List<ByteArray>,
     coroutineScope: CoroutineScope?,
-    extraContext: Map<String, String>?,
+    extraContext: Map<String, String>,
     sessionId: String?,
     messageIndex: Int?,
   ) {
@@ -292,10 +316,11 @@ object AICoreModelHelper : LlmModelHelper {
         .coerceIn(0.0f, 1.0f)
     val topK = model.getIntConfigValue(key = ConfigKeys.TOPK, defaultValue = DEFAULT_TOPK)
     val maxOutputTokens =
-      model.getIntConfigValue(
-        key = ConfigKeys.MAX_OUTPUT_TOKENS,
-        defaultValue = DEFAULT_MAX_OUTPUT_TOKEN,
-      )
+      extraContext[EXTRA_CONTEXT_MAX_OUTPUT_TOKENS]?.toIntOrNull()?.takeIf { it > 0 }
+        ?: model.getIntConfigValue(
+          key = ConfigKeys.MAX_OUTPUT_TOKENS,
+          defaultValue = DEFAULT_MAX_OUTPUT_TOKEN,
+        )
 
     instance.inferenceJob?.cancel()
 

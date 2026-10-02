@@ -30,6 +30,13 @@ typealias ResultListener =
 typealias CleanUpListener = () -> Unit
 
 /**
+ * Key in the `extraContext` of [LlmModelHelper.runInference] that caps the number of tokens
+ * generated for that call. The value is a positive integer string. It overrides the model's
+ * configured max output tokens for runtimes that support it, and is ignored by the others.
+ */
+const val EXTRA_CONTEXT_MAX_OUTPUT_TOKENS = "max_output_tokens"
+
+/**
  * Abstraction over a model instance's active conversation for inspecting token usage and sending
  * synchronous messages (e.g., for context compaction).
  */
@@ -129,7 +136,7 @@ interface LlmModelHelper {
     images: List<Bitmap> = listOf(),
     audioClips: List<ByteArray> = listOf(),
     coroutineScope: CoroutineScope? = null,
-    extraContext: Map<String, String>? = null,
+    extraContext: Map<String, String> = emptyMap(),
     sessionId: String? = null,
     messageIndex: Int? = null,
   )
@@ -140,4 +147,24 @@ interface LlmModelHelper {
    * @param model the ongoing model response to be stopped.
    */
   fun stopResponse(model: Model)
+
+  /**
+   * Counts the tokens in [text] using the model's tokenizer.
+   *
+   * @param model the initialized model whose tokenizer is used.
+   * @param text the raw text to count.
+   * @return the token count, or null if the runtime doesn't support counting or counting failed.
+   */
+  suspend fun countTokens(model: Model, text: String): Int? = null
+
+  /**
+   * Counts the tokens the model would prefill if [input] were passed to [runInference] now. Unlike
+   * [countTokens], this includes the current conversation history and any prompt template the
+   * runtime applies. Images and audio are not counted.
+   *
+   * @param model the initialized model whose conversation state and tokenizer are used.
+   * @param input the text input that would be passed to [runInference].
+   * @return the token count, or null if the runtime doesn't support counting or counting failed.
+   */
+  suspend fun countInputTokens(model: Model, input: String): Int? = null
 }
