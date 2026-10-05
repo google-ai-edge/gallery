@@ -24,6 +24,13 @@ import com.google.gson.annotations.SerializedName
 
 private const val TAG = "AGModelAllowlist"
 
+/**
+ * Returns the base file name of a file [path] relative to a model repo root, e.g.
+ * "subfolder/model.litertlm" -> "model.litertlm". Downloaded files are stored on device under their
+ * base name, regardless of the sub-folder they live in within the repo.
+ */
+fun getBaseFileName(path: String): String = path.substringAfterLast('/')
+
 data class DefaultConfig(
   @SerializedName("topK") val topK: Int?,
   @SerializedName("topP") val topP: Float?,
@@ -76,9 +83,11 @@ data class AllowedModel(
   val metadata: ModelMetadata? = null,
 ) {
   fun toModel(): Model {
-    // Construct HF download url.
+    // Construct HF download url. `modelFile` may be a path relative to the repo root (e.g.
+    // "subfolder/model.litertlm"): the full path is used in the download url, while only the base
+    // file name is used for the file stored on device.
     var version = commitHash
-    var downloadedFileName = modelFile
+    var downloadedFileName = getBaseFileName(modelFile)
     var downloadUrl =
       url ?: "https://huggingface.co/$modelId/resolve/$commitHash/$modelFile?download=true"
     var sizeInBytes = sizeInBytes
@@ -89,7 +98,7 @@ data class AllowedModel(
         socToModelFiles.get(SOC)?.let { info ->
           Log.d(TAG, "Found soc-specific model files for model $name: $info")
           version = info.commitHash ?: "-"
-          downloadedFileName = info.modelFile ?: "-"
+          downloadedFileName = info.modelFile?.let { getBaseFileName(it) } ?: "-"
           downloadUrl =
             info.url
               ?: "https://huggingface.co/$modelId/resolve/${info.commitHash}/${info.modelFile}?download=true"
@@ -196,7 +205,9 @@ data class AllowedModel(
         version = version,
         extraDataFiles = extraDataFiles ?: emptyList(),
         localModelFilePathOverride = localModelFilePathOverride ?: "",
-        updatableModelFiles = updatableModelFiles ?: emptyList(),
+        updatableModelFiles =
+          updatableModelFiles?.map { it.copy(fileName = getBaseFileName(it.fileName)) }
+            ?: emptyList(),
         updateInfo = updateInfo ?: "",
       )
     val llmProfile =
