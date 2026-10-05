@@ -732,6 +732,11 @@
   <string name="disabled_skill_dialog_title" translatable="true" description="Title of the alert dialog indicating that a specific agent skill (passed as a parameter) is disabled. [CHAR_LIMIT=45]">The \'%s\' skill is currently disabled</string>
   <!-- Introductory text for Agent Skills screen. Contains HTML links. -->
   <string name="agent_skills_intro" translatable="true" description="Introductory text explaining what agent skills are, with HTML links to documentation/discussions and a placeholder for the agent name. [CHAR_LIMIT=433]">Use specialized, high-order reasoning by loading different skills or <![CDATA[<a href="%1$s">creating your own</a>]]>. Explore community contributed skills on <![CDATA[<a href="%2$s">GitHub discussions</a>]]>.\n\nTry tapping a sample prompt below to see %3$s in action!</string>
+  <!-- Strings for the dialog that asks the user to review a prompt that arrived via a deep link before sending it to the agent. -->
+  <string name="external_prompt_dialog_title" translatable="true" description="Title of the dialog asking the user to review a chat prompt that arrived from a link opened by another app or website before it is sent to the on-device AI agent. [CHAR_LIMIT=25]">Send this prompt?</string>
+  <string name="external_prompt_dialog_content" translatable="true" description="Body of the dialog asking the user to review a chat prompt that arrived from a link or another app before sending it to the on-device AI agent, which may run tools or perform actions on the user's behalf. [CHAR_LIMIT=190]">This prompt was opened from a link or another app. Review it carefully before sending it to the agent, which may perform actions on your behalf.</string>
+  <string name="external_prompt_dialog_prompt_label" translatable="true" description="Label shown above the text of the externally supplied prompt in the review dialog. [CHAR_LIMIT=12]">Prompt</string>
+  <string name="external_prompt_dialog_send" translatable="true" description="Button label to confirm sending the externally supplied prompt to the on-device AI agent. [CHAR_LIMIT=8]">Send</string>
 
   <!-- Config Labels -->
   <!-- Label for the 'Max tokens' option in the model configuration dialog. -->

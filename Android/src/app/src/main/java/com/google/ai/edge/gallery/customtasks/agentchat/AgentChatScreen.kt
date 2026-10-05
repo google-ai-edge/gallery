@@ -202,30 +202,15 @@ fun AgentChatScreen(
     }
   }
 
-  var initialQueryConsumed by remember { mutableStateOf(false) }
-
-  LaunchedEffect(
-    llmChatUiState.isResettingSession,
-    modelInitStatus,
-    selectedModel.name,
-    initialQuery,
-  ) {
-    // Send the optional initial query to the model if the model is initialized and the initial
-    // query is not consumed yet.
-    if (
-      !initialQuery.isNullOrEmpty() &&
-        !initialQueryConsumed &&
-        modelInitStatus is Model.InitializationStatus.Initialized &&
-        !llmChatUiState.isResettingSession
-    ) {
-      initialQueryConsumed = true
-      sendMessageTrigger =
-        SendMessageTrigger(
-          model = selectedModel,
-          messages = listOf(ChatMessageText(content = initialQuery, side = ChatSide.USER)),
-        )
-    }
-  }
+  // The prompt supplied through a deep link (e.g. `...://llm_agent_chat/?query=...`), if any.
+  //
+  // Deep links are an untrusted, externally controlled input: any app, web page, QR code or
+  // notification can open one. Because the agent can invoke tools and Android intents on the user's
+  // behalf, this prompt is NEVER sent automatically. It is held here until the user reviews it in
+  // [ExternalPromptConfirmationDialog] and explicitly confirms. Dismissing the dialog discards the
+  // prompt; it is re-armed only when a new `initialQuery` arrives.
+  var pendingExternalPrompt by
+    remember(initialQuery) { mutableStateOf(initialQuery?.takeIf { it.isNotEmpty() }) }
 
   LlmChatScreen(
     modelManagerViewModel = modelManagerViewModel,
@@ -705,6 +690,25 @@ fun AgentChatScreen(
           Text(stringResource(R.string.ok))
         }
       },
+    )
+  }
+
+  pendingExternalPrompt?.let { prompt ->
+    ExternalPromptConfirmationDialog(
+      prompt = prompt,
+      // Only allow sending once the model can actually accept a message.
+      sendEnabled =
+        modelInitStatus is Model.InitializationStatus.Initialized &&
+          !llmChatUiState.isResettingSession,
+      onConfirm = {
+        pendingExternalPrompt = null
+        sendMessageTrigger =
+          SendMessageTrigger(
+            model = selectedModel,
+            messages = listOf(ChatMessageText(content = prompt, side = ChatSide.USER)),
+          )
+      },
+      onDismiss = { pendingExternalPrompt = null },
     )
   }
 }

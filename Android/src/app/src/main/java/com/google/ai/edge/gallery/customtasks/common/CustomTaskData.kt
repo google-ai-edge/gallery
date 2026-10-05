@@ -44,6 +44,10 @@ data class CustomTaskData(
 data class CustomTaskDataForBuiltinTask(
   val modelManagerViewModel: ModelManagerViewModel,
   val onNavUp: () -> Unit,
-  // The initial query to be sent to the model when the screen is first loaded.
+  // An optional query supplied through a deep link when the screen is first loaded.
+  //
+  // This value comes from an untrusted external source (another app, a web page, a QR code, ...).
+  // Consumers MUST show it to the user and require explicit confirmation before sending it to a
+  // model; it must never be sent automatically.
   val initialQuery: String? = null,
 )
