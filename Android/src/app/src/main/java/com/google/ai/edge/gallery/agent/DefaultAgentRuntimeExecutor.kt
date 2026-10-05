@@ -154,7 +154,6 @@ open class DefaultAgentRuntimeExecutor(
       (request.metadata[AgentRequest.SESSION_ID] as? String)
         ?: llmSessionManager.activeSessionId
         ?: error("No active session in LlmSessionManager")
-    val messageIndex = request.metadata[AgentRequest.MESSAGE_INDEX] as? Int
 
     val resultListener = { partialResult: String, done: Boolean, partialThinking: String? ->
       if (!partialResult.startsWith("<ctrl")) {
@@ -203,7 +202,6 @@ open class DefaultAgentRuntimeExecutor(
       images = images,
       audioClips = audioClips,
       extraContext = extraContext,
-      messageIndex = messageIndex,
     )
 
     awaitClose {

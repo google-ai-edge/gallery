@@ -123,9 +123,6 @@ interface LlmModelHelper {
    * @param audioClips optional list of audio clips provided as input context.
    * @param coroutineScope optional coroutine scope for async inference execution.
    * @param extraContext optional extra context for inference (e.g. "enable_thinking").
-   * @param sessionId optional conversation session identifier for telemetry correlation.
-   * @param messageIndex optional sequential message index within the conversation for telemetry
-   *   correlation.
    */
   fun runInference(
     model: Model,
@@ -137,8 +134,6 @@ interface LlmModelHelper {
     audioClips: List<ByteArray> = listOf(),
     coroutineScope: CoroutineScope? = null,
     extraContext: Map<String, String> = emptyMap(),
-    sessionId: String? = null,
-    messageIndex: Int? = null,
   )
 
   /**

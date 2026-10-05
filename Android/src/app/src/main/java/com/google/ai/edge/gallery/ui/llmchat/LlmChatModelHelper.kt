@@ -213,12 +213,13 @@ object LlmChatModelHelper : LlmModelHelper {
           )
         )
       ExperimentalFlags.enableConversationConstrainedDecoding = false
-      model.instance =
+      model.markInitialized(
         LlmModelInstance(
           engine = engine,
           conversation = conversation,
           metricsTracker = metricsTracker,
         )
+      )
     } catch (e: Exception) {
       val errorMsg = cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error")
       model.markInitializationFailed(errorMsg)
@@ -226,7 +227,6 @@ object LlmChatModelHelper : LlmModelHelper {
       onDone(errorMsg)
       return
     }
-    model.markInitialized()
     metricsTracker.onModelInitialized()
     onDone("")
   }
@@ -326,6 +326,8 @@ object LlmChatModelHelper : LlmModelHelper {
 
   override fun stopResponse(model: Model) {
     val instance = model.instance as? LlmModelInstance ?: return
+    // End the turn first, so the engine's late cancel callback finds no active turn.
+    val unused = instance.metricsTracker?.cancelTurn()
     try {
       instance.conversation.cancelProcess()
     } catch (e: IllegalStateException) {
@@ -343,8 +345,6 @@ object LlmChatModelHelper : LlmModelHelper {
     audioClips: List<ByteArray>,
     coroutineScope: CoroutineScope?,
     extraContext: Map<String, String>,
-    sessionId: String?,
-    messageIndex: Int?,
   ) {
     val instance = model.instance as? LlmModelInstance
     if (instance == null) {
@@ -357,76 +357,80 @@ object LlmChatModelHelper : LlmModelHelper {
       cleanUpListeners[model.name] = cleanUpListener
     }
 
-    // Step 1: Initialize turn telemetry with active Conversation and caller-provided correlation
-    // IDs.
+    // Step 1: Start the turn before processing the input, so its latency includes the input
+    // processing the user waits for.
     val conversation = instance.conversation
-    instance.metricsTracker?.startTurn(
-      session = conversation.asSession(),
-      sessionId = sessionId,
-      // Since each turn consists of two back-and-forth messages, we divide the message index by
-      // 2 to get the turn index.
-      turnIndex = if (messageIndex == null) null else messageIndex / 2,
-    )
+    instance.metricsTracker?.startTurn(conversation.asSession())
+    try {
+      // Step 2: Assemble multimodal prompt attachments (images, audio clips, and text).
+      val contents = mutableListOf<Content>()
+      for (image in images) {
+        contents.add(Content.ImageBytes(image.toPngByteArray()))
+      }
+      for (audioClip in audioClips) {
+        contents.add(Content.AudioBytes(audioClip))
+      }
+      // Add text after images/audio to ensure proper autoregressive token sequencing.
+      if (input.trim().isNotEmpty()) {
+        contents.add(Content.Text(input))
+      }
 
-    // Step 2: Assemble multimodal prompt attachments (images, audio clips, and text).
-    val contents = mutableListOf<Content>()
-    for (image in images) {
-      contents.add(Content.ImageBytes(image.toPngByteArray()))
-    }
-    for (audioClip in audioClips) {
-      contents.add(Content.AudioBytes(audioClip))
-    }
-    // Add text after images/audio to ensure proper autoregressive token sequencing.
-    if (input.trim().isNotEmpty()) {
-      contents.add(Content.Text(input))
-    }
+      // Step 3: Configure extra runtime parameters (such as thinking reasoning mode).
+      val enableThinking = extraContext["enable_thinking"] == "true"
+      val finalExtraContext: Map<String, Any> = extraContext + ("enable_thinking" to enableThinking)
 
-    // Step 3: Configure extra runtime parameters (such as thinking reasoning mode).
-    val enableThinking = extraContext["enable_thinking"] == "true"
-    val finalExtraContext: Map<String, Any> = extraContext + ("enable_thinking" to enableThinking)
+      // Step 4: Dispatch asynchronous streaming inference to the native LiteRT-LM engine.
+      conversation.sendMessageAsync(
+        Contents.of(contents),
+        object : MessageCallback {
+          override fun onMessage(message: Message) {
+            val text = message.toString()
+            val thinking = message.channels[THOUGHT_CHANNEL]
+            // Record the token in the tracker; the first one sets TTFT.
+            instance.metricsTracker?.onNewToken(tokenText = text, thinkingText = thinking)
+            resultListener(text, false, thinking)
+          }
 
-    // Step 4: Dispatch asynchronous streaming inference to the native LiteRT-LM engine.
-    conversation.sendMessageAsync(
-      Contents.of(contents),
-      object : MessageCallback {
-        override fun onMessage(message: Message) {
-          val text = message.toString()
-          val thinking = message.channels[THOUGHT_CHANNEL]
-          // Record streaming token to lock TTFT on first token and update live metrics.
-          instance.metricsTracker?.onNewToken(tokenText = text, thinkingText = thinking)
-          resultListener(text, false, thinking)
-        }
-
-        override fun onDone() {
-          // Finalize turn metrics with SUCCESS status.
-          val unused =
-            instance.metricsTracker?.endTurn(
-              statusCode = InferenceStatus.Code.SUCCESS,
-              errorMessage = null,
-            )
-          resultListener("", true, null)
-        }
-
-        override fun onError(throwable: Throwable) {
-          if (throwable is CancellationException) {
-            // User or system cancelled inference: reconcile context tokens and mark CANCELLED.
-            Log.i(TAG, "The inference is cancelled.")
-            val unused = instance.metricsTracker?.cancelTurn()
-            resultListener("", true, null)
-          } else {
-            // Engine error or crash: record ERROR status with error message.
-            Log.e(TAG, "onError", throwable)
+          override fun onDone() {
+            // Finalize turn metrics with SUCCESS status.
             val unused =
               instance.metricsTracker?.endTurn(
-                statusCode = InferenceStatus.Code.ERROR,
-                errorMessage = throwable.message ?: "Unknown error",
+                statusCode = InferenceStatus.Code.SUCCESS,
+                errorMessage = null,
               )
-            onError("Error: ${throwable.message}")
+            resultListener("", true, null)
           }
-        }
-      },
-      finalExtraContext,
-    )
+
+          override fun onError(throwable: Throwable) {
+            if (throwable is CancellationException) {
+              // The inference was cancelled. If Stop already ended the turn, cancelTurn() below
+              // does nothing.
+              Log.i(TAG, "The inference is cancelled.")
+              val unused = instance.metricsTracker?.cancelTurn()
+              resultListener("", true, null)
+            } else {
+              // Engine error or crash: record ERROR status with error message.
+              Log.e(TAG, "onError", throwable)
+              val unused =
+                instance.metricsTracker?.endTurn(
+                  statusCode = InferenceStatus.Code.ERROR,
+                  errorMessage = throwable.message ?: "Unknown error",
+                )
+              onError("Error: ${throwable.message}")
+            }
+          }
+        },
+        finalExtraContext,
+      )
+    } catch (e: Exception) {
+      // No engine callback follows a failure before the message is sent, so end the turn here.
+      val unused =
+        instance.metricsTracker?.endTurn(
+          statusCode = InferenceStatus.Code.ERROR,
+          errorMessage = e.message ?: "Unknown error",
+        )
+      throw e
+    }
   }
 
   private fun Bitmap.toPngByteArray(): ByteArray {

@@ -79,9 +79,6 @@ internal class MetricsLogger(internal val model: Model, internal val taskId: Str
       append(
         "decode=${if (latency.hasDecodeDurationMs()) "${latency.decodeDurationMs} ms" else "N/A"}, "
       )
-      if (latency.hasInitDurationMs()) {
-        append("init=${latency.initDurationMs} ms, ")
-      }
       append(
         "prefill=${if (latency.hasPrefillSpeedTps()) "%.2f tps".format(Locale.US, latency.prefillSpeedTps) else "N/A"}, "
       )
@@ -219,9 +216,8 @@ internal class MetricsLogger(internal val model: Model, internal val taskId: Str
       TAG,
       "[Inference Telemetry]\n" +
         "  • Task:          ${taskId} (Model: ${model.name}, Accelerator: ${metrics.metadata.accelerator})\n" +
-        "  • Session:       ${if (metrics.metadata.hasSessionId()) metrics.metadata.sessionId else "N/A"}\n" +
-        "  • Turn:          ${if (metrics.metadata.hasTurnIndex()) metrics.metadata.turnIndex.toString() else "N/A"}\n" +
-        "  • Status:        ${if (metrics.metadata.hasStatus()) formatStatus(metrics.metadata.status) else "N/A"}\n" +
+        "  • Turn:          ${metrics.inference.turnIndex}\n" +
+        "  • Status:        ${if (metrics.inference.hasStatus()) formatStatus(metrics.inference.status) else "N/A"}\n" +
         "  • Latency:       ${if (metrics.inference.hasLatency()) formatLatency(metrics.inference.latency) else "N/A"}\n" +
         "  • Tokens:        ${if (metrics.inference.hasTokens()) formatTokens(metrics.inference.tokens) else "N/A"}\n" +
         "  • Context:       ${if (metrics.inference.hasContext()) formatContext(metrics.inference.context) else "N/A"}\n" +
@@ -250,25 +246,21 @@ internal class MetricsLogger(internal val model: Model, internal val taskId: Str
       if (metrics.metadata.accelerator.isNotEmpty()) {
         putString(InferenceMetricsParam.ACCELERATOR.key, metrics.metadata.accelerator)
       }
-      putString(InferenceMetricsParam.STATUS.key, metrics.metadata.status.code.name)
+      val status = metrics.inference.status
+      putString(InferenceMetricsParam.STATUS.key, status.code.name)
 
       // Log sanitized non-PII enum error or cancellation code if turn did not succeed.
-      if (metrics.metadata.status.code != InferenceStatus.Code.SUCCESS) {
+      if (status.code != InferenceStatus.Code.SUCCESS) {
         val errorCode =
-          if (
-            metrics.metadata.status.cancellationReason !=
-              CancellationReason.CANCELLATION_REASON_UNSPECIFIED
-          ) {
-            metrics.metadata.status.cancellationReason.name
+          if (status.cancellationReason != CancellationReason.CANCELLATION_REASON_UNSPECIFIED) {
+            status.cancellationReason.name
           } else {
-            metrics.metadata.status.code.name
+            status.code.name
           }
         putString(InferenceMetricsParam.ERROR_CODE.key, errorCode)
       }
 
-      if (metrics.metadata.hasTurnIndex() && metrics.metadata.turnIndex >= 0) {
-        putInt(InferenceMetricsParam.TURN_INDEX.key, metrics.metadata.turnIndex)
-      }
+      putInt(InferenceMetricsParam.TURN_INDEX.key, metrics.inference.turnIndex)
 
       // Latency & Speed metrics.
       val latency = metrics.inference.latency

@@ -21,11 +21,14 @@ import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.supportModelBenchmark
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
+
+private const val TAG = "AGLitertlmInferenceMetricsTracker"
 
 /**
  * Tracks model inference latency, token throughput, and KV-cache context utilization for an active
@@ -34,7 +37,7 @@ import kotlin.time.TimeSource
  * @throws IllegalArgumentException if [model] does not support benchmark mode.
  */
 class LitertlmInferenceMetricsTracker(
-  val model: Model,
+  model: Model,
   private val timeSource: TimeSource = TimeSource.Monotonic,
 ) {
 
@@ -51,81 +54,93 @@ class LitertlmInferenceMetricsTracker(
     )
 
   /** Encapsulates ephemeral state and timing for an active inference turn. */
-  private class TurnState(val session: ConversationSession, private val timeSource: TimeSource) {
-    val startTimeMark: TimeMark = timeSource.markNow()
-    var ttftDuration: Duration? = null
-      private set
+  private class TurnState(
+    val session: ConversationSession,
+    val turnIndex: Int,
+    timeSource: TimeSource,
+  ) {
+    private val startTimeMark: TimeMark = timeSource.markNow()
+    private val ttft = AtomicReference<Duration?>(null)
+    private val outputTokenCount = AtomicInteger(0)
 
-    var totalDuration: Duration? = null
-      private set
+    val ttftDuration: Duration?
+      get() = ttft.get()
 
-    var streamedOutputTokens: Int = 0
-      private set
+    val streamedOutputTokens: Int
+      get() = outputTokenCount.get()
 
     fun recordToken(tokenText: String, thinkingText: String?) {
       val hasContent = tokenText.isNotEmpty() || !thinkingText.isNullOrEmpty()
       if (hasContent) {
-        if (ttftDuration == null) {
-          ttftDuration = startTimeMark.elapsedNow()
-        }
-        streamedOutputTokens++
+        ttft.updateAndGet { it ?: startTimeMark.elapsedNow() }
+        outputTokenCount.incrementAndGet()
       }
     }
 
-    fun endTurn(): Duration {
-      val duration = startTimeMark.elapsedNow()
-      totalDuration = duration
-      return duration
-    }
+    fun endTurn(): Duration = startTimeMark.elapsedNow()
   }
 
-  /** Encapsulates cumulative token context stored in the KV cache across completed turns. */
-  private class SessionState {
-    var cumulativeContextTokens: Int? = null
-      private set
+  /**
+   * Tracker state: the active turn, the index of the next turn, and the tokens in the KV cache
+   * after the last completed turn of the current session.
+   */
+  private data class State(
+    val activeTurn: TurnState? = null,
+    val nextTurnIndex: Int = 0,
+    val cumulativeContextTokens: Int? = null,
+  )
 
-    fun updateTokens(tokens: Int) {
-      cumulativeContextTokens = tokens
-    }
+  private val state = AtomicReference(State())
 
-    fun addTokens(tokens: Int) {
-      cumulativeContextTokens = (cumulativeContextTokens ?: 0) + tokens
+  /**
+   * Starts tracking a new inference turn with a [ConversationSession] abstraction, assigning it the
+   * next 0-based turn index of the current session.
+   *
+   * @return `true` if the turn was started, or `false` if [session] is not alive or a turn is
+   *   already active.
+   */
+  fun startTurn(session: ConversationSession): Boolean {
+    if (!session.isAlive) {
+      Log.w(TAG, "Cannot start turn: Conversation is not alive.")
+      return false
     }
-
-    fun reset() {
-      cumulativeContextTokens = null
+    val current = state.get()
+    if (current.activeTurn != null) {
+      Log.w(TAG, "Cannot start turn: previous turn is still in progress.")
+      return false
     }
+    val started =
+      current.copy(
+        activeTurn =
+          TurnState(session = session, turnIndex = current.nextTurnIndex, timeSource = timeSource),
+        nextTurnIndex = current.nextTurnIndex + 1,
+      )
+    // Fails if another call started a turn or reset the session meanwhile.
+    if (!state.compareAndSet(current, started)) {
+      Log.w(TAG, "Cannot start turn: tracker state changed concurrently.")
+      return false
+    }
+    return true
   }
 
-  private val activeTurn = AtomicReference<TurnState?>()
-  private val sessionState = SessionState()
-
-  /** Starts tracking a new inference turn with a [ConversationSession] abstraction. */
-  fun startTurn(session: ConversationSession) {
-    check(session.isAlive) { "Cannot start turn: Conversation is not alive." }
-    val newTurn = TurnState(session = session, timeSource = timeSource)
-    check(activeTurn.compareAndSet(null, newTurn)) {
-      "Cannot start turn: previous turn is still in progress."
-    }
-  }
-
-  /** Resets cumulative conversation token state when the session is cleared. */
+  /**
+   * Starts a new session: drops the active turn, if any, and restarts the turn index and the
+   * context token count.
+   */
   fun resetSession() {
-    activeTurn.set(null)
-    sessionState.reset()
+    state.set(State())
   }
 
   /**
    * Processes streaming token callbacks, recording the initial token arrival time (TTFT) and
-   * incrementing output token counts.
+   * incrementing output token counts. Safely no-ops if no turn is active (e.g. after session
+   * reset).
    *
    * @param tokenText Generated token text piece.
    * @param thinkingText Optional thinking text emitted by reasoning models.
    */
   fun onNewToken(tokenText: String, thinkingText: String? = null) {
-    val turn =
-      checkNotNull(activeTurn.get()) { "Received token outside of an active inference turn." }
-    turn.recordToken(tokenText = tokenText, thinkingText = thinkingText)
+    state.get().activeTurn?.recordToken(tokenText = tokenText, thinkingText = thinkingText)
   }
 
   private data class SessionDiagnostics(
@@ -134,11 +149,12 @@ class LitertlmInferenceMetricsTracker(
   )
 
   private data class RawTurnSnapshot(
+    val turnIndex: Int,
+    val status: InferenceStatus,
     val diagnostics: SessionDiagnostics,
     val streamedOutputTokens: Int,
     val turnDuration: Duration,
     val streamedTtft: Duration?,
-    val modelInitDuration: Duration?,
     val maxContextTokens: Int,
     val previousCumulativeTokens: Int?,
   )
@@ -150,10 +166,8 @@ class LitertlmInferenceMetricsTracker(
     val newCumulativeSessionTokens: Int?,
   )
 
-  private class TurnMetricsCalculator(
-    private val snapshot: RawTurnSnapshot,
-    private val isSuccess: Boolean,
-  ) {
+  private class TurnMetricsCalculator(private val snapshot: RawTurnSnapshot) {
+    private val isSuccess: Boolean = snapshot.status.code == InferenceStatus.Code.SUCCESS
     private val tokenBreakdown: TokenBreakdown = computeTokens()
 
     val updatedSessionTokens: Int?
@@ -161,6 +175,8 @@ class LitertlmInferenceMetricsTracker(
 
     fun calculateMetrics(): TurnInferenceMetrics {
       return turnInferenceMetrics {
+        this.turnIndex = snapshot.turnIndex
+        this.status = snapshot.status
         this.tokens = buildTokenMetrics()
         this.latency = buildLatencyMetrics()
         this.context = buildContextMetrics()
@@ -245,9 +261,6 @@ class LitertlmInferenceMetricsTracker(
       decodeDuration?.let { this.decodeDurationMs = it.inWholeMilliseconds }
       prefillSpeed?.takeIf { it > 0f }?.let { this.prefillSpeedTps = it }
       decodeSpeed?.takeIf { it > 0f }?.let { this.decodeSpeedTps = it }
-      snapshot.modelInitDuration
-        ?.takeIf { it.isPositive() }
-        ?.let { this.initDurationMs = it.inWholeMilliseconds }
     }
 
     private fun buildContextMetrics(): ContextMetrics = contextMetrics {
@@ -298,33 +311,35 @@ class LitertlmInferenceMetricsTracker(
   }
 
   /**
-   * Finalizes turn latency milestones, token counts, and context capacity at app level, and returns
-   * [TurnInferenceMetrics].
+   * Finalizes the active turn's latency milestones, token counts, and context utilization.
+   *
+   * @param status Final execution status of the turn.
+   * @return The finalized [TurnInferenceMetrics], or `null` if no turn is active.
    */
-  fun endTurn(status: InferenceStatus.Code = InferenceStatus.Code.SUCCESS): TurnInferenceMetrics {
-    val turn =
-      checkNotNull(activeTurn.getAndSet(null)) { "Cannot end turn: No active turn in progress." }
+  fun endTurn(status: InferenceStatus): TurnInferenceMetrics? {
+    val current = state.get()
+    val turn = current.activeTurn ?: return null
     val turnDuration = turn.endTurn()
-    val isSuccess = status == InferenceStatus.Code.SUCCESS
-
+    val isSuccess = status.code == InferenceStatus.Code.SUCCESS
     val sessionDiagnostics = querySessionDiagnostics(turn.session, isSuccess)
+
     val snapshot =
       RawTurnSnapshot(
+        turnIndex = turn.turnIndex,
+        status = status,
         diagnostics = sessionDiagnostics,
         streamedOutputTokens = turn.streamedOutputTokens,
         turnDuration = turnDuration,
         streamedTtft = turn.ttftDuration,
-        modelInitDuration = model.initDuration,
         maxContextTokens = maxContextTokens,
-        previousCumulativeTokens = sessionState.cumulativeContextTokens,
+        previousCumulativeTokens = current.cumulativeContextTokens,
       )
-
-    val calculator = TurnMetricsCalculator(snapshot = snapshot, isSuccess = isSuccess)
-    val result = calculator.calculateMetrics()
-
-    calculator.updatedSessionTokens?.let { sessionState.updateTokens(it) }
-
-    return result
+    val calculator = TurnMetricsCalculator(snapshot = snapshot)
+    val ended =
+      current.copy(activeTurn = null, cumulativeContextTokens = calculator.updatedSessionTokens)
+    // Fails if another call ended the turn or reset the session meanwhile.
+    if (!state.compareAndSet(current, ended)) return null
+    return calculator.calculateMetrics()
   }
 
   private fun querySessionDiagnostics(
@@ -350,9 +365,5 @@ class LitertlmInferenceMetricsTracker(
       }
 
     return SessionDiagnostics(benchmark = benchmark, tokenCount = tokens)
-  }
-
-  companion object {
-    private const val TAG = "AGLitertlmInferenceMetricsTracker"
   }
 }

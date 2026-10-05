@@ -56,7 +56,6 @@ class MemoryMonitor(
 
   override fun stop(): MemoryMetrics {
     sampler.stop()
-    sample()
     return buildMetrics()
   }
 

@@ -51,19 +51,12 @@ message InferenceStatus {
 message InferenceMetadata {
   string model_name = 1;
   string accelerator = 2;
-  InferenceStatus status = 3;
-  string task_id = 4;
+  string task_id = 3;
   // Active runtime sampler and capability configuration applied to the model
   // for this inference session (reuses the LlmConfig schema from
   // settings.proto; default_* fields hold the active runtime values rather than
   // static defaults).
-  com.google.ai.edge.gallery.proto.LlmConfig llm_config = 5;
-  // 0-based sequential conversation turn index (0, 1, 2, ...) corresponding
-  // to this inference output (e.g. derived as message_index / 2 from UI message
-  // lists).
-  optional int32 turn_index = 6;
-  // Unique session identifier for the conversation lifecycle.
-  optional string session_id = 7;
+  com.google.ai.edge.gallery.proto.LlmConfig llm_config = 4;
 }
 
 // Latency and throughput performance measurements.
@@ -80,21 +73,19 @@ message LatencyMetrics {
   // Token decoding duration (from 1st token to completion) in milliseconds
   // (ms).
   optional int64 decode_duration_ms = 5;
-  // User-perceived model initialization/loading duration in milliseconds (ms).
-  optional int64 init_duration_ms = 6;
 }
 
 // Token counts specifically for the current inference turn.
 message TurnTokenMetrics {
-  // Number of tokens in this turn's input prompt (derived from KV-cache delta -
+  // Number of tokens in this turn's input prompt (sourced from ground-truth
+  // InferenceBenchmark when available, falling back to KV-cache delta -
   // output_tokens at turn end).
   optional int32 prompt_tokens = 1;
-  // Number of tokens generated in this turn's response.
-  // Calculated via onMessage streaming chunks; might differ by 1-2 tokens for
-  // multi-byte Unicode/emojis, but accurate 99% of the time.
+  // Number of tokens generated in this turn's response (sourced from
+  // ground-truth InferenceBenchmark when available, falling back to onMessage
+  // streaming chunk count).
   optional int32 output_tokens = 2;
-  // Total tokens in this turn (prompt_tokens + output_tokens, exact KV-cache
-  // positions).
+  // Total tokens in this turn (prompt_tokens + output_tokens).
   optional int32 total_tokens = 3;
 }
 
@@ -112,6 +103,12 @@ message TurnInferenceMetrics {
   LatencyMetrics latency = 1;
   TurnTokenMetrics tokens = 2;
   ContextMetrics context = 3;
+  // 0-based sequential index (0, 1, 2, ...) of this turn within the current
+  // conversation session, assigned by the metrics tracker and restarted at 0
+  // when the session is reset.
+  int32 turn_index = 4;
+  // Execution status of the inference turn.
+  InferenceStatus status = 5;
 }
 
 // Root container for all end-to-end inference turn telemetry.

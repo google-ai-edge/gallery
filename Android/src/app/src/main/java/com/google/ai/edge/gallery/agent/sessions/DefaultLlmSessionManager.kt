@@ -295,7 +295,6 @@ constructor(
     images: List<Bitmap>,
     audioClips: List<ByteArray>,
     extraContext: Map<String, String>,
-    messageIndex: Int?,
   ) {
     var compactionStarted = false
     try {
@@ -346,8 +345,6 @@ constructor(
       images = images,
       audioClips = audioClips,
       extraContext = extraContext,
-      sessionId = sessionId,
-      messageIndex = messageIndex,
       resultListener = resultListener,
       cleanUpListener = cleanUpListener,
       onError = onError,

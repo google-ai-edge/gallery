@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery.common.metrics
 import android.util.Log
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -33,8 +34,7 @@ import kotlinx.coroutines.launch
  */
 interface PeriodicSensorMonitor<T> {
   /**
-   * Initializes monitor state, captures a baseline measurement, and starts background sampling on
-   * [scope].
+   * Clears previous samples and starts sampling in [scope]. Doesn't sample on the caller's thread.
    */
   fun start(scope: CoroutineScope)
 
@@ -44,7 +44,7 @@ interface PeriodicSensorMonitor<T> {
   /** Constructs the current snapshot of aggregated metrics without halting sampling. */
   fun buildMetrics(): T
 
-  /** Halts periodic sampling, captures a final measurement, and returns the finalized metrics. */
+  /** Stops sampling and returns the metrics from the samples taken so far. */
   fun stop(): T
 
   /** Cancels active sampling tasks and clears accumulated sensor history. */
@@ -56,7 +56,8 @@ interface PeriodicSensorMonitor<T> {
  *
  * @param samplingInterval Configured interval between successive measurements.
  * @param dispatcher Coroutine dispatcher to run sampling loops on.
- * @param onSample Callback invoked periodically and at baseline startup.
+ * @param onSample Takes one sample. Runs on [dispatcher]: once when sampling starts, then once per
+ *   sampling interval.
  * @throws IllegalArgumentException if [samplingInterval] is not strictly positive.
  */
 class PeriodicSampler(
@@ -84,12 +85,17 @@ class PeriodicSampler(
   @Synchronized
   fun start(scope: CoroutineScope) {
     stop()
-    onSample()
     samplingJob =
       scope.launch(dispatcher) {
         while (isActive) {
+          try {
+            onSample()
+          } catch (e: CancellationException) {
+            throw e
+          } catch (e: Exception) {
+            Log.w(TAG, "Failed to collect sensor sample.", e)
+          }
           delay(samplingInterval)
-          onSample()
         }
       }
   }
