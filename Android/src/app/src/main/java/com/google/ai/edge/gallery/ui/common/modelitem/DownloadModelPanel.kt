@@ -68,6 +68,7 @@ fun DownloadModelPanel(
   tosViewModel: TosViewModel? = null,
   downloadButtonBackgroundColor: Color = MaterialTheme.colorScheme.surfaceContainer,
   isUpdatable: Boolean = false,
+  canShowTryIt: Boolean = true,
 ) {
   with(sharedTransitionScope) {
     Row(
@@ -172,24 +173,28 @@ fun DownloadModelPanel(
         Spacer(modifier = Modifier.width(8.dp))
       }
 
-      DownloadAndTryButton(
-        task = task,
-        model = model,
-        downloadStatus = downloadStatus,
-        downloadProgress = downloadProgress,
-        enabled = isDownloadButtonEnabled(downloadStatus, model),
-        modelManagerViewModel = modelManagerViewModel,
-        onClicked = onTryItClicked,
-        compact = !isExpanded,
-        modifier =
-          Modifier.sharedElement(
-            sharedContentState = rememberSharedContentState(key = "download_button_${model.name}"),
-            animatedVisibilityScope = animatedVisibilityScope,
-          ),
-        modifierWhenExpanded = Modifier.weight(1f),
-        tosViewModel = tosViewModel ?: hiltViewModel(),
-        downloadButtonBackgroundColor = downloadButtonBackgroundColor,
-      )
+      if (!downloadSucceeded || canShowTryIt) {
+        DownloadAndTryButton(
+          task = task,
+          model = model,
+          downloadStatus = downloadStatus,
+          downloadProgress = downloadProgress,
+          enabled = isDownloadButtonEnabled(downloadStatus, model),
+          modelManagerViewModel = modelManagerViewModel,
+          onClicked = onTryItClicked,
+          compact = !isExpanded,
+          canShowTryIt = canShowTryIt,
+          modifier =
+            Modifier.sharedElement(
+              sharedContentState =
+                rememberSharedContentState(key = "download_button_${model.name}"),
+              animatedVisibilityScope = animatedVisibilityScope,
+            ),
+          modifierWhenExpanded = Modifier.weight(1f),
+          tosViewModel = tosViewModel ?: hiltViewModel(),
+          downloadButtonBackgroundColor = downloadButtonBackgroundColor,
+        )
+      }
     }
   }
 }

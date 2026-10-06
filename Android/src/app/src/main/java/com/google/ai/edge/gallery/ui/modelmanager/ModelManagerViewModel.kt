@@ -87,7 +87,9 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
 import kotlin.collections.sortedWith
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -1414,10 +1416,27 @@ constructor(
 
   /** Queries and updates the download/availability status of all loaded supplementary models. */
   fun refreshSupplementaryStatuses() {
-    for (model in _supplementaryModels) {
-      val downloader = downloaders[model.backendSpec.runtimeType] ?: continue
-      viewModelScope.launch {
-        val status = downloader.queryStatus(model)
+    viewModelScope.launch {
+      // Query all statuses concurrently, then apply them in allowlist order.
+      val pendingStatuses = _supplementaryModels.mapNotNull { model ->
+        val downloader = downloaders[model.backendSpec.runtimeType] ?: return@mapNotNull null
+        model to
+          async {
+            try {
+              downloader.queryStatus(model)
+            } catch (e: CancellationException) {
+              throw e
+            } catch (e: Exception) {
+              Log.w(TAG, "Failed to query status for supplementary model '${model.name}'", e)
+              ModelDownloadStatus(
+                status = ModelDownloadStatusType.FAILED,
+                errorMessage = e.localizedMessage.orEmpty(),
+              )
+            }
+          }
+      }
+      for ((model, pendingStatus) in pendingStatuses) {
+        val status = pendingStatus.await()
         setDownloadStatus(curModel = model, status = status)
       }
     }

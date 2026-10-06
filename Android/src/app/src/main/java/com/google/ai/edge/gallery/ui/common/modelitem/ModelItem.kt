@@ -103,6 +103,8 @@ fun ModelItem(
   modelVariants: List<Model> = listOf(),
   tosViewModel: TosViewModel? = null,
   showProgressIndicator: Boolean = true,
+  canShowTryIt: Boolean = true,
+  extraContent: (@Composable () -> Unit)? = null,
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val downloadStatus by remember {
@@ -214,12 +216,18 @@ fun ModelItem(
                 )
               model.autoDownloadsOnStartup && isDownloadFailed -> AICoreAccessPanel()
             }
+            extraContent?.invoke()
           }
         }
       }
       SharedTransitionLayout {
         // Show a single download panel if there are no variants.
         if (modelVariants.isEmpty()) {
+          val hasDownloadPanelContent =
+            downloadStatus?.status != ModelDownloadStatusType.SUCCEEDED ||
+              canShowTryIt ||
+              downloadStatus?.isUpdatable == true ||
+              (showBenchmarkActionButton && model.isLlm)
           AnimatedContent(isExpanded) { targetIsExpanded ->
             DownloadModelPanel(
               task = task,
@@ -229,7 +237,8 @@ fun ModelItem(
               animatedVisibilityScope = this@AnimatedContent,
               sharedTransitionScope = this@SharedTransitionLayout,
               modifier =
-                Modifier.fillMaxWidth().padding(top = if (targetIsExpanded) 12.dp else 0.dp),
+                Modifier.fillMaxWidth()
+                  .padding(top = if (targetIsExpanded && hasDownloadPanelContent) 12.dp else 0.dp),
               modelManagerViewModel = modelManagerViewModel,
               isExpanded = targetIsExpanded,
               onTryItClicked = { onModelClicked(model) },
@@ -237,6 +246,7 @@ fun ModelItem(
               showBenchmarkActionButton = showBenchmarkActionButton,
               tosViewModel = tosViewModel,
               isUpdatable = downloadStatus?.isUpdatable == true,
+              canShowTryIt = canShowTryIt,
             )
           }
         }
