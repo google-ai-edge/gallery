@@ -102,6 +102,14 @@ fun StatusIcon(
             modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
           )
 
+        ModelDownloadStatusType.UNAVAILABLE ->
+          Icon(
+            Icons.Rounded.Error,
+            tint = MaterialTheme.customColors.modelInfoIconColor,
+            contentDescription = stringResource(R.string.cd_unavailable_icon),
+            modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
+          )
+
         else -> {}
       }
     }
