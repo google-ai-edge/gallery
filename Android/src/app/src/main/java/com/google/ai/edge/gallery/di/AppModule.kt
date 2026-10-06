@@ -35,17 +35,23 @@ import com.google.ai.edge.gallery.data.DefaultChatSessionRepository
 import com.google.ai.edge.gallery.data.DefaultDataStoreRepository
 import com.google.ai.edge.gallery.data.DefaultDownloadRepository
 import com.google.ai.edge.gallery.data.DownloadRepository
+import com.google.ai.edge.gallery.data.LiteRtLmModelDownloader
+import com.google.ai.edge.gallery.data.ModelDownloader
+import com.google.ai.edge.gallery.data.RuntimeType
+import com.google.ai.edge.gallery.data.RuntimeTypeKey
 import com.google.ai.edge.gallery.proto.BenchmarkResults
 import com.google.ai.edge.gallery.proto.CutoutCollection
 import com.google.ai.edge.gallery.proto.Settings
 import com.google.ai.edge.gallery.proto.Skills
 import com.google.ai.edge.gallery.proto.UserData
+import com.google.ai.edge.gallery.runtime.aicore.AICoreModelDownloader
 import com.squareup.moshi.Moshi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoMap
 import javax.inject.Singleton
 
 @Module
@@ -193,6 +199,36 @@ internal object AppModule {
     lifecycleProvider: AppLifecycleProvider,
   ): DownloadRepository {
     return DefaultDownloadRepository(context, lifecycleProvider)
+  }
+
+  @Provides
+  @Singleton
+  @IntoMap
+  @RuntimeTypeKey(RuntimeType.UNKNOWN)
+  fun provideUnknownModelDownloader(
+    @ApplicationContext context: Context,
+    downloadRepository: DownloadRepository,
+  ): ModelDownloader {
+    return LiteRtLmModelDownloader(context, downloadRepository)
+  }
+
+  @Provides
+  @Singleton
+  @IntoMap
+  @RuntimeTypeKey(RuntimeType.LITERT_LM)
+  fun provideLiteRtLmModelDownloader(
+    @ApplicationContext context: Context,
+    downloadRepository: DownloadRepository,
+  ): ModelDownloader {
+    return LiteRtLmModelDownloader(context, downloadRepository)
+  }
+
+  @Provides
+  @Singleton
+  @IntoMap
+  @RuntimeTypeKey(RuntimeType.AICORE)
+  fun provideAICoreModelDownloader(@ApplicationContext context: Context): ModelDownloader {
+    return AICoreModelDownloader(context)
   }
 
   @Provides

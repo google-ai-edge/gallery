@@ -23,10 +23,35 @@ enum class ModelCapability {
   @SerializedName("speculative_decoding") SPECULATIVE_DECODING,
 }
 
+enum class ModelType {
+  @SerializedName("task") TASK,
+}
+
 enum class RuntimeType {
   @SerializedName("unknown") UNKNOWN,
   @SerializedName("litert_lm") LITERT_LM,
   @SerializedName("aicore") AICORE,
+  ;
+
+  /**
+   * Whether models using this runtime are downloaded as local files via [DownloadRepository] and
+   * stored in the app's models directory.
+   */
+  val downloadsViaRepository: Boolean
+    get() = this == LITERT_LM || this == UNKNOWN
+
+  /** Whether models using this runtime automatically initiate download/probing on app startup. */
+  val autoDownloadsOnStartup: Boolean
+    get() = this == AICORE
+
+  /** Whether models using this runtime can be deleted by the user from within the app. */
+  val supportsDelete: Boolean
+    get() =
+      when (this) {
+        LITERT_LM,
+        UNKNOWN -> true
+        else -> false
+      }
 }
 
 enum class AICoreModelReleaseStage {

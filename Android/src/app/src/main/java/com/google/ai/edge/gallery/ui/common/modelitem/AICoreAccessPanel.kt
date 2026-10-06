@@ -36,6 +36,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.data.ModelUnavailability
+import com.google.ai.edge.gallery.data.ModelUnavailabilityReason
+
+private const val AICORE_DEV_PREVIEW_URL =
+  "https://developers.google.com/ml-kit/genai/aicore-dev-preview"
 
 /**
  * Composable function to display an access panel for AICore models when they require user action
@@ -43,6 +48,38 @@ import com.google.ai.edge.gallery.R
  */
 @Composable
 fun AICoreAccessPanel() {
+  ModelUnavailabilityPanel(
+    unavailability =
+      ModelUnavailability(
+        reason = ModelUnavailabilityReason.AICORE_UNAVAILABLE,
+        guideUrl = AICORE_DEV_PREVIEW_URL,
+      )
+  )
+}
+
+/**
+ * Composable function to display a reason and optional setup guide link when a model is unavailable
+ * on the current device or environment.
+ */
+@Composable
+fun ModelUnavailabilityPanel(unavailability: ModelUnavailability, fallbackGuideUrl: String = "") {
+  val message =
+    when (unavailability.reason) {
+      ModelUnavailabilityReason.UNSUPPORTED_HARDWARE_TENSOR_G3 ->
+        stringResource(R.string.model_unavailable_unsupported_hardware_tensor_g3)
+      ModelUnavailabilityReason.SPEECH_SERVICES_OUTDATED_OR_MISSING ->
+        stringResource(R.string.model_unavailable_speech_services_outdated)
+      ModelUnavailabilityReason.AICORE_UNAVAILABLE ->
+        stringResource(R.string.aicore_access_panel_title)
+      ModelUnavailabilityReason.MISSING_RESOURCE_PROVIDER ->
+        stringResource(R.string.model_unavailable_missing_resource_provider)
+      ModelUnavailabilityReason.UNSUPPORTED_MODEL ->
+        stringResource(R.string.model_unavailable_generic)
+    }
+  val guideUrl =
+    unavailability.guideUrl?.takeIf { it.isNotEmpty() }
+      ?: fallbackGuideUrl.takeIf { it.isNotEmpty() }
+
   Row(
     modifier =
       Modifier.fillMaxWidth()
@@ -53,28 +90,26 @@ fun AICoreAccessPanel() {
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Text(
-      stringResource(R.string.aicore_access_panel_title),
+      message,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
       style = MaterialTheme.typography.bodyMedium,
-      modifier = Modifier.weight(1f).padding(end = 12.dp),
+      modifier = Modifier.weight(1f).padding(end = if (guideUrl != null) 12.dp else 0.dp),
     )
-    val context = LocalContext.current
-    TextButton(
-      onClick = {
-        val intent =
-          Intent(
-            Intent.ACTION_VIEW,
-            "https://developers.google.com/ml-kit/genai/aicore-dev-preview".toUri(),
-          )
-        context.startActivity(intent)
-      },
-      contentPadding = PaddingValues(horizontal = 8.dp),
-    ) {
-      Text(
-        stringResource(R.string.aicore_access_panel_button),
-        color = MaterialTheme.colorScheme.primary,
-        style = MaterialTheme.typography.labelLarge,
-      )
+    if (guideUrl != null) {
+      val context = LocalContext.current
+      TextButton(
+        onClick = {
+          val intent = Intent(Intent.ACTION_VIEW, guideUrl.toUri())
+          context.startActivity(intent)
+        },
+        contentPadding = PaddingValues(horizontal = 8.dp),
+      ) {
+        Text(
+          stringResource(R.string.aicore_access_panel_button),
+          color = MaterialTheme.colorScheme.primary,
+          style = MaterialTheme.typography.labelLarge,
+        )
+      }
     }
   }
 }
