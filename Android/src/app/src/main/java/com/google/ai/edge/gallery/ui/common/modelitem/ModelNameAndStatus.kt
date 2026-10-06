@@ -212,7 +212,9 @@ fun ModelStatusDetails(
     if (downloadStatus != null && downloadStatus.status == ModelDownloadStatusType.FAILED) {
       Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-          downloadStatus.errorMessage,
+          downloadStatus.errorMessage.ifEmpty {
+            stringResource(R.string.model_download_failed_status)
+          },
           color = MaterialTheme.colorScheme.error,
           style = labelSmallNarrow,
           overflow = TextOverflow.Ellipsis,
