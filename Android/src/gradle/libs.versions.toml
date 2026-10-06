@@ -12,7 +12,7 @@ navigation = "2.8.9"
 serializationPlugin = "2.0.21"
 serializationJson = "1.7.3"
 materialIconExtended = "1.7.8"
-workRuntime = "2.10.0"
+workRuntime = "2.12.0"
 dataStore = "1.1.7"
 gson = "2.14.0"
 lifecycleProcess = "2.8.7"
@@ -20,7 +20,7 @@ webkit = "1.14.0"
 protobuf = "0.10.0"
 protobufJavaLite = "4.26.1"
 #noinspection GradleDependency
-litertlm = "0.11.0"
+litertlm = "0.18.0"
 commonmark = "1.0.0-alpha02"
 richtext = "1.0.0-alpha02"
 playServicesTfliteJava = "16.4.0"
@@ -43,6 +43,9 @@ mlkit-genai-prompt = "1.0.0-beta2"  # Ref: https://developers.google.com/ml-kit/
 mcp = "0.8.0"
 ktor = "3.4.3"
 tasksVision = "1.0.0"
+tasksRetrieval = "1.1.0"
+media3 = "1.11.1"
+coil = "2.7.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -101,6 +104,11 @@ mcp-kotlin-sdk = { group = "io.modelcontextprotocol", name = "kotlin-sdk", versi
 ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref = "ktor" }
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
 tasks-vision = { group = "com.google.mediapipe", name = "tasks-vision", version.ref = "tasksVision" }
+tasks-retrieval = { group = "com.google.mediapipe", name = "tasks-retrieval", version.ref = "tasksRetrieval" }
+androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
+androidx-media3-transformer = { group = "androidx.media3", name = "media3-transformer", version.ref = "media3" }
+androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

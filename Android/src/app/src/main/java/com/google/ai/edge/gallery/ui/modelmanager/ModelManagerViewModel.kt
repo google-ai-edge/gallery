@@ -184,6 +184,8 @@ private val RESET_CONVERSATION_TURN_COUNT_CONFIG =
   )
 private val PREDEFINED_LLM_TASK_ORDER =
   listOf(
+    BuiltInTaskId.SMART_ALBUM,
+    BuiltInTaskId.VIDEO_MOMENT_FINDER,
     BuiltInTaskId.LLM_CHAT,
     BuiltInTaskId.LLM_AGENT_CHAT,
     BuiltInTaskId.LLM_ASK_IMAGE,

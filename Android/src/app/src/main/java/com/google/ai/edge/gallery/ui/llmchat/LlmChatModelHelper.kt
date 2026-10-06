@@ -16,7 +16,6 @@
 
 package com.google.ai.edge.gallery.ui.llmchat
 
-import com.google.ai.edge.litertlm.Capabilities
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
@@ -53,6 +52,7 @@ import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.MessageCallback
+import com.google.ai.edge.litertlm.ModelInfo
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
 import java.io.ByteArrayOutputStream
@@ -80,8 +80,7 @@ data class LlmModelInstance(
   var conversation: Conversation,
   val metricsTracker: MetricsTracker? = null,
 ) : LlmConversationInstance {
-  override fun getTokenCount(): Int =
-  0
+  override fun getTokenCount(): Int = conversation.getTokenCount()
 
   override fun sendMessage(prompt: String): Message = conversation.sendMessage(prompt)
 }
@@ -156,8 +155,10 @@ object LlmChatModelHelper : LlmModelHelper {
     var supportsSpeculativeDecoding = false
     // Check if the model file supports speculative decoding and visual token budget selection.
     try {
-      Capabilities(modelPath).use {
-        supportsSpeculativeDecoding = it.hasSpeculativeDecodingSupport()
+      ModelInfo.from(model.getPath(context)).use { modelInfo ->
+        if (modelInfo is ModelInfo.Llm) {
+          supportsSpeculativeDecoding = modelInfo.hasSpeculativeDecodingSupport()
+        }
       }
     } catch (e: Exception) {
       // Ignore exceptions and assume not supported.

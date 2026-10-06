@@ -1,0 +1,104 @@
+/* Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+syntax = "proto3";
+
+package com.google.ai.edge.gallery.proto;
+
+option java_multiple_files = true;
+option java_outer_classname = "VideoMomentFinderProto";
+option java_package = "com.google.ai.edge.gallery.proto";
+
+// Top-level persistent data stored for the Video Moment Finder task.
+message VideoMomentFinderData {
+  // All video moment finder projects created by the user.
+  repeated VideoMomentProject projects = 1;
+}
+
+// Represents a video project containing extracted embeddings and saved moments.
+message VideoMomentProject {
+  // Unique identifier for the project.
+  string id = 1;
+
+  // Display name of the project (e.g. video file name).
+  string display_name = 2;
+
+  // File path of the video relative to the project root dir.
+  string relative_video_path = 3;
+
+  // Total duration of the video in milliseconds.
+  int64 duration_ms = 4;
+
+  // File path of the video thumbnail image relative to the project root dir.
+  string relative_thumbnail_path = 5;
+
+  // List of saved video clips for this project.
+  repeated VideoClip saved_clips = 6;
+
+  // Whether the video has completed frame extraction and embedding processing.
+  // The embeddings themselves live in the semantic retrieval vector store,
+  // tagged with a "parent_id" metadata entry equal to this project's id.
+  bool is_processed = 7;
+
+  // Number of frames sampled per sliding time window during processing.
+  int32 frames_per_window = 9;
+
+  // Duration of each sliding time window in seconds.
+  int32 window_duration_sec = 10;
+
+  // Overlap duration between consecutive sliding windows in seconds.
+  int32 overlap_duration_sec = 11;
+
+  // Maximum number of top matching moments to return from search.
+  int32 top_k = 12;
+
+  // Whether the embedding model that indexed this project supported audio
+  // input, meaning its windows interleave audio with frames wherever the video
+  // has an audio track. Windows embedded with and without audio are not
+  // comparable within one vector space, so a change here forces the project to
+  // be reprocessed.
+  bool indexed_with_audio_support = 13;
+
+  // Whether audio should be interleaved with video frames when indexing this
+  // project, provided the active embedding model supports audio input. Unset on
+  // projects created before this setting existed, which default to true.
+  optional bool include_audio = 14;
+
+  // Content URI the video was imported from (e.g. a photo picker URI), used to
+  // detect when the user picks a video that has already been imported. Empty on
+  // projects created before this field existed.
+  string source_uri = 15;
+}
+
+// Represents a saved or exported clip/moment from a video.
+message VideoClip {
+  // Unique identifier for the clip.
+  string id = 1;
+
+  // Start timestamp of the clip in milliseconds.
+  int64 start_time_ms = 2;
+
+  // End timestamp of the clip in milliseconds.
+  int64 end_time_ms = 3;
+
+  // File path of the clip preview screenshot relative to clip root dir.
+  string relative_screenshot_path = 4;
+
+  // File path of the exported clip video file relative to clip root dir.
+  string relative_video_path = 5;
+
+  // Natural language search query used to discover this moment, if applicable.
+  string search_query = 6;
+}
