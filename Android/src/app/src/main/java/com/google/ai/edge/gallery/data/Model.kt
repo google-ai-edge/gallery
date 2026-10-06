@@ -124,6 +124,12 @@ data class Model(
   /** LLM-specific parameters and capability flags. */
   val llmProfile: LlmProfile? = null,
 
+  /**
+   * The model category declared by the allowlist, or `null` to derive it from the attached profile.
+   * See [modelType].
+   */
+  private val declaredModelType: ModelType? = null,
+
   // The following fields are only used for built-in tasks. Can ignore if you are creating your own
   // custom tasks.
   //
@@ -156,6 +162,20 @@ data class Model(
 ) {
   val isLlm: Boolean
     get() = llmProfile != null
+
+  /**
+   * The model category. Models other than [ModelType.TASK] are supplementary models that are not
+   * bound to a task.
+   */
+  val modelType: ModelType
+    get() =
+      declaredModelType
+        ?: when {
+          else -> ModelType.TASK
+        }
+
+  val isSupplementary: Boolean
+    get() = modelType != ModelType.TASK
 
   init {
     normalizedName = NORMALIZE_NAME_REGEX.replace(name, "_")

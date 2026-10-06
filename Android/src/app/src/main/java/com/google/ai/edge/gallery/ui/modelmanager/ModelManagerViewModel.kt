@@ -53,6 +53,7 @@ import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.ModelDownloader
 import com.google.ai.edge.gallery.data.ModelFile
+import com.google.ai.edge.gallery.data.ModelType
 import com.google.ai.edge.gallery.data.ModelUtils
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.RuntimeType
@@ -83,6 +84,7 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
 import kotlin.collections.sortedWith
 import kotlinx.coroutines.Dispatchers
@@ -157,6 +159,9 @@ data class ModelManagerUiState(
 
   /** A map that tracks the download status of optional extra data files, indexed by model name. */
   val extraDataDownloadStatus: Map<String, ModelDownloadStatus> = mapOf(),
+
+  /** Supplementary models that are not bound to a specific task. */
+  val supplementaryModels: List<Model> = emptyList(),
 ) {
   fun isDownloadOptionalComponentsEnabled(modelName: String): Boolean {
     return downloadOptionalComponents[modelName] ?: true
@@ -254,6 +259,8 @@ constructor(
   val allowlistModels: List<Model>
     get() = _allowlistModels
 
+  protected val _supplementaryModels: MutableList<Model> = CopyOnWriteArrayList()
+
   // Tracks the initialized backends for each model by model name.
   private val initializedBackends = ConcurrentHashMap<String, MutableSet<Accelerator>>()
 
@@ -309,7 +316,7 @@ constructor(
         }
       }
     }
-    return null
+    return uiState.value.supplementaryModels.find { it.name == name }
   }
 
   fun getAllModels(): List<Model> {
@@ -1243,6 +1250,7 @@ constructor(
       try {
         // Clear existing allowlist models.
         _allowlistModels.clear()
+        _supplementaryModels.clear()
 
         // Load model allowlist json.
         // Try to read the test allowlist first.
@@ -1330,10 +1338,22 @@ constructor(
             }
           }
 
-          val model = allowedModel.toModel()
+          val model = allowedModel.toModel() ?: continue
+
+          if (model.isSupplementary) {
+            // Skip supplementary models whose runtime has no registered downloader in this build.
+            if (downloaders[model.backendSpec.runtimeType] == null) {
+              continue
+            }
+            _allowlistModels.add(model)
+            _supplementaryModels.add(model)
+            // Supplementary models are not bound to tasks, so skip the task registration below.
+            continue
+          }
+
           _allowlistModels.add(model)
           nameToModel.put(model.name, model)
-          for (taskType in allowedModel.taskTypes) {
+          for (taskType in allowedModel.taskTypes.orEmpty()) {
             if (taskType == BuiltInTaskId.LLM_TEST) continue
             val task = curTasks.find { it.id == taskType }
             task?.models?.add(model)
@@ -1384,9 +1404,21 @@ constructor(
         // Start auto-downloads for models configured with autoDownloadsOnStartup.
         Log.d(TAG, "loadModelAllowlist: Starting auto-download models")
         startAutoDownloadModels()
+        refreshSupplementaryStatuses()
         Log.d(TAG, "loadModelAllowlist: Done")
       } catch (e: Exception) {
         Log.e(TAG, "Failed to load model allowlist", e)
+      }
+    }
+  }
+
+  /** Queries and updates the download/availability status of all loaded supplementary models. */
+  fun refreshSupplementaryStatuses() {
+    for (model in _supplementaryModels) {
+      val downloader = downloaders[model.backendSpec.runtimeType] ?: continue
+      viewModelScope.launch {
+        val status = downloader.queryStatus(model)
+        setDownloadStatus(curModel = model, status = status)
       }
     }
   }
@@ -1494,6 +1526,16 @@ constructor(
       }
     }
 
+    for (suppModel in _supplementaryModels) {
+      modelDownloadStatus[suppModel.name] =
+        _uiState.value.modelDownloadStatus[suppModel.name]
+          ?: if (suppModel.downloadsViaRepository) {
+            getModelDownloadStatus(model = suppModel)
+          } else {
+            ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED)
+          }
+    }
+
     // Load imported models.
     for (importedModel in dataStoreRepository.readImportedModels()) {
       Log.d(TAG, "stored imported model: $importedModel")
@@ -1530,6 +1572,7 @@ constructor(
       textInputHistory = textInputHistory,
       downloadOptionalComponents = _uiState.value.downloadOptionalComponents,
       extraDataDownloadStatus = extraDataDownloadStatus,
+      supplementaryModels = _supplementaryModels.toList(),
     )
   }
 

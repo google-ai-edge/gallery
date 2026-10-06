@@ -23,10 +23,15 @@ enum class ModelCapability {
   @SerializedName("speculative_decoding") SPECULATIVE_DECODING,
 }
 
+enum class ModelType {
+  @SerializedName("task") TASK,
+}
+
 enum class RuntimeType {
   @SerializedName("unknown") UNKNOWN,
   @SerializedName("litert_lm") LITERT_LM,
-  @SerializedName("aicore") AICORE;
+  @SerializedName("aicore") AICORE,
+  ;
 
   /**
    * Whether models using this runtime are downloaded as local files via [DownloadRepository] and
@@ -41,7 +46,12 @@ enum class RuntimeType {
 
   /** Whether models using this runtime can be deleted by the user from within the app. */
   val supportsDelete: Boolean
-    get() = this == LITERT_LM || this == UNKNOWN
+    get() =
+      when (this) {
+        LITERT_LM,
+        UNKNOWN -> true
+        else -> false
+      }
 }
 
 enum class AICoreModelReleaseStage {
