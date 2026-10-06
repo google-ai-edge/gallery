@@ -34,6 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +58,7 @@ import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelCapability
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
+import com.google.ai.edge.gallery.data.ModelUtils
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.convertValueToTargetType
 import com.google.ai.edge.gallery.firebaseAnalytics
@@ -186,36 +188,52 @@ fun ModelPageAppBar(
 
   // Config dialog.
   if (showConfigDialog) {
+    var supportsSpeculativeDecoding by
+      remember(model.name, task.id) {
+        mutableStateOf(model.configs.any { it.key == ConfigKeys.ENABLE_SPECULATIVE_DECODING })
+      }
+    var currentConfigs by remember(model.name, task.id) { mutableStateOf(model.configs) }
+    var currentConfigValues by remember(model.name, task.id) { mutableStateOf(model.configValues) }
+
+    LaunchedEffect(model.name, task.id) {
+      // Check if the model file supports speculative decoding and visual token budget selection.
+      try {
+        Capabilities(model.getPath(context)).use {
+          supportsSpeculativeDecoding = it.hasSpeculativeDecodingSupport()
+        }
+      } catch (e: Exception) {
+        // Ignore exceptions and assume not supported.
+      }
+    }
+
     // Remove the reset conversation turn count config for non-tiny-garden tasks.
     //
     // This may happen when user imports a model with "enable tiny garden" turned on and use the
     // model in another non-tiny-garden task.
-    val modelConfigs = model.configs.toMutableList()
-    if (task.id != BuiltInTaskId.LLM_TINY_GARDEN) {
-      modelConfigs.removeIf { it.key == ConfigKeys.RESET_CONVERSATION_TURN_COUNT }
-    }
-    if (!task.allowCapability(ModelCapability.LLM_THINKING, model)) {
-      modelConfigs.removeIf { it.key == ConfigKeys.ENABLE_THINKING }
-    }
-    var supportsSpeculativeDecoding = false
-    // Check if the model file supports speculative decoding.
-    try {
-      Capabilities(model.getPath(context)).use {
-        supportsSpeculativeDecoding = it.hasSpeculativeDecodingSupport()
+    val modelConfigs =
+      remember(currentConfigs, supportsSpeculativeDecoding, task.id, model) {
+        currentConfigs.toMutableList().apply {
+          if (task.id != BuiltInTaskId.LLM_TINY_GARDEN) {
+            removeIf { it.key == ConfigKeys.RESET_CONVERSATION_TURN_COUNT }
+          }
+          if (!task.allowCapability(ModelCapability.LLM_THINKING, model)) {
+            removeIf { it.key == ConfigKeys.ENABLE_THINKING }
+          }
+          if (!task.isVisionEnabled(model)) {
+            removeIf { it.key == ConfigKeys.VISUAL_TOKEN_BUDGET }
+          }
+          if (
+            !supportsSpeculativeDecoding ||
+              !task.allowCapability(ModelCapability.SPECULATIVE_DECODING, model)
+          ) {
+            removeIf { it.key == ConfigKeys.ENABLE_SPECULATIVE_DECODING }
+          }
+        }
       }
-    } catch (e: Exception) {
-      // Ignore exceptions and assume not supported.
-    }
-    if (
-      !supportsSpeculativeDecoding ||
-        !task.allowCapability(ModelCapability.SPECULATIVE_DECODING, model)
-    ) {
-      modelConfigs.removeIf { it.key == ConfigKeys.ENABLE_SPECULATIVE_DECODING }
-    }
     ConfigDialog(
       title = stringResource(R.string.config_dialog_title),
       configs = modelConfigs,
-      initialValues = model.configValues,
+      initialValues = currentConfigValues,
       onDismissed = { showConfigDialog = false },
       onOk = { curConfigValues, oldSystemPrompt, newSystemPrompt ->
         // Hide config dialog.

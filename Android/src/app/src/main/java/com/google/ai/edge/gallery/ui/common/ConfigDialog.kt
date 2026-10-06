@@ -20,6 +20,7 @@ package com.google.ai.edge.gallery.ui.common
 // import com.google.ai.edge.gallery.ui.preview.MODEL_TEST1
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.util.Log
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -48,6 +49,8 @@ import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -77,17 +80,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.google.ai.edge.gallery.R
@@ -96,6 +105,7 @@ import com.google.ai.edge.gallery.data.BottomSheetSelectorConfig
 import com.google.ai.edge.gallery.data.BottomSheetSelectorItem
 import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
+import com.google.ai.edge.gallery.data.DropdownConfig
 import com.google.ai.edge.gallery.data.LabelConfig
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.SegmentedButtonConfig
@@ -205,9 +215,14 @@ fun ConfigDialog(
 
         when (selectedTab) {
           ConfigTab.MODEL_CONFIGS -> {
+            val scrollState = rememberScrollState()
+            val scrollbarColor = MaterialTheme.colorScheme.onSurfaceVariant
             // List of config rows.
             Column(
-              modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false),
+              modifier =
+                Modifier.weight(1f, fill = false)
+                  .verticalScrollbar(scrollState = scrollState, color = scrollbarColor)
+                  .verticalScroll(scrollState),
               verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
               ConfigEditorsPanel(configs = configs, values = values)
@@ -303,6 +318,11 @@ fun ConfigEditorsPanel(configs: List<Config>, values: SnapshotStateMap<String, A
       // Bottom sheet selector.
       is BottomSheetSelectorConfig -> {
         BottomSheetSelectorRow(config = config, values = values)
+      }
+
+      // Dropdown selector.
+      is DropdownConfig -> {
+        DropdownRow(config = config, values = values)
       }
 
       else -> {}
@@ -572,7 +592,8 @@ fun BottomSheetSelectorRow(
       if (config.options.isEmpty()) {
         null
       } else {
-        config.options.find { it.label == config.defaultValue }
+        val currentValue = values[config.key.label]?.toString() ?: config.defaultValue
+        config.options.find { it.label == currentValue }
       }
     )
   }
@@ -665,4 +686,99 @@ fun BottomSheetSelectorRow(
       }
     }
   }
+}
+
+/**
+ * Composable function to display a row with a dropdown menu selector.
+ *
+ * Renders a label and a pill-shaped trigger that opens a [DropdownMenu] listing
+ * [DropdownConfig.options].
+ */
+@Composable
+fun DropdownRow(config: DropdownConfig, values: SnapshotStateMap<String, Any>) {
+  var expanded by remember { mutableStateOf(false) }
+  val selectedOption = values[config.key.label]?.toString() ?: config.defaultValue
+
+  Column(
+    modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+    verticalArrangement = Arrangement.spacedBy(4.dp),
+  ) {
+    Text(stringResource(config.key.labelRes), style = MaterialTheme.typography.titleSmall)
+    Box(modifier = Modifier.fillMaxWidth()) {
+      Row(
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier =
+          Modifier.fillMaxWidth()
+            .height(40.dp)
+            .clip(CircleShape)
+            .clickable(role = Role.DropdownList) { expanded = true }
+            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+            .padding(start = 12.dp, end = 8.dp),
+      ) {
+        Text(
+          selectedOption.ifEmpty { "-" },
+          style = MaterialTheme.typography.labelLarge,
+          color = MaterialTheme.colorScheme.onSurface,
+          modifier = Modifier.weight(1f),
+          maxLines = 1,
+          overflow = TextOverflow.MiddleEllipsis,
+        )
+        Icon(
+          Icons.Rounded.ArrowDropDown,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.onSurface,
+        )
+      }
+      DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        for (option in config.options) {
+          DropdownMenuItem(
+            text = { Text(option, style = MaterialTheme.typography.labelLarge) },
+            onClick = {
+              values[config.key.label] = option
+              expanded = false
+            },
+          )
+        }
+      }
+    }
+  }
+}
+
+private fun Modifier.verticalScrollbar(
+  scrollState: ScrollState,
+  color: Color,
+  width: Dp = 4.dp,
+  endOffset: Dp = 8.dp,
+  minThumbHeight: Dp = 24.dp,
+): Modifier = drawWithContent {
+  drawContent()
+  val maxScroll = scrollState.maxValue
+  if (maxScroll <= 0 || maxScroll == Int.MAX_VALUE) return@drawWithContent
+  val viewportHeight = size.height
+  val totalContentHeight = viewportHeight + maxScroll
+  if (totalContentHeight <= 0f) return@drawWithContent
+  val barWidthPx = width.toPx()
+  val barX = size.width + endOffset.toPx()
+  val cornerRadius = CornerRadius(barWidthPx / 2f, barWidthPx / 2f)
+  val thumbHeight =
+    (viewportHeight * (viewportHeight / totalContentHeight))
+      .coerceAtLeast(minThumbHeight.toPx())
+      .coerceAtMost(viewportHeight)
+  val scrollableRange = (viewportHeight - thumbHeight).coerceAtLeast(0f)
+  val scrollFraction = (scrollState.value.toFloat() / maxScroll).coerceIn(0f, 1f)
+  val thumbTop = scrollFraction * scrollableRange
+
+  drawRoundRect(
+    color = color.copy(alpha = 0.15f),
+    topLeft = Offset(barX, 0f),
+    size = Size(barWidthPx, viewportHeight),
+    cornerRadius = cornerRadius,
+  )
+  drawRoundRect(
+    color = color.copy(alpha = 0.5f),
+    topLeft = Offset(barX, thumbTop),
+    size = Size(barWidthPx, thumbHeight),
+    cornerRadius = cornerRadius,
+  )
 }

@@ -67,8 +67,8 @@ class LlmSingleTurnTask @Inject constructor(@ApplicationContext private val cont
       context = context,
       model = model,
       taskId = task.id,
-      supportImage = false,
-      supportAudio = false,
+      supportImage = task.isVisionEnabled(model),
+      supportAudio = task.isAudioEnabled(model),
       onDone = onDone,
       systemInstruction = systemInstruction,
     )

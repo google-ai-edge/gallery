@@ -304,6 +304,10 @@ fun ChatView(
                   filteredOld.remove(ConfigKeys.RESET_CONVERSATION_TURN_COUNT.label)
                   filteredNew.remove(ConfigKeys.RESET_CONVERSATION_TURN_COUNT.label)
                 }
+                if (!task.isVisionEnabled(selectedModel)) {
+                  filteredOld.remove(ConfigKeys.VISUAL_TOKEN_BUDGET.label)
+                  filteredNew.remove(ConfigKeys.VISUAL_TOKEN_BUDGET.label)
+                }
                 viewModel.addConfigChangedMessage(
                   oldConfigValues = filteredOld,
                   newConfigValues = filteredNew,

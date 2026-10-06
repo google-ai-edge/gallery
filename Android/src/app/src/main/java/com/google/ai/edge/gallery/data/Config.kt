@@ -42,6 +42,7 @@ enum class ConfigEditorType {
   BOOLEAN_SWITCH,
   SEGMENTED_BUTTON,
   BOTTOMSHEET_SELECTOR,
+  DROPDOWN,
 }
 
 /** The data types of configuration values. */
@@ -116,6 +117,12 @@ object ConfigKeys {
   val ACCELERATOR = ConfigKey("accelerator", "Accelerator", R.string.config_label_accelerator)
   val VISION_ACCELERATOR =
     ConfigKey("vision_accelerator", "Vision accelerator", R.string.config_label_vision_accelerator)
+  val VISUAL_TOKEN_BUDGET =
+    ConfigKey(
+      "visual_token_budget",
+      "Visual token budget",
+      R.string.config_label_visual_token_budget,
+    )
   val COMPATIBLE_ACCELERATORS =
     ConfigKey(
       "compatible_accelerators",
@@ -287,6 +294,22 @@ class BottomSheetSelectorConfig(
   )
 
 data class BottomSheetSelectorItem(val label: String)
+
+/** Configuration setting for a dropdown menu selector. */
+class DropdownConfig(
+  override val key: ConfigKey,
+  override val defaultValue: String,
+  val options: List<String>,
+  override val valueType: ValueType = ValueType.INT,
+  override val needReinitialization: Boolean = true,
+) :
+  Config(
+    type = ConfigEditorType.DROPDOWN,
+    key = key,
+    defaultValue = defaultValue,
+    valueType = valueType,
+    needReinitialization = needReinitialization,
+  )
 
 fun convertValueToTargetType(value: Any, valueType: ValueType): Any {
   return when (valueType) {

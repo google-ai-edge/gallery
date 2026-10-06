@@ -795,6 +795,8 @@
   <string name="config_label_accelerator" translatable="false">Accelerator</string>
   <!-- Label for the 'Vision accelerator' option in the model configuration dialog. -->
   <string name="config_label_vision_accelerator" translatable="false">Vision accelerator</string>
+  <!-- Label for the 'Visual token budget' dropdown option in the model configuration dialog. -->
+  <string name="config_label_visual_token_budget" translatable="false">Visual token budget</string>
   <!-- Label for the 'Compatible accelerators' option in the model configuration dialog. -->
   <string name="config_label_compatible_accelerators" translatable="false">Compatible accelerators</string>
   <!-- Label for the 'Warm up iterations' option in the model configuration dialog. -->

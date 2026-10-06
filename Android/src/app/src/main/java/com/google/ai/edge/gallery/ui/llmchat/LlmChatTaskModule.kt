@@ -96,6 +96,8 @@ abstract class BaseLlmChatTask(
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
       textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
+      supportImage = true,
+      supportAudio = true,
     )
   }
 
@@ -111,8 +113,8 @@ abstract class BaseLlmChatTask(
         AgentRuntimeConfig(
           model = model,
           taskId = task.id,
-          supportImage = model.supportImage,
-          supportAudio = model.supportAudio,
+          supportImage = task.isVisionEnabled(model),
+          supportAudio = task.isAudioEnabled(model),
           systemInstruction = systemInstruction?.toString(),
         )
       executor.initialize(context = context, config = config, onDone = onDone)
@@ -259,6 +261,7 @@ constructor(
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
       textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
+      supportImage = true,
     )
   }
 
@@ -274,8 +277,8 @@ constructor(
         AgentRuntimeConfig(
           model = model,
           taskId = task.id,
-          supportImage = true,
-          supportAudio = false,
+          supportImage = task.supportImage,
+          supportAudio = task.supportAudio,
           systemInstruction = systemInstruction?.toString(),
         )
       executor.initialize(context = context, config = config, onDone = onDone)
@@ -352,6 +355,7 @@ constructor(
       sourceCodeUrl =
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
       textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
+      supportAudio = true,
     )
   }
 
@@ -367,8 +371,8 @@ constructor(
         AgentRuntimeConfig(
           model = model,
           taskId = task.id,
-          supportImage = false,
-          supportAudio = true,
+          supportImage = task.supportImage,
+          supportAudio = task.supportAudio,
           systemInstruction = systemInstruction?.toString(),
         )
       executor.initialize(context = context, config = config, onDone = onDone)

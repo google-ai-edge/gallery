@@ -191,4 +191,90 @@ object ModelUtils {
       }
     }
   }
+
+  /**
+   * Filters and sorts raw vision signature token counts against the model's max budget ceiling.
+   *
+   * Keeps strictly positive entries (`> 0`) and, when `ceiling > 0`, entries `<= ceiling`. A
+   * non-positive `ceiling` (such as `-1`) means no upper bound is defined on the model. Returns an
+   * empty list if [rawOptions] is `null` or no valid options remain.
+   */
+  fun resolveVisualTokenBudgetOptions(rawOptions: IntArray?, ceiling: Int): List<Int> {
+    if (rawOptions == null) return emptyList()
+    val usable = rawOptions.filter { it > 0 && (ceiling <= 0 || it <= ceiling) }
+    if (usable.isEmpty()) return emptyList()
+    return usable.sorted()
+  }
+
+  /**
+   * Resolves the active visual token budget for [model] and updates [Model.configs] and
+   * [Model.configValues] accordingly.
+   *
+   * When [shouldEnableImage] is `true` and [resolveVisualTokenBudgetOptions] returns more than one
+   * option, registers (or updates) a [DropdownConfig] for [ConfigKeys.VISUAL_TOKEN_BUDGET] on
+   * [model] with default value equal to the maximum option, and returns the currently selected
+   * valid budget. Otherwise removes [ConfigKeys.VISUAL_TOKEN_BUDGET] from [model]'s configs and
+   * returns `null`.
+   */
+  fun configureVisualTokenBudgetForModel(
+    model: Model,
+    shouldEnableImage: Boolean,
+    rawOptions: IntArray?,
+    ceiling: Int,
+  ): Int? {
+    val budgetOptions =
+      if (shouldEnableImage) {
+        resolveVisualTokenBudgetOptions(rawOptions = rawOptions, ceiling = ceiling)
+      } else {
+        emptyList()
+      }
+    if (budgetOptions.size <= 1) {
+      if (model.configs.any { it.key == ConfigKeys.VISUAL_TOKEN_BUDGET }) {
+        model.configs = model.configs.filterNot { it.key == ConfigKeys.VISUAL_TOKEN_BUDGET }
+      }
+      if (model.configValues.containsKey(ConfigKeys.VISUAL_TOKEN_BUDGET.label)) {
+        model.configValues =
+          model.configValues.toMutableMap().apply { remove(ConfigKeys.VISUAL_TOKEN_BUDGET.label) }
+      }
+      return null
+    }
+
+    val defaultBudget = budgetOptions.last()
+    val configuredBudget =
+      if (model.configValues.containsKey(ConfigKeys.VISUAL_TOKEN_BUDGET.label)) {
+        model.getIntConfigValue(key = ConfigKeys.VISUAL_TOKEN_BUDGET, defaultValue = defaultBudget)
+      } else {
+        defaultBudget
+      }
+    val selectedBudget = if (configuredBudget in budgetOptions) configuredBudget else defaultBudget
+
+    val dropdownConfig =
+      DropdownConfig(
+        key = ConfigKeys.VISUAL_TOKEN_BUDGET,
+        defaultValue = "$defaultBudget",
+        options = budgetOptions.map { "$it" },
+      )
+    val updatedConfigs = model.configs.toMutableList()
+    val existingIndex = updatedConfigs.indexOfFirst { it.key == ConfigKeys.VISUAL_TOKEN_BUDGET }
+    if (existingIndex >= 0) {
+      updatedConfigs[existingIndex] = dropdownConfig
+    } else {
+      val temperatureIndex = updatedConfigs.indexOfFirst { it.key == ConfigKeys.TEMPERATURE }
+      val acceleratorIndex = updatedConfigs.indexOfFirst { it.key == ConfigKeys.ACCELERATOR }
+      val insertIndex =
+        when {
+          temperatureIndex >= 0 -> temperatureIndex + 1
+          acceleratorIndex >= 0 -> acceleratorIndex
+          else -> updatedConfigs.size
+        }
+      updatedConfigs.add(insertIndex, dropdownConfig)
+    }
+    model.configs = updatedConfigs
+
+    val updatedValues = model.configValues.toMutableMap()
+    updatedValues[ConfigKeys.VISUAL_TOKEN_BUDGET.label] = "$selectedBudget"
+    model.configValues = updatedValues
+
+    return selectedBudget
+  }
 }
