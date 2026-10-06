@@ -154,7 +154,7 @@ object LlmChatModelHelper : LlmModelHelper {
       )
 
     var supportsSpeculativeDecoding = false
-    // Check if the model file supports speculative decoding.
+    // Check if the model file supports speculative decoding and visual token budget selection.
     try {
       Capabilities(modelPath).use {
         supportsSpeculativeDecoding = it.hasSpeculativeDecodingSupport()
@@ -189,30 +189,36 @@ object LlmChatModelHelper : LlmModelHelper {
       ExperimentalFlags.enableSpeculativeDecoding = speculativeDecoding
       Log.d(TAG, "Speculative decoding enabled: $speculativeDecoding")
       val engine = Engine(engineConfig)
-      engine.initialize()
-      ExperimentalFlags.enableSpeculativeDecoding = false
-      ExperimentalFlags.enableBenchmark = false
+      try {
+        engine.initialize()
+      } finally {
+        ExperimentalFlags.enableSpeculativeDecoding = false
+        ExperimentalFlags.enableBenchmark = false
+      }
 
       ExperimentalFlags.enableConversationConstrainedDecoding =
         enableConversationConstrainedDecoding
       val conversation =
-        engine.createConversation(
-          ConversationConfig(
-            samplerConfig =
-              if (preferredBackend is Backend.NPU) {
-                null
-              } else {
-                SamplerConfig(
-                  topK = topK,
-                  topP = topP.toDouble(),
-                  temperature = temperature.toDouble(),
-                )
-              },
-            systemInstruction = systemInstruction,
-            tools = tools,
+        try {
+          engine.createConversation(
+            ConversationConfig(
+              samplerConfig =
+                if (preferredBackend is Backend.NPU) {
+                  null
+                } else {
+                  SamplerConfig(
+                    topK = topK,
+                    topP = topP.toDouble(),
+                    temperature = temperature.toDouble(),
+                  )
+                },
+              systemInstruction = systemInstruction,
+              tools = tools,
+            )
           )
-        )
-      ExperimentalFlags.enableConversationConstrainedDecoding = false
+        } finally {
+          ExperimentalFlags.enableConversationConstrainedDecoding = false
+        }
       model.markInitialized(
         LlmModelInstance(
           engine = engine,
@@ -293,6 +299,7 @@ object LlmChatModelHelper : LlmModelHelper {
     }
   }
 
+  @OptIn(ExperimentalApi::class) // opt-in experimental flags
   override fun cleanUp(model: Model, onDone: () -> Unit) {
     if (model.instance == null) {
       return
@@ -335,6 +342,7 @@ object LlmChatModelHelper : LlmModelHelper {
     }
   }
 
+  @OptIn(ExperimentalApi::class) // opt-in experimental flags
   override fun runInference(
     model: Model,
     input: String,
@@ -386,7 +394,7 @@ object LlmChatModelHelper : LlmModelHelper {
           override fun onMessage(message: Message) {
             val text = message.toString()
             val thinking = message.channels[THOUGHT_CHANNEL]
-            // Record the token in the tracker; the first one sets TTFT.
+            // Record streaming token to lock TTFT on first token and update live metrics.
             instance.metricsTracker?.onNewToken(tokenText = text, thinkingText = thinking)
             resultListener(text, false, thinking)
           }

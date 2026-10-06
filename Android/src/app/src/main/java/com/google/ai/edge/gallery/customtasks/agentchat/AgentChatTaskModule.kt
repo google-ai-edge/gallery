@@ -144,6 +144,8 @@ constructor(
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/customtasks/agentchat/",
       textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
       defaultSystemPrompt = DEFAULT_SYSTEM_PROMPT_TRIMMED,
+      supportImage = true,
+      supportAudio = true,
     )
   }
 
@@ -185,8 +187,8 @@ constructor(
           model = model,
           taskId = task.id,
           actionChannel = agentTools.sendActionChannel,
-          supportImage = model.supportImage,
-          supportAudio = model.supportAudio,
+          supportImage = task.isVisionEnabled(model),
+          supportAudio = task.isAudioEnabled(model),
           enableConversationConstrainedDecoding = true,
           systemInstruction = finalSystemPrompt,
         )
