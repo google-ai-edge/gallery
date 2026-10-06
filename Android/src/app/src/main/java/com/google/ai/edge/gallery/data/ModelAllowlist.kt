@@ -51,6 +51,7 @@ data class SocModelFile(
 )
 
 /** A model in the model allowlist. */
+@Suppress("AvoidNullableCollections")
 data class AllowedModel(
   val name: String,
   val modelId: String,
@@ -59,7 +60,7 @@ data class AllowedModel(
   val description: String,
   val sizeInBytes: Long,
   val defaultConfig: DefaultConfig? = null,
-  val taskTypes: List<String>,
+  val taskTypes: List<String>? = null,
   val disabled: Boolean? = null,
   val llmSupportImage: Boolean? = null,
   val llmSupportAudio: Boolean? = null,
@@ -81,8 +82,12 @@ data class AllowedModel(
   val updateInfo: String? = null,
   val extraDataFiles: List<ModelDataFile>? = null,
   val metadata: ModelMetadata? = null,
+  val modelType: ModelType? = null,
+  val learnMoreUrl: String? = null,
 ) {
-  fun toModel(): Model {
+  fun toModel(): Model? {
+    val effectiveModelType = modelType ?: ModelType.TASK
+
     // Construct HF download url. `modelFile` may be a path relative to the repo root (e.g.
     // "subfolder/model.litertlm"): the full path is used in the download url, while only the base
     // file name is used for the file stored on device.
@@ -108,13 +113,15 @@ data class AllowedModel(
     }
 
     // Config.
+    val safeTaskTypes = taskTypes.orEmpty()
     val isLlmModel =
-      taskTypes.contains(BuiltInTaskId.LLM_CHAT) ||
-        taskTypes.contains(BuiltInTaskId.LLM_PROMPT_LAB) ||
-        taskTypes.contains(BuiltInTaskId.LLM_ASK_AUDIO) ||
-        taskTypes.contains(BuiltInTaskId.LLM_ASK_IMAGE) ||
-        taskTypes.contains(BuiltInTaskId.LLM_MOBILE_ACTIONS) ||
-        taskTypes.contains(BuiltInTaskId.LLM_TINY_GARDEN)
+      effectiveModelType == ModelType.TASK &&
+        (BuiltInTaskId.LLM_CHAT in safeTaskTypes ||
+          BuiltInTaskId.LLM_PROMPT_LAB in safeTaskTypes ||
+          BuiltInTaskId.LLM_ASK_AUDIO in safeTaskTypes ||
+          BuiltInTaskId.LLM_ASK_IMAGE in safeTaskTypes ||
+          BuiltInTaskId.LLM_MOBILE_ACTIONS in safeTaskTypes ||
+          BuiltInTaskId.LLM_TINY_GARDEN in safeTaskTypes)
     var configs: MutableList<Config> = mutableListOf()
     var llmMaxToken = DEFAULT_MAX_TOKEN
     var llmMaxContextLength: Int? = null
@@ -185,11 +192,15 @@ data class AllowedModel(
           .toMutableList()
     }
 
-    var learnMoreUrl = if (modelId.isEmpty()) "" else "https://huggingface.co/${modelId}"
+    val resolvedRuntime = runtimeType ?: RuntimeType.LITERT_LM
+    var resolvedLearnMoreUrl =
+      this.learnMoreUrl ?: if (modelId.isEmpty()) "" else "https://huggingface.co/${modelId}"
 
-    if (runtimeType == RuntimeType.AICORE) {
+    if (!resolvedRuntime.downloadsViaRepository) {
       downloadUrl = ""
-      learnMoreUrl = "https://developers.google.com/ml-kit/terms"
+    }
+    if (resolvedRuntime == RuntimeType.AICORE && this.learnMoreUrl == null) {
+      resolvedLearnMoreUrl = "https://developers.google.com/ml-kit/terms"
     }
 
     // Misc.
@@ -226,11 +237,11 @@ data class AllowedModel(
       minDeviceMemoryInGb = minDeviceMemoryInGb,
       configs = configs,
       showRunAgainButton = showRunAgainButton,
-      learnMoreUrl = learnMoreUrl,
+      learnMoreUrl = resolvedLearnMoreUrl,
       downloadInfo = downloadInfo,
       backendSpec =
         BackendSpec(
-          runtimeType = runtimeType ?: RuntimeType.LITERT_LM,
+          runtimeType = resolvedRuntime,
           aicoreReleaseStage = aicoreReleaseStage,
           aicorePreference = aicorePreference,
           accelerators = accelerators,
@@ -239,6 +250,7 @@ data class AllowedModel(
         ),
       hierarchy = ModelHierarchy(parentModelName = parentModelName, variantLabel = variantLabel),
       llmProfile = llmProfile,
+      declaredModelType = effectiveModelType,
       supportImage = llmSupportImage == true,
       supportAudio = llmSupportAudio == true,
       capabilities = capabilities ?: emptyList(),
