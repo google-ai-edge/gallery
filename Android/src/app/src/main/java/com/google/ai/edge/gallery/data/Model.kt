@@ -173,6 +173,18 @@ data class Model(
   val isLiteRtLm: Boolean
     get() = backendSpec.isLiteRtLm
 
+  /** Whether this model is downloaded as a local file via [DownloadRepository]. */
+  val downloadsViaRepository: Boolean
+    get() = backendSpec.downloadsViaRepository
+
+  /** Whether this model automatically initiates download/probing on app startup. */
+  val autoDownloadsOnStartup: Boolean
+    get() = backendSpec.autoDownloadsOnStartup
+
+  /** Whether this model can be deleted by the user from within the app. */
+  val supportsDelete: Boolean
+    get() = backendSpec.supportsDelete
+
   /**
    * Indicates whether the model is allowed to use [capability] for the task identified by [taskId].
    */

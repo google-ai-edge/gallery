@@ -43,6 +43,7 @@ import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.DownloadRepository
 import com.google.ai.edge.gallery.data.EMPTY_MODEL
 import com.google.ai.edge.gallery.data.IMPORTS_DIR
+import com.google.ai.edge.gallery.data.LiteRtLmModelDownloader
 import com.google.ai.edge.gallery.data.LlmProfile
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelAccessibility
@@ -50,6 +51,7 @@ import com.google.ai.edge.gallery.data.ModelAllowlist
 import com.google.ai.edge.gallery.data.ModelDownloadInfo
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
+import com.google.ai.edge.gallery.data.ModelDownloader
 import com.google.ai.edge.gallery.data.ModelFile
 import com.google.ai.edge.gallery.data.ModelUtils
 import com.google.ai.edge.gallery.data.NumberSliderConfig
@@ -71,7 +73,7 @@ import com.google.ai.edge.gallery.proto.AccessTokenData
 import com.google.ai.edge.gallery.proto.HfModelItemProto
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.proto.Theme
-import com.google.ai.edge.gallery.runtime.aicore.AICoreModelHelper
+import com.google.ai.edge.gallery.runtime.aicore.AICoreModelDownloader
 import com.google.ai.edge.litertlm.Contents
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
@@ -203,9 +205,33 @@ constructor(
   private val systemPromptRepository: SystemPromptRepository,
   val huggingFaceApiClient: HuggingFaceApiClient,
   @ApplicationContext private val context: Context,
+  protected val downloaders: Map<RuntimeType, @JvmSuppressWildcards ModelDownloader>,
 ) :
   ViewModel()
 {
+  constructor(
+    downloadRepository: DownloadRepository,
+    dataStoreRepository: DataStoreRepository,
+    lifecycleProvider: AppLifecycleProvider,
+    customTasks: Set<@JvmSuppressWildcards CustomTask>,
+    systemPromptRepository: SystemPromptRepository,
+    huggingFaceApiClient: HuggingFaceApiClient,
+    context: Context,
+  ) : this(
+    downloadRepository = downloadRepository,
+    dataStoreRepository = dataStoreRepository,
+    lifecycleProvider = lifecycleProvider,
+    customTasks = customTasks,
+    systemPromptRepository = systemPromptRepository,
+    huggingFaceApiClient = huggingFaceApiClient,
+    context = context,
+    downloaders =
+      mapOf(
+        RuntimeType.UNKNOWN to LiteRtLmModelDownloader(context, downloadRepository),
+        RuntimeType.LITERT_LM to LiteRtLmModelDownloader(context, downloadRepository),
+        RuntimeType.AICORE to AICoreModelDownloader(context),
+      ),
+  )
 
   private val modelsDir = getModelStorageDir(context)
   protected val _uiState = MutableStateFlow(createEmptyUiState())
@@ -339,60 +365,27 @@ constructor(
       status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
     )
 
-    if (model.isAiCore) {
-      AICoreModelHelper.downloadModel(
-        context = context,
-        coroutineScope = viewModelScope,
+    if (model.downloadsViaRepository) {
+      // Delete the model files first.
+      deleteModel(
         model = model,
-        onProgress = { downloaded: Long, total: Long ->
-          setDownloadStatus(
-            curModel = model,
-            status =
-              ModelDownloadStatus(
-                status = ModelDownloadStatusType.IN_PROGRESS,
-                receivedBytes = downloaded,
-                totalBytes = total,
-              ),
-          )
-        },
-        onDone = {
-          setDownloadStatus(
-            curModel = model,
-            status =
-              ModelDownloadStatus(
-                status = ModelDownloadStatusType.SUCCEEDED,
-                receivedBytes = model.downloadInfo.sizeInBytes,
-                totalBytes = model.downloadInfo.sizeInBytes,
-              ),
-          )
-        },
-        onError = { error: String ->
-          setDownloadStatus(
-            curModel = model,
-            status =
-              ModelDownloadStatus(status = ModelDownloadStatusType.FAILED, errorMessage = error),
-          )
-        },
+        removeImportedFromModelList = false,
+        preserveOptionalComponentsState = true,
       )
-      return
     }
-
-    // Delete the model files first.
-    deleteModel(
-      model = model,
-      removeImportedFromModelList = false,
-      preserveOptionalComponentsState = true,
-    )
 
     val family = getModelFamily(model)
     val isExtraDataAlreadyDownloaded =
-      family.any {
-        uiState.value.extraDataDownloadStatus[it.name]?.status == ModelDownloadStatusType.SUCCEEDED
-      } || family.any { isExtraDataPresentOnDisk(it, task?.id) }
+      model.downloadsViaRepository &&
+        (family.any {
+          uiState.value.extraDataDownloadStatus[it.name]?.status ==
+            ModelDownloadStatusType.SUCCEEDED
+        } || family.any { isExtraDataPresentOnDisk(it, task?.id) })
     val actualIncludeExtraDataFiles = includeExtraDataFiles && !isExtraDataAlreadyDownloaded
 
-    // Start to send download request.
-    downloadRepository.downloadModel(
+    val downloader =
+      downloaders[model.backendSpec.runtimeType] ?: downloaders[RuntimeType.LITERT_LM]
+    downloader?.download(
       task = task,
       model = model,
       includeExtraDataFiles = actualIncludeExtraDataFiles,
@@ -401,12 +394,21 @@ constructor(
   }
 
   fun cancelDownloadModel(model: Model) {
-    // AICore models cannot be deleted from the download repository within the app.
-    if (model.isAiCore) {
+    val downloader =
+      downloaders[model.backendSpec.runtimeType] ?: downloaders[RuntimeType.LITERT_LM]
+    // The download keeps running, so leave its status alone rather than report it cancelled.
+    if (downloader?.supportsCancel == false) {
       return
     }
-    downloadRepository.cancelDownloadModel(model)
-    deleteModel(model = model, removeImportedFromModelList = false)
+    downloader?.cancel(model)
+    if (model.downloadsViaRepository) {
+      deleteModel(model = model, removeImportedFromModelList = false)
+    } else {
+      setDownloadStatus(
+        curModel = model,
+        status = ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED),
+      )
+    }
   }
 
   private fun isExtraDataPresentOnDisk(model: Model, taskId: String? = null): Boolean {
@@ -657,10 +659,20 @@ constructor(
       }
     }
 
-    if (model.downloadInfo.imported) {
-      deleteFilesFromImportDir(model.downloadInfo.downloadFileName)
+    if (model.downloadsViaRepository) {
+      if (model.downloadInfo.imported) {
+        deleteFilesFromImportDir(model.downloadInfo.downloadFileName)
+      } else {
+        deleteDirFromModelsDir(model.normalizedName)
+      }
     } else {
-      deleteDirFromModelsDir(model.normalizedName)
+      val downloader = downloaders[model.backendSpec.runtimeType]
+      if (downloader != null) {
+        viewModelScope.launch {
+          downloader.delete(model)
+          setDownloadStatus(curModel = model, status = downloader.queryStatus(model))
+        }
+      }
     }
 
     initializedBackends.remove(model.name)
@@ -831,13 +843,14 @@ constructor(
   fun setDownloadStatus(curModel: Model, status: ModelDownloadStatus) {
     // Delete downloaded file if status is failed or not_downloaded.
     if (
-      status.status == ModelDownloadStatusType.FAILED ||
-        status.status == ModelDownloadStatusType.NOT_DOWNLOADED
+      curModel.downloadsViaRepository &&
+        (status.status == ModelDownloadStatusType.FAILED ||
+          status.status == ModelDownloadStatusType.NOT_DOWNLOADED)
     ) {
       deleteFileFromModelsDir(curModel.downloadInfo.downloadFileName)
     }
 
-    if (status.status == ModelDownloadStatusType.SUCCEEDED) {
+    if (curModel.downloadsViaRepository && status.status == ModelDownloadStatusType.SUCCEEDED) {
       syncExtraDataAcrossFamily(curModel)
       val family = getModelFamily(curModel)
       if (
@@ -1170,13 +1183,16 @@ constructor(
     dataStoreRepository.clearAccessTokenData()
   }
 
-  private fun checkAICoreModelStatuses() {
-    viewModelScope.launch(Dispatchers.Main) {
-      val aicoreModels =
-        uiState.value.tasks.flatMap { it.models }.filter { it.isAiCore }.distinctBy { it.name }
+  private fun startAutoDownloadModels() {
+    viewModelScope.launch {
+      val autoDownloadModels =
+        uiState.value.tasks
+          .flatMap { it.models }
+          .filter { it.autoDownloadsOnStartup }
+          .distinctBy { it.name }
 
-      // Proactively attempt AICore model download upon app startup.
-      for (model in aicoreModels) {
+      // Proactively attempt auto-download model initialization/download upon app startup.
+      for (model in autoDownloadModels) {
         downloadModel(task = null, model = model)
       }
     }
@@ -1365,9 +1381,9 @@ constructor(
         Log.d(TAG, "loadModelAllowlist: Processing pending downloads")
         processPendingDownloads()
 
-        // Wait for AICore models statuses and update download indicators
-        Log.d(TAG, "loadModelAllowlist: Checking AICore model statuses")
-        checkAICoreModelStatuses()
+        // Start auto-downloads for models configured with autoDownloadsOnStartup.
+        Log.d(TAG, "loadModelAllowlist: Starting auto-download models")
+        startAutoDownloadModels()
         Log.d(TAG, "loadModelAllowlist: Done")
       } catch (e: Exception) {
         Log.e(TAG, "Failed to load model allowlist", e)

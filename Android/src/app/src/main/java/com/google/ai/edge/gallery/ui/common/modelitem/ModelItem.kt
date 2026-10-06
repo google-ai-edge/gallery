@@ -113,7 +113,6 @@ fun ModelItem(
   var isExpanded by remember { mutableStateOf(expanded ?: isBestOverall) }
 
   val isDownloadFailed = downloadStatus?.status == ModelDownloadStatusType.FAILED
-  val isAicore = model.isAiCore
 
   var boxModifier =
     modifier
@@ -178,7 +177,7 @@ fun ModelItem(
               showDeleteButton =
                 showDeleteButton &&
                   model.downloadInfo.localRelativeDirPathOverride.isEmpty() &&
-                  !isAicore,
+                  model.supportsDelete,
               onBenchmarkClicked = { onBenchmarkClicked(model) },
               modifier = Modifier.offset(y = (-12).dp),
             )
@@ -205,8 +204,15 @@ fun ModelItem(
                 modifier = Modifier.padding(top = 12.dp),
               )
             }
-            if (isAicore && isDownloadFailed) {
-              AICoreAccessPanel()
+            val unavailability = downloadStatus?.unavailability
+            when {
+              downloadStatus?.status == ModelDownloadStatusType.UNAVAILABLE &&
+                unavailability != null ->
+                ModelUnavailabilityPanel(
+                  unavailability = unavailability,
+                  fallbackGuideUrl = model.learnMoreUrl,
+                )
+              model.autoDownloadsOnStartup && isDownloadFailed -> AICoreAccessPanel()
             }
           }
         }
@@ -455,7 +461,7 @@ fun ModelVariantHeader(
         showDeleteButton =
           showDeleteButton &&
             variantModel.downloadInfo.localRelativeDirPathOverride.isEmpty() &&
-            !variantModel.isAiCore,
+            variantModel.supportsDelete,
         onBenchmarkClicked = { onBenchmarkClicked(variantModel) },
         modifier = menuModifier.offset(y = (-12).dp),
       )

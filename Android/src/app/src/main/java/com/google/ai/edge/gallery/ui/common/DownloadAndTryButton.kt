@@ -154,11 +154,14 @@ fun DownloadAndTryButton(
   var downloadStarted by remember { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
 
+  // Unavailable models can neither be downloaded nor opened, so render the button disabled.
+  val isUnavailable = downloadStatus == ModelDownloadStatusType.UNAVAILABLE
+  val buttonEnabled = enabled && !isUnavailable
   val needToDownloadFirst =
     (downloadStatus == ModelDownloadStatusType.NOT_DOWNLOADED ||
       downloadStatus == ModelDownloadStatusType.FAILED) &&
       model.downloadInfo.localRelativeDirPathOverride.isEmpty() &&
-      !model.isAiCore
+      !model.autoDownloadsOnStartup
   val inProgress = downloadStatus == ModelDownloadStatusType.IN_PROGRESS
   val downloadSucceeded = downloadStatus == ModelDownloadStatusType.SUCCEEDED
   val isPartiallyDownloaded = downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
@@ -339,20 +342,17 @@ fun DownloadAndTryButton(
       colors =
         ButtonDefaults.buttonColors(
           containerColor =
-            if (
+            when {
               (!downloadSucceeded || !canShowTryIt) &&
-                model.downloadInfo.localRelativeDirPathOverride.isEmpty()
-            ) {
-              downloadButtonBackgroundColor
-            } else if (task != null) {
-              getTaskBgGradientColors(task = task)[1]
-            } else {
-              MaterialTheme.colorScheme.primary
+                model.downloadInfo.localRelativeDirPathOverride.isEmpty() ->
+                downloadButtonBackgroundColor
+              task != null -> getTaskBgGradientColors(task = task)[1]
+              else -> MaterialTheme.colorScheme.primary
             }
         ),
       contentPadding = PaddingValues(horizontal = 12.dp),
       onClick = {
-        if (!enabled || checkingToken) {
+        if (!buttonEnabled || checkingToken) {
           return@Button
         }
 
@@ -369,17 +369,14 @@ fun DownloadAndTryButton(
       },
     ) {
       val textColor =
-        if (!enabled) {
-          // Define the color for disabled button.
-          MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-        } else if (
-          !downloadSucceeded && model.downloadInfo.localRelativeDirPathOverride.isEmpty()
-        ) {
-          MaterialTheme.colorScheme.onSurface
-        } else if (task != null) {
-          Color.White
-        } else {
-          MaterialTheme.colorScheme.onPrimary
+        when {
+          !buttonEnabled ->
+            // Define the color for disabled button.
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+          !downloadSucceeded && model.downloadInfo.localRelativeDirPathOverride.isEmpty() ->
+            MaterialTheme.colorScheme.onSurface
+          task != null -> Color.White
+          else -> MaterialTheme.colorScheme.onPrimary
         }
       Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -467,15 +464,26 @@ fun DownloadAndTryButton(
           val color =
             if (task != null) getTaskBgGradientColors(task = task)[1]
             else MaterialTheme.colorScheme.primary
-          LinearProgressIndicator(
-            modifier =
-              Modifier.weight(1f).padding(horizontal = 4.dp).semantics {
-                contentDescription = progressCd
-              },
-            progress = { animatedProgress.value },
-            color = color,
-            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-          )
+          if (!model.downloadsViaRepository && downloadProgress <= 0f) {
+            LinearProgressIndicator(
+              modifier =
+                Modifier.weight(1f).padding(horizontal = 4.dp).semantics {
+                  contentDescription = progressCd
+                },
+              color = color,
+              trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            )
+          } else {
+            LinearProgressIndicator(
+              modifier =
+                Modifier.weight(1f).padding(horizontal = 4.dp).semantics {
+                  contentDescription = progressCd
+                },
+              progress = { animatedProgress.value },
+              color = color,
+              trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            )
+          }
         }
         val cbStop = stringResource(R.string.cd_stop_icon)
         IconButton(
