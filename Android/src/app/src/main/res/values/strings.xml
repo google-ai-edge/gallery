@@ -22,6 +22,12 @@
   <string name="add_audio" translatable="true" description="Button label to add an audio input to the chat. [CHAR_LIMIT=18]">+Audio</string>
   <string name="aicore_access_panel_title" translatable="true" description="Informational message indicating that the user does not have access to the model yet. [CHAR_LIMIT=136]">You cannot access this model yet. Please follow the steps and return when complete.</string>
   <string name="aicore_access_panel_button" translatable="true" description="Button label to open a guide on how to get access to AICore. [CHAR_LIMIT=20]">Open guide</string>
+  <string name="model_unavailable_status" translatable="true" description="Status label indicating that a model is unavailable on the current device. [CHAR_LIMIT=25]">Unavailable</string>
+  <string name="model_unavailable_unsupported_hardware_tensor_g3" translatable="true" description="Message explaining that a model requires a device with Google Tensor G3 or newer hardware. [CHAR_LIMIT=60]">Requires Google Tensor G3 or newer</string>
+  <string name="model_unavailable_speech_services_outdated" translatable="true" description="Message explaining that Speech Services by Google is missing or outdated and must be updated to use the model. [CHAR_LIMIT=140]">Speech Services by Google is missing or outdated. Please update it to use this model.</string>
+  <string name="model_unavailable_missing_resource_provider" translatable="true" description="Message explaining that the required system resource provider is not installed on the device. [CHAR_LIMIT=110]">The required resource provider is not installed on this device.</string>
+  <string name="model_unavailable_generic" translatable="true" description="Generic message explaining that a model is unavailable on the current device. [CHAR_LIMIT=75]">This model is unavailable on this device.</string>
+  <string name="model_download_failed_status" translatable="true" description="Status label shown under a model's name when its download failed and no specific error message is available. [CHAR_LIMIT=30]">Download failed</string>
   <string name="aicore_image_limit_message" translatable="true" description="Warning message shown when the user tries to add more than 1 image to a chat session. [CHAR_LIMIT=173]">The current model can only support 1 image per chat. To ask about another image, create a new chat.</string>
   <string name="model_not_support_image_message" translatable="true" description="Error message shown when the user tries to input an image to a model that doesn't support it. [CHAR_LIMIT=90]">The current model does not support image input.</string>
   <string name="model_not_support_audio_message" translatable="true" description="Error message shown when the user tries to input audio to a model that doesn't support it. [CHAR_LIMIT=90]">The current model does not support audio input.</string>
@@ -78,6 +84,8 @@
   <string name="clear" translatable="true" description="Content description for a button to clear text input. [CHAR_LIMIT=9]">Clear</string>
   <string name="collect" translatable="true" description="Action label to collect items. [CHAR_LIMIT=18]">Collect</string>
   <string name="color" translatable="true" description="Label for color picker or color configuration. [CHAR_LIMIT=18]">Color</string>
+  <string name="config_dialog_tab_basic" translatable="true" description="Tab label for basic model configurations. [CHAR_LIMIT=12]">Basic</string>
+  <string name="config_dialog_tab_advanced" translatable="true" description="Tab label for advanced model configurations. [CHAR_LIMIT=15]">Advanced</string>
   <string name="config_dialog_tab_model_configs" translatable="false" description="Tab label for model-specific configurations. [CHAR_LIMIT=22]">Model configs</string>
   <string name="config_dialog_tab_system_prompt" translatable="true" description="Tab label for system prompt configuration. [CHAR_LIMIT=22]">System prompt</string>
   <string name="config_dialog_title" translatable="false" description="Title of the settings/configuration dialog. [CHAR_LIMIT=26]">Configurations</string>
@@ -192,6 +200,7 @@
   <string name="system_prompt_placeholder" translatable="true" description="Placeholder hint text inside the system prompt editor text field showing example instructions. [CHAR_LIMIT=170]">Enter system instructions (e.g., \"You are a versatile assistant. Provide accurate, context-aware responses in a professional tone.\")</string>
   <string name="system_prompt_updated" translatable="true" description="Confirmation message shown to the user when they successfully modify the system prompt. [CHAR_LIMIT=45]">System prompt updated</string>
   <string name="submit" translatable="true" description="Button label to submit user feedback. [CHAR_LIMIT=18]">Submit</string>
+  <string name="supplementary_models" translatable="true" description="Label for the dropdown section showing supplementary models (e.g., ASR, TTS) associated with a task. [CHAR_LIMIT=30]">Supplementary models</string>
   <string name="take_a_picture" translatable="true" description="Menu option to capture a new photo using the device camera. [CHAR_LIMIT=24]">Take a picture</string>
   <string name="tap_to_change_color" translatable="true" description="Button label indicating the user can tap it to open a color picker. [CHAR_LIMIT=30]">Tap to change color</string>
   <string name="tap_to_see_value" translatable="true" description="Instruction text guiding users how to view specific data points on a benchmark chart. [CHAR_LIMIT=41]">Tap on graph to see value</string>
@@ -616,6 +625,8 @@
   <string name="cd_downloading_icon" translatable="true" description="Content description for the icon indicating that a model download is in progress. [CHAR_LIMIT=90]">Downloading</string>
   <!-- Content description spoken when the "download failed" icon is focused. -->
   <string name="cd_download_failed_icon" translatable="true" description="Content description for the icon indicating that a model download has failed. [CHAR_LIMIT=90]">Download failed</string>
+  <!-- Content description spoken when the "unavailable" icon is focused. -->
+  <string name="cd_unavailable_icon" translatable="true" description="Content description for the icon indicating that a model is unavailable on the device. [CHAR_LIMIT=20]">Unavailable</string>
   <!-- Content description spoken when the "download failed" icon is focused. -->
   <string name="cd_chat_panel" translatable="true" description="Content description for the main chat interface panel. [CHAR_LIMIT=90]">Chat panel</string>
   <!-- Content description spoken when the "switch to keyboard" icon is focused. -->
@@ -959,4 +970,6 @@
   <string name="context_compressed_success" translatable="true" description="This string appears within the chat banner as a confirmation message indicating that conversation context compression completed successfully. [CHAR_LIMIT=70]">Context compressed! You may continue chatting.</string>
   <string name="token_limit_default_behavior_checkbox" translatable="true" description="This string appears within the token limit banner as a checkbox label, allowing the user to remember this compression behavior for future sessions. [CHAR_LIMIT=80]">Default to this behavior next time I run out of context</string>
   <string name="context_compaction_failed_message" translatable="true" description="This string appears in an error dialog when compressing the conversation context fails. [CHAR_LIMIT=120]">Failed to compress conversation context. Please try again.</string>
+  <string name="model_manager_models_count_title" translatable="true" description="Title in the Global Model Manager top app bar showing the total number of models. [CHAR_LIMIT=30]">Models (%1$d)</string>
+
 </resources>

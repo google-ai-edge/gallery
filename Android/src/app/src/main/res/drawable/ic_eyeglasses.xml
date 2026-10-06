@@ -1,0 +1,27 @@
+<!--
+ Copyright 2026 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+  <group android:translateY="960">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M274,-360q31,0 55.5,-18t34.5,-47l15,-46q16,-48 -8,-88.5T302,-600H161l19,157q5,35 31.5,59t62.5,24Zm412,0q36,0 62.5,-24t31.5,-59l19,-157H659q-45,0 -69,41t-8,89l14,45q10,29 34.5,47t55.5,18Zm-412,80q-66,0 -115.5,-43.5T101,-433L80,-600H40v-80h262q44,0 80.5,21.5T440,-600h81q21,-37 57.5,-58.5T659,-680h261v80h-40l-21,167q-8,66 -57.5,109.5T686,-280q-57,0 -102.5,-32.5T520,-399l-15,-45q-2,-7 -4,-14.5t-4,-21.5h-34q-2,12 -4,19.5t-4,14.5l-15,46q-18,54 -63.5,87T274,-280Z" />
+  </group>
+</vector>
