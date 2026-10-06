@@ -36,7 +36,7 @@ android {
     applicationId = "com.google.aiedge.gallery"
     minSdk = 31
     targetSdk = 37
-    versionCode = 45
+    versionCode = 46
     versionName = "1.0.20"
 
     // Needed for HuggingFace auth workflows.
@@ -135,9 +135,7 @@ dependencies {
   implementation(libs.tasks.vision)
 }
 
-configurations.all {
-  resolutionStrategy.force("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.0")
-}
+configurations.all { resolutionStrategy.force("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.0") }
 
 protobuf {
   protoc { artifact = "com.google.protobuf:protoc:4.26.1" }
