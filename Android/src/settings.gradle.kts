@@ -25,6 +25,7 @@ pluginManagement {
     }
     mavenCentral()
     gradlePluginPortal()
+    maven { url = uri("https://mirrors.cloud.tencent.com/nexus/repository/maven-public/") }
   }
   resolutionStrategy {
     eachPlugin {
@@ -38,12 +39,14 @@ pluginManagement {
 dependencyResolutionManagement {
   repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
   repositories {
-    //        mavenLocal()
     google()
     mavenCentral()
+    maven { url = uri("https://mirrors.cloud.tencent.com/nexus/repository/maven-public/") }
   }
 }
 
-rootProject.name = "AI Edge Gallery"
+rootProject.name = "AIEdgeGallery"
 
-include(":app")
+// include(":app")
+include(":desktop")
+
