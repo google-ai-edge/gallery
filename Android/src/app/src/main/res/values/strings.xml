@@ -22,6 +22,11 @@
   <string name="add_audio" translatable="true" description="Button label to add an audio input to the chat. [CHAR_LIMIT=18]">+Audio</string>
   <string name="aicore_access_panel_title" translatable="true" description="Informational message indicating that the user does not have access to the model yet. [CHAR_LIMIT=136]">You cannot access this model yet. Please follow the steps and return when complete.</string>
   <string name="aicore_access_panel_button" translatable="true" description="Button label to open a guide on how to get access to AICore. [CHAR_LIMIT=20]">Open guide</string>
+  <string name="model_unavailable_status" translatable="true" description="Status label indicating that a model is unavailable on the current device. [CHAR_LIMIT=25]">Unavailable</string>
+  <string name="model_unavailable_unsupported_hardware_tensor_g3" translatable="true" description="Message explaining that a model requires a device with Google Tensor G3 or newer hardware. [CHAR_LIMIT=60]">Requires Google Tensor G3 or newer</string>
+  <string name="model_unavailable_speech_services_outdated" translatable="true" description="Message explaining that Speech Services by Google is missing or outdated and must be updated to use the model. [CHAR_LIMIT=140]">Speech Services by Google is missing or outdated. Please update it to use this model.</string>
+  <string name="model_unavailable_missing_resource_provider" translatable="true" description="Message explaining that the required system resource provider is not installed on the device. [CHAR_LIMIT=110]">The required resource provider is not installed on this device.</string>
+  <string name="model_unavailable_generic" translatable="true" description="Generic message explaining that a model is unavailable on the current device. [CHAR_LIMIT=75]">This model is unavailable on this device.</string>
   <string name="aicore_image_limit_message" translatable="true" description="Warning message shown when the user tries to add more than 1 image to a chat session. [CHAR_LIMIT=173]">The current model can only support 1 image per chat. To ask about another image, create a new chat.</string>
   <string name="model_not_support_image_message" translatable="true" description="Error message shown when the user tries to input an image to a model that doesn't support it. [CHAR_LIMIT=90]">The current model does not support image input.</string>
   <string name="model_not_support_audio_message" translatable="true" description="Error message shown when the user tries to input audio to a model that doesn't support it. [CHAR_LIMIT=90]">The current model does not support audio input.</string>
@@ -616,6 +621,8 @@
   <string name="cd_downloading_icon" translatable="true" description="Content description for the icon indicating that a model download is in progress. [CHAR_LIMIT=90]">Downloading</string>
   <!-- Content description spoken when the "download failed" icon is focused. -->
   <string name="cd_download_failed_icon" translatable="true" description="Content description for the icon indicating that a model download has failed. [CHAR_LIMIT=90]">Download failed</string>
+  <!-- Content description spoken when the "unavailable" icon is focused. -->
+  <string name="cd_unavailable_icon" translatable="true" description="Content description for the icon indicating that a model is unavailable on the device. [CHAR_LIMIT=20]">Unavailable</string>
   <!-- Content description spoken when the "download failed" icon is focused. -->
   <string name="cd_chat_panel" translatable="true" description="Content description for the main chat interface panel. [CHAR_LIMIT=90]">Chat panel</string>
   <!-- Content description spoken when the "switch to keyboard" icon is focused. -->

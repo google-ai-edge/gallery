@@ -76,9 +76,11 @@ fun DownloadModelPanel(
       verticalAlignment = Alignment.CenterVertically,
     ) {
       fun isDownloadButtonEnabled(downloadStatus: ModelDownloadStatusType?, model: Model): Boolean {
+        if (downloadStatus == ModelDownloadStatusType.UNAVAILABLE) {
+          return false
+        }
         val downloadFailed = downloadStatus == ModelDownloadStatusType.FAILED
-        val isLitertLm = model.isLiteRtLm
-        return !downloadFailed || isLitertLm
+        return !downloadFailed || model.isLiteRtLm
       }
 
       val downloadSucceeded = downloadStatus == ModelDownloadStatusType.SUCCEEDED
