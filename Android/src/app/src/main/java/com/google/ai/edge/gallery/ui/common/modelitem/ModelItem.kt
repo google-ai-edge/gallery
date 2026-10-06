@@ -66,6 +66,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
@@ -103,6 +104,8 @@ fun ModelItem(
   modelVariants: List<Model> = listOf(),
   tosViewModel: TosViewModel? = null,
   showProgressIndicator: Boolean = true,
+  canShowTryIt: Boolean = true,
+  extraContent: (@Composable () -> Unit)? = null,
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val downloadStatus by remember {
@@ -113,7 +116,6 @@ fun ModelItem(
   var isExpanded by remember { mutableStateOf(expanded ?: isBestOverall) }
 
   val isDownloadFailed = downloadStatus?.status == ModelDownloadStatusType.FAILED
-  val isAicore = model.isAiCore
 
   var boxModifier =
     modifier
@@ -178,7 +180,7 @@ fun ModelItem(
               showDeleteButton =
                 showDeleteButton &&
                   model.downloadInfo.localRelativeDirPathOverride.isEmpty() &&
-                  !isAicore,
+                  model.supportsDelete,
               onBenchmarkClicked = { onBenchmarkClicked(model) },
               modifier = Modifier.offset(y = (-12).dp),
             )
@@ -205,15 +207,28 @@ fun ModelItem(
                 modifier = Modifier.padding(top = 12.dp),
               )
             }
-            if (isAicore && isDownloadFailed) {
-              AICoreAccessPanel()
+            val unavailability = downloadStatus?.unavailability
+            when {
+              downloadStatus?.status == ModelDownloadStatusType.UNAVAILABLE &&
+                unavailability != null ->
+                ModelUnavailabilityPanel(
+                  unavailability = unavailability,
+                  fallbackGuideUrl = model.learnMoreUrl,
+                )
+              model.autoDownloadsOnStartup && isDownloadFailed -> AICoreAccessPanel()
             }
+            extraContent?.invoke()
           }
         }
       }
       SharedTransitionLayout {
         // Show a single download panel if there are no variants.
         if (modelVariants.isEmpty()) {
+          val hasDownloadPanelContent =
+            downloadStatus?.status != ModelDownloadStatusType.SUCCEEDED ||
+              canShowTryIt ||
+              downloadStatus?.isUpdatable == true ||
+              (showBenchmarkActionButton && model.isLlm)
           AnimatedContent(isExpanded) { targetIsExpanded ->
             DownloadModelPanel(
               task = task,
@@ -223,7 +238,8 @@ fun ModelItem(
               animatedVisibilityScope = this@AnimatedContent,
               sharedTransitionScope = this@SharedTransitionLayout,
               modifier =
-                Modifier.fillMaxWidth().padding(top = if (targetIsExpanded) 12.dp else 0.dp),
+                Modifier.fillMaxWidth()
+                  .padding(top = if (targetIsExpanded && hasDownloadPanelContent) 12.dp else 0.dp),
               modelManagerViewModel = modelManagerViewModel,
               isExpanded = targetIsExpanded,
               onTryItClicked = { onModelClicked(model) },
@@ -231,6 +247,7 @@ fun ModelItem(
               showBenchmarkActionButton = showBenchmarkActionButton,
               tosViewModel = tosViewModel,
               isUpdatable = downloadStatus?.isUpdatable == true,
+              canShowTryIt = canShowTryIt,
             )
           }
         }
@@ -455,7 +472,7 @@ fun ModelVariantHeader(
         showDeleteButton =
           showDeleteButton &&
             variantModel.downloadInfo.localRelativeDirPathOverride.isEmpty() &&
-            !variantModel.isAiCore,
+            variantModel.supportsDelete,
         onBenchmarkClicked = { onBenchmarkClicked(variantModel) },
         modifier = menuModifier.offset(y = (-12).dp),
       )

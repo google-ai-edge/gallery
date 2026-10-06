@@ -105,6 +105,7 @@ fun LiveCameraView(
               preferredSize = preferredSize,
               outputImageFormat = outputImageFormat,
               cameraSelector = cameraSelector,
+              isPausedProvider = { currentIsPaused },
               onError = currentOnError,
             )
         }
@@ -124,6 +125,7 @@ fun LiveCameraView(
             preferredSize = preferredSize,
             outputImageFormat = outputImageFormat,
             cameraSelector = cameraSelector,
+            isPausedProvider = { currentIsPaused },
             onError = currentOnError,
           )
       }
@@ -188,9 +190,22 @@ private suspend fun startCamera(
   preferredSize: Int,
   @ImageAnalysis.OutputImageFormat outputImageFormat: Int,
   cameraSelector: CameraSelector,
+  isPausedProvider: () -> Boolean,
   onError: (() -> Unit)? = null,
 ): ProcessCameraProvider {
   val cameraProvider = ProcessCameraProvider.awaitInstance(context)
+
+  val effectiveCameraSelector =
+    when {
+      runCatching { cameraProvider.hasCamera(cameraSelector) }.getOrDefault(false) -> cameraSelector
+      cameraSelector != CameraSelector.DEFAULT_FRONT_CAMERA &&
+        runCatching { cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) }
+          .getOrDefault(false) -> CameraSelector.DEFAULT_FRONT_CAMERA
+      cameraSelector != CameraSelector.DEFAULT_BACK_CAMERA &&
+        runCatching { cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) }
+          .getOrDefault(false) -> CameraSelector.DEFAULT_BACK_CAMERA
+      else -> cameraSelector
+    }
 
   val resolutionSelector =
     ResolutionSelector.Builder()
@@ -209,16 +224,29 @@ private suspend fun startCamera(
       .build()
       .also {
         it.setAnalyzer(Dispatchers.Default.asExecutor()) { imageProxy ->
+          // When paused (e.g. during LLM inference), avoid any bitmap decoding or CPU overhead.
+          if (isPausedProvider()) {
+            imageProxy.close()
+            return@setAnalyzer
+          }
+
           var bitmap = imageProxy.toBitmap()
           val rotation = imageProxy.imageInfo.rotationDegrees
           val matrix = Matrix()
           if (rotation != 0) {
             matrix.postRotate(rotation.toFloat())
           }
-          if (cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA) {
+          if (effectiveCameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA) {
             matrix.postScale(-1f, 1f)
           }
-          bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+          if (!matrix.isIdentity) {
+            val transformed =
+              Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            if (transformed != bitmap) {
+              bitmap.recycle()
+              bitmap = transformed
+            }
+          }
           //  The caller is responsible of calling `.close` on imageProxy to mark that the
           //  processing of the current frame is done.
           onBitmap(bitmap, imageProxy)
@@ -227,7 +255,7 @@ private suspend fun startCamera(
 
   try {
     cameraProvider.unbindAll()
-    cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, imageAnalysis)
+    cameraProvider.bindToLifecycle(lifecycleOwner, effectiveCameraSelector, imageAnalysis)
   } catch (exc: Exception) {
     Log.e("LiveCameraView", "Failed to start camera", exc)
     Toast.makeText(context, R.string.camera_init_failed, Toast.LENGTH_LONG).show()
