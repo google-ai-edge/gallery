@@ -7,9 +7,9 @@
 
 AI Edge Gallery is the premier destination for running the world's most powerful open-source Large Language Models (LLMs) on your mobile device. Experience high-performance Generative AI directly on your hardware—fully offline, private, and lightning-fast.
 
-**Now Featuring: Gemma 4**
+**Now Featuring: [EmbeddingGemma 2](https://developers.googleblog.com/google-ai-edge-with-embeddinggemma-2/)**
 
-The latest version brings official support for the newly released Gemma 4 family. As the centerpiece of this release, Gemma 4 allows you to test the cutting edge of on-device AI. Experience advanced reasoning, logic, and creative capabilities without ever sending your data to a server.
+The latest version brings official support for the newly released EmbeddingGemma 2 model. With this release, we bring cutting edge, multimodal semantic search running 100% on your device. Try out these new capabilities in our new features Instant Media Search and Video Moment Finder.
 
 
 | **Install the app today from Google Play** | **Install the app today from App Store** | **Download for macOS** |
@@ -21,20 +21,24 @@ For users without Google Play access, install the apk from the [**latest release
 
 ## App Preview
 
-<img width="480" alt="01" src="https://github.com/user-attachments/assets/a809ad78-aef4-4169-91ee-de7213cbb3bd" />
-<img width="480" alt="02" src="https://github.com/user-attachments/assets/1effd10d-f45a-4f7b-9435-f50f1bdd36b6" />
-<img width="480" alt="03" src="https://github.com/user-attachments/assets/e5089e41-2c18-4fbe-9011-ebe9e5a02044" />
-<img width="480" alt="04" src="https://github.com/user-attachments/assets/0f39d3ed-7403-4606-a7c6-b2c7e51ba6c1" />
-<img width="480" alt="05" src="https://github.com/user-attachments/assets/8c229e96-b598-4735-9f60-e96907e1d5d5" />
-<img width="480" alt="06" src="https://github.com/user-attachments/assets/ac9fb77b-81de-4197-9ed3-f6fe58290b3e" />
-<img width="480" alt="07" src="https://github.com/user-attachments/assets/bc86ba07-2eaf-49b1-980f-8a87a85c596f" />
-<img width="480" alt="08" src="https://github.com/user-attachments/assets/1ccf3c95-a195-4a38-ad53-4b9c7b8b3c50" />
+<img width="480" alt="01" src="https://github.com/user-attachments/assets/d6edaadf-42be-4c87-a902-3fc96b09efde" />
+<img width="480" alt="02" src="https://github.com/user-attachments/assets/e597ae4c-8d32-4428-a267-8ac8f7e41a61" />
+<img width="480" alt="03" src="https://github.com/user-attachments/assets/c05ccc3b-628e-47d1-a635-8516fced08fa" />
+<img width="480" alt="04" src="https://github.com/user-attachments/assets/fc86b3f8-1eae-4199-be36-43b9f51c4f0b" />
+<img width="480" alt="05" src="https://github.com/user-attachments/assets/a22b5e2c-c456-483e-bf52-fe30d64d64e9" />
+<img width="480" alt="06" src="https://github.com/user-attachments/assets/4d0cf0ca-6806-40e2-990e-dc7d02d31b4e" />
+<img width="480" alt="07" src="https://github.com/user-attachments/assets/3390ddc1-7e38-4f03-9df3-aa9d1fe05df0" />
+<img width="480" alt="08" src="https://github.com/user-attachments/assets/222b66fd-6d39-4680-ab2c-cd695ceaeba4" />
 
 ## ✨ Core Features
 
 * **Agent Skills**: Transform your LLM from a conversationalist into a proactive assistant. Use the Agent Skills tile to augment model capabilities with tools like Wikipedia for fact-grounding, interactive maps, and rich visual summary cards. You can even load modular skills from a URL or browse community contributions on GitHub Discussions.
 
 * **AI Chat with Thinking Mode**: Engage in fluid, multi-turn conversations and toggle the new Thinking Mode to peek "under the hood." This feature allows you to see the model’s step-by-step reasoning process, which is perfect for understanding complex problem-solving. Note: Thinking Mode currently works with supported models, starting with the Gemma 4 family.
+
+* **Instant Media Search**: Explore your photo library (or built-in sample media) with fast, search-as-you-type natural language queries and image-to-image similarity matching—with zero cloud roundtrips.
+
+* **Video Moment Finder**: Pinpoint exact moments inside videos using natural language descriptions. Jump straight to highlighted timestamps on an interactive timeline, trim clips, and save or export your favorite moments
 
 * **Ask Image**: Use multimodal power to identify objects, solve visual puzzles, or get detailed descriptions using your device’s camera or photo gallery.
 
