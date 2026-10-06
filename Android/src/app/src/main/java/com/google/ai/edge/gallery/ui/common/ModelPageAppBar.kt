@@ -296,8 +296,8 @@ fun ModelPageAppBar(
           onConfigChanged(oldConfigValues, model.configValues)
         }
       },
-      // AICore doesn't support system prompt yet.
-      showSystemPromptEditorTab = allowEditingSystemPrompt && !model.isAiCore,
+      showSystemPromptEditorTab =
+        allowEditingSystemPrompt && (curSystemPrompt.isNotEmpty() || !model.isAiCore),
       defaultSystemPrompt = task.defaultSystemPrompt,
       curSystemPrompt = curSystemPrompt,
     )

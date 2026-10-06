@@ -27,6 +27,7 @@ import com.google.ai.edge.gallery.common.Classification
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.PromptTemplate
 import com.google.ai.edge.litertlm.Message
+import java.util.UUID
 import kotlinx.coroutines.sync.Mutex
 
 private const val TAG = "AGChatMessage"
@@ -64,6 +65,7 @@ open class ChatMessage(
   open val accelerator: String = "",
   open val hideSenderLabel: Boolean = false,
   open val disableBubbleShape: Boolean = false,
+  open val id: String = UUID.randomUUID().toString(),
 ) {
 
   open fun clone(): ChatMessage {
@@ -75,6 +77,7 @@ open class ChatMessage(
         accelerator = accelerator,
         hideSenderLabel = hideSenderLabel,
         disableBubbleShape = disableBubbleShape,
+        id = id,
       )
     return cloned
   }
@@ -122,6 +125,7 @@ open class ChatMessageText(
   override val accelerator: String = "",
   override val hideSenderLabel: Boolean = false,
   var data: Any? = null,
+  override val id: String = UUID.randomUUID().toString(),
 ) :
   ChatMessage(
     type = ChatMessageType.TEXT,
@@ -129,6 +133,7 @@ open class ChatMessageText(
     latencyMs = latencyMs,
     accelerator = accelerator,
     hideSenderLabel = hideSenderLabel,
+    id = id,
   ) {
   override fun clone(): ChatMessageText {
     val cloned =
@@ -141,6 +146,7 @@ open class ChatMessageText(
         llmBenchmarkResult = llmBenchmarkResult,
         hideSenderLabel = hideSenderLabel,
         data = data,
+        id = id,
       )
     return cloned
   }
