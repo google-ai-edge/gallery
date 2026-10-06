@@ -424,7 +424,7 @@ fun HomeScreen(
                 ) {
                   AppTitle(enableAnimation = enableAnimation)
                   IntroText(enableAnimation = enableAnimation)
-                  TryGm4IntroText(enableAnimation = enableAnimation)
+                  TryEgv2IntroText(enableAnimation = enableAnimation)
                 }
 
                 // Tab header for categories.
@@ -650,6 +650,59 @@ private fun TryGm4IntroText(enableAnimation: Boolean) {
 }
 
 @Composable
+private fun TryEgv2IntroText(enableAnimation: Boolean) {
+  // fade in + slide up.
+  val progress =
+    if (!enableAnimation) {
+      1f
+    } else {
+      rememberDelayedAnimationProgress(
+        initialDelay = TITLE_SECOND_LINE_ANIMATION_START,
+        animationDurationMs = CONTENT_COMPOSABLES_ANIMATION_DURATION,
+        animationLabel = "intro text animation",
+      )
+    }
+  Row(
+    modifier =
+      Modifier.padding(top = 24.dp).graphicsLayer {
+        alpha = progress
+        translationY = (CONTENT_COMPOSABLES_OFFSET_Y.dp * (1 - progress)).toPx()
+      },
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(8.dp),
+  ) {
+    Icon(
+      ImageVector.vectorResource(R.drawable.gemma_logo),
+      contentDescription = null,
+      modifier = Modifier.size(24.dp),
+      tint = MaterialTheme.colorScheme.primary,
+    )
+    Text(
+      text = stringResource(R.string.try_egv2_title),
+      style =
+        MaterialTheme.typography.headlineSmall.copy(
+          fontWeight = FontWeight.Medium,
+          fontSize = 20.sp,
+          lineHeight = 24.sp,
+        ),
+      color = MaterialTheme.colorScheme.onSurface,
+      maxLines = 1,
+      autoSize = TextAutoSize.StepBased(minFontSize = 14.sp, maxFontSize = 20.sp, stepSize = 1.sp),
+    )
+  }
+
+  Text(
+    stringResource(R.string.try_egv2_description),
+    style = MaterialTheme.typography.bodyMedium,
+    modifier =
+      Modifier.graphicsLayer {
+        alpha = progress
+        translationY = (CONTENT_COMPOSABLES_OFFSET_Y.dp * (1 - progress)).toPx()
+      },
+  )
+}
+
+@Composable
 private fun CategoryTabHeader(
   sortedCategories: List<CategoryInfo>,
   selectedIndex: Int,
@@ -761,7 +814,7 @@ private fun TaskList(
     initialAnimationDone = true
   }
 
-  val taskIds = listOf(BuiltInTaskId.LLM_CHAT, BuiltInTaskId.LLM_AGENT_CHAT)
+  val taskIds = listOf(BuiltInTaskId.SMART_ALBUM, BuiltInTaskId.VIDEO_MOMENT_FINDER)
 
   // The highlighted tiles at the top.
   Column(
@@ -778,6 +831,8 @@ private fun TaskList(
         // use "\u00a0" to make sure the word before and after it should always be together when
         // wrapping lines.
         BuiltInTaskId.LLM_AGENT_CHAT to stringResource(R.string.gemma_reskin_try_gemma_4_skills),
+        BuiltInTaskId.SMART_ALBUM to stringResource(R.string.task_desc_smart_album),
+        BuiltInTaskId.VIDEO_MOMENT_FINDER to stringResource(R.string.task_desc_video_moment_finder),
       )
     for (task in taskIds.map { modelManagerViewModel.getTaskById(it)!! }) {
       TaskCard(

@@ -887,6 +887,11 @@
   <!-- Description for the Try Gemma 4 reskin onboarding section. [CHAR_LIMIT=120] -->
   <string name="gemma_reskin_try_gemma_4_description" translatable="true" description="Description for the Try Gemma 4 reskin onboarding section. [CHAR_LIMIT=150]">Gemma 4 E2B &amp; E4B are here! Try them in AI Chat, Agent Skills, or other use cases below.</string>
 
+  <!-- Title for the Try EmbeddingGemma 2 onboarding section. [CHAR_LIMIT=35] -->
+  <string name="try_egv2_title" translatable="true" description="Title for the Try EmbeddingGemma 2 section. [CHAR_LIMIT=35]">Try EmbeddingGemma 2 today</string>
+  <!-- Description for the Try EmbeddingGemma 2 onboarding section. [CHAR_LIMIT=120] -->
+  <string name="try_egv2_description" translatable="true" description="Description for the Try EmbeddingGemma 2 section. [CHAR_LIMIT=120]">EmbeddingGemma 2 is now available! Try it in Instant Media Search or Video Moment Finder today.</string>
+
   <!-- Section header for other use cases. [CHAR_LIMIT=30] -->
   <string name="explore_other_use_cases" translatable="true" description="Section header for other use cases. [CHAR_LIMIT=30]">Explore other use cases</string>
 
@@ -930,6 +935,238 @@
   <string name="download_extra_data_notification_title_fail" translatable="true" description="Title of system notification when an extra data file download fails. [CHAR_LIMIT=35]">Extra data file download failed</string>
   <!-- Notification content when an extra data file download fails, where %1$s is the component label. [CHAR_LIMIT=60] -->
   <string name="download_extra_data_notification_content_fail" translatable="true" description="Content of system notification when an extra data file download fails, where %1$s is the component label. [CHAR_LIMIT=60]">Failed to download extra data file \'%1$s\'</string>
+  <string name="task_label_smart_album" translatable="false">Instant Media Search</string>
+  <!-- Description for the Smart Album task. [CHAR_LIMIT=100] -->
+  <string name="task_desc_smart_album" translatable="true" description="Description for the Smart Album task. [CHAR_LIMIT=97]">Organize and search your photos and videos locally with EmbeddingGemma 2</string>
+  <!-- Short description for the Smart Album task. [CHAR_LIMIT=35] -->
+  <string name="task_short_desc_smart_album" translatable="true" description="Short description for the Smart Album task. [CHAR_LIMIT=45]">Organize and search photos locally</string>
+  <!-- Welcome title for Instant Media Search / Smart Album. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_welcome_title" translatable="true" description="Welcome title for Instant Media Search. [CHAR_LIMIT=34]">Instant Media Search</string>
+  <!-- Welcome description for Instant Media Search / Smart Album. [CHAR_LIMIT=120] -->
+  <string name="smartalbum_welcome_description" translatable="true" description="Welcome description for Instant Media Search. [CHAR_LIMIT=277]">Search your photos on-device with natural language using EmbeddingGemma 2! Start searching with some sample images or grant access to your device photos to search your own images!</string>
+  <!-- Welcome description format for Instant Media Search. [CHAR_LIMIT=200] -->
+  <string name="smartalbum_welcome_description_format" translatable="true" description="Welcome description format string for Instant Media Search, where %1$s is the model name. [CHAR_LIMIT=262]">Search your photos on-device with natural language using %1$s! Start searching with some sample images or grant access to your device photos to search your own images!</string>
+  <!-- Title shown while embedding model is initializing. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_model_initializing" translatable="true" description="Title shown while embedding model is initializing. [CHAR_LIMIT=30]">Model initializing…</string>
+  <!-- Subtitle shown while embedding model is initializing. [CHAR_LIMIT=40] -->
+  <string name="smartalbum_please_wait" translatable="true" description="Subtitle shown while embedding model is initializing. [CHAR_LIMIT=40]">Please wait a few moments</string>
+  <!-- Notification channel name for background photo indexing. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_notification_channel_name" translatable="true" description="Notification channel name for background photo indexing. [CHAR_LIMIT=30]">Photo Indexing</string>
+  <!-- Notification channel description for background photo indexing. [CHAR_LIMIT=80] -->
+  <string name="smartalbum_notification_channel_desc" translatable="true" description="Notification channel description for background photo indexing. [CHAR_LIMIT=80]">Ongoing progress notification for photo indexing</string>
+  <!-- Notification text shown when preparing photo indexing. [CHAR_LIMIT=40] -->
+  <string name="smartalbum_preparing_photo_index" translatable="true" description="Notification text shown when preparing photo indexing. [CHAR_LIMIT=40]">Preparing photo index&#8230;</string>
+  <!-- Notification progress text format for indexing photos. [CHAR_LIMIT=50] -->
+  <string name="smartalbum_indexing_photos_progress" translatable="true" description="Notification progress text format for indexing photos, where %1$d is processed, %2$d is total, and %3$d is percentage. [CHAR_LIMIT=50]">Indexing photos: %1$d / %2$d (%3$d%%)</string>
+  <!-- Status message showing count of photos being analyzed/indexed. [CHAR_LIMIT=40] -->
+  <plurals name="smartalbum_adding_photos_format" translatable="true" description="Status message showing count of photos being analyzed/indexed. Photos is a generic term. [CHAR_LIMIT=40]">
+    <item quantity="one">Analyzing %1$d photo…</item>
+    <item quantity="other">Analyzing %1$d photos…</item>
+  </plurals>
+  <!-- Subtitle shown when photo indexing is inactive. [CHAR_LIMIT=50] -->
+  <string name="smartalbum_photos_granted_access_subtitle" translatable="true" description="Subtitle shown when photo indexing is inactive. [CHAR_LIMIT=45]">Photos that you granted access for</string>
+  <!-- Format string showing the number of photos. [CHAR_LIMIT=30] -->
+  <plurals name="smartalbum_photos_format" translatable="true" description="Format string showing the number of photos. Photos is a generic term. [CHAR_LIMIT=30]">
+    <item quantity="one">%1$d photo</item>
+    <item quantity="other">%1$d photos</item>
+  </plurals>
+  <!-- Format string showing the number of videos. [CHAR_LIMIT=30] -->
+  <plurals name="smartalbum_videos_format" translatable="true" description="Format string showing the number of videos. Videos is a generic term. [CHAR_LIMIT=30]">
+    <item quantity="one">%1$d video</item>
+    <item quantity="other">%1$d videos</item>
+  </plurals>
+  <!-- Format string showing the number of media items (photos and videos). [CHAR_LIMIT=30] -->
+  <plurals name="smartalbum_media_items_format" translatable="true" description="Format string showing the number of media items (photos and videos). Media items is a generic term. [CHAR_LIMIT=30]">
+    <item quantity="one">%1$d item</item>
+    <item quantity="other">%1$d items</item>
+  </plurals>
+  <!-- Search input placeholder for Smart Album search screen. [CHAR_LIMIT=25] -->
+  <string name="smartalbum_search_placeholder_term" translatable="true" description="Search input placeholder for Smart Album search screen. Search is a generic term. [CHAR_LIMIT=30]">Search for term&#8230;</string>
+  <!-- Search suggestion sample terms. [CHAR_LIMIT=35] -->
+  <string name="smartalbum_suggestion_grocery_receipt" translatable="true" description="Search suggestion for grocery store receipt. [CHAR_LIMIT=35]">grocery store receipt</string>
+  <string name="smartalbum_suggestion_hiking_selfie" translatable="true" description="Search suggestion for friends hiking selfie. [CHAR_LIMIT=35]">friends hiking selfie</string>
+  <string name="smartalbum_suggestion_dog_backyard" translatable="true" description="Search suggestion for dog in backyard. [CHAR_LIMIT=25]">dog in backyard</string>
+  <string name="smartalbum_suggestion_cloudy_beach" translatable="true" description="Search suggestion for walking on cloudy beach. [CHAR_LIMIT=38]">walking on cloudy beach</string>
+  <!-- Match score percentage format badge. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_match_format" translatable="true" description="Match score percentage format badge. [CHAR_LIMIT=20]">%1$d%% match</string>
+  <!-- Label for embedding info panel. [CHAR_LIMIT=25] -->
+  <string name="smartalbum_embedding_info" translatable="true" description="Label for embedding info panel. [CHAR_LIMIT=24]">Embedding info</string>
+  <!-- Option to find similar images in Smart Album search. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_find_similar_images" translatable="true" description="Option to find similar images in Smart Album search. [CHAR_LIMIT=24]">Find similar images</string>
+  <!-- Status badge for unindexed photo being analyzed. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_analyzing" translatable="true" description="Status badge for unindexed photo being analyzed. [CHAR_LIMIT=20]">Analyzing…</string>
+  <!-- Status badge for indexed photo. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_analyzed" translatable="true" description="Status badge for indexed photo. [CHAR_LIMIT=20]">Analyzed</string>
+  <!-- Title for analyzing progress popup banner. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_analyzing_in_progress" translatable="true" description="Title for analyzing progress popup banner. [CHAR_LIMIT=35]">Analyzing in progress</string>
+  <!-- Title for model initialization progress popup banner. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_initializing_model" translatable="true" description="Title for model initialization progress popup banner. [CHAR_LIMIT=35]">Initializing model…</string>
+  <!-- Status description shown in progress banner while embedding model is initializing. [CHAR_LIMIT=60] -->
+  <string name="smartalbum_initializing_model_description" translatable="true" description="Status description shown in progress banner while embedding model is initializing. [CHAR_LIMIT=60]">Preparing embedding model…</string>
+  <!-- Title for paused analysis progress popup banner. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_analysis_stopped" translatable="true" description="Title for paused analysis progress popup banner. [CHAR_LIMIT=35]">Analysis stopped</string>
+  <!-- Action button to pause/stop photo analysis. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_stop_analyzing" translatable="true" description="Action button to pause or stop photo analysis. [CHAR_LIMIT=20]">Stop analyzing</string>
+  <!-- Action button to resume photo analysis. [CHAR_LIMIT=25] -->
+  <string name="smartalbum_resume_analyzing" translatable="true" description="Action button to resume photo analysis. [CHAR_LIMIT=25]">Resume analyzing</string>
+  <!-- Format for analyzing progress status in banner. [CHAR_LIMIT=50] -->
+  <string name="smartalbum_analyzing_progress_format" translatable="true" description="Format for analyzing progress status in banner. [CHAR_LIMIT=49]">%1$s of %2$s analyzed (%3$d%%)</string>
+  <!-- Title for analyzing photos progress toast in collection selection screen. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_analyzing_photos" translatable="true" description="Title for analyzing photos progress toast in collection selection screen. [CHAR_LIMIT=30]">Analyzing photos…</string>
+  <!-- Format for collection indexing progress in collapsed toast. [CHAR_LIMIT=40] -->
+  <string name="smartalbum_collection_progress_done_format" translatable="true" description="Format for collection indexing progress in collapsed toast. [CHAR_LIMIT=40]">%1$s (%2$d%%) done</string>
+  <!-- Format for active collection progress in expanded toast. [CHAR_LIMIT=40] -->
+  <string name="smartalbum_collection_progress_active_format" translatable="true" description="Format for active collection progress in expanded toast. [CHAR_LIMIT=40]">%1$s (%2$d%% done)</string>
+  <!-- Format for queued collection progress in expanded toast. [CHAR_LIMIT=40] -->
+  <string name="smartalbum_collection_progress_queued_format" translatable="true" description="Format for queued collection progress in expanded toast. [CHAR_LIMIT=40]">%1$s (Queued, %2$d%% done)</string>
+  <!-- Format for paused collection progress in expanded toast. [CHAR_LIMIT=40] -->
+  <string name="smartalbum_collection_progress_paused_format" translatable="true" description="Format for paused collection progress in expanded toast. [CHAR_LIMIT=40]">%1$s (Paused, %2$d%% done)</string>
+  <!-- Action button to pause indexing. [CHAR_LIMIT=15] -->
+  <string name="smartalbum_pause" translatable="true" description="Action button to pause indexing. [CHAR_LIMIT=15]">Pause</string>
+  <!-- Action button to resume indexing. [CHAR_LIMIT=15] -->
+  <string name="smartalbum_resume" translatable="true" description="Action button to resume indexing. [CHAR_LIMIT=15]">Resume</string>
+  <!-- Action button to start indexing immediately. [CHAR_LIMIT=15] -->
+  <string name="smartalbum_start_now" translatable="true" description="Action button to start indexing immediately. [CHAR_LIMIT=15]">Start now</string>
+  <!-- Action button to notify user when indexing finishes. [CHAR_LIMIT=15] -->
+  <string name="smartalbum_notify_me" translatable="true" description="Action button to notify user when indexing finishes. [CHAR_LIMIT=18]">Notify me</string>
+  <!-- Toast notification confirming the user will be notified when image analysis is complete. [CHAR_LIMIT=85] -->
+  <string name="smartalbum_notify_me_toast" translatable="true" description="Toast notification confirming the user will be notified when image analysis is complete. [CHAR_LIMIT=85]">You\'ll be notified when these images are done analyzing.</string>
+  <!-- Option in add menu to search using camera. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_search_with_camera" translatable="true" description="Option in add menu to search using camera. [CHAR_LIMIT=30]">Search with camera</string>
+  <!-- Option in add menu to search using an image. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_search_with_image" translatable="true" description="Option in add menu to search using an image. [CHAR_LIMIT=30]">Search with image</string>
+  <!-- Title prompt asking user to grant camera access for camera search. [CHAR_LIMIT=60] -->
+  <string name="smartalbum_grant_camera_access_title" translatable="true" description="Title prompt asking user to grant camera access for camera search. [CHAR_LIMIT=60]">Grant access to your camera to get started</string>
+  <!-- Button label to request camera permission. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_grant_access" translatable="true" description="Button label to request camera permission. [CHAR_LIMIT=20]">Grant access</string>
+  <!-- Prefix label indicating active searching. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_searching_prefix" translatable="true" description="Prefix label indicating active searching. [CHAR_LIMIT=20]">Searching</string>
+  <!-- Prompt instructing user to point camera at an object to find similar photos. [CHAR_LIMIT=82] -->
+  <string name="smartalbum_camera_search_prompt" translatable="true" description="Prompt instructing user to point camera at an object to find similar photos. [CHAR_LIMIT=82]">Point your camera at an object to find similar photos</string>
+  <!-- Placeholder text indicating similar photos will appear at the bottom. [CHAR_LIMIT=50] -->
+  <string name="smartalbum_similar_photos_appear_here" translatable="true" description="Placeholder text indicating similar photos will appear at the bottom. [CHAR_LIMIT=50]">Similar photos will appear here</string>
+  <!-- Content description for camera button to save shot. [CHAR_LIMIT=25] -->
+  <string name="smartalbum_save_shot" translatable="true" description="Content description for camera button to save shot. [CHAR_LIMIT=25]">Save shot</string>
+  <!-- Button to pause live camera search feed. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_pause_camera" translatable="true" description="Button to pause live camera search feed. [CHAR_LIMIT=20]">Pause</string>
+  <!-- Button to resume live camera search feed. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_resume_camera" translatable="true" description="Button to resume live camera search feed. [CHAR_LIMIT=20]">Resume</string>
+  <!-- Title for camera search screen. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_camera_search_title" translatable="true" description="Title for camera search screen. [CHAR_LIMIT=30]">Camera Search</string>
+  <!-- Status badge indicating camera search is paused. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_camera_paused" translatable="true" description="Status badge indicating camera search is paused. [CHAR_LIMIT=20]">Paused</string>
+  <!-- Status badge indicating camera search is active. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_camera_searching" translatable="true" description="Status badge indicating camera search is active. [CHAR_LIMIT=20]">Searching…</string>
+  <!-- Empty state description when camera search has not found matching items yet. [CHAR_LIMIT=72] -->
+  <string name="smartalbum_camera_search_empty" translatable="true" description="Empty state description when camera search has not found matching items yet. [CHAR_LIMIT=72]">Point camera at an object to find similar photos</string>
+  <!-- Warning message shown above search results when indexing is incomplete. [CHAR_LIMIT=100] -->
+  <string name="smartalbum_indexing_warning_banner" translatable="true" description="Warning message shown above search results when indexing is incomplete. [CHAR_LIMIT=144]">Photos are still being analyzed, so some photos may be missing from your Search results.</string>
+  <!-- Search input placeholder for Smart Album. [CHAR_LIMIT=25] -->
+  <string name="smartalbum_search_placeholder" translatable="true" description="Search input placeholder for Smart Album. [CHAR_LIMIT=30]">Search photos…</string>
+  <!-- Indexing progress status format. [CHAR_LIMIT=50] -->
+  <plurals name="smartalbum_indexing_progress_format" translatable="true" description="Indexing progress status format.">
+    <item quantity="one">Indexing %1$d of %2$d photo…</item>
+    <item quantity="other">Indexing %1$d of %2$d photos…</item>
+  </plurals>
+  <!-- Dropdown label to select user's photo album source in Instant Media Search. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_my_photos" translatable="true" description="Dropdown label to select user's photo album source in Instant Media Search. [CHAR_LIMIT=18]">My photos</string>
+  <!-- Dropdown and filter label for sample photos source in Instant Media Search. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_sample_photos" translatable="true" description="Dropdown and filter label for sample photos source in Instant Media Search. [CHAR_LIMIT=20]">Sample photos</string>
+  <!-- Title for the sample photos collection stack. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_sample_photos_title" translatable="true" description="Title for the sample photos collection stack in Instant Media Search. [CHAR_LIMIT=20]">Sample photos</string>
+  <!-- Subtitle for the sample photos collection stack. [CHAR_LIMIT=50] -->
+  <string name="smartalbum_sample_photos_subtitle" translatable="true" description="Subtitle for the sample photos collection stack in Instant Media Search. [CHAR_LIMIT=60]">Sample photos provided by AI Edge Gallery</string>
+  <!-- Credit attribution shown in the header above a sample photo in fullscreen view. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_sample_photo_credit" translatable="true" description="Header attribution label shown above a sample photo in the fullscreen photo detail view in Instant Media Search, crediting Getty Images (a brand name) as the photo source. [CHAR_LIMIT=30]">Credit: Getty Images</string>
+  <!-- Title for user photos stack when access is not yet granted. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_add_photos_title" translatable="true" description="Title for user photos stack when access is not yet granted. [CHAR_LIMIT=20]">Add photos</string>
+  <!-- Subtitle for user photos stack when access is not yet granted. [CHAR_LIMIT=51] -->
+  <string name="smartalbum_grant_photo_library_access_subtitle" translatable="true" description="Subtitle for add photos stack on landing page when photo access is not yet granted. [CHAR_LIMIT=51]">Grant access to your photo library</string>
+  <!-- Title for confirmation popup asking user to confirm analyzing all photos. [CHAR_LIMIT=45] -->
+  <string name="smartalbum_start_analyzing_all_photos_title" translatable="true" description="Title for confirmation popup asking user to confirm analyzing all photos. [CHAR_LIMIT=45]">Start analyzing all photos?</string>
+  <!-- Description for confirmation popup asking user to confirm analyzing all media items. [CHAR_LIMIT=80] -->
+  <plurals name="smartalbum_start_analyzing_all_photos_desc" translatable="true" description="Description for confirmation popup asking user to confirm analyzing all media items in their library, where %1$d is the total number of media items (e.g. 500). [CHAR_LIMIT=80]">
+    <item quantity="one">You\'ll start analyzing %1$d item from your camera library.</item>
+    <item quantity="other">You\'ll start analyzing %1$d items from your camera library.</item>
+  </plurals>
+  <!-- Button to confirm analyzing all photos. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_yes_add_all" translatable="true" description="Button to confirm analyzing all photos. [CHAR_LIMIT=20]">Yes, add all</string>
+  <!-- Button to select specific photos instead of analyzing all media items. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_select_photos" translatable="true" description="Button to open the photo picker to select specific photos instead of analyzing all media items. [CHAR_LIMIT=20]">Select photos</string>
+  <!-- Empty state message when search query returns no matching photos in Instant Media Search. [CHAR_LIMIT=40] -->
+  <string name="smartalbum_no_matching_photos" translatable="true" description="Empty state message when search query returns no matching photos in Instant Media Search. [CHAR_LIMIT=40]">No matching photos found</string>
+  <!-- Title for empty photo collection state in Instant Media Search. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_empty_collection_title" translatable="true" description="Title for empty photo collection state in Instant Media Search. [CHAR_LIMIT=30]">No photos yet</string>
+  <!-- Subtitle for empty photo collection state in Instant Media Search. [CHAR_LIMIT=60] -->
+  <string name="smartalbum_empty_collection_subtitle" translatable="true" description="Subtitle for empty photo collection state in Instant Media Search. [CHAR_LIMIT=60]">Add photos to start searching your collection</string>
+  <!-- Format string showing the number of search results in Instant Media Search. [CHAR_LIMIT=30] -->
+  <plurals name="smartalbum_results_format" translatable="true" description="Format string showing the number of search results in Instant Media Search. [CHAR_LIMIT=30]">
+    <item quantity="one">%1$d result</item>
+    <item quantity="other">%1$d results</item>
+  </plurals>
+  <!-- Content text of notification when photo indexing finishes. [CHAR_LIMIT=80] -->
+  <string name="smartalbum_indexing_complete_content" translatable="true" description="This string appears within a system notification when photo indexing completes as the notification body text. It informs the user that photo indexing is complete and all photos are now searchable. [CHAR_LIMIT=110]">Photo indexing complete. All photos are now searchable.</string>
+  <!-- Button to select all photos in Instant Media Search. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_select_all" translatable="true" description="Button to select all photos in Instant Media Search. [CHAR_LIMIT=20]">Select all</string>
+  <!-- Button to deselect all photos in Instant Media Search. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_deselect_all" translatable="true" description="Button to deselect all photos in Instant Media Search. [CHAR_LIMIT=20]">Deselect all</string>
+  <!-- Button to remove selected photos in Instant Media Search. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_remove" translatable="true" description="Button to remove selected photos in Instant Media Search. [CHAR_LIMIT=20]">Remove</string>
+  <!-- Format string showing the count of selected photos in Instant Media Search. [CHAR_LIMIT=30] -->
+  <plurals name="smartalbum_selected_count_format" translatable="true" description="Format string showing the count of selected photos in Instant Media Search. [CHAR_LIMIT=30]">
+    <item quantity="one">%1$d selected</item>
+    <item quantity="other">%1$d selected</item>
+  </plurals>
+  <!-- Title for confirmation dialog when removing photos from Instant Media Search. [CHAR_LIMIT=80] -->
+  <plurals name="smartalbum_remove_confirm_title" translatable="true" description="Title for confirmation dialog when removing photos from Instant Media Search. [CHAR_LIMIT=80]">
+    <item quantity="one">Remove %1$d photo from Instant Media Search?</item>
+    <item quantity="other">Remove %1$d photos from Instant Media Search?</item>
+  </plurals>
+  <!-- Warning message in remove confirmation dialog in Instant Media Search. [CHAR_LIMIT=40] -->
+  <string name="smartalbum_remove_confirm_body" translatable="true" description="Warning message in remove confirmation dialog in Instant Media Search. [CHAR_LIMIT=40]">This action cannot be undone.</string>
+  <!-- Action button to confirm removing photos in Instant Media Search. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_yes_remove" translatable="true" description="Action button to confirm removing photos in Instant Media Search. [CHAR_LIMIT=20]">Yes, remove</string>
+  <!-- Dropdown button to manage photos in Instant Media Search. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_manage" translatable="true" description="Dropdown button to manage photos in Instant Media Search. [CHAR_LIMIT=20]">Manage</string>
+  <!-- Option in manage menu to add more photos. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_add_more_photos" translatable="true" description="Option in manage menu to add more photos. [CHAR_LIMIT=30]">Add more photos</string>
+  <!-- Option in manage menu to add all photos that the app has permission to read. [CHAR_LIMIT=40] -->
+  <plurals name="smartalbum_add_all_photos" translatable="true" description="Option in manage menu to add all photos that the app already has permission to read from the device library. [CHAR_LIMIT=40]">
+    <item quantity="one">Add all %1$d photo</item>
+    <item quantity="other">Add all %1$d photos</item>
+  </plurals>
+  <!-- Option in manage menu to select photos to remove. [CHAR_LIMIT=35] -->
+  <string name="smartalbum_select_photos_to_remove" translatable="true" description="Option in manage menu to select photos to remove. [CHAR_LIMIT=35]">Select photos to remove</string>
+  <!-- Option in manage menu to remove all photos. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_remove_all_photos" translatable="true" description="Option in manage menu to remove all photos. [CHAR_LIMIT=30]">Remove all photos</string>
+  <!-- Fallback label when photo date and time is unknown in Instant Media Search. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_unknown_date" translatable="true" description="This string appears within the photo details panel in Instant Media Search as a fallback text for the date and time metadata. It means that the date and time when the photo was taken is unknown. [CHAR_LIMIT=20]">Unknown</string>
+  <!-- Title for onboarding page 1 in Instant Media Search. [CHAR_LIMIT=40] -->
+  <string name="smartalbum_onboarding_welcome_title" translatable="true" description="Title for onboarding page 1 in Instant Media Search. [CHAR_LIMIT=40]">Welcome to Instant Media Search!</string>
+  <!-- Description for onboarding page 1 in Instant Media Search. [CHAR_LIMIT=300] -->
+  <string name="smartalbum_onboarding_desc_1" translatable="true" description="Description for onboarding page 1 in Instant Media Search. [CHAR_LIMIT=300]">Type any descriptive idea or pick a photo to discover visually and conceptually related memories. **EmbeddingGemma 2** analyzes the content instantly and privately on-device.</string>
+  <!-- Sample search term displayed in onboarding illustration. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_onboarding_sample_query" translatable="true" description="Sample search term displayed in onboarding illustration. [CHAR_LIMIT=30]">cat sleeping on laptop keyboardanimals playing outside</string>
+  <!-- Title for onboarding page 2 in Instant Media Search. [CHAR_LIMIT=40] -->
+  <string name="smartalbum_onboarding_title_2" translatable="true" description="Title for onboarding page 2 in Instant Media Search. [CHAR_LIMIT=40]">How Scores &amp; Ranking Work</string>
+  <!-- Description for onboarding page 2 in Instant Media Search. [CHAR_LIMIT=300] -->
+  <string name="smartalbum_onboarding_desc_2" translatable="true" description="Description for onboarding page 2 in Instant Media Search. [CHAR_LIMIT=300]">Percentage scores show cosine similarity — how closely concepts match in vector space. Results are **stack-ranked** so your most relevant photos always appear first.</string>
+  <!-- Title for onboarding page 3 in Instant Media Search. [CHAR_LIMIT=50] -->
+  <string name="smartalbum_onboarding_title_3" translatable="true" description="Title for onboarding page 3 in Instant Media Search. [CHAR_LIMIT=50]">Vision Token Budget</string>
+  <!-- Description for onboarding page 3 in Instant Media Search. [CHAR_LIMIT=300] -->
+  <string name="smartalbum_onboarding_desc_3" translatable="true" description="Description for onboarding page 3 in Instant Media Search. [CHAR_LIMIT=300]">Select Standard (70 tokens) for rapid on-device indexing, or Finer Visual Detail (140 tokens) for better quality across text, documents, and intricate details.</string>
+  <!-- Card title for Vision Encoder Budget selection in onboarding. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_onboarding_budget_card_title" translatable="true" description="Card title for Vision Encoder Budget selection in onboarding. [CHAR_LIMIT=30]">Vision Encoder Budget</string>
+  <!-- 70 tokens option label in onboarding. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_onboarding_budget_70_tokens" translatable="true" description="70 tokens option label in onboarding. [CHAR_LIMIT=30]">70 tokens</string>
+  <!-- 140 tokens option label in onboarding. [CHAR_LIMIT=30] -->
+  <string name="smartalbum_onboarding_budget_140_tokens" translatable="true" description="140 tokens option label in onboarding. [CHAR_LIMIT=30]">140 tokens</string>
+  <!-- Next button label in onboarding. [CHAR_LIMIT=15] -->
+  <string name="smartalbum_onboarding_next" translatable="true" description="Next button label in onboarding. [CHAR_LIMIT=15]">Next</string>
+  <!-- Previous button label in onboarding. [CHAR_LIMIT=15] -->
+  <string name="smartalbum_onboarding_previous" translatable="true" description="Previous button label in onboarding. [CHAR_LIMIT=15]">Previous</string>
+  <!-- Get started button label in onboarding. [CHAR_LIMIT=20] -->
+  <string name="smartalbum_onboarding_get_started" translatable="true" description="Get started button label in onboarding. [CHAR_LIMIT=20]">Get started</string>
   <!-- Description for the Agent Skills task. [CHAR_LIMIT=100] -->
   <string name="task_desc_agent_skills" translatable="true" description="Description for the Agent Skills task. [CHAR_LIMIT=106]">Chat with on-device large language models with skills and tools</string>
   <!-- Short description for the Agent Skills task. [CHAR_LIMIT=35] -->
@@ -962,6 +1199,89 @@
   <string name="task_desc_tiny_garden" translatable="true" description="Description for the Tiny Garden task. [CHAR_LIMIT=468]">Use natural language to plant, water, and harvest in this fully offline mini-game.\n\nNote: This is powered by the experimental FunctionGemma model optimized for latency. Due to its compact size (270M), it works well on simple instructions but responses may vary to more complex interactions.</string>
   <!-- Short description for the Tiny Garden task. [CHAR_LIMIT=35] -->
   <string name="task_short_desc_tiny_garden" translatable="true" description="Short description for the Tiny Garden task. [CHAR_LIMIT=45]">Use natural language to plant</string>
+
+  <!-- Video Moment Finder -->
+  <string name="task_desc_video_moment_finder" translatable="true" description="Description of the Video Moment Finder task, shown on the task detail page; EmbeddingGemma 2 is a model name and should not be translated.">Search for moments in videos using natural language with EmbeddingGemma 2</string>
+  <string name="task_short_desc_video_moment_finder" translatable="true" description="One-line subtitle shown under the Video Moment Finder task title on the home screen task card.">Search for moments in videos</string>
+  <!-- Name of the Video Moment Finder feature; intentionally not translated. -->
+  <string name="videomomentfinder_feature_name" translatable="false">Video Moment Finder</string>
+  <string name="videomomentfinder_project_list_empty_description" translatable="true" description="Body text of the empty state shown before any video has been added, explaining what the feature does; EmbeddingGemma 2 is a model name and should not be translated.">Search for moments in videos using natural language with EmbeddingGemma 2</string>
+  <string name="videomomentfinder_add_video_button" translatable="true" description="Label on the button in the empty state that opens the photo picker so the user can add a first video.">Add a video</string>
+  <string name="videomomentfinder_add_another_video" translatable="true" description="Label and accessibility description of the tile that lets the user add one more video to the grid of videos.">Add another video</string>
+  <plurals name="videomomentfinder_searched_in_videos" translatable="true" description="Caption under a saved search query stating how many videos that query was run against, where %d is the number of videos (for example, 2).">
+    <item quantity="one">Searched in %d video</item>
+    <item quantity="other">Searched in %d videos</item>
+  </plurals>
+  <string name="videomomentfinder_confirm_delete_project" translatable="true" description="Body text of the confirmation dialog shown before deleting a video project.">Are you sure you want to delete this project?</string>
+  <string name="videomomentfinder_confirm_delete_clip" translatable="true" description="Body text of the confirmation dialog shown before deleting a single saved video clip.">Are you sure you want to delete this clip?</string>
+  <string name="videomomentfinder_processing" translatable="true" description="Label shown on the save and download buttons while the video clip is still being processed.">Processing...</string>
+  <string name="videomomentfinder_analyzing_video" translatable="true" description="Title of the progress card shown while a video is being analyzed so that its moments become searchable.">Analyzing video...</string>
+  <string name="videomomentfinder_analyzing_description" translatable="true" description="Body text of the progress card explaining that analysis takes a few minutes before the video can be searched.">This may take a few minutes. Once the video is analyzed, you can search for moments with natural language!</string>
+  <string name="videomomentfinder_analysis_failed" translatable="true" description="Title of the error card shown when a video could not be analyzed.">Couldn\'t analyze video</string>
+  <string name="videomomentfinder_analysis_failed_description" translatable="true" description="Body text of the error card explaining that an unanalyzed video returns no search results, shown above a retry button.">This video couldn\'t be analyzed, so searching it won\'t return any moments. Please try again.</string>
+  <string name="videomomentfinder_search_placeholder" translatable="true" description="Hint text inside the search field where the user describes the video moment to look for.">Search for a moment</string>
+  <string name="videomomentfinder_search_result_thumbnail" translatable="true" description="Accessibility description of the thumbnail image of a single video search result.">Search result thumbnail</string>
+  <string name="videomomentfinder_cd_play" translatable="true" description="Accessibility description of the button that starts video playback; Play is a verb.">Play</string>
+  <string name="videomomentfinder_cd_pause" translatable="true" description="Accessibility description of the button that pauses video playback; Pause is a verb.">Pause</string>
+  <string name="videomomentfinder_cd_mute" translatable="true" description="Accessibility description of the button that turns the video audio off; Mute is a verb.">Mute</string>
+  <string name="videomomentfinder_cd_unmute" translatable="true" description="Accessibility description of the button that turns the video audio back on; Unmute is a verb.">Unmute</string>
+  <!-- Bare number format for the similarity score overlay; contains no translatable text. -->
+  <string name="videomomentfinder_similarity_score_format" translatable="false">%.2f</string>
+  <string name="videomomentfinder_no_moments_found" translatable="true" description="Message shown over the video when a search returns no matching moments.">No moments found</string>
+  <string name="videomomentfinder_tune_parameters_hint" translatable="true" description="Hint below the no results message, telling the user to open the settings button above to adjust the search parameters.">Click the Settings button above to tune parameters.</string>
+  <string name="videomomentfinder_tab_videos" translatable="true" description="Label of the bottom navigation tab that lists the videos added by the user.">Videos</string>
+  <string name="videomomentfinder_tab_moments" translatable="true" description="Label of the bottom navigation tab and title of the drawer that list the video clips the user has saved.">Saved moments</string>
+  <string name="videomomentfinder_saved_moments_empty_description" translatable="true" description="Body text of the empty state on the saved moments tab, explaining that clips saved from videos appear here.">See clips you saved from your videos</string>
+  <string name="videomomentfinder_save_or_edit_clips" translatable="true" description="Title of the screen where the user trims, saves, or edits video clips.">Save or edit clips</string>
+  <string name="videomomentfinder_save_or_edit_this_clip" translatable="true" description="Label on the button that opens the clip editor for the currently selected video search result.">Save or edit this clip</string>
+  <string name="videomomentfinder_save_clip" translatable="true" description="Label on the button that saves the currently trimmed video clip; Save is a verb.">Save clip</string>
+  <string name="videomomentfinder_update_clip" translatable="true" description="Label on the button that saves changes to an already saved video clip; Update is a verb.">Update clip</string>
+  <string name="videomomentfinder_download_clip" translatable="true" description="Label on the button that exports the video clip to the photo album on the device; Download is a verb.">Download clip</string>
+  <string name="videomomentfinder_clip_saved" translatable="true" description="Snackbar message confirming that a new video clip was saved.">Clip saved</string>
+  <string name="videomomentfinder_clip_updated" translatable="true" description="Snackbar message confirming that an existing video clip was updated.">Clip updated</string>
+  <string name="videomomentfinder_clip_saved_to_album" translatable="true" description="Snackbar message confirming that a video clip was exported to the photo album on the device.">Clip saved to album</string>
+  <string name="videomomentfinder_failed_to_save_clip" translatable="true" description="Snackbar message shown when saving or exporting a video clip fails.">Failed to save clip</string>
+  <string name="videomomentfinder_no_query_placeholder" translatable="true" description="Stand-in shown where a search query would normally appear for a saved clip that has no query; the angle brackets mark it as a placeholder rather than literal text.">&lt;no query&gt;</string>
+  <plurals name="videomomentfinder_results_count" translatable="true" description="Number of saved clips grouped under a single search query, where %d is the clip count (for example, 3).">
+    <item quantity="one">%d result</item>
+    <item quantity="other">%d results</item>
+  </plurals>
+  <string name="videomomentfinder_from_video" translatable="true" description="Caption under a saved clip naming the video it was cut from, where %s is the video name (for example, IMG_2043.mp4).">From %s</string>
+  <string name="videomomentfinder_delete_all_clips_for_query" translatable="true" description="Long-press menu item that deletes every saved clip belonging to one search query, where %s is the query the clips were found with (for example, &quot;red car&quot;) or a placeholder when the clips were saved without a query; Delete is a verb. The quotation marks are already part of the substituted value, so do not add another pair around %s. [CHAR_LIMIT=40]">Delete all clips for %s</string>
+  <string name="videomomentfinder_confirm_delete_all_clips" translatable="true" description="Body text of the confirmation dialog shown before deleting all saved clips of a search query.">Are you sure you want to delete all clips?</string>
+  <string name="videomomentfinder_config_top_k" translatable="true" description="Label of the slider that sets the maximum number of search results to return. [CHAR_LIMIT=16]">Top matches</string>
+  <string name="videomomentfinder_config_adjust_title" translatable="true" description="Title of the dialog where the user adjusts how a video is split up and sampled before it is indexed for search. [CHAR_LIMIT=28]">Adjust Configurations</string>
+  <string name="videomomentfinder_config_adjust_description" translatable="true" description="Explanation at the top of the video processing settings dialog, describing that the video is split into overlapping segments and that the user can either pick a preset or adjust the sliders below. [CHAR_LIMIT=160]">The video is processed in overlapping segments to enable search. Select a preset target or customize the settings below.</string>
+  <string name="videomomentfinder_config_preset_object" translatable="true" description="Label on a button that sets the video processing sliders to values tuned for finding objects, such as a dog or a car; Object is a noun. [CHAR_LIMIT=15]">Object</string>
+  <string name="videomomentfinder_config_preset_action" translatable="true" description="Label on a button that sets the video processing sliders to values tuned for finding actions, such as running or jumping; Action is a noun. [CHAR_LIMIT=15]">Action</string>
+  <string name="videomomentfinder_config_preset_speech" translatable="true" description="Label on a button that sets the video processing sliders to values tuned for finding spoken words, which also turns on indexing of the sound track; Speech is a noun. [CHAR_LIMIT=15]">Speech</string>
+  <string name="videomomentfinder_config_segment_duration" translatable="true" description="Label of the slider that sets how many seconds of video each searchable segment covers. [CHAR_LIMIT=21]">Segment duration</string>
+  <string name="videomomentfinder_config_frames_per_segment" translatable="true" description="Label of the slider that sets how many video frames are sampled from each segment. [CHAR_LIMIT=24]">Frames per segment</string>
+  <string name="videomomentfinder_config_segment_overlap_duration" translatable="true" description="Label of the slider that sets how many seconds consecutive video segments overlap. [CHAR_LIMIT=32]">Segment overlap duration</string>
+  <string name="videomomentfinder_config_seconds_value" translatable="true" description="Current value of a duration slider in the video processing settings dialog, shown at the end of the slider's label row. %1$d is a whole number of seconds (e.g. 4). [CHAR_LIMIT=8]">%1$ds</string>
+  <string name="videomomentfinder_config_number_value" translatable="true" description="Current value of a count slider, shown at the end of the slider's label row. %1$d is a whole number (e.g. 4). Exists so the number is rendered with the locale's own digits. [CHAR_LIMIT=8]">%1$d</string>
+  <string name="videomomentfinder_config_process_sound_track" translatable="true" description="Label of the checkbox in the video processing settings dialog that turns on indexing the video's sound track alongside the sampled frames. [CHAR_LIMIT=30]">Process sound track too</string>
+  <string name="videomomentfinder_config_start" translatable="true" description="Label on the button that starts processing a newly selected video with the settings shown in the dialog; Start is a verb. [CHAR_LIMIT=12]">Start</string>
+  <string name="videomomentfinder_top_k_sheet_title" translatable="true" description="Title of the bottom sheet that adjusts how many search results are shown. [CHAR_LIMIT=20]">Search results</string>
+  <plurals name="videomomentfinder_showing_top_results" translatable="true" description="Label on a chip above the search results that shows how many top-ranked results are being displayed, and opens a sheet to change that number when tapped. %1$d is the number of results (for example, 5). [CHAR_LIMIT=30]">
+    <item quantity="one">Showing top %1$d result</item>
+    <item quantity="other">Showing top %1$d results</item>
+  </plurals>
+
+  <string name="videomomentfinder_config_apply" translatable="true" description="Label on the button that applies the video processing settings; Apply is a verb. [CHAR_LIMIT=12]">Apply</string>
+  <string name="videomomentfinder_config_button_cd" translatable="true" description="Accessibility description of the button that opens the video processing settings dialog.">Processing configuration</string>
+  <string name="videomomentfinder_video_duration_limit_title" translatable="true" description="Title of the dialog shown when the selected video is longer than the supported maximum.">Video too long</string>
+  <string name="videomomentfinder_video_duration_limit_message" translatable="true" description="Body text of the dialog explaining the five minute video length limit and asking the user to select a shorter video.">Videos are currently limited to a maximum of 5 minutes. Please select a shorter video.</string>
+  <string name="videomomentfinder_video_already_imported" translatable="true" description="Snackbar message shown when the user picks a video that has already been imported into the app. [CHAR_LIMIT=60]">This video has already been imported</string>
+  <string name="videomomentfinder_video_already_imported_open" translatable="true" description="Action on the snackbar shown for an already imported video; opens the existing project for that video. Open is a verb. [CHAR_LIMIT=12]">Open</string>
+  <string name="videomomentfinder_video_unsupported_title" translatable="true" description="Title of the dialog shown when the selected video uses a resolution or format this phone's video decoder cannot handle, for example an 8K video. [CHAR_LIMIT=40]">Video not supported</string>
+  <string name="videomomentfinder_video_unsupported_message" translatable="true" description="Body text of the dialog explaining that this phone cannot process the selected video because its resolution or format is not supported by the phone, and suggesting a lower resolution video instead. 8K, 4K and 1080p are video resolution names. [CHAR_LIMIT=240]">This phone can\'t process this video because its resolution or format, such as 8K, isn\'t supported. Please select a lower resolution video, such as 4K or 1080p.</string>
+  <string name="videomomentfinder_onboarding_title_1" translatable="true" description="Title of the first onboarding page; Video Moment Finder is the feature name and should not be translated.">Welcome to Video Moment Finder</string>
+  <string name="videomomentfinder_onboarding_desc_1" translatable="true" description="Body of the first onboarding page, explaining that visual events can be found without any audio transcription; text between double asterisks is rendered in bold.">Find **exact visual events** in your recordings — no audio transcription needed. Search for visual cues like \"dog catching frisbee\", jump to timestamps, and export trimmed clips.</string>
+  <string name="videomomentfinder_onboarding_title_2" translatable="true" description="Title of the second onboarding page, which explains how moment matching works.">How Moment Matching Works</string>
+  <string name="videomomentfinder_onboarding_desc_2" translatable="true" description="Body of the second onboarding page, explaining the matching algorithm; EmbeddingGemma 2 is a model name and text between double asterisks is rendered in bold.">**EmbeddingGemma 2** indexes the video in short overlapping chunks. Then dynamic threshold on cosine similarity returns timestamps with real visual matches.</string>
+  <string name="videomomentfinder_onboarding_title_3" translatable="true" description="Title of the third onboarding page, which invites the user to try different processing configurations.">Experiment with configurations</string>
+  <string name="videomomentfinder_onboarding_desc_3_v2" translatable="true" description="Body of the third onboarding page, telling the user they can pick a preset for searching objects or actions and change how many top matching moments are returned.">Choose presets for objects or actions, and adjust how many top moments to find in your video.</string>
 
   <!-- Context Compaction / Token Limit Banner strings -->
   <string name="token_limit_reached_message" translatable="true" description="This string appears within the chat panel above the input box as an informational card banner when the model reaches its token limit. It explains that the token limit has been reached and tells the user they can compress context or start a new chat. [CHAR_LIMIT=200]">You are approaching the token limit for this chat. You can &lt;b&gt;compress context and continue this chat&lt;/b&gt; or start a &lt;b&gt;new chat&lt;/b&gt;.</string>

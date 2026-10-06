@@ -156,6 +156,8 @@ object BuiltInTaskId {
   const val LLM_TINY_GARDEN = "llm_tiny_garden"
   const val MP_SCRAPBOOK = "mp_scrapbook"
   const val LLM_AGENT_CHAT = "llm_agent_chat"
+  const val SMART_ALBUM = "smart_album"
+  const val VIDEO_MOMENT_FINDER = "video_moment_finder"
 }
 
 private val allLegacyTaskIds: Set<String> =
