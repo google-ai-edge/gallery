@@ -46,6 +46,7 @@ import androidx.core.content.FileProvider
 import androidx.exifinterface.media.ExifInterface
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.decodeSampledBitmapFromUri
+import com.google.ai.edge.gallery.common.openSafeInputStream
 import com.google.ai.edge.gallery.common.rotateBitmap
 import java.io.File
 
@@ -148,7 +149,7 @@ private fun createTempImageUri(context: Context): Uri {
 
 private fun decodeBitmap(context: Context, uri: Uri): Bitmap? {
   return try {
-    val inputStream = context.contentResolver.openInputStream(uri)
+    val inputStream = openSafeInputStream(context, uri)
     if (inputStream != null) {
       // Read the EXIF metadata from the picture and rotate it correctly.
       val exif = ExifInterface(inputStream)

@@ -36,6 +36,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.exifinterface.media.ExifInterface
+import com.google.ai.edge.gallery.common.openSafeInputStream
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -1024,7 +1025,7 @@ class DefaultPhotoLibraryService(
             } catch (e: Exception) {
               asset.contentUri
             }
-          val inputStream = context.contentResolver.openInputStream(targetUri)
+          val inputStream = openSafeInputStream(context, targetUri)
           inputStream?.use { stream ->
             val exif = ExifInterface(stream)
             val latLong = FloatArray(2)

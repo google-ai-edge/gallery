@@ -65,6 +65,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.getModelStorageDir
 import com.google.ai.edge.gallery.common.isPixel10
+import com.google.ai.edge.gallery.common.openSafeInputStream
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKey
@@ -377,7 +378,7 @@ private fun importModel(
     var bytesRead: Int
     var lastSetProgressTs: Long = 0
     var importedBytes = 0L
-    val inputStream = context.contentResolver.openInputStream(uri)
+    val inputStream = openSafeInputStream(context, uri)
     try {
       if (inputStream != null) {
         while (inputStream.read(buffer).also { bytesRead = it } != -1) {

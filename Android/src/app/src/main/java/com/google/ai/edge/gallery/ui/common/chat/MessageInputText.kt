@@ -126,6 +126,7 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.AudioClip
 import com.google.ai.edge.gallery.common.convertWavToMonoWithMaxSeconds
 import com.google.ai.edge.gallery.common.decodeSampledBitmapFromUri
+import com.google.ai.edge.gallery.common.openSafeInputStream
 import com.google.ai.edge.gallery.common.rotateBitmap
 import com.google.ai.edge.gallery.data.MAX_AUDIO_CLIP_COUNT
 import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT
@@ -135,7 +136,6 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.getTaskIconColor
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
-import java.io.FileInputStream
 import java.util.concurrent.Executors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -1018,12 +1018,7 @@ private fun handleImagesSelected(
   for (uri in uris) {
     val bitmap: Bitmap? =
       try {
-        val inputStream =
-          if (uri.scheme == null || uri.scheme == "file") {
-            FileInputStream(uri.path ?: "")
-          } else {
-            context.contentResolver.openInputStream(uri)
-          }
+        val inputStream = openSafeInputStream(context, uri)
         if (inputStream != null) {
           // Read the EXIF metadata from the picture and rotate it correctly.
           val exif = ExifInterface(inputStream)
