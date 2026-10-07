@@ -257,12 +257,12 @@ fun ModelPageAppBar(
           val key = config.key.label
           val oldValue =
             convertValueToTargetType(
-              value = model.configValues.getValue(key),
+              value = model.configValues[key] ?: config.defaultValue,
               valueType = config.valueType,
             )
           val newValue =
             convertValueToTargetType(
-              value = curConfigValues.getValue(key),
+              value = curConfigValues[key] ?: config.defaultValue,
               valueType = config.valueType,
             )
           if (oldValue != newValue) {

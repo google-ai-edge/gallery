@@ -68,6 +68,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -140,6 +141,16 @@ fun ConfigDialog(
 ) {
   val values: SnapshotStateMap<String, Any> = remember {
     mutableStateMapOf<String, Any>().apply { putAll(initialValues) }
+  }
+  // Configs can be added after the dialog is shown (e.g. the visual token budget, which is resolved
+  // asynchronously from the model file). Seed values for any configs that are missing one.
+  LaunchedEffect(configs, initialValues) {
+    for (config in configs) {
+      val key = config.key.label
+      if (!values.containsKey(key)) {
+        values[key] = initialValues[key] ?: config.defaultValue
+      }
+    }
   }
   val interactionSource = remember { MutableInteractionSource() }
   var selectedTabIndex by remember { mutableIntStateOf(0) }
