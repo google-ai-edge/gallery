@@ -426,18 +426,11 @@ open class SmartAlbumViewModel(
   ) {
     if (isFullAccess) {
       viewModelScope.launch {
-        val existingIds = photoLibraryService.fetchAllAssetIdentifiers()
-        if (photoLibraryService.isFullLibraryAccessEnabled() && existingIds.isNotEmpty()) {
-          refreshUserPhotos()
-          selectSource(SmartAlbumSource.USER_PHOTOS)
-          onPermissionGranted()
-          return@launch
-        }
         photoLibraryService.setFullLibraryAccessEnabled(false)
         var total = 0
         for (attempt in 0 until 10) {
           try {
-            total = withContext(Dispatchers.IO) { photoLibraryService.fetchMediaStoreAssetCount() }
+            total = photoLibraryService.fetchMediaStoreAssetCount()
             if (total > 0) break
           } catch (e: CancellationException) {
             throw e
@@ -461,6 +454,8 @@ open class SmartAlbumViewModel(
       viewModelScope.launch {
         photoLibraryService.setFullLibraryAccessEnabled(true)
         if (isGranted) {
+          photoLibraryService.clearRemovedAssets()
+          refreshUserPhotos()
           selectSource(SmartAlbumSource.USER_PHOTOS)
           onPermissionGranted()
         }
@@ -468,11 +463,12 @@ open class SmartAlbumViewModel(
     }
   }
 
-  open fun confirmAnalyzeAllPhotos() {
+  open fun confirmAnalyzeAllPhotos(selectedCount: Int = Int.MAX_VALUE) {
     _showAnalyzeAllConfirmSheet.value = false
+    if (selectedCount <= 0) return
+    _isUserIndexingPaused.value = false
     viewModelScope.launch {
-      photoLibraryService.setFullLibraryAccessEnabled(true)
-      photoLibraryService.clearRemovedAssets()
+      photoLibraryService.selectRecentAssets(selectedCount)
       refreshUserPhotos()
       selectSource(SmartAlbumSource.USER_PHOTOS)
       triggerPrioritizedIndexing()
