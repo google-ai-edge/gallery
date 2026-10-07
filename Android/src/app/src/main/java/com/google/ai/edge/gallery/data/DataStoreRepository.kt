@@ -28,6 +28,7 @@ import com.google.ai.edge.gallery.proto.Skill
 import com.google.ai.edge.gallery.proto.Skills
 import com.google.ai.edge.gallery.proto.Theme
 import com.google.ai.edge.gallery.proto.UserData
+import com.google.ai.edge.gallery.proto.copy
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
@@ -135,6 +136,21 @@ interface DataStoreRepository {
 
   /** Returns whether automatic context compaction is enabled for the specified [taskId]. */
   fun readAutoContextCompact(taskId: String): Boolean
+
+  /** Saves whether the live inference metrics banner is visible for the specified [taskId]. */
+  fun saveShowLiveMetrics(taskId: String, visible: Boolean)
+
+  /** Returns whether the live inference metrics banner is visible for the specified [taskId]. */
+  fun readShowLiveMetrics(taskId: String): Boolean
+
+  /**
+   * Saves [modelName] as the main model last launched from the model selection screen of the task
+   * [taskId].
+   */
+  suspend fun saveLastMainModel(taskId: String, modelName: String)
+
+  /** Returns the name of the main model last launched for each task, by task id. */
+  suspend fun readLastMainModels(): Map<String, String>
 }
 
 /** Repository for managing data using Proto DataStore. */
@@ -492,4 +508,24 @@ class DefaultDataStoreRepository(
       settings.autoContextCompactByTaskMap[taskId] ?: false
     }
   }
+
+  override fun saveShowLiveMetrics(taskId: String, visible: Boolean) {
+    runBlocking {
+      dataStore.updateData { settings -> settings.copy { showLiveMetricsByTask[taskId] = visible } }
+    }
+  }
+
+  override fun readShowLiveMetrics(taskId: String): Boolean {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      settings.showLiveMetricsByTaskMap[taskId] ?: false
+    }
+  }
+
+  override suspend fun saveLastMainModel(taskId: String, modelName: String) {
+    dataStore.updateData { settings -> settings.copy { lastMainModelByTask[taskId] = modelName } }
+  }
+
+  override suspend fun readLastMainModels(): Map<String, String> =
+    dataStore.data.first().lastMainModelByTaskMap
 }
