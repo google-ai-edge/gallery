@@ -21,6 +21,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.media.RingtoneManager
 import android.os.Build
 import android.util.Log
@@ -28,6 +29,10 @@ import androidx.core.app.NotificationCompat
 import androidx.core.net.toUri
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import kotlin.concurrent.thread
 
 class GalleryFcmMessagingService : FirebaseMessagingService() {
   override fun onMessageReceived(remoteMessage: RemoteMessage) {
@@ -98,26 +103,46 @@ class GalleryFcmMessagingService : FirebaseMessagingService() {
         .setContentIntent(pendingIntent)
         .setPriority(NotificationCompat.PRIORITY_HIGH)
 
+    // Network I/O and bitmap decoding must not run on the main thread (would cause ANR).
+    // Dispatch to a background thread; after the bitmap loads, post the notification.
     if (imageUrl != null) {
-      try {
-        val url = java.net.URL(imageUrl.toString())
-        val connection = url.openConnection()
-        connection.connectTimeout = 5000
-        connection.readTimeout = 5000
-        val bitmap = android.graphics.BitmapFactory.decodeStream(connection.getInputStream())
-        if (bitmap != null) {
-          notificationBuilder.setLargeIcon(bitmap)
-          notificationBuilder.setStyle(
-            NotificationCompat.BigPictureStyle()
-              .bigPicture(bitmap)
-              .bigLargeIcon(null as android.graphics.Bitmap?)
-          )
+      thread(name = "fcm-image-load", isDaemon = true) {
+        var inputStream: InputStream? = null
+        var connection: HttpURLConnection? = null
+        try {
+          val url = URL(imageUrl.toString())
+          connection = url.openConnection() as HttpURLConnection
+          connection.connectTimeout = 5000
+          connection.readTimeout = 5000
+          inputStream = connection.inputStream
+          val bitmap = BitmapFactory.decodeStream(inputStream)
+          if (bitmap != null) {
+            notificationBuilder.setLargeIcon(bitmap)
+            notificationBuilder.setStyle(
+              NotificationCompat.BigPictureStyle()
+                .bigPicture(bitmap)
+                .bigLargeIcon(null as android.graphics.Bitmap?)
+            )
+          }
+        } catch (e: Exception) {
+          Log.w(TAG, "Failed to download image", e)
+        } finally {
+          try {
+            inputStream?.close()
+          } catch (_: Exception) {}
+          connection?.disconnect()
         }
-      } catch (e: Exception) {
-        Log.w(TAG, "Failed to download image", e)
+        postNotification(channelId, notificationBuilder)
       }
+    } else {
+      postNotification(channelId, notificationBuilder)
     }
+  }
 
+  private fun postNotification(
+    channelId: String,
+    notificationBuilder: NotificationCompat.Builder,
+  ) {
     val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     // Since android Oreo notification channel is needed.
@@ -131,7 +156,9 @@ class GalleryFcmMessagingService : FirebaseMessagingService() {
       notificationManager.createNotificationChannel(channel)
     }
 
-    val notificationId = 0
+    // Use a unique notification id rather than constant 0 so concurrent FCM messages don't
+    // overwrite each other.
+    val notificationId = System.currentTimeMillis().toInt()
     notificationManager.notify(notificationId, notificationBuilder.build())
   }
 

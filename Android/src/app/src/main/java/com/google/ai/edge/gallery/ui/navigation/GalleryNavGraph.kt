@@ -231,14 +231,14 @@ fun GalleryNavHost(
           enableAnimation = enableModelListAnimation,
           onModelClicked = { model ->
             modelManagerViewModel.selectModel(model)
-            navController.navigate("$ROUTE_MODEL/${it.id}/${model.name}")
+            navController.navigate("$ROUTE_MODEL/${Uri.encode(it.id)}/${Uri.encode(model.name)}")
           },
           onBenchmarkClicked = { model ->
             firebaseAnalytics?.logEvent(
               GalleryEvent.CAPABILITY_SELECT.id,
               Bundle().apply { putString("capability_name", "benchmark_${model.name}") },
             )
-            navController.navigate("$ROUTE_BENCHMARK/${model.name}")
+            navController.navigate("$ROUTE_BENCHMARK/${Uri.encode(model.name)}")
           },
           navigateUp = {
             enableHomeScreenAnimation = false
@@ -380,14 +380,14 @@ fun GalleryNavHost(
           navController.navigateUp()
         },
         onModelSelected = { task, model ->
-          navController.navigate("$ROUTE_MODEL/${task.id}/${model.name}")
+          navController.navigate("$ROUTE_MODEL/${Uri.encode(task.id)}/${Uri.encode(model.name)}")
         },
         onBenchmarkClicked = { model ->
           firebaseAnalytics?.logEvent(
             GalleryEvent.CAPABILITY_SELECT.id,
             Bundle().apply { putString("capability_name", "benchmark_${model.name}") },
           )
-          navController.navigate("$ROUTE_BENCHMARK/${model.name}")
+          navController.navigate("$ROUTE_BENCHMARK/${Uri.encode(model.name)}")
         },
       )
     }
@@ -440,9 +440,9 @@ fun GalleryNavHost(
         modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
           val route =
             if (!queryStr.isNullOrEmpty()) {
-              "$ROUTE_MODEL/${taskId}/${model.name}?query=${Uri.encode(queryStr)}"
+              "$ROUTE_MODEL/${Uri.encode(taskId)}/${Uri.encode(model.name)}?query=${Uri.encode(queryStr)}"
             } else {
-              "$ROUTE_MODEL/${taskId}/${model.name}"
+              "$ROUTE_MODEL/${Uri.encode(taskId)}/${Uri.encode(model.name)}"
             }
           navController.navigate(route)
         }
@@ -470,9 +470,9 @@ fun GalleryNavHost(
           if (defaultModel != null) {
             val route =
               if (!queryStr.isNullOrEmpty()) {
-                "$ROUTE_MODEL/${task.id}/${defaultModel.name}?query=${Uri.encode(queryStr)}"
+                "$ROUTE_MODEL/${Uri.encode(task.id)}/${Uri.encode(defaultModel.name)}?query=${Uri.encode(queryStr)}"
               } else {
-                "$ROUTE_MODEL/${task.id}/${defaultModel.name}"
+                "$ROUTE_MODEL/${Uri.encode(task.id)}/${Uri.encode(defaultModel.name)}"
               }
             navController.navigate(route)
           } else {
