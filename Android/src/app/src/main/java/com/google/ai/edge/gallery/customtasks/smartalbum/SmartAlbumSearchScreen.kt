@@ -205,12 +205,14 @@ fun SmartAlbumSearchScreen(
   onBack: () -> Unit,
   bottomPadding: Dp = 0.dp,
   setTopBarVisible: (Boolean) -> Unit = {},
+  onRequestPermission: (() -> Unit)? = null,
 ) {
   val activeSource by searchViewModel.activeSource.collectAsState()
   val searchText by searchViewModel.searchText.collectAsState()
   val uiState by searchViewModel.uiState.collectAsState()
   val allAssets by searchViewModel.allAssets.collectAsState()
   val addAllPhotosCount by searchViewModel.addAllPhotosCount.collectAsState()
+  val shouldRequestPhotoAccess by searchViewModel.shouldRequestPhotoAccess.collectAsState()
   val isLoadingAssets by searchViewModel.isLoadingAssets.collectAsState()
   val selectedImageAsset by searchViewModel.selectedImageAsset.collectAsState()
   val indexedIds by searchViewModel.indexedIds.collectAsState()
@@ -221,6 +223,13 @@ fun SmartAlbumSearchScreen(
   val isSearching by searchViewModel.isSearching.collectAsState()
   val galleryGridState = rememberLazyGridState()
   val resultsGridState = rememberLazyGridState()
+
+  LaunchedEffect(shouldRequestPhotoAccess) {
+    if (shouldRequestPhotoAccess) {
+      searchViewModel.onPhotoAccessRequestHandled()
+      onRequestPermission?.invoke()
+    }
+  }
 
   LaunchedEffect(galleryGridState.isScrollInProgress, resultsGridState.isScrollInProgress) {
     SmartAlbumIndexingCoordinator.isScrollInProgress =
@@ -591,7 +600,11 @@ fun SmartAlbumSearchScreen(
                     SmallFilledTonalButton(
                       onClick = {
                         logButtonClick("smartalbum_add_photos_subheader")
-                        multiplePhotoPickerLauncher.launch(PickVisualMediaRequest(ImageAndVideo))
+                        if (onRequestPermission != null) {
+                          onRequestPermission()
+                        } else {
+                          multiplePhotoPickerLauncher.launch(PickVisualMediaRequest(ImageAndVideo))
+                        }
                       },
                       imageVector = Icons.Outlined.AddPhotoAlternate,
                       labelResId = R.string.smartalbum_add_photos_title,
@@ -652,7 +665,11 @@ fun SmartAlbumSearchScreen(
                     SmallFilledTonalButton(
                       onClick = {
                         logButtonClick("smartalbum_add_photos_empty_state")
-                        multiplePhotoPickerLauncher.launch(PickVisualMediaRequest(ImageAndVideo))
+                        if (onRequestPermission != null) {
+                          onRequestPermission()
+                        } else {
+                          multiplePhotoPickerLauncher.launch(PickVisualMediaRequest(ImageAndVideo))
+                        }
                       },
                       imageVector = Icons.Outlined.AddPhotoAlternate,
                       labelResId = R.string.smartalbum_add_photos_title,

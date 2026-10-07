@@ -73,6 +73,7 @@ class SmartAlbumTask @Inject constructor(@ApplicationContext private val context
       shortDescription = context.getString(R.string.task_short_desc_smart_album),
       models = mutableListOf(),
       newFeature = true,
+      useThemeColor = true,
       handleModelConfigChangesInTask = true,
     )
 
