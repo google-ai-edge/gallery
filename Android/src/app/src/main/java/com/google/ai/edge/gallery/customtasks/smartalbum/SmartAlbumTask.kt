@@ -71,6 +71,8 @@ class SmartAlbumTask @Inject constructor(@ApplicationContext private val context
       icon = Icons.Outlined.PhotoLibrary,
       description = context.getString(R.string.task_desc_smart_album),
       shortDescription = context.getString(R.string.task_short_desc_smart_album),
+      sourceCodeUrl =
+        "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/customtasks/smartalbum",
       models = mutableListOf(),
       newFeature = true,
       useThemeColor = true,
