@@ -65,7 +65,7 @@
   <string name="chat_you" translatable="true" description="Label indicating a message was sent by the user. [CHAR_LIMIT=18]">You</string>
   <string name="chat_llm_agent_name" translatable="true" description="Display name for the LLM agent in chat. [CHAR_LIMIT=18]">LLM</string>
   <string name="show_thinking" translatable="true" description="Label for a button to show the model's reasoning/thinking steps. [CHAR_LIMIT=24]">Show thinking</string>
-  <string name="checking_access" translatable="true" description="Message shown while checking if the user has access to a model. [CHAR_LIMIT=31]">Checking access...</string>
+  <string name="checking_access" translatable="true" description="Message shown while checking if the user has access to a model. [CHAR_LIMIT=31]">Checking access…</string>
   <string name="close" translatable="true" description="Common button label to close a screen or dialog. [CHAR_LIMIT=9]">Close</string>
   <string name="collapse_all" translatable="true" description="Button label to collapse all expanded sections. [CHAR_LIMIT=23]">Collapse all</string>
   <string name="discard" translatable="true" description="Button label to discard changes. [CHAR_LIMIT=18]">Discard</string>
@@ -134,9 +134,9 @@
   <string name="introducing" translatable="true" description="Heading text used to introduce a new model or feature (e.g., 'Introducing Gemma 4'). [CHAR_LIMIT=20]">Introducing</string>
   <string name="invalid_response" translatable="true" description="Error message displayed when the model's output is invalid or cannot be parsed. [CHAR_LIMIT=30]">Invalid response</string>
   <string name="learn_more" translatable="true" description="Hyperlink text that directs users to more information and the model's license terms. [CHAR_LIMIT=52]">Learn more and see model license</string>
-  <string name="listening" translatable="true" description="Status message indicating the app is actively listening to voice input for dictation. [CHAR_LIMIT=21]">Listening...</string>
+  <string name="listening" translatable="true" description="Status message indicating the app is actively listening to voice input for dictation. [CHAR_LIMIT=21]">Listening…</string>
   <string name="litert_community_label" translatable="true" description="Hyperlink text pointing to the LiteRT community webpage. [CHAR_LIMIT=30]">LiteRT community</string>
-  <string name="loading_model_list" translatable="true" description="Progress message displayed while the application fetches the list of available models. [CHAR_LIMIT=35]">Loading model list...</string>
+  <string name="loading_model_list" translatable="true" description="Progress message displayed while the application fetches the list of available models. [CHAR_LIMIT=35]">Loading model list…</string>
   <string name="logs_viewer_filter_text_input_placeholder" translatable="true" description="Placeholder text in a search/filter input field within the logs viewer screen. [CHAR_LIMIT=30]">Filter logs</string>
   <string name="logs_viewer_title" translatable="true" description="Title of the screen that displays application or model logs. [CHAR_LIMIT=26]">Logs viewer</string>
   <string name="logs_viewer_no_matching_logs" translatable="true" description="Message shown when the user's filter query matches no log entries in the log viewer. [CHAR_LIMIT=40]">No logs match the filter</string>
@@ -172,11 +172,11 @@
   <string name="results" translatable="true" description="Header for the section displaying benchmark performance results. [CHAR_LIMIT=26]">Results</string>
   <string name="reset" translatable="true" description="Button label to reset the current task or model engine state. [CHAR_LIMIT=9]">Reset</string>
   <string name="reset_note" translatable="true" description="Informational note in a dialog explaining that the reset action only affects the model engine, not game progress. [CHAR_LIMIT=145]">Tapping \"Reset\" will reset LiteRT-LM engine only. The game progress won\'t be affected.</string>
-  <string name="resetting_engine" translatable="true" description="Status message shown while the underlying model engine is being reinitialized. [CHAR_LIMIT=32]">Resetting engine...</string>
+  <string name="resetting_engine" translatable="true" description="Status message shown while the underlying model engine is being reinitialized. [CHAR_LIMIT=32]">Resetting engine…</string>
   <string name="restore_default" translatable="true" description="Button label to restore default model configurations. [CHAR_LIMIT=28]">Restore default</string>
   <string name="reinitializing_description" translatable="true" description="Supporting text explaining that resetting the engine does not lose game progress. [CHAR_LIMIT=90]">The game progress won\'t be affected</string>
   <string name="run" translatable="true" description="Button label to start running or testing a custom skill. [CHAR_LIMIT=6]">Run</string>
-  <string name="running" translatable="true" description="Status indicator showing that a model or process is currently active and executing. [CHAR_LIMIT=18]">Running...</string>
+  <string name="running" translatable="true" description="Status indicator showing that a model or process is currently active and executing. [CHAR_LIMIT=18]">Running…</string>
   <plurals name="runs" translatable="true">
     <item quantity="one">%d run</item>
     <item quantity="other">%d runs</item>
@@ -184,7 +184,7 @@
   <string name="run_again" translatable="true" description="Button label to resubmit a query or rerun a command in the chat. [CHAR_LIMIT=18]">Run again</string>
   <string name="run_benchmark" translatable="true" description="Action label to start performance benchmarking of a model. [CHAR_LIMIT=26]">Run benchmark</string>
   <string name="run_benchmark_confirmation_msg" translatable="true" description="Dialog message asking for confirmation before starting a long benchmark process. [CHAR_LIMIT=178]">This process typically takes several minutes and cannot be interrupted once started. Would you like to proceed?</string>
-  <string name="running_benchmark_msg" translatable="true" description="Status message displayed while model benchmarking is in progress. [CHAR_LIMIT=34]">Running model benchmark...</string>
+  <string name="running_benchmark_msg" translatable="true" description="Status message displayed while model benchmarking is in progress. [CHAR_LIMIT=40]">Running model benchmark…</string>
   <string name="save" translatable="true" description="Button label to save an item (e.g., image, collage, or skill changes). [CHAR_LIMIT=8]">Save</string>
   <string name="secret" translatable="true" description="Label indicating a value or field is a secret key or sensitive credential. [CHAR_LIMIT=18]">Secret</string>
   <string name="select_downloaded_model" translatable="true" description="Title of a dropdown/dialog to choose from models already downloaded for benchmarking. [CHAR_LIMIT=41]">Select a downloaded model</string>
@@ -406,7 +406,7 @@
   <string name="generate_llm_prompt_title" translatable="true" description="Title of the bottom sheet used to generate a prompt for an LLM to help write skill code. [CHAR_LIMIT=32]">Generate LLM prompt</string>
   <string name="generate_llm_prompt_button_label" translatable="true" description="Label on a button that triggers the generation of an LLM prompt. [CHAR_LIMIT=20]">LLM prompt</string>
   <string name="learn_how_to_write_skills" translatable="true" description="Link or button text directing users to documentation on how to create their own skills. [CHAR_LIMIT=30]">Learn how to write skills</string>
-  <string name="loading_skills_allowlist" translatable="true" description="Loading message shown while the list of featured skills is being fetched. [CHAR_LIMIT=43]">Loading featured skills...</string>
+  <string name="loading_skills_allowlist" translatable="true" description="Loading message shown while the list of featured skills is being fetched. [CHAR_LIMIT=43]">Loading featured skills…</string>
   <string name="manage_skills" translatable="true" description="Title of the screen/bottom sheet where users can manage their skills. [CHAR_LIMIT=26]">Manage skills</string>
   <string name="manage_skills_description" translatable="true" description="Description text explaining the purpose of the Skill Manager. [CHAR_LIMIT=90]">View, create, and manage your skills</string>
   <string name="skill_limit_warning" translatable="true" description="Warning message displayed when too many skills are enabled, which might slow down the app. %s is the maximum recommended number of enabled skills. [CHAR_LIMIT=90]">Enabling more than %s may impact performance.</string>
@@ -1214,8 +1214,8 @@
   </plurals>
   <string name="videomomentfinder_confirm_delete_project" translatable="true" description="Body text of the confirmation dialog shown before deleting a video project.">Are you sure you want to delete this project?</string>
   <string name="videomomentfinder_confirm_delete_clip" translatable="true" description="Body text of the confirmation dialog shown before deleting a single saved video clip.">Are you sure you want to delete this clip?</string>
-  <string name="videomomentfinder_processing" translatable="true" description="Label shown on the save and download buttons while the video clip is still being processed.">Processing...</string>
-  <string name="videomomentfinder_analyzing_video" translatable="true" description="Title of the progress card shown while a video is being analyzed so that its moments become searchable.">Analyzing video...</string>
+  <string name="videomomentfinder_processing" translatable="true" description="Label shown on the save and download buttons while the video clip is still being processed. [CHAR_LIMIT=20]">Processing…</string>
+  <string name="videomomentfinder_analyzing_video" translatable="true" description="Title of the progress card shown while a video is being analyzed so that its moments become searchable. [CHAR_LIMIT=30]">Analyzing video…</string>
   <string name="videomomentfinder_analyzing_description" translatable="true" description="Body text of the progress card explaining that analysis takes a few minutes before the video can be searched.">This may take a few minutes. Once the video is analyzed, you can search for moments with natural language!</string>
   <string name="videomomentfinder_analysis_failed" translatable="true" description="Title of the error card shown when a video could not be analyzed.">Couldn\'t analyze video</string>
   <string name="videomomentfinder_analysis_failed_description" translatable="true" description="Body text of the error card explaining that an unanalyzed video returns no search results, shown above a retry button.">This video couldn\'t be analyzed, so searching it won\'t return any moments. Please try again.</string>
