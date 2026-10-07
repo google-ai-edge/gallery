@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery.ui.modelmanager
 import android.content.Context
 import android.util.Log
 import androidx.activity.result.ActivityResult
+import androidx.annotation.VisibleForTesting
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -77,7 +78,6 @@ import com.google.ai.edge.gallery.proto.Theme
 import com.google.ai.edge.gallery.runtime.aicore.AICoreModelDownloader
 import com.google.ai.edge.litertlm.Contents
 import com.google.gson.Gson
-import com.google.gson.JsonSyntaxException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -88,6 +88,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
 import kotlin.collections.sortedWith
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -104,13 +105,22 @@ import net.openid.appauth.ResponseTypeValues
 private const val TAG = "AGModelManagerViewModel"
 private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
 private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
-private const val MODEL_ALLOWLIST_TEST_FILENAME = "model_allowlist_test.json"
 private const val ALLOWLIST_BASE_URL =
   "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlists"
 private const val PLACEHOLDER_FILENAME = "placeholder"
 private const val UNPACKED_FILE_EXT = "unpacked"
 
-private const val TEST_MODEL_ALLOW_LIST = ""
+/**
+ * Location of an optional local model allowlist used for testing.
+ *
+ * When this file exists, it takes precedence over the allowlist fetched from the network, e.g.:
+ * ```
+ * adb push dev.json /data/local/tmp/model_allowlist_test.json
+ * ```
+ *
+ * Delete the file to go back to the regular allowlist.
+ */
+const val MODEL_ALLOWLIST_TEST_FILE_PATH = "/data/local/tmp/model_allowlist_test.json"
 
 enum class TokenStatus {
   NOT_STORED,
@@ -143,6 +153,12 @@ data class ModelManagerUiState(
 
   /** The error message when loading the model allowlist. */
   val loadingModelAllowlistError: String = "",
+
+  /**
+   * Whether to show a warning that the model allowlist was loaded from the local test file at
+   * [MODEL_ALLOWLIST_TEST_FILE_PATH] instead of the regular source.
+   */
+  val showLocalTestAllowlistDialog: Boolean = false,
 
   /** The currently selected model. */
   val selectedModel: Model = EMPTY_MODEL,
@@ -243,6 +259,13 @@ constructor(
   )
 
   private val modelsDir = getModelStorageDir(context)
+
+  /** Local test allowlist; see [MODEL_ALLOWLIST_TEST_FILE_PATH]. Overridden in tests. */
+  @VisibleForTesting internal var localTestAllowlistFile = File(MODEL_ALLOWLIST_TEST_FILE_PATH)
+
+  /** Dispatcher that [loadModelAllowlist] runs on. Overridden in tests to load synchronously. */
+  @VisibleForTesting internal var allowlistLoadingDispatcher: CoroutineDispatcher = Dispatchers.IO
+
   protected val _uiState = MutableStateFlow(createEmptyUiState())
   open val uiState = _uiState.asStateFlow()
 
@@ -1250,26 +1273,19 @@ constructor(
   fun loadModelAllowlist() {
     _uiState.update { it.copy(loadingModelAllowlist = true, loadingModelAllowlistError = "") }
 
-    viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(allowlistLoadingDispatcher) {
       try {
         // Clear existing allowlist models.
         _allowlistModels.clear()
         _supplementaryModels.clear()
 
         // Load model allowlist json.
-        // Try to read the test allowlist first.
-        Log.d(TAG, "Loading test model allowlist.")
-        var modelAllowlist = readModelAllowlistFromDisk(fileName = MODEL_ALLOWLIST_TEST_FILENAME)
-
-        // Local test only.
-        if (TEST_MODEL_ALLOW_LIST.isNotEmpty()) {
-          Log.d(TAG, "Loading local model allowlist for testing.")
-          val gson = Gson()
-          try {
-            modelAllowlist = gson.fromJson(TEST_MODEL_ALLOW_LIST, ModelAllowlist::class.java)
-          } catch (e: JsonSyntaxException) {
-            Log.e(TAG, "Failed to parse local test json", e)
-          }
+        // Try to read the local test allowlist first.
+        Log.d(TAG, "Loading test model allowlist from ${localTestAllowlistFile.absolutePath}.")
+        var modelAllowlist = readModelAllowlistFromDisk(file = localTestAllowlistFile)
+        val loadedFromTestAllowlist = modelAllowlist != null
+        if (loadedFromTestAllowlist) {
+          Log.w(TAG, "Using local test model allowlist: ${localTestAllowlistFile.absolutePath}")
         }
 
         if (modelAllowlist == null) {
@@ -1398,6 +1414,7 @@ constructor(
               loadingModelAllowlist = false,
               tasks = curTasks,
               tasksByCategory = groupTasksByCategory(),
+              showLocalTestAllowlistDialog = loadedFromTestAllowlist,
             )
         }
 
@@ -1458,6 +1475,11 @@ constructor(
     }
   }
 
+  /** Dismisses the warning shown when the model allowlist is loaded from the local test file. */
+  fun dismissLocalTestAllowlistDialog() {
+    _uiState.update { it.copy(showLocalTestAllowlistDialog = false) }
+  }
+
   fun setAppInForeground(foreground: Boolean) {
     lifecycleProvider.isAppInForeground = foreground
   }
@@ -1474,13 +1496,10 @@ constructor(
   }
 
   private fun readModelAllowlistFromDisk(
-    fileName: String = MODEL_ALLOWLIST_FILENAME
+    file: File = File(modelsDir, MODEL_ALLOWLIST_FILENAME)
   ): ModelAllowlist? {
     try {
-      Log.d(TAG, "Reading model allowlist from disk: $fileName")
-      val baseDir =
-        if (fileName == MODEL_ALLOWLIST_TEST_FILENAME) File("/data/local/tmp") else modelsDir
-      val file = File(baseDir, fileName)
+      Log.d(TAG, "Reading model allowlist from disk: ${file.absolutePath}")
       if (file.exists()) {
         val content = file.readText()
         Log.d(TAG, "Model allowlist content from local file: $content")
