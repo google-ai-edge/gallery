@@ -711,6 +711,10 @@
   <string name="error_internet_connection" translatable="true" description="Error message advising the user to check their internet connection. [CHAR_LIMIT=99]">Please check your internet connection and try again later.</string>
   <!-- Button label to retry model import. -->
   <string name="retry" translatable="true" description="Label for a button to retry a failed operation (e.g., reloading data). [CHAR_LIMIT=9]">Retry</string>
+  <!-- Title of the dialog warning that the model allowlist was loaded from a local test file. -->
+  <string name="local_test_allowlist_dialog_title" translatable="true" description="Title of a warning dialog shown when the app loaded its allowlist of AI models from a local test file on the device instead of the official online source. [CHAR_LIMIT=42]">Using local test model allowlist</string>
+  <!-- Body of the dialog warning that the model allowlist was loaded from a local test file. -->
+  <string name="local_test_allowlist_dialog_message" translatable="true" description="Body of a warning dialog shown when the app loaded its allowlist of AI models from a local test file on the device instead of the official online source. %1$s is the absolute file path on the device (e.g. /data/local/tmp/model_allowlist_test.json) and must not be translated. [CHAR_LIMIT=NONE]">The model allowlist was loaded from a local test file instead of the official source:\n\n%1$s</string>
   <!-- Title of the theme selection setting. -->
   <string name="theme_title" translatable="true" description="Label for the settings section or configuration key where users can choose the visual theme of the app (e.g., Light, Dark). [CHAR_LIMIT=26]">Theme</string>
   <!-- Title of the section for third-party libraries in settings. -->
