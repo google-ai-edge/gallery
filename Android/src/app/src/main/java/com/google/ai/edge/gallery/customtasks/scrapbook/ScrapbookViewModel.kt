@@ -78,6 +78,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.sample
@@ -263,8 +264,8 @@ constructor(
   @ApplicationContext private val context: Context,
   val dataStoreRepository: DataStoreRepository,
 ) : ViewModel() {
-  protected val _uiState = MutableStateFlow(ScrapbookUiState())
-  val uiState = _uiState.asStateFlow()
+  protected val _uiState: MutableStateFlow<ScrapbookUiState> = MutableStateFlow(ScrapbookUiState())
+  val uiState: StateFlow<ScrapbookUiState> = _uiState.asStateFlow()
 
   private val editingFlow = MutableSharedFlow<Editing>()
   private val gridPreviewFlow = MutableSharedFlow<GridInfo>()

@@ -34,7 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-val BUTTON_HEIGHT = 30.dp
+val BUTTON_HEIGHT: Dp = 30.dp
 
 enum class CompactButtonType {
   Primary,

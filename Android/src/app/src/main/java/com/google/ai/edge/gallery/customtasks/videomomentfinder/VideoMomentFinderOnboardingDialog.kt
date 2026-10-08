@@ -26,7 +26,7 @@ import com.google.ai.edge.gallery.ui.common.onboarding.OnboardingPageInfo
 const val VIDEO_MOMENT_FINDER_FEATURE_ID = "video_moment_finder"
 
 /** Onboarding pages for Video Moment Finder. */
-val videoMomentFinderOnboardingPages =
+val videoMomentFinderOnboardingPages: List<OnboardingPageInfo> =
   listOf(
     OnboardingPageInfo(
       titleRes = R.string.videomomentfinder_onboarding_title_1,

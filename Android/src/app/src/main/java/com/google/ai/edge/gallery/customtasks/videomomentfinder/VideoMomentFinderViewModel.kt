@@ -59,6 +59,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -172,7 +173,7 @@ constructor(
   @IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
   private val _uiState = MutableStateFlow(VideoMomentFinderUiState())
-  val uiState = _uiState.asStateFlow()
+  val uiState: StateFlow<VideoMomentFinderUiState> = _uiState.asStateFlow()
 
   @Volatile private var semanticRetrievalService: SemanticRetrievalService? = null
   private var processJob: Job? = null

@@ -72,6 +72,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.toRect
@@ -107,7 +108,7 @@ private val PREDEFINED_COLORS =
   )
 
 const val MIN_CONTRAST_THRESHOLD = 1.3f
-val COLOR_PICKER_SIZE = 28.dp
+val COLOR_PICKER_SIZE: Dp = 28.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

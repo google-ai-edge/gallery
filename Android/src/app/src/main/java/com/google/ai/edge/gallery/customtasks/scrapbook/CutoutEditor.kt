@@ -116,7 +116,7 @@ import com.google.ai.edge.gallery.ui.common.chat.ZoomableImage
 
 private const val TAG = "AGCutoutEditor"
 const val DEFAULT_BORDER_WIDTH = 0
-val DEFAULT_BORDER_COLOR = Color.White
+val DEFAULT_BORDER_COLOR: Color = Color.White
 const val MAX_BORDER_WIDTH = 30f
 private val DEFAULT_FILL_COLOR = Color(0xFF81D8D0)
 private const val DEFAULT_BRUSH_SIZE = 8f

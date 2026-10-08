@@ -90,7 +90,7 @@ private val TABS =
     Tab(labelStringResId = R.string.tab_my_cutouts, vectorResourceId = R.drawable.my_cutouts),
   )
 
-val TAB_BAR_HEIGHT = 78.dp
+val TAB_BAR_HEIGHT: Dp = 78.dp
 
 @Composable
 fun ScrapbookScreen(

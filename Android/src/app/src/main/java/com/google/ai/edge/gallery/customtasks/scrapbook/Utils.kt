@@ -15,6 +15,7 @@
  */
 package com.google.ai.edge.gallery.customtasks.scrapbook
 
+import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.TextAutoSize
@@ -35,9 +36,9 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.max
 import kotlin.math.min
 
-val FAST_INT_OFFSET_SPEC = tween<IntOffset>(durationMillis = 150)
+val FAST_INT_OFFSET_SPEC: TweenSpec<IntOffset> = tween<IntOffset>(durationMillis = 150)
 
-val BUTTON_TEXT_AUTO_SIZE =
+val BUTTON_TEXT_AUTO_SIZE: TextAutoSize =
   TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 14.sp, stepSize = 1.sp)
 
 @Composable
