@@ -777,7 +777,7 @@ private fun SmartAlbumMainContent(
       )
     }
 
-    Spacer(modifier = Modifier.height(2.dp))
+    Spacer(modifier = Modifier.height(12.dp))
 
     val sampleTitle =
       if (isSampleAvailable && sampleProgress.totalCount > 0 && isSampleIndexingActive) {
@@ -834,7 +834,7 @@ private fun SmartAlbumMainContent(
       )
     }
 
-    Spacer(modifier = Modifier.height(2.dp))
+    Spacer(modifier = Modifier.height(12.dp))
 
     Text(
       text = userTitle,
