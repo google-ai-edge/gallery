@@ -26,4 +26,6 @@ message MemoryMetrics {
   optional float peak_memory_mb = 1;
   // Average memory consumed across sampled intervals in megabytes (MB).
   optional float average_memory_mb = 2;
+  // Total physical RAM available on the device in megabytes (MB).
+  optional float total_device_memory_mb = 3;
 }

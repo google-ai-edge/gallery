@@ -31,6 +31,7 @@ import com.google.ai.edge.gallery.agent.Attachment
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.agent.sessions.generateSessionId
 import com.google.ai.edge.gallery.common.SystemPromptHelper
+import com.google.ai.edge.gallery.common.metrics.InferenceMetrics
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.SystemPromptRepository
@@ -64,7 +65,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGLlmChatViewModel"
@@ -77,13 +81,38 @@ open class LlmChatViewModelBase(
   llmSessionManager: LlmSessionManager,
 ) : ChatViewModel(runtimeExecutor, llmSessionManager) {
   private val _uiSystemPrompt = MutableStateFlow("")
-  val uiSystemPrompt = _uiSystemPrompt.asStateFlow()
+  val uiSystemPrompt: StateFlow<String> = _uiSystemPrompt.asStateFlow()
+  private val _liveMetrics = MutableStateFlow<InferenceMetrics?>(null)
+  override val liveMetrics: StateFlow<InferenceMetrics?> = _liveMetrics.asStateFlow()
+  private var liveMetricsJob: Job? = null
+  private var observedLiveMetricsModel: Model? = null
   // Map to track if the session was stopped by the model for a given model name.
   private val sessionStoppedByModel = mutableMapOf<String, Boolean>()
   // The current task ID for the session.
   private var currentTaskId: String = ""
   // Active session transition job to ensure transitions (restore, new session, reset) do not race.
   private var sessionTransitionJob: Job? = null
+
+  /**
+   * Reactively observes the live [InferenceMetrics] stream of [model] across its initialization and
+   * session lifecycle, updating [liveMetrics] as snapshots are emitted.
+   */
+  override fun observeLiveMetrics(model: Model) {
+    if (observedLiveMetricsModel === model && liveMetricsJob?.isActive == true) {
+      return
+    }
+    observedLiveMetricsModel = model
+    liveMetricsJob?.cancel()
+    liveMetricsJob = viewModelScope.launch {
+      model.initStatusFlow
+        .flatMapLatest { status ->
+          ((status as? Model.InitializationStatus.Initialized)?.instance as? LlmModelInstance)
+            ?.metricsTracker
+            ?.liveMetrics ?: flowOf(null)
+        }
+        .collect { metrics -> _liveMetrics.value = metrics }
+    }
+  }
 
   /**
    * Sets the system prompt in the UI.
@@ -153,6 +182,7 @@ open class LlmChatViewModelBase(
     onError: (String) -> Unit,
     allowThinking: Boolean = false,
   ) {
+    observeLiveMetrics(model)
     val accelerator = model.currentAccelerator?.name ?: ""
     viewModelScope.launch(Dispatchers.Default) {
       setInProgress(true)

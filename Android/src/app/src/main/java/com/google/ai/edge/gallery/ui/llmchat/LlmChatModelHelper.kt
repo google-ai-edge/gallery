@@ -321,6 +321,7 @@ object LlmChatModelHelper : LlmModelHelper {
     }
 
     instance.metricsTracker?.resetSession()
+    instance.metricsTracker?.close()
 
     val onCleanUp = cleanUpListeners.remove(model.name)
     if (onCleanUp != null) {
