@@ -70,6 +70,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.InsertChart
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FlipCameraAndroid
@@ -84,6 +85,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.ModalBottomSheet
@@ -176,6 +178,9 @@ fun MessageInputText(
   showPromptTemplatesInMenu: Boolean = false,
   showSkillsPicker: Boolean = false,
   showMcpPicker: Boolean = false,
+  showLiveMetricsToggle: Boolean = false,
+  isLiveMetricsVisible: Boolean = false,
+  onToggleLiveMetrics: () -> Unit = {},
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
   showStopButtonWhenInProgress: Boolean = false,
@@ -713,6 +718,33 @@ fun MessageInputText(
                           )
                         }
                       }
+                    }
+                  }
+
+                  // Live metrics toggle.
+                  if (showLiveMetricsToggle) {
+                    val enableLiveMetricsToggle = !isResettingSession && !modelInitializing
+                    IconToggleButton(
+                      checked = isLiveMetricsVisible,
+                      onCheckedChange = { onToggleLiveMetrics() },
+                      enabled = enableLiveMetricsToggle,
+                      colors =
+                        IconButtonDefaults.iconToggleButtonColors(
+                          containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                          contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                          disabledContainerColor =
+                            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
+                          disabledContentColor =
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                          checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                          checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        ),
+                    ) {
+                      Icon(
+                        Icons.Outlined.InsertChart,
+                        contentDescription = stringResource(R.string.cd_toggle_live_metrics),
+                        modifier = Modifier.size(20.dp),
+                      )
                     }
                   }
                 }

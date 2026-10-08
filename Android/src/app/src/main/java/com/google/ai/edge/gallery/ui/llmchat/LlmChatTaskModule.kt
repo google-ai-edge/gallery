@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Mic
@@ -159,7 +161,9 @@ abstract class BaseLlmChatTask(
         Box(modifier = Modifier.fillMaxSize()) {
           Column(
             modifier =
-              Modifier.align(Alignment.Center).padding(horizontal = 48.dp).padding(bottom = 48.dp),
+              Modifier.align(Alignment.Center)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 48.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
           ) {
