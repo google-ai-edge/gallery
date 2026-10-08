@@ -391,9 +391,8 @@ open class LlmChatViewModelBase(
     }
     if (getLastMessage(model = model) is ChatMessageLoading) {
       removeLastMessage(model = model)
-    } else {
-      sessionStoppedByModel[model.name] = true
     }
+    sessionStoppedByModel[model.name] = true
     setInProgress(false)
     runtimeExecutor.interrupt()
     Log.d(TAG, "Done stopping response")

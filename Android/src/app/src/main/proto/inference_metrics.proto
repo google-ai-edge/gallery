@@ -77,13 +77,11 @@ message LatencyMetrics {
 
 // Token counts specifically for the current inference turn.
 message TurnTokenMetrics {
-  // Number of tokens in this turn's input prompt (sourced from ground-truth
-  // InferenceBenchmark when available, falling back to KV-cache delta -
-  // output_tokens at turn end).
+  // Number of tokens in this turn's input prompt (sourced from
+  // InferenceBenchmark).
   optional int32 prompt_tokens = 1;
   // Number of tokens generated in this turn's response (sourced from
-  // ground-truth InferenceBenchmark when available, falling back to onMessage
-  // streaming chunk count).
+  // InferenceBenchmark).
   optional int32 output_tokens = 2;
   // Total tokens in this turn (prompt_tokens + output_tokens).
   optional int32 total_tokens = 3;

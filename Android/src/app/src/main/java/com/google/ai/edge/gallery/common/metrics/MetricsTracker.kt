@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.common.metrics
 
 import android.content.Context
 import com.google.ai.edge.gallery.data.ConfigKeys
+import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.supportModelBenchmark
 import com.google.ai.edge.gallery.proto.LlmConfig
@@ -179,7 +180,7 @@ internal constructor(
   private val model: Model,
   private val taskId: String,
   ioDispatcher: CoroutineDispatcher,
-  timeSource: TimeSource = TimeSource.Monotonic,
+  private val timeSource: TimeSource = TimeSource.Monotonic,
   config: MetricsTrackerConfig = MetricsTrackerConfig(),
   private val metricsLogger: MetricsLogger = MetricsLogger(model = model, taskId = taskId),
   private val memoryMonitor: PeriodicSensorMonitor<MemoryMetrics>? =
@@ -198,8 +199,6 @@ internal constructor(
     } else {
       null
     },
-  private val inferenceTracker: LitertlmInferenceMetricsTracker =
-    LitertlmInferenceMetricsTracker(model = model, timeSource = timeSource),
 ) : MetricsTracker {
 
   init {
@@ -210,10 +209,31 @@ internal constructor(
 
   /**
    * Active session metadata (model name, accelerator, task ID, and LLM sampler configuration).
-   * Initialized once at tracker creation and refreshed in [resetSession] when a conversation is
+   * Initialized in [onModelInitialized] and refreshed in [resetSession] when a conversation is
    * recreated with updated sampler or thinking settings.
    */
   @Volatile private var metadata: InferenceMetadata = buildMetadata()
+
+  /**
+   * Per-session inference tracker, created in [onModelInitialized] and recreated in [resetSession]
+   * when a new conversation session starts.
+   */
+  @Volatile private var inferenceTracker: LitertlmInferenceMetricsTracker? = null
+
+  /**
+   * Refreshes the internal state when a new conversation session is started: session metadata and
+   * [LitertlmInferenceMetricsTracker].
+   *
+   * Aborts any active turn in the previous session and creates a new
+   * [LitertlmInferenceMetricsTracker] with the updated metadata.
+   */
+  private fun refreshSessionTracker() {
+    val newMetadata = buildMetadata()
+    metadata = newMetadata
+    inferenceTracker?.abortActiveTurn()
+    inferenceTracker =
+      LitertlmInferenceMetricsTracker(metadata = newMetadata, timeSource = timeSource)
+  }
 
   /**
    * Scope the periodic sensor samplers run on, kept off the main thread by `ioDispatcher`. A
@@ -223,11 +243,12 @@ internal constructor(
   private val scope = CoroutineScope(ioDispatcher + SupervisorJob())
 
   override fun onModelInitialized() {
+    refreshSessionTracker()
     metricsLogger.logModelInitialization()
   }
 
   override fun startTurn(session: ConversationSession) {
-    if (!inferenceTracker.startTurn(session = session)) {
+    if (inferenceTracker?.startTurn(session = session) != true) {
       return
     }
     memoryMonitor?.start(scope)
@@ -235,7 +256,7 @@ internal constructor(
   }
 
   override fun onNewToken(tokenText: String, thinkingText: String?) {
-    inferenceTracker.onNewToken(tokenText = tokenText, thinkingText = thinkingText)
+    inferenceTracker?.onNewToken(tokenText = tokenText, thinkingText = thinkingText)
   }
 
   override fun cancelTurn(reason: CancellationReason, customMessage: String?): InferenceMetrics? =
@@ -253,8 +274,7 @@ internal constructor(
     )
 
   override fun resetSession() {
-    metadata = buildMetadata()
-    inferenceTracker.resetSession()
+    refreshSessionTracker()
     memoryMonitor?.reset()
     powerMonitor?.reset()
   }
@@ -271,7 +291,7 @@ internal constructor(
     )
 
   private fun endTurnInternal(status: InferenceStatus): InferenceMetrics? {
-    val turnMetrics = inferenceTracker.endTurn(status = status) ?: return null
+    val turnMetrics = inferenceTracker?.endTurn(status = status) ?: return null
     val memoryMetrics = memoryMonitor?.stop() ?: MemoryMetrics.getDefaultInstance()
     val batteryMetrics = powerMonitor?.stop() ?: BatteryMetrics.getDefaultInstance()
     val finalMetrics = inferenceMetrics {
@@ -304,7 +324,11 @@ internal fun Model.toLlmConfig(): LlmConfig = llmConfig {
   this.defaultTopk = getIntConfigValue(ConfigKeys.TOPK, 0)
   this.defaultTopp = getFloatConfigValue(ConfigKeys.TOPP, 0.0f)
   this.defaultTemperature = getFloatConfigValue(ConfigKeys.TEMPERATURE, 0.0f)
-  this.defaultMaxTokens = getIntConfigValue(ConfigKeys.MAX_TOKENS, 0)
+  this.defaultMaxTokens =
+    getIntConfigValue(
+      key = ConfigKeys.MAX_TOKENS,
+      defaultValue = llmProfile?.maxTokens ?: DEFAULT_MAX_TOKEN,
+    )
   this.supportThinking = getBooleanConfigValue(ConfigKeys.ENABLE_THINKING, false)
   this.supportSpeculativeDecoding =
     getBooleanConfigValue(ConfigKeys.ENABLE_SPECULATIVE_DECODING, false)

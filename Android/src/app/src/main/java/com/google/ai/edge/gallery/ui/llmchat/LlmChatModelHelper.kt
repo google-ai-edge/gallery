@@ -334,12 +334,15 @@ object LlmChatModelHelper : LlmModelHelper {
 
   override fun stopResponse(model: Model) {
     val instance = model.instance as? LlmModelInstance ?: return
-    // End the turn first, so the engine's late cancel callback finds no active turn.
-    val unused = instance.metricsTracker?.cancelTurn()
     try {
+      // Signal the native engine to cancel first. The engine's worker thread will finalize
+      // `TimeDecodeTurnEnd()` in `BenchmarkInfo` and then invoke
+      // `MessageCallback.onError(CancellationException)`, which calls `metricsTracker.cancelTurn()`
+      // at the exact point when engine benchmark and KV-cache token counts are ready.
       instance.conversation.cancelProcess()
-    } catch (e: IllegalStateException) {
-      Log.w(TAG, "Conversation is not alive, cannot cancel process", e)
+    } catch (e: Exception) {
+      Log.w(TAG, "Failed to cancel conversation process", e)
+      val unused = instance.metricsTracker?.cancelTurn()
     }
   }
 
@@ -412,8 +415,8 @@ object LlmChatModelHelper : LlmModelHelper {
 
           override fun onError(throwable: Throwable) {
             if (throwable is CancellationException) {
-              // The inference was cancelled. If Stop already ended the turn, cancelTurn() below
-              // does nothing.
+              // Native cancellation via cancelProcess() completed on the worker thread; finalize
+              // cancelled-turn metrics now that engine benchmark and token counts are ready.
               Log.i(TAG, "The inference is cancelled.")
               val unused = instance.metricsTracker?.cancelTurn()
               resultListener("", true, null)
