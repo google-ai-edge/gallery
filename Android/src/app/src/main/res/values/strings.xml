@@ -879,8 +879,8 @@
   <string name="prompt_lab_tone_concise" translatable="true" description="Option for concise rewrite tone. [CHAR_LIMIT=16]">Concise</string>
 
   <!-- Prompt Lab Summarization Styles -->
-  <string name="prompt_lab_summary_key_bullet_points" translatable="true" description="Option for summary in key bullet points (3-5). [CHAR_LIMIT=38]">Key bullet points (3-5)</string>
-  <string name="prompt_lab_summary_short_paragraph" translatable="true" description="Option for summary in a short paragraph (1-2 sentences). [CHAR_LIMIT=50]">Short paragraph (1-2 sentences)</string>
+  <string name="prompt_lab_summary_key_bullet_points" translatable="true" description="Option for summary in key bullet points (3–5). [CHAR_LIMIT=38]">Key bullet points (3–5)</string>
+  <string name="prompt_lab_summary_short_paragraph" translatable="true" description="Option for summary in a short paragraph (1–2 sentences). [CHAR_LIMIT=50]">Short paragraph (1–2 sentences)</string>
   <string name="prompt_lab_summary_concise_summary" translatable="true" description="Option for summary in a concise summary (~50 words). [CHAR_LIMIT=44]">Concise summary (~50 words)</string>
   <string name="prompt_lab_summary_headline_title" translatable="true" description="Option for summary as a headline / title. [CHAR_LIMIT=24]">Headline / title</string>
   <string name="prompt_lab_summary_one_sentence" translatable="true" description="Option for summary in one-sentence summary. [CHAR_LIMIT=24]">One-sentence summary</string>
