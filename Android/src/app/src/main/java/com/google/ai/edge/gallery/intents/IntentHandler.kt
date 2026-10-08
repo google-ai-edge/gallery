@@ -116,12 +116,12 @@ object IntentHandler {
           val params = jsonAdapter.fromJson(parameters)
           if (params != null) {
             val intent =
-              Intent(Intent.ACTION_SEND).apply {
+              Intent(Intent.ACTION_SENDTO).apply {
                 data = "mailto:".toUri()
-                type = "text/plain"
                 putExtra(Intent.EXTRA_EMAIL, arrayOf(params.extra_email))
                 putExtra(Intent.EXTRA_SUBJECT, params.extra_subject)
                 putExtra(Intent.EXTRA_TEXT, params.extra_text)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
               }
             context.startActivity(intent)
             "succeeded"
@@ -141,8 +141,10 @@ object IntentHandler {
           val params = jsonAdapter.fromJson(parameters)
           if (params != null) {
             val uri = "smsto:${params.phone_number}".toUri()
-            val intent = Intent(Intent.ACTION_SENDTO, uri)
-            intent.putExtra("sms_body", params.sms_body)
+            val intent = Intent(Intent.ACTION_SENDTO, uri).apply {
+              putExtra("sms_body", params.sms_body)
+              addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
             context.startActivity(intent)
             "succeeded"
           } else {
@@ -161,18 +163,27 @@ object IntentHandler {
           val params = jsonAdapter.fromJson(parameters)
           if (params != null) {
             val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-            val beginTimeMillis = format.parse(params.begin_time)?.time ?: 0L
-            val endTimeMillis = format.parse(params.end_time)?.time ?: 0L
-            val intent =
-              Intent(Intent.ACTION_INSERT).apply {
-                data = Events.CONTENT_URI
-                putExtra(Events.TITLE, params.title)
-                putExtra(Events.DESCRIPTION, params.description)
-                putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, beginTimeMillis)
-                putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endTimeMillis)
-              }
-            context.startActivity(intent)
-            "succeeded"
+            val beginTimeMillis = format.parse(params.begin_time)?.time
+            val endTimeMillis = format.parse(params.end_time)?.time
+            if (beginTimeMillis == null || endTimeMillis == null) {
+              Log.e(
+                TAG,
+                "Failed to parse create_calendar_event timestamps: begin='${params.begin_time}', end='${params.end_time}'",
+              )
+              "failed"
+            } else {
+              val intent =
+                Intent(Intent.ACTION_INSERT).apply {
+                  data = Events.CONTENT_URI
+                  putExtra(Events.TITLE, params.title)
+                  putExtra(Events.DESCRIPTION, params.description)
+                  putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, beginTimeMillis)
+                  putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endTimeMillis)
+                  addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+              context.startActivity(intent)
+              "succeeded"
+            }
           } else {
             Log.e(TAG, "Failed to parse create_calendar_event parameters: $parameters")
             "failed"

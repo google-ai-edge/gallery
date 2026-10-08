@@ -67,7 +67,8 @@ private const val TAG = "AGDownloadWorker"
 data class UrlAndFileName(val url: String, val fileName: String)
 
 private const val FOREGROUND_NOTIFICATION_CHANNEL_ID = "model_download_channel_foreground"
-private var channelCreated = false
+
+@Volatile private var channelCreated = false
 
 class DownloadWorker(context: Context, params: WorkerParameters) :
   CoroutineWorker(context, params) {
@@ -81,17 +82,21 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
   init {
     if (!channelCreated) {
-      // Create a notification channel for showing notifications for model downloading progress.
-      val channel =
-        NotificationChannel(
-            FOREGROUND_NOTIFICATION_CHANNEL_ID,
-            "Model Downloading",
-            // Make it silent.
-            NotificationManager.IMPORTANCE_LOW,
-          )
-          .apply { description = "Notifications for model downloading" }
-      notificationManager.createNotificationChannel(channel)
-      channelCreated = true
+      synchronized(this) {
+        if (!channelCreated) {
+          // Create a notification channel for showing notifications for model downloading progress.
+          val channel =
+            NotificationChannel(
+                FOREGROUND_NOTIFICATION_CHANNEL_ID,
+                "Model Downloading",
+                // Make it silent.
+                NotificationManager.IMPORTANCE_LOW,
+              )
+              .apply { description = "Notifications for model downloading" }
+          notificationManager.createNotificationChannel(channel)
+          channelCreated = true
+        }
+      }
     }
   }
 
@@ -124,10 +129,8 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           if (!isExtraDataOnly && fileUrl != null && fileName != null) {
             allFiles.add(UrlAndFileName(url = fileUrl, fileName = fileName))
           }
-          for (index in extraDataFileUrls.indices) {
-            allFiles.add(
-              UrlAndFileName(url = extraDataFileUrls[index], fileName = extraDataFileNames[index])
-            )
+          for ((extraUrl, extraName) in extraDataFileUrls.zip(extraDataFileNames)) {
+            allFiles.add(UrlAndFileName(url = extraUrl, fileName = extraName))
           }
           Log.d(TAG, "About to download: $allFiles")
 
@@ -141,7 +144,9 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
             val connection = url.openConnection() as HttpURLConnection
             if (accessToken != null) {
-              Log.d(TAG, "Using access token: ${accessToken.subSequence(0, 10)}...")
+              val tokenPreview =
+                if (accessToken.length > 10) accessToken.subSequence(0, 10) else accessToken
+              Log.d(TAG, "Using access token: $tokenPreview...")
               connection.setRequestProperty("Authorization", "Bearer $accessToken")
             }
 
@@ -184,6 +189,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             connection.connect()
             Log.d(TAG, "response code: ${connection.responseCode}")
 
+            val appendMode: Boolean
             if (
               connection.responseCode == HttpURLConnection.HTTP_OK ||
                 connection.responseCode == HttpURLConnection.HTTP_PARTIAL
@@ -203,71 +209,87 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 )
 
                 downloadedBytes += startByte
+                appendMode = true
               } else {
+                // Server did not honor Range request (returned full file). Truncate any
+                // partial tmp file to avoid corrupting the download by appending full content
+                // onto a partial download.
+                if (outputFileBytes > 0) {
+                  Log.w(
+                    TAG,
+                    "Range request ignored by server (no Content-Range); truncating partial file and restarting.",
+                  )
+                  outputTmpFile.delete()
+                }
+                appendMode = false
                 Log.d(TAG, "Download starts from beginning.")
               }
             } else {
+              connection.disconnect()
               throw IOException("HTTP error code: ${connection.responseCode}")
             }
 
             val inputStream = connection.inputStream
-            val outputStream = FileOutputStream(outputTmpFile, true /* append */)
+            val outputStream = FileOutputStream(outputTmpFile, appendMode)
 
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            var bytesRead: Int
-            var lastSetProgressTs: Long = 0
-            var deltaBytes = 0L
-            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-              coroutineContext.ensureActive()
-              outputStream.write(buffer, 0, bytesRead)
-              downloadedBytes += bytesRead
-              deltaBytes += bytesRead
+            try {
+              val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+              var bytesRead: Int
+              var lastSetProgressTs: Long = 0
+              var deltaBytes = 0L
+              while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                coroutineContext.ensureActive()
+                outputStream.write(buffer, 0, bytesRead)
+                downloadedBytes += bytesRead
+                deltaBytes += bytesRead
 
-              // Report progress every 200 ms.
-              val curTs = System.currentTimeMillis()
-              if (curTs - lastSetProgressTs > 200) {
-                // Calculate download rate.
-                var bytesPerMs = 0f
-                if (lastSetProgressTs != 0L) {
-                  if (bytesReadSizeBuffer.size == 5) {
-                    bytesReadSizeBuffer.removeAt(0)
+                // Report progress every 200 ms.
+                val curTs = System.currentTimeMillis()
+                if (curTs - lastSetProgressTs > 200) {
+                  // Calculate download rate.
+                  var bytesPerMs = 0f
+                  if (lastSetProgressTs != 0L) {
+                    if (bytesReadSizeBuffer.size == 5) {
+                      bytesReadSizeBuffer.removeAt(0)
+                    }
+                    bytesReadSizeBuffer.add(deltaBytes)
+                    if (bytesReadLatencyBuffer.size == 5) {
+                      bytesReadLatencyBuffer.removeAt(0)
+                    }
+                    bytesReadLatencyBuffer.add(curTs - lastSetProgressTs)
+                    deltaBytes = 0L
+                    bytesPerMs = bytesReadSizeBuffer.sum().toFloat() / bytesReadLatencyBuffer.sum()
                   }
-                  bytesReadSizeBuffer.add(deltaBytes)
-                  if (bytesReadLatencyBuffer.size == 5) {
-                    bytesReadLatencyBuffer.removeAt(0)
+
+                  // Calculate remaining seconds
+                  var remainingMs = 0f
+                  if (bytesPerMs > 0f && totalBytes > 0L) {
+                    remainingMs = (totalBytes - downloadedBytes) / bytesPerMs
                   }
-                  bytesReadLatencyBuffer.add(curTs - lastSetProgressTs)
-                  deltaBytes = 0L
-                  bytesPerMs = bytesReadSizeBuffer.sum().toFloat() / bytesReadLatencyBuffer.sum()
-                }
 
-                // Calculate remaining seconds
-                var remainingMs = 0f
-                if (bytesPerMs > 0f && totalBytes > 0L) {
-                  remainingMs = (totalBytes - downloadedBytes) / bytesPerMs
-                }
-
-                setProgress(
-                  Data.Builder()
-                    .putLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, downloadedBytes)
-                    .putLong(KEY_MODEL_DOWNLOAD_RATE, (bytesPerMs * 1000).toLong())
-                    .putLong(KEY_MODEL_DOWNLOAD_REMAINING_MS, remainingMs.toLong())
-                    .build()
-                )
-                setForeground(
-                  createForegroundInfo(
-                    progress =
-                      if (totalBytes > 0L) (downloadedBytes * 100 / totalBytes).toInt() else 0,
-                    modelName = modelName,
+                  setProgress(
+                    Data.Builder()
+                      .putLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, downloadedBytes)
+                      .putLong(KEY_MODEL_DOWNLOAD_RATE, (bytesPerMs * 1000).toLong())
+                      .putLong(KEY_MODEL_DOWNLOAD_REMAINING_MS, remainingMs.toLong())
+                      .build()
                   )
-                )
-                Log.d(TAG, "downloadedBytes: $downloadedBytes")
-                lastSetProgressTs = curTs
+                  setForeground(
+                    createForegroundInfo(
+                      progress =
+                        if (totalBytes > 0L) (downloadedBytes * 100 / totalBytes).toInt() else 0,
+                      modelName = modelName,
+                    )
+                  )
+                  Log.d(TAG, "downloadedBytes: $downloadedBytes")
+                  lastSetProgressTs = curTs
+                }
               }
+            } finally {
+              outputStream.close()
+              inputStream.close()
+              connection.disconnect()
             }
-
-            outputStream.close()
-            inputStream.close()
 
             // Rename the tmp file to the original file name by removing the tmp file ext.
             val originalFilePath = outputTmpFile.absolutePath.replace(".$TMP_FILE_EXT", "")
