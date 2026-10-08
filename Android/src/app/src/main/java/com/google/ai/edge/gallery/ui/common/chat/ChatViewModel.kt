@@ -25,6 +25,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
+import com.google.ai.edge.gallery.common.metrics.InferenceMetrics
 import com.google.ai.edge.gallery.common.processLlmResponse
 import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
@@ -103,7 +104,16 @@ abstract class ChatViewModel(
     }
 
   private val _uiState = MutableStateFlow(createUiState())
-  val uiState = _uiState.asStateFlow()
+  val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+
+  /** Real-time inference metrics stream for the currently observed model. */
+  open val liveMetrics: StateFlow<InferenceMetrics?> =
+    MutableStateFlow<InferenceMetrics?>(null).asStateFlow()
+
+  /**
+   * Attaches [liveMetrics] observation to the given [model] across its initialization lifecycle.
+   */
+  open fun observeLiveMetrics(model: Model) {}
 
   private var compactionJob: Job? = null
 
