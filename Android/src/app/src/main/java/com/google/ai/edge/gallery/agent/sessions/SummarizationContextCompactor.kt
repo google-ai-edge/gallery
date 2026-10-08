@@ -35,7 +35,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 private const val TAG = "AGSummarizationCompactor"
-private const val TOKEN_LIMIT_THRESHOLD_RATIO = 0.75
 private const val WORD_TO_TOKEN_RATIO = 0.75
 private const val MIN_SUMMARY_WORD_LIMIT = 50
 private const val MAX_SUMMARY_WORD_LIMIT = 1000
@@ -195,6 +194,14 @@ class SummarizationContextCompactor @Inject constructor() : ContextCompactor {
       0
     }
 
-  private fun isOverTokenThreshold(currentTokens: Int, maxTokens: Int): Boolean =
-    currentTokens > 0 && currentTokens > (maxTokens * TOKEN_LIMIT_THRESHOLD_RATIO)
+  companion object {
+    /** Fraction of the maximum context window at which automatic context compaction triggers. */
+    const val TOKEN_LIMIT_THRESHOLD_RATIO: Float = 0.75f
+
+    /** Returns true if [currentTokens] exceeds the context compaction threshold for [maxTokens]. */
+    fun isOverTokenThreshold(currentTokens: Int, maxTokens: Int): Boolean =
+      currentTokens > 0 &&
+        maxTokens > 0 &&
+        currentTokens > (maxTokens * TOKEN_LIMIT_THRESHOLD_RATIO)
+  }
 }

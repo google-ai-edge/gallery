@@ -14,7 +14,7 @@
  limitations under the License.
 -->
 
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
   <string name="about_this_update" translatable="true" description="Title of the alert dialog that shows information about a model update. [CHAR_LIMIT=29]">About this update</string>
   <string name="all" translatable="true" description="Label for selecting or filtering all items (e.g., all models, all cutouts). [CHAR_LIMIT=18]">All</string>
   <string name="add" translatable="true" description="Button label to add a new item, such as a skill or server. [CHAR_LIMIT=6]">Add</string>
@@ -664,6 +664,8 @@
   <string name="cd_zoom_in" translatable="true" description="Accessibility custom action label to zoom into an image. [CHAR_LIMIT=20]">Zoom in</string>
   <!-- Action label spoken to zoom out of an image. -->
   <string name="cd_zoom_out" translatable="true" description="Accessibility custom action label to zoom out of an image. [CHAR_LIMIT=20]">Zoom out</string>
+  <!-- Content description spoken when the "toggle live metrics" icon is focused. -->
+  <string name="cd_toggle_live_metrics" translatable="true" description="Accessibility content description for the icon button in the chat input bar that shows or hides the live inference metrics banner; Toggle is a verb. [CHAR_LIMIT=30]">Toggle live metrics</string>
 
 
   <!-- Content description for scrapbook -->
@@ -712,7 +714,7 @@
   <!-- Button label to retry model import. -->
   <string name="retry" translatable="true" description="Label for a button to retry a failed operation (e.g., reloading data). [CHAR_LIMIT=9]">Retry</string>
   <!-- Title of the dialog warning that the model allowlist was loaded from a local test file. -->
-  <string name="local_test_allowlist_dialog_title" translatable="true" description="Title of a warning dialog shown when the app loaded its allowlist of AI models from a local test file on the device instead of the official online source. [CHAR_LIMIT=42]">Using local test model allowlist</string>
+  <string name="local_test_allowlist_dialog_title" translatable="true" description="Title of a warning dialog shown when the app loaded its allowlist of AI models from a local test file on the device instead of the official online source. [CHAR_LIMIT=50]">Using local test model allowlist</string>
   <!-- Body of the dialog warning that the model allowlist was loaded from a local test file. -->
   <string name="local_test_allowlist_dialog_message" translatable="true" description="Body of a warning dialog shown when the app loaded its allowlist of AI models from a local test file on the device instead of the official online source. %1$s is the absolute file path on the device (e.g. /data/local/tmp/model_allowlist_test.json) and must not be translated. [CHAR_LIMIT=NONE]">The model allowlist was loaded from a local test file instead of the official source:\n\n%1$s</string>
   <!-- Title of the theme selection setting. -->
@@ -1319,4 +1321,63 @@
   <string name="context_compaction_failed_message" translatable="true" description="This string appears in an error dialog when compressing the conversation context fails. [CHAR_LIMIT=120]">Failed to compress conversation context. Please try again.</string>
   <string name="model_manager_models_count_title" translatable="true" description="Title in the Global Model Manager top app bar showing the total number of models. [CHAR_LIMIT=30]">Models (%1$d)</string>
 
+  <!-- Live Inference Metrics Banner strings -->
+  <!-- Label for live metrics speed. -->
+  <string name="live_metrics_speed" translatable="true" description="Column header label in the live inference metrics banner above the chat input box indicating token generation rate; Speed is a noun. [CHAR_LIMIT=15]">Speed</string>
+  <!-- Small annotation next to the speed value indicating decode throughput. -->
+  <string name="live_metrics_speed_decode_annotation" translatable="true" description="Small annotation label shown next to the primary token per second value in the Speed column of the live inference metrics banner to clarify that the primary rate is token decode speed. [CHAR_LIMIT=12]">decode</string>
+  <!-- Label for live metrics tokens. -->
+  <string name="live_metrics_tokens" translatable="true" description="Column header label in the live inference metrics banner above the chat input box indicating prompt and generated token counts; Tokens is a plural noun. [CHAR_LIMIT=15]">Tokens</string>
+  <!-- Label for live metrics memory. -->
+  <string name="live_metrics_ram" translatable="true" description="Column header label in the live inference metrics banner above the chat input box indicating resident system memory usage; RAM is an acronym for Random Access Memory. [CHAR_LIMIT=15]">RAM</string>
+  <!-- Label for live metrics context window. -->
+  <string name="live_metrics_context" translatable="true" description="Row label in the live inference metrics banner above the chat input box indicating conversation context window token utilization; Context is a noun. [CHAR_LIMIT=15]">Context</string>
+  <!-- Marker label at 75% of the context window bar indicating automatic context compression threshold. -->
+  <string name="live_metrics_context_compress_mark" translatable="true" description="Small marker label shown at the compression threshold tick mark on the context window progress bar in the live inference metrics banner, indicating the percentage threshold where automatic context compression occurs. %1$d is the percentage threshold (for example, 75). [CHAR_LIMIT=20]">%1$d%% compress</string>
+  <!-- Status text indicating that the model is prefilling the prompt. -->
+  <string name="live_metrics_prefilling" translatable="true" description="Status text shown in the Speed column of the live inference metrics banner while the model is ingesting and processing the input prompt before generating tokens. [CHAR_LIMIT=20]">Prefilling\u2026</string>
+  <!-- Status text indicating that the model is actively generating response tokens. -->
+  <string name="live_metrics_generating" translatable="true" description="Status text shown in the Speed column of the live inference metrics banner when the first token has arrived and response tokens are actively being generated. [CHAR_LIMIT=20]">Generating\u2026</string>
+  <!-- Format for model initialization time in seconds. -->
+  <string name="live_metrics_init_seconds_format" translatable="true" description="Subtext in the Speed column of the live inference metrics banner showing model initialization duration in seconds. %1$.1f is the duration in seconds formatted to one decimal place (for example, 5.7). [CHAR_LIMIT=20]">Init: %1$.1fs</string>
+  <!-- Format for model initialization time in milliseconds. -->
+  <string name="live_metrics_init_ms_format" translatable="true" description="Subtext in the Speed column of the live inference metrics banner showing model initialization duration in milliseconds. %1$d is the duration in whole milliseconds (for example, 850). [CHAR_LIMIT=20]">Init: %1$d ms</string>
+  <!-- Format for time to first token in milliseconds. -->
+  <string name="live_metrics_ttft_format" translatable="true" description="Subtext in the Speed column of the live inference metrics banner showing Time To First Token in milliseconds. %1$d is the latency in whole milliseconds (for example, 327). TTFT is an acronym for Time To First Token. [CHAR_LIMIT=20]">TTFT: %1$d ms</string>
+  <!-- Format for prompt prefill speed in tokens per second. -->
+  <string name="live_metrics_prefill_speed_format" translatable="true" description="Subtext in the Speed column of the live inference metrics banner showing prompt prefill throughput in tokens per second. %1$.1f is the prefill speed in tokens per second (for example, 180.5). [CHAR_LIMIT=30]">Prefill: %1$.1f tok/s</string>
+  <!-- Format for token generation decode speed in tokens per second. -->
+  <string name="live_metrics_decode_speed_format" translatable="true" description="Primary value in the Speed column of the live inference metrics banner showing token decode speed in tokens per second. %1$.1f is the generation speed in tokens per second (for example, 42.8). [CHAR_LIMIT=20]">%1$.1f tok/s</string>
+  <!-- Fallback label for token generation speed when unknown. -->
+  <string name="live_metrics_speed_empty" translatable="true" description="Placeholder value in the Speed column of the live inference metrics banner when no token generation speed has been measured yet. [CHAR_LIMIT=15]">-- tok/s</string>
+  <!-- Format for input and output token counts in a conversation turn. -->
+  <string name="live_metrics_tokens_io_format" translatable="true" tools:ignore="PluralsCandidate" description="Primary value in the Tokens column of the live inference metrics banner showing input prompt tokens and generated output tokens. %1$d is the input prompt token count (for example, 128), and %2$d is the generated output token count (for example, 60). [CHAR_LIMIT=30]">%1$d in / %2$d out</string>
+  <!-- Format for generated token count during live generation. -->
+  <string name="live_metrics_tokens_gen_format" translatable="true" tools:ignore="PluralsCandidate" description="Primary value in the Tokens column of the live inference metrics banner showing the number of generated tokens in the active or completed turn. %1$d is the generated token count (for example, 64). [CHAR_LIMIT=20]">%1$d gen</string>
+  <!-- Format for total tokens in turn. -->
+  <string name="live_metrics_tokens_total_format" translatable="true" tools:ignore="PluralsCandidate" description="Subtext in the Tokens column of the live inference metrics banner showing total tokens processed in the turn. %1$d is the total token count (for example, 188). [CHAR_LIMIT=20]">%1$d total</string>
+  <!-- Fallback label for generated tokens count when unknown. -->
+  <string name="live_metrics_tokens_empty" translatable="true" description="Placeholder value in the Tokens column of the live inference metrics banner when no output tokens have been generated yet. [CHAR_LIMIT=15]">-- gen</string>
+  <!-- Format for memory usage in megabytes when under 1 GB. -->
+  <string name="live_metrics_ram_mb_format" translatable="true" description="Primary value in the RAM column of the live inference metrics banner showing peak resident memory usage in megabytes when under 1 GB. %1$,.0f is the memory usage in megabytes (for example, 512). [CHAR_LIMIT=20]">%1$,.0f MB</string>
+  <!-- Format for memory usage in gigabytes when 1 GB or above. -->
+  <string name="live_metrics_ram_gb_format" translatable="true" description="Primary value in the RAM column of the live inference metrics banner showing peak resident memory usage in gigabytes when 1 GB or above. %1$.2f is the memory usage in gigabytes (for example, 3.18). [CHAR_LIMIT=20]">%1$.2f GB</string>
+  <!-- Fallback label for RAM usage when unknown. -->
+  <string name="live_metrics_ram_empty" translatable="true" description="Placeholder value in the RAM column of the live inference metrics banner when memory usage has not been sampled yet. [CHAR_LIMIT=15]">-- MB</string>
+  <!-- Format for RAM percentage used of total system memory. -->
+  <string name="live_metrics_ram_percent_format" translatable="true" description="Subtext in the RAM column of the live inference metrics banner showing the percentage of total device memory used. %1$.1f is the memory percentage (for example, 20.9). [CHAR_LIMIT=20]">%1$.1f%% RAM</string>
+  <!-- Format for power draw in Watts. -->
+  <string name="live_metrics_power_w_format" translatable="true" description="Subtext in the RAM column of the live inference metrics banner showing peak power draw in Watts when available. %1$.2f is the power in Watts (for example, 1.10). [CHAR_LIMIT=20]">%1$.2f W</string>
+  <!-- Format for power draw in milliwatts. -->
+  <string name="live_metrics_power_mw_format" translatable="true" description="Subtext in the RAM column of the live inference metrics banner showing peak power draw in milliwatts when available. %1$.0f is the power in milliwatts (for example, 920). [CHAR_LIMIT=20]">%1$.0f mW</string>
+  <!-- Format for context window token usage and percentage. -->
+  <string name="live_metrics_context_usage_format" translatable="true" description="Value in the Context row of the live inference metrics banner showing consumed tokens out of maximum capacity and percentage used. %1$d is consumed tokens (for example, 188), %2$d is maximum context tokens (for example, 4096), and %3$.1f is the percentage used (for example, 4.6). [CHAR_LIMIT=30]">%1$d / %2$d (%3$.1f%%)</string>
+  <!-- Fallback label for context window token usage when consumed tokens are not yet available. -->
+  <string name="live_metrics_context_usage_empty_format" translatable="true" description="Placeholder value in the Context row of the live inference metrics banner when the current context token count is not yet available (for example, during prompt prefill). %1$d is maximum context tokens (for example, 4096). [CHAR_LIMIT=25]">-- / %1$d</string>
+  <!-- Accessibility description for the info icon in the live metrics banner. -->
+  <string name="cd_live_metrics_info" translatable="true" description="Accessibility content description for the info icon button in the top-right corner of the live inference metrics banner. [CHAR_LIMIT=40]">About live metrics</string>
+  <!-- Tooltip text shown when tapping the info icon in the live metrics banner. -->
+  <string name="live_metrics_info_tooltip" translatable="true" description="Tooltip text shown when the user taps the info icon in the live inference metrics banner, explaining the metrics shown and the percentage threshold where automatic context compression triggers. %1$d is the percentage threshold (for example, 75). [CHAR_LIMIT=140]">Live stats for response speed, token usage, memory, and context space. Context compression triggers around %1$d%%.</string>
+  <!-- Status text indicating that conversation context is actively being compressed. -->
+  <string name="live_metrics_compressing_context" translatable="true" description="Status text shown in the Context row of the live inference metrics banner while conversation context is actively being compressed. [CHAR_LIMIT=30]">Compressing context\u2026</string>
 </resources>

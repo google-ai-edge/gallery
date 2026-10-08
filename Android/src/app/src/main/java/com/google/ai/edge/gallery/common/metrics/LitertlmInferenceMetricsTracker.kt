@@ -452,7 +452,6 @@ class LitertlmInferenceMetricsTracker(
     this.status = inferenceStatus { this.code = InferenceStatus.Code.IDLE }
     this.latency = LatencyMetrics.getDefaultInstance()
     this.context = contextMetrics {
-      this.consumedContextTokens = 0
       this.maxContextTokens = this@LitertlmInferenceMetricsTracker.maxContextTokens
     }
   }
