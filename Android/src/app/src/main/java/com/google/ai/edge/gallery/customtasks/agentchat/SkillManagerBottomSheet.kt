@@ -157,7 +157,8 @@ private val ADD_SKILL_OPTIONS =
     ),
   )
 
-val BUTTON_CONTENT_PADDING = PaddingValues(start = 12.dp, top = 2.dp, end = 12.dp, bottom = 2.dp)
+val BUTTON_CONTENT_PADDING: PaddingValues =
+  PaddingValues(start = 12.dp, top = 2.dp, end = 12.dp, bottom = 2.dp)
 
 private const val TAG = "AGSkillManagerBottomSheet"
 

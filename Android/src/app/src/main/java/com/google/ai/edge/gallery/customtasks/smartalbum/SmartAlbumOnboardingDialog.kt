@@ -26,7 +26,7 @@ import com.google.ai.edge.gallery.ui.common.onboarding.OnboardingPageInfo
 const val SMART_ALBUM_FEATURE_ID = "smart_album"
 
 /** Onboarding pages for Instant Media Search (Smart Album). */
-val smartAlbumOnboardingPages =
+val smartAlbumOnboardingPages: List<OnboardingPageInfo> =
   listOf(
     OnboardingPageInfo(
       titleRes = R.string.smartalbum_onboarding_welcome_title,

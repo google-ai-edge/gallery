@@ -44,6 +44,7 @@ import javax.inject.Inject
 import kotlin.io.encoding.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -115,7 +116,7 @@ class SkillManagerViewModel @Inject constructor(val skillManager: SkillManager) 
   ) : this(SkillManager(dataStoreRepository, context))
 
   private val _uiState = MutableStateFlow(SkillManagerUiState())
-  val uiState = _uiState.asStateFlow()
+  val uiState: StateFlow<SkillManagerUiState> = _uiState.asStateFlow()
 
   var skillLoaded: Boolean
     get() = skillManager.skillLoaded

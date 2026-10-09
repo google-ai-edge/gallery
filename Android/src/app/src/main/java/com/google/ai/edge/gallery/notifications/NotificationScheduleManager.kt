@@ -35,6 +35,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -57,7 +58,8 @@ constructor(@ApplicationContext private val context: Context) {
   private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
   private val _scheduledNotifications = MutableStateFlow<List<ScheduledNotification>>(emptyList())
-  val scheduledNotifications = _scheduledNotifications.asStateFlow()
+  val scheduledNotifications: StateFlow<List<ScheduledNotification>> =
+    _scheduledNotifications.asStateFlow()
 
   init {
     loadNotifications()

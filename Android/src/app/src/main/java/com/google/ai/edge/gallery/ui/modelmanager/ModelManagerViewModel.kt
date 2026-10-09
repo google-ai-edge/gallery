@@ -266,8 +266,9 @@ constructor(
   /** Dispatcher that [loadModelAllowlist] runs on. Overridden in tests to load synchronously. */
   @VisibleForTesting internal var allowlistLoadingDispatcher: CoroutineDispatcher = Dispatchers.IO
 
-  protected val _uiState = MutableStateFlow(createEmptyUiState())
-  open val uiState = _uiState.asStateFlow()
+  protected val _uiState: MutableStateFlow<ModelManagerUiState> =
+    MutableStateFlow(createEmptyUiState())
+  open val uiState: StateFlow<ModelManagerUiState> = _uiState.asStateFlow()
 
   open fun fetchModelDetails(modelId: String, onResult: (HfModelItemProto?) -> Unit) {
     viewModelScope.launch {

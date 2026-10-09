@@ -61,9 +61,9 @@ open class AgentToolsImpl : AgentTools {
 
   private val activeTools = mutableListOf<ToolDefinition>()
 
-  val loadSkillTool by lazy { LoadSkillTool(skillsProvider = skillsProvider) }
+  val loadSkillTool: LoadSkillTool by lazy { LoadSkillTool(skillsProvider = skillsProvider) }
 
-  val runMcpTool by lazy {
+  val runMcpTool: RunMcpTool by lazy {
     RunMcpTool(
       mcpServersProvider = mcpManagerViewModel,
       skillsProvider = skillsProvider,
@@ -71,11 +71,13 @@ open class AgentToolsImpl : AgentTools {
     )
   }
 
-  val runJsTool by lazy {
+  val runJsTool: RunJsTool by lazy {
     RunJsTool(skillsProvider = skillsProvider, dataStoreRepository = dataStoreRepository)
   }
 
-  val runIntentTool by lazy { RunIntentTool(context = context, skillsProvider = skillsProvider) }
+  val runIntentTool: RunIntentTool by lazy {
+    RunIntentTool(context = context, skillsProvider = skillsProvider)
+  }
 
   override fun getAvailableTools(): List<ToolDefinition> {
     return listOf(loadSkillTool, runMcpTool, runJsTool, runIntentTool) + activeTools
