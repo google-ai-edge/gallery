@@ -27,31 +27,48 @@ enum class ModelType {
   @SerializedName("task") TASK,
 }
 
-enum class RuntimeType {
-  @SerializedName("unknown") UNKNOWN,
-  @SerializedName("litert_lm") LITERT_LM,
-  @SerializedName("aicore") AICORE,
-  ;
+/**
+ * Runtime that serves a model, together with the capabilities that runtime gives the model.
+ *
+ * @property downloadsViaRepository Whether models using this runtime are downloaded as local files
+ *   via [DownloadRepository] and stored in the app's models directory.
+ * @property autoDownloadsOnStartup Whether models using this runtime automatically initiate
+ *   download/probing on app startup.
+ * @property supportsTopLevelDownload Whether models using this runtime expose a top-level Download
+ *   button on the model card when not yet downloaded. System-managed runtimes (AICore, ML Kit
+ *   Speech) manage base models via Google Play Services or per-language packs rather than a
+ *   top-level model download.
+ * @property supportsDelete Whether models using this runtime can be deleted by the user from within
+ *   the app.
+ */
+enum class RuntimeType(
+  val downloadsViaRepository: Boolean,
+  val autoDownloadsOnStartup: Boolean,
+  val supportsTopLevelDownload: Boolean,
+  val supportsDelete: Boolean,
+) {
+  @SerializedName("unknown")
+  UNKNOWN(
+    downloadsViaRepository = true,
+    autoDownloadsOnStartup = false,
+    supportsTopLevelDownload = true,
+    supportsDelete = true,
+  ),
+  @SerializedName("litert_lm")
+  LITERT_LM(
+    downloadsViaRepository = true,
+    autoDownloadsOnStartup = false,
+    supportsTopLevelDownload = true,
+    supportsDelete = true,
+  ),
+  @SerializedName("aicore")
+  AICORE(
+    downloadsViaRepository = false,
+    autoDownloadsOnStartup = true,
+    supportsTopLevelDownload = false,
+    supportsDelete = false,
+  ),
 
-  /**
-   * Whether models using this runtime are downloaded as local files via [DownloadRepository] and
-   * stored in the app's models directory.
-   */
-  val downloadsViaRepository: Boolean
-    get() = this == LITERT_LM || this == UNKNOWN
-
-  /** Whether models using this runtime automatically initiate download/probing on app startup. */
-  val autoDownloadsOnStartup: Boolean
-    get() = this == AICORE
-
-  /** Whether models using this runtime can be deleted by the user from within the app. */
-  val supportsDelete: Boolean
-    get() =
-      when (this) {
-        LITERT_LM,
-        UNKNOWN -> true
-        else -> false
-      }
 }
 
 enum class AICoreModelReleaseStage {

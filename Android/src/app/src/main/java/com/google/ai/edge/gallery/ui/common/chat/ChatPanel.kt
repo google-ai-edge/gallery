@@ -160,7 +160,6 @@ fun ChatPanel(
   onNewChatClicked: () -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsState()
-  val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val messages = uiState.messagesByModel[selectedModel.name] ?: listOf()
   val modelInitStatus by selectedModel.initStatusFlow.collectAsState()
   val isLiveMetricsFlagEnabled = false
@@ -384,13 +383,15 @@ fun ChatPanel(
     Column(
       modifier = modifier.padding(innerPadding).consumeWindowInsets(innerPadding).imePadding()
     ) {
+
       Box(
         contentAlignment = Alignment.BottomCenter,
         modifier =
-          Modifier.weight(1f).onSizeChanged {
-            // Update the viewport height when the size of the box changes.
-            viewportHeightPx = it.height
-          },
+          Modifier.weight(1f)
+            .onSizeChanged {
+              // Update the viewport height when the size of the box changes.
+              viewportHeightPx = it.height
+            }
       ) {
         val cdChatPanel = stringResource(R.string.cd_chat_panel)
         Column(
@@ -463,11 +464,11 @@ fun ChatPanel(
                 agentName = "$agentName on ${message.accelerator}"
               }
               if (!message.hideSenderLabel) {
-                MessageSender(
-                  message = message,
-                  agentName = agentName,
-                  imageHistoryCurIndex = imageHistoryCurIndex.intValue,
-                )
+                  MessageSender(
+                    message = message,
+                    agentName = agentName,
+                    imageHistoryCurIndex = imageHistoryCurIndex.intValue,
+                  )
               }
 
               // Message body.

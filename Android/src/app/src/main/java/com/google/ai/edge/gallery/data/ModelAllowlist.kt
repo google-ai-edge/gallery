@@ -124,7 +124,6 @@ data class AllowedModel(
           BuiltInTaskId.LLM_TINY_GARDEN in safeTaskTypes)
     var configs: MutableList<Config> = mutableListOf()
     var llmMaxToken = DEFAULT_MAX_TOKEN
-    var llmMaxContextLength: Int? = null
     var accelerators: List<Accelerator> = DEFAULT_ACCELERATORS
     var visionAccelerator: Accelerator = DEFAULT_VISION_ACCELERATOR
 
@@ -159,7 +158,7 @@ data class AllowedModel(
       val defaultTopP: Float = defaultConfig?.topP ?: DEFAULT_TOPP
       val defaultTemperature: Float = defaultConfig?.temperature ?: DEFAULT_TEMPERATURE
       llmMaxToken = defaultConfig?.maxTokens?.takeIf { it > 0 } ?: DEFAULT_MAX_TOKEN
-      llmMaxContextLength = defaultConfig?.maxContextLength
+      val llmMaxContextLength = defaultConfig?.maxContextLength
       val npuOnly =
         accelerators.size == 1 &&
           (accelerators[0] == Accelerator.NPU || accelerators[0] == Accelerator.TPU)
@@ -282,5 +281,5 @@ data class ModelAllowlist(
   val models: List<AllowedModel>,
   @SerializedName("aicoreRequirements") val aicoreRequirements: DeviceRequirements? = null,
   /** Flag overrides configured remotely via the allowlist. */
-  @SerializedName("flags") val flags: Map<String, Boolean> = emptyMap(),
+  @SerializedName("flags") val flags: Map<String, Boolean>? = null,
 )

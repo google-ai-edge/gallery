@@ -28,10 +28,8 @@ enum class ModelDownloadStatusType {
 
 /** Reason why a model is unavailable on the current device or environment. */
 enum class ModelUnavailabilityReason {
-  UNSUPPORTED_HARDWARE_TENSOR_G3,
   SPEECH_SERVICES_OUTDATED_OR_MISSING,
   AICORE_UNAVAILABLE,
-  MISSING_RESOURCE_PROVIDER,
   UNSUPPORTED_MODEL,
 }
 

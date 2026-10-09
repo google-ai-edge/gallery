@@ -92,6 +92,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -266,8 +267,9 @@ constructor(
   /** Dispatcher that [loadModelAllowlist] runs on. Overridden in tests to load synchronously. */
   @VisibleForTesting internal var allowlistLoadingDispatcher: CoroutineDispatcher = Dispatchers.IO
 
-  protected val _uiState = MutableStateFlow(createEmptyUiState())
-  open val uiState = _uiState.asStateFlow()
+  protected val _uiState: MutableStateFlow<ModelManagerUiState> =
+    MutableStateFlow(createEmptyUiState())
+  open val uiState: StateFlow<ModelManagerUiState> = _uiState.asStateFlow()
 
   open fun fetchModelDetails(modelId: String, onResult: (HfModelItemProto?) -> Unit) {
     viewModelScope.launch {

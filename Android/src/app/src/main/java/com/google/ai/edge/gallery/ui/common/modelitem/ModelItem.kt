@@ -224,7 +224,8 @@ fun ModelItem(
         // Show a single download panel if there are no variants.
         if (modelVariants.isEmpty()) {
           val hasDownloadPanelContent =
-            downloadStatus?.status != ModelDownloadStatusType.SUCCEEDED ||
+            (downloadStatus?.status != ModelDownloadStatusType.SUCCEEDED &&
+              (!model.isSupplementary || model.supportsTopLevelDownload)) ||
               canShowTryIt ||
               downloadStatus?.isUpdatable == true ||
               (showBenchmarkActionButton && model.isLlm)
@@ -489,6 +490,10 @@ fun ModelItemActionMenu(
   showDeleteButton: Boolean,
   modifier: Modifier = Modifier,
 ) {
+  // Supplementary models without any menu action get no menu button.
+  if (model.isSupplementary && (!showBenchmarkButton || !model.isLlm) && !showDeleteButton) {
+    return
+  }
   var showMenu by remember { mutableStateOf(false) }
   var showConfirmDeleteDialog by remember { mutableStateOf(false) }
 

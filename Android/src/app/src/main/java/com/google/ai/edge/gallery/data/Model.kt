@@ -201,6 +201,10 @@ data class Model(
   val autoDownloadsOnStartup: Boolean
     get() = backendSpec.autoDownloadsOnStartup
 
+  /** Whether this model exposes a top-level Download button on the model card. */
+  val supportsTopLevelDownload: Boolean
+    get() = backendSpec.supportsTopLevelDownload
+
   /** Whether this model can be deleted by the user from within the app. */
   val supportsDelete: Boolean
     get() = backendSpec.supportsDelete

@@ -50,27 +50,10 @@ fun MessageBodyText(
       )
     }
   } else if (message.side == ChatSide.AGENT) {
-    if (message.isMarkdown) {
-      BufferedFadingMarkdownText(
-        text = message.content,
-        inProgress = inProgress,
-        modifier =
-          Modifier.padding(vertical = 12.dp)
-            .padding(horizontal = horizontalPadding)
-            .testTag("model_response_text")
-            .semantics(mergeDescendants = true) {
-              // Only announce when message is complete.
-              if (!inProgress) {
-                liveRegion = LiveRegionMode.Polite
-              }
-            },
-      )
-    } else {
-      SelectionContainer {
-        Text(
-          message.content,
-          style = MaterialTheme.typography.bodyMedium,
-          color = MaterialTheme.colorScheme.onSurface,
+      if (message.isMarkdown) {
+        BufferedFadingMarkdownText(
+          text = message.content,
+          inProgress = inProgress,
           modifier =
             Modifier.padding(vertical = 12.dp)
               .padding(horizontal = horizontalPadding)
@@ -82,7 +65,24 @@ fun MessageBodyText(
                 }
               },
         )
+      } else {
+        SelectionContainer {
+          Text(
+            message.content,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier =
+              Modifier.padding(vertical = 12.dp)
+                .padding(horizontal = horizontalPadding)
+                .testTag("model_response_text")
+                .semantics {
+                  // Only announce when message is complete.
+                  if (!inProgress) {
+                    liveRegion = LiveRegionMode.Polite
+                  }
+                },
+          )
+        }
       }
-    }
   }
 }

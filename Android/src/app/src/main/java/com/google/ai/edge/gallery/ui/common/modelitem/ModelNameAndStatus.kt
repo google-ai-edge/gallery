@@ -155,7 +155,15 @@ fun ModelNameAndStatus(
     )
 
     // Status icon + size + download progress details.
-    if (!model.autoDownloadsOnStartup && showModelSizeAndDownloadProgressLabel) {
+    val showStatusForNonDownloadable =
+      downloadStatus?.status == ModelDownloadStatusType.UNAVAILABLE ||
+        downloadStatus?.status == ModelDownloadStatusType.FAILED ||
+        downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
+    if (
+      !model.autoDownloadsOnStartup &&
+        showModelSizeAndDownloadProgressLabel &&
+        (model.supportsTopLevelDownload || showStatusForNonDownloadable)
+    ) {
       ModelStatusDetails(
         model = model,
         task = task,
@@ -197,7 +205,6 @@ fun ModelStatusDetails(
 ) {
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
-  var curDownloadProgress = 0f
 
   Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
     // Status icon.
@@ -250,11 +257,6 @@ fun ModelStatusDetails(
             }
             if (isPartiallyDownloaded) {
               sizeLabel = "$sizeLabel (resuming...)"
-            }
-            curDownloadProgress =
-              downloadStatus.receivedBytes.toFloat() / downloadStatus.totalBytes.toFloat()
-            if (!curDownloadProgress.isFinite()) {
-              curDownloadProgress = 0f
             }
           }
         }

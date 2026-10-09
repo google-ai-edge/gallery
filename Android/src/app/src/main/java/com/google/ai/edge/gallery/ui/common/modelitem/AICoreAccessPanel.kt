@@ -65,14 +65,10 @@ fun AICoreAccessPanel() {
 fun ModelUnavailabilityPanel(unavailability: ModelUnavailability, fallbackGuideUrl: String = "") {
   val message =
     when (unavailability.reason) {
-      ModelUnavailabilityReason.UNSUPPORTED_HARDWARE_TENSOR_G3 ->
-        stringResource(R.string.model_unavailable_unsupported_hardware_tensor_g3)
       ModelUnavailabilityReason.SPEECH_SERVICES_OUTDATED_OR_MISSING ->
         stringResource(R.string.model_unavailable_speech_services_outdated)
       ModelUnavailabilityReason.AICORE_UNAVAILABLE ->
         stringResource(R.string.aicore_access_panel_title)
-      ModelUnavailabilityReason.MISSING_RESOURCE_PROVIDER ->
-        stringResource(R.string.model_unavailable_missing_resource_provider)
       ModelUnavailabilityReason.UNSUPPORTED_MODEL ->
         stringResource(R.string.model_unavailable_generic)
     }
