@@ -44,22 +44,11 @@ class LitertlmInferenceMetricsTracker(
 
   private val calculator = TurnMetricsCalculator(maxContextTokens = maxContextTokens)
 
-  /** Lifecycle phase of the tracker and active/completed inference turn. */
-  private enum class TurnPhase {
-    IDLE,
-    PREFILLING,
-    DECODING,
-    SUCCESS,
-    USER_CANCELLED,
-    ERROR,
-  }
-
   /**
    * Lifecycle state of the current turn across all phases, held in a single [AtomicReference] so
    * that every phase transition and its associated data are published atomically.
    */
   private sealed interface TurnState {
-    val phase: TurnPhase
     val turnIndex: Int
 
     val isActive: Boolean
@@ -73,7 +62,6 @@ class LitertlmInferenceMetricsTracker(
     }
 
     data object Idle : TurnState {
-      override val phase: TurnPhase = TurnPhase.IDLE
       override val turnIndex: Int = 0
     }
 
@@ -83,7 +71,6 @@ class LitertlmInferenceMetricsTracker(
       override val startContextTokens: Int?,
       override val startTimeMark: TimeMark,
     ) : Active {
-      override val phase: TurnPhase = TurnPhase.PREFILLING
       override val ttftDuration: Duration? = null
     }
 
@@ -96,17 +83,12 @@ class LitertlmInferenceMetricsTracker(
       val prefillBenchmark: InferenceBenchmark?,
       val outputTokenCount: AtomicInteger = AtomicInteger(1),
     ) : Active {
-      override val phase: TurnPhase = TurnPhase.DECODING
-
       val streamedOutputTokens: Int
         get() = outputTokenCount.get()
     }
 
-    data class Completed(
-      override val turnIndex: Int,
-      override val phase: TurnPhase,
-      val finalMetrics: TurnInferenceMetrics,
-    ) : TurnState
+    data class Completed(override val turnIndex: Int, val finalMetrics: TurnInferenceMetrics) :
+      TurnState
   }
 
   private val turnState = AtomicReference<TurnState>(TurnState.Idle)
@@ -313,11 +295,18 @@ class LitertlmInferenceMetricsTracker(
      * unavailable fields remain unset.
      */
     fun calculateStatsOnTurnEnd(snapshot: RawTurnSnapshot): TurnInferenceMetrics {
+      // Token counts and prefill throughput come from engine InferenceBenchmark.
+      // Note: LiteRT-LM JNI returns 0 for lastDecodeTokenCount when no decode turn was recorded
+      // (and resolveSessionDiagnostics skips benchmark queries when cancelled during prefill).
       val benchmark = snapshot.diagnostics.benchmark
       val promptTokens = benchmark?.prefillTokenCount?.takeIf { it > 0 }
       val outputTokens = benchmark?.decodeTokenCount?.takeIf { it > 0 }
       val totalTokens =
-        if (promptTokens != null && outputTokens != null) promptTokens + outputTokens else null
+        if (promptTokens != null || outputTokens != null) {
+          (promptTokens ?: 0) + (outputTokens ?: 0)
+        } else {
+          null
+        }
 
       // Latency milestones come from app-measured monotonic TimeSource.
       val ttftDuration = snapshot.streamedTtft
@@ -465,19 +454,7 @@ class LitertlmInferenceMetricsTracker(
   fun endTurn(status: InferenceStatus): TurnInferenceMetrics? {
     val current = turnState.get() as? TurnState.Active ?: return null
     val turnDuration = current.startTimeMark.elapsedNow()
-    val terminalPhase =
-      when (status.code) {
-        InferenceStatus.Code.SUCCESS -> TurnPhase.SUCCESS
-        InferenceStatus.Code.CANCELLED -> TurnPhase.USER_CANCELLED
-        InferenceStatus.Code.ERROR -> TurnPhase.ERROR
-        else -> TurnPhase.IDLE
-      }
-    val sessionDiagnostics =
-      querySessionDiagnostics(
-        session = current.session,
-        preEndPhase = current.phase,
-        terminalPhase = terminalPhase,
-      )
+    val sessionDiagnostics = resolveSessionDiagnostics(turn = current, status = status)
 
     val snapshot =
       RawTurnSnapshot(
@@ -489,12 +466,7 @@ class LitertlmInferenceMetricsTracker(
         maxContextTokens = maxContextTokens,
       )
     val finalMetrics = calculator.calculateStatsOnTurnEnd(snapshot = snapshot)
-    val completed =
-      TurnState.Completed(
-        turnIndex = current.turnIndex,
-        phase = terminalPhase,
-        finalMetrics = finalMetrics,
-      )
+    val completed = TurnState.Completed(turnIndex = current.turnIndex, finalMetrics = finalMetrics)
     // Fails if another call ended the turn or aborted the session meanwhile.
     if (!turnState.compareAndSet(current, completed)) return null
     return finalMetrics
@@ -511,19 +483,45 @@ class LitertlmInferenceMetricsTracker(
   }
 
   /**
-   * Queries engine-level benchmark and KV-cache token count after the C++ worker has finished the
-   * turn ([TurnPhase.SUCCESS], or [TurnPhase.USER_CANCELLED] after entering [TurnPhase.DECODING])
-   * and released `ResourceManager::executor_mutex_`.
+   * Resolves engine diagnostics for the ended [turn] based on its active state and terminal
+   * [status]:
+   * - [TurnState.Prefilling] + [InferenceStatus.Code.CANCELLED]: Skips native queries (avoiding
+   *   `executor_mutex_` contention or stale previous-turn `prefill_turns_.back()` reads) and
+   *   preserves `turn.startContextTokens` because C++ `CreateInternalCallback` rewinds the KV cache
+   *   to `kPreTurnCheckpointLabel` when 0 output tokens were produced.
+   * - [TurnState.Prefilling] + [InferenceStatus.Code.SUCCESS]: Queries engine benchmark and token
+   *   count after the C++ worker has finished the turn and released `executor_mutex_`.
+   * - [TurnState.Decoding] + ([InferenceStatus.Code.SUCCESS] or [InferenceStatus.Code.CANCELLED]):
+   *   Queries engine benchmark and token count after the C++ worker has finished `Tasks::Decode`
+   *   and released `executor_mutex_`.
+   * - All other states (e.g. [InferenceStatus.Code.ERROR]): Returns empty [SessionDiagnostics].
    */
-  private fun querySessionDiagnostics(
-    session: ConversationSession,
-    preEndPhase: TurnPhase,
-    terminalPhase: TurnPhase,
+  private fun resolveSessionDiagnostics(
+    turn: TurnState.Active,
+    status: InferenceStatus,
   ): SessionDiagnostics {
-    val shouldQueryDiagnostics =
-      terminalPhase == TurnPhase.SUCCESS ||
-        (terminalPhase == TurnPhase.USER_CANCELLED && preEndPhase == TurnPhase.DECODING)
-    if (!session.isAlive || !shouldQueryDiagnostics) return SessionDiagnostics()
+    return when (turn) {
+      is TurnState.Prefilling ->
+        when (status.code) {
+          // When cancelled during prefill (before any decode token is emitted), C++
+          // CreateInternalCallback rewinds the KV cache to kPreTurnCheckpointLabel, leaving the
+          // session's token count unchanged from startContextTokens.
+          InferenceStatus.Code.CANCELLED ->
+            SessionDiagnostics(benchmark = null, tokenCount = turn.startContextTokens)
+          InferenceStatus.Code.SUCCESS -> querySessionDiagnostics(session = turn.session)
+          else -> SessionDiagnostics()
+        }
+      is TurnState.Decoding ->
+        when (status.code) {
+          InferenceStatus.Code.SUCCESS,
+          InferenceStatus.Code.CANCELLED -> querySessionDiagnostics(session = turn.session)
+          else -> SessionDiagnostics()
+        }
+    }
+  }
+
+  private fun querySessionDiagnostics(session: ConversationSession): SessionDiagnostics {
+    if (!session.isAlive) return SessionDiagnostics()
 
     val benchmark =
       try {

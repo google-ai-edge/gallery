@@ -417,11 +417,11 @@ internal fun resolveLiveMetricsUiState(
     when {
       statusCode == InferenceStatus.Code.IDLE || statusCode == InferenceStatus.Code.PREFILLING ->
         stringResource(R.string.live_metrics_tokens_empty)
-      hasPromptTokens && hasOutputTokens ->
+      hasPromptTokens ->
         stringResource(
           R.string.live_metrics_tokens_io_format,
           tokens.promptTokens,
-          tokens.outputTokens,
+          if (hasOutputTokens) tokens.outputTokens else 0,
         )
       hasOutputTokens ->
         stringResource(R.string.live_metrics_tokens_gen_format, tokens.outputTokens)
