@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.customtasks.smartalbum
 
 import androidx.annotation.VisibleForTesting
+import kotlin.math.abs
 import kotlin.math.expm1
 import kotlin.math.ln1p
 import kotlin.math.roundToInt
@@ -38,4 +39,64 @@ internal fun logSliderPositionToCount(position: Float, maxCount: Int): Int {
   return expm1(position.coerceIn(0f, 1f).toDouble() * ln1p(maxCount.toDouble()))
     .roundToInt()
     .coerceIn(0, maxCount)
+}
+
+/**
+ * Returns a list of rounded photo counts to display as tick marks on the logarithmic slider for a
+ * given [maxCount]. Computes a few visually regular tick positions across the slider.
+ */
+@VisibleForTesting
+internal fun getLogSliderMarks(maxCount: Int): List<Int> {
+  if (maxCount <= 1) return emptyList()
+  val candidates =
+    listOf(
+      1,
+      2,
+      5,
+      10,
+      20,
+      25,
+      50,
+      100,
+      200,
+      250,
+      500,
+      1000,
+      2000,
+      2500,
+      5000,
+      10000,
+      20000,
+      25000,
+      50000,
+      100000,
+    )
+  val validCandidates = candidates.filter { it < maxCount }
+  if (validCandidates.size <= 4) return validCandidates
+
+  val targetPositions = listOf(0.2f, 0.4f, 0.6f, 0.8f)
+  val selectedMarks = mutableListOf<Int>()
+
+  for (targetPos in targetPositions) {
+    var bestCandidate: Int? = null
+    var bestDiff = Float.MAX_VALUE
+
+    for (candidate in validCandidates) {
+      if (candidate in selectedMarks) continue
+      if (selectedMarks.isNotEmpty() && candidate <= selectedMarks.last()) continue
+
+      val pos = countToLogSliderPosition(candidate, maxCount)
+      val diff = abs(pos - targetPos)
+      if (diff < bestDiff) {
+        bestDiff = diff
+        bestCandidate = candidate
+      }
+    }
+
+    if (bestCandidate != null) {
+      selectedMarks.add(bestCandidate)
+    }
+  }
+
+  return selectedMarks
 }

@@ -1098,31 +1098,31 @@
   <!-- Button to confirm analyzing all photos. [CHAR_LIMIT=20] -->
   <string name="smartalbum_yes_add_all" translatable="true" description="Button to confirm analyzing all photos. [CHAR_LIMIT=20]">Yes, add all</string>
   <!-- Button to select specific photos instead of analyzing all media items. [CHAR_LIMIT=20] -->
-  <string name="smartalbum_select_photos" translatable="true" description="Button to open the photo picker to select specific photos instead of analyzing all media items. [CHAR_LIMIT=20]">Select photos</string>
-  <!-- Title of the dialog asking how the user wants to grant photo library access when OS permission is already granted. [CHAR_LIMIT=90] -->
-  <string name="smartalbum_allow_photo_library_access_title" translatable="true" description="Title of the dialog asking the user whether to select specific photos or bulk select photos from their library in Instant Media Search; Google AI Edge Gallery is a product name and should not be translated. [CHAR_LIMIT=90]">Allow Google AI Edge Gallery to access your photo library?</string>
-  <!-- Button to decline or dismiss the photo library access dialog. [CHAR_LIMIT=25] -->
-  <string name="smartalbum_dont_allow" translatable="true" description="Button label to decline or dismiss the photo library access dialog in Instant Media Search. [CHAR_LIMIT=25]">Don’t allow</string>
-  <!-- Title of the bulk select photos bottom sheet dialog. [CHAR_LIMIT=30] -->
-  <string name="smartalbum_bulk_select_photos_title" translatable="true" description="Title of the bottom sheet dialog where the user selects how many recent photos to analyze in Instant Media Search. [CHAR_LIMIT=30]">Bulk select photos</string>
-  <!-- Subtitle description in the bulk select photos bottom sheet dialog. [CHAR_LIMIT=120] -->
-  <plurals name="smartalbum_bulk_select_photos_desc" translatable="true" description="Subtitle description in the bulk select photos bottom sheet in Instant Media Search explaining that the user can choose how many photos to analyze, where %1$d is the recommended maximum number of photos (e.g. 500). [CHAR_LIMIT=120]">
-    <item quantity="one">Select how many photos you’d like to start analyzing. We recommend under %1$d photo.</item>
-    <item quantity="other">Select how many photos you’d like to start analyzing. We recommend under %1$d photos.</item>
+  <string name="smartalbum_select_photos" translatable="true" description="Button to open the photo picker to select specific photos instead of analyzing all media items. [CHAR_LIMIT=20]">Select media</string>
+  <!-- Title of the dialog asking how the user wants to grant photo library access when OS permission is already granted. [CHAR_LIMIT=35] -->
+  <string name="smartalbum_allow_photo_library_access_title" translatable="true" description="Title of the dialog asking the user whether to select specific photos or bulk select photos from their library in Instant Media Search. [CHAR_LIMIT=35]">Start analyzing media?</string>
+  <!-- Button to decline or dismiss the photo library access dialog. [CHAR_LIMIT=15] -->
+  <string name="smartalbum_dont_allow" translatable="true" description="Button label to decline or dismiss the photo library access dialog in Instant Media Search. [CHAR_LIMIT=15]">Cancel</string>
+  <!-- Title of the bulk select photos bottom sheet dialog. [CHAR_LIMIT=35] -->
+  <string name="smartalbum_bulk_select_photos_title" translatable="true" description="Title of the bottom sheet dialog where the user selects how many recent photos to analyze in Instant Media Search. [CHAR_LIMIT=30]">Bulk select media</string>
+  <!-- Subtitle description in the bulk select photos bottom sheet dialog. [CHAR_LIMIT=135] -->
+  <plurals name="smartalbum_bulk_select_photos_desc" translatable="true" description="Subtitle description in the bulk select photos bottom sheet in Instant Media Search explaining that the user can choose how many media items to analyze, where %1$d is the recommended maximum number of media items (e.g. 250). [CHAR_LIMIT=135]">
+    <item quantity="one">Select how many media items you’d like to get analyzed. We recommend under %1$d media item.</item>
+    <item quantity="other">Select how many media items you’d like to get analyzed. We recommend under %1$d media items.</item>
   </plurals>
   <!-- Formatted label above the numeric input field in the bulk select photos bottom sheet. [CHAR_LIMIT=40] -->
   <plurals name="smartalbum_bulk_select_analyze_label" translatable="true" description="Label shown above the numeric input field in the bulk select photos bottom sheet in Instant Media Search indicating how many photos will be analyzed, where %1$d is the selected number of photos. [CHAR_LIMIT=40]">
-    <item quantity="one">Analyze %1$d photo</item>
-    <item quantity="other">Analyze %1$d photos</item>
+    <item quantity="one">Analyze most recent %1$d item</item>
+    <item quantity="other">Analyze most recent %1$d items</item>
   </plurals>
   <!-- Warning banner title when all photos are selected in the bulk select bottom sheet. [CHAR_LIMIT=67] -->
-  <string name="smartalbum_select_all_warning_title" translatable="true" description="Warning banner title shown in the bulk select photos bottom sheet when the user drags the slider to select all photos on the device. [CHAR_LIMIT=67]">Are you sure you want to select all photos?</string>
+  <string name="smartalbum_select_all_warning_title" translatable="true" description="Warning banner title shown in the bulk select photos bottom sheet when the user drags the slider to select all photos on the device. [CHAR_LIMIT=67]">Are you sure you want to select all media?</string>
   <!-- Warning banner body when all photos are selected in the bulk select bottom sheet. [CHAR_LIMIT=200] -->
-  <string name="smartalbum_select_all_warning_desc" translatable="true" description="Warning banner body text shown in the bulk select photos bottom sheet when the user selects all photos on the device, warning that analyzing all photos with the model (%1$s) may take a long time. [CHAR_LIMIT=200]">You\'ll start analyzing all photos on your device. %1$s may not be optimized for this device, so this may take a long time.</string>
+  <string name="smartalbum_select_all_warning_desc" translatable="true" description="Warning banner body text shown in the bulk select photos bottom sheet when the user selects all photos on the device, warning that analyzing all photos with the model (%1$s) may take a long time. [CHAR_LIMIT=200]">You\'ll start analyzing all media on your device. %1$s may not be optimized for this device, so this may take a long time.</string>
   <!-- Button to confirm analyzing the selected number of photos. [CHAR_LIMIT=40] -->
-  <string name="smartalbum_yes_analyze_selected_photos" translatable="true" description="Primary confirmation button label in the bulk select photos bottom sheet in Instant Media Search to start analyzing the selected number of photos. [CHAR_LIMIT=40]">Yes, analyze selected photos</string>
+  <string name="smartalbum_yes_analyze_selected_photos" translatable="true" description="Primary confirmation button label in the bulk select photos bottom sheet in Instant Media Search to start analyzing the selected number of photos. [CHAR_LIMIT=40]">Yes, analyze selected media</string>
   <!-- Empty state message when search query returns no matching photos in Instant Media Search. [CHAR_LIMIT=40] -->
-  <string name="smartalbum_no_matching_photos" translatable="true" description="Empty state message when search query returns no matching photos in Instant Media Search. [CHAR_LIMIT=40]">No matching photos found</string>
+  <string name="smartalbum_no_matching_photos" translatable="true" description="Empty state message when search query returns no matching photos in Instant Media Search. [CHAR_LIMIT=40]">No matching media found</string>
   <!-- Title for empty photo collection state in Instant Media Search. [CHAR_LIMIT=30] -->
   <string name="smartalbum_empty_collection_title" translatable="true" description="Title for empty photo collection state in Instant Media Search. [CHAR_LIMIT=30]">No photos yet</string>
   <!-- Subtitle for empty photo collection state in Instant Media Search. [CHAR_LIMIT=60] -->

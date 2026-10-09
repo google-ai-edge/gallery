@@ -34,6 +34,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -96,6 +97,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -122,6 +124,7 @@ import com.google.ai.edge.gallery.common.logButtonClick
 import com.google.ai.edge.gallery.services.photolibrary.PhotoAsset
 import com.google.ai.edge.gallery.services.photolibrary.PhotoLibraryService
 import com.google.ai.edge.gallery.ui.theme.customColors
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -1048,29 +1051,66 @@ internal fun StartAnalyzingAllPhotosBottomSheet(
         },
       )
       Spacer(modifier = Modifier.height(16.dp))
-      @Suppress("DEPRECATION")
-      Slider(
-        value = countToLogSliderPosition(selectedCount, maxCount),
-        onValueChange = { newValue ->
-          val updated = logSliderPositionToCount(newValue, maxCount)
-          selectedCount = updated
-          textFieldState.setTextAndPlaceCursorAtEnd(updated.toString())
-        },
-        valueRange = 0f..1f,
-        enabled = maxCount > 0,
-        modifier = Modifier.fillMaxWidth().testTag("bulk_select_slider"),
-      )
-      if (maxCount > 0 && selectedCount >= maxCount) {
+      val marks = remember(maxCount) { getLogSliderMarks(maxCount) }
+      Column(modifier = Modifier.fillMaxWidth()) {
+        @Suppress("DEPRECATION")
+        Slider(
+          value = countToLogSliderPosition(selectedCount, maxCount),
+          onValueChange = { newValue ->
+            val updated = logSliderPositionToCount(newValue, maxCount)
+            selectedCount = updated
+            textFieldState.setTextAndPlaceCursorAtEnd(updated.toString())
+          },
+          valueRange = 0f..1f,
+          enabled = maxCount > 0,
+          modifier = Modifier.fillMaxWidth().testTag("bulk_select_slider"),
+        )
+        if (marks.isNotEmpty()) {
+          BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp)) {
+            val totalWidth = maxWidth
+            for (markValue in marks) {
+              val pos = countToLogSliderPosition(markValue, maxCount)
+              val xOffset = totalWidth * pos
+              Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier =
+                  Modifier.layout { measurable, constraints ->
+                    val placeable = measurable.measure(constraints)
+                    val x =
+                      (xOffset.toPx() - placeable.width / 2f)
+                        .roundToInt()
+                        .coerceIn(0, constraints.maxWidth - placeable.width)
+                    layout(placeable.width, placeable.height) { placeable.placeRelative(x, 0) }
+                  },
+              ) {
+                Box(
+                  modifier =
+                    Modifier.width(2.dp)
+                      .height(4.dp)
+                      .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                  text = markValue.toString(),
+                  style = MaterialTheme.typography.labelSmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
+            }
+          }
+        }
+      }
+      if (maxCount > RECOMMENDED_MAX_PHOTOS && selectedCount >= maxCount) {
         Spacer(modifier = Modifier.height(16.dp))
         val warningBgColor =
-          if (MaterialTheme.customColors.warningContainerColor != Color.Transparent) {
-            MaterialTheme.customColors.warningContainerColor
+          if (MaterialTheme.customColors.errorContainerColor != Color.Transparent) {
+            MaterialTheme.customColors.errorContainerColor
           } else {
             MaterialTheme.colorScheme.errorContainer
           }
         val warningContentColor =
-          if (MaterialTheme.customColors.warningTextColor != Color.Transparent) {
-            MaterialTheme.customColors.warningTextColor
+          if (MaterialTheme.customColors.errorTextColor != Color.Transparent) {
+            MaterialTheme.customColors.errorTextColor
           } else {
             MaterialTheme.colorScheme.onErrorContainer
           }
@@ -1095,7 +1135,7 @@ internal fun StartAnalyzingAllPhotosBottomSheet(
                 text = stringResource(R.string.smartalbum_select_all_warning_title),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = warningContentColor,
               )
               Spacer(modifier = Modifier.height(2.dp))
               Text(
