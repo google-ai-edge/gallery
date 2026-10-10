@@ -143,6 +143,11 @@ fun FoldersScreen(
   viewModel: GalleryViewModel,
   onOpenFolder: (bucketId: Long?) -> Unit,
   actions: @Composable () -> Unit = {},
+  /** Albums made from bubbles, with a local cover if one of their previews is on the phone. */
+  albums: List<Pair<com.google.ai.edge.gallery.morgenschiss.Album, MediaItem?>> = emptyList(),
+  onOpenAlbum: (String) -> Unit = {},
+  /** Shown above everything, e.g. "new files for your folders". */
+  banner: @Composable () -> Unit = {},
 ) {
   val library by viewModel.library.collectAsState()
   val loader = rememberGalleryImageLoader()
@@ -165,6 +170,14 @@ fun FoldersScreen(
       horizontalArrangement = Arrangement.spacedBy(12.dp),
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+      item(key = "banner", span = { GridItemSpan(maxLineSpan) }) { banner() }
+      if (albums.isNotEmpty()) {
+        item(key = "albums-h", span = { GridItemSpan(maxLineSpan) }) { Text("Alben", style = MaterialTheme.typography.titleMedium) }
+        items(albums, key = { "album-" + it.first.id }) { (album, cover) ->
+          FolderTile(album.name, album.count, cover ?: library.items.first(), loader) { onOpenAlbum(album.id) }
+        }
+        item(key = "folders-h", span = { GridItemSpan(maxLineSpan) }) { Text("Ordner", style = MaterialTheme.typography.titleMedium) }
+      }
       item(key = "all") {
         FolderTile("Alle", library.items.size, library.items.first(), loader) { onOpenFolder(null) }
       }
@@ -252,11 +265,13 @@ fun FolderGridScreen(
   overrideItems: List<MediaItem>? = null,
   /** Scene times of video hits (seconds), shown on the cell. */
   times: Map<Long, Double> = emptyMap(),
+  titleOverride: String? = null,
+  barActions: @Composable () -> Unit = {},
 ) {
   val library by viewModel.library.collectAsState()
   val loader = rememberGalleryImageLoader()
   val title =
-    when (bucketId) {
+    titleOverride ?: when (bucketId) {
       null -> "Alle"
       MediaLibrary.FAVORITES -> "Favoriten"
       else -> library.folders.firstOrNull { it.bucketId == bucketId }?.name ?: ""
@@ -289,6 +304,7 @@ fun FolderGridScreen(
               Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
             }
           },
+          actions = { barActions() },
         )
       } else {
         TopAppBar(

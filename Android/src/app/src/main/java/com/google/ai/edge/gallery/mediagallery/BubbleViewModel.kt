@@ -40,7 +40,12 @@ import kotlinx.coroutines.withContext
 @HiltViewModel
 class BubbleViewModel
 @Inject
-constructor(private val api: MediaSearchApi, private val idStore: MediaIdStore, private val repository: MediaRepository) :
+constructor(
+  private val api: MediaSearchApi,
+  private val idStore: MediaIdStore,
+  private val repository: MediaRepository,
+  private val albumRepo: AlbumRepository,
+) :
   ViewModel() {
   var state by mutableStateOf<Loadable<List<Bubble>>>(Loadable.Idle)
     private set
@@ -115,6 +120,16 @@ constructor(private val api: MediaSearchApi, private val idStore: MediaIdStore, 
     focus = level().indexOfFirst { it.key == key }.coerceAtLeast(0)
     page = 0
     return true
+  }
+
+  /** Shown after creating an album (success or error). */
+  var message by mutableStateOf<String?>(null)
+
+  /** Returns true when the album exists; moving files for a folder album is the screen's part. */
+  suspend fun createAlbum(bubble: Bubble, name: String, folder: Boolean): Boolean {
+    val (album, error) = albumRepo.create(bubble.key, name.trim(), folder)
+    message = error ?: if (folder) "Ordner \"${album!!.name}\" angelegt." else "Album \"${album!!.name}\" angelegt."
+    return album != null
   }
 
   fun rename(bubble: Bubble, name: String) {

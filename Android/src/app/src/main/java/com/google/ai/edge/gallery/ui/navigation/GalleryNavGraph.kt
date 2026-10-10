@@ -92,6 +92,14 @@ import com.google.ai.edge.gallery.mediagallery.AnalysisViewModel
 import com.google.ai.edge.gallery.mediagallery.CategoriesScreen
 import com.google.ai.edge.gallery.mediagallery.CleanupScreen
 import com.google.ai.edge.gallery.mediagallery.BubbleScreen
+import com.google.ai.edge.gallery.mediagallery.PendingMovesBanner
+import com.google.ai.edge.gallery.mediagallery.rememberMediaActions
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.mediagallery.BubbleViewModel
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -123,6 +131,7 @@ private const val ROUTE_SETTINGS = "settings"
 private const val ROUTE_CLEANUP = "cleanup"
 private const val ROUTE_CATEGORIES = "categories"
 private const val ROUTE_MAP = "map3d"
+private const val ROUTE_ALBUM = "album"
 private const val ROUTE_MODEL_LIST = "model_list"
 private const val ROUTE_MODEL = "route_model"
 private const val ROUTE_BENCHMARK = "benchmark"
@@ -224,9 +233,23 @@ fun GalleryNavHost(
     // Gallery: folders, folder grid, full screen viewer, settings.
     composable(route = ROUTE_GALLERY) {
       MediaPermissionGate(galleryViewModel) {
+        val albums by galleryViewModel.albums.collectAsState()
+        val pending by galleryViewModel.pendingMoves.collectAsState()
+        val library by galleryViewModel.library.collectAsState()
+        val actions = rememberMediaActions(onChanged = { galleryViewModel.reloadLibrary() })
         FoldersScreen(
           viewModel = galleryViewModel,
           onOpenFolder = { navController.navigate("$ROUTE_FOLDER/${it ?: ALL_BUCKETS}") },
+          albums = albums,
+          onOpenAlbum = { navController.navigate("$ROUTE_ALBUM/$it") },
+          banner = {
+            val targets = pending.mapNotNull { (id, path) -> library.item(id)?.let { it to path } }.toMap()
+            if (targets.isNotEmpty()) {
+              PendingMovesBanner(targets.size) {
+                actions.moveEach(targets) { moved -> galleryViewModel.clearPending(moved.map { it.id }) }
+              }
+            }
+          },
           actions = {
             IconButton(onClick = { navController.navigate("$ROUTE_FOLDER/$ALL_BUCKETS") }) {
               Icon(Icons.Filled.Search, contentDescription = "Suchen")
@@ -277,6 +300,7 @@ fun GalleryNavHost(
             onQuery = { galleryViewModel.search(it, bucketId) },
             onEverywhere = { galleryViewModel.setEverywhere(it, bucketId) },
             onClear = { galleryViewModel.clearSearch() },
+            onOnlyBubbles = { galleryViewModel.setOnlyBubbles(it, bucketId) },
           )
         },
         overrideItems = search.results?.mapNotNull { library.item(it.id) },
@@ -321,6 +345,53 @@ fun GalleryNavHost(
             Icon(Icons.Filled.ImageSearch, contentDescription = "Ähnliche finden", tint = Color.White)
           }
         },
+      )
+    }
+
+    composable(
+      route = "$ROUTE_ALBUM/{albumId}",
+      arguments = listOf(navArgument("albumId") { type = NavType.StringType }),
+    ) { entry ->
+      val albumId = entry.arguments?.getString("albumId") ?: ""
+      val albums by galleryViewModel.albums.collectAsState()
+      val album = albums.firstOrNull { it.first.id == albumId }?.first
+      var items by remember { mutableStateOf<List<com.google.ai.edge.gallery.mediagallery.MediaItem>?>(null) }
+      var failed by remember { mutableStateOf(false) }
+      var confirmDelete by remember { mutableStateOf(false) }
+      val scope = rememberCoroutineScope()
+      LaunchedEffect(albumId) {
+        items = galleryViewModel.albumItems(albumId)
+        failed = items == null
+      }
+      if (confirmDelete) {
+        AlertDialog(
+          onDismissRequest = { confirmDelete = false },
+          title = { Text("Album löschen?") },
+          text = { Text("Nur das Album verschwindet, die Fotos und Videos bleiben, wo sie sind.") },
+          confirmButton = {
+            TextButton(onClick = {
+              confirmDelete = false
+              scope.launch { if (galleryViewModel.deleteAlbum(albumId)) navController.navigateUp() }
+            }) { Text("Löschen") }
+          },
+          dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Abbrechen") } },
+        )
+      }
+      FolderGridScreen(
+        viewModel = galleryViewModel,
+        bucketId = null,
+        onOpenItem = { item ->
+          galleryViewModel.customList = items.orEmpty()
+          navController.navigate("$ROUTE_VIEWER/$CUSTOM_LIST/${item.id}")
+        },
+        onBack = { navController.navigateUp() },
+        header = {
+          if (failed) Text("morgenschiss ist nicht erreichbar, die Mitglieder kommen von dort.", modifier = Modifier.padding(16.dp))
+          else if (items == null) LinearProgressIndicator(Modifier.fillMaxWidth())
+        },
+        overrideItems = items.orEmpty(),
+        titleOverride = album?.name ?: "Album",
+        barActions = { IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Album löschen") } },
       )
     }
 

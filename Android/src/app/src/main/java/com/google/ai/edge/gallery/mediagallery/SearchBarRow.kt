@@ -54,6 +54,7 @@ fun SearchBarRow(
   onEverywhere: (Boolean) -> Unit,
   onClear: () -> Unit,
   focusRequester: FocusRequester? = null,
+  onOnlyBubbles: ((Boolean) -> Unit)? = null,
 ) {
   val keyboard = LocalSoftwareKeyboardController.current
   Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
@@ -80,6 +81,14 @@ fun SearchBarRow(
         Spacer(Modifier.width(8.dp))
         FilterChip(selected = state.everywhere, onClick = { onEverywhere(!state.everywhere) }, label = { Text("Überall") })
       }
+    }
+    if (onOnlyBubbles != null && state.query.isNotBlank()) {
+      FilterChip(
+        selected = state.onlyBubbles,
+        onClick = { onOnlyBubbles(!state.onlyBubbles) },
+        label = { Text("Nur passende Bubbles") },
+        modifier = Modifier.padding(start = 4.dp),
+      )
     }
     state.message?.let {
       Text(

@@ -71,6 +71,17 @@ class MediaActions(
     }
   }
 
+  /** Several files to different folders, with one confirmation for all. */
+  fun moveEach(targets: Map<MediaItem, String>, after: suspend (List<MediaItem>) -> Unit = {}) {
+    if (targets.isEmpty()) return
+    launch(MediaStore.createWriteRequest(context.contentResolver, targets.keys.map { it.uri })) {
+      val moved = withContext(Dispatchers.IO) { targets.filter { (item, path) -> moveNow(listOf(item), path.trim('/') + "/") == 0 }.keys.toList() }
+      if (moved.size < targets.size) Toast.makeText(context, "${targets.size - moved.size} ließen sich nicht verschieben.", Toast.LENGTH_LONG).show()
+      after(moved)
+      onChanged()
+    }
+  }
+
   /** Returns how many files failed. */
   private fun moveNow(items: List<MediaItem>, target: String): Int =
     items.count { item ->

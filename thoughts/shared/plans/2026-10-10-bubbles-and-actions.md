@@ -24,9 +24,9 @@ verschoben), sonst Album in der App. Keine Farbe pro App. Die Galerie braucht L�
 - [x] 3.4 Unter-Bubbles betreten und zurück
 
 ### Phase 4: Ordner und Alben aus Bubbles
-- [ ] 4.1 Album in der App aus einer Bubble (Kern gespeichert), neue Medien landen automatisch dort
-- [ ] 4.2 Option "als echter Ordner": Dateien nach Pictures/<Name>/ verschieben, neue später auch
-- [ ] 4.3 Tags in der Suche (Schalter "nur passende Bubbles")
+- [x] 4.1 Album in der App aus einer Bubble (Kern gespeichert), neue Medien landen automatisch dort
+- [x] 4.2 Option "als echter Ordner": Dateien nach Pictures/<Name>/ verschieben, neue später auch
+- [x] 4.3 Tags in der Suche (Schalter "nur passende Bubbles")
 
 ### Phase 5: Gesprochenes durchsuchbar
 - [ ] 5.1 Videos beim Abgleich transkribieren, Text am Server, Suche mit Treffern im Gesagten
@@ -36,3 +36,4 @@ verschoben), sonst Album in der App. Keine Farbe pro App. Die Galerie braucht L�
 - **Phase 1**: Löschen geht in den Android-Papierkorb (30 Tage), nicht endgültig; Android fragt bei fremden Dateien selbst. Im Emulator geprüft: Favorit (is_favorite=1), Verschieben nach Pictures/Test/, Papierkorb, Mehrfachauswahl.
 - **Phase 2**: Server KuhlerBuhler/Interface#813 gemergt; Review-Fix: Namen werden global zugeordnet (Schwelle 0,95), Umbenennen löscht nur den eigenen Namen.
 - **Phase 3**: Statt der alten 3D-Punktwolke (Menüpunkt jetzt "Bubbles"). Mit 12 Test-Bubbles im Emulator geprüft: Fokus-Animation per Pfeil, Sprechblasen, Leiste hochziehen, Vorschau blättern hebt den Punkt hervor.
+- **Phase 4**: Server KuhlerBuhler/Interface#814 gemergt (Review-Fix: Schwelle gegen den eigenen Kern, Alben überschneiden sich nicht). Neue Dateien für Ordner-Alben werden beim Abgleich vorgemerkt; verschieben geht nur mit Rückfrage von Android, deshalb ein Banner "Einsortieren" auf der Startseite statt stillem Verschieben im Hintergrund.
