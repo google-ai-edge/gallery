@@ -37,6 +37,9 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -89,12 +92,19 @@ fun MediaViewerScreen(
   var chrome by remember { mutableStateOf(true) }
   val context = LocalContext.current
   val current = items[pager.currentPage.coerceIn(0, items.lastIndex)]
+  val players = remember { mutableStateMapOf<Long, ExoPlayer>() }
+  val transcript: TranscriptViewModel = hiltViewModel()
+  var showTranscript by remember { mutableStateOf(false) }
+  LaunchedEffect(current.id) {
+    transcript.show(current)
+    if (!current.isVideo) showTranscript = false
+  }
 
   Box(Modifier.fillMaxSize().background(Color.Black)) {
     HorizontalPager(state = pager, beyondViewportPageCount = 1, key = { items[it].id }) { page ->
       val item = items[page]
       if (item.isVideo) {
-        VideoPage(item, active = page == pager.currentPage)
+        VideoPage(item, active = page == pager.currentPage, players)
       } else {
         ZoomableImage(item, onTap = { chrome = !chrome })
       }
@@ -110,11 +120,25 @@ fun MediaViewerScreen(
             Text(dateFormat.format(Date(current.takenAt)), color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall)
           }
           actions(current)
+          if (current.isVideo && transcript.available) {
+            IconButton(onClick = { showTranscript = !showTranscript }) {
+              Icon(Icons.Filled.Subtitles, "Transkript", tint = Color.White)
+            }
+          }
           IconButton(onClick = { context.startActivity(shareIntent(current)) }) {
             Icon(Icons.Filled.Share, "Teilen", tint = Color.White)
           }
         }
       }
+    }
+    if (showTranscript && current.isVideo) {
+      TranscriptPanel(
+        viewModel = transcript,
+        item = current,
+        onSeek = { sec -> players[current.id]?.let { it.seekTo((sec * 1000).toLong()); it.play() } },
+        onClose = { showTranscript = false },
+        modifier = Modifier.align(Alignment.BottomCenter),
+      )
     }
   }
 }
@@ -152,7 +176,7 @@ private fun ZoomableImage(item: MediaItem, onTap: () -> Unit) {
 
 @OptIn(UnstableApi::class)
 @Composable
-private fun VideoPage(item: MediaItem, active: Boolean) {
+private fun VideoPage(item: MediaItem, active: Boolean, players: MutableMap<Long, ExoPlayer>) {
   val context = LocalContext.current
   val player = remember(item.id) {
     ExoPlayer.Builder(context).build().apply {
@@ -160,7 +184,13 @@ private fun VideoPage(item: MediaItem, active: Boolean) {
       prepare()
     }
   }
-  DisposableEffect(player) { onDispose { player.release() } }
+  DisposableEffect(player) {
+    players[item.id] = player
+    onDispose {
+      players.remove(item.id)
+      player.release()
+    }
+  }
   LaunchedEffect(active) { if (active) player.play() else player.pause() }
   AndroidView(
     factory = { PlayerView(it).apply { this.player = player } },

@@ -84,7 +84,14 @@ import com.google.ai.edge.gallery.mediagallery.OfflineIndexSection
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ImageSearch
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Text
+import com.google.ai.edge.gallery.mediagallery.AnalysisViewModel
+import com.google.ai.edge.gallery.mediagallery.CategoriesScreen
+import com.google.ai.edge.gallery.mediagallery.CleanupScreen
+import com.google.ai.edge.gallery.mediagallery.MapScreen
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.graphics.Color
@@ -110,6 +117,9 @@ private const val ALL_BUCKETS = -1L
 /** Viewer over the current search results. */
 private const val SEARCH_RESULTS = -2L
 private const val ROUTE_SETTINGS = "settings"
+private const val ROUTE_CLEANUP = "cleanup"
+private const val ROUTE_CATEGORIES = "categories"
+private const val ROUTE_MAP = "map3d"
 private const val ROUTE_MODEL_LIST = "model_list"
 private const val ROUTE_MODEL = "route_model"
 private const val ROUTE_BENCHMARK = "benchmark"
@@ -218,8 +228,18 @@ fun GalleryNavHost(
             IconButton(onClick = { navController.navigate("$ROUTE_FOLDER/$ALL_BUCKETS") }) {
               Icon(Icons.Filled.Search, contentDescription = "Suchen")
             }
-            IconButton(onClick = { navController.navigate(ROUTE_SETTINGS) }) {
-              Icon(Icons.Filled.Settings, contentDescription = "Einstellungen")
+            var menu by remember { mutableStateOf(false) }
+            IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Mehr") }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+              listOf(
+                  "Aufräumen" to ROUTE_CLEANUP,
+                  "Kategorien" to ROUTE_CATEGORIES,
+                  "Analyse 3D" to ROUTE_MAP,
+                  "Einstellungen" to ROUTE_SETTINGS,
+                )
+                .forEach { (label, route) ->
+                  DropdownMenuItem(text = { Text(label) }, onClick = { menu = false; navController.navigate(route) })
+                }
             }
           },
         )
@@ -291,6 +311,22 @@ fun GalleryNavHost(
             Icon(Icons.Filled.ImageSearch, contentDescription = "Ähnliche finden", tint = Color.White)
           }
         },
+      )
+    }
+
+    composable(route = ROUTE_CLEANUP) {
+      CleanupScreen(viewModel = hiltViewModel<AnalysisViewModel>(), onBack = { navController.navigateUp() })
+    }
+
+    composable(route = ROUTE_CATEGORIES) {
+      CategoriesScreen(viewModel = hiltViewModel<AnalysisViewModel>(), onBack = { navController.navigateUp() })
+    }
+
+    composable(route = ROUTE_MAP) {
+      MapScreen(
+        viewModel = hiltViewModel<AnalysisViewModel>(),
+        onBack = { navController.navigateUp() },
+        onOpen = { navController.navigate("$ROUTE_VIEWER/$ALL_BUCKETS/${it.id}") },
       )
     }
 
