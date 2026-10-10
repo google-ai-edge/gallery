@@ -29,7 +29,7 @@ verschoben), sonst Album in der App. Keine Farbe pro App. Die Galerie braucht L�
 - [x] 4.3 Tags in der Suche (Schalter "nur passende Bubbles")
 
 ### Phase 5: Gesprochenes durchsuchbar
-- [ ] 5.1 Videos beim Abgleich transkribieren, Text am Server, Suche mit Treffern im Gesagten
+- [x] 5.1 Videos beim Abgleich transkribieren, Text am Server, Suche mit Treffern im Gesagten
 
 ## Implementation Log
 
@@ -37,3 +37,4 @@ verschoben), sonst Album in der App. Keine Farbe pro App. Die Galerie braucht L�
 - **Phase 2**: Server KuhlerBuhler/Interface#813 gemergt; Review-Fix: Namen werden global zugeordnet (Schwelle 0,95), Umbenennen löscht nur den eigenen Namen.
 - **Phase 3**: Statt der alten 3D-Punktwolke (Menüpunkt jetzt "Bubbles"). Mit 12 Test-Bubbles im Emulator geprüft: Fokus-Animation per Pfeil, Sprechblasen, Leiste hochziehen, Vorschau blättern hebt den Punkt hervor.
 - **Phase 4**: Server KuhlerBuhler/Interface#814 gemergt (Review-Fix: Schwelle gegen den eigenen Kern, Alben überschneiden sich nicht). Neue Dateien für Ordner-Alben werden beim Abgleich vorgemerkt; verschieben geht nur mit Rückfrage von Android, deshalb ein Banner "Einsortieren" auf der Startseite statt stillem Verschieben im Hintergrund.
+- **Phase 5**: Server KuhlerBuhler/Interface#815 gemergt (Review-Fix: int8 im Speicher, Zähler getrennt, Text bleibt bei fehlendem Mac "pending"). Abgleich transkribiert jedes Video einmal nach den Szenen; Videos ohne Tonspur werden nur lokal als erledigt markiert. Gegen echten Server nicht getestet.

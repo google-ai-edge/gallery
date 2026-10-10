@@ -44,12 +44,15 @@ import kotlinx.serialization.json.decodeFromJsonElement
 
 @Serializable data class IndexResponse(val indexed: List<String> = emptyList(), val failed: List<IndexFailure> = emptyList())
 
-@Serializable data class IdsResponse(val ids: List<String> = emptyList(), val count: Int = 0)
+@Serializable data class IdsResponse(val ids: List<String> = emptyList(), val count: Int = 0, val speech: Map<String, Int> = emptyMap())
 
 /** [t]: for a video, where in it the best matching scene is. */
 @Serializable data class Hit(val id: String, val score: Double, val t: Double? = null)
 
-@Serializable data class HitsResponse(val results: List<Hit> = emptyList())
+/** A passage said in a video: [t] is where it starts. */
+@Serializable data class SpokenHit(val id: String, val t: Double, val text: String, val score: Double)
+
+@Serializable data class HitsResponse(val results: List<Hit> = emptyList(), val spoken: List<SpokenHit> = emptyList())
 
 /** Optional narrowing shared by search, similar, classify and map. */
 @Serializable data class Scope(val folder: String? = null, val folderPrefix: String? = null, val ids: List<String>? = null)
@@ -137,6 +140,8 @@ import kotlinx.serialization.json.decodeFromJsonElement
   val text: String? = null,
   val sentences: List<Sentence> = emptyList(),
   val error: String? = null,
+  /** Only with an id: whether the server stored the speech. */
+  val saved: Boolean? = null,
 )
 
 /** Typed wrappers for /api/mediasearch (Interface docs/mediasearch/api.md). */
@@ -201,8 +206,9 @@ class MediaSearchApi @Inject constructor(val client: MorgenschissClient) {
 
   suspend fun apkVersion(): ApiResult<ApkVersion> = client.call("/api/mediasearch/apk/version").decode()
 
-  suspend fun transcribe(audio: ByteArray, contentType: String = "audio/mp4"): ApiResult<TranscribeStart> =
-    client.upload("/api/mediasearch/transcribe", contentType, audio).decode()
+  /** With [videoId] the server keeps what is said, so the search finds it. */
+  suspend fun transcribe(audio: ByteArray, videoId: String? = null, contentType: String = "audio/mp4"): ApiResult<TranscribeStart> =
+    client.upload("/api/mediasearch/transcribe" + (videoId?.let { "?id=" + java.net.URLEncoder.encode(it, "UTF-8") } ?: ""), contentType, audio).decode()
 
   suspend fun transcribeStatus(jobId: String): ApiResult<TranscribeStatus> =
     client.call("/api/mediasearch/transcribe/$jobId").decode()

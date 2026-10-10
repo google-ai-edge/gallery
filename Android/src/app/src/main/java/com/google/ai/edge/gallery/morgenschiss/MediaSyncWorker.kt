@@ -106,11 +106,12 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
     // 2. compare with the server
     report("Abgleich mit morgenschiss", 0, 0)
-    val serverIds =
+    val idsResponse =
       when (val r = api.ids()) {
-        is ApiResult.Ok -> r.value.ids.toHashSet()
+        is ApiResult.Ok -> r.value
         else -> return outcome(r)
       }
+    val serverIds = idsResponse.ids.toHashSet()
     val rows = store.all()
     plan = SyncPlanner.plan(files, rows, serverIds)
     store.markIndexed(plan.alreadyIndexed.map { it.mediaId }) { byId.getValue(it).folder }
@@ -168,6 +169,15 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
       }
       // copies share the fingerprint and therefore the scenes
       store.markScenes(store.all().values.filter { it.fingerprint == fp }.map { it.mediaId }, MediaIdStore.SCENE_VERSION)
+    }
+
+    // 5. what is said in videos, transcribed on the Mac and kept by the server for the search
+    val speechVideos = SyncPlanner.needSpeech(files, store.all(), idsResponse.speech.keys)
+    for ((i, f) in speechVideos.withIndex()) {
+      if (isStopped) return Result.retry()
+      report("Gesprochenes in Videos", i, speechVideos.size)
+      val stop = transcribeVideo(api, store, byId.getValue(f.mediaId))
+      if (stop != null) return stop
     }
 
     report("Fertig", plan.upload.size, plan.upload.size)
@@ -245,6 +255,51 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
       }
     }
     albums.addPending(moves)
+  }
+
+  /**
+   * Sends one video's sound with its id and waits for the transcript; the server keeps it.
+   * Returns a [Result] when the sync has to stop (Mac away, limits).
+   */
+  private suspend fun transcribeVideo(api: MediaSearchApi, store: MediaIdStore, item: MediaItem): Result? {
+    val rows = store.all()
+    val fp = rows[item.id]?.fingerprint ?: return null
+    val copies = rows.values.filter { it.fingerprint == fp }.map { it.mediaId }
+    val done = { store.markSpeech(copies, MediaIdStore.SPEECH_VERSION) }
+    // the server takes at most an hour of sound
+    if (item.durationMs > 60 * 60 * 1000L) return null.also { done() }
+    val audio = java.io.File(applicationContext.cacheDir, "speech-${item.id}.m4a")
+    try {
+      if (!AudioExtractor.extract(applicationContext, item.uri, audio) || audio.length() > 60L * 1024 * 1024) return null.also { done() }
+      val bytes = audio.readBytes()
+      var start = api.transcribe(bytes, fp)
+      if (start is ApiResult.Busy) {
+        delay(30_000)
+        start = api.transcribe(bytes, fp)
+      }
+      val job =
+        when (start) {
+          is ApiResult.Ok -> start.value.jobId
+          is ApiResult.Failed -> return null // e.g. not indexed any more: try again next sync
+          else -> return outcome(start)
+        }
+      val deadline = System.currentTimeMillis() + maxOf(10 * 60_000L, item.durationMs * 2)
+      while (System.currentTimeMillis() < deadline) {
+        delay(3_000)
+        when (val st = api.transcribeStatus(job)) {
+          is ApiResult.Ok ->
+            when (st.value.status) {
+              "done" -> return null.also { if (st.value.saved != false) done() }
+              "error" -> return if (st.value.error == "stt_unavailable") Result.retry() else null.also { done() }
+            }
+          is ApiResult.Unavailable -> {}
+          else -> return outcome(st)
+        }
+      }
+      return null
+    } finally {
+      audio.delete()
+    }
   }
 
   /** Like [send], for scenes: a bad scene is skipped, never the whole video. */
