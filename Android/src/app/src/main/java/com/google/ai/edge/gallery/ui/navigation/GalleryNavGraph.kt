@@ -244,6 +244,7 @@ fun GalleryNavHost(
           albums = albums,
           onOpenAlbum = { navController.navigate("$ROUTE_ALBUM/$it") },
           banner = {
+            com.google.ai.edge.gallery.mediagallery.SearchModelBanner(modelManagerViewModel)
             var targets by remember { mutableStateOf<Map<com.google.ai.edge.gallery.mediagallery.MediaItem, String>>(emptyMap()) }
             LaunchedEffect(pending, library) { targets = galleryViewModel.validMoves(pending, library) }
             if (targets.isNotEmpty()) {

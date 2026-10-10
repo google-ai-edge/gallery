@@ -47,6 +47,10 @@ import kotlinx.serialization.json.decodeFromJsonElement
 @Serializable data class IdsResponse(val ids: List<String> = emptyList(), val count: Int = 0, val speech: Map<String, Int> = emptyMap())
 
 /** [t]: for a video, where in it the best matching scene is. */
+@Serializable data class VectorItem(val key: String, val id: String, val kind: String, val t: Double? = null, val tokens: Int = 0, val q: String, val s: Float)
+
+@Serializable data class VectorsPage(val items: List<VectorItem> = emptyList(), val next: String? = null, val total: Int = 0, val at: String? = null)
+
 @Serializable data class Hit(val id: String, val score: Double, val t: Double? = null)
 
 /** A passage said in a video: [t] is where it starts. */
@@ -158,6 +162,16 @@ class MediaSearchApi @Inject constructor(val client: MorgenschissClient) {
     }
 
   suspend fun ids(): ApiResult<IdsResponse> = client.call("/api/mediasearch/ids", timeoutMs = 30_000).decode()
+
+  /** One page of the user's vectors (2000 are ~3 MB of JSON). */
+  suspend fun vectors(after: String?, since: String?, limit: Int = 2000): ApiResult<VectorsPage> {
+    val q = buildList {
+      add("limit=$limit")
+      if (after != null) add("after=" + java.net.URLEncoder.encode(after, "UTF-8"))
+      if (since != null) add("since=" + java.net.URLEncoder.encode(since, "UTF-8"))
+    }
+    return client.call("/api/mediasearch/vectors?" + q.joinToString("&"), timeoutMs = 60_000).decode()
+  }
 
   /** A batch of 16 photos takes ~11 s on the Mac. */
   suspend fun index(items: List<IndexItem>): ApiResult<IndexResponse> =

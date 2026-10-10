@@ -58,6 +58,8 @@ interface MediaSyncEntryPoint {
   fun mediaRepository(): MediaRepository
 
   fun albums(): com.google.ai.edge.gallery.mediagallery.AlbumRepository
+
+  fun vectors(): VectorStore
 }
 
 /**
@@ -129,6 +131,13 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
     }
     if (!massDelete) store.delete(plan.goneRows.map { it.mediaId })
 
+    // the phone searches in its own copy of the vectors: fetch what is already there first,
+    // so search works before a long upload ends
+    val vectors = deps.vectors()
+    report("Suchdaten laden", 0, 0)
+    VectorSync.pull(applicationContext, api, vectors)?.let { Log.w(TAG, "vector download failed: $it") }
+    if (!massDelete) vectors.keepOnly(store.all().values.map { it.fingerprint }.toSet())
+
     // 3. upload, one batch at a time (a parallel batch would get 429 index_busy)
     val batches = SyncPlanner.batches(plan.upload)
     var done = 0
@@ -173,6 +182,9 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
     // Videos are not transcribed in bulk (hundreds of GB would take hours and much storage);
     // a transcript is made on demand from the viewer, which also stores it for the search.
+
+    report("Suchdaten laden", 0, 0)
+    VectorSync.pull(applicationContext, api, vectors)?.let { return outcome(it) }
 
     report("Fertig", plan.upload.size, plan.upload.size)
     return Result.success(workDataOf(KEY_UPLOADED to done))

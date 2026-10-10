@@ -170,7 +170,7 @@ fun FoldersScreen(
       horizontalArrangement = Arrangement.spacedBy(12.dp),
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-      item(key = "banner", span = { GridItemSpan(maxLineSpan) }) { banner() }
+      item(key = "banner", span = { GridItemSpan(maxLineSpan) }) { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { banner() } }
       if (albums.isNotEmpty()) {
         item(key = "albums-h", span = { GridItemSpan(maxLineSpan) }) { Text("Alben", style = MaterialTheme.typography.titleMedium) }
         items(albums, key = { "album-" + it.first.id }) { (album, cover) ->
