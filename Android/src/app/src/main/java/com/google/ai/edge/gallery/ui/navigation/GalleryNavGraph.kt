@@ -73,23 +73,53 @@ import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.isLegacyTasks
 import com.google.ai.edge.gallery.firebaseAnalytics
-import com.google.ai.edge.gallery.ui.benchmark.BenchmarkScreen
+import com.google.ai.edge.gallery.mediagallery.FolderGridScreen
+import com.google.ai.edge.gallery.mediagallery.FoldersScreen
+import com.google.ai.edge.gallery.mediagallery.GalleryViewModel
+import com.google.ai.edge.gallery.mediagallery.MediaPermissionGate
+import com.google.ai.edge.gallery.mediagallery.MediaViewerScreen
+import com.google.ai.edge.gallery.mediagallery.SearchBarRow
+import com.google.ai.edge.gallery.mediagallery.SettingsScreen
+import com.google.ai.edge.gallery.mediagallery.OfflineIndexSection
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ImageSearch
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Text
+import com.google.ai.edge.gallery.mediagallery.AnalysisViewModel
+import com.google.ai.edge.gallery.mediagallery.CategoriesScreen
+import com.google.ai.edge.gallery.mediagallery.CleanupScreen
+import com.google.ai.edge.gallery.mediagallery.MapScreen
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.graphics.Color
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.LocalTestAllowlistDialog
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
 import com.google.ai.edge.gallery.ui.common.chat.ModelDownloadStatusInfoPanel
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
-import com.google.ai.edge.gallery.ui.home.HomeScreen
 import com.google.ai.edge.gallery.ui.modelmanager.GlobalModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.MODEL_ALLOWLIST_TEST_FILE_PATH
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
-import com.google.ai.edge.gallery.ui.notifications.NotificationsScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGGalleryNavGraph"
 private const val ROUTE_HOMESCREEN = "homepage"
+private const val ROUTE_GALLERY = "gallery"
+private const val ROUTE_FOLDER = "folder"
+private const val ROUTE_VIEWER = "viewer"
+/** bucketId placeholder for "all media" in routes. */
+private const val ALL_BUCKETS = -1L
+/** Viewer over the current search results. */
+private const val SEARCH_RESULTS = -2L
+private const val ROUTE_SETTINGS = "settings"
+private const val ROUTE_CLEANUP = "cleanup"
+private const val ROUTE_CATEGORIES = "categories"
+private const val ROUTE_MAP = "map3d"
 private const val ROUTE_MODEL_LIST = "model_list"
 private const val ROUTE_MODEL = "route_model"
 private const val ROUTE_BENCHMARK = "benchmark"
@@ -150,6 +180,7 @@ fun GalleryNavHost(
   modifier: Modifier = Modifier,
   modelManagerViewModel: ModelManagerViewModel,
   tosViewModel: TosViewModel = hiltViewModel(),
+  galleryViewModel: GalleryViewModel = hiltViewModel(),
 ) {
   val lifecycleOwner = LocalLifecycleOwner.current
   var showModelManager by remember { mutableStateOf(false) }
@@ -183,28 +214,127 @@ fun GalleryNavHost(
 
   NavHost(
     navController = navController,
-    startDestination = ROUTE_HOMESCREEN,
+    startDestination = ROUTE_GALLERY,
     enterTransition = { EnterTransition.None },
     exitTransition = { ExitTransition.None },
   ) {
-    // Home screen.
-    composable(route = ROUTE_HOMESCREEN) {
-      HomeScreen(
-        modelManagerViewModel = modelManagerViewModel,
-        tosViewModel = tosViewModel,
-        enableAnimation = enableHomeScreenAnimation,
-        navigateToTaskScreen = { task ->
-          pickedTask = task
-          enableModelListAnimation = true
-          navController.navigate(ROUTE_MODEL_LIST)
-          firebaseAnalytics?.logEvent(
-            GalleryEvent.CAPABILITY_SELECT.id,
-            Bundle().apply { putString("capability_name", task.id) },
+    // Gallery: folders, folder grid, full screen viewer, settings.
+    composable(route = ROUTE_GALLERY) {
+      MediaPermissionGate(galleryViewModel) {
+        FoldersScreen(
+          viewModel = galleryViewModel,
+          onOpenFolder = { navController.navigate("$ROUTE_FOLDER/${it ?: ALL_BUCKETS}") },
+          actions = {
+            IconButton(onClick = { navController.navigate("$ROUTE_FOLDER/$ALL_BUCKETS") }) {
+              Icon(Icons.Filled.Search, contentDescription = "Suchen")
+            }
+            var menu by remember { mutableStateOf(false) }
+            IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Mehr") }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+              listOf(
+                  "Aufräumen" to ROUTE_CLEANUP,
+                  "Kategorien" to ROUTE_CATEGORIES,
+                  "Analyse 3D" to ROUTE_MAP,
+                  "Einstellungen" to ROUTE_SETTINGS,
+                )
+                .forEach { (label, route) ->
+                  DropdownMenuItem(text = { Text(label) }, onClick = { menu = false; navController.navigate(route) })
+                }
+            }
+          },
+        )
+      }
+    }
+
+    composable(
+      route = "$ROUTE_FOLDER/{bucketId}",
+      arguments = listOf(navArgument("bucketId") { type = NavType.LongType }),
+    ) { entry ->
+      val bucketArg = entry.arguments?.getLong("bucketId") ?: ALL_BUCKETS
+      val bucketId = bucketArg.takeIf { it != ALL_BUCKETS }
+      val search by galleryViewModel.search.collectAsState()
+      val leave = {
+        galleryViewModel.clearSearch()
+        navController.navigateUp()
+      }
+      BackHandler(enabled = search.query.isNotEmpty()) { galleryViewModel.clearSearch() }
+      FolderGridScreen(
+        viewModel = galleryViewModel,
+        bucketId = bucketId,
+        onOpenItem = {
+          val from = if (search.results != null) SEARCH_RESULTS else bucketArg
+          navController.navigate("$ROUTE_VIEWER/$from/${it.id}")
+        },
+        onBack = { leave() },
+        header = {
+          SearchBarRow(
+            state = search,
+            showEverywhere = bucketId != null,
+            onQuery = { galleryViewModel.search(it, bucketId) },
+            onEverywhere = { galleryViewModel.setEverywhere(it, bucketId) },
+            onClear = { galleryViewModel.clearSearch() },
           )
         },
-        onModelsClicked = { navController.navigate(ROUTE_MODEL_MANAGER) },
-        onNotificationsClicked = { navController.navigate(ROUTE_NOTIFICATIONS) },
-        modifier = modifier,
+        overrideItems = search.results,
+      )
+    }
+
+    composable(
+      route = "$ROUTE_VIEWER/{bucketId}/{mediaId}",
+      arguments =
+        listOf(
+          navArgument("bucketId") { type = NavType.LongType },
+          navArgument("mediaId") { type = NavType.LongType },
+        ),
+    ) { entry ->
+      val bucketArg = entry.arguments?.getLong("bucketId") ?: ALL_BUCKETS
+      val mediaId = entry.arguments?.getLong("mediaId") ?: 0L
+      val library by galleryViewModel.library.collectAsState()
+      val search by galleryViewModel.search.collectAsState()
+      val items =
+        when (bucketArg) {
+          SEARCH_RESULTS -> search.results.orEmpty()
+          ALL_BUCKETS -> library.items
+          else -> library.itemsIn(bucketArg)
+        }
+      MediaViewerScreen(
+        items = items,
+        startId = mediaId,
+        onBack = { navController.navigateUp() },
+        actions = { item ->
+          IconButton(
+            onClick = {
+              galleryViewModel.similar(item)
+              navController.navigate("$ROUTE_FOLDER/$ALL_BUCKETS")
+            }
+          ) {
+            Icon(Icons.Filled.ImageSearch, contentDescription = "Ähnliche finden", tint = Color.White)
+          }
+        },
+      )
+    }
+
+    composable(route = ROUTE_CLEANUP) {
+      CleanupScreen(viewModel = hiltViewModel<AnalysisViewModel>(), onBack = { navController.navigateUp() })
+    }
+
+    composable(route = ROUTE_CATEGORIES) {
+      CategoriesScreen(viewModel = hiltViewModel<AnalysisViewModel>(), onBack = { navController.navigateUp() })
+    }
+
+    composable(route = ROUTE_MAP) {
+      MapScreen(
+        viewModel = hiltViewModel<AnalysisViewModel>(),
+        onBack = { navController.navigateUp() },
+        onOpen = { navController.navigate("$ROUTE_VIEWER/$ALL_BUCKETS/${it.id}") },
+      )
+    }
+
+    composable(route = ROUTE_SETTINGS) {
+      SettingsScreen(
+        viewModel = galleryViewModel,
+        onBack = { navController.navigateUp() },
+        extra = { OfflineIndexSection(modelManagerViewModel, galleryViewModel.localSearch) },
       )
     }
 
@@ -235,13 +365,7 @@ fun GalleryNavHost(
             modelManagerViewModel.selectModel(model)
             navController.navigate("$ROUTE_MODEL/${it.id}/${model.name}")
           },
-          onBenchmarkClicked = { model ->
-            firebaseAnalytics?.logEvent(
-              GalleryEvent.CAPABILITY_SELECT.id,
-              Bundle().apply { putString("capability_name", "benchmark_${model.name}") },
-            )
-            navController.navigate("$ROUTE_BENCHMARK/${model.name}")
-          },
+          onBenchmarkClicked = {},
           navigateUp = {
             enableHomeScreenAnimation = false
             navController.navigateUp()
@@ -384,45 +508,10 @@ fun GalleryNavHost(
         onModelSelected = { task, model ->
           navController.navigate("$ROUTE_MODEL/${task.id}/${model.name}")
         },
-        onBenchmarkClicked = { model ->
-          firebaseAnalytics?.logEvent(
-            GalleryEvent.CAPABILITY_SELECT.id,
-            Bundle().apply { putString("capability_name", "benchmark_${model.name}") },
-          )
-          navController.navigate("$ROUTE_BENCHMARK/${model.name}")
-        },
+        onBenchmarkClicked = {},
       )
     }
 
-    // Notifications page.
-    composable(
-      route = ROUTE_NOTIFICATIONS,
-      enterTransition = { slideUpEnter() },
-      exitTransition = { slideDownExit() },
-    ) {
-      NotificationsScreen(navigateUp = { navController.navigateUp() })
-    }
-
-    // Benchmark creation page.
-    composable(
-      route = "$ROUTE_BENCHMARK/{modelName}",
-      arguments = listOf(navArgument("modelName") { type = NavType.StringType }),
-      enterTransition = { slideEnter() },
-      exitTransition = { slideExit() },
-    ) { backStackEntry ->
-      val modelName = backStackEntry.arguments?.getString("modelName") ?: ""
-
-      modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
-        BenchmarkScreen(
-          initialModel = model,
-          modelManagerViewModel = modelManagerViewModel,
-          onBackClicked = {
-            enableModelListAnimation = false
-            navController.navigateUp()
-          },
-        )
-      }
-    }
   }
 
   // Shown on top of whichever screen is active, since the app may skip the home screen at launch

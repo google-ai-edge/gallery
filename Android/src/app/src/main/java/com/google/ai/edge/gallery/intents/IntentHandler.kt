@@ -26,7 +26,6 @@ import android.provider.CalendarContract.Instances
 import android.util.Log
 import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.core.net.toUri
-import com.google.ai.edge.gallery.notifications.NotificationScheduleManagerEntryPoint
 import com.google.ai.edge.gallery.proto.ScheduledNotification
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
@@ -356,19 +355,9 @@ object IntentHandler {
           notificationProtoBuilder.setRepeatDaily(params.repeat_daily)
         }
 
-        val entryPoint =
-          EntryPointAccessors.fromApplication(
-            context.applicationContext,
-            NotificationScheduleManagerEntryPoint::class.java,
-          )
-        val success =
-          entryPoint
-            .notificationScheduleManager()
-            .scheduleNotification(notificationProtoBuilder.build())
-        if (!success) {
-          return "failed"
-        }
-        return "succeeded"
+        // Notification scheduling is not part of the gallery fork.
+        notificationProtoBuilder.build()
+        return "failed"
       } else {
         Log.e(TAG, "Failed to parse schedule_notification parameters: $parameters")
         return "failed"
