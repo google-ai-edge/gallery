@@ -125,11 +125,16 @@ constructor(
   /** Shown after creating an album (success or error). */
   var message by mutableStateOf<String?>(null)
 
-  /** Returns true when the album exists; moving files for a folder album is the screen's part. */
-  suspend fun createAlbum(bubble: Bubble, name: String, folder: Boolean): Boolean {
+  /**
+   * Creates the album. For a folder album returns the local files that are its members (the
+   * server's best 90 %, each file only in its best album) and the folder they belong in.
+   */
+  suspend fun createAlbum(bubble: Bubble, name: String, folder: Boolean): Pair<List<MediaItem>, String>? {
     val (album, error) = albumRepo.create(bubble.key, name.trim(), folder)
     message = error ?: if (folder) "Ordner \"${album!!.name}\" angelegt." else "Album \"${album!!.name}\" angelegt."
-    return album != null
+    if (album == null || !folder) return null
+    val fps = albumRepo.members(album.id) ?: return null
+    return fps.mapNotNull { items[it] } to MediaActions.newFolderPath(album.name)
   }
 
   fun rename(bubble: Bubble, name: String) {

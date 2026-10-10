@@ -27,9 +27,14 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
+
+/** A file that matched a folder album, with what it looked like then, so the move is checked again. */
+@kotlinx.serialization.Serializable
+data class PendingMove(val path: String, val fingerprint: String, val fromPath: String)
 
 /**
  * Albums made from bubbles. The list is cached on the phone, so the start page shows it without
@@ -43,13 +48,13 @@ class AlbumRepository @Inject constructor(@ApplicationContext context: Context, 
 
   /** New files for folder albums: media id -> target relative path. Moving needs the user. */
   private val _pending = MutableStateFlow(readPending())
-  val pendingMoves: StateFlow<Map<Long, String>> = _pending.asStateFlow()
+  val pendingMoves: StateFlow<Map<Long, PendingMove>> = _pending.asStateFlow()
 
   private fun readCached(): List<Album> =
     runCatching { json.decodeFromString(ListSerializer(Album.serializer()), prefs.getString("list", "[]")!!) }.getOrDefault(emptyList())
 
-  private fun readPending(): Map<Long, String> =
-    runCatching { json.decodeFromString(MapSerializer(Long.serializer(), String.serializer()), prefs.getString("pending", "{}")!!) }.getOrDefault(emptyMap())
+  private fun readPending(): Map<Long, PendingMove> =
+    runCatching { json.decodeFromString(MapSerializer(Long.serializer(), PendingMove.serializer()), prefs.getString("pending", "{}")!!) }.getOrDefault(emptyMap())
 
   suspend fun refresh() {
     val r = api.albums()
@@ -79,16 +84,17 @@ class AlbumRepository @Inject constructor(@ApplicationContext context: Context, 
   /** Fingerprints of the album's members, best first; null when the server is away. */
   suspend fun members(id: String): List<String>? = (api.albumMembers(id) as? ApiResult.Ok)?.value?.members?.map { it.id }
 
-  fun addPending(moves: Map<Long, String>) {
+  fun addPending(moves: Map<Long, PendingMove>) {
     if (moves.isEmpty()) return
-    savePending(_pending.value + moves)
+    savePending { it + moves }
   }
 
-  fun clearPending(ids: Collection<Long>) = savePending(_pending.value - ids.toSet())
+  fun clearPending(ids: Collection<Long>) = savePending { it - ids.toSet() }
 
-  private fun savePending(map: Map<Long, String>) {
-    _pending.value = map
-    prefs.edit().putString("pending", json.encodeToString(MapSerializer(Long.serializer(), String.serializer()), map)).apply()
+  @Synchronized
+  private fun savePending(change: (Map<Long, PendingMove>) -> Map<Long, PendingMove>) {
+    val map = _pending.updateAndGet(change)
+    prefs.edit().putString("pending", json.encodeToString(MapSerializer(Long.serializer(), PendingMove.serializer()), map)).apply()
   }
 
   companion object {

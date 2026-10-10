@@ -152,7 +152,7 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
       done += batch.size
     }
     // new files that belong to a folder album wait for the user to move them (Android asks)
-    sortIntoFolderAlbums(api, byId)
+    runCatching { sortIntoFolderAlbums(api, byId) }
 
     // 4. scenes along videos, so a moment inside a long video can be found
     val sceneVideos = SyncPlanner.needScenes(files, store.all())
@@ -218,9 +218,7 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
     return when {
       result is ApiResult.Ok -> {
         val fpToMedia = chunk.associate { it.second.id to it.first }
-        val ok = result.value.indexed.mapNotNull { fpToMedia[it] }
-        store.markIndexed(ok) { byId.getValue(it).folder }
-        newlyIndexed += ok
+        store.markIndexed(result.value.indexed.mapNotNull { fpToMedia[it] }) { byId.getValue(it).folder }
         store.markFailed(result.value.failed.mapNotNull { fpToMedia[it.id] })
         null
       }
@@ -236,25 +234,36 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
     }
   }
 
-  private val newlyIndexed = ArrayList<Long>()
-
+  /**
+   * Every file is checked once after its upload (the mark is stored, so a retry loses nothing).
+   * Only files new on the phone are offered: a file the user moved keeps its mark.
+   */
   private suspend fun sortIntoFolderAlbums(api: MediaSearchApi, byId: Map<Long, MediaItem>) {
-    if (newlyIndexed.isEmpty()) return
+    val store = deps.idStore()
+    val rows = store.all()
+    val fresh = rows.values.filter { !it.matched && it.serverFolder != null && byId.containsKey(it.mediaId) }
+    if (fresh.isEmpty()) return
     val albums = deps.albums()
     albums.refresh()
-    if (albums.albums.value.none { it.isFolder }) return
-    val rows = deps.idStore().all()
-    val fpToIds = newlyIndexed.mapNotNull { id -> rows[id]?.fingerprint?.let { it to id } }.groupBy({ it.first }, { it.second })
-    val moves = HashMap<Long, String>()
+    if (albums.albums.value.none { it.isFolder }) {
+      store.markMatched(fresh.map { it.mediaId })
+      return
+    }
+    val fpToIds = fresh.groupBy({ it.fingerprint }, { it.mediaId })
     for (chunk in fpToIds.keys.chunked(2000)) {
       val r = api.matchAlbums(chunk) as? ApiResult.Ok ?: return
+      val moves = HashMap<Long, com.google.ai.edge.gallery.mediagallery.PendingMove>()
       for ((fp, m) in r.value.matches) {
         if (m.mode != "folder") continue
         val path = com.google.ai.edge.gallery.mediagallery.MediaActions.newFolderPath(m.name)
-        for (id in fpToIds[fp].orEmpty()) if (byId[id]?.relativePath != path) moves[id] = path
+        for (id in fpToIds[fp].orEmpty()) {
+          val item = byId[id] ?: continue
+          if (item.relativePath != path) moves[id] = com.google.ai.edge.gallery.mediagallery.PendingMove(path, fp, item.relativePath)
+        }
       }
+      albums.addPending(moves)
+      store.markMatched(chunk.flatMap { fpToIds[it].orEmpty() })
     }
-    albums.addPending(moves)
   }
 
   /**
@@ -268,6 +277,10 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
     val done = { store.markSpeech(copies, MediaIdStore.SPEECH_VERSION) }
     // the server takes at most an hour of sound
     if (item.durationMs > 60 * 60 * 1000L) return null.also { done() }
+    // a background run may be stopped before a long transcript is back: after three tries, give up
+    val tries = rows[item.id]?.speech ?: 0
+    if (tries <= -3) return null.also { done() }
+    if (tries <= 0) store.markSpeech(copies, tries - 1)
     val audio = java.io.File(applicationContext.cacheDir, "speech-${item.id}.m4a")
     try {
       if (!AudioExtractor.extract(applicationContext, item.uri, audio) || audio.length() > 60L * 1024 * 1024) return null.also { done() }
@@ -280,7 +293,8 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
       val job =
         when (start) {
           is ApiResult.Ok -> start.value.jobId
-          is ApiResult.Failed -> return null // e.g. not indexed any more: try again next sync
+          // not indexed (yet): next sync; anything else (too long, bad audio) will not get better
+          is ApiResult.Failed -> return null.also { if (start.code != "not_indexed") done() }
           else -> return outcome(start)
         }
       val deadline = System.currentTimeMillis() + maxOf(10 * 60_000L, item.durationMs * 2)
@@ -293,6 +307,8 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
               "error" -> return if (st.value.error == "stt_unavailable") Result.retry() else null.also { done() }
             }
           is ApiResult.Unavailable -> {}
+          // the job is gone (kept 30 minutes, or the server restarted): next sync
+          is ApiResult.Failed -> return null
           else -> return outcome(st)
         }
       }

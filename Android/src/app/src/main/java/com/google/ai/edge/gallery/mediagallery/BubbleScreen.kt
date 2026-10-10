@@ -69,6 +69,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -160,11 +162,9 @@ fun BubbleScreen(viewModel: BubbleViewModel, onBack: () -> Unit, onOpen: (List<M
     AlbumDialog(b, onDismiss = { albumFor = null }) { name, folder ->
       albumFor = null
       scope.launch {
-        if (viewModel.createAlbum(b, name, folder) && folder) {
-          // a real folder: the bubble's files move there now, new ones later from the banner
-          val path = MediaActions.newFolderPath(name)
-          val files = b.allMembers().mapNotNull { viewModel.items[it.id] }.filter { it.relativePath != path }
-          actions.moveEach(files.associateWith { path })
+        // a real folder: the album's files move there now, new ones later from the banner
+        viewModel.createAlbum(b, name, folder)?.let { (files, path) ->
+          actions.moveEach(files.filter { it.relativePath != path }.associateWith { path })
         }
       }
     }
@@ -234,16 +234,20 @@ private fun BubbleSpace(
     // bubbles between the camera and the focused one fade out
     val inTheWay = projected.filter { p -> p.index != focus && p.depth > fp.depth && hypot(p.x - fp.x, p.y - fp.y) < p.r + fp.r }.map { it.index }.toSet()
     val highlight = members.getOrNull(viewModel.page)?.first
+    // the tap handler lives across recompositions: it must read the current projection
+    val currentProjected by rememberUpdatedState(projected)
+    val currentInTheWay by rememberUpdatedState(inTheWay)
+    val currentFocused by rememberUpdatedState(focused)
 
     Canvas(
       Modifier.fillMaxSize().pointerInput(level) {
         detectTapGestures(
           onTap = { t ->
-            projected.filter { hypot(it.x - t.x, it.y - t.y) <= maxOf(it.r, 24.dp.toPx()) && it.index !in inTheWay }
+            currentProjected.filter { hypot(it.x - t.x, it.y - t.y) <= maxOf(it.r, 24.dp.toPx()) && it.index !in currentInTheWay }
               .maxByOrNull { it.depth }
               ?.let { viewModel.focusOn(it.index) }
           },
-          onDoubleTap = { if (focused.children.isNotEmpty()) viewModel.enter(focused) },
+          onDoubleTap = { if (currentFocused.children.isNotEmpty()) viewModel.enter(currentFocused) },
         )
       }
     ) {
@@ -408,7 +412,8 @@ private fun BubbleSheet(
     }
     if (!open) {
       Text("Hochziehen für die Bilder", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    } else if (members.isNotEmpty()) {
+    } else if (members.isNotEmpty()) key(bubble.key) {
+      // a new bubble starts its preview at the first picture
       val pager = rememberPagerState(initialPage = viewModel.page.coerceIn(0, members.lastIndex)) { members.size }
       LaunchedEffect(pager, bubble.key) { snapshotFlow { pager.currentPage }.collect { viewModel.page = it } }
       HorizontalPager(state = pager, modifier = Modifier.fillMaxWidth().weight(1f), pageSpacing = 8.dp, key = { members[it].id }) { i ->

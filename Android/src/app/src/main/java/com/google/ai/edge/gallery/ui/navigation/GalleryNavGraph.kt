@@ -244,7 +244,8 @@ fun GalleryNavHost(
           albums = albums,
           onOpenAlbum = { navController.navigate("$ROUTE_ALBUM/$it") },
           banner = {
-            val targets = pending.mapNotNull { (id, path) -> library.item(id)?.let { it to path } }.toMap()
+            var targets by remember { mutableStateOf<Map<com.google.ai.edge.gallery.mediagallery.MediaItem, String>>(emptyMap()) }
+            LaunchedEffect(pending, library) { targets = galleryViewModel.validMoves(pending, library) }
             if (targets.isNotEmpty()) {
               PendingMovesBanner(targets.size) {
                 actions.moveEach(targets) { moved -> galleryViewModel.clearPending(moved.map { it.id }) }

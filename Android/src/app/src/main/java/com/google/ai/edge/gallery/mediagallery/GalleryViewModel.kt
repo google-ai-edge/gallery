@@ -74,7 +74,23 @@ constructor(
   val localSearch: LocalSearch,
   private val albumRepo: AlbumRepository,
 ) : ViewModel() {
-  val pendingMoves: StateFlow<Map<Long, String>> = albumRepo.pendingMoves
+  val pendingMoves: StateFlow<Map<Long, PendingMove>> = albumRepo.pendingMoves
+
+  /**
+   * Pending moves that still make sense: same file (fingerprint) and still where it was when it
+   * matched. A file the user moved elsewhere in the meantime is dropped from the list.
+   */
+  suspend fun validMoves(pending: Map<Long, PendingMove>, lib: MediaLibrary): Map<MediaItem, String> {
+    val rows = withContext(Dispatchers.IO) { idStore.all() }
+    val stale = ArrayList<Long>()
+    val out = HashMap<MediaItem, String>()
+    for ((id, move) in pending) {
+      val item = lib.item(id)
+      if (item == null || rows[id]?.fingerprint != move.fingerprint || item.relativePath != move.fromPath) stale += id else out[item] = move.path
+    }
+    if (stale.isNotEmpty()) albumRepo.clearPending(stale)
+    return out
+  }
 
   private val _albums = MutableStateFlow<List<Pair<Album, MediaItem?>>>(emptyList())
   /** Albums with a local cover (first preview that is on the phone). */

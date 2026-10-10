@@ -122,7 +122,8 @@ class MediaActions(
   companion object {
     /** Target path for a new folder; MediaStore allows images and videos under Pictures/. */
     fun newFolderPath(name: String): String {
-      val clean = name.trim().replace(Regex("[\\\\/:*?\"<>|]"), "_").take(60)
+      // a leading dot would make a hidden folder: the files would vanish from every gallery
+      val clean = name.trim().replace(Regex("[\\\\/:*?\"<>|]"), "_").trimStart('.').take(60).ifBlank { "Album" }
       return "Pictures/$clean/"
     }
   }
@@ -143,8 +144,13 @@ fun rememberMediaActions(onChanged: () -> Unit): MediaActions {
     MediaActions(
       context = context,
       launch = { intent, after ->
-        pending[0] = after
-        launcher.launch(IntentSenderRequest.Builder(intent.intentSender).build())
+        // one confirmation at a time: a second one would take over the first one's follow-up
+        if (pending[0] != null) {
+          android.widget.Toast.makeText(context, "Bitte erst die offene Rückfrage beantworten.", android.widget.Toast.LENGTH_SHORT).show()
+        } else {
+          pending[0] = after
+          launcher.launch(IntentSenderRequest.Builder(intent.intentSender).build())
+        }
       },
       onChanged = onChanged,
     )
