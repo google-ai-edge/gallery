@@ -70,6 +70,10 @@ android {
   }
 
   buildTypes {
+    debug {
+      // installs next to the real app (own data, own model files)
+      applicationIdSuffix = ".dev"
+    }
     release {
       // R8 keeps the release APK well under Cloudflare's 100 MB upload limit
       isMinifyEnabled = true

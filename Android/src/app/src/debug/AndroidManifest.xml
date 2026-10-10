@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: measurement screen for the on-device embedder, started over adb. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="com.google.ai.edge.gallery.debugbench.EmbedBenchActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Material" />
+    </application>
+</manifest>
