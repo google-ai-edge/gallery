@@ -237,7 +237,7 @@ fun FolderGridScreen(
   val loader = rememberGalleryImageLoader()
   val title =
     if (bucketId == null) "Alle" else library.folders.firstOrNull { it.bucketId == bucketId }?.name ?: ""
-  val items = overrideItems ?: library.itemsIn(bucketId)
+  val items = remember(library, bucketId, overrideItems) { overrideItems ?: library.itemsIn(bucketId) }
   val entries = remember(items, overrideItems) {
     // search results keep their ranking instead of month groups
     if (overrideItems != null) items.map { GridEntry.Cell(it) } else withMonthHeaders(items)

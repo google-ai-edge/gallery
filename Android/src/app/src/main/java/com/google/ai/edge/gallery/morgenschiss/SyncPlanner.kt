@@ -37,9 +37,12 @@ object SyncPlanner {
 
   fun plan(files: List<LocalFile>, rows: Map<Long, MediaIdRow>, serverIds: Set<String>?): SyncPlan {
     val needFp = files.filter { f -> rows[f.mediaId]?.let { it.size != f.size || it.dateModifiedSec != f.dateModifiedSec } ?: true }
+    val needIds = needFp.mapTo(HashSet()) { it.mediaId }
     val present = files.associateBy { it.mediaId }
     val gone = rows.values.filter { it.mediaId !in present }
-    val fresh = files.filter { f -> f !in needFp }
+    val fresh = files.filter { f -> f.mediaId !in needIds }
+    // a file manager move gives the file a new MediaStore id; the gone row knows the old folder
+    val goneFolder = gone.filter { it.serverFolder != null }.associate { it.fingerprint to it.serverFolder }
     val liveFps = fresh.mapNotNull { rows[it.mediaId]?.fingerprint }.toSet()
     // a server id is only removed when no current file has that fingerprint (copies share one id)
     val remove =
@@ -48,13 +51,18 @@ object SyncPlanner {
     val already = ArrayList<LocalFile>()
     val upload = ArrayList<LocalFile>()
     if (serverIds != null) {
+      // copies share a fingerprint and a server entry: send each fingerprint once
+      val queued = HashSet<String>()
       for (f in fresh) {
         val row = rows.getValue(f.mediaId)
         when {
           row.serverFailed -> {}
-          row.fingerprint !in serverIds -> upload += f
-          row.serverFolder == null -> already += f
-          row.serverFolder != f.folder -> upload += f
+          row.fingerprint !in serverIds -> if (queued.add(row.fingerprint)) upload += f
+          row.serverFolder == null ->
+            if (goneFolder[row.fingerprint]?.let { it != f.folder } == true) {
+              if (queued.add(row.fingerprint)) upload += f
+            } else already += f
+          row.serverFolder != f.folder -> if (queued.add(row.fingerprint)) upload += f
         }
       }
     }

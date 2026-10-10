@@ -9,6 +9,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -53,7 +56,7 @@ jobs:
           APK_PATH=$(find Android/src/app/build/outputs/apk/release -name '*.apk' | head -1)
           VERSION_CODE=$((100000 + GITHUB_RUN_NUMBER))
           VERSION_NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' Android/src/app/build.gradle.kts)
-          curl -sf -X POST \
+          curl -sS --fail-with-body -X POST \
             "https://morgenschiss.de/api/mediasearch/apk-upload?versionCode=${VERSION_CODE}&versionName=${VERSION_NAME}" \
             -H "x-apk-deploy-secret: ${APK_DEPLOY_SECRET}" \
             -H "Content-Type: application/vnd.android.package-archive" \

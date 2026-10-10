@@ -43,6 +43,7 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
 
 private const val TAG = "MediaSyncWorker"
 private const val CHANNEL_ID = "media_sync"
@@ -67,23 +68,38 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
   private val notifications = context.getSystemService(NotificationManager::class.java)
 
   override suspend fun doWork(): Result {
+    // the periodic and the manual job share one lock: two parallel runs only fight over index_busy
+    if (!running.tryLock()) return Result.success()
+    try {
+      return sync()
+    } finally {
+      running.unlock()
+    }
+  }
+
+  private suspend fun sync(): Result {
     val api = deps.api()
     if (!api.client.isLoggedIn) return Result.success()
     val store = deps.idStore()
     val repo = deps.mediaRepository()
     repo.reload()
+    // with partial access ("selected photos") or a failed query every unseen file would look
+    // deleted and be removed from the server
+    if (!repo.library.value.complete) return Result.success()
     val items = repo.library.value.items
     val byId = items.associateBy { it.id }
     val files = items.map { LocalFile(it.id, it.size, it.dateModifiedSec, it.folder, it.isVideo) }
 
     // 1. fingerprints (reads at most 12 MiB per file)
     var plan = SyncPlanner.plan(files, store.all(), null)
+    // fingerprints of edited files: their old server entry goes once no copy uses it
+    val replaced = HashSet<String>()
     plan.needFingerprint.forEachIndexed { i, f ->
       if (isStopped) return Result.retry()
       if (i % 25 == 0) report("Dateien prüfen", i, plan.needFingerprint.size)
       val item = byId.getValue(f.mediaId)
       val fp = runCatching { Fingerprint.ofUri(applicationContext.contentResolver, item.uri, item.size) }.getOrNull()
-      if (fp != null) store.putFingerprint(f.mediaId, f.size, f.dateModifiedSec, fp)
+      if (fp != null) store.putFingerprint(f.mediaId, f.size, f.dateModifiedSec, fp)?.let { replaced += it }
     }
 
     // 2. compare with the server
@@ -96,13 +112,19 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
     val rows = store.all()
     plan = SyncPlanner.plan(files, rows, serverIds)
     store.markIndexed(plan.alreadyIndexed.map { it.mediaId }) { byId.getValue(it).folder }
-    if (plan.removeFromServer.isNotEmpty()) {
-      for (chunk in plan.removeFromServer.chunked(2000)) {
+    val liveFps = rows.values.map { it.fingerprint }.toSet()
+    val toRemove = (plan.removeFromServer + replaced.filter { it in serverIds && it !in liveFps }).distinct()
+    // a sudden mass disappearance (card removed, storage hiccup) is more likely an error than a cleanup
+    val massDelete = plan.goneRows.size > maxOf(50, rows.size / 10)
+    if (massDelete) {
+      Log.w(TAG, "${plan.goneRows.size} of ${rows.size} files gone at once, not removing anything")
+    } else if (toRemove.isNotEmpty()) {
+      for (chunk in toRemove.chunked(2000)) {
         val r = api.remove(chunk)
         if (r !is ApiResult.Ok) return outcome(r)
       }
     }
-    store.delete(plan.goneRows.map { it.mediaId })
+    if (!massDelete) store.delete(plan.goneRows.map { it.mediaId })
 
     // 3. upload, one batch at a time (a parallel batch would get 429 index_busy)
     val batches = SyncPlanner.batches(plan.upload)
@@ -120,21 +142,64 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
         }
         f.mediaId to indexItem(item, fp, frames)
       }
-      if (sent.isNotEmpty()) {
-        val result = sendWithRetry(api, sent.map { it.second })
-        when (result) {
-          is ApiResult.Ok -> {
-            val fpToMedia = sent.associate { it.second.id to it.first }
-            store.markIndexed(result.value.indexed.mapNotNull { fpToMedia[it] }) { byId.getValue(it).folder }
-            store.markFailed(result.value.failed.mapNotNull { fpToMedia[it.id] })
-          }
-          else -> return outcome(result)
-        }
+      for (chunk in byBodySize(sent)) {
+        val stop = send(api, store, chunk, byId)
+        if (stop != null) return stop
       }
       done += batch.size
     }
     report("Fertig", plan.upload.size, plan.upload.size)
     return Result.success(workDataOf(KEY_UPLOADED to done))
+  }
+
+  /** Keeps a request under the server's 30 MB body limit (frames travel as base64). */
+  private fun byBodySize(sent: List<Pair<Long, IndexItem>>): List<List<Pair<Long, IndexItem>>> {
+    val out = ArrayList<List<Pair<Long, IndexItem>>>()
+    var cur = ArrayList<Pair<Long, IndexItem>>()
+    var bytes = 0L
+    for (p in sent) {
+      val size = p.second.frames.sumOf { it.length.toLong() }
+      if (cur.isNotEmpty() && bytes + size > MAX_BODY_CHARS) {
+        out += cur
+        cur = ArrayList()
+        bytes = 0
+      }
+      cur += p
+      bytes += size
+    }
+    if (cur.isNotEmpty()) out += cur
+    return out
+  }
+
+  /**
+   * One request. The server rejects a whole batch for one bad frame (400) or an oversized body
+   * (413), so those are split until the culprit is alone and marked failed. Returns a [Result]
+   * when the sync has to stop.
+   */
+  private suspend fun send(
+    api: MediaSearchApi,
+    store: MediaIdStore,
+    chunk: List<Pair<Long, IndexItem>>,
+    byId: Map<Long, MediaItem>,
+  ): Result? {
+    val result = sendWithRetry(api, chunk.map { it.second })
+    return when {
+      result is ApiResult.Ok -> {
+        val fpToMedia = chunk.associate { it.second.id to it.first }
+        store.markIndexed(result.value.indexed.mapNotNull { fpToMedia[it] }) { byId.getValue(it).folder }
+        store.markFailed(result.value.failed.mapNotNull { fpToMedia[it.id] })
+        null
+      }
+      result is ApiResult.Failed && (result.status == 400 || result.status == 413) ->
+        if (chunk.size == 1) {
+          store.markFailed(listOf(chunk[0].first))
+          null
+        } else {
+          val half = chunk.size / 2
+          send(api, store, chunk.subList(0, half), byId) ?: send(api, store, chunk.subList(half, chunk.size), byId)
+        }
+      else -> outcome(result)
+    }
   }
 
   /** index_busy means our own previous batch is still running on the server: wait and resend. */
@@ -197,6 +262,8 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
   }
 
   companion object {
+    private val running = Mutex()
+    private const val MAX_BODY_CHARS = 24L * 1024 * 1024
     const val KEY_PHASE = "phase"
     const val KEY_DONE = "done"
     const val KEY_TOTAL = "total"

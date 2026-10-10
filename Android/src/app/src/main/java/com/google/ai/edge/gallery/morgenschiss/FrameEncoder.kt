@@ -66,13 +66,22 @@ object FrameEncoder {
     }
   }
 
+  /** The server takes at most 2 MiB per decoded frame: lower the quality, then the size. */
   private fun encode(bitmap: Bitmap): String {
-    var quality = 80
-    while (true) {
-      val out = ByteArrayOutputStream()
-      bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
-      if (out.size() <= MAX_FRAME_BYTES || quality <= 50) return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
-      quality -= 10
+    var current = bitmap
+    try {
+      while (true) {
+        for (quality in intArrayOf(80, 70, 60)) {
+          val out = ByteArrayOutputStream()
+          current.compress(Bitmap.CompressFormat.JPEG, quality, out)
+          if (out.size() <= MAX_FRAME_BYTES) return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+        }
+        val scaled = Bitmap.createScaledBitmap(current, maxOf(1, current.width * 3 / 4), maxOf(1, current.height * 3 / 4), true)
+        if (current !== bitmap) current.recycle()
+        current = scaled
+      }
+    } finally {
+      if (current !== bitmap) current.recycle()
     }
   }
 }

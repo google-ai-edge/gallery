@@ -63,6 +63,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem as ExoMediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -86,7 +89,11 @@ fun MediaViewerScreen(
   onBack: () -> Unit,
   actions: @Composable (MediaItem) -> Unit = {},
 ) {
-  if (items.isEmpty()) return
+  if (items.isEmpty()) {
+    // e.g. the search behind this viewer was cleared
+    LaunchedEffect(Unit) { onBack() }
+    return
+  }
   val start = items.indexOfFirst { it.id == startId }.coerceAtLeast(0)
   val pager = rememberPagerState(initialPage = start) { items.size }
   var chrome by remember { mutableStateOf(true) }
@@ -192,6 +199,13 @@ private fun VideoPage(item: MediaItem, active: Boolean, players: MutableMap<Long
     }
   }
   LaunchedEffect(active) { if (active) player.play() else player.pause() }
+  val lifecycle = LocalLifecycleOwner.current.lifecycle
+  DisposableEffect(lifecycle, player) {
+    // no sound from a video the user cannot see any more
+    val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_STOP) player.pause() }
+    lifecycle.addObserver(observer)
+    onDispose { lifecycle.removeObserver(observer) }
+  }
   AndroidView(
     factory = { PlayerView(it).apply { this.player = player } },
     modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(top = 56.dp),

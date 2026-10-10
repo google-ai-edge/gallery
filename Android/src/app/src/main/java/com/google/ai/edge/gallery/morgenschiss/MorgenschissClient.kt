@@ -37,6 +37,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 
 const val MORGENSCHISS_BASE_URL = "https://morgenschiss.de"
+private const val PREFS = "morgenschiss_session"
 
 /** Outcome of one call; the app falls back to local work on everything but [Ok]. */
 sealed interface ApiResult<out T> {
@@ -64,14 +65,25 @@ val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 /** Login, token storage and plain HTTP calls to morgenschiss. */
 @Singleton
 class MorgenschissClient @Inject constructor(@ApplicationContext context: Context) {
-  private val prefs: SharedPreferences =
-    EncryptedSharedPreferences.create(
-      context,
-      "morgenschiss_session",
-      MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
-      EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-      EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-    )
+  private val prefs: SharedPreferences = openPrefs(context)
+
+  private fun openPrefs(context: Context): SharedPreferences {
+    fun create() =
+      EncryptedSharedPreferences.create(
+        context,
+        PREFS,
+        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+      )
+    return try {
+      create()
+    } catch (e: Exception) {
+      // keystore key gone (e.g. data restored on another phone): start logged out instead of crashing
+      context.deleteSharedPreferences(PREFS)
+      create()
+    }
+  }
 
   private val _session = MutableStateFlow(readSession())
   val session: StateFlow<Session?> = _session.asStateFlow()
@@ -91,8 +103,7 @@ class MorgenschissClient @Inject constructor(@ApplicationContext context: Contex
       val conn = open("/api/login", "POST", timeoutMs = 15_000)
       try {
         conn.setRequestProperty("us", user.trim())
-        // the server compares the SHA-256 hex of the password; the password itself never leaves
-        // the phone and is not stored
+        // the server expects the SHA-256 hex of the password; neither is stored on the phone
         conn.setRequestProperty("pw", sha256Hex(password))
         conn.setRequestProperty("stayan", "true")
         conn.doOutput = true
@@ -178,7 +189,8 @@ class MorgenschissClient @Inject constructor(@ApplicationContext context: Contex
     val stream = if (status >= 400) conn.errorStream else conn.inputStream
     val text = stream?.bufferedReader()?.use { it.readText() } ?: ""
     val code = runCatching { json.parseToJsonElement(text) }.getOrNull()?.let { errorCode(it) } ?: ""
-    return mapResponse(status, type, text, code).also { if (it is ApiResult.LoggedOut) logout() }
+    val location = conn.getHeaderField("Location") ?: ""
+    return mapResponse(status, type, text, code, location).also { if (it is ApiResult.LoggedOut) logout() }
   }
 
   private fun open(path: String, method: String, timeoutMs: Int): HttpURLConnection =
@@ -196,9 +208,13 @@ class MorgenschissClient @Inject constructor(@ApplicationContext context: Contex
       runCatching { (el as kotlinx.serialization.json.JsonObject)["error"]?.toString()?.trim('"') }.getOrNull()
 
     /** Maps the Interface conventions (see docs/mediasearch/api.md) to [ApiResult]. */
-    fun mapResponse(status: Int, contentType: String, text: String, code: String): ApiResult<JsonElement> =
+    fun mapResponse(status: Int, contentType: String, text: String, code: String, location: String = ""): ApiResult<JsonElement> =
       when {
-        status == 302 || status == 401 || status == 403 -> ApiResult.LoggedOut
+        // Interface: GET without session -> 302 to /login, POST -> plain 403. An HTML 403 or another
+        // redirect (proxy, maintenance) must not throw the login away.
+        status == 401 -> ApiResult.LoggedOut
+        status == 302 -> if (location.contains("/login")) ApiResult.LoggedOut else ApiResult.Unavailable("redirect")
+        status == 403 -> if (contentType.contains("html")) ApiResult.Unavailable("blocked") else ApiResult.LoggedOut
         status == 503 -> ApiResult.Unavailable(code.ifEmpty { "unavailable" })
         status == 429 -> ApiResult.Busy(code.ifEmpty { "rate_limited" })
         status in 200..299 && !contentType.contains("json") -> ApiResult.NoAccess

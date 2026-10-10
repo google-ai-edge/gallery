@@ -16,7 +16,11 @@
 
 package com.google.ai.edge.gallery.mediagallery
 
+import android.Manifest
 import android.content.ContentUris
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
 import android.content.Context
 import android.database.ContentObserver
 import android.net.Uri
@@ -75,6 +79,8 @@ data class MediaLibrary(
   val items: List<MediaItem> = emptyList(),
   val folders: List<MediaFolder> = emptyList(),
   val loaded: Boolean = false,
+  /** Every photo and video was readable; only then may the sync treat a missing file as deleted. */
+  val complete: Boolean = false,
 ) {
   private val byId: Map<Long, MediaItem> by lazy { items.associateBy { it.id } }
 
@@ -117,10 +123,17 @@ class MediaRepository @Inject constructor(@ApplicationContext private val contex
 
   suspend fun reload() {
     val items = withContext(Dispatchers.IO) { query() }
-    _library.value = MediaLibrary(items = items, folders = foldersOf(items), loaded = true)
+    _library.value =
+      MediaLibrary(
+        items = items.orEmpty(),
+        folders = foldersOf(items.orEmpty()),
+        loaded = true,
+        complete = items != null && hasFullAccess(context),
+      )
   }
 
-  private fun query(): List<MediaItem> {
+  /** null when MediaStore refused the query. */
+  private fun query(): List<MediaItem>? {
     val out = ArrayList<MediaItem>(9000)
     val projection =
       arrayOf(
@@ -185,6 +198,7 @@ class MediaRepository @Inject constructor(@ApplicationContext private val contex
         }
     } catch (e: SecurityException) {
       Log.w(TAG, "No media permission", e)
+      return null
     }
     // DATE_TAKEN can be empty; the fallback above needs a final sort
     out.sortByDescending { it.takenAt }
@@ -192,6 +206,15 @@ class MediaRepository @Inject constructor(@ApplicationContext private val contex
   }
 
   companion object {
+    /** Full access to images and videos, not just a user-picked selection (Android 14+). */
+    fun hasFullAccess(context: Context): Boolean {
+      val perms =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+          listOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
+        else listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+      return perms.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
+    }
+
     val FILES_URI: Uri = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
 
     fun foldersOf(items: List<MediaItem>): List<MediaFolder> =

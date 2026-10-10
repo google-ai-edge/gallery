@@ -77,20 +77,32 @@ constructor(@ApplicationContext private val context: Context, private val api: M
     _state.value = cache[item.id]?.let { TranscriptState.Done(it) } ?: TranscriptState.Idle
   }
 
+  private var runningId: Long? = null
+
+  /** Updates the panel only while it shows the item the job belongs to. */
+  private fun publish(id: Long, state: TranscriptState) {
+    if (currentId == id) _state.value = state
+  }
+
   fun start(item: MediaItem) {
-    if (_state.value is TranscriptState.Working) return
-    launchSafely {
-      _state.value = TranscriptState.Working("Tonspur wird vorbereitet", null)
+    // one job at a time; the server allows one per user anyway
+    if (runningId != null) {
+      publish(item.id, TranscriptState.Failed("Es läuft schon ein Transkript für ein anderes Video."))
+      return
+    }
+    runningId = item.id
+    launchSafely(item.id) {
+      publish(item.id, TranscriptState.Working("Tonspur wird vorbereitet", null))
       val audio = File(context.cacheDir, "transcript-${item.id}.m4a")
       try {
-        if (!extractAudio(item, audio)) return@launchSafely fail("Das Video hat keine Tonspur, die sich lesen lässt.")
-        if (audio.length() > MAX_UPLOAD_BYTES) return@launchSafely fail("Die Tonspur ist zu lang (höchstens etwa eine Stunde).")
-        _state.value = TranscriptState.Working("Wird hochgeladen", null)
+        if (!extractAudio(item, audio)) return@launchSafely fail(item.id, "Das Video hat keine Tonspur, die sich lesen lässt.")
+        if (audio.length() > MAX_UPLOAD_BYTES) return@launchSafely fail(item.id, "Die Tonspur ist zu lang (höchstens etwa eine Stunde).")
+        publish(item.id, TranscriptState.Working("Wird hochgeladen", null))
         val bytes = withContext(Dispatchers.IO) { audio.readBytes() }
         val job =
           when (val r = api.transcribe(bytes)) {
             is ApiResult.Ok -> r.value.jobId
-            else -> return@launchSafely fail(errorText(r))
+            else -> return@launchSafely fail(item.id, errorText(r))
           }
         while (true) {
           delay(2_500)
@@ -100,30 +112,29 @@ constructor(@ApplicationContext private val context: Context, private val api: M
               when (st.status) {
                 "done" -> {
                   cache[item.id] = st.sentences
-                  if (currentId == item.id) _state.value = TranscriptState.Done(st.sentences)
+                  publish(item.id, TranscriptState.Done(st.sentences))
                   return@launchSafely
                 }
                 "error" ->
-                  return@launchSafely fail(
+                  return@launchSafely fail(item.id, 
                     if (st.error == "stt_unavailable") "Der Mac ist gerade nicht da, später nochmal."
                     else "Das Transkribieren hat nicht geklappt."
                   )
-                else -> if (currentId == item.id) _state.value = TranscriptState.Working("Wird transkribiert", st.progress.toFloat())
+                else -> publish(item.id, TranscriptState.Working("Wird transkribiert", st.progress.toFloat()))
               }
             }
             is ApiResult.Unavailable -> {} // brief network hiccup: keep polling
-            else -> return@launchSafely fail(errorText(r))
+            else -> return@launchSafely fail(item.id, errorText(r))
           }
         }
       } finally {
         audio.delete()
+        runningId = null
       }
     }
   }
 
-  private fun fail(message: String) {
-    _state.value = TranscriptState.Failed(message)
-  }
+  private fun fail(id: Long, message: String) = publish(id, TranscriptState.Failed(message))
 
   private fun errorText(r: ApiResult<*>): String =
     when (r) {
@@ -161,14 +172,16 @@ constructor(@ApplicationContext private val context: Context, private val api: M
       }
     }
 
-  private fun launchSafely(block: suspend () -> Unit) =
+  private fun launchSafely(id: Long, block: suspend () -> Unit) =
     viewModelScope.launch {
       try {
         block()
       } catch (e: CancellationException) {
+        runningId = null
         throw e
       } catch (e: Exception) {
-        fail("Das hat nicht geklappt: ${e.message}")
+        runningId = null
+        fail(id, "Das hat nicht geklappt: ${e.message}")
       }
     }
 

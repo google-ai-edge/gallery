@@ -67,8 +67,12 @@ class MediaIdStore @Inject constructor(@ApplicationContext context: Context) :
     return out
   }
 
-  /** New or changed fingerprint: the server state starts over. */
-  fun putFingerprint(mediaId: Long, size: Long, dateModifiedSec: Long, fingerprint: String) {
+  /** New or changed fingerprint: the server state starts over. Returns the replaced fingerprint. */
+  fun putFingerprint(mediaId: Long, size: Long, dateModifiedSec: Long, fingerprint: String): String? {
+    val previous =
+      readableDatabase.rawQuery("SELECT fp FROM ids WHERE media_id = ?", arrayOf(mediaId.toString())).use {
+        if (it.moveToFirst()) it.getString(0) else null
+      }
     writableDatabase.insertWithOnConflict(
       "ids",
       null,
@@ -82,6 +86,7 @@ class MediaIdStore @Inject constructor(@ApplicationContext context: Context) :
       },
       SQLiteDatabase.CONFLICT_REPLACE,
     )
+    return previous?.takeIf { it != fingerprint }
   }
 
   fun markIndexed(mediaIds: Collection<Long>, folderOf: (Long) -> String) {

@@ -199,8 +199,9 @@ constructor(
       val rows = withContext(Dispatchers.IO) { idStore.all() }
       val remainingFps = rows.values.filter { it.mediaId in stillThere }.map { it.fingerprint }.toSet()
       val fps = gone.mapNotNull { rows[it.id]?.fingerprint }.filter { it !in remainingFps }.distinct()
-      if (fps.isNotEmpty()) api.remove(fps)
-      withContext(Dispatchers.IO) { idStore.delete(gone.map { it.id }) }
+      // rows stay when the server call fails: the sync worker then removes them as deleted files
+      val removed = fps.isEmpty() || api.remove(fps) is ApiResult.Ok
+      if (removed) withContext(Dispatchers.IO) { idStore.delete(gone.map { it.id }) }
       val goneIds = gone.map { it.id }.toSet()
       (_cleanup.value as? Loadable.Done)?.let { d -> _cleanup.value = Loadable.Done(d.value.filter { it.item.id !in goneIds }) }
     }
