@@ -232,6 +232,8 @@ fun FolderGridScreen(
   onBack: () -> Unit,
   header: @Composable () -> Unit = {},
   overrideItems: List<MediaItem>? = null,
+  /** Scene times of video hits (seconds), shown on the cell. */
+  times: Map<Long, Double> = emptyMap(),
 ) {
   val library by viewModel.library.collectAsState()
   val loader = rememberGalleryImageLoader()
@@ -280,7 +282,7 @@ fun FolderGridScreen(
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.padding(start = 12.dp, top = 16.dp, bottom = 6.dp),
               )
-            is GridEntry.Cell -> MediaCell(entry.item, loader) { onOpenItem(entry.item) }
+            is GridEntry.Cell -> MediaCell(entry.item, loader, sceneSec = times[entry.item.id]) { onOpenItem(entry.item) }
           }
         }
       }
@@ -289,10 +291,11 @@ fun FolderGridScreen(
 }
 
 @Composable
-fun MediaCell(item: MediaItem, loader: coil.ImageLoader, onClick: () -> Unit) {
+fun MediaCell(item: MediaItem, loader: coil.ImageLoader, sceneSec: Double? = null, onClick: () -> Unit) {
   Box(modifier = Modifier.aspectRatio(1f).clickable(onClick = onClick)) {
     AsyncImage(
-      model = MediaThumb(item.uri),
+      // a scene hit shows the matching moment, not the video's first frame
+      model = MediaThumb(item.uri, timeMs = sceneSec?.let { (it * 1000).toLong() }),
       imageLoader = loader,
       contentDescription = item.name,
       contentScale = ContentScale.Crop,
@@ -308,7 +311,11 @@ fun MediaCell(item: MediaItem, loader: coil.ImageLoader, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
       ) {
         Icon(Icons.Filled.PlayArrow, null, tint = Color.White, modifier = Modifier.size(14.dp))
-        Text(formatDuration(item.durationMs), color = Color.White, style = MaterialTheme.typography.labelSmall)
+        Text(
+          sceneSec?.let { "bei " + formatDuration((it * 1000).toLong()) } ?: formatDuration(item.durationMs),
+          color = Color.White,
+          style = MaterialTheme.typography.labelSmall,
+        )
       }
     }
   }

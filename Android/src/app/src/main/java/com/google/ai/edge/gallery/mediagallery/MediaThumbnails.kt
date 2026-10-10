@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.mediagallery
 
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Size
 import androidx.compose.runtime.Composable
@@ -31,19 +32,33 @@ import coil.fetch.Fetcher
 import coil.request.Options
 
 /** Grid thumbnail: MediaStore keeps these cached, and it covers videos without a decoder. */
-data class MediaThumb(val uri: Uri, val px: Int = 384)
+data class MediaThumb(val uri: Uri, val px: Int = 384, val timeMs: Long? = null)
 
 private class MediaThumbFetcher(
   private val context: Context,
   private val thumb: MediaThumb,
 ) : Fetcher {
   override suspend fun fetch(): FetchResult {
-    val bitmap = context.contentResolver.loadThumbnail(thumb.uri, Size(thumb.px, thumb.px), null)
+    val bitmap = thumb.timeMs?.let { frameAt(it) } ?: context.contentResolver.loadThumbnail(thumb.uri, Size(thumb.px, thumb.px), null)
     return DrawableResult(
       drawable = bitmap.toDrawable(context.resources),
       isSampled = true,
       dataSource = DataSource.DISK,
     )
+  }
+
+  private fun frameAt(timeMs: Long): android.graphics.Bitmap? {
+    val retriever = MediaMetadataRetriever()
+    return try {
+      context.contentResolver.openFileDescriptor(thumb.uri, "r")?.use { pfd ->
+        retriever.setDataSource(pfd.fileDescriptor)
+        retriever.getScaledFrameAtTime(timeMs * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, thumb.px, thumb.px)
+      }
+    } catch (e: Exception) {
+      null
+    } finally {
+      retriever.release()
+    }
   }
 
   class Factory(private val context: Context) : Fetcher.Factory<MediaThumb> {

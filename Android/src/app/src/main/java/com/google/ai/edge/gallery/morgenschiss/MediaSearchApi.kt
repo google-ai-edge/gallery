@@ -32,17 +32,22 @@ import kotlinx.serialization.json.decodeFromJsonElement
   val folder: String? = null,
   val name: String? = null,
   val frames: List<String>,
+  /** Set for a scene of a video: one frame at this time. */
+  val scene: SceneTime? = null,
 )
+
+@Serializable data class SceneTime(val t: Double)
 
 @Serializable data class IndexRequest(val items: List<IndexItem>)
 
-@Serializable data class IndexFailure(val id: String, val error: String)
+@Serializable data class IndexFailure(val id: String, val error: String, val t: Double? = null)
 
 @Serializable data class IndexResponse(val indexed: List<String> = emptyList(), val failed: List<IndexFailure> = emptyList())
 
 @Serializable data class IdsResponse(val ids: List<String> = emptyList(), val count: Int = 0)
 
-@Serializable data class Hit(val id: String, val score: Double)
+/** [t]: for a video, where in it the best matching scene is. */
+@Serializable data class Hit(val id: String, val score: Double, val t: Double? = null)
 
 @Serializable data class HitsResponse(val results: List<Hit> = emptyList())
 

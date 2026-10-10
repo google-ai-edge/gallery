@@ -276,6 +276,7 @@ fun GalleryNavHost(
           )
         },
         overrideItems = search.results,
+        times = search.times,
       )
     }
 
@@ -300,6 +301,7 @@ fun GalleryNavHost(
       MediaViewerScreen(
         items = items,
         startId = mediaId,
+        startTimes = if (bucketArg == SEARCH_RESULTS) search.times else emptyMap(),
         onBack = { navController.navigateUp() },
         actions = { item ->
           IconButton(

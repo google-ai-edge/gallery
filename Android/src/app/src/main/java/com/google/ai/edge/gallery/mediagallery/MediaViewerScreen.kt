@@ -88,6 +88,8 @@ fun MediaViewerScreen(
   startId: Long,
   onBack: () -> Unit,
   actions: @Composable (MediaItem) -> Unit = {},
+  /** Video start positions in seconds, e.g. the scene a search found. */
+  startTimes: Map<Long, Double> = emptyMap(),
 ) {
   if (items.isEmpty()) {
     // e.g. the search behind this viewer was cleared
@@ -111,7 +113,7 @@ fun MediaViewerScreen(
     HorizontalPager(state = pager, beyondViewportPageCount = 1, key = { items[it].id }) { page ->
       val item = items[page]
       if (item.isVideo) {
-        VideoPage(item, active = page == pager.currentPage, players)
+        VideoPage(item, active = page == pager.currentPage, players, startSec = startTimes[item.id])
       } else {
         ZoomableImage(item, onTap = { chrome = !chrome })
       }
@@ -183,11 +185,11 @@ private fun ZoomableImage(item: MediaItem, onTap: () -> Unit) {
 
 @OptIn(UnstableApi::class)
 @Composable
-private fun VideoPage(item: MediaItem, active: Boolean, players: MutableMap<Long, ExoPlayer>) {
+private fun VideoPage(item: MediaItem, active: Boolean, players: MutableMap<Long, ExoPlayer>, startSec: Double? = null) {
   val context = LocalContext.current
   val player = remember(item.id) {
     ExoPlayer.Builder(context).build().apply {
-      setMediaItem(ExoMediaItem.fromUri(item.uri))
+      setMediaItem(ExoMediaItem.fromUri(item.uri), ((startSec ?: 0.0) * 1000).toLong())
       prepare()
     }
   }

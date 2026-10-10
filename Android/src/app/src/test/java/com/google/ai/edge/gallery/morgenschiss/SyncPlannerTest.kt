@@ -59,4 +59,17 @@ class SyncPlannerTest {
     val plan = SyncPlanner.plan(listOf(file(1), file(2)), rows, setOf())
     assertEquals(listOf(1L), plan.upload.map { it.mediaId })
   }
+
+  @Test fun indexedVideosWithoutCurrentScenesNeedScenesOncePerFingerprint() {
+    val rows = mapOf(
+      1L to MediaIdRow(1, 100, 1, "a", "DCIM", false, 0),
+      2L to MediaIdRow(2, 100, 1, "a", "DCIM", false, 0),
+      3L to MediaIdRow(3, 100, 1, "b", "DCIM", false, MediaIdStore.SCENE_VERSION),
+      4L to MediaIdRow(4, 100, 1, "c", null, false, 0),
+      5L to MediaIdRow(5, 100, 1, "d", "DCIM", true, 0),
+      6L to MediaIdRow(6, 100, 1, "e", "DCIM", false, 0),
+    )
+    val files = (1L..5L).map { file(it, folder = "DCIM", video = true) } + file(6, folder = "DCIM")
+    assertEquals(listOf(1L), SyncPlanner.needScenes(files, rows).map { it.mediaId })
+  }
 }

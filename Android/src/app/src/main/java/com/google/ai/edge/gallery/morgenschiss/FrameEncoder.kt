@@ -28,6 +28,12 @@ import java.io.ByteArrayOutputStream
 object FrameEncoder {
   const val IMAGE_SIDE = 1536
   const val VIDEO_SIDE = 512
+  const val SCENE_SIDE = 768
+  /** At most this many scenes per video; longer videos sample less densely. */
+  const val MAX_SCENES = 200
+  private const val SCENE_STEP_SEC = 2.5
+  /** dHash distance below which two frames count as the same shot. */
+  private const val SAME_SHOT_BITS = 6
   private const val MAX_FRAME_BYTES = 2_000_000
 
   fun framesFor(resolver: ContentResolver, item: MediaItem): List<String> =
@@ -67,6 +73,65 @@ object FrameEncoder {
   }
 
   /** The server takes at most 2 MiB per decoded frame: lower the quality, then the size. */
+  /**
+   * Scenes along a video: one frame every 2.5 s (sparser for long videos, at most [MAX_SCENES]),
+   * skipping frames that look like the previous kept one, so a static shot is sent once.
+   * Returns (seconds, base64 JPEG).
+   */
+  fun sceneFrames(resolver: ContentResolver, item: MediaItem): List<Pair<Double, String>> {
+    val durSec = item.durationMs / 1000.0
+    if (durSec <= 0) return emptyList()
+    val step = maxOf(SCENE_STEP_SEC, durSec / MAX_SCENES)
+    val retriever = MediaMetadataRetriever()
+    return try {
+      resolver.openFileDescriptor(item.uri, "r")?.use { pfd ->
+        retriever.setDataSource(pfd.fileDescriptor)
+        val out = ArrayList<Pair<Double, String>>()
+        var lastHash: Long? = null
+        var t = 0.0
+        while (t < durSec) {
+          val frame =
+            retriever.getScaledFrameAtTime((t * 1_000_000).toLong(), MediaMetadataRetriever.OPTION_CLOSEST_SYNC, SCENE_SIDE, SCENE_SIDE)
+          if (frame != null) {
+            try {
+              val hash = dHash(frame)
+              if (lastHash == null || java.lang.Long.bitCount(hash xor lastHash) > SAME_SHOT_BITS) {
+                out += t to encode(frame)
+                lastHash = hash
+              }
+            } finally {
+              frame.recycle()
+            }
+          }
+          t += step
+        }
+        out
+      } ?: emptyList()
+    } finally {
+      retriever.release()
+    }
+  }
+
+  /** 64-bit difference hash: brightness gradients of a 9x8 thumbnail. */
+  fun dHash(bitmap: Bitmap): Long {
+    val small = Bitmap.createScaledBitmap(bitmap, 9, 8, true)
+    try {
+      var hash = 0L
+      var bit = 0
+      for (y in 0 until 8) {
+        for (x in 0 until 8) {
+          if (luma(small.getPixel(x, y)) > luma(small.getPixel(x + 1, y))) hash = hash or (1L shl bit)
+          bit++
+        }
+      }
+      return hash
+    } finally {
+      if (small !== bitmap) small.recycle()
+    }
+  }
+
+  private fun luma(c: Int): Int = ((c shr 16 and 0xff) * 299 + (c shr 8 and 0xff) * 587 + (c and 0xff) * 114) / 1000
+
   private fun encode(bitmap: Bitmap): String {
     var current = bitmap
     try {
