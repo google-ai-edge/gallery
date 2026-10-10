@@ -53,15 +53,30 @@ class VectorStore @Inject constructor(@ApplicationContext context: Context) :
   /** In memory: one contiguous int8 block plus a factor per row (scale and length folded). */
   private class Index(val fps: Array<String>, val ts: DoubleArray, val q: ByteArray, val k: FloatArray) {
     val size get() = fps.size
+    val fingerprints: Set<String> by lazy { fps.toHashSet() }
   }
 
+  // Writers and the index build share this object's lock, so a build never sees half a write.
   @Volatile private var index: Index? = null
+  @Volatile private var rowCount = -1
 
-  fun count(): Int = index?.size ?: DatabaseUtils.queryNumEntries(readableDatabase, "vec").toInt()
+  /** Rows on the phone; reads the database once, call off the main thread. */
+  fun count(): Int {
+    if (rowCount < 0) rowCount = DatabaseUtils.queryNumEntries(readableDatabase, "vec").toInt()
+    return rowCount
+  }
+
+  /** The index is rebuilt on the next search; the sync calls this once after a whole download. */
+  @Synchronized
+  fun invalidate() {
+    index = null
+    rowCount = -1
+  }
 
   data class Row(val key: String, val fingerprint: String, val t: Double?, val kind: String, val source: String, val tokens: Int, val q: ByteArray, val s: Float)
 
-  fun put(rows: List<Row>) {
+  @Synchronized
+  fun put(rows: List<Row>, invalidate: Boolean = true) {
     if (rows.isEmpty()) return
     val db = writableDatabase
     db.beginTransaction()
@@ -81,10 +96,37 @@ class VectorStore @Inject constructor(@ApplicationContext context: Context) :
     } finally {
       db.endTransaction()
     }
-    index = null
+    if (invalidate) invalidate()
+  }
+
+  /** Scenes of [fingerprint] not in [keep]: the server replaced them when the video was sent again. */
+  @Synchronized
+  fun dropScenesExcept(fingerprint: String, keep: Set<String>) {
+    val gone = ArrayList<String>()
+    readableDatabase.rawQuery("SELECT key FROM vec WHERE fp = ? AND kind = 'scene'", arrayOf(fingerprint)).use { c ->
+      while (c.moveToNext()) if (c.getString(0) !in keep) gone += c.getString(0)
+    }
+    if (gone.isEmpty()) return
+    val db = writableDatabase
+    db.beginTransaction()
+    try {
+      for (k in gone) db.delete("vec", "key = ?", arrayOf(k))
+      db.setTransactionSuccessful()
+    } finally {
+      db.endTransaction()
+    }
+    invalidate()
+  }
+
+  /** Everything, e.g. after logging out. */
+  @Synchronized
+  fun clear() {
+    writableDatabase.delete("vec", null, null)
+    invalidate()
   }
 
   /** Drops the vectors (with scenes) of fingerprints no file on the phone has any more. */
+  @Synchronized
   fun keepOnly(fingerprints: Set<String>) {
     val gone = ArrayList<String>()
     readableDatabase.rawQuery("SELECT DISTINCT fp FROM vec", null).use { c -> while (c.moveToNext()) if (c.getString(0) !in fingerprints) gone += c.getString(0) }
@@ -97,7 +139,7 @@ class VectorStore @Inject constructor(@ApplicationContext context: Context) :
     } finally {
       db.endTransaction()
     }
-    index = null
+    invalidate()
   }
 
   fun fingerprints(): Set<String> {
@@ -116,6 +158,8 @@ class VectorStore @Inject constructor(@ApplicationContext context: Context) :
   private fun loadIndex(): Index {
     index?.let { return it }
     val fps = ArrayList<String>()
+    // a video's scenes share one fingerprint string instead of a copy each
+    val shared = HashMap<String, String>()
     val ts = ArrayList<Double>()
     val ks = ArrayList<Float>()
     var q = ByteArray(0)
@@ -128,14 +172,22 @@ class VectorStore @Inject constructor(@ApplicationContext context: Context) :
         System.arraycopy(blob, 0, q, row * DIMS, DIMS)
         var n = 0L
         for (b in blob) n += b * b
-        fps += c.getString(0)
+        val fp = c.getString(0)
+        fps += shared.getOrPut(fp) { fp }
         ts += if (c.isNull(1)) Double.NaN else c.getDouble(1)
         ks += if (n > 0) (1.0 / sqrt(n.toDouble())).toFloat() else 0f
         row++
       }
       if (row * DIMS < q.size) q = q.copyOf(row * DIMS)
     }
-    return Index(fps.toTypedArray(), ts.toDoubleArray(), q, ks.toFloatArray()).also { index = it }
+    return Index(fps.toTypedArray(), ts.toDoubleArray(), q, ks.toFloatArray()).also { index = it; rowCount = it.size }
+  }
+
+  /** Share of [fingerprints] that have a vector here (1.0 for none). */
+  fun coverage(fingerprints: Set<String>): Float {
+    if (fingerprints.isEmpty()) return 1f
+    val have = loadIndex().fingerprints
+    return fingerprints.count { it in have }.toFloat() / fingerprints.size
   }
 
   /**
@@ -143,6 +195,7 @@ class VectorStore @Inject constructor(@ApplicationContext context: Context) :
    * with its best scene and reports its time. [allow] limits to fingerprints in scope.
    */
   fun search(query: FloatArray, allow: Set<String>? = null, limit: Int = 500): List<VectorHit> {
+    if (query.size != DIMS) return emptyList()
     val ix = loadIndex()
     val best = HashMap<String, VectorHit>()
     for (row in 0 until ix.size) {

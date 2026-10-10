@@ -25,8 +25,8 @@ import com.google.ai.edge.gallery.common.ImageUtils
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelAllowlist
+import com.google.ai.edge.gallery.morgenschiss.DIMS
 import com.google.ai.edge.gallery.morgenschiss.MediaIdStore
-import com.google.ai.edge.gallery.morgenschiss.VectorHit
 import com.google.ai.edge.gallery.morgenschiss.VectorStore
 import com.google.ai.edge.gallery.services.semanticretrieval.GemmaEmbeddingModelStore
 import com.google.ai.edge.gallery.services.semanticretrieval.OnDeviceEmbedder
@@ -50,7 +50,8 @@ const val QUERY_PREFIX = "task: search result | query: "
 /** The phone's image budget ends at 280 tokens (560 behaves the same). */
 const val PHONE_VISION_TOKENS = 280
 
-data class LocalHits(val items: List<MediaItem>, val times: Map<Long, Double>)
+/** [complete] = at least 90 % of the files in scope have a vector on the phone. */
+data class LocalHits(val items: List<MediaItem>, val times: Map<Long, Double>, val complete: Boolean)
 
 /**
  * Search on the phone: the query is embedded here, compared with the vectors in [VectorStore]
@@ -65,7 +66,6 @@ constructor(
   private val idStore: MediaIdStore,
 ) {
   private val lock = Mutex()
-  private var embedder: OnDeviceEmbedder? = null
 
   /** The bundled allowlist has exactly this one model. */
   val model: Model? by lazy {
@@ -80,16 +80,16 @@ constructor(
 
   fun isModelReady(): Boolean = model?.let { File(it.getPath(context)).isFile } == true
 
-  fun vectorCount(): Int = vectors.count()
+  suspend fun vectorCount(): Int = withContext(Dispatchers.IO) { vectors.count() }
 
   /** The original app's 70-token index used other ids and is replaced by [VectorStore]. */
   fun cancelOldIndexing() {
     WorkManager.getInstance(context).cancelUniqueWork(OLD_PERIODIC_INDEX)
   }
 
+  /** Not cached here: the store hands out a new one after the model was deleted or replaced. */
   private suspend fun embedder(): OnDeviceEmbedder? =
     lock.withLock {
-      embedder?.let { return it }
       val m = model ?: return null
       if (!isModelReady()) return null
       withContext(Dispatchers.IO) {
@@ -106,14 +106,13 @@ constructor(
             .onFailure { Log.e(TAG, "search model unavailable", it) }
             .getOrNull()
         }
-        .also { embedder = it }
     }
 
   /** null = no model on the phone or nothing to search in yet. */
   suspend fun search(query: String, scope: List<MediaItem>): LocalHits? {
-    if (vectors.count() == 0) return null
+    if (vectorCount() == 0) return null
     val e = embedder() ?: return null
-    val q = withContext(Dispatchers.Default) { e.generateTextEmbedding(QUERY_PREFIX + query) } ?: return null
+    val q = withContext(Dispatchers.Default) { e.generateTextEmbedding(QUERY_PREFIX + query) }?.takeIf { it.size == DIMS } ?: return null
     return rank(q, scope, seed = null)
   }
 
@@ -142,7 +141,7 @@ constructor(
             .getOrNull()
         }
         ?: return null
-    if (vectors.count() == 0) return null
+    if (v.size != DIMS || vectorCount() == 0) return null
     return rank(v, scope, seed = fp)
   }
 
@@ -151,7 +150,8 @@ constructor(
     val inScope = scope.associateBy { it.id }
     val byFp = HashMap<String, MutableList<MediaItem>>()
     for ((id, row) in rows) inScope[id]?.let { byFp.getOrPut(row.fingerprint) { ArrayList() } += it }
-    val hits: List<VectorHit> = withContext(Dispatchers.Default) { vectors.search(unit(v), byFp.keys, 1000) }.filter { it.fingerprint != seed }
+    val (hits, coverage) =
+      withContext(Dispatchers.Default) { vectors.search(unit(v), byFp.keys, 1000).filter { it.fingerprint != seed } to vectors.coverage(byFp.keys) }
     // the original app hides weak matches the same way
     val cutoff = maxOf(0.40f, (hits.firstOrNull()?.score ?: 0f) - 0.20f)
     val times = HashMap<Long, Double>()
@@ -159,7 +159,7 @@ constructor(
       hits.filter { it.score >= cutoff }
         .flatMap { h -> byFp[h.fingerprint].orEmpty().onEach { if (h.t != null && it.isVideo) times[it.id] = h.t } }
         .distinctBy { it.id }
-    return LocalHits(items, times)
+    return LocalHits(items, times, complete = coverage >= 0.9f)
   }
 
   private fun unit(v: FloatArray): FloatArray {

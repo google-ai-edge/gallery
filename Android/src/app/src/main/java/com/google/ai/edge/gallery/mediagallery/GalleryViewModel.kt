@@ -30,6 +30,8 @@ import com.google.ai.edge.gallery.morgenschiss.MediaSearchApi
 import com.google.ai.edge.gallery.morgenschiss.MediaSyncWorker
 import com.google.ai.edge.gallery.morgenschiss.Scope
 import com.google.ai.edge.gallery.morgenschiss.Session
+import com.google.ai.edge.gallery.morgenschiss.VectorStore
+import com.google.ai.edge.gallery.morgenschiss.VectorSync
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -61,6 +63,8 @@ data class SearchState(
   val spoken: List<Spoken> = emptyList(),
 )
 
+private const val PARTIAL = "Auf dem Handy gesucht, dort fehlen noch Suchdaten (sie kommen beim Abgleich im WLAN)."
+
 data class Spoken(val item: MediaItem, val t: Double, val text: String)
 
 @HiltViewModel
@@ -73,6 +77,7 @@ constructor(
   private val idStore: MediaIdStore,
   val localSearch: LocalSearch,
   private val albumRepo: AlbumRepository,
+  private val vectorStore: VectorStore,
 ) : ViewModel() {
   val pendingMoves: StateFlow<Map<Long, PendingMove>> = albumRepo.pendingMoves
 
@@ -167,6 +172,8 @@ constructor(
   fun logout() {
     MediaSyncWorker.cancelAll(context)
     api.client.logout()
+    // another account must not search in these vectors
+    viewModelScope.launch(Dispatchers.IO) { VectorSync.reset(context, vectorStore) }
   }
 
   fun syncNow() = MediaSyncWorker.runNow(context)
@@ -213,7 +220,8 @@ constructor(
         val q = query.trim()
         // the bubble filter still lives on the server (moves to the phone with the bubbles)
         val local = if (_search.value.onlyBubbles) null else localSearch.search(q, scopeItems)
-        if (local != null) {
+        // while most files still lack a vector on the phone (first sync), morgenschiss knows more
+        if (local != null && (local.complete || !api.client.isLoggedIn)) {
           _search.value =
             _search.value.copy(
               loading = false,
@@ -237,7 +245,7 @@ constructor(
         _search.value =
           when (r) {
             is ApiResult.Ok -> serverResults(r.value.results, scopeItems, r.value.spoken)
-            else -> localResults(q, scopeItems, r)
+            else -> localResults(q, scopeItems, r, local)
           }
       }
   }
@@ -250,12 +258,13 @@ constructor(
         _search.value = SearchState(query = "Ähnlich wie ${item.name}", everywhere = true, loading = true)
         val local = localSearch.similar(item, library.value.items)
         _search.value =
-          if (local != null) {
+          if (local != null && (local.complete || !api.client.isLoggedIn)) {
             _search.value.copy(loading = false, results = local.items, times = local.times, source = SearchSource.LOCAL, message = null)
           } else {
             val fp = withContext(Dispatchers.IO) { idStore.all()[item.id]?.fingerprint }
             val r = if (fp != null) api.similar(fp, Scope()) else null
             if (r is ApiResult.Ok) serverResults(r.value.results, library.value.items).copy(query = _search.value.query)
+            else if (local != null) _search.value.copy(loading = false, results = local.items, times = local.times, source = SearchSource.LOCAL, message = PARTIAL)
             else _search.value.copy(loading = false, results = emptyList(), times = emptyMap(), source = SearchSource.LOCAL, message = noLocalReason())
           }
       }
@@ -290,14 +299,17 @@ constructor(
     return hits.mapNotNull { h -> byFp[h.id]?.firstNotNullOfOrNull { inScope[it] }?.let { Spoken(it, h.t, h.text) } }
   }
 
-  private fun noLocalReason(): String =
+  private suspend fun noLocalReason(): String =
     when {
       !localSearch.isModelReady() -> "Das Suchmodell fehlt noch auf dem Handy (Einstellungen)."
       localSearch.vectorCount() == 0 -> "Noch keine Suchdaten auf dem Handy, sie kommen mit dem nächsten Abgleich im WLAN."
       else -> "Suche auf dem Handy fehlgeschlagen."
     }
 
-  private suspend fun localResults(query: String, scopeItems: List<MediaItem>, r: ApiResult<*>): SearchState {
+  private suspend fun localResults(query: String, scopeItems: List<MediaItem>, r: ApiResult<*>, partial: LocalHits?): SearchState {
+    if (partial != null) {
+      return _search.value.copy(loading = false, results = partial.items, times = partial.times, spoken = emptyList(), source = SearchSource.LOCAL, message = PARTIAL)
+    }
     // with the bubble filter the server was asked first; without it the phone already failed
     if (_search.value.onlyBubbles) {
       localSearch.search(query, scopeItems)?.let {

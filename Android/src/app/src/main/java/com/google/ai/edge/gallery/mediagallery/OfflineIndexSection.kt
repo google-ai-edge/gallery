@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.data.Model
@@ -52,7 +53,8 @@ fun OfflineIndexSection(modelManager: ModelManagerViewModel, localSearch: LocalS
       "Die Suche läuft auf dem Handy, auch ohne Netz. Dafür braucht die Galerie ein Suchmodell (485 MB). morgenschiss rechnet nur die erste große Indexierung, die Suchdaten kommen beim Abgleich im WLAN aufs Handy.",
       style = MaterialTheme.typography.bodyMedium,
     )
-    Text("Suchdaten auf dem Handy: ${localSearch.vectorCount()} Einträge", style = MaterialTheme.typography.bodySmall)
+    val count by produceState(-1) { value = localSearch.vectorCount() }
+    if (count >= 0) Text("Suchdaten auf dem Handy: $count Einträge", style = MaterialTheme.typography.bodySmall)
     ModelStatus(modelManager, status, model)
   }
 }

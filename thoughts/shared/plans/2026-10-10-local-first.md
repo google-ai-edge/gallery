@@ -30,4 +30,7 @@ Erstindexierung bzw. wenn viel zu tun ist (parallel). Transkripte nicht für all
 - **Phase 1**: Der alte 70-Token-Index der Original-App (eigene IDs) wird nicht mehr geplant; der Worker wird abgemeldet.
 - **Phase 1**: Ausnahmen bleiben vorerst beim Server: "Nur passende Bubbles" (bis Phase 2) und Gesprochenes (bis Phase 5, kommt nachgeladen dazu).
 - **Phase 1**: Ohne Vektoren auf dem Handy (frisch installiert, vor dem ersten Abgleich) fragt die App wie bisher morgenschiss.
+- **Phase 1**: Review-Fixes: zurueckgekehrte Dateien (SD-Karte, Papierkorb) holen ihre Vektoren per Voll-Download zurueck; Index-Neubau unter derselben Sperre wie Schreiben; Teil-Abdeckung (<90 %) fragt zuerst morgenschiss; ersetzte Szenen werden lokal geloescht; Abmelden leert die Suchdaten.
+- **Phase 1 / fuer Phase 3**: Das Modell meldet beim Laden ein Bildbudget von hoechstens 140 Tokens ("capping to 140"); die 280 im Bench waren also ebenfalls 140. Fuer die Indexierung auf dem Handy pruefen.
+- **Phase 1**: Am S26 geprueft: Modell-Download aus dem Hinweis, Suche "hund" auf dem Handy findet Dackel/Hund-Bilder aus den heruntergeladenen Mac-Vektoren.
 

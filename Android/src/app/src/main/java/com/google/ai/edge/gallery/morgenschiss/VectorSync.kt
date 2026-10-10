@@ -27,10 +27,13 @@ object VectorSync {
   private const val KEY_AT = "at"
 
   /** null = done; otherwise the failed call, for the worker's retry logic. */
-  suspend fun pull(context: Context, api: MediaSearchApi, store: VectorStore): ApiResult<*>? {
+  suspend fun pull(context: Context, api: MediaSearchApi, store: VectorStore, full: Boolean = false): ApiResult<*>? {
     val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     // an empty store (reinstall, cleared data) needs everything again
-    val since = prefs.getString(KEY_AT, null)?.takeIf { store.count() > 0 }
+    val since = if (full) null else prefs.getString(KEY_AT, null)?.takeIf { store.count() > 0 }
+    // videos sent again in this delta: their older scenes are gone on the server
+    val resent = HashSet<String>()
+    val sceneKeys = HashMap<String, MutableSet<String>>()
     var after: String? = null
     var at: String? = null
     while (true) {
@@ -40,19 +43,28 @@ object VectorSync {
           else -> return r
         }
       if (at == null) at = page.at
+      for (v in page.items) {
+        if (v.kind == "scene") sceneKeys.getOrPut(v.id) { HashSet() } += v.key else if (since != null && v.kind == "video") resent += v.id
+      }
       store.put(
-        page.items.mapNotNull { v ->
+        invalidate = false,
+        rows = page.items.mapNotNull { v ->
           val q = runCatching { VectorStore.decode(v.q) }.getOrNull()?.takeIf { it.size == DIMS } ?: return@mapNotNull null
           VectorStore.Row(v.key, v.id, if (v.kind == "scene") v.t else null, v.kind, "server", v.tokens, q, v.s)
         }
       )
       after = page.next ?: break
     }
-    if (at != null) prefs.edit().putString(KEY_AT, at).apply()
+    for (fp in resent) store.dropScenesExcept(fp, sceneKeys[fp].orEmpty())
+    store.invalidate()
+    // a minute back: an entry stamped just before [at] but written after the read is fetched next time
+    val next = at?.let { runCatching { java.time.Instant.parse(it).minusSeconds(60).toString() }.getOrNull() }
+    if (next != null) prefs.edit().putString(KEY_AT, next).apply()
     return null
   }
 
-  fun reset(context: Context) {
+  fun reset(context: Context, store: VectorStore) {
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+    store.clear()
   }
 }

@@ -136,7 +136,16 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
     val vectors = deps.vectors()
     report("Suchdaten laden", 0, 0)
     VectorSync.pull(applicationContext, api, vectors)?.let { Log.w(TAG, "vector download failed: $it") }
-    if (!massDelete) vectors.keepOnly(store.all().values.map { it.fingerprint }.toSet())
+    if (!massDelete) {
+      vectors.keepOnly(store.all().values.map { it.fingerprint }.toSet())
+      // a file that came back (SD card, trash) is not new on the server, so a delta never brings
+      // its vectors again; fetch everything once in that case
+      val missing = store.all().values.map { it.fingerprint }.filter { it in serverIds }.toSet() - vectors.fingerprints()
+      if (missing.isNotEmpty()) {
+        Log.i(TAG, "${missing.size} indexed files without a vector on the phone, full download")
+        VectorSync.pull(applicationContext, api, vectors, full = true)?.let { Log.w(TAG, "vector download failed: $it") }
+      }
+    }
 
     // 3. upload, one batch at a time (a parallel batch would get 429 index_busy)
     val batches = SyncPlanner.batches(plan.upload)
