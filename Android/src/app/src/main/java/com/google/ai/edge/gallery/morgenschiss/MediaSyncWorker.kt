@@ -171,14 +171,8 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
       store.markScenes(store.all().values.filter { it.fingerprint == fp }.map { it.mediaId }, MediaIdStore.SCENE_VERSION)
     }
 
-    // 5. what is said in videos, transcribed on the Mac and kept by the server for the search
-    val speechVideos = SyncPlanner.needSpeech(files, store.all(), idsResponse.speech.keys)
-    for ((i, f) in speechVideos.withIndex()) {
-      if (isStopped) return Result.retry()
-      report("Gesprochenes in Videos", i, speechVideos.size)
-      val stop = transcribeVideo(api, store, byId.getValue(f.mediaId))
-      if (stop != null) return stop
-    }
+    // Videos are not transcribed in bulk (hundreds of GB would take hours and much storage);
+    // a transcript is made on demand from the viewer, which also stores it for the search.
 
     report("Fertig", plan.upload.size, plan.upload.size)
     return Result.success(workDataOf(KEY_UPLOADED to done))
@@ -263,58 +257,6 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
       }
       albums.addPending(moves)
       store.markMatched(chunk.flatMap { fpToIds[it].orEmpty() })
-    }
-  }
-
-  /**
-   * Sends one video's sound with its id and waits for the transcript; the server keeps it.
-   * Returns a [Result] when the sync has to stop (Mac away, limits).
-   */
-  private suspend fun transcribeVideo(api: MediaSearchApi, store: MediaIdStore, item: MediaItem): Result? {
-    val rows = store.all()
-    val fp = rows[item.id]?.fingerprint ?: return null
-    val copies = rows.values.filter { it.fingerprint == fp }.map { it.mediaId }
-    val done = { store.markSpeech(copies, MediaIdStore.SPEECH_VERSION) }
-    // the server takes at most an hour of sound
-    if (item.durationMs > 60 * 60 * 1000L) return null.also { done() }
-    // a background run may be stopped before a long transcript is back: after three tries, give up
-    val tries = rows[item.id]?.speech ?: 0
-    if (tries <= -3) return null.also { done() }
-    if (tries <= 0) store.markSpeech(copies, tries - 1)
-    val audio = java.io.File(applicationContext.cacheDir, "speech-${item.id}.m4a")
-    try {
-      if (!AudioExtractor.extract(applicationContext, item.uri, audio) || audio.length() > 60L * 1024 * 1024) return null.also { done() }
-      val bytes = audio.readBytes()
-      var start = api.transcribe(bytes, fp)
-      if (start is ApiResult.Busy) {
-        delay(30_000)
-        start = api.transcribe(bytes, fp)
-      }
-      val job =
-        when (start) {
-          is ApiResult.Ok -> start.value.jobId
-          // not indexed (yet): next sync; anything else (too long, bad audio) will not get better
-          is ApiResult.Failed -> return null.also { if (start.code != "not_indexed") done() }
-          else -> return outcome(start)
-        }
-      val deadline = System.currentTimeMillis() + maxOf(10 * 60_000L, item.durationMs * 2)
-      while (System.currentTimeMillis() < deadline) {
-        delay(3_000)
-        when (val st = api.transcribeStatus(job)) {
-          is ApiResult.Ok ->
-            when (st.value.status) {
-              "done" -> return null.also { if (st.value.saved != false) done() }
-              "error" -> return if (st.value.error == "stt_unavailable") Result.retry() else null.also { done() }
-            }
-          is ApiResult.Unavailable -> {}
-          // the job is gone (kept 30 minutes, or the server restarted): next sync
-          is ApiResult.Failed -> return null
-          else -> return outcome(st)
-        }
-      }
-      return null
-    } finally {
-      audio.delete()
     }
   }
 
