@@ -19,6 +19,10 @@ package com.google.ai.edge.gallery.mediagallery
 import android.app.PendingIntent
 import android.content.Context
 import android.provider.MediaStore
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.morgenschiss.ApiResult
@@ -93,6 +97,30 @@ sealed interface Loadable<out T> {
   data class Error(val message: String) : Loadable<Nothing>
 }
 
+class MapCamera {
+  var yaw by mutableFloatStateOf(DEFAULT_YAW)
+  var pitch by mutableFloatStateOf(DEFAULT_PITCH)
+  var zoom by mutableFloatStateOf(1f)
+  var panX by mutableFloatStateOf(0f)
+  var panY by mutableFloatStateOf(0f)
+  /** Point index in the loaded map, or -1. */
+  var selected by mutableIntStateOf(-1)
+
+  fun reset() {
+    yaw = DEFAULT_YAW
+    pitch = DEFAULT_PITCH
+    zoom = 1f
+    panX = 0f
+    panY = 0f
+    selected = -1
+  }
+
+  companion object {
+    const val DEFAULT_YAW = 0.6f
+    const val DEFAULT_PITCH = -0.4f
+  }
+}
+
 data class CategoryStat(val label: String, val count: Int, val byYear: Map<Int, Int>)
 
 /** Cleanup, category statistics and the 3D map; all need morgenschiss. */
@@ -116,6 +144,9 @@ constructor(
   val categoryLabels: StateFlow<List<String>> = _categoryLabels.asStateFlow()
   private val _categories = MutableStateFlow<Loadable<List<CategoryStat>>>(Loadable.Idle)
   val categories: StateFlow<Loadable<List<CategoryStat>>> = _categories.asStateFlow()
+
+  /** Rotation, zoom and selection live here so they survive opening a photo and coming back. */
+  val camera = MapCamera()
 
   private val _map = MutableStateFlow<Loadable<List<Pair<MapPoint, MediaItem?>>>>(Loadable.Idle)
   val map: StateFlow<Loadable<List<Pair<MapPoint, MediaItem?>>>> = _map.asStateFlow()
@@ -242,6 +273,7 @@ constructor(
         return@launch
       }
       val byFp = localByFp()
+      camera.selected = -1
       _map.value = Loadable.Done(r.value.points.map { it to byFp[it.id]?.firstOrNull() })
     }
   }
