@@ -51,6 +51,8 @@ data class SearchState(
   val results: List<MediaItem>? = null,
   val source: SearchSource = SearchSource.SERVER,
   val message: String? = null,
+  /** Videos found by a scene: media id -> seconds into the video. */
+  val times: Map<Long, Double> = emptyMap(),
 )
 
 @HiltViewModel
@@ -162,6 +164,7 @@ constructor(
             _search.value.copy(
               loading = false,
               results = local ?: emptyList(),
+              times = emptyMap(),
               source = SearchSource.LOCAL,
               message = if (local == null) "Ähnliche Bilder gehen gerade nicht: morgenschiss nicht erreichbar und kein lokaler Index." else "Lokal gesucht.",
             )
@@ -174,11 +177,17 @@ constructor(
     val inScope = scopeItems.associateBy { it.id }
     // the original app hides weak matches the same way
     val cutoff = maxOf(0.40, (hits.firstOrNull()?.score ?: 0.0) - 0.20)
+    val times = HashMap<Long, Double>()
     val items =
-      hits.filter { it.score >= cutoff }.flatMap { h -> byFp[h.id].orEmpty().mapNotNull { inScope[it] } }.distinctBy { it.id }
+      hits.filter { it.score >= cutoff }
+        .flatMap { h ->
+          byFp[h.id].orEmpty().mapNotNull { inScope[it] }.onEach { item -> if (h.t != null && item.isVideo) times[item.id] = h.t }
+        }
+        .distinctBy { it.id }
     return _search.value.copy(
       loading = false,
       results = items,
+      times = times,
       source = SearchSource.SERVER,
       message = if (items.isEmpty()) "Nichts gefunden." else null,
     )
@@ -187,12 +196,13 @@ constructor(
   private suspend fun localResults(query: String, scopeItems: List<MediaItem>, r: ApiResult<*>): SearchState {
     val local = localSearch.search(query, scopeItems)
     if (local != null) {
-      return _search.value.copy(loading = false, results = local, source = SearchSource.LOCAL, message = "Lokal gesucht (${reason(r)}).")
+      return _search.value.copy(loading = false, results = local, times = emptyMap(), source = SearchSource.LOCAL, message = "Lokal gesucht (${reason(r)}).")
     }
     val byName = scopeItems.filter { it.name.contains(query, ignoreCase = true) }
     return _search.value.copy(
       loading = false,
       results = byName,
+      times = emptyMap(),
       source = SearchSource.NAME_ONLY,
       message = "Nur Dateinamen durchsucht (${reason(r)}, kein lokaler Index).",
     )

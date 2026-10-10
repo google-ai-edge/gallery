@@ -148,6 +148,23 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
       }
       done += batch.size
     }
+    // 4. scenes along videos, so a moment inside a long video can be found
+    val sceneVideos = SyncPlanner.needScenes(files, store.all())
+    sceneVideos.forEachIndexed { i, f ->
+      if (isStopped) return Result.retry()
+      report("Szenen aus Videos", i, sceneVideos.size)
+      val item = byId.getValue(f.mediaId)
+      val fp = store.all()[f.mediaId]?.fingerprint ?: return@forEachIndexed
+      val scenes = runCatching { FrameEncoder.sceneFrames(applicationContext.contentResolver, item) }.getOrElse { emptyList() }
+      val items = scenes.map { (t, frame) -> IndexItem(id = fp, kind = "video", mime = item.mime, size = item.size, frames = listOf(frame), scene = SceneTime(t)) }
+      for (chunk in byBodySize(items.map { f.mediaId to it }).flatMap { it.chunked(SyncPlanner.BATCH_SIZE) }) {
+        val stop = sendScenes(api, chunk.map { it.second })
+        if (stop != null) return stop
+      }
+      // copies share the fingerprint and therefore the scenes
+      store.markScenes(store.all().values.filter { it.fingerprint == fp }.map { it.mediaId }, MediaIdStore.SCENE_VERSION)
+    }
+
     report("Fertig", plan.upload.size, plan.upload.size)
     return Result.success(workDataOf(KEY_UPLOADED to done))
   }
@@ -198,6 +215,18 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
           val half = chunk.size / 2
           send(api, store, chunk.subList(0, half), byId) ?: send(api, store, chunk.subList(half, chunk.size), byId)
         }
+      else -> outcome(result)
+    }
+  }
+
+  /** Like [send], for scenes: a bad scene is skipped, never the whole video. */
+  private suspend fun sendScenes(api: MediaSearchApi, chunk: List<IndexItem>): Result? {
+    val result = sendWithRetry(api, chunk)
+    return when {
+      result is ApiResult.Ok -> null
+      result is ApiResult.Failed && (result.status == 400 || result.status == 413) ->
+        if (chunk.size == 1) null
+        else sendScenes(api, chunk.subList(0, chunk.size / 2)) ?: sendScenes(api, chunk.subList(chunk.size / 2, chunk.size))
       else -> outcome(result)
     }
   }

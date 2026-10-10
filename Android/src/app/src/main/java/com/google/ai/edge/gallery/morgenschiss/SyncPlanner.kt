@@ -69,6 +69,15 @@ object SyncPlanner {
     return SyncPlan(needFp, gone, remove, already, upload)
   }
 
+  /** Indexed videos whose scenes are missing or from an older sampling; one per fingerprint. */
+  fun needScenes(files: List<LocalFile>, rows: Map<Long, MediaIdRow>): List<LocalFile> {
+    val seen = HashSet<String>()
+    return files.filter { f ->
+      val row = rows[f.mediaId] ?: return@filter false
+      f.isVideo && row.serverFolder != null && !row.serverFailed && row.scenes < MediaIdStore.SCENE_VERSION && seen.add(row.fingerprint)
+    }
+  }
+
   /** Photos and videos in separate batches: the server rejects nothing, but photo batches are slow. */
   fun batches(upload: List<LocalFile>): List<List<LocalFile>> =
     upload.partition { !it.isVideo }.toList().flatMap { it.chunked(BATCH_SIZE) }
