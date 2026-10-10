@@ -272,7 +272,8 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
     const val UNIQUE_NOW = "media_sync_now"
     private const val UNIQUE_PERIODIC = "media_sync_periodic"
 
-    private val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+    // the first sync sends several GB of previews: Wi-Fi (unmetered) only, never mobile data
+    private val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build()
 
     fun runNow(context: Context) {
       WorkManager.getInstance(context)

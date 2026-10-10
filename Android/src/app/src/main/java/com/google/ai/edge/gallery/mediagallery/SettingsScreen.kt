@@ -164,7 +164,7 @@ private fun SyncStatus(onSync: () -> Unit) {
       }
       info?.state == WorkInfo.State.ENQUEUED && info.runAttemptCount > 0 ->
         Text("Wartet auf morgenschiss (Mac nicht da oder beschäftigt).", style = MaterialTheme.typography.bodyMedium)
-      info?.state == WorkInfo.State.ENQUEUED -> Text("Abgleich startet gleich.", style = MaterialTheme.typography.bodyMedium)
+      info?.state == WorkInfo.State.ENQUEUED -> Text("Abgleich startet, sobald das Handy im WLAN ist.", style = MaterialTheme.typography.bodyMedium)
       info?.state == WorkInfo.State.SUCCEEDED ->
         Text("Abgleich fertig, ${info.outputData.getInt(MediaSyncWorker.KEY_UPLOADED, 0)} neu hochgeladen.", style = MaterialTheme.typography.bodyMedium)
       info?.state == WorkInfo.State.FAILED -> Text("Abgleich abgebrochen. Bitte neu anmelden.", style = MaterialTheme.typography.bodyMedium)
