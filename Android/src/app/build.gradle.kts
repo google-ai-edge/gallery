@@ -33,11 +33,13 @@ android {
   compileSdk { this.version = release(37) { minorApiLevel = 0 } }
 
   defaultConfig {
-    applicationId = "com.google.aiedge.gallery"
+    // own id, so the app installs next to the Play Store version
+    applicationId = "de.morgenschiss.gallery"
     minSdk = 31
     targetSdk = 37
-    versionCode = 46
-    versionName = "1.0.20"
+    // CI sets 100000 + run number; local builds keep 46
+    versionCode = System.getenv("GALLERY_VERSION_CODE")?.toIntOrNull() ?: 46
+    versionName = "1.0.0"
 
     // Needed for HuggingFace auth workflows.
     // Use the scheme of the "Redirect URLs" in HuggingFace app.
@@ -49,13 +51,34 @@ android {
     buildConfigField("String", "FEEDBACK_API_KEY", "\"\"")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+    // phones and the Apple-silicon emulator are arm64; the other ABIs would double the APK
+    ndk { abiFilters += "arm64-v8a" }
+  }
+
+  signingConfigs {
+    create("release") {
+      // stable release key from CI secrets; only APKs signed with it can update the installed app
+      val ks = System.getenv("GALLERY_KEYSTORE_FILE")
+      if (ks != null) {
+        storeFile = file(ks)
+        storePassword = System.getenv("GALLERY_KEYSTORE_PASSWORD")
+        keyAlias = System.getenv("GALLERY_KEY_ALIAS")
+        keyPassword = System.getenv("GALLERY_KEY_PASSWORD")
+      }
+    }
   }
 
   buildTypes {
     release {
-      isMinifyEnabled = false
+      // R8 keeps the release APK well under Cloudflare's 100 MB upload limit
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("debug")
+      // without the CI key (local builds) fall back to the debug key so the APK still installs
+      signingConfig =
+        if (System.getenv("GALLERY_KEYSTORE_FILE") != null) signingConfigs.getByName("release")
+        else signingConfigs.getByName("debug")
     }
   }
   compileOptions {
@@ -114,7 +137,6 @@ dependencies {
   implementation(libs.play.services.oss.licenses)
   implementation(platform(libs.firebase.bom))
   implementation(libs.firebase.analytics)
-  implementation(libs.firebase.messaging)
   implementation(libs.androidx.exifinterface)
   implementation(libs.moshi.kotlin)
   ksp(libs.hilt.android.compiler)
@@ -154,3 +176,7 @@ protobuf {
     }
   }
 }
+
+// oss-licenses 0.11.0 calls a Groovy-only method for debug builds under Gradle 9; release builds
+// (the ones that get shipped) still collect the licenses
+tasks.matching { it.name == "debugOssLicensesTask" }.configureEach { enabled = false }
