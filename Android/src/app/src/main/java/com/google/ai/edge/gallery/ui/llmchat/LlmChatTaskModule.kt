@@ -230,11 +230,8 @@ constructor(@ApplicationContext context: Context, @AiChatExecutor executor: Agen
     emptyStateContentRes = R.string.aichat_emptystate_content,
   )
 
-@Module
-@InstallIn(SingletonComponent::class) // Or another component that fits your scope
+// Not installed: the gallery fork has no chat tasks.
 internal object LlmChatTaskModule {
-  @Provides
-  @IntoSet
   fun provideTask(
     @ApplicationContext context: Context,
     @AiChatExecutor executor: AgentRuntimeExecutor,
@@ -324,11 +321,8 @@ constructor(
   }
 }
 
-@Module
-@InstallIn(SingletonComponent::class) // Or another component that fits your scope
+// Not installed: the gallery fork has no chat tasks.
 internal object LlmAskImageModule {
-  @Provides
-  @IntoSet
   fun provideTask(
     @ApplicationContext context: Context,
     @AiChatExecutor executor: AgentRuntimeExecutor,
@@ -418,11 +412,8 @@ constructor(
   }
 }
 
-@Module
-@InstallIn(SingletonComponent::class) // Or another component that fits your scope
+// Not installed: the gallery fork has no chat tasks.
 internal object LlmAskAudioModule {
-  @Provides
-  @IntoSet
   fun provideTask(
     @ApplicationContext context: Context,
     @AiChatExecutor executor: AgentRuntimeExecutor,

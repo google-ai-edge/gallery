@@ -73,6 +73,11 @@ import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.isLegacyTasks
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.mediagallery.FolderGridScreen
+import com.google.ai.edge.gallery.mediagallery.FoldersScreen
+import com.google.ai.edge.gallery.mediagallery.GalleryViewModel
+import com.google.ai.edge.gallery.mediagallery.MediaPermissionGate
+import com.google.ai.edge.gallery.mediagallery.MediaViewerScreen
 import com.google.ai.edge.gallery.ui.benchmark.BenchmarkScreen
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.LocalTestAllowlistDialog
@@ -90,6 +95,11 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "AGGalleryNavGraph"
 private const val ROUTE_HOMESCREEN = "homepage"
+private const val ROUTE_GALLERY = "gallery"
+private const val ROUTE_FOLDER = "folder"
+private const val ROUTE_VIEWER = "viewer"
+/** bucketId placeholder for "all media" in routes. */
+private const val ALL_BUCKETS = -1L
 private const val ROUTE_MODEL_LIST = "model_list"
 private const val ROUTE_MODEL = "route_model"
 private const val ROUTE_BENCHMARK = "benchmark"
@@ -150,6 +160,7 @@ fun GalleryNavHost(
   modifier: Modifier = Modifier,
   modelManagerViewModel: ModelManagerViewModel,
   tosViewModel: TosViewModel = hiltViewModel(),
+  galleryViewModel: GalleryViewModel = hiltViewModel(),
 ) {
   val lifecycleOwner = LocalLifecycleOwner.current
   var showModelManager by remember { mutableStateOf(false) }
@@ -183,10 +194,52 @@ fun GalleryNavHost(
 
   NavHost(
     navController = navController,
-    startDestination = ROUTE_HOMESCREEN,
+    startDestination = ROUTE_GALLERY,
     enterTransition = { EnterTransition.None },
     exitTransition = { ExitTransition.None },
   ) {
+    // Gallery: folders, folder grid, full screen viewer.
+    composable(route = ROUTE_GALLERY) {
+      MediaPermissionGate(galleryViewModel) {
+        FoldersScreen(
+          viewModel = galleryViewModel,
+          onOpenFolder = { navController.navigate("$ROUTE_FOLDER/${it ?: ALL_BUCKETS}") },
+        )
+      }
+    }
+
+    composable(
+      route = "$ROUTE_FOLDER/{bucketId}",
+      arguments = listOf(navArgument("bucketId") { type = NavType.LongType }),
+    ) { entry ->
+      val bucketArg = entry.arguments?.getLong("bucketId") ?: ALL_BUCKETS
+      val bucketId = bucketArg.takeIf { it != ALL_BUCKETS }
+      FolderGridScreen(
+        viewModel = galleryViewModel,
+        bucketId = bucketId,
+        onOpenItem = { navController.navigate("$ROUTE_VIEWER/$bucketArg/${it.id}") },
+        onBack = { navController.navigateUp() },
+      )
+    }
+
+    composable(
+      route = "$ROUTE_VIEWER/{bucketId}/{mediaId}",
+      arguments =
+        listOf(
+          navArgument("bucketId") { type = NavType.LongType },
+          navArgument("mediaId") { type = NavType.LongType },
+        ),
+    ) { entry ->
+      val bucketId = (entry.arguments?.getLong("bucketId") ?: ALL_BUCKETS).takeIf { it != ALL_BUCKETS }
+      val mediaId = entry.arguments?.getLong("mediaId") ?: 0L
+      val library by galleryViewModel.library.collectAsState()
+      MediaViewerScreen(
+        items = library.itemsIn(bucketId),
+        startId = mediaId,
+        onBack = { navController.navigateUp() },
+      )
+    }
+
     // Home screen.
     composable(route = ROUTE_HOMESCREEN) {
       HomeScreen(

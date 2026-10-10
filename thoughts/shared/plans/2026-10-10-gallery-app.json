@@ -1,0 +1,155 @@
+{
+  "plan": "2026-10-10-gallery-app",
+  "createdAt": "2026-10-10T02:27:51.749942Z",
+  "updatedAt": "2026-10-10T02:27:51.749942Z",
+  "phases": [
+    {
+      "id": "phase-1",
+      "name": "Installierbare Galerie + CI",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "1.1",
+          "status": "pending"
+        },
+        {
+          "id": "1.2",
+          "status": "pending"
+        },
+        {
+          "id": "1.3",
+          "status": "pending"
+        },
+        {
+          "id": "1.4",
+          "status": "pending"
+        },
+        {
+          "id": "1.5",
+          "status": "pending"
+        },
+        {
+          "id": "1.6",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-2",
+      "name": "Login, Server-Suche, Update",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "2.1",
+          "status": "pending"
+        },
+        {
+          "id": "2.2",
+          "status": "pending"
+        },
+        {
+          "id": "2.3",
+          "status": "pending"
+        },
+        {
+          "id": "2.4",
+          "status": "pending"
+        },
+        {
+          "id": "2.5",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "name": "Erstindexierung Mac",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "3.1",
+          "status": "pending"
+        },
+        {
+          "id": "3.2",
+          "status": "pending"
+        },
+        {
+          "id": "3.3",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "name": "Lokaler Index",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "4.1",
+          "status": "pending"
+        },
+        {
+          "id": "4.2",
+          "status": "pending"
+        },
+        {
+          "id": "4.3",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-5",
+      "name": "Aufraeumen",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "5.1",
+          "status": "pending"
+        },
+        {
+          "id": "5.2",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-6",
+      "name": "Kategorien",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "6.1",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-7",
+      "name": "3D",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "7.1",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-8",
+      "name": "Detail-Aktionen",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "8.1",
+          "status": "pending"
+        },
+        {
+          "id": "8.2",
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}

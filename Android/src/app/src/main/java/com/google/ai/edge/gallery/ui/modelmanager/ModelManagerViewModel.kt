@@ -1291,20 +1291,17 @@ constructor(
         }
 
         if (modelAllowlist == null) {
-          // Load from github.
-          var version = BuildConfig.VERSION_NAME.replace(".", "_")
-          val url = getAllowlistUrl(version)
-          Log.d(TAG, "Loading model allowlist from internet. Url: $url")
-          val data = getJsonResponse<ModelAllowlist>(url = url)
-          modelAllowlist = data?.jsonObj
-
-          if (modelAllowlist == null) {
-            Log.w(TAG, "Failed to load model allowlist from internet. Trying to load it from disk")
-            modelAllowlist = readModelAllowlistFromDisk()
-          } else {
-            Log.d(TAG, "Done: loading model allowlist from internet")
-            saveModelAllowlistToDisk(modelAllowlistContent = data?.textContent ?: "{}")
-          }
+          // The gallery fork ships its (single model) allowlist as an asset: the upstream list is
+          // fetched by versionName, which our CI-set versions would never match.
+          modelAllowlist =
+            try {
+              context.assets.open(MODEL_ALLOWLIST_FILENAME).bufferedReader().use {
+                Gson().fromJson(it.readText(), ModelAllowlist::class.java)
+              }
+            } catch (e: Exception) {
+              Log.e(TAG, "Failed to read bundled model allowlist", e)
+              null
+            }
         }
 
         if (modelAllowlist == null) {

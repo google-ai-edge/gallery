@@ -1,5 +1,5 @@
 /*
- * Copyright 2026 Google LLC
+ * Copyright 2026 Pascal Fritzsche
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,21 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.ai.edge.gallery.customtasks.scrapbook
 
-import com.google.ai.edge.gallery.customtasks.common.CustomTask
-import dagger.Module
-import dagger.Provides
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
-import dagger.multibindings.IntoSet
+package com.google.ai.edge.gallery.mediagallery
 
-@Module
-@InstallIn(SingletonComponent::class)
-internal object ScrapbookTaskModule {
-  @Provides
-  @IntoSet
-  fun provideTask(): CustomTask {
-    return ScrapbookTask()
-  }
+import androidx.lifecycle.ViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlinx.coroutines.flow.StateFlow
+
+@HiltViewModel
+class GalleryViewModel @Inject constructor(private val repository: MediaRepository) : ViewModel() {
+  val library: StateFlow<MediaLibrary> = repository.library
+
+  fun onPermissionGranted() = repository.start()
 }

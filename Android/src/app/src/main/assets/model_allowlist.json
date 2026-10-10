@@ -1,0 +1,24 @@
+{
+  "models": [
+    {
+      "name": "EmbeddingGemma-2",
+      "modelId": "litert-community/embeddinggemma-2-740m-litert-lm",
+      "modelFile": "embeddinggemma-2-740m.litertlm",
+      "description": "A variant of EmbeddingGemma 2 ready for deployment on Android using MediaPipe [UniversalEmbedder](https://developers.google.com/edge/mediapipe/solutions/retrieval/universal_embedder) and [SemanticRetriever](https://developers.google.com/edge/mediapipe/solutions/retrieval/semantic_retriever). It is a multimodal embedding model with image, audio, video, and text understanding.",
+      "sizeInBytes": 484622336,
+      "commitHash": "86b903a293f96d042bb92e1b7af333d94114458f",
+      "taskTypes": [
+        "smart_album",
+        "video_moment_finder"
+      ],
+      "bestForTaskTypes": [
+        "smart_album",
+        "video_moment_finder"
+      ],
+      "defaultConfig": {
+        "accelerators": "gpu,cpu"
+      },
+      "variantLabel": "GPU"
+    }
+  ]
+}
