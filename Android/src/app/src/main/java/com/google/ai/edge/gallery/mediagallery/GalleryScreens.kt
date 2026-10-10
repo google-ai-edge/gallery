@@ -23,7 +23,20 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DriveFileMove
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -155,6 +168,11 @@ fun FoldersScreen(
       item(key = "all") {
         FolderTile("Alle", library.items.size, library.items.first(), loader) { onOpenFolder(null) }
       }
+      library.items.firstOrNull { it.favorite }?.let { cover ->
+        item(key = "favorites") {
+          FolderTile("Favoriten", library.items.count { it.favorite }, cover, loader) { onOpenFolder(MediaLibrary.FAVORITES) }
+        }
+      }
       items(library.folders, key = { it.bucketId }) { folder ->
         FolderTile(folder.name, folder.count, folder.cover, loader) { onOpenFolder(folder.bucketId) }
       }
@@ -238,22 +256,57 @@ fun FolderGridScreen(
   val library by viewModel.library.collectAsState()
   val loader = rememberGalleryImageLoader()
   val title =
-    if (bucketId == null) "Alle" else library.folders.firstOrNull { it.bucketId == bucketId }?.name ?: ""
+    when (bucketId) {
+      null -> "Alle"
+      MediaLibrary.FAVORITES -> "Favoriten"
+      else -> library.folders.firstOrNull { it.bucketId == bucketId }?.name ?: ""
+    }
   val items = remember(library, bucketId, overrideItems) { overrideItems ?: library.itemsIn(bucketId) }
+  // long press starts selecting; ids survive a library reload, vanished ones drop out
+  var selected by rememberSaveable { mutableStateOf(setOf<Long>()) }
+  val selectedItems = remember(items, selected) { items.filter { it.id in selected } }
+  LaunchedEffect(items) { selected = selected.intersect(items.map { it.id }.toSet()) }
+  BackHandler(enabled = selected.isNotEmpty()) { selected = emptySet() }
+  val actions = rememberMediaActions(onChanged = { selected = emptySet(); viewModel.reloadLibrary() })
+  var showMove by remember { mutableStateOf(false) }
+  if (showMove) {
+    MoveDialog(library.folders, onDismiss = { showMove = false }) { path ->
+      showMove = false
+      actions.move(selectedItems, path)
+    }
+  }
   val entries = remember(items, overrideItems) {
     // search results keep their ranking instead of month groups
     if (overrideItems != null) items.map { GridEntry.Cell(it) } else withMonthHeaders(items)
   }
   Scaffold(
     topBar = {
-      TopAppBar(
-        title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        navigationIcon = {
-          IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
-          }
-        },
-      )
+      if (selected.isEmpty()) {
+        TopAppBar(
+          title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+          navigationIcon = {
+            IconButton(onClick = onBack) {
+              Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+            }
+          },
+        )
+      } else {
+        TopAppBar(
+          title = { Text("${selected.size}", maxLines = 1) },
+          navigationIcon = {
+            IconButton(onClick = { selected = emptySet() }) { Icon(Icons.Filled.Close, contentDescription = "Auswahl beenden") }
+          },
+          actions = {
+            IconButton(onClick = { selected = items.map { it.id }.toSet() }) { Icon(Icons.Filled.SelectAll, "Alle auswählen") }
+            IconButton(onClick = { actions.share(selectedItems) }) { Icon(Icons.Filled.Share, "Teilen") }
+            IconButton(onClick = { actions.favorite(selectedItems, !selectedItems.all { it.favorite }) }) {
+              Icon(if (selectedItems.all { it.favorite }) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, "Favorit")
+            }
+            IconButton(onClick = { showMove = true }) { Icon(Icons.Filled.DriveFileMove, "Verschieben") }
+            IconButton(onClick = { actions.trash(selectedItems) }) { Icon(Icons.Filled.Delete, "Löschen") }
+          },
+        )
+      }
     }
   ) { padding ->
     Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
@@ -282,7 +335,19 @@ fun FolderGridScreen(
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.padding(start = 12.dp, top = 16.dp, bottom = 6.dp),
               )
-            is GridEntry.Cell -> MediaCell(entry.item, loader, sceneSec = times[entry.item.id]) { onOpenItem(entry.item) }
+            is GridEntry.Cell -> {
+              val id = entry.item.id
+              MediaCell(
+                entry.item,
+                loader,
+                sceneSec = times[id],
+                selected = if (selected.isEmpty()) null else id in selected,
+                onLongClick = { selected = selected + id },
+              ) {
+                if (selected.isEmpty()) onOpenItem(entry.item)
+                else selected = if (id in selected) selected - id else selected + id
+              }
+            }
           }
         }
       }
@@ -290,9 +355,18 @@ fun FolderGridScreen(
   }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MediaCell(item: MediaItem, loader: coil.ImageLoader, sceneSec: Double? = null, onClick: () -> Unit) {
-  Box(modifier = Modifier.aspectRatio(1f).clickable(onClick = onClick)) {
+fun MediaCell(
+  item: MediaItem,
+  loader: coil.ImageLoader,
+  sceneSec: Double? = null,
+  /** null = not in selection mode. */
+  selected: Boolean? = null,
+  onLongClick: (() -> Unit)? = null,
+  onClick: () -> Unit,
+) {
+  Box(modifier = Modifier.aspectRatio(1f).combinedClickable(onClick = onClick, onLongClick = onLongClick)) {
     AsyncImage(
       // a scene hit shows the matching moment, not the video's first frame
       model = MediaThumb(item.uri, timeMs = sceneSec?.let { (it * 1000).toLong() }),
@@ -301,6 +375,18 @@ fun MediaCell(item: MediaItem, loader: coil.ImageLoader, sceneSec: Double? = nul
       contentScale = ContentScale.Crop,
       modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
     )
+    if (item.favorite && selected == null) {
+      Icon(Icons.Filled.Favorite, null, tint = Color.White, modifier = Modifier.align(Alignment.BottomStart).padding(4.dp).size(14.dp))
+    }
+    if (selected != null) {
+      Box(Modifier.fillMaxSize().background(if (selected) Color.Black.copy(alpha = 0.35f) else Color.Transparent))
+      Icon(
+        if (selected) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
+        contentDescription = if (selected) "Ausgewählt" else null,
+        tint = if (selected) MaterialTheme.colorScheme.primary else Color.White,
+        modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(22.dp),
+      )
+    }
     if (item.isVideo) {
       Row(
         modifier =

@@ -253,6 +253,7 @@ fun GalleryNavHost(
       val bucketArg = entry.arguments?.getLong("bucketId") ?: ALL_BUCKETS
       val bucketId = bucketArg.takeIf { it != ALL_BUCKETS }
       val search by galleryViewModel.search.collectAsState()
+      val library by galleryViewModel.library.collectAsState()
       val leave = {
         galleryViewModel.clearSearch()
         navController.navigateUp()
@@ -275,7 +276,7 @@ fun GalleryNavHost(
             onClear = { galleryViewModel.clearSearch() },
           )
         },
-        overrideItems = search.results,
+        overrideItems = search.results?.mapNotNull { library.item(it.id) },
         times = search.times,
       )
     }
@@ -294,7 +295,8 @@ fun GalleryNavHost(
       val search by galleryViewModel.search.collectAsState()
       val items =
         when (bucketArg) {
-          SEARCH_RESULTS -> search.results.orEmpty()
+          // fresh copies, so favourites and deletions show at once
+          SEARCH_RESULTS -> search.results.orEmpty().mapNotNull { library.item(it.id) }
           ALL_BUCKETS -> library.items
           else -> library.itemsIn(bucketArg)
         }
@@ -302,6 +304,8 @@ fun GalleryNavHost(
         items = items,
         startId = mediaId,
         startTimes = if (bucketArg == SEARCH_RESULTS) search.times else emptyMap(),
+        folders = library.folders,
+        onChanged = { galleryViewModel.reloadLibrary() },
         onBack = { navController.navigateUp() },
         actions = { item ->
           IconButton(

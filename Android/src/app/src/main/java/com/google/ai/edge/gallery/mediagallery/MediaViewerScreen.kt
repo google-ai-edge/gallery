@@ -36,7 +36,15 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -90,6 +98,10 @@ fun MediaViewerScreen(
   actions: @Composable (MediaItem) -> Unit = {},
   /** Video start positions in seconds, e.g. the scene a search found. */
   startTimes: Map<Long, Double> = emptyMap(),
+  /** Targets for "move"; empty hides the action. */
+  folders: List<MediaFolder> = emptyList(),
+  /** After delete, move or favourite: reload the library. */
+  onChanged: () -> Unit = {},
 ) {
   if (items.isEmpty()) {
     // e.g. the search behind this viewer was cleared
@@ -102,6 +114,17 @@ fun MediaViewerScreen(
   val context = LocalContext.current
   val current = items[pager.currentPage.coerceIn(0, items.lastIndex)]
   val players = remember { mutableStateMapOf<Long, ExoPlayer>() }
+  val mediaActions = rememberMediaActions(onChanged)
+  var menu by remember { mutableStateOf(false) }
+  var showMove by remember { mutableStateOf(false) }
+  var showInfo by remember { mutableStateOf(false) }
+  if (showMove) {
+    MoveDialog(folders, onDismiss = { showMove = false }) { path ->
+      showMove = false
+      mediaActions.move(listOf(current), path)
+    }
+  }
+  if (showInfo) InfoDialog(current) { showInfo = false }
   val transcript: TranscriptViewModel = hiltViewModel()
   var showTranscript by remember { mutableStateOf(false) }
   LaunchedEffect(current.id) {
@@ -134,8 +157,24 @@ fun MediaViewerScreen(
               Icon(Icons.Filled.Subtitles, "Transkript", tint = Color.White)
             }
           }
-          IconButton(onClick = { context.startActivity(shareIntent(current)) }) {
+          IconButton(onClick = { mediaActions.favorite(listOf(current), !current.favorite) }) {
+            Icon(if (current.favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, "Favorit", tint = Color.White)
+          }
+          IconButton(onClick = { mediaActions.share(listOf(current)) }) {
             Icon(Icons.Filled.Share, "Teilen", tint = Color.White)
+          }
+          IconButton(onClick = { mediaActions.trash(listOf(current)) }) {
+            Icon(Icons.Filled.Delete, "Löschen", tint = Color.White)
+          }
+          Box {
+            IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Mehr", tint = Color.White) }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+              if (folders.isNotEmpty()) {
+                DropdownMenuItem(text = { Text("Verschieben") }, onClick = { menu = false; showMove = true })
+              }
+              DropdownMenuItem(text = { Text("Bearbeiten mit …") }, onClick = { menu = false; mediaActions.edit(current) })
+              DropdownMenuItem(text = { Text("Details") }, onClick = { menu = false; showInfo = true })
+            }
           }
         }
       }
@@ -211,5 +250,34 @@ private fun VideoPage(item: MediaItem, active: Boolean, players: MutableMap<Long
   AndroidView(
     factory = { PlayerView(it).apply { this.player = player } },
     modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(top = 56.dp),
+  )
+}
+
+@Composable
+private fun InfoDialog(item: MediaItem, onDismiss: () -> Unit) {
+  val rows =
+    listOfNotNull(
+      "Name" to item.name,
+      "Aufgenommen" to dateFormat.format(Date(item.takenAt)),
+      "Größe" to "%.1f MB".format(item.size / 1_000_000.0),
+      if (item.width > 0) "Auflösung" to "${item.width} × ${item.height}" else null,
+      if (item.isVideo) "Dauer" to formatDuration(item.durationMs) else null,
+      "Format" to item.mime,
+      "Ordner" to item.relativePath.ifBlank { item.bucketName },
+    )
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text("Details") },
+    text = {
+      Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+        rows.forEach { (k, v) ->
+          Column {
+            Text(k, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(v, style = MaterialTheme.typography.bodyMedium)
+          }
+        }
+      }
+    },
+    confirmButton = { TextButton(onClick = onDismiss) { Text("Schließen") } },
   )
 }

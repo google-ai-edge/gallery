@@ -60,6 +60,9 @@ data class MediaItem(
   val bucketName: String,
   /** e.g. "DCIM/Camera/"; what the server calls the folder. */
   val relativePath: String,
+  val favorite: Boolean = false,
+  val width: Int = 0,
+  val height: Int = 0,
 ) {
   /** Folder as sent to morgenschiss: relative path without the trailing slash. */
   val folder: String
@@ -87,7 +90,16 @@ data class MediaLibrary(
   fun item(id: Long): MediaItem? = byId[id]
 
   fun itemsIn(bucketId: Long?): List<MediaItem> =
-    if (bucketId == null) items else items.filter { it.bucketId == bucketId }
+    when (bucketId) {
+      null -> items
+      FAVORITES -> items.filter { it.favorite }
+      else -> items.filter { it.bucketId == bucketId }
+    }
+
+  companion object {
+    /** Pseudo bucket id for the favourites tile. */
+    const val FAVORITES = -3L
+  }
 }
 
 /** Reads all photos and videos once and again whenever MediaStore changes. */
@@ -148,6 +160,9 @@ class MediaRepository @Inject constructor(@ApplicationContext private val contex
         MediaStore.MediaColumns.BUCKET_ID,
         MediaStore.MediaColumns.BUCKET_DISPLAY_NAME,
         MediaStore.MediaColumns.RELATIVE_PATH,
+        MediaStore.MediaColumns.IS_FAVORITE,
+        MediaStore.MediaColumns.WIDTH,
+        MediaStore.MediaColumns.HEIGHT,
       )
     val selection =
       "${MediaStore.Files.FileColumns.MEDIA_TYPE} IN (?, ?) AND ${MediaStore.MediaColumns.IS_PENDING} = 0"
@@ -171,6 +186,9 @@ class MediaRepository @Inject constructor(@ApplicationContext private val contex
           val iBucket = c.getColumnIndexOrThrow(projection[8])
           val iBucketName = c.getColumnIndexOrThrow(projection[9])
           val iPath = c.getColumnIndexOrThrow(projection[10])
+          val iFav = c.getColumnIndexOrThrow(projection[11])
+          val iW = c.getColumnIndexOrThrow(projection[12])
+          val iH = c.getColumnIndexOrThrow(projection[13])
           while (c.moveToNext()) {
             val id = c.getLong(iId)
             val isVideo = c.getInt(iType) == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
@@ -193,6 +211,9 @@ class MediaRepository @Inject constructor(@ApplicationContext private val contex
                 bucketId = c.getLong(iBucket),
                 bucketName = c.getString(iBucketName) ?: "Ohne Ordner",
                 relativePath = c.getString(iPath) ?: "",
+                favorite = c.getInt(iFav) == 1,
+                width = c.getInt(iW),
+                height = c.getInt(iH),
               )
           }
         }
