@@ -18,8 +18,13 @@ package com.google.ai.edge.gallery.mediagallery
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,12 +34,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CenterFocusStrong
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -47,31 +57,38 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.google.ai.edge.gallery.morgenschiss.MapPoint
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-/** Color per format family; the legend shows the ones present. */
+/** Formats other than JPEG mix this colour into their position colour. */
 private val formatColors =
   linkedMapOf(
-    "JPEG" to Color(0xFF4FC3F7),
-    "PNG" to Color(0xFFFFB74D),
-    "HEIC" to Color(0xFF81C784),
-    "WebP" to Color(0xFFBA68C8),
-    "GIF" to Color(0xFFF06292),
-    "MP4" to Color(0xFFE57373),
-    "Video" to Color(0xFFFFF176),
-    "Andere" to Color(0xFF90A4AE),
+    "PNG" to Color(0xFFFF9800),
+    "HEIC" to Color(0xFF4CAF50),
+    "WebP" to Color(0xFF9C27B0),
+    "GIF" to Color(0xFFE91E63),
+    "MP4" to Color(0xFFF44336),
+    "Video" to Color(0xFFFFEB3B),
+    "Andere" to Color(0xFF9E9E9E),
   )
 
 fun formatOf(mime: String?, kind: String?): String {
@@ -88,17 +105,30 @@ fun formatOf(mime: String?, kind: String?): String {
   }
 }
 
+/**
+ * Colour from the position in the cube (x -> red, y -> green, z -> blue), so neighbours share a
+ * hue and clusters stand out. Non-JPEG points take the average with their format colour.
+ */
+fun pointColor(x: Float, y: Float, z: Float, format: String): Color {
+  fun channel(v: Float) = 0.2f + 0.8f * ((v.coerceIn(-1f, 1f) + 1f) / 2f)
+  val pos = Color(channel(x), channel(y), channel(z))
+  val fmt = formatColors[format] ?: return pos
+  return Color((pos.red + fmt.red) / 2, (pos.green + fmt.green) / 2, (pos.blue + fmt.blue) / 2)
+}
+
 /** Precomputed, so a frame only rotates and projects. */
 private class Cloud(points: List<Pair<MapPoint, MediaItem?>>) {
   val n = points.size
   val xs = FloatArray(n) { points[it].first.x }
   val ys = FloatArray(n) { points[it].first.y }
   val zs = FloatArray(n) { points[it].first.z }
-  val colors = Array(n) { formatColors.getValue(formatOf(points[it].first.mime, points[it].first.kind)) }
+  val formats = Array(n) { formatOf(points[it].first.mime, points[it].first.kind) }
+  val colors = Array(n) { pointColor(xs[it], ys[it], zs[it], formats[it]) }
   /** Radius factor 0..1 by file size (square root, so huge videos do not cover everything). */
   val radius: FloatArray
   val items = Array(n) { points[it].second }
-  val legend = points.map { formatOf(it.first.mime, it.first.kind) }.distinct()
+  /** Formats besides JPEG, with their share, for the legend. */
+  val otherFormats = formats.filter { it != "JPEG" }.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }
 
   init {
     val max = points.maxOfOrNull { it.first.size ?: 0L }?.coerceAtLeast(1L) ?: 1L
@@ -117,16 +147,20 @@ private val cubeEdges =
     }.map { a to it }
   }
 
+private val dateFormat = SimpleDateFormat("d. MMM yyyy", Locale.GERMANY)
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun MapScreen(viewModel: AnalysisViewModel, onBack: () -> Unit, onOpen: (MediaItem) -> Unit) {
   val state by viewModel.map.collectAsState()
+  val camera = viewModel.camera
   LaunchedEffect(Unit) { if (state !is Loadable.Done) viewModel.loadMap() }
   Scaffold(
     topBar = {
       TopAppBar(
         title = { Text("Analyse 3D") },
         navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück") } },
+        actions = { IconButton(onClick = { camera.reset() }) { Icon(Icons.Filled.CenterFocusStrong, "Ansicht zurücksetzen") } },
       )
     }
   ) { padding ->
@@ -136,20 +170,31 @@ fun MapScreen(viewModel: AnalysisViewModel, onBack: () -> Unit, onOpen: (MediaIt
           val cloud = remember(s.value) { Cloud(s.value) }
           Column {
             Text(
-              "Ähnliche Medien liegen nah beieinander. Größe = Dateigröße, Farbe = Format. Ziehen dreht, zwei Finger zoomen, Tippen öffnet.",
+              "Ähnliche Medien liegen nah beieinander, Farbe = Lage im Würfel, Größe = Dateigröße. Ein Finger dreht, zwei Finger zoomen und verschieben, Tippen wählt aus.",
               style = MaterialTheme.typography.bodySmall,
               modifier = Modifier.padding(horizontal = 16.dp),
             )
-            FlowRow(Modifier.padding(16.dp, 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-              cloud.legend.forEach { f ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                  Box(Modifier.size(10.dp).background(formatColors.getValue(f), CircleShape))
-                  Spacer(Modifier.width(4.dp))
-                  Text(f, style = MaterialTheme.typography.labelSmall)
+            if (cloud.otherFormats.isNotEmpty()) {
+              FlowRow(Modifier.padding(16.dp, 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Andere Formate mischen ein:", style = MaterialTheme.typography.labelSmall)
+                cloud.otherFormats.forEach { (f, count) ->
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(10.dp).background(formatColors.getValue(f), CircleShape))
+                    Spacer(Modifier.width(4.dp))
+                    Text("$f ($count)", style = MaterialTheme.typography.labelSmall)
+                  }
                 }
               }
             }
-            CubeCanvas(cloud, onOpen)
+            Box(Modifier.fillMaxSize()) {
+              CubeCanvas(cloud, camera)
+              val sel = camera.selected.takeIf { it in 0 until cloud.n }
+              sel?.let { k ->
+                cloud.items[k]?.let { item ->
+                  SelectionCard(item, onOpen = { onOpen(item) }, onClose = { camera.selected = -1 }, modifier = Modifier.align(Alignment.BottomCenter))
+                }
+              }
+            }
           }
         }
         is Loadable.Error -> Text(s.message, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
@@ -160,82 +205,137 @@ fun MapScreen(viewModel: AnalysisViewModel, onBack: () -> Unit, onOpen: (MediaIt
 }
 
 @Composable
-private fun CubeCanvas(cloud: Cloud, onOpen: (MediaItem) -> Unit) {
-  var yaw by remember { mutableFloatStateOf(0.6f) }
-  var pitch by remember { mutableFloatStateOf(-0.4f) }
-  var zoom by remember { mutableFloatStateOf(1f) }
+private fun SelectionCard(item: MediaItem, onOpen: () -> Unit, onClose: () -> Unit, modifier: Modifier = Modifier) {
+  Row(
+    modifier
+      .fillMaxWidth()
+      .navigationBarsPadding()
+      .padding(12.dp)
+      .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(16.dp))
+      .clickable(onClick = onOpen)
+      .padding(10.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    AsyncImage(
+      model = MediaThumb(item.uri),
+      imageLoader = rememberGalleryImageLoader(),
+      contentDescription = item.name,
+      contentScale = ContentScale.Crop,
+      modifier = Modifier.size(64.dp).clip(RoundedCornerShape(10.dp)),
+    )
+    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+      Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
+      Text("${dateFormat.format(Date(item.takenAt))} · ${item.bucketName}", style = MaterialTheme.typography.bodySmall)
+    }
+    Button(onClick = onOpen) { Text("Öffnen") }
+    IconButton(onClick = onClose) { Icon(Icons.Filled.Close, "Auswahl aufheben") }
+  }
+}
+
+@Composable
+private fun CubeCanvas(cloud: Cloud, camera: MapCamera) {
   // projected screen positions of the last frame, for hit tests
   val px = remember(cloud) { FloatArray(cloud.n) }
   val py = remember(cloud) { FloatArray(cloud.n) }
   val pr = remember(cloud) { FloatArray(cloud.n) }
   val depth = remember(cloud) { FloatArray(cloud.n) }
-  val order = remember(cloud) { Array(cloud.n) { it } }
+  val order = remember(cloud) { IntArray(cloud.n) { it } }
   Canvas(
-    Modifier.fillMaxWidth()
-      .fillMaxSize()
+    Modifier.fillMaxSize()
       .background(Color(0xFF101418))
       .pointerInput(cloud) {
-        detectTransformGestures { _, pan, gestureZoom, _ ->
-          yaw += pan.x * 0.01f
-          pitch = (pitch + pan.y * 0.01f).coerceIn(-1.5f, 1.5f)
-          zoom = (zoom * gestureZoom).coerceIn(0.5f, 6f)
+        // one finger rotates (a full width = half a turn), two fingers zoom and move
+        awaitEachGesture {
+          awaitFirstDown(requireUnconsumed = false)
+          do {
+            val event = awaitPointerEvent()
+            val fingers = event.changes.count { it.pressed }
+            if (fingers >= 2) {
+              val zoom = event.calculateZoom()
+              val pan = event.calculatePan()
+              val centroid = event.calculateCentroid()
+              val newZoom = (camera.zoom * zoom).coerceIn(0.5f, 12f)
+              // zoom towards the fingers, not the middle of the cube
+              val cx = size.width / 2 + camera.panX
+              val cy = size.height / 2 + camera.panY
+              val f = newZoom / camera.zoom
+              camera.panX += (centroid.x - cx) * (1 - f) + pan.x
+              camera.panY += (centroid.y - cy) * (1 - f) + pan.y
+              camera.zoom = newZoom
+            } else if (fingers == 1) {
+              val pan = event.calculatePan()
+              camera.yaw += pan.x / size.width * PI.toFloat()
+              camera.pitch = (camera.pitch - pan.y / size.height * PI.toFloat()).coerceIn(-1.5f, 1.5f)
+            }
+            event.changes.forEach { if (it.positionChanged()) it.consume() }
+          } while (event.changes.any { it.pressed })
         }
       }
       .pointerInput(cloud) {
-        detectTapGestures { tap ->
-          // front-most point under the finger
-          var best = -1
-          for (i in order.indices.reversed()) {
-            val k = order[i]
-            val dx = px[k] - tap.x
-            val dy = py[k] - tap.y
-            if (dx * dx + dy * dy <= maxOf(pr[k], 24f) * maxOf(pr[k], 24f) && cloud.items[k] != null) {
-              best = k
-              break
+        detectTapGestures(
+          onDoubleTap = { camera.reset() },
+          onTap = { tap ->
+            // the front-most point near the finger; a generous radius so small balls stay tappable
+            val reach = 28.dp.toPx()
+            var best = -1
+            for (i in order.indices.reversed()) {
+              val k = order[i]
+              if (cloud.items[k] == null) continue
+              val dx = px[k] - tap.x
+              val dy = py[k] - tap.y
+              val r = maxOf(pr[k], reach)
+              if (dx * dx + dy * dy <= r * r) {
+                best = k
+                break
+              }
             }
-          }
-          if (best >= 0) cloud.items[best]?.let(onOpen)
-        }
+            camera.selected = best
+          },
+        )
       }
   ) {
-    val cy = cos(yaw)
-    val sy = sin(yaw)
-    val cp = cos(pitch)
-    val sp = sin(pitch)
-    val scale = minOf(size.width, size.height) * 0.32f * zoom
-    val cx0 = size.width / 2
-    val cy0 = size.height / 2
-    val camera = 4f
+    val cyaw = cos(camera.yaw)
+    val syaw = sin(camera.yaw)
+    val cp = cos(camera.pitch)
+    val sp = sin(camera.pitch)
+    val scale = minOf(size.width, size.height) * 0.36f * camera.zoom
+    val cx0 = size.width / 2 + camera.panX
+    val cy0 = size.height / 2 + camera.panY
+    val cameraDist = 4f
     fun project(x: Float, y: Float, z: Float, out: (Float, Float, Float) -> Unit) {
-      val x1 = x * cy + z * sy
-      val z1 = -x * sy + z * cy
+      val x1 = x * cyaw + z * syaw
+      val z1 = -x * syaw + z * cyaw
       val y2 = y * cp - z1 * sp
       val z2 = y * sp + z1 * cp
-      val f = camera / (camera - z2)
+      val f = cameraDist / (cameraDist - z2)
       out(cx0 + x1 * f * scale, cy0 - y2 * f * scale, z2)
     }
     for ((a, b) in cubeEdges) {
       var ax = 0f; var ay = 0f; var bx = 0f; var by = 0f
-      cubeCorners[a].let { (x, y, z) -> project(x, y, z) { sx, sy2, _ -> ax = sx; ay = sy2 } }
-      cubeCorners[b].let { (x, y, z) -> project(x, y, z) { sx, sy2, _ -> bx = sx; by = sy2 } }
+      cubeCorners[a].let { (x, y, z) -> project(x, y, z) { sx, sy, _ -> ax = sx; ay = sy } }
+      cubeCorners[b].let { (x, y, z) -> project(x, y, z) { sx, sy, _ -> bx = sx; by = sy } }
       drawLine(Color.White.copy(alpha = 0.25f), Offset(ax, ay), Offset(bx, by), strokeWidth = 2f)
     }
-    // many points need smaller balls, or the cloud turns into one blob
+    // many points need smaller balls, or the cloud turns into one blob; zooming in shows detail
     val density = minOf(1f, sqrt(400f / cloud.n.coerceAtLeast(1)))
     val base = 1.5.dp.toPx() + 1.5.dp.toPx() * density
     val extra = 12.dp.toPx() * density
     for (i in 0 until cloud.n) {
-      project(cloud.xs[i], cloud.ys[i], cloud.zs[i]) { sx, sy2, d ->
+      project(cloud.xs[i], cloud.ys[i], cloud.zs[i]) { sx, sy, d ->
         px[i] = sx
-        py[i] = sy2
+        py[i] = sy
         depth[i] = d
-        pr[i] = (base + cloud.radius[i] * extra) * (camera / (camera - d)) * sqrt(zoom)
+        pr[i] = (base + cloud.radius[i] * extra) * (cameraDist / (cameraDist - d)) * sqrt(camera.zoom)
       }
     }
     // painter's algorithm: far points first
-    order.sortBy { depth[it] }
+    val sorted = order.sortedBy { depth[it] }
+    sorted.forEachIndexed { i, k -> order[i] = k }
     for (k in order) {
-      drawCircle(cloud.colors[k].copy(alpha = 0.85f), pr[k], Offset(px[k], py[k]))
+      drawCircle(cloud.colors[k].copy(alpha = 0.9f), pr[k], Offset(px[k], py[k]))
+    }
+    camera.selected.takeIf { it in 0 until cloud.n }?.let { k ->
+      drawCircle(Color.White, pr[k] + 4.dp.toPx(), Offset(px[k], py[k]), style = Stroke(width = 2.dp.toPx()))
     }
   }
 }
