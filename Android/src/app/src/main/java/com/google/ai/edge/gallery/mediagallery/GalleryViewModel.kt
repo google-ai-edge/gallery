@@ -76,6 +76,10 @@ constructor(
   /** Set when morgenschiss has a newer build than the installed one. */
   val update: StateFlow<ApkVersion?> = _update.asStateFlow()
 
+  fun reloadLibrary() {
+    viewModelScope.launch { repository.reload() }
+  }
+
   fun onPermissionGranted() {
     repository.start()
     localSearch.scheduleIndexing()
