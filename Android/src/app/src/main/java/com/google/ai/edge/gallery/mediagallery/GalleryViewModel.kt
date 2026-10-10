@@ -24,6 +24,7 @@ import com.google.ai.edge.gallery.morgenschiss.Album
 import com.google.ai.edge.gallery.morgenschiss.ApiResult
 import com.google.ai.edge.gallery.morgenschiss.ApkVersion
 import com.google.ai.edge.gallery.morgenschiss.Hit
+import com.google.ai.edge.gallery.morgenschiss.SpokenHit
 import com.google.ai.edge.gallery.morgenschiss.MediaIdStore
 import com.google.ai.edge.gallery.morgenschiss.MediaSearchApi
 import com.google.ai.edge.gallery.morgenschiss.MediaSyncWorker
@@ -56,7 +57,11 @@ data class SearchState(
   val times: Map<Long, Double> = emptyMap(),
   /** Search only in the bubbles closest to the query (server side). */
   val onlyBubbles: Boolean = false,
+  /** Passages said in videos that match, with where they start. */
+  val spoken: List<Spoken> = emptyList(),
 )
+
+data class Spoken(val item: MediaItem, val t: Double, val text: String)
 
 @HiltViewModel
 class GalleryViewModel
@@ -69,7 +74,23 @@ constructor(
   val localSearch: LocalSearch,
   private val albumRepo: AlbumRepository,
 ) : ViewModel() {
-  val pendingMoves: StateFlow<Map<Long, String>> = albumRepo.pendingMoves
+  val pendingMoves: StateFlow<Map<Long, PendingMove>> = albumRepo.pendingMoves
+
+  /**
+   * Pending moves that still make sense: same file (fingerprint) and still where it was when it
+   * matched. A file the user moved elsewhere in the meantime is dropped from the list.
+   */
+  suspend fun validMoves(pending: Map<Long, PendingMove>, lib: MediaLibrary): Map<MediaItem, String> {
+    val rows = withContext(Dispatchers.IO) { idStore.all() }
+    val stale = ArrayList<Long>()
+    val out = HashMap<MediaItem, String>()
+    for ((id, move) in pending) {
+      val item = lib.item(id)
+      if (item == null || rows[id]?.fingerprint != move.fingerprint || item.relativePath != move.fromPath) stale += id else out[item] = move.path
+    }
+    if (stale.isNotEmpty()) albumRepo.clearPending(stale)
+    return out
+  }
 
   private val _albums = MutableStateFlow<List<Pair<Album, MediaItem?>>>(emptyList())
   /** Albums with a local cover (first preview that is on the phone). */
@@ -112,8 +133,9 @@ constructor(
   /** Set when morgenschiss has a newer build than the installed one. */
   val update: StateFlow<ApkVersion?> = _update.asStateFlow()
 
-  /** A list handed to the viewer from elsewhere (e.g. a bubble). */
+  /** A list handed to the viewer from elsewhere (e.g. a bubble), with optional video start times. */
   var customList: List<MediaItem> = emptyList()
+  var customTimes: Map<Long, Double> = emptyMap()
 
   fun reloadLibrary() {
     viewModelScope.launch { repository.reload() }
@@ -191,7 +213,7 @@ constructor(
         val r = api.search(query.trim(), Scope(folder = folder), onlyBubbles = _search.value.onlyBubbles)
         _search.value =
           when (r) {
-            is ApiResult.Ok -> serverResults(r.value.results, scopeItems)
+            is ApiResult.Ok -> serverResults(r.value.results, scopeItems, r.value.spoken)
             else -> localResults(query.trim(), scopeItems, r)
           }
       }
@@ -221,7 +243,7 @@ constructor(
       }
   }
 
-  private suspend fun serverResults(hits: List<Hit>, scopeItems: List<MediaItem>): SearchState {
+  private suspend fun serverResults(hits: List<Hit>, scopeItems: List<MediaItem>, spokenHits: List<SpokenHit> = emptyList()): SearchState {
     val byFp = withContext(Dispatchers.IO) { idStore.all().values.groupBy({ it.fingerprint }, { it.mediaId }) }
     val inScope = scopeItems.associateBy { it.id }
     // the original app hides weak matches the same way
@@ -233,25 +255,28 @@ constructor(
           byFp[h.id].orEmpty().mapNotNull { inScope[it] }.onEach { item -> if (h.t != null && item.isVideo) times[item.id] = h.t }
         }
         .distinctBy { it.id }
+    val spoken = spokenHits.mapNotNull { h -> byFp[h.id]?.firstNotNullOfOrNull { inScope[it] }?.let { Spoken(it, h.t, h.text) } }
     return _search.value.copy(
       loading = false,
       results = items,
       times = times,
+      spoken = spoken,
       source = SearchSource.SERVER,
-      message = if (items.isEmpty()) "Nichts gefunden." else null,
+      message = if (items.isEmpty() && spoken.isEmpty()) "Nichts gefunden." else null,
     )
   }
 
   private suspend fun localResults(query: String, scopeItems: List<MediaItem>, r: ApiResult<*>): SearchState {
     val local = localSearch.search(query, scopeItems)
     if (local != null) {
-      return _search.value.copy(loading = false, results = local, times = emptyMap(), source = SearchSource.LOCAL, message = "Lokal gesucht (${reason(r)}).")
+      return _search.value.copy(loading = false, results = local, times = emptyMap(), spoken = emptyList(), source = SearchSource.LOCAL, message = "Lokal gesucht (${reason(r)}).")
     }
     val byName = scopeItems.filter { it.name.contains(query, ignoreCase = true) }
     return _search.value.copy(
       loading = false,
       results = byName,
       times = emptyMap(),
+      spoken = emptyList(),
       source = SearchSource.NAME_ONLY,
       message = "Nur Dateinamen durchsucht (${reason(r)}, kein lokaler Index).",
     )

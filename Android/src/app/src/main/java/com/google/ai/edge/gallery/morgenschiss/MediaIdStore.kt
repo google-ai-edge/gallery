@@ -36,6 +36,10 @@ data class MediaIdRow(
   val serverFailed: Boolean,
   /** Scene format sent for this video (0 = none yet), see [MediaIdStore.SCENE_VERSION]. */
   val scenes: Int = 0,
+  /** Speech format sent for this video (0 = not yet), see [MediaIdStore.SPEECH_VERSION]. */
+  val speech: Int = 0,
+  /** Checked against folder albums once after its first upload. */
+  val matched: Boolean = false,
 )
 
 /**
@@ -44,34 +48,39 @@ data class MediaIdRow(
  */
 @Singleton
 class MediaIdStore @Inject constructor(@ApplicationContext context: Context) :
-  SQLiteOpenHelper(context, "media_ids.db", null, 2) {
+  SQLiteOpenHelper(context, "media_ids.db", null, 4) {
 
   companion object {
     /** Bump when the scene sampling changes, so every video sends its scenes again. */
     const val SCENE_VERSION = 1
+
+    /** Bump to transcribe every video again. */
+    const val SPEECH_VERSION = 1
   }
 
   override fun onCreate(db: SQLiteDatabase) {
     db.execSQL(
       "CREATE TABLE ids (media_id INTEGER PRIMARY KEY, size INTEGER NOT NULL, " +
         "date_modified INTEGER NOT NULL, fp TEXT NOT NULL, server_folder TEXT, server_failed INTEGER NOT NULL DEFAULT 0, " +
-        "scenes INTEGER NOT NULL DEFAULT 0)"
+        "scenes INTEGER NOT NULL DEFAULT 0, speech INTEGER NOT NULL DEFAULT 0, matched INTEGER NOT NULL DEFAULT 0)"
     )
     db.execSQL("CREATE INDEX ids_fp ON ids(fp)")
   }
 
   override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
     if (oldVersion < 2) db.execSQL("ALTER TABLE ids ADD COLUMN scenes INTEGER NOT NULL DEFAULT 0")
+    if (oldVersion < 3) db.execSQL("ALTER TABLE ids ADD COLUMN speech INTEGER NOT NULL DEFAULT 0")
+    if (oldVersion < 4) db.execSQL("ALTER TABLE ids ADD COLUMN matched INTEGER NOT NULL DEFAULT 0")
   }
 
   fun all(): Map<Long, MediaIdRow> {
     val out = HashMap<Long, MediaIdRow>()
     readableDatabase
-      .rawQuery("SELECT media_id, size, date_modified, fp, server_folder, server_failed, scenes FROM ids", null)
+      .rawQuery("SELECT media_id, size, date_modified, fp, server_folder, server_failed, scenes, speech, matched FROM ids", null)
       .use { c ->
         while (c.moveToNext()) {
           out[c.getLong(0)] =
-            MediaIdRow(c.getLong(0), c.getLong(1), c.getLong(2), c.getString(3), if (c.isNull(4)) null else c.getString(4), c.getInt(5) != 0, c.getInt(6))
+            MediaIdRow(c.getLong(0), c.getLong(1), c.getLong(2), c.getString(3), if (c.isNull(4)) null else c.getString(4), c.getInt(5) != 0, c.getInt(6), c.getInt(7), c.getInt(8) != 0)
         }
       }
     return out
@@ -118,6 +127,28 @@ class MediaIdStore @Inject constructor(@ApplicationContext context: Context) :
     db.beginTransaction()
     try {
       for (id in mediaIds) db.update("ids", ContentValues().apply { put("scenes", version) }, "media_id = ?", arrayOf(id.toString()))
+      db.setTransactionSuccessful()
+    } finally {
+      db.endTransaction()
+    }
+  }
+
+  fun markSpeech(mediaIds: Collection<Long>, version: Int) {
+    val db = writableDatabase
+    db.beginTransaction()
+    try {
+      for (id in mediaIds) db.update("ids", ContentValues().apply { put("speech", version) }, "media_id = ?", arrayOf(id.toString()))
+      db.setTransactionSuccessful()
+    } finally {
+      db.endTransaction()
+    }
+  }
+
+  fun markMatched(mediaIds: Collection<Long>) {
+    val db = writableDatabase
+    db.beginTransaction()
+    try {
+      for (id in mediaIds) db.update("ids", ContentValues().apply { put("matched", 1) }, "media_id = ?", arrayOf(id.toString()))
       db.setTransactionSuccessful()
     } finally {
       db.endTransaction()

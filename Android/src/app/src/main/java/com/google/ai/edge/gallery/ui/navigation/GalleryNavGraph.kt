@@ -93,6 +93,7 @@ import com.google.ai.edge.gallery.mediagallery.CategoriesScreen
 import com.google.ai.edge.gallery.mediagallery.CleanupScreen
 import com.google.ai.edge.gallery.mediagallery.BubbleScreen
 import com.google.ai.edge.gallery.mediagallery.PendingMovesBanner
+import com.google.ai.edge.gallery.mediagallery.SpokenResults
 import com.google.ai.edge.gallery.mediagallery.rememberMediaActions
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.filled.Delete
@@ -243,7 +244,8 @@ fun GalleryNavHost(
           albums = albums,
           onOpenAlbum = { navController.navigate("$ROUTE_ALBUM/$it") },
           banner = {
-            val targets = pending.mapNotNull { (id, path) -> library.item(id)?.let { it to path } }.toMap()
+            var targets by remember { mutableStateOf<Map<com.google.ai.edge.gallery.mediagallery.MediaItem, String>>(emptyMap()) }
+            LaunchedEffect(pending, library) { targets = galleryViewModel.validMoves(pending, library) }
             if (targets.isNotEmpty()) {
               PendingMovesBanner(targets.size) {
                 actions.moveEach(targets) { moved -> galleryViewModel.clearPending(moved.map { it.id }) }
@@ -302,6 +304,11 @@ fun GalleryNavHost(
             onClear = { galleryViewModel.clearSearch() },
             onOnlyBubbles = { galleryViewModel.setOnlyBubbles(it, bucketId) },
           )
+          SpokenResults(search.spoken) { s ->
+            galleryViewModel.customList = search.spoken.map { it.item }.distinctBy { it.id }
+            galleryViewModel.customTimes = search.spoken.associate { it.item.id to it.t }
+            navController.navigate("$ROUTE_VIEWER/$CUSTOM_LIST/${s.item.id}")
+          }
         },
         overrideItems = search.results?.mapNotNull { library.item(it.id) },
         times = search.times,
@@ -331,7 +338,12 @@ fun GalleryNavHost(
       MediaViewerScreen(
         items = items,
         startId = mediaId,
-        startTimes = if (bucketArg == SEARCH_RESULTS) search.times else emptyMap(),
+        startTimes =
+          when (bucketArg) {
+            SEARCH_RESULTS -> search.times
+            CUSTOM_LIST -> galleryViewModel.customTimes
+            else -> emptyMap()
+          },
         folders = library.folders,
         onChanged = { galleryViewModel.reloadLibrary() },
         onBack = { navController.navigateUp() },
@@ -382,6 +394,7 @@ fun GalleryNavHost(
         bucketId = null,
         onOpenItem = { item ->
           galleryViewModel.customList = items.orEmpty()
+          galleryViewModel.customTimes = emptyMap()
           navController.navigate("$ROUTE_VIEWER/$CUSTOM_LIST/${item.id}")
         },
         onBack = { navController.navigateUp() },
@@ -409,6 +422,7 @@ fun GalleryNavHost(
         onBack = { navController.navigateUp() },
         onOpen = { list, index ->
           galleryViewModel.customList = list
+          galleryViewModel.customTimes = emptyMap()
           navController.navigate("$ROUTE_VIEWER/$CUSTOM_LIST/${list[index].id}")
         },
       )

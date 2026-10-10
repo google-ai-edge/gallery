@@ -17,25 +17,16 @@
 package com.google.ai.edge.gallery.mediagallery
 
 import android.content.Context
-import androidx.annotation.OptIn
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.media3.common.MediaItem as ExoMediaItem
-import androidx.media3.common.MimeTypes
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.transformer.Composition
-import androidx.media3.transformer.EditedMediaItem
-import androidx.media3.transformer.ExportException
-import androidx.media3.transformer.ExportResult
-import androidx.media3.transformer.Transformer
 import com.google.ai.edge.gallery.morgenschiss.ApiResult
+import com.google.ai.edge.gallery.morgenschiss.AudioExtractor
 import com.google.ai.edge.gallery.morgenschiss.MediaSearchApi
 import com.google.ai.edge.gallery.morgenschiss.Sentence
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
-import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -43,7 +34,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
 sealed interface TranscriptState {
@@ -63,7 +53,11 @@ private const val MAX_UPLOAD_BYTES = 60L * 1024 * 1024
 @HiltViewModel
 class TranscriptViewModel
 @Inject
-constructor(@ApplicationContext private val context: Context, private val api: MediaSearchApi) : ViewModel() {
+constructor(
+  @ApplicationContext private val context: Context,
+  private val api: MediaSearchApi,
+  private val idStore: com.google.ai.edge.gallery.morgenschiss.MediaIdStore,
+) : ViewModel() {
   private val _state = MutableStateFlow<TranscriptState>(TranscriptState.Idle)
   val state: StateFlow<TranscriptState> = _state.asStateFlow()
   private var currentId: Long? = null
@@ -99,8 +93,10 @@ constructor(@ApplicationContext private val context: Context, private val api: M
         if (audio.length() > MAX_UPLOAD_BYTES) return@launchSafely fail(item.id, "Die Tonspur ist zu lang (höchstens etwa eine Stunde).")
         publish(item.id, TranscriptState.Working("Wird hochgeladen", null))
         val bytes = withContext(Dispatchers.IO) { audio.readBytes() }
+        // an indexed video keeps its transcript on the server, so the search finds what is said
+        val videoId = withContext(Dispatchers.IO) { idStore.all()[item.id]?.takeIf { it.serverFolder != null }?.fingerprint }
         val job =
-          when (val r = api.transcribe(bytes)) {
+          when (val r = api.transcribe(bytes, videoId)) {
             is ApiResult.Ok -> r.value.jobId
             else -> return@launchSafely fail(item.id, errorText(r))
           }
@@ -146,31 +142,7 @@ constructor(@ApplicationContext private val context: Context, private val api: M
       else -> "Das hat nicht geklappt."
     }
 
-  /** Audio only, AAC in MP4: small enough to upload (about 1 MB per minute). */
-  @OptIn(UnstableApi::class)
-  private suspend fun extractAudio(item: MediaItem, out: File): Boolean =
-    withContext(Dispatchers.Main) {
-      suspendCancellableCoroutine { cont ->
-        val transformer =
-          Transformer.Builder(context)
-            .setAudioMimeType(MimeTypes.AUDIO_AAC)
-            .addListener(
-              object : Transformer.Listener {
-                override fun onCompleted(composition: Composition, exportResult: ExportResult) {
-                  if (cont.isActive) cont.resume(out.length() > 0)
-                }
-
-                override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
-                  if (cont.isActive) cont.resume(false)
-                }
-              }
-            )
-            .build()
-        val edited = EditedMediaItem.Builder(ExoMediaItem.fromUri(item.uri)).setRemoveVideo(true).build()
-        transformer.start(edited, out.absolutePath)
-        cont.invokeOnCancellation { transformer.cancel() }
-      }
-    }
+  private suspend fun extractAudio(item: MediaItem, out: File): Boolean = AudioExtractor.extract(context, item.uri, out)
 
   private fun launchSafely(id: Long, block: suspend () -> Unit) =
     viewModelScope.launch {

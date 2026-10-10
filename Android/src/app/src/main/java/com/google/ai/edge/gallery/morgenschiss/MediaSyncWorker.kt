@@ -106,11 +106,12 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
     // 2. compare with the server
     report("Abgleich mit morgenschiss", 0, 0)
-    val serverIds =
+    val idsResponse =
       when (val r = api.ids()) {
-        is ApiResult.Ok -> r.value.ids.toHashSet()
+        is ApiResult.Ok -> r.value
         else -> return outcome(r)
       }
+    val serverIds = idsResponse.ids.toHashSet()
     val rows = store.all()
     plan = SyncPlanner.plan(files, rows, serverIds)
     store.markIndexed(plan.alreadyIndexed.map { it.mediaId }) { byId.getValue(it).folder }
@@ -151,7 +152,7 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
       done += batch.size
     }
     // new files that belong to a folder album wait for the user to move them (Android asks)
-    sortIntoFolderAlbums(api, byId)
+    runCatching { sortIntoFolderAlbums(api, byId) }
 
     // 4. scenes along videos, so a moment inside a long video can be found
     val sceneVideos = SyncPlanner.needScenes(files, store.all())
@@ -168,6 +169,15 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
       }
       // copies share the fingerprint and therefore the scenes
       store.markScenes(store.all().values.filter { it.fingerprint == fp }.map { it.mediaId }, MediaIdStore.SCENE_VERSION)
+    }
+
+    // 5. what is said in videos, transcribed on the Mac and kept by the server for the search
+    val speechVideos = SyncPlanner.needSpeech(files, store.all(), idsResponse.speech.keys)
+    for ((i, f) in speechVideos.withIndex()) {
+      if (isStopped) return Result.retry()
+      report("Gesprochenes in Videos", i, speechVideos.size)
+      val stop = transcribeVideo(api, store, byId.getValue(f.mediaId))
+      if (stop != null) return stop
     }
 
     report("Fertig", plan.upload.size, plan.upload.size)
@@ -208,9 +218,7 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
     return when {
       result is ApiResult.Ok -> {
         val fpToMedia = chunk.associate { it.second.id to it.first }
-        val ok = result.value.indexed.mapNotNull { fpToMedia[it] }
-        store.markIndexed(ok) { byId.getValue(it).folder }
-        newlyIndexed += ok
+        store.markIndexed(result.value.indexed.mapNotNull { fpToMedia[it] }) { byId.getValue(it).folder }
         store.markFailed(result.value.failed.mapNotNull { fpToMedia[it.id] })
         null
       }
@@ -226,25 +234,88 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
     }
   }
 
-  private val newlyIndexed = ArrayList<Long>()
-
+  /**
+   * Every file is checked once after its upload (the mark is stored, so a retry loses nothing).
+   * Only files new on the phone are offered: a file the user moved keeps its mark.
+   */
   private suspend fun sortIntoFolderAlbums(api: MediaSearchApi, byId: Map<Long, MediaItem>) {
-    if (newlyIndexed.isEmpty()) return
+    val store = deps.idStore()
+    val rows = store.all()
+    val fresh = rows.values.filter { !it.matched && it.serverFolder != null && byId.containsKey(it.mediaId) }
+    if (fresh.isEmpty()) return
     val albums = deps.albums()
     albums.refresh()
-    if (albums.albums.value.none { it.isFolder }) return
-    val rows = deps.idStore().all()
-    val fpToIds = newlyIndexed.mapNotNull { id -> rows[id]?.fingerprint?.let { it to id } }.groupBy({ it.first }, { it.second })
-    val moves = HashMap<Long, String>()
+    if (albums.albums.value.none { it.isFolder }) {
+      store.markMatched(fresh.map { it.mediaId })
+      return
+    }
+    val fpToIds = fresh.groupBy({ it.fingerprint }, { it.mediaId })
     for (chunk in fpToIds.keys.chunked(2000)) {
       val r = api.matchAlbums(chunk) as? ApiResult.Ok ?: return
+      val moves = HashMap<Long, com.google.ai.edge.gallery.mediagallery.PendingMove>()
       for ((fp, m) in r.value.matches) {
         if (m.mode != "folder") continue
         val path = com.google.ai.edge.gallery.mediagallery.MediaActions.newFolderPath(m.name)
-        for (id in fpToIds[fp].orEmpty()) if (byId[id]?.relativePath != path) moves[id] = path
+        for (id in fpToIds[fp].orEmpty()) {
+          val item = byId[id] ?: continue
+          if (item.relativePath != path) moves[id] = com.google.ai.edge.gallery.mediagallery.PendingMove(path, fp, item.relativePath)
+        }
       }
+      albums.addPending(moves)
+      store.markMatched(chunk.flatMap { fpToIds[it].orEmpty() })
     }
-    albums.addPending(moves)
+  }
+
+  /**
+   * Sends one video's sound with its id and waits for the transcript; the server keeps it.
+   * Returns a [Result] when the sync has to stop (Mac away, limits).
+   */
+  private suspend fun transcribeVideo(api: MediaSearchApi, store: MediaIdStore, item: MediaItem): Result? {
+    val rows = store.all()
+    val fp = rows[item.id]?.fingerprint ?: return null
+    val copies = rows.values.filter { it.fingerprint == fp }.map { it.mediaId }
+    val done = { store.markSpeech(copies, MediaIdStore.SPEECH_VERSION) }
+    // the server takes at most an hour of sound
+    if (item.durationMs > 60 * 60 * 1000L) return null.also { done() }
+    // a background run may be stopped before a long transcript is back: after three tries, give up
+    val tries = rows[item.id]?.speech ?: 0
+    if (tries <= -3) return null.also { done() }
+    if (tries <= 0) store.markSpeech(copies, tries - 1)
+    val audio = java.io.File(applicationContext.cacheDir, "speech-${item.id}.m4a")
+    try {
+      if (!AudioExtractor.extract(applicationContext, item.uri, audio) || audio.length() > 60L * 1024 * 1024) return null.also { done() }
+      val bytes = audio.readBytes()
+      var start = api.transcribe(bytes, fp)
+      if (start is ApiResult.Busy) {
+        delay(30_000)
+        start = api.transcribe(bytes, fp)
+      }
+      val job =
+        when (start) {
+          is ApiResult.Ok -> start.value.jobId
+          // not indexed (yet): next sync; anything else (too long, bad audio) will not get better
+          is ApiResult.Failed -> return null.also { if (start.code != "not_indexed") done() }
+          else -> return outcome(start)
+        }
+      val deadline = System.currentTimeMillis() + maxOf(10 * 60_000L, item.durationMs * 2)
+      while (System.currentTimeMillis() < deadline) {
+        delay(3_000)
+        when (val st = api.transcribeStatus(job)) {
+          is ApiResult.Ok ->
+            when (st.value.status) {
+              "done" -> return null.also { if (st.value.saved != false) done() }
+              "error" -> return if (st.value.error == "stt_unavailable") Result.retry() else null.also { done() }
+            }
+          is ApiResult.Unavailable -> {}
+          // the job is gone (kept 30 minutes, or the server restarted): next sync
+          is ApiResult.Failed -> return null
+          else -> return outcome(st)
+        }
+      }
+      return null
+    } finally {
+      audio.delete()
+    }
   }
 
   /** Like [send], for scenes: a bad scene is skipped, never the whole video. */

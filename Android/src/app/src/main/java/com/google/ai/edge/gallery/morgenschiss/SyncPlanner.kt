@@ -78,6 +78,16 @@ object SyncPlanner {
     }
   }
 
+  /** Indexed videos whose speech the server does not have yet (per [serverSpeech] or the local mark). */
+  fun needSpeech(files: List<LocalFile>, rows: Map<Long, MediaIdRow>, serverSpeech: Set<String>): List<LocalFile> {
+    val seen = HashSet<String>()
+    return files.filter { f ->
+      val row = rows[f.mediaId] ?: return@filter false
+      f.isVideo && row.serverFolder != null && !row.serverFailed && row.fingerprint !in serverSpeech &&
+        row.speech < MediaIdStore.SPEECH_VERSION && seen.add(row.fingerprint)
+    }
+  }
+
   /** Photos and videos in separate batches: the server rejects nothing, but photo batches are slow. */
   fun batches(upload: List<LocalFile>): List<List<LocalFile>> =
     upload.partition { !it.isVideo }.toList().flatMap { it.chunked(BATCH_SIZE) }

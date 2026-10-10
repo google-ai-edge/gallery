@@ -72,4 +72,16 @@ class SyncPlannerTest {
     val files = (1L..5L).map { file(it, folder = "DCIM", video = true) } + file(6, folder = "DCIM")
     assertEquals(listOf(1L), SyncPlanner.needScenes(files, rows).map { it.mediaId })
   }
+
+  @Test fun videosWithoutSpeechOnTheServerNeedTranscribingOnce() {
+    val rows = mapOf(
+      1L to MediaIdRow(1, 100, 1, "a", "DCIM", false, 1, 0),
+      2L to MediaIdRow(2, 100, 1, "a", "DCIM", false, 1, 0),
+      3L to MediaIdRow(3, 100, 1, "b", "DCIM", false, 1, 0),
+      4L to MediaIdRow(4, 100, 1, "c", "DCIM", false, 1, MediaIdStore.SPEECH_VERSION),
+      5L to MediaIdRow(5, 100, 1, "d", null, false, 0, 0),
+    )
+    val files = (1L..5L).map { file(it, folder = "DCIM", video = true) }
+    assertEquals(listOf(1L), SyncPlanner.needSpeech(files, rows, setOf("b")).map { it.mediaId })
+  }
 }
