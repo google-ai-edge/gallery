@@ -13,15 +13,15 @@ verschoben), sonst Album in der App. Keine Farbe pro App. Die Galerie braucht L�
 - Kriterien: Emulator: löschen, verschieben, favorisieren funktionieren, Sync sendet verschobene Dateien neu.
 
 ### Phase 2: Bubbles am Server
-- [ ] 2.1 `/api/mediasearch/bubbles`: Gruppen im 768d-Raum (k-means, zweistufig), Mindestgröße, Kern, beste Bilder
-- [ ] 2.2 Namensvorschlag und Tags aus einer Label-Liste (Zero-Shot), Namen pro User speicherbar
-- [ ] 2.3 3D-Lage der Bubbles aus ihren Abständen (MDS), Punkte um ihre Bubble
+- [x] 2.1 `/api/mediasearch/bubbles`: Gruppen im 768d-Raum (k-means, zweistufig), Mindestgröße, Kern, beste Bilder
+- [x] 2.2 Namensvorschlag und Tags aus einer Label-Liste (Zero-Shot), Namen pro User speicherbar
+- [x] 2.3 3D-Lage der Bubbles aus ihren Abständen (MDS), Punkte um ihre Bubble
 
 ### Phase 3: Bubble-Ansicht in der App
-- [ ] 3.1 Statische Kamera, Pfeile fliegen animiert zur nächsten Bubble, verdeckende Bubbles transparent
-- [ ] 3.2 Strich + Sprechblase mit den besten Bildern je Bubble
-- [ ] 3.3 Leiste unten: Name, Tags, Anzahl, Umbenennen; hochziehen = Raster, angesehenes Medium leuchtet
-- [ ] 3.4 Unter-Bubbles betreten und zurück
+- [x] 3.1 Statische Kamera, Pfeile fliegen animiert zur nächsten Bubble, verdeckende Bubbles transparent
+- [x] 3.2 Strich + Sprechblase mit den besten Bildern je Bubble
+- [x] 3.3 Leiste unten: Name, Tags, Anzahl, Umbenennen; hochziehen = Raster, angesehenes Medium leuchtet
+- [x] 3.4 Unter-Bubbles betreten und zurück
 
 ### Phase 4: Ordner und Alben aus Bubbles
 - [ ] 4.1 Album in der App aus einer Bubble (Kern gespeichert), neue Medien landen automatisch dort
@@ -34,3 +34,5 @@ verschoben), sonst Album in der App. Keine Farbe pro App. Die Galerie braucht L�
 ## Implementation Log
 
 - **Phase 1**: Löschen geht in den Android-Papierkorb (30 Tage), nicht endgültig; Android fragt bei fremden Dateien selbst. Im Emulator geprüft: Favorit (is_favorite=1), Verschieben nach Pictures/Test/, Papierkorb, Mehrfachauswahl.
+- **Phase 2**: Server KuhlerBuhler/Interface#813 gemergt; Review-Fix: Namen werden global zugeordnet (Schwelle 0,95), Umbenennen löscht nur den eigenen Namen.
+- **Phase 3**: Statt der alten 3D-Punktwolke (Menüpunkt jetzt "Bubbles"). Mit 12 Test-Bubbles im Emulator geprüft: Fokus-Animation per Pfeil, Sprechblasen, Leiste hochziehen, Vorschau blättern hebt den Punkt hervor.

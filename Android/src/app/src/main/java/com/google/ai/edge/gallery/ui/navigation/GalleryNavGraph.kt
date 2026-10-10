@@ -91,7 +91,8 @@ import androidx.compose.material3.Text
 import com.google.ai.edge.gallery.mediagallery.AnalysisViewModel
 import com.google.ai.edge.gallery.mediagallery.CategoriesScreen
 import com.google.ai.edge.gallery.mediagallery.CleanupScreen
-import com.google.ai.edge.gallery.mediagallery.MapScreen
+import com.google.ai.edge.gallery.mediagallery.BubbleScreen
+import com.google.ai.edge.gallery.mediagallery.BubbleViewModel
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.graphics.Color
@@ -116,6 +117,8 @@ private const val ROUTE_VIEWER = "viewer"
 private const val ALL_BUCKETS = -1L
 /** Viewer over the current search results. */
 private const val SEARCH_RESULTS = -2L
+/** Viewer over a list set by another screen (bubbles). */
+private const val CUSTOM_LIST = -5L
 private const val ROUTE_SETTINGS = "settings"
 private const val ROUTE_CLEANUP = "cleanup"
 private const val ROUTE_CATEGORIES = "categories"
@@ -234,7 +237,7 @@ fun GalleryNavHost(
               listOf(
                   "Aufräumen" to ROUTE_CLEANUP,
                   "Kategorien" to ROUTE_CATEGORIES,
-                  "Analyse 3D" to ROUTE_MAP,
+                  "Bubbles" to ROUTE_MAP,
                   "Einstellungen" to ROUTE_SETTINGS,
                 )
                 .forEach { (label, route) ->
@@ -297,6 +300,7 @@ fun GalleryNavHost(
         when (bucketArg) {
           // fresh copies, so favourites and deletions show at once
           SEARCH_RESULTS -> search.results.orEmpty().mapNotNull { library.item(it.id) }
+          CUSTOM_LIST -> galleryViewModel.customList.mapNotNull { library.item(it.id) }
           ALL_BUCKETS -> library.items
           else -> library.itemsIn(bucketArg)
         }
@@ -329,10 +333,13 @@ fun GalleryNavHost(
     }
 
     composable(route = ROUTE_MAP) {
-      MapScreen(
-        viewModel = hiltViewModel<AnalysisViewModel>(),
+      BubbleScreen(
+        viewModel = hiltViewModel<BubbleViewModel>(),
         onBack = { navController.navigateUp() },
-        onOpen = { navController.navigate("$ROUTE_VIEWER/$ALL_BUCKETS/${it.id}") },
+        onOpen = { list, index ->
+          galleryViewModel.customList = list
+          navController.navigate("$ROUTE_VIEWER/$CUSTOM_LIST/${list[index].id}")
+        },
       )
     }
 
