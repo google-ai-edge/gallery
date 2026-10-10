@@ -1,12 +1,12 @@
 {
   "plan": "2026-10-10-gallery-app",
   "createdAt": "2026-10-10T02:27:51.749942Z",
-  "updatedAt": "2026-10-10T03:30:31.751840+00:00",
+  "updatedAt": "2026-10-10T03:45:41.732525+00:00",
   "phases": [
     {
       "id": "phase-1",
       "name": "Installierbare Galerie + CI",
-      "status": "in_progress",
+      "status": "passed",
       "tasks": [
         {
           "id": "1.1",
@@ -32,7 +32,8 @@
           "id": "1.6",
           "status": "passed"
         }
-      ]
+      ],
+      "verifiedAt": "2026-10-10T03:45:41.732525+00:00"
     },
     {
       "id": "phase-2",
