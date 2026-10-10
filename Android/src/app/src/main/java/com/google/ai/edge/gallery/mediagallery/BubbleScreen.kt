@@ -46,6 +46,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
@@ -70,6 +71,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -146,6 +149,26 @@ fun BubbleScreen(viewModel: BubbleViewModel, onBack: () -> Unit, onOpen: (List<M
   BackHandler { if (!viewModel.up()) onBack() }
   var renaming by remember { mutableStateOf<Bubble?>(null) }
   renaming?.let { b -> RenameDialog(b, onDismiss = { renaming = null }) { name -> viewModel.rename(b, name); renaming = null } }
+  var albumFor by remember { mutableStateOf<Bubble?>(null) }
+  val scope = rememberCoroutineScope()
+  val actions = rememberMediaActions(onChanged = {})
+  val context = androidx.compose.ui.platform.LocalContext.current
+  LaunchedEffect(viewModel.message) {
+    viewModel.message?.let { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show(); viewModel.message = null }
+  }
+  albumFor?.let { b ->
+    AlbumDialog(b, onDismiss = { albumFor = null }) { name, folder ->
+      albumFor = null
+      scope.launch {
+        if (viewModel.createAlbum(b, name, folder) && folder) {
+          // a real folder: the bubble's files move there now, new ones later from the banner
+          val path = MediaActions.newFolderPath(name)
+          val files = b.allMembers().mapNotNull { viewModel.items[it.id] }.filter { it.relativePath != path }
+          actions.moveEach(files.associateWith { path })
+        }
+      }
+    }
+  }
   Scaffold(
     topBar = {
       TopAppBar(
@@ -161,7 +184,7 @@ fun BubbleScreen(viewModel: BubbleViewModel, onBack: () -> Unit, onOpen: (List<M
           if (level.isEmpty()) {
             Text("Noch zu wenige Medien am Server für Bubbles.", modifier = Modifier.padding(24.dp))
           } else {
-            BubbleSpace(viewModel, level, onOpen, onRename = { renaming = it })
+            BubbleSpace(viewModel, level, onOpen, onRename = { renaming = it }, onAlbum = { albumFor = it })
           }
         }
         is Loadable.Error -> Text(s.message, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
@@ -176,7 +199,13 @@ fun BubbleScreen(viewModel: BubbleViewModel, onBack: () -> Unit, onOpen: (List<M
 }
 
 @Composable
-private fun BubbleSpace(viewModel: BubbleViewModel, level: List<Bubble>, onOpen: (List<MediaItem>, Int) -> Unit, onRename: (Bubble) -> Unit) {
+private fun BubbleSpace(
+  viewModel: BubbleViewModel,
+  level: List<Bubble>,
+  onOpen: (List<MediaItem>, Int) -> Unit,
+  onRename: (Bubble) -> Unit,
+  onAlbum: (Bubble) -> Unit,
+) {
   val focus = viewModel.focus.coerceIn(0, level.lastIndex)
   val focused = level[focus]
   // the camera glides to the focused bubble and zooms so it fills about a fifth of the screen
@@ -294,6 +323,7 @@ private fun BubbleSpace(viewModel: BubbleViewModel, level: List<Bubble>, onOpen:
       loader = loader,
       onOpen = onOpen,
       onRename = { onRename(focused) },
+      onAlbum = { onAlbum(focused) },
       modifier = Modifier.align(Alignment.BottomCenter),
     )
   }
@@ -332,6 +362,7 @@ private fun BubbleSheet(
   loader: coil.ImageLoader,
   onOpen: (List<MediaItem>, Int) -> Unit,
   onRename: () -> Unit,
+  onAlbum: () -> Unit,
   modifier: Modifier,
 ) {
   val open = viewModel.sheetOpen
@@ -365,6 +396,7 @@ private fun BubbleSheet(
         )
       }
       IconButton(onClick = onRename) { Icon(Icons.Filled.Edit, "Umbenennen") }
+      IconButton(onClick = onAlbum) { Icon(Icons.Filled.CreateNewFolder, "Als Album oder Ordner speichern") }
       if (bubble.children.isNotEmpty()) {
         IconButton(onClick = { viewModel.enter(bubble) }) { Icon(Icons.Filled.ZoomIn, "Unter-Bubbles zeigen") }
       }
@@ -401,6 +433,35 @@ private fun RenameDialog(bubble: Bubble, onDismiss: () -> Unit, onSave: (String)
     title = { Text("Bubble benennen") },
     text = { OutlinedTextField(name, { name = it.take(60) }, singleLine = true, label = { Text("Name") }) },
     confirmButton = { TextButton(onClick = { onSave(name) }) { Text("Speichern") } },
+    dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
+  )
+}
+
+@Composable
+private fun AlbumDialog(bubble: Bubble, onDismiss: () -> Unit, onCreate: (String, Boolean) -> Unit) {
+  var name by remember { mutableStateOf(bubble.name ?: bubble.suggested ?: "") }
+  var folder by remember { mutableStateOf(false) }
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text("Album aus dieser Bubble") },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(name, { name = it.take(60) }, singleLine = true, label = { Text("Name") })
+        Text("Neue Fotos, die so aussehen, kommen automatisch dazu.", style = MaterialTheme.typography.bodySmall)
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { folder = !folder }) {
+          androidx.compose.material3.Checkbox(checked = folder, onCheckedChange = { folder = it })
+          Column {
+            Text("Als echten Ordner", style = MaterialTheme.typography.bodyMedium)
+            Text(
+              "Die Dateien werden nach Pictures/${name.trim().ifEmpty { "…" }}/ verschoben und sind so auch in anderen Apps ein Ordner.",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+        }
+      }
+    },
+    confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onCreate(name.trim(), folder) }) { Text("Anlegen") } },
     dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
   )
 }

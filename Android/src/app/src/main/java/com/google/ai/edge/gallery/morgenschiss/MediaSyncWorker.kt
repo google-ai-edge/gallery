@@ -56,6 +56,8 @@ interface MediaSyncEntryPoint {
   fun idStore(): MediaIdStore
 
   fun mediaRepository(): MediaRepository
+
+  fun albums(): com.google.ai.edge.gallery.mediagallery.AlbumRepository
 }
 
 /**
@@ -148,6 +150,9 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
       }
       done += batch.size
     }
+    // new files that belong to a folder album wait for the user to move them (Android asks)
+    sortIntoFolderAlbums(api, byId)
+
     // 4. scenes along videos, so a moment inside a long video can be found
     val sceneVideos = SyncPlanner.needScenes(files, store.all())
     sceneVideos.forEachIndexed { i, f ->
@@ -203,7 +208,9 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
     return when {
       result is ApiResult.Ok -> {
         val fpToMedia = chunk.associate { it.second.id to it.first }
-        store.markIndexed(result.value.indexed.mapNotNull { fpToMedia[it] }) { byId.getValue(it).folder }
+        val ok = result.value.indexed.mapNotNull { fpToMedia[it] }
+        store.markIndexed(ok) { byId.getValue(it).folder }
+        newlyIndexed += ok
         store.markFailed(result.value.failed.mapNotNull { fpToMedia[it.id] })
         null
       }
@@ -217,6 +224,27 @@ class MediaSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
         }
       else -> outcome(result)
     }
+  }
+
+  private val newlyIndexed = ArrayList<Long>()
+
+  private suspend fun sortIntoFolderAlbums(api: MediaSearchApi, byId: Map<Long, MediaItem>) {
+    if (newlyIndexed.isEmpty()) return
+    val albums = deps.albums()
+    albums.refresh()
+    if (albums.albums.value.none { it.isFolder }) return
+    val rows = deps.idStore().all()
+    val fpToIds = newlyIndexed.mapNotNull { id -> rows[id]?.fingerprint?.let { it to id } }.groupBy({ it.first }, { it.second })
+    val moves = HashMap<Long, String>()
+    for (chunk in fpToIds.keys.chunked(2000)) {
+      val r = api.matchAlbums(chunk) as? ApiResult.Ok ?: return
+      for ((fp, m) in r.value.matches) {
+        if (m.mode != "folder") continue
+        val path = com.google.ai.edge.gallery.mediagallery.MediaActions.newFolderPath(m.name)
+        for (id in fpToIds[fp].orEmpty()) if (byId[id]?.relativePath != path) moves[id] = path
+      }
+    }
+    albums.addPending(moves)
   }
 
   /** Like [send], for scenes: a bad scene is skipped, never the whole video. */

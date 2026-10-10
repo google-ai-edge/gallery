@@ -20,6 +20,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.BuildConfig
+import com.google.ai.edge.gallery.morgenschiss.Album
 import com.google.ai.edge.gallery.morgenschiss.ApiResult
 import com.google.ai.edge.gallery.morgenschiss.ApkVersion
 import com.google.ai.edge.gallery.morgenschiss.Hit
@@ -53,6 +54,8 @@ data class SearchState(
   val message: String? = null,
   /** Videos found by a scene: media id -> seconds into the video. */
   val times: Map<Long, Double> = emptyMap(),
+  /** Search only in the bubbles closest to the query (server side). */
+  val onlyBubbles: Boolean = false,
 )
 
 @HiltViewModel
@@ -64,7 +67,40 @@ constructor(
   private val api: MediaSearchApi,
   private val idStore: MediaIdStore,
   val localSearch: LocalSearch,
+  private val albumRepo: AlbumRepository,
 ) : ViewModel() {
+  val pendingMoves: StateFlow<Map<Long, String>> = albumRepo.pendingMoves
+
+  private val _albums = MutableStateFlow<List<Pair<Album, MediaItem?>>>(emptyList())
+  /** Albums with a local cover (first preview that is on the phone). */
+  val albums: StateFlow<List<Pair<Album, MediaItem?>>> = _albums.asStateFlow()
+
+  init {
+    viewModelScope.launch {
+      kotlinx.coroutines.flow.combine(albumRepo.albums, repository.library) { a, lib -> a to lib }.collect { (list, lib) ->
+        val byFp = withContext(Dispatchers.IO) { idStore.all().values.associate { it.fingerprint to it.mediaId } }
+        _albums.value = list.map { album -> album to album.previews.firstNotNullOfOrNull { fp -> byFp[fp]?.let { lib.item(it) } } }
+      }
+    }
+  }
+
+  fun refreshAlbums() {
+    viewModelScope.launch { albumRepo.refresh() }
+  }
+
+  /** Local items of an album, best first; null when the server is away. */
+  suspend fun albumItems(id: String): List<MediaItem>? {
+    val fps = albumRepo.members(id) ?: return null
+    val byFp = withContext(Dispatchers.IO) { idStore.all().values.groupBy({ it.fingerprint }, { it.mediaId }) }
+    val lib = repository.library.value
+    return fps.flatMap { fp -> byFp[fp].orEmpty().mapNotNull { lib.item(it) } }.distinctBy { it.id }
+  }
+
+  suspend fun deleteAlbum(id: String): Boolean = albumRepo.delete(id)
+
+  suspend fun createAlbum(bubbleKey: String, name: String, folder: Boolean) = albumRepo.create(bubbleKey, name, folder)
+
+  fun clearPending(ids: Collection<Long>) = albumRepo.clearPending(ids)
   val library: StateFlow<MediaLibrary> = repository.library
   val session: StateFlow<Session?> = api.client.session
 
@@ -85,6 +121,7 @@ constructor(
 
   fun onPermissionGranted() {
     repository.start()
+    refreshAlbums()
     localSearch.scheduleIndexing()
     if (api.client.isLoggedIn) {
       MediaSyncWorker.schedulePeriodic(context)
@@ -126,9 +163,14 @@ constructor(
     if (_search.value.query.isNotBlank()) search(_search.value.query, bucketId)
   }
 
+  fun setOnlyBubbles(on: Boolean, bucketId: Long?) {
+    _search.value = _search.value.copy(onlyBubbles = on)
+    if (_search.value.query.isNotBlank()) search(_search.value.query, bucketId)
+  }
+
   fun clearSearch() {
     searchJob?.cancel()
-    _search.value = SearchState(everywhere = _search.value.everywhere)
+    _search.value = SearchState(everywhere = _search.value.everywhere, onlyBubbles = _search.value.onlyBubbles)
   }
 
   /** Debounced: typing fast sends one request. */
@@ -146,7 +188,7 @@ constructor(
         val everywhere = _search.value.everywhere || bucketId == null
         val scopeItems = library.value.itemsIn(if (everywhere) null else bucketId)
         val folder = if (everywhere) null else scopeItems.firstOrNull()?.folder
-        val r = api.search(query.trim(), Scope(folder = folder))
+        val r = api.search(query.trim(), Scope(folder = folder), onlyBubbles = _search.value.onlyBubbles)
         _search.value =
           when (r) {
             is ApiResult.Ok -> serverResults(r.value.results, scopeItems)

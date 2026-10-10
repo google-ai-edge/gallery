@@ -54,7 +54,7 @@ import kotlinx.serialization.json.decodeFromJsonElement
 /** Optional narrowing shared by search, similar, classify and map. */
 @Serializable data class Scope(val folder: String? = null, val folderPrefix: String? = null, val ids: List<String>? = null)
 
-@Serializable private data class SearchRequest(val query: String, val limit: Int, val folder: String? = null, val folderPrefix: String? = null, val ids: List<String>? = null)
+@Serializable private data class SearchRequest(val query: String, val limit: Int, val folder: String? = null, val folderPrefix: String? = null, val ids: List<String>? = null, val onlyMatchingBubbles: Boolean? = null)
 
 @Serializable private data class SimilarRequest(val id: String, val limit: Int, val folder: String? = null, val folderPrefix: String? = null, val ids: List<String>? = null)
 
@@ -97,6 +97,33 @@ import kotlinx.serialization.json.decodeFromJsonElement
 
 @Serializable private data class NameRequest(val key: String, val name: String)
 
+@Serializable data class Album(
+  val id: String,
+  val name: String,
+  val mode: String,
+  val count: Int = 0,
+  val previews: List<String> = emptyList(),
+) {
+  val isFolder: Boolean
+    get() = mode == "folder"
+}
+
+@Serializable data class AlbumsResponse(val albums: List<Album> = emptyList())
+
+@Serializable data class AlbumMember(val id: String, val score: Double)
+
+@Serializable data class AlbumMembers(val id: String, val name: String, val mode: String, val members: List<AlbumMember> = emptyList())
+
+@Serializable data class AlbumMatch(val album: String, val name: String, val mode: String)
+
+@Serializable data class MatchResponse(val matches: Map<String, AlbumMatch> = emptyMap())
+
+@Serializable private data class CreateAlbumRequest(val key: String, val name: String, val mode: String)
+
+@Serializable private data class IdRequest(val id: String)
+
+@Serializable private data class IdsRequest(val ids: List<String>)
+
 @Serializable data class ApkVersion(val versionCode: Int, val versionName: String = "", val sizeBytes: Long = 0)
 
 @Serializable data class TranscribeStart(val jobId: String, val durationSec: Double = 0.0)
@@ -132,8 +159,13 @@ class MediaSearchApi @Inject constructor(val client: MorgenschissClient) {
     client.call("/api/mediasearch/index", json.encodeToString(IndexRequest(items)), timeoutMs = 120_000).decode()
 
   /** Short timeout: the app searches locally when the server is slow. */
-  suspend fun search(query: String, scope: Scope, limit: Int = 300): ApiResult<HitsResponse> =
-    client.call("/api/mediasearch/search", json.encodeToString(SearchRequest(query, limit, scope.folder, scope.folderPrefix, scope.ids)), timeoutMs = 3_000).decode()
+  /** With [onlyBubbles] the server may compute the bubbles first, so that gets more time. */
+  suspend fun search(query: String, scope: Scope, limit: Int = 300, onlyBubbles: Boolean = false): ApiResult<HitsResponse> =
+    client.call(
+      "/api/mediasearch/search",
+      json.encodeToString(SearchRequest(query, limit, scope.folder, scope.folderPrefix, scope.ids, onlyBubbles.takeIf { it })),
+      timeoutMs = if (onlyBubbles) 30_000 else 3_000,
+    ).decode()
 
   suspend fun similar(id: String, scope: Scope, limit: Int = 200): ApiResult<HitsResponse> =
     client.call("/api/mediasearch/similar", json.encodeToString(SimilarRequest(id, limit, scope.folder, scope.folderPrefix, scope.ids)), timeoutMs = 5_000).decode()
@@ -147,6 +179,19 @@ class MediaSearchApi @Inject constructor(val client: MorgenschissClient) {
   /** The first computation takes a few seconds on the Pi. */
   suspend fun bubbles(scope: Scope): ApiResult<BubblesResponse> =
     client.call("/api/mediasearch/bubbles", json.encodeToString(MapRequest(scope.folder, scope.folderPrefix, scope.ids)), timeoutMs = 90_000).decode()
+
+  suspend fun albums(): ApiResult<AlbumsResponse> = client.call("/api/mediasearch/albums", timeoutMs = 30_000).decode()
+
+  suspend fun createAlbum(bubbleKey: String, name: String, folder: Boolean): ApiResult<Album> =
+    client.call("/api/mediasearch/albums/create", json.encodeToString(CreateAlbumRequest(bubbleKey, name, if (folder) "folder" else "album"))).decode()
+
+  suspend fun albumMembers(id: String): ApiResult<AlbumMembers> =
+    client.call("/api/mediasearch/albums/members", json.encodeToString(IdRequest(id)), timeoutMs = 30_000).decode()
+
+  suspend fun matchAlbums(ids: List<String>): ApiResult<MatchResponse> =
+    client.call("/api/mediasearch/albums/match", json.encodeToString(IdsRequest(ids)), timeoutMs = 30_000).decode()
+
+  suspend fun deleteAlbum(id: String): ApiResult<JsonElement> = client.call("/api/mediasearch/albums/delete", json.encodeToString(IdRequest(id)))
 
   suspend fun nameBubble(key: String, name: String): ApiResult<JsonElement> =
     client.call("/api/mediasearch/bubbles/name", json.encodeToString(NameRequest(key, name)))
