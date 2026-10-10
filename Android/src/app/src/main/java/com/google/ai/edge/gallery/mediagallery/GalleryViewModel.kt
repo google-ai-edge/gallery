@@ -76,6 +76,9 @@ constructor(
   /** Set when morgenschiss has a newer build than the installed one. */
   val update: StateFlow<ApkVersion?> = _update.asStateFlow()
 
+  /** A list handed to the viewer from elsewhere (e.g. a bubble). */
+  var customList: List<MediaItem> = emptyList()
+
   fun reloadLibrary() {
     viewModelScope.launch { repository.reload() }
   }

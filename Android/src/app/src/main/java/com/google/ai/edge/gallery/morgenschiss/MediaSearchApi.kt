@@ -72,6 +72,31 @@ import kotlinx.serialization.json.decodeFromJsonElement
 
 @Serializable private data class RemoveRequest(val ids: List<String>)
 
+@Serializable data class BubbleMember(val id: String, val score: Double, val x: Float, val y: Float, val z: Float)
+
+@Serializable data class Bubble(
+  val key: String,
+  val name: String? = null,
+  val suggested: String? = null,
+  val tags: List<String> = emptyList(),
+  val size: Int,
+  val videos: Int = 0,
+  val x: Float,
+  val y: Float,
+  val z: Float,
+  val r: Float,
+  val previews: List<String> = emptyList(),
+  val members: List<BubbleMember> = emptyList(),
+  val children: List<Bubble> = emptyList(),
+) {
+  val title: String
+    get() = name ?: suggested ?: "Ohne Namen"
+}
+
+@Serializable data class BubblesResponse(val count: Int = 0, val named: Boolean = false, val bubbles: List<Bubble> = emptyList())
+
+@Serializable private data class NameRequest(val key: String, val name: String)
+
 @Serializable data class ApkVersion(val versionCode: Int, val versionName: String = "", val sizeBytes: Long = 0)
 
 @Serializable data class TranscribeStart(val jobId: String, val durationSec: Double = 0.0)
@@ -118,6 +143,13 @@ class MediaSearchApi @Inject constructor(val client: MorgenschissClient) {
 
   suspend fun map(scope: Scope): ApiResult<MapResponse> =
     client.call("/api/mediasearch/map", json.encodeToString(MapRequest(scope.folder, scope.folderPrefix, scope.ids)), timeoutMs = 60_000).decode()
+
+  /** The first computation takes a few seconds on the Pi. */
+  suspend fun bubbles(scope: Scope): ApiResult<BubblesResponse> =
+    client.call("/api/mediasearch/bubbles", json.encodeToString(MapRequest(scope.folder, scope.folderPrefix, scope.ids)), timeoutMs = 90_000).decode()
+
+  suspend fun nameBubble(key: String, name: String): ApiResult<JsonElement> =
+    client.call("/api/mediasearch/bubbles/name", json.encodeToString(NameRequest(key, name)))
 
   suspend fun remove(ids: List<String>): ApiResult<JsonElement> =
     client.call("/api/mediasearch/remove", json.encodeToString(RemoveRequest(ids)), timeoutMs = 30_000)
