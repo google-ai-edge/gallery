@@ -108,7 +108,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
-import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.AudioAnimation
@@ -712,7 +711,7 @@ fun ChatPanel(
       val imageLimitIgnoredMsg = stringResource(R.string.image_limit_ignored_message)
       val contextCompactionFailedMsg = stringResource(R.string.context_compaction_failed_message)
 
-      val contextCompactEnabled = Config.isContextCompactEnabled()
+      val contextCompactEnabled = task.isContextCompactSupported(selectedModel)
       val contextCompactionStatus =
         if (contextCompactEnabled) {
           uiState.contextCompactionStatusByModel[selectedModel.name] ?: ContextCompactionStatus.IDLE
@@ -725,19 +724,18 @@ fun ChatPanel(
             contextCompactionStatus == ContextCompactionStatus.COMPACTING)
 
       if (contextCompactEnabled) {
-        val isAutoCompactEnabled =
-          uiState.autoCompactByModel[selectedModel.name]
-            ?: viewModel.isAutoCompactEnabled(selectedModel)
+        LaunchedEffect(task.id) { viewModel.loadAutoCompact(task.id) }
+        val isAutoCompactEnabled = uiState.autoCompactByTask[task.id] ?: false
 
         ContextCompactionBanner(
           status = contextCompactionStatus,
           initialDefaultToBehavior = isAutoCompactEnabled,
           onDefaultToBehaviorChanged = { defaultToBehavior ->
-            viewModel.setAutoCompact(selectedModel, defaultToBehavior)
+            viewModel.setAutoCompact(task.id, defaultToBehavior)
             modelManagerViewModel.updateConfigValuesUpdateTrigger()
           },
           onCompressClicked = { defaultToBehavior ->
-            viewModel.setAutoCompact(selectedModel, defaultToBehavior)
+            viewModel.setAutoCompact(task.id, defaultToBehavior)
             modelManagerViewModel.updateConfigValuesUpdateTrigger()
             viewModel.compactContext(
               model = selectedModel,

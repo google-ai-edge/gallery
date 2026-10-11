@@ -100,6 +100,7 @@ abstract class BaseLlmChatTask(
       textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
       supportImage = true,
       supportAudio = true,
+      supportContextCompact = true,
     )
   }
 
@@ -266,6 +267,7 @@ constructor(
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
       textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
       supportImage = true,
+      supportContextCompact = true,
     )
   }
 
@@ -360,6 +362,7 @@ constructor(
         "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/ui/llmchat/LlmChatModelHelper.kt",
       textInputPlaceHolderRes = R.string.text_input_placeholder_llm_chat,
       supportAudio = true,
+      supportContextCompact = true,
     )
   }
 

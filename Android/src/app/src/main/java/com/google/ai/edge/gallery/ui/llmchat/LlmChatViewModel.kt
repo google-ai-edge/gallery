@@ -33,6 +33,7 @@ import com.google.ai.edge.gallery.agent.sessions.generateSessionId
 import com.google.ai.edge.gallery.common.SystemPromptHelper
 import com.google.ai.edge.gallery.common.metrics.InferenceMetrics
 import com.google.ai.edge.gallery.data.ConfigKeys
+import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.SystemPromptRepository
 import com.google.ai.edge.gallery.data.Task
@@ -79,7 +80,8 @@ open class LlmChatViewModelBase(
   private val modelFeedbackRepository: Any? = null,
   override val runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
-) : ChatViewModel(runtimeExecutor, llmSessionManager) {
+  dataStoreRepository: DataStoreRepository? = null,
+) : ChatViewModel(runtimeExecutor, llmSessionManager, dataStoreRepository) {
   private val _uiSystemPrompt = MutableStateFlow("")
   val uiSystemPrompt: StateFlow<String> = _uiSystemPrompt.asStateFlow()
   private val _liveMetrics = MutableStateFlow<InferenceMetrics?>(null)
@@ -140,6 +142,7 @@ open class LlmChatViewModelBase(
    */
   fun loadSystemPrompt(task: Task) {
     currentTaskId = task.id
+    loadAutoCompact(task.id)
     viewModelScope.launch {
       val effectivePrompt =
         SystemPromptHelper.getEffectiveSystemPrompt(systemPromptRepository, task)
@@ -384,7 +387,7 @@ open class LlmChatViewModelBase(
             val isLimitReached = llmSessionManager.isTokenLimitReached(currentSessionId, model)
             try {
               if (isLimitReached) {
-                if (isAutoCompactEnabled(model)) {
+                if (isAutoCompactEnabled(currentTaskId)) {
                   executeCompactContext(
                     model = model,
                     taskId = currentTaskId,
@@ -448,6 +451,7 @@ open class LlmChatViewModelBase(
     clearHistory: Boolean = true,
   ) {
     currentTaskId = task.id
+    loadAutoCompact(task.id)
     sessionTransitionJob?.cancel()
     sessionTransitionJob =
       viewModelScope.launch(Dispatchers.Default) {
@@ -532,6 +536,7 @@ open class LlmChatViewModelBase(
     onDone: () -> Unit = {},
   ) {
     currentTaskId = task.id
+    loadAutoCompact(task.id)
     sessionTransitionJob?.cancel()
     sessionTransitionJob =
       viewModelScope.launch(Dispatchers.Default) {
@@ -686,9 +691,10 @@ constructor(
   systemPromptRepository: SystemPromptRepository,
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
+  dataStoreRepository: DataStoreRepository? = null,
 ) :
 LlmChatViewModelBase(systemPromptRepository, null, runtimeExecutor,
-llmSessionManager)
+llmSessionManager, dataStoreRepository)
 
 @HiltViewModel
 class LlmAskImageViewModel
@@ -697,9 +703,10 @@ constructor(
   systemPromptRepository: SystemPromptRepository,
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
+  dataStoreRepository: DataStoreRepository? = null,
 ) :
 LlmChatViewModelBase(systemPromptRepository, null, runtimeExecutor,
-llmSessionManager)
+llmSessionManager, dataStoreRepository)
 
 @HiltViewModel
 class LlmAskAudioViewModel
@@ -708,6 +715,7 @@ constructor(
   systemPromptRepository: SystemPromptRepository,
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
+  dataStoreRepository: DataStoreRepository? = null,
 ) :
 LlmChatViewModelBase(systemPromptRepository, null, runtimeExecutor,
-llmSessionManager)
+llmSessionManager, dataStoreRepository)

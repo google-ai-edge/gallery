@@ -54,6 +54,7 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.agentchat.agentSkillTopK
 import com.google.ai.edge.gallery.customtasks.agentchat.agentSkillTopKAdjusted
 import com.google.ai.edge.gallery.data.BuiltInTaskId
+import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelCapability
@@ -86,6 +87,7 @@ fun ModelPageAppBar(
   onSystemPromptChanged: (String) -> Unit = {},
   shouldShowHistoryButton: Boolean = false,
   onHistoryClicked: (Model) -> Unit = {},
+  isAutoCompactEnabled: Boolean = false,
 ) {
   var showConfigDialog by remember { mutableStateOf(false) }
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -221,7 +223,7 @@ fun ModelPageAppBar(
     // This may happen when user imports a model with "enable tiny garden" turned on and use the
     // model in another non-tiny-garden task.
     val modelConfigs =
-      remember(currentConfigs, supportsSpeculativeDecoding, task.id, model) {
+      remember(currentConfigs, supportsSpeculativeDecoding, task, model) {
         currentConfigs.toMutableList().apply {
           if (task.id != BuiltInTaskId.LLM_TINY_GARDEN) {
             removeIf { it.key == ConfigKeys.RESET_CONVERSATION_TURN_COUNT }
@@ -238,12 +240,27 @@ fun ModelPageAppBar(
           ) {
             removeIf { it.key == ConfigKeys.ENABLE_SPECULATIVE_DECODING }
           }
+          if (task.isContextCompactSupported(model)) {
+            if (none { it.key == ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT }) {
+              add(Config.createAutoContextCompactConfig())
+            }
+          } else {
+            removeIf { it.key == ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT }
+          }
+        }
+      }
+    val dialogInitialValues =
+      remember(currentConfigValues, task, model, isAutoCompactEnabled) {
+        currentConfigValues.toMutableMap().apply {
+          if (task.isContextCompactSupported(model)) {
+            put(ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label, isAutoCompactEnabled)
+          }
         }
       }
     ConfigDialog(
       title = stringResource(R.string.config_dialog_title),
       configs = modelConfigs,
-      initialValues = currentConfigValues,
+      initialValues = dialogInitialValues,
       onDismissed = { showConfigDialog = false },
       onOk = { curConfigValues, oldSystemPrompt, newSystemPrompt ->
         // Hide config dialog.
@@ -257,7 +274,7 @@ fun ModelPageAppBar(
           val key = config.key.label
           val oldValue =
             convertValueToTargetType(
-              value = model.configValues.getValue(key),
+              value = dialogInitialValues.getValue(key),
               valueType = config.valueType,
             )
           val newValue =
@@ -294,10 +311,12 @@ fun ModelPageAppBar(
           return@ConfigDialog
         }
 
-        // Save the config values to Model.
+        // Save the config values to Model (excluding task-level auto context compaction setting).
         val oldConfigValues = model.configValues
         model.prevConfigValues = oldConfigValues
-        model.configValues = curConfigValues
+        model.configValues = curConfigValues.filterKeys {
+          it != ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label
+        }
         if (task.id == BuiltInTaskId.LLM_AGENT_CHAT) {
           model.agentSkillTopKAdjusted = true
           model.agentSkillTopK = curConfigValues[ConfigKeys.TOPK.label]
@@ -321,7 +340,7 @@ fun ModelPageAppBar(
           }
 
           // Notify.
-          onConfigChanged(oldConfigValues, model.configValues)
+          onConfigChanged(dialogInitialValues, curConfigValues)
         }
       },
       // AICore doesn't support system prompt yet.

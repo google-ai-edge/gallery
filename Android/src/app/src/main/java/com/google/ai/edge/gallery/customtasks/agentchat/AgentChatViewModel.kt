@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery.customtasks.agentchat
 import com.google.ai.edge.gallery.agent.AgentChatExecutor
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
+import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.SystemPromptRepository
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,6 +32,7 @@ constructor(
   systemPromptRepository: SystemPromptRepository,
   @AgentChatExecutor runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
+  dataStoreRepository: DataStoreRepository? = null,
 ) :
 LlmChatViewModel(systemPromptRepository, runtimeExecutor,
-llmSessionManager)
+llmSessionManager, dataStoreRepository)

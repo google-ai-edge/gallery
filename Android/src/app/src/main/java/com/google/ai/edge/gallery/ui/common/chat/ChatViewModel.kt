@@ -28,7 +28,7 @@ import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.common.metrics.InferenceMetrics
 import com.google.ai.edge.gallery.common.processLlmResponse
 import com.google.ai.edge.gallery.data.Config
-import com.google.ai.edge.gallery.data.ConfigKeys
+import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.ChatSessionProto
@@ -79,8 +79,8 @@ data class ChatUiState(
   /** A map of model names to their context compaction status. */
   val contextCompactionStatusByModel: Map<String, ContextCompactionStatus> = mapOf(),
 
-  /** A map of model names to whether auto-compaction is enabled by default in the thread. */
-  val autoCompactByModel: Map<String, Boolean> = mapOf(),
+  /** A map of task IDs to whether auto-compaction is enabled by default for that task. */
+  val autoCompactByTask: Map<String, Boolean> = mapOf(),
 
 )
 
@@ -89,10 +89,13 @@ data class ChatUiState(
  *
  * @property runtimeExecutor Optional [AgentRuntimeExecutor] to delegate inference.
  * @property llmSessionManager [LlmSessionManager] to delegate session management and persistence.
+ * @property dataStoreRepository Optional [DataStoreRepository] for reading and persisting
+ *   task-level settings.
  */
 abstract class ChatViewModel(
   open val runtimeExecutor: AgentRuntimeExecutor? = null,
   val llmSessionManager: LlmSessionManager,
+  open val dataStoreRepository: DataStoreRepository? = null,
 ) : ViewModel() {
   /** The identifier for the current active chat session. */
   open var currentSessionId: String
@@ -201,36 +204,68 @@ abstract class ChatViewModel(
   }
 
   /**
-   * Updates whether automatic context compaction is enabled for the given [model] in both the
-   * model's configuration values and the UI state.
+   * Updates whether automatic context compaction is enabled for the given [taskId] in both
+   * [DataStoreRepository] and the UI state.
    *
-   * @param model The model for which to update the auto-compaction setting.
+   * @param taskId The identifier of the task for which to update the auto-compaction setting.
    * @param enabled Whether automatic context compaction should be enabled.
    */
-  fun setAutoCompact(model: Model, enabled: Boolean) {
-    val newConfigValues = model.configValues.toMutableMap()
-    newConfigValues[ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label] = enabled
-    model.configValues = newConfigValues
+  fun setAutoCompact(taskId: String, enabled: Boolean) {
+    dataStoreRepository?.saveAutoContextCompact(taskId, enabled)
     _uiState.update { state ->
-      state.copy(autoCompactByModel = state.autoCompactByModel + (model.name to enabled))
+      state.copy(autoCompactByTask = state.autoCompactByTask + (taskId to enabled))
     }
   }
 
   /**
-   * Returns whether automatic context compaction is enabled for the given [model].
+   * Asynchronously loads the persisted automatic context compaction setting for [taskId] into the
+   * UI state if not already cached.
    *
-   * Checks the UI state override first, falling back to the model's
-   * [ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT] configuration value (`false` by default).
-   *
-   * @param model The model to check.
-   * @return `true` if automatic context compaction is enabled for [model], `false` otherwise.
+   * @param taskId The identifier of the task whose setting should be loaded.
    */
-  fun isAutoCompactEnabled(model: Model): Boolean {
-    return _uiState.value.autoCompactByModel[model.name]
-      ?: model.getBooleanConfigValue(
-        key = ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT,
-        defaultValue = false,
-      )
+  fun loadAutoCompact(taskId: String) {
+    if (taskId.isEmpty() || _uiState.value.autoCompactByTask.containsKey(taskId)) {
+      return
+    }
+    val repo = dataStoreRepository ?: return
+    viewModelScope.launch(Dispatchers.IO) {
+      if (_uiState.value.autoCompactByTask.containsKey(taskId)) {
+        return@launch
+      }
+      val enabled = repo.readAutoContextCompact(taskId)
+      _uiState.update { state ->
+        if (state.autoCompactByTask.containsKey(taskId)) {
+          state
+        } else {
+          state.copy(autoCompactByTask = state.autoCompactByTask + (taskId to enabled))
+        }
+      }
+    }
+  }
+
+  /**
+   * Returns whether automatic context compaction is enabled for the given [taskId].
+   *
+   * Checks the UI state cache first; if absent, reads the persisted setting from
+   * [DataStoreRepository] (`false` by default) and caches it in the UI state.
+   *
+   * @param taskId The identifier of the task to check.
+   * @return `true` if automatic context compaction is enabled for [taskId], `false` otherwise.
+   */
+  fun isAutoCompactEnabled(taskId: String): Boolean {
+    _uiState.value.autoCompactByTask[taskId]?.let {
+      return it
+    }
+    val repo = dataStoreRepository ?: return false
+    val enabled = repo.readAutoContextCompact(taskId)
+    _uiState.update { state ->
+      if (state.autoCompactByTask.containsKey(taskId)) {
+        state
+      } else {
+        state.copy(autoCompactByTask = state.autoCompactByTask + (taskId to enabled))
+      }
+    }
+    return _uiState.value.autoCompactByTask[taskId] ?: enabled
   }
 
   /**
@@ -276,7 +311,7 @@ abstract class ChatViewModel(
     model: Model,
     taskId: String = "",
     triggerType: ContextCompactionTriggerType =
-      if (isAutoCompactEnabled(model)) {
+      if (isAutoCompactEnabled(taskId)) {
         ContextCompactionTriggerType.AUTO
       } else {
         ContextCompactionTriggerType.MANUAL
@@ -304,7 +339,7 @@ abstract class ChatViewModel(
     model: Model,
     taskId: String = "",
     triggerType: ContextCompactionTriggerType =
-      if (isAutoCompactEnabled(model)) {
+      if (isAutoCompactEnabled(taskId)) {
         ContextCompactionTriggerType.AUTO
       } else {
         ContextCompactionTriggerType.MANUAL
@@ -359,7 +394,7 @@ abstract class ChatViewModel(
     onSuccess: () -> Unit,
     onError: () -> Unit,
   ) {
-    val defaultToBehavior = isAutoCompactEnabled(model)
+    val defaultToBehavior = isAutoCompactEnabled(taskId)
     Log.d(
       TAG,
       "Analytics: context_compression, capability_name=$taskId, model_id=${model.name}, model_version=${model.downloadInfo.version}, trigger_type=${triggerType.value}, default_to_behavior=$defaultToBehavior",

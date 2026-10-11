@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.agent.sessions
 
 import android.content.Context
 import com.google.ai.edge.gallery.data.ChatSessionRepository
+import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.di.IoDispatcher
 import dagger.Module
 import dagger.Provides
@@ -44,12 +45,14 @@ internal object SessionsModule {
     chatSessionRepository: ChatSessionRepository,
     contextCompactor: ContextCompactor,
     @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    dataStoreRepository: DataStoreRepository,
   ): LlmSessionManager {
     return DefaultLlmSessionManager(
       context = context,
       chatSessionRepository = chatSessionRepository,
       contextCompactor = contextCompactor,
       ioDispatcher = ioDispatcher,
+      dataStoreRepository = dataStoreRepository,
     )
   }
 }
