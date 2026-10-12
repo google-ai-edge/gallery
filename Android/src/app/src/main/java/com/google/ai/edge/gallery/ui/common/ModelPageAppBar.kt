@@ -35,7 +35,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,11 +47,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.agentchat.agentSkillTopK
 import com.google.ai.edge.gallery.customtasks.agentchat.agentSkillTopKAdjusted
+import com.google.ai.edge.gallery.customtasks.arlanguageteacher.arTeacherTopK
+import com.google.ai.edge.gallery.customtasks.arlanguageteacher.arTeacherTopKAdjusted
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
@@ -63,8 +65,12 @@ import com.google.ai.edge.gallery.data.ModelUtils
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.convertValueToTargetType
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.flags.FeatureFlags
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.litertlm.ModelInfo
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,16 +90,17 @@ fun ModelPageAppBar(
     },
   allowEditingSystemPrompt: Boolean = false,
   curSystemPrompt: String = "",
+  defaultSystemPrompt: String = task.defaultSystemPrompt,
   onSystemPromptChanged: (String) -> Unit = {},
   shouldShowHistoryButton: Boolean = false,
   onHistoryClicked: (Model) -> Unit = {},
   isAutoCompactEnabled: Boolean = false,
 ) {
   var showConfigDialog by remember { mutableStateOf(false) }
-  val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+  val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
   val context = LocalContext.current
   val curDownloadStatus = modelManagerUiState.modelDownloadStatus[model.name]
-  val initStatus by model.initStatusFlow.collectAsState()
+  val initStatus by model.initStatusFlow.collectAsStateWithLifecycle()
   val isModelInitializing = initStatus is Model.InitializationStatus.Initializing
   val isModelInitialized = initStatus is Model.InitializationStatus.Initialized
 
@@ -134,7 +141,8 @@ fun ModelPageAppBar(
     modifier = modifier,
     // The back button.
     navigationIcon = {
-      val enableBackButton = !isModelInitializing && !inProgress
+      val enableBackButton =
+        (task.id == BuiltInTaskId.LLM_AR_LANGUAGE_TEACHER || !isModelInitializing) && !inProgress
       IconButton(onClick = onBackClicked, enabled = enableBackButton) {
         Icon(
           imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -198,21 +206,33 @@ fun ModelPageAppBar(
 
     LaunchedEffect(model.name, task.id) {
       // Check if the model file supports speculative decoding and visual token budget selection.
+      // The model file is read off the main thread; the model configs are updated on the main
+      // thread.
       try {
-        ModelInfo.from(model.getPath(context)).use { modelInfo ->
-          if (modelInfo is ModelInfo.Llm) {
-            supportsSpeculativeDecoding = modelInfo.hasSpeculativeDecodingSupport()
+        val (specSupport, visionOptions, visionCeiling) =
+          withContext(Dispatchers.IO) {
+            ModelInfo.from(model.getPath(context)).use { modelInfo ->
+              Triple(
+                (modelInfo as? ModelInfo.Llm)?.hasSpeculativeDecodingSupport(),
+                modelInfo.visionSignatureSelection(),
+                modelInfo.maxVisionTokenBudget(),
+              )
+            }
           }
-          val unused =
-            ModelUtils.configureVisualTokenBudgetForModel(
-              model = model,
-              shouldEnableImage = task.isVisionEnabled(model),
-              rawOptions = modelInfo.visionSignatureSelection(),
-              ceiling = modelInfo.maxVisionTokenBudget(),
-            )
-          currentConfigs = model.configs
-          currentConfigValues = model.configValues
+        if (specSupport != null) {
+          supportsSpeculativeDecoding = specSupport
         }
+        val unused =
+          ModelUtils.configureVisualTokenBudgetForModel(
+            model = model,
+            shouldEnableImage = task.isVisionEnabled(model),
+            rawOptions = visionOptions,
+            ceiling = visionCeiling,
+          )
+        currentConfigs = model.configs
+        currentConfigValues = model.configValues
+      } catch (e: CancellationException) {
+        throw e
       } catch (e: Exception) {
         // Ignore exceptions and assume not supported.
       }
@@ -317,9 +337,15 @@ fun ModelPageAppBar(
         model.configValues = curConfigValues.filterKeys {
           it != ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label
         }
-        if (task.id == BuiltInTaskId.LLM_AGENT_CHAT) {
-          model.agentSkillTopKAdjusted = true
-          model.agentSkillTopK = curConfigValues[ConfigKeys.TOPK.label]
+        when (task.id) {
+          BuiltInTaskId.LLM_AGENT_CHAT -> {
+            model.agentSkillTopKAdjusted = true
+            model.agentSkillTopK = curConfigValues[ConfigKeys.TOPK.label]
+          }
+          BuiltInTaskId.LLM_AR_LANGUAGE_TEACHER -> {
+            model.arTeacherTopKAdjusted = true
+            model.arTeacherTopK = curConfigValues[ConfigKeys.TOPK.label]
+          }
         }
         modelManagerViewModel.updateConfigValuesUpdateTrigger()
 
@@ -343,9 +369,14 @@ fun ModelPageAppBar(
           onConfigChanged(dialogInitialValues, curConfigValues)
         }
       },
-      // AICore doesn't support system prompt yet.
-      showSystemPromptEditorTab = allowEditingSystemPrompt && !model.isAiCore,
-      defaultSystemPrompt = task.defaultSystemPrompt,
+      showSystemPromptEditorTab =
+        if (FeatureFlags.enableArLanguageTeacher) {
+          allowEditingSystemPrompt
+        } else {
+          // AICore doesn't support system prompt yet.
+          allowEditingSystemPrompt && !model.isAiCore
+        },
+      defaultSystemPrompt = defaultSystemPrompt,
       curSystemPrompt = curSystemPrompt,
     )
   }

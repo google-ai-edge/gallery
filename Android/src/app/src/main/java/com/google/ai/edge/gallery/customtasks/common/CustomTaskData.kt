@@ -32,6 +32,9 @@ import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
  *   enable and disable controls (e.g. back button, configs, etc) in the app bar.
  * @param setTopBarVisible A callback function that the custom task screen can call to show and hide
  *   the top bar.
+ * @param setDefaultSystemPromptProvider A callback function that the custom task screen can call to
+ *   provide the system prompt that the config dialog restores as the default, when it differs from
+ *   `Task.defaultSystemPrompt`. Pass `null` to clear it.
  */
 data class CustomTaskData(
   val modelManagerViewModel: ModelManagerViewModel,
@@ -39,6 +42,9 @@ data class CustomTaskData(
   val setAppBarControlsDisabled: (Boolean) -> Unit = {},
   val setTopBarVisible: (Boolean) -> Unit = {},
   val setCustomNavigateUpCallback: ((() -> Unit)?) -> Unit = {},
+  val setSystemPromptProvider: (((() -> String), ((String) -> Unit)) -> Unit) = { _, _ -> },
+  val setHistoryClickHandler: ((() -> Unit)?) -> Unit = {},
+  val setDefaultSystemPromptProvider: ((() -> String)?) -> Unit = {},
 )
 
 data class CustomTaskDataForBuiltinTask(

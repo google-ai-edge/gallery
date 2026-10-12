@@ -143,6 +143,14 @@ data class CustomColors(
   val bgStarColor: Color = Color.Transparent,
   val promoBannerBgBrush: Brush = Brush.verticalGradient(listOf(Color.Transparent)),
   val promoBannerIconBgBrush: Brush = Brush.verticalGradient(listOf(Color.Transparent)),
+  /**
+   * Glow drawn over the live camera feed (for example the AR Language Teacher's thinking state). It
+   * sits on camera pixels rather than a themed surface, so it uses the same colors in light and
+   * dark themes.
+   */
+  val cameraHudGlowColor: Color = Color.Transparent,
+  /** Text and icon color drawn on [cameraHudGlowColor]. */
+  val onCameraHudGlowColor: Color = Color.Transparent,
 )
 
 val LocalCustomColors = staticCompositionLocalOf { CustomColors() }
@@ -226,6 +234,8 @@ val lightCustomColors =
         start = Offset(0f, 1f),
         end = Offset(1f, 0f),
       ),
+    cameraHudGlowColor = primaryLight,
+    onCameraHudGlowColor = onPrimaryLight,
   )
 
 val darkCustomColors =
@@ -302,6 +312,8 @@ val darkCustomColors =
         start = Offset(0f, 1f),
         end = Offset(1f, 0f),
       ),
+    cameraHudGlowColor = primaryLight,
+    onCameraHudGlowColor = onPrimaryLight,
   )
 
 val MaterialTheme.customColors: CustomColors

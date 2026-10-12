@@ -52,6 +52,9 @@ message ChatMessageProto {
   repeated string image_file_paths = 9;
   // A list of audio recordings associated with this message.
   repeated AudioMessageProto audio_clips = 10;
+  // Optional persona identifier (e.g., "buddy", "professor") for persona-based
+  // tasks.
+  string persona_id = 11;
 }
 
 // Represents an audio recording associated with a chat session message.

@@ -17,7 +17,9 @@
 package com.google.ai.edge.gallery.runtime.aicore
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.os.Build
 import android.util.Log
 import com.google.ai.edge.gallery.common.cleanUpMediapipeTaskErrorMessage
 import com.google.ai.edge.gallery.data.AICoreModelPreference
@@ -29,6 +31,7 @@ import com.google.ai.edge.gallery.data.DEFAULT_TOPK
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.runtime.CleanUpListener
 import com.google.ai.edge.gallery.runtime.EXTRA_CONTEXT_MAX_OUTPUT_TOKENS
+import com.google.ai.edge.gallery.runtime.EXTRA_CONTEXT_MULTI_TURN_VISION_SESSION
 import com.google.ai.edge.gallery.runtime.LlmModelHelper
 import com.google.ai.edge.gallery.runtime.ResultListener
 import com.google.ai.edge.litertlm.Contents
@@ -37,6 +40,7 @@ import com.google.ai.edge.litertlm.Role
 import com.google.ai.edge.litertlm.ToolProvider
 import com.google.mlkit.genai.common.DownloadStatus
 import com.google.mlkit.genai.common.FeatureStatus
+import com.google.mlkit.genai.prompt.GenerateContentRequest
 import com.google.mlkit.genai.prompt.Generation
 import com.google.mlkit.genai.prompt.GenerativeModel
 import com.google.mlkit.genai.prompt.ImagePart
@@ -44,24 +48,43 @@ import com.google.mlkit.genai.prompt.ModelPreference
 import com.google.mlkit.genai.prompt.ModelReleaseStage
 import com.google.mlkit.genai.prompt.TextPart
 import com.google.mlkit.genai.prompt.generateContentRequest
+import com.google.mlkit.genai.prompt.generateTypedContentRequest
 import com.google.mlkit.genai.prompt.generationConfig
 import com.google.mlkit.genai.prompt.modelConfig
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.reflect.KClass
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 private const val TAG = "AICoreModelHelper"
+
+/** Implemented by `@Generable` schema classes to serialize their decoded result as JSON. */
+fun interface AICoreGenerableResponse {
+  fun toJsonString(): String
+}
+
+const val EXTRA_CONTEXT_AICORE_GENERABLE_CLASS = "aicore_generable_class"
+const val EXTRA_CONTEXT_EPHEMERAL_INFERENCE = "aicore_ephemeral_inference"
 
 data class AICoreChatMessage(val isUser: Boolean, val text: String)
 
 data class AICoreModelInstance(
   val generativeModel: GenerativeModel,
-  val chatHistory: MutableList<AICoreChatMessage> = mutableListOf(),
-  var inferenceJob: Job? = null,
+  val chatHistory: MutableList<AICoreChatMessage> = CopyOnWriteArrayList(),
+  @Volatile var inferenceJob: Job? = null,
+  @Volatile var systemInstructionText: String? = null,
+  @Volatile var activeSessionImage: Bitmap? = null,
+  // Whether the last runInference call opted in with EXTRA_CONTEXT_MULTI_TURN_VISION_SESSION.
+  @Volatile var multiTurnVisionSession: Boolean = false,
+  val fallbackScope: CoroutineScope =
+    CoroutineScope(SupervisorJob() + AICoreModelHelper.defaultDispatcher),
 )
 
 object AICoreModelHelper : LlmModelHelper {
@@ -84,9 +107,11 @@ object AICoreModelHelper : LlmModelHelper {
     tools: List<ToolProvider>,
     enableConversationConstrainedDecoding: Boolean,
     coroutineScope: CoroutineScope?,
+    enableResponseFormat: Boolean,
   ) {
     val generativeModel = generativeModelProvider(model)
-    val scope = coroutineScope ?: CoroutineScope(defaultDispatcher + Job())
+    val scope = coroutineScope ?: CoroutineScope(defaultDispatcher + SupervisorJob())
+    val sysText = systemInstruction?.toString()?.takeIf { it.isNotBlank() }
 
     initJobs.remove(model.name)?.cancel()
     val job = scope.launch {
@@ -96,7 +121,11 @@ object AICoreModelHelper : LlmModelHelper {
           FeatureStatus.AVAILABLE -> {
             generativeModel.warmup()
             updateTokenLimit(model, generativeModel)
-            model.instance = AICoreModelInstance(generativeModel)
+            model.instance =
+              AICoreModelInstance(
+                generativeModel = generativeModel,
+                systemInstructionText = sysText,
+              )
             onDone("Feature is available")
           }
           FeatureStatus.DOWNLOADABLE,
@@ -115,7 +144,11 @@ object AICoreModelHelper : LlmModelHelper {
                 is DownloadStatus.DownloadCompleted -> {
                   generativeModel.warmup()
                   updateTokenLimit(model, generativeModel)
-                  model.instance = AICoreModelInstance(generativeModel)
+                  model.instance =
+                    AICoreModelInstance(
+                      generativeModel = generativeModel,
+                      systemInstructionText = sysText,
+                    )
                   onDone("Download completed")
                 }
               }
@@ -149,7 +182,7 @@ object AICoreModelHelper : LlmModelHelper {
     onError: (String) -> Unit,
   ) {
     val generativeModel = generativeModelProvider(model)
-    val scope = coroutineScope ?: CoroutineScope(defaultDispatcher + Job())
+    val scope = coroutineScope ?: CoroutineScope(defaultDispatcher + SupervisorJob())
 
     downloadJobs.remove(model.name)?.cancel()
     val job = scope.launch {
@@ -218,15 +251,25 @@ object AICoreModelHelper : LlmModelHelper {
     tools: List<ToolProvider>,
     enableConversationConstrainedDecoding: Boolean,
     initialMessages: List<Message>,
+    // AICore does not support response formats, so this is ignored.
+    enableResponseFormat: Boolean,
   ) {
     Log.d(TAG, "Resetting conversation for model '${model.name}'")
     val instance = model.instance as? AICoreModelInstance ?: return
-    instance.chatHistory.clear()
-    for (msg in initialMessages) {
-      instance.chatHistory.add(
-        AICoreChatMessage(isUser = (msg.role == Role.USER), text = msg.contents.toString())
-      )
+    instance.inferenceJob?.cancel()
+    instance.inferenceJob = null
+    instance.activeSessionImage?.let { bitmap ->
+      if (!bitmap.isRecycled) {
+        bitmap.recycle()
+      }
     }
+    instance.activeSessionImage = null
+    instance.systemInstructionText = systemInstruction?.toString()?.takeIf { it.isNotBlank() }
+    val initialChatMessages = initialMessages.map { msg ->
+      AICoreChatMessage(isUser = (msg.role == Role.USER), text = msg.contents.toString())
+    }
+    instance.chatHistory.clear()
+    instance.chatHistory.addAll(initialChatMessages)
     Log.d(TAG, "Resetting done")
   }
 
@@ -238,6 +281,14 @@ object AICoreModelHelper : LlmModelHelper {
     if (instance != null) {
       try {
         instance.inferenceJob?.cancel()
+        instance.inferenceJob = null
+        instance.fallbackScope.cancel()
+        instance.activeSessionImage?.let { bitmap ->
+          if (!bitmap.isRecycled) {
+            bitmap.recycle()
+          }
+        }
+        instance.activeSessionImage = null
         instance.generativeModel.close()
       } catch (e: Exception) {
         Log.e(TAG, "Failed to close the engine: ${e.message}")
@@ -258,6 +309,7 @@ object AICoreModelHelper : LlmModelHelper {
   override fun stopResponse(model: Model) {
     val instance = model.instance as? AICoreModelInstance ?: return
     instance.inferenceJob?.cancel()
+    cleanUpListeners[model.name]?.invoke()
   }
 
   override suspend fun countTokens(model: Model, text: String): Int? {
@@ -269,9 +321,18 @@ object AICoreModelHelper : LlmModelHelper {
     val instance = model.instance as? AICoreModelInstance ?: return null
     return countPromptTokens(
       instance = instance,
-      prompt = formatChatPrompt(chatHistory = instance.chatHistory, input = input),
+      prompt =
+        formatChatPrompt(
+          chatHistory = instance.chatHistory.toList(),
+          input = input,
+          systemInstructionText = promptSystemInstruction(instance),
+        ),
     )
   }
+
+  /** Returns the system instruction to prepend, or null unless the session opted in. */
+  private fun promptSystemInstruction(instance: AICoreModelInstance): String? =
+    if (instance.multiTurnVisionSession) instance.systemInstructionText else null
 
   private suspend fun countPromptTokens(instance: AICoreModelInstance, prompt: String): Int? =
     try {
@@ -293,19 +354,33 @@ object AICoreModelHelper : LlmModelHelper {
     audioClips: List<ByteArray>,
     coroutineScope: CoroutineScope?,
     extraContext: Map<String, String>,
+    // AICore does not support response formats, so this is ignored.
+    responseJsonSchema: String?,
   ) {
     val instance = model.instance as? AICoreModelInstance
     if (instance == null) {
       onError("AICore model instance is not initialized.")
       return
     }
-    val scope = coroutineScope ?: CoroutineScope(defaultDispatcher + Job())
+    val scope = coroutineScope ?: instance.fallbackScope
 
-    if (!cleanUpListeners.containsKey(model.name)) {
-      cleanUpListeners[model.name] = cleanUpListener
+    cleanUpListeners[model.name] = cleanUpListener
+
+    val isEphemeral = extraContext[EXTRA_CONTEXT_EPHEMERAL_INFERENCE]?.toBoolean() == true
+    if (!isEphemeral) {
+      instance.multiTurnVisionSession =
+        extraContext[EXTRA_CONTEXT_MULTI_TURN_VISION_SESSION]?.toBoolean() == true
     }
-
-    val prompt = formatChatPrompt(instance.chatHistory, input)
+    val prompt =
+      if (isEphemeral) {
+        input
+      } else {
+        formatChatPrompt(
+          chatHistory = instance.chatHistory.toList(),
+          input = input,
+          systemInstructionText = promptSystemInstruction(instance),
+        )
+      }
 
     val temperature =
       // Clamp the temperature to the range of [0.0, 1.0] in accordance with the ML Kit API.
@@ -313,15 +388,30 @@ object AICoreModelHelper : LlmModelHelper {
         .getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
         .coerceIn(0.0f, 1.0f)
     val topK = model.getIntConfigValue(key = ConfigKeys.TOPK, defaultValue = DEFAULT_TOPK)
-    val maxOutputTokens =
+    val generableClassName = extraContext[EXTRA_CONTEXT_AICORE_GENERABLE_CLASS]
+    val rawMaxOutputTokens =
       extraContext[EXTRA_CONTEXT_MAX_OUTPUT_TOKENS]?.toIntOrNull()?.takeIf { it > 0 }
         ?: model.getIntConfigValue(
           key = ConfigKeys.MAX_OUTPUT_TOKENS,
           defaultValue = DEFAULT_MAX_OUTPUT_TOKEN,
         )
+    // AICore's native LLM features enforce max_decode_steps = 4096; cap requests using structured
+    // output (or default allowlist 8192) when no explicit override was passed so AICore does not
+    // reject the request.
+    val maxOutputTokens =
+      if (
+        !generableClassName.isNullOrBlank() || extraContext[EXTRA_CONTEXT_MAX_OUTPUT_TOKENS] == null
+      ) {
+        rawMaxOutputTokens.coerceAtMost(4096)
+      } else {
+        rawMaxOutputTokens
+      }
+
+    val requestImages =
+      if (isEphemeral || !instance.multiTurnVisionSession) images
+      else sessionImages(instance, images)
 
     instance.inferenceJob?.cancel()
-
     instance.inferenceJob = scope.launch {
       executeRunInference(
         instance = instance,
@@ -329,12 +419,35 @@ object AICoreModelHelper : LlmModelHelper {
         temperature = temperature,
         topK = topK,
         maxOutputTokens = maxOutputTokens,
-        images = images,
+        images = requestImages,
         input = input,
+        generableClassName = generableClassName,
+        isEphemeral = isEphemeral,
         resultListener = resultListener,
+        cleanUpListener = cleanUpListener,
         onError = onError,
       )
     }
+  }
+
+  /**
+   * Returns the images to send in a multi-turn vision session. The latest image stays attached to
+   * later text-only turns so follow-up questions keep the visual context (the ML Kit API is
+   * stateless). A private copy is kept so the caller may recycle its bitmap.
+   */
+  private fun sessionImages(instance: AICoreModelInstance, images: List<Bitmap>): List<Bitmap> {
+    val newImage = images.firstOrNull()
+    if (newImage != null) {
+      val copy: Bitmap? =
+        if (!newImage.isRecycled) newImage.copy(Bitmap.Config.ARGB_8888, false) else null
+      val previous = instance.activeSessionImage
+      instance.activeSessionImage = copy
+      if (previous != null && previous !== copy && previous !== newImage && !previous.isRecycled) {
+        previous.recycle()
+      }
+      return listOfNotNull(copy ?: newImage.takeIf { !it.isRecycled })
+    }
+    return listOfNotNull(instance.activeSessionImage?.takeIf { !it.isRecycled })
   }
 
   private suspend fun executeRunInference(
@@ -345,9 +458,13 @@ object AICoreModelHelper : LlmModelHelper {
     maxOutputTokens: Int,
     images: List<Bitmap>,
     input: String,
+    generableClassName: String? = null,
+    isEphemeral: Boolean = false,
     resultListener: ResultListener,
+    cleanUpListener: CleanUpListener,
     onError: (message: String) -> Unit,
   ) {
+    var hasDeliveredDone = false
     try {
       val request =
         if (images.isNotEmpty()) {
@@ -364,9 +481,12 @@ object AICoreModelHelper : LlmModelHelper {
             this.maxOutputTokens = maxOutputTokens
           }
         }
+
       val flow = instance.generativeModel.generateContentStream(request)
 
       var fullResponse = ""
+      var finalChunk = ""
+      var doneEmitted = false
       flow.collect { response ->
         val candidate = response.candidates.firstOrNull()
         val text = candidate?.text ?: ""
@@ -375,21 +495,40 @@ object AICoreModelHelper : LlmModelHelper {
         val isDone = candidate?.finishReason != null
 
         if (isDone) {
-          instance.chatHistory.add(AICoreChatMessage(isUser = true, text = input))
-          instance.chatHistory.add(AICoreChatMessage(isUser = false, text = fullResponse))
-          resultListener(text, true, null)
+          doneEmitted = true
+          finalChunk = text
         } else {
           resultListener(text, false, null)
         }
       }
+      if (!isEphemeral) {
+        instance.chatHistory.add(AICoreChatMessage(isUser = true, text = input))
+        instance.chatHistory.add(AICoreChatMessage(isUser = false, text = fullResponse))
+      }
+      hasDeliveredDone = true
+      resultListener(if (doneEmitted) finalChunk else "", true, null)
     } catch (e: CancellationException) {
       Log.i(TAG, "The inference is cancelled.")
-      // Skip invoking resultListener to avoid ambiguous cancellation state
+      if (!hasDeliveredDone) {
+        cleanUpListener()
+      }
+      throw e
     } catch (e: Exception) {
       Log.e(TAG, "onError", e)
       onError("Error: ${e.message}")
     }
   }
+
+  private suspend fun <T : Any> generateTypedContent(
+    generativeModel: GenerativeModel,
+    request: GenerateContentRequest,
+    generableKClass: KClass<T>,
+  ): T? =
+    generativeModel
+      .generateContent(generateTypedContentRequest(request, generableKClass))
+      .candidates
+      .firstOrNull()
+      ?.response
 
   // Update the token limit of the model based on the value from AICore.
   private suspend fun updateTokenLimit(model: Model, generativeModel: GenerativeModel) {
@@ -426,10 +565,10 @@ object AICoreModelHelper : LlmModelHelper {
   }
 
   private fun logAICoreAccessDetails(context: Context) {
-    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
       Log.w(
         TAG,
-        "AICore is not accessible: Android version is ${android.os.Build.VERSION.SDK_INT}. It requires at least Android T (API 33).",
+        "AICore is not accessible: Android version is ${Build.VERSION.SDK_INT}. It requires at least Android T (API 33).",
       )
       return
     }
@@ -441,7 +580,7 @@ object AICoreModelHelper : LlmModelHelper {
         "com.google.ai.edge.gallery.dev",
       )
     val packageName = context.packageName
-    if (!allowedPackages.contains(packageName)) {
+    if (packageName !in allowedPackages) {
       Log.w(
         TAG,
         "AICore is not accessible: Package name '$packageName' is not allowlisted in AICore. " +
@@ -453,7 +592,7 @@ object AICoreModelHelper : LlmModelHelper {
       try {
         context.packageManager.getPackageInfo("com.google.android.aicore", 0)
         true
-      } catch (e: android.content.pm.PackageManager.NameNotFoundException) {
+      } catch (e: PackageManager.NameNotFoundException) {
         false
       }
     if (!isInstalled) {
@@ -464,12 +603,18 @@ object AICoreModelHelper : LlmModelHelper {
     }
   }
 
-  private fun formatChatPrompt(chatHistory: List<AICoreChatMessage>, input: String): String =
-    buildString {
-      for (message in chatHistory) {
-        val role = if (message.isUser) "user" else "model"
-        append(role).append(": ").append(message.text).append("\n")
-      }
-      append("user: ").append(input).append("\nmodel: ")
+  internal fun formatChatPrompt(
+    chatHistory: List<AICoreChatMessage>,
+    input: String,
+    systemInstructionText: String? = null,
+  ): String = buildString {
+    if (!systemInstructionText.isNullOrBlank()) {
+      append("system: ").append(systemInstructionText).append("\n")
     }
+    for (message in chatHistory) {
+      val role = if (message.isUser) "user" else "model"
+      append(role).append(": ").append(message.text).append("\n")
+    }
+    append("user: ").append(input).append("\nmodel: ")
+  }
 }

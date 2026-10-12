@@ -69,6 +69,7 @@ import com.google.ai.edge.gallery.data.markInitializationFailed
 import com.google.ai.edge.gallery.data.markInitializationStarted
 import com.google.ai.edge.gallery.data.markInitialized
 import com.google.ai.edge.gallery.data.resetInitialization
+import com.google.ai.edge.gallery.di.IoDispatcher
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.huggingface.HuggingFaceApiClient
 import com.google.ai.edge.gallery.proto.AccessTokenData
@@ -232,6 +233,7 @@ constructor(
   val huggingFaceApiClient: HuggingFaceApiClient,
   @ApplicationContext private val context: Context,
   protected val downloaders: Map<RuntimeType, @JvmSuppressWildcards ModelDownloader>,
+  @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) :
   ViewModel()
 {
@@ -1399,7 +1401,9 @@ constructor(
                 continue
               }
               Log.d(TAG, "Adding model '$modelName' to task '${task.label}' from modelNames.")
-              task.models.add(model)
+              if (model !in task.models) {
+                task.models.add(model)
+              }
             }
           }
         }

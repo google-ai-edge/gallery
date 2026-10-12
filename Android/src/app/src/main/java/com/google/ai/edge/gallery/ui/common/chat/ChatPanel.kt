@@ -769,9 +769,11 @@ fun ChatPanel(
         }
       }
 
+      val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
+
       MessageInputText(
         task = task,
-        modelManagerViewModel = modelManagerViewModel,
+        selectedModel = modelManagerUiState.selectedModel,
         curMessage = curMessage,
         inProgress = uiState.inProgress,
         isResettingSession = uiState.isResettingSession,
@@ -833,6 +835,10 @@ fun ChatPanel(
         },
         onModelNotSupportImage = { customErrorMessage = modelNotSupportImageMsg },
         onModelNotSupportAudio = { customErrorMessage = modelNotSupportAudioMsg },
+        textInputHistory = modelManagerUiState.textInputHistory,
+        onPromoteTextInputHistoryItem = modelManagerViewModel::promoteTextInputHistoryItem,
+        onDeleteTextInputHistoryItem = modelManagerViewModel::deleteTextInputHistory,
+        onClearTextInputHistory = modelManagerViewModel::clearTextInputHistory,
       )
     }
   }

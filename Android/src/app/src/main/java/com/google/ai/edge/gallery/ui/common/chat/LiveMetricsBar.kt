@@ -47,29 +47,24 @@ import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.PopupPositionProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.agent.sessions.SummarizationContextCompactor
 import com.google.ai.edge.gallery.common.metrics.InferenceMetrics
 import com.google.ai.edge.gallery.common.metrics.InferenceStatus
+import com.google.ai.edge.gallery.ui.common.rememberClampedTooltipPositionProvider
 import com.google.ai.edge.gallery.ui.theme.customColors
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -292,38 +287,6 @@ fun LiveMetricsBar(
           }
           Spacer(modifier = Modifier.weight(0.05f))
         }
-      }
-    }
-  }
-}
-
-@Composable
-private fun rememberClampedTooltipPositionProvider(): PopupPositionProvider {
-  val density = LocalDensity.current
-  val marginPx = with(density) { 16.dp.roundToPx() }
-  val spacingPx = with(density) { 6.dp.roundToPx() }
-  return remember(marginPx, spacingPx) {
-    object : PopupPositionProvider {
-      override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-      ): IntOffset {
-        val centeredX = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2
-        val maxX = (windowSize.width - popupContentSize.width - marginPx).coerceAtLeast(marginPx)
-        val x = centeredX.coerceIn(marginPx, maxX)
-        val aboveY = anchorBounds.top - popupContentSize.height - spacingPx
-        val belowY = anchorBounds.bottom + spacingPx
-        val y =
-          if (aboveY >= marginPx) {
-            aboveY
-          } else {
-            belowY.coerceAtMost(
-              (windowSize.height - popupContentSize.height - marginPx).coerceAtLeast(marginPx)
-            )
-          }
-        return IntOffset(x, y)
       }
     }
   }

@@ -50,21 +50,33 @@ import androidx.core.net.toUri
 import androidx.core.os.bundleOf
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
+import com.google.ai.edge.gallery.common.PermissionsResultListener
+import com.google.ai.edge.gallery.common.VirtualDevicePermissionsHost
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.firebase.analytics.FirebaseAnalytics
 import dagger.hilt.android.AndroidEntryPoint
+import java.util.concurrent.CopyOnWriteArraySet
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), VirtualDevicePermissionsHost {
 
   private val modelManagerViewModel: ModelManagerViewModel by viewModels()
+  private val permissionsResultListeners = CopyOnWriteArraySet<PermissionsResultListener>()
   private var splashScreenAboutToExit: Boolean = false
   private var contentSet: Boolean = false
+
+  override fun registerPermissionsResultListener(listener: PermissionsResultListener) {
+    permissionsResultListeners.add(listener)
+  }
+
+  override fun unregisterPermissionsResultListener(listener: PermissionsResultListener) {
+    permissionsResultListeners.remove(listener)
+  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     // We intentionally pass null to discard the saved instance state bundle.
@@ -201,6 +213,18 @@ class MainActivity : ComponentActivity() {
       } else {
         intent.data = link.toUri()
       }
+    }
+  }
+
+  override fun onRequestPermissionsResult(
+    requestCode: Int,
+    permissions: Array<out String>,
+    grantResults: IntArray,
+    deviceId: Int,
+  ) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults, deviceId)
+    for (listener in permissionsResultListeners) {
+      listener.onPermissionsResult(requestCode, permissions, grantResults, deviceId)
     }
   }
 

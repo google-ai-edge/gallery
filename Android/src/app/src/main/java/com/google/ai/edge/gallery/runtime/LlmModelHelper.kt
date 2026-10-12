@@ -37,6 +37,14 @@ typealias CleanUpListener = () -> Unit
 const val EXTRA_CONTEXT_MAX_OUTPUT_TOKENS = "max_output_tokens"
 
 /**
+ * Key in the `extraContext` of [LlmModelHelper.runInference] that opts the call into a multi-turn
+ * vision session when set to "true". Runtimes that keep no conversation state of their own (e.g.
+ * AICore) then prepend the system instruction from the last initialize/reset call to the prompt and
+ * attach the most recent image to later text-only turns. Other runtimes ignore it.
+ */
+const val EXTRA_CONTEXT_MULTI_TURN_VISION_SESSION = "multi_turn_vision_session"
+
+/**
  * Abstraction over a model instance's active conversation for inspecting token usage and sending
  * synchronous messages (e.g., for context compaction).
  */
@@ -80,6 +88,7 @@ interface LlmModelHelper {
     tools: List<ToolProvider> = listOf(),
     enableConversationConstrainedDecoding: Boolean = false,
     coroutineScope: CoroutineScope? = null,
+    enableResponseFormat: Boolean = false,
   )
 
   /**
@@ -92,6 +101,10 @@ interface LlmModelHelper {
    * @param tools new or updated tools available for the model.
    * @param enableConversationConstrainedDecoding whether to enable constrained decoding.
    * @param initialMessages messages used to reinitialize conversation history on reset.
+   * @param enableResponseFormat whether the new conversation accepts a per-message response format
+   *   (`responseJsonSchema` in [runInference]). Unlike [enableConversationConstrainedDecoding],
+   *   which constrains tool calls, this constrains the whole reply. Runtimes without support ignore
+   *   it.
    */
   fun resetConversation(
     model: Model,
@@ -101,6 +114,7 @@ interface LlmModelHelper {
     tools: List<ToolProvider> = listOf(),
     enableConversationConstrainedDecoding: Boolean = false,
     initialMessages: List<Message> = listOf(),
+    enableResponseFormat: Boolean = false,
   )
 
   /**
@@ -123,6 +137,9 @@ interface LlmModelHelper {
    * @param audioClips optional list of audio clips provided as input context.
    * @param coroutineScope optional coroutine scope for async inference execution.
    * @param extraContext optional extra context for inference (e.g. "enable_thinking").
+   * @param responseJsonSchema optional JSON Schema that the whole reply must match (constrained
+   *   decoding). It only applies when the active conversation was reset with `enableResponseFormat
+   *   = true`, and runtimes without support ignore it.
    */
   fun runInference(
     model: Model,
@@ -134,6 +151,7 @@ interface LlmModelHelper {
     audioClips: List<ByteArray> = listOf(),
     coroutineScope: CoroutineScope? = null,
     extraContext: Map<String, String> = emptyMap(),
+    responseJsonSchema: String? = null,
   )
 
   /**

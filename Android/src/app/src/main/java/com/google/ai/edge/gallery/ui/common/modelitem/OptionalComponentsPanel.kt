@@ -300,8 +300,8 @@ fun OptionalComponentsPanel(
               )
               if (isExtraDataDownloading) {
                 val totalBytes =
-                  extraDataStatus?.totalBytes?.takeIf { it > 0L } ?: optionalComponentsSizeBytes
-                val receivedBytes = extraDataStatus?.receivedBytes ?: 0L
+                  extraDataStatus.totalBytes.takeIf { it > 0L } ?: optionalComponentsSizeBytes
+                val receivedBytes = extraDataStatus.receivedBytes
                 val progressText =
                   if (receivedBytes == 0L) {
                     stringResource(
