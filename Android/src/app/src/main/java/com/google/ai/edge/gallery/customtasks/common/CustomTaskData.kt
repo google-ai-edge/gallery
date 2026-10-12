@@ -39,6 +39,8 @@ data class CustomTaskData(
   val setAppBarControlsDisabled: (Boolean) -> Unit = {},
   val setTopBarVisible: (Boolean) -> Unit = {},
   val setCustomNavigateUpCallback: ((() -> Unit)?) -> Unit = {},
+  val setSystemPromptProvider: (((() -> String), ((String) -> Unit)) -> Unit) = { _, _ -> },
+  val setHistoryClickHandler: ((() -> Unit)?) -> Unit = {},
 )
 
 data class CustomTaskDataForBuiltinTask(

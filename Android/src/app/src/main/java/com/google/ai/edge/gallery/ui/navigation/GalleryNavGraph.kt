@@ -152,7 +152,6 @@ fun GalleryNavHost(
   tosViewModel: TosViewModel = hiltViewModel(),
 ) {
   val lifecycleOwner = LocalLifecycleOwner.current
-  var showModelManager by remember { mutableStateOf(false) }
   var pickedTask by remember { mutableStateOf<Task?>(null) }
   var enableHomeScreenAnimation by remember { mutableStateOf(true) }
   var enableModelListAnimation by remember { mutableStateOf(true) }
@@ -293,10 +292,16 @@ fun GalleryNavHost(
             var disableAppBarControls by remember { mutableStateOf(false) }
             var hideTopBar by remember { mutableStateOf(false) }
             var customNavigateUpCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
+            var customPromptProvider by remember { mutableStateOf<(() -> String)?>(null) }
+            var customOnPromptChanged by remember { mutableStateOf<((String) -> Unit)?>(null) }
+            var customHistoryClickHandler by remember { mutableStateOf<(() -> Unit)?>(null) }
             CustomTaskScreen(
               task = customTask.task,
               initialModel = initialModel,
               modelManagerViewModel = modelManagerViewModel,
+              disableAppBarControls = disableAppBarControls,
+              hideTopBar = hideTopBar,
+              useThemeColor = customTask.task.useThemeColor,
               onNavigateUp = {
                 if (customNavigateUpCallback != null) {
                   customNavigateUpCallback?.invoke()
@@ -320,9 +325,11 @@ fun GalleryNavHost(
                   }
                 }
               },
-              disableAppBarControls = disableAppBarControls,
-              hideTopBar = hideTopBar,
-              useThemeColor = customTask.task.useThemeColor,
+              allowEditingSystemPrompt = customPromptProvider != null,
+              curSystemPrompt =
+                customPromptProvider?.invoke() ?: customTask.task.defaultSystemPrompt,
+              onSystemPromptChanged = { newPrompt -> customOnPromptChanged?.invoke(newPrompt) },
+              onHistoryClicked = customHistoryClickHandler,
             ) { bottomPadding ->
               customTask.MainScreen(
                 data =
@@ -332,6 +339,11 @@ fun GalleryNavHost(
                     setAppBarControlsDisabled = { disableAppBarControls = it },
                     setTopBarVisible = { hideTopBar = !it },
                     setCustomNavigateUpCallback = { customNavigateUpCallback = it },
+                    setSystemPromptProvider = { provider, onPromptChanged ->
+                      customPromptProvider = provider
+                      customOnPromptChanged = onPromptChanged
+                    },
+                    setHistoryClickHandler = { customHistoryClickHandler = it },
                   )
               )
             }
@@ -504,6 +516,10 @@ private fun CustomTaskScreen(
   hideTopBar: Boolean,
   useThemeColor: Boolean,
   onNavigateUp: () -> Unit,
+  allowEditingSystemPrompt: Boolean = false,
+  curSystemPrompt: String = "",
+  onSystemPromptChanged: (String) -> Unit = {},
+  onHistoryClicked: (() -> Unit)? = null,
   content: @Composable (bottomPadding: Dp) -> Unit,
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -563,7 +579,8 @@ private fun CustomTaskScreen(
           modelManagerViewModel = modelManagerViewModel,
           inProgress = disableAppBarControls,
           modelPreparing = disableAppBarControls,
-          shouldShowHistoryButton = false,
+          shouldShowHistoryButton = onHistoryClicked != null,
+          onHistoryClicked = { onHistoryClicked?.invoke() },
           useThemeColor = useThemeColor,
           modifier =
             Modifier.onGloballyPositioned { coordinates -> appBarHeight = coordinates.size.height },
@@ -589,6 +606,9 @@ private fun CustomTaskScreen(
               modelManagerViewModel.selectModel(model = newSelectedModel)
             }
           },
+          allowEditingSystemPrompt = allowEditingSystemPrompt,
+          curSystemPrompt = curSystemPrompt,
+          onSystemPromptChanged = onSystemPromptChanged,
         )
       }
     }
