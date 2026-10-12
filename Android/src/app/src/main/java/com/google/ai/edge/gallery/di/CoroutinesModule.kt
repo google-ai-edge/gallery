@@ -21,8 +21,11 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Qualifier
+import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class IoDispatcher
 
@@ -30,9 +33,11 @@ import kotlinx.coroutines.Dispatchers
 
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class MainDispatcher
 
+@Qualifier @Retention(AnnotationRetention.BINARY) annotation class ApplicationScope
+
 /**
- * Hilt module that provides standard Coroutine Dispatchers. This is the central location where
- * global dispatchers are bound.
+ * Hilt module that provides standard Coroutine Dispatchers and process-wide [CoroutineScope]. This
+ * is the central location where global dispatchers are bound.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -52,4 +57,10 @@ internal object CoroutinesModule {
   @MainDispatcher
   @Suppress("GlobalCoroutineDispatchers", "AndroidLintDispatcherUsage")
   fun provideMainDispatcher(): CoroutineDispatcher = Dispatchers.Main
+
+  @Provides
+  @Singleton
+  @ApplicationScope
+  fun provideApplicationScope(@IoDispatcher ioDispatcher: CoroutineDispatcher): CoroutineScope =
+    CoroutineScope(SupervisorJob() + ioDispatcher)
 }
