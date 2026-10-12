@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -46,6 +47,7 @@ fun SmallFilledTonalButton(
   size: Dp = 18.dp,
   label: String? = null,
   enabled: Boolean = true,
+  textStyle: TextStyle = MaterialTheme.typography.labelMedium,
 ) {
   FilledTonalButton(
     onClick = onClick,
@@ -64,7 +66,7 @@ fun SmallFilledTonalButton(
     }
     Text(
       text = label ?: if (labelResId != 0) stringResource(labelResId) else "",
-      style = MaterialTheme.typography.labelMedium,
+      style = textStyle,
       modifier = Modifier.padding(start = 4.dp),
     )
   }

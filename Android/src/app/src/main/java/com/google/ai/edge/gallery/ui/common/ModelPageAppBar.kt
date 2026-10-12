@@ -333,9 +333,11 @@ fun ModelPageAppBar(
         model.configValues = curConfigValues.filterKeys {
           it != ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label
         }
-        if (task.id == BuiltInTaskId.LLM_AGENT_CHAT) {
-          model.agentSkillTopKAdjusted = true
-          model.agentSkillTopK = curConfigValues[ConfigKeys.TOPK.label]
+        when (task.id) {
+          BuiltInTaskId.LLM_AGENT_CHAT -> {
+            model.agentSkillTopKAdjusted = true
+            model.agentSkillTopK = curConfigValues[ConfigKeys.TOPK.label]
+          }
         }
         modelManagerViewModel.updateConfigValuesUpdateTrigger()
 
@@ -359,9 +361,7 @@ fun ModelPageAppBar(
           onConfigChanged(dialogInitialValues, curConfigValues)
         }
       },
-      showSystemPromptEditorTab =
-        // AICore doesn't support system prompt yet.
-        allowEditingSystemPrompt && !model.isAiCore,
+      showSystemPromptEditorTab = allowEditingSystemPrompt && !model.isAiCore,
       defaultSystemPrompt = defaultSystemPrompt,
       curSystemPrompt = curSystemPrompt,
     )
