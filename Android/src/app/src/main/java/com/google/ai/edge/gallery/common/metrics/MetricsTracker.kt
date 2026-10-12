@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.common.metrics
 
 import android.content.Context
 import com.google.ai.edge.gallery.data.ConfigKeys
+import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.supportModelBenchmark
 import com.google.ai.edge.gallery.proto.LlmConfig
@@ -27,6 +28,10 @@ import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /** Configuration options for inference metrics tracking and periodic system resource monitors. */
 data class MetricsTrackerConfig(
@@ -36,6 +41,8 @@ data class MetricsTrackerConfig(
   val memorySamplingInterval: Duration = PeriodicSampler.DEFAULT_SAMPLING_INTERVAL,
   // Sampling interval for the power monitor.
   val powerSamplingInterval: Duration = PeriodicSampler.DEFAULT_SAMPLING_INTERVAL,
+  // Update interval for the live metrics stream during an active turn.
+  val liveUpdateInterval: Duration = PeriodicSampler.DEFAULT_LIVE_UPDATE_INTERVAL,
 )
 
 /**
@@ -49,6 +56,15 @@ data class MetricsTrackerConfig(
  * cumulative context and turn counters.
  */
 interface MetricsTracker {
+  /**
+   * Hot stream of real-time [InferenceMetrics] snapshots for the active model session.
+   *
+   * Emits `null` before initialization or when metrics tracking is disabled (e.g.
+   * [NoOpMetricsTracker]), and emits updated [InferenceMetrics] snapshots on lifecycle milestones
+   * and periodically during active inference turns.
+   */
+  val liveMetrics: StateFlow<InferenceMetrics?>
+
   /**
    * Records the model's initialization outcome (`Initialized` or `Failed`), duration, and active
    * sampler configuration from [Model], dispatching telemetry to Logcat and Firebase Analytics when
@@ -109,6 +125,9 @@ interface MetricsTracker {
     errorMessage: String? = null,
   ): InferenceMetrics?
 
+  /** Releases background sampling resources when the model instance is unloaded. */
+  fun close() {}
+
   companion object {
     /**
      * Factory function for creating a [MetricsTracker].
@@ -150,6 +169,8 @@ interface MetricsTracker {
  * for [Model].
  */
 class NoOpMetricsTracker : MetricsTracker {
+  override val liveMetrics: StateFlow<InferenceMetrics?> =
+    MutableStateFlow<InferenceMetrics?>(null).asStateFlow()
 
   override fun onModelInitialized() {}
 
@@ -179,12 +200,16 @@ internal constructor(
   private val model: Model,
   private val taskId: String,
   ioDispatcher: CoroutineDispatcher,
-  timeSource: TimeSource = TimeSource.Monotonic,
+  private val timeSource: TimeSource = TimeSource.Monotonic,
   config: MetricsTrackerConfig = MetricsTrackerConfig(),
   private val metricsLogger: MetricsLogger = MetricsLogger(model = model, taskId = taskId),
   private val memoryMonitor: PeriodicSensorMonitor<MemoryMetrics>? =
     if (config.enableSystemSampling) {
-      MemoryMonitor(samplingInterval = config.memorySamplingInterval, dispatcher = ioDispatcher)
+      MemoryMonitor(
+        context = context,
+        samplingInterval = config.memorySamplingInterval,
+        dispatcher = ioDispatcher,
+      )
     } else {
       null
     },
@@ -198,8 +223,6 @@ internal constructor(
     } else {
       null
     },
-  private val inferenceTracker: LitertlmInferenceMetricsTracker =
-    LitertlmInferenceMetricsTracker(model = model, timeSource = timeSource),
 ) : MetricsTracker {
 
   init {
@@ -208,12 +231,36 @@ internal constructor(
     }
   }
 
+  private val _liveMetrics = MutableStateFlow<InferenceMetrics?>(null)
+  override val liveMetrics: StateFlow<InferenceMetrics?> = _liveMetrics.asStateFlow()
+
   /**
-   * Active session metadata (model name, accelerator, task ID, and LLM sampler configuration).
-   * Initialized once at tracker creation and refreshed in [resetSession] when a conversation is
-   * recreated with updated sampler or thinking settings.
+   * Active session metadata (model name, accelerator, task ID, initialization duration, and LLM
+   * sampler configuration). Initialized in [onModelInitialized] and refreshed in [resetSession]
+   * when a conversation is recreated with updated sampler or thinking settings.
    */
   @Volatile private var metadata: InferenceMetadata = buildMetadata()
+
+  /**
+   * Per-session inference tracker, created in [onModelInitialized] and recreated in [resetSession]
+   * when a new conversation session starts.
+   */
+  @Volatile private var inferenceTracker: LitertlmInferenceMetricsTracker? = null
+
+  /**
+   * Refreshes the internal state when a new conversation session is started: session metadata and
+   * [LitertlmInferenceMetricsTracker].
+   *
+   * Aborts any active turn in the previous session and creates a new
+   * [LitertlmInferenceMetricsTracker] with the updated metadata.
+   */
+  private fun refreshSessionTracker() {
+    val newMetadata = buildMetadata()
+    metadata = newMetadata
+    inferenceTracker?.abortActiveTurn()
+    inferenceTracker =
+      LitertlmInferenceMetricsTracker(metadata = newMetadata, timeSource = timeSource)
+  }
 
   /**
    * Scope the periodic sensor samplers run on, kept off the main thread by `ioDispatcher`. A
@@ -222,20 +269,49 @@ internal constructor(
    */
   private val scope = CoroutineScope(ioDispatcher + SupervisorJob())
 
+  /**
+   * Whether live metrics streaming is enabled for this tracker instance. Captured once at
+   * construction time so the live stream behavior remains consistent across the session.
+   */
+  private val enableLiveMetrics: Boolean = false
+
+  private val liveUpdateSampler: PeriodicSampler? =
+    if (enableLiveMetrics) {
+      PeriodicSampler(
+        samplingInterval = config.liveUpdateInterval,
+        dispatcher = ioDispatcher,
+        onSample = ::emitLiveSnapshotIfTurnActive,
+      )
+    } else {
+      null
+    }
+
+  @Synchronized
   override fun onModelInitialized() {
+    refreshSessionTracker()
     metricsLogger.logModelInitialization()
+    if (model.initStatusFlow.value !is Model.InitializationStatus.Failed) {
+      emitLiveSnapshot()
+    }
   }
 
+  @Synchronized
   override fun startTurn(session: ConversationSession) {
-    if (!inferenceTracker.startTurn(session = session)) {
+    if (inferenceTracker?.startTurn(session = session) != true) {
       return
     }
     memoryMonitor?.start(scope)
     powerMonitor?.start(scope)
+    liveUpdateSampler?.start(scope)
+    emitLiveSnapshot()
   }
 
   override fun onNewToken(tokenText: String, thinkingText: String?) {
-    inferenceTracker.onNewToken(tokenText = tokenText, thinkingText = thinkingText)
+    inferenceTracker?.onNewToken(
+      tokenText = tokenText,
+      thinkingText = thinkingText,
+      onFirstToken = ::emitLiveSnapshot,
+    )
   }
 
   override fun cancelTurn(reason: CancellationReason, customMessage: String?): InferenceMetrics? =
@@ -252,11 +328,13 @@ internal constructor(
         }
     )
 
+  @Synchronized
   override fun resetSession() {
-    metadata = buildMetadata()
-    inferenceTracker.resetSession()
+    liveUpdateSampler?.stop()
+    refreshSessionTracker()
     memoryMonitor?.reset()
     powerMonitor?.reset()
+    emitLiveSnapshot()
   }
 
   override fun endTurn(statusCode: InferenceStatus.Code, errorMessage: String?): InferenceMetrics? =
@@ -270,17 +348,64 @@ internal constructor(
         }
     )
 
-  private fun endTurnInternal(status: InferenceStatus): InferenceMetrics? {
-    val turnMetrics = inferenceTracker.endTurn(status = status) ?: return null
-    val memoryMetrics = memoryMonitor?.stop() ?: MemoryMetrics.getDefaultInstance()
-    val batteryMetrics = powerMonitor?.stop() ?: BatteryMetrics.getDefaultInstance()
-    val finalMetrics = inferenceMetrics {
+  @Synchronized
+  override fun close() {
+    liveUpdateSampler?.stop()
+    memoryMonitor?.reset()
+    powerMonitor?.reset()
+    scope.cancel()
+  }
+
+  @Synchronized
+  private fun emitLiveSnapshot() {
+    if (!enableLiveMetrics) return
+    val turnMetrics = inferenceTracker?.buildLiveMetrics() ?: return
+    val isTurnActive = turnMetrics.status.code != InferenceStatus.Code.IDLE
+    _liveMetrics.value = inferenceMetrics {
       this.metadata = this@LitertlmMetricsTracker.metadata
       this.inference = turnMetrics
-      this.memory = memoryMetrics
-      this.battery = batteryMetrics
+      this.memory =
+        if (isTurnActive) {
+          memoryMonitor?.buildMetrics() ?: MemoryMetrics.getDefaultInstance()
+        } else {
+          MemoryMetrics.getDefaultInstance()
+        }
+      this.battery =
+        if (isTurnActive) {
+          powerMonitor?.buildMetrics() ?: BatteryMetrics.getDefaultInstance()
+        } else {
+          BatteryMetrics.getDefaultInstance()
+        }
     }
+  }
 
+  private fun emitLiveSnapshotIfTurnActive() {
+    if (inferenceTracker?.hasActiveTurn != true) return
+    synchronized(this) {
+      if (inferenceTracker?.hasActiveTurn != true) return
+      emitLiveSnapshot()
+    }
+  }
+
+  private fun endTurnInternal(status: InferenceStatus): InferenceMetrics? {
+    val finalMetrics =
+      synchronized(this) {
+        liveUpdateSampler?.stop()
+        val turnMetrics = inferenceTracker?.endTurn(status = status) ?: return null
+        val memoryMetrics = memoryMonitor?.stop() ?: MemoryMetrics.getDefaultInstance()
+        val batteryMetrics = powerMonitor?.stop() ?: BatteryMetrics.getDefaultInstance()
+        inferenceMetrics {
+            this.metadata = this@LitertlmMetricsTracker.metadata
+            this.inference = turnMetrics
+            this.memory = memoryMetrics
+            this.battery = batteryMetrics
+          }
+          .also {
+            if (enableLiveMetrics) {
+              _liveMetrics.value = it
+            }
+          }
+      }
     metricsLogger.logMetrics(finalMetrics)
     return finalMetrics
   }
@@ -291,6 +416,7 @@ internal constructor(
       this.accelerator = model.currentAccelerator?.name ?: ""
       this.taskId = this@LitertlmMetricsTracker.taskId
       this.llmConfig = model.toLlmConfig()
+      model.initDuration?.let { this.initDurationMs = it.inWholeMilliseconds }
     }
   }
 }
@@ -304,7 +430,11 @@ internal fun Model.toLlmConfig(): LlmConfig = llmConfig {
   this.defaultTopk = getIntConfigValue(ConfigKeys.TOPK, 0)
   this.defaultTopp = getFloatConfigValue(ConfigKeys.TOPP, 0.0f)
   this.defaultTemperature = getFloatConfigValue(ConfigKeys.TEMPERATURE, 0.0f)
-  this.defaultMaxTokens = getIntConfigValue(ConfigKeys.MAX_TOKENS, 0)
+  this.defaultMaxTokens =
+    getIntConfigValue(
+      key = ConfigKeys.MAX_TOKENS,
+      defaultValue = llmProfile?.maxTokens ?: DEFAULT_MAX_TOKEN,
+    )
   this.supportThinking = getBooleanConfigValue(ConfigKeys.ENABLE_THINKING, false)
   this.supportSpeculativeDecoding =
     getBooleanConfigValue(ConfigKeys.ENABLE_SPECULATIVE_DECODING, false)

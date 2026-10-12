@@ -22,11 +22,10 @@ import com.google.ai.edge.litertlm.ExperimentalApi
 
 /**
  * Engine-agnostic benchmark telemetry and performance diagnostics reported directly by the
- * underlying inference runtime for a completed or active turn.
+ * underlying inference runtime for a completed turn.
  *
- * Runtimes capable of internal benchmarking populate these ground-truth measurements. Any
- * unsupported or unavailable metrics remain `null`, allowing trackers to compute fallback estimates
- * from app-level observation.
+ * Runtimes capable of internal benchmarking populate these ground-truth measurements; any
+ * unsupported or unavailable metrics remain `null`.
  */
 data class InferenceBenchmark(
   val prefillTokenCount: Int? = null,

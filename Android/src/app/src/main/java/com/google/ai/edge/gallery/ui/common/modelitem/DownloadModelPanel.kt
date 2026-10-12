@@ -173,7 +173,10 @@ fun DownloadModelPanel(
         Spacer(modifier = Modifier.width(8.dp))
       }
 
-      if (!downloadSucceeded || canShowTryIt) {
+      // Supplementary models on system-managed runtimes have no top-level download.
+      val canDownloadTopLevel =
+        !downloadSucceeded && (!model.isSupplementary || model.supportsTopLevelDownload)
+      if (canDownloadTopLevel || canShowTryIt) {
         DownloadAndTryButton(
           task = task,
           model = model,

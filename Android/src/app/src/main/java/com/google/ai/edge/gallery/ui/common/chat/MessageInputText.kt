@@ -70,6 +70,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.InsertChart
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FlipCameraAndroid
@@ -84,6 +85,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.ModalBottomSheet
@@ -126,6 +128,7 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.AudioClip
 import com.google.ai.edge.gallery.common.convertWavToMonoWithMaxSeconds
 import com.google.ai.edge.gallery.common.decodeSampledBitmapFromUri
+import com.google.ai.edge.gallery.common.openSafeInputStream
 import com.google.ai.edge.gallery.common.rotateBitmap
 import com.google.ai.edge.gallery.data.MAX_AUDIO_CLIP_COUNT
 import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT
@@ -135,7 +138,6 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.getTaskIconColor
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
-import java.io.FileInputStream
 import java.util.concurrent.Executors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -176,6 +178,9 @@ fun MessageInputText(
   showPromptTemplatesInMenu: Boolean = false,
   showSkillsPicker: Boolean = false,
   showMcpPicker: Boolean = false,
+  showLiveMetricsToggle: Boolean = false,
+  isLiveMetricsVisible: Boolean = false,
+  onToggleLiveMetrics: () -> Unit = {},
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
   showStopButtonWhenInProgress: Boolean = false,
@@ -715,6 +720,33 @@ fun MessageInputText(
                       }
                     }
                   }
+
+                  // Live metrics toggle.
+                  if (showLiveMetricsToggle) {
+                    val enableLiveMetricsToggle = !isResettingSession && !modelInitializing
+                    IconToggleButton(
+                      checked = isLiveMetricsVisible,
+                      onCheckedChange = { onToggleLiveMetrics() },
+                      enabled = enableLiveMetricsToggle,
+                      colors =
+                        IconButtonDefaults.iconToggleButtonColors(
+                          containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                          contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                          disabledContainerColor =
+                            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
+                          disabledContentColor =
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                          checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                          checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        ),
+                    ) {
+                      Icon(
+                        Icons.Outlined.InsertChart,
+                        contentDescription = stringResource(R.string.cd_toggle_live_metrics),
+                        modifier = Modifier.size(20.dp),
+                      )
+                    }
+                  }
                 }
 
                 // Stop button.
@@ -1018,12 +1050,7 @@ private fun handleImagesSelected(
   for (uri in uris) {
     val bitmap: Bitmap? =
       try {
-        val inputStream =
-          if (uri.scheme == null || uri.scheme == "file") {
-            FileInputStream(uri.path ?: "")
-          } else {
-            context.contentResolver.openInputStream(uri)
-          }
+        val inputStream = openSafeInputStream(context, uri)
         if (inputStream != null) {
           // Read the EXIF metadata from the picture and rotate it correctly.
           val exif = ExifInterface(inputStream)

@@ -42,6 +42,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.ai.edge.gallery.data.Config
+import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.convertValueToTargetType
 import com.google.ai.edge.gallery.data.getConfigValueString
 import com.google.ai.edge.gallery.ui.theme.bodySmallNarrow
@@ -73,7 +75,13 @@ fun MessageBodyConfigUpdate(message: ChatMessageConfigValuesChange) {
       val commonKeys = oldValues.keys.intersect(newValues.keys)
       commonKeys.mapNotNull { key ->
         val config =
-          message.model.configs.firstOrNull { it.key.label == key } ?: return@mapNotNull null
+          message.model.configs.firstOrNull { it.key.label == key }
+            ?: if (key == ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label) {
+              Config.createAutoContextCompactConfig()
+            } else {
+              null
+            }
+            ?: return@mapNotNull null
         val oldValue: Any =
           convertValueToTargetType(
             value = message.oldValues.getValue(key),

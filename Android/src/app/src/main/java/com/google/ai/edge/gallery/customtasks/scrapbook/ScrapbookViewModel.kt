@@ -49,6 +49,7 @@ import androidx.core.graphics.get
 import androidx.core.graphics.set
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.ai.edge.gallery.common.openSafeOutputStream
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.proto.Cutout
@@ -1729,7 +1730,7 @@ constructor(
         imageUri = resolver.insert(imageCollection, contentValues) ?: return@withContext
 
         // Open the stream and write the bitmap data
-        outputStream = resolver.openOutputStream(imageUri)
+        outputStream = openSafeOutputStream(context, imageUri)
         if (outputStream != null) {
           bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
           // success

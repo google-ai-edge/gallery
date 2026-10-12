@@ -30,6 +30,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.common.logErrorToFirebase
+import com.google.ai.edge.gallery.common.openSafeInputStream
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.di.IoDispatcher
 import com.google.ai.edge.gallery.firebaseAnalytics
@@ -322,7 +323,8 @@ constructor(
           projectDir.mkdirs()
 
           val videoFile = File(projectDir, VIDEO_FILE_NAME)
-          context.contentResolver.openInputStream(uri)?.use { input ->
+          val inputStream = openSafeInputStream(context, uri)
+          inputStream?.use { input ->
             FileOutputStream(videoFile).use { output -> input.copyTo(output) }
           }
 

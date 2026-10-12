@@ -31,7 +31,9 @@ import com.google.ai.edge.gallery.agent.Attachment
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.agent.sessions.generateSessionId
 import com.google.ai.edge.gallery.common.SystemPromptHelper
+import com.google.ai.edge.gallery.common.metrics.InferenceMetrics
 import com.google.ai.edge.gallery.data.ConfigKeys
+import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.SystemPromptRepository
 import com.google.ai.edge.gallery.data.Task
@@ -64,7 +66,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGLlmChatViewModel"
@@ -75,15 +80,48 @@ open class LlmChatViewModelBase(
   private val modelFeedbackRepository: Any? = null,
   override val runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
-) : ChatViewModel(runtimeExecutor, llmSessionManager) {
+  dataStoreRepository: DataStoreRepository? = null,
+) : ChatViewModel(runtimeExecutor, llmSessionManager, dataStoreRepository) {
   private val _uiSystemPrompt = MutableStateFlow("")
-  val uiSystemPrompt = _uiSystemPrompt.asStateFlow()
+  val uiSystemPrompt: StateFlow<String> = _uiSystemPrompt.asStateFlow()
+  private val _liveMetrics = MutableStateFlow<InferenceMetrics?>(null)
+  override val liveMetrics: StateFlow<InferenceMetrics?> = _liveMetrics.asStateFlow()
+  private var liveMetricsJob: Job? = null
+  private var observedLiveMetricsModel: Model? = null
   // Map to track if the session was stopped by the model for a given model name.
   private val sessionStoppedByModel = mutableMapOf<String, Boolean>()
   // The current task ID for the session.
   private var currentTaskId: String = ""
   // Active session transition job to ensure transitions (restore, new session, reset) do not race.
   private var sessionTransitionJob: Job? = null
+
+  /**
+   * Reactively observes the live [InferenceMetrics] stream of [model] across its initialization and
+   * session lifecycle, updating [liveMetrics] as snapshots are emitted.
+   */
+  override fun observeLiveMetrics(model: Model) {
+    if (model.isAiCore) {
+      observedLiveMetricsModel = model
+      liveMetricsJob?.cancel()
+      _liveMetrics.value = null
+      return
+    }
+    if (observedLiveMetricsModel === model && liveMetricsJob?.isActive == true) {
+      return
+    }
+    observedLiveMetricsModel = model
+    liveMetricsJob?.cancel()
+    _liveMetrics.value = null
+    liveMetricsJob = viewModelScope.launch {
+      model.initStatusFlow
+        .flatMapLatest { status ->
+          ((status as? Model.InitializationStatus.Initialized)?.instance as? LlmModelInstance)
+            ?.metricsTracker
+            ?.liveMetrics ?: flowOf(null)
+        }
+        .collect { metrics -> _liveMetrics.value = metrics }
+    }
+  }
 
   /**
    * Sets the system prompt in the UI.
@@ -104,6 +142,7 @@ open class LlmChatViewModelBase(
    */
   fun loadSystemPrompt(task: Task) {
     currentTaskId = task.id
+    loadAutoCompact(task.id)
     viewModelScope.launch {
       val effectivePrompt =
         SystemPromptHelper.getEffectiveSystemPrompt(systemPromptRepository, task)
@@ -153,6 +192,7 @@ open class LlmChatViewModelBase(
     onError: (String) -> Unit,
     allowThinking: Boolean = false,
   ) {
+    observeLiveMetrics(model)
     val accelerator = model.currentAccelerator?.name ?: ""
     viewModelScope.launch(Dispatchers.Default) {
       setInProgress(true)
@@ -347,7 +387,7 @@ open class LlmChatViewModelBase(
             val isLimitReached = llmSessionManager.isTokenLimitReached(currentSessionId, model)
             try {
               if (isLimitReached) {
-                if (isAutoCompactEnabled(model)) {
+                if (isAutoCompactEnabled(currentTaskId)) {
                   executeCompactContext(
                     model = model,
                     taskId = currentTaskId,
@@ -391,9 +431,8 @@ open class LlmChatViewModelBase(
     }
     if (getLastMessage(model = model) is ChatMessageLoading) {
       removeLastMessage(model = model)
-    } else {
-      sessionStoppedByModel[model.name] = true
     }
+    sessionStoppedByModel[model.name] = true
     setInProgress(false)
     runtimeExecutor.interrupt()
     Log.d(TAG, "Done stopping response")
@@ -412,6 +451,7 @@ open class LlmChatViewModelBase(
     clearHistory: Boolean = true,
   ) {
     currentTaskId = task.id
+    loadAutoCompact(task.id)
     sessionTransitionJob?.cancel()
     sessionTransitionJob =
       viewModelScope.launch(Dispatchers.Default) {
@@ -496,6 +536,7 @@ open class LlmChatViewModelBase(
     onDone: () -> Unit = {},
   ) {
     currentTaskId = task.id
+    loadAutoCompact(task.id)
     sessionTransitionJob?.cancel()
     sessionTransitionJob =
       viewModelScope.launch(Dispatchers.Default) {
@@ -650,9 +691,10 @@ constructor(
   systemPromptRepository: SystemPromptRepository,
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
+  dataStoreRepository: DataStoreRepository? = null,
 ) :
 LlmChatViewModelBase(systemPromptRepository, null, runtimeExecutor,
-llmSessionManager)
+llmSessionManager, dataStoreRepository)
 
 @HiltViewModel
 class LlmAskImageViewModel
@@ -661,9 +703,10 @@ constructor(
   systemPromptRepository: SystemPromptRepository,
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
+  dataStoreRepository: DataStoreRepository? = null,
 ) :
 LlmChatViewModelBase(systemPromptRepository, null, runtimeExecutor,
-llmSessionManager)
+llmSessionManager, dataStoreRepository)
 
 @HiltViewModel
 class LlmAskAudioViewModel
@@ -672,6 +715,7 @@ constructor(
   systemPromptRepository: SystemPromptRepository,
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
+  dataStoreRepository: DataStoreRepository? = null,
 ) :
 LlmChatViewModelBase(systemPromptRepository, null, runtimeExecutor,
-llmSessionManager)
+llmSessionManager, dataStoreRepository)

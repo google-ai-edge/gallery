@@ -110,5 +110,6 @@ class PeriodicSampler(
     private const val TAG = "AGPeriodicSampler"
     val MIN_SAMPLING_INTERVAL: Duration = 100.milliseconds
     val DEFAULT_SAMPLING_INTERVAL: Duration = 500.milliseconds
+    val DEFAULT_LIVE_UPDATE_INTERVAL: Duration = 200.milliseconds
   }
 }

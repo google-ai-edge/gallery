@@ -17,12 +17,14 @@
 package com.google.ai.edge.gallery.common
 
 import android.content.Context
+import android.content.res.AssetFileDescriptor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
@@ -44,6 +46,9 @@ import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.gson.Gson
 import java.io.File
 import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.InputStream
+import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.ByteBuffer
@@ -131,14 +136,8 @@ fun convertWavToMonoWithMaxSeconds(
   Log.d(TAG, "Start to convert wav file to mono channel")
 
   try {
-    val inputStream =
-      (if (stereoUri.scheme == null || stereoUri.scheme == "file") {
-        FileInputStream(stereoUri.path ?: "")
-      } else {
-        context.contentResolver.openInputStream(stereoUri)
-      }) ?: return null
-    val originalBytes = inputStream.readBytes()
-    inputStream.close()
+    val originalBytes =
+      openSafeInputStream(context, stereoUri)?.use { it.readBytes() } ?: return null
 
     // Read WAV header
     if (originalBytes.size < 44) {
@@ -276,17 +275,56 @@ fun calculatePeakAmplitude(buffer: ByteArray, bytesRead: Int): Int {
   return maxAmplitude
 }
 
+fun openSafeInputStream(context: Context, uri: Uri): InputStream? {
+  return try {
+    if (uri.scheme == null || uri.scheme == "file") {
+      val path = uri.path?.takeIf { it.isNotEmpty() } ?: return null
+      return FileInputStream(File(path))
+    }
+    context.contentResolver.openInputStream(uri)
+  } catch (e: Exception) {
+    Log.e(TAG, "Failed to open input stream for URI: $uri", e)
+    null
+  }
+}
+
+fun openSafeOutputStream(context: Context, uri: Uri): OutputStream? {
+  return try {
+    if (uri.scheme == null || uri.scheme == "file") {
+      val path = uri.path?.takeIf { it.isNotEmpty() } ?: return null
+      return FileOutputStream(File(path))
+    }
+    context.contentResolver.openOutputStream(uri)
+  } catch (e: Exception) {
+    Log.e(TAG, "Failed to open output stream for URI: $uri", e)
+    null
+  }
+}
+
+fun openSafeAssetFileDescriptor(
+  context: Context,
+  uri: Uri,
+  mode: String = "r",
+): AssetFileDescriptor? {
+  return try {
+    if (uri.scheme == null || uri.scheme == "file") {
+      val path = uri.path?.takeIf { it.isNotEmpty() } ?: return null
+      val pfd = ParcelFileDescriptor.open(File(path), ParcelFileDescriptor.parseMode(mode))
+      return AssetFileDescriptor(pfd, 0, AssetFileDescriptor.UNKNOWN_LENGTH)
+    }
+    context.contentResolver.openAssetFileDescriptor(uri, mode)
+  } catch (e: Exception) {
+    Log.e(TAG, "Failed to open asset file descriptor for URI: $uri", e)
+    null
+  }
+}
+
 fun decodeSampledBitmapFromUri(context: Context, uri: Uri, reqWidth: Int, reqHeight: Int): Bitmap? {
   // First, decode with inJustDecodeBounds=true to check dimensions
   val options =
     BitmapFactory.Options().apply {
       inJustDecodeBounds = true
-      (if (uri.scheme == null || uri.scheme == "file") {
-          FileInputStream(uri.path ?: "")
-        } else {
-          context.contentResolver.openInputStream(uri)
-        })
-        ?.use { BitmapFactory.decodeStream(it, null, this) }
+      openSafeInputStream(context, uri)?.use { BitmapFactory.decodeStream(it, null, this) }
 
       // Calculate inSampleSize
       inSampleSize = calculateInSampleSize(this, reqWidth, reqHeight)
@@ -295,12 +333,7 @@ fun decodeSampledBitmapFromUri(context: Context, uri: Uri, reqWidth: Int, reqHei
       inJustDecodeBounds = false
     }
 
-  return (if (uri.scheme == null || uri.scheme == "file") {
-      FileInputStream(uri.path ?: "")
-    } else {
-      context.contentResolver.openInputStream(uri)
-    })
-    ?.use { BitmapFactory.decodeStream(it, null, options) }
+  return openSafeInputStream(context, uri)?.use { BitmapFactory.decodeStream(it, null, options) }
 }
 
 fun rotateBitmap(bitmap: Bitmap, orientation: Int): Bitmap {

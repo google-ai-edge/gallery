@@ -75,11 +75,13 @@ import com.google.ai.edge.gallery.data.isLegacyTasks
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.benchmark.BenchmarkScreen
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
+import com.google.ai.edge.gallery.ui.common.LocalTestAllowlistDialog
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
 import com.google.ai.edge.gallery.ui.common.chat.ModelDownloadStatusInfoPanel
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import com.google.ai.edge.gallery.ui.home.HomeScreen
 import com.google.ai.edge.gallery.ui.modelmanager.GlobalModelManager
+import com.google.ai.edge.gallery.ui.modelmanager.MODEL_ALLOWLIST_TEST_FILE_PATH
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManager
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.notifications.NotificationsScreen
@@ -421,6 +423,15 @@ fun GalleryNavHost(
         )
       }
     }
+  }
+
+  // Shown on top of whichever screen is active, since the app may skip the home screen at launch
+  // (e.g. via the STARTUP_SCREEN flag or a deep link).
+  if (modelManagerUiState.showLocalTestAllowlistDialog) {
+    LocalTestAllowlistDialog(
+      filePath = MODEL_ALLOWLIST_TEST_FILE_PATH,
+      onDismiss = { modelManagerViewModel.dismissLocalTestAllowlistDialog() },
+    )
   }
 
   // Handle incoming intents for deep links

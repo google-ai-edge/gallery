@@ -45,6 +45,8 @@ class VideoMomentFinderTask @Inject constructor(@ApplicationContext private val 
       iconVectorResourceId = R.drawable.video_search,
       description = context.getString(R.string.task_desc_video_moment_finder),
       shortDescription = context.getString(R.string.task_short_desc_video_moment_finder),
+      sourceCodeUrl =
+        "https://github.com/google-ai-edge/gallery/blob/main/Android/src/app/src/main/java/com/google/ai/edge/gallery/customtasks/videomomentfinder",
       models = mutableListOf(),
       useThemeColor = true,
       newFeature = true,

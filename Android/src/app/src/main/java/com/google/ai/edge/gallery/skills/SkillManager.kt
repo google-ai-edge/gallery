@@ -24,6 +24,7 @@ import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.common.getJsonResponse
+import com.google.ai.edge.gallery.common.openSafeInputStream
 import com.google.ai.edge.gallery.data.AllowedSkill
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.SkillAllowlist
@@ -283,7 +284,7 @@ constructor(
 
     val mdContent =
       try {
-        context.contentResolver.openInputStream(skillMdFile.uri)?.use { inputStream ->
+        openSafeInputStream(context, skillMdFile.uri)?.use { inputStream ->
           inputStream.bufferedReader().use { it.readText() }
         }
       } catch (e: Exception) {
@@ -334,7 +335,7 @@ constructor(
       // Read the content using the correctly resolved URI
       val mdContent =
         try {
-          context.contentResolver.openInputStream(skillMdFile.uri)?.use { inputStream ->
+          openSafeInputStream(context, skillMdFile.uri)?.use { inputStream ->
             inputStream.bufferedReader().use { it.readText() }
           }
         } catch (e: Exception) {
@@ -387,7 +388,7 @@ constructor(
         } else if (source.isFile) {
           try {
             Log.d(TAG, "Copying file ${source.name} to ${dest.path}")
-            context.contentResolver.openInputStream(source.uri)?.use { inputStream ->
+            openSafeInputStream(context, source.uri)?.use { inputStream ->
               dest.outputStream().use { outputStream -> inputStream.copyTo(outputStream) }
             }
           } catch (e: Exception) {

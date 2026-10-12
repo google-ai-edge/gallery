@@ -36,6 +36,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.exifinterface.media.ExifInterface
+import com.google.ai.edge.gallery.common.openSafeInputStream
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -48,6 +49,7 @@ private const val PREFS_NAME = "photo_library_prefs"
 private const val KEY_REMOVED_ASSET_IDS = "removed_asset_ids"
 private const val KEY_CUSTOM_ASSET_URIS = "custom_asset_uris"
 private const val KEY_FULL_LIBRARY_ACCESS_ENABLED = "full_library_access_enabled"
+private const val KEY_MAX_MEDIASTORE_ASSET_COUNT = "max_mediastore_asset_count"
 
 data class PhotoAsset(
   val id: String,
@@ -139,6 +141,16 @@ interface PhotoLibraryService {
 
   /** Sets whether full photo library access (all MediaStore assets) is enabled. */
   suspend fun setFullLibraryAccessEnabled(enabled: Boolean) {}
+
+  /** Configures the library to include the most recent [count] assets from the device library. */
+  suspend fun selectRecentAssets(count: Int) {
+    setFullLibraryAccessEnabled(true)
+    clearRemovedAssets()
+    val allIds = fetchAllAssetIdentifiers()
+    if (count in 0 until allIds.size) {
+      removeAssets(allIds.drop(count).toSet())
+    }
+  }
 
   /** Fetches the total count of MediaStore assets on the device, ignoring removed asset filters. */
   suspend fun fetchMediaStoreAssetCount(): Int
@@ -365,8 +377,20 @@ class DefaultPhotoLibraryService(
   override suspend fun clearRemovedAssets() =
     withContext(ioDispatcher) {
       val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-      prefs.edit(commit = true) { remove(KEY_REMOVED_ASSET_IDS) }
+      prefs.edit(commit = true) {
+        remove(KEY_REMOVED_ASSET_IDS)
+        remove(KEY_MAX_MEDIASTORE_ASSET_COUNT)
+      }
     }
+
+  private fun getMaxMediaStoreAssetCount(): Int? {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    return if (prefs.contains(KEY_MAX_MEDIASTORE_ASSET_COUNT)) {
+      prefs.getInt(KEY_MAX_MEDIASTORE_ASSET_COUNT, -1).takeIf { it >= 0 }
+    } else {
+      null
+    }
+  }
 
   override fun isFullLibraryAccessEnabled(): Boolean {
     val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -379,6 +403,21 @@ class DefaultPhotoLibraryService(
       prefs.edit(commit = true) { putBoolean(KEY_FULL_LIBRARY_ACCESS_ENABLED, enabled) }
     }
 
+  override suspend fun selectRecentAssets(count: Int) =
+    withContext(ioDispatcher) {
+      val totalCount = fetchMediaStoreAssetCount()
+      val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      prefs.edit(commit = true) {
+        putBoolean(KEY_FULL_LIBRARY_ACCESS_ENABLED, true)
+        remove(KEY_REMOVED_ASSET_IDS)
+        if (count in 0 until totalCount) {
+          putInt(KEY_MAX_MEDIASTORE_ASSET_COUNT, count)
+        } else {
+          remove(KEY_MAX_MEDIASTORE_ASSET_COUNT)
+        }
+      }
+    }
+
   override suspend fun fetchMediaStoreAssetCount(): Int =
     withContext(ioDispatcher) { queryMediaStoreAssetIds(emptySet()).size }
 
@@ -387,9 +426,11 @@ class DefaultPhotoLibraryService(
       val allPermittedIds = queryMediaStoreAssetIds(emptySet())
       if (allPermittedIds.isEmpty()) return@withContext 0
       val removedIds = getRemovedAssetIdentifiers()
+      val maxCount = getMaxMediaStoreAssetCount()
       val hasUnadded =
         if (isFullLibraryAccessEnabled()) {
-          allPermittedIds.any { it in removedIds }
+          (maxCount != null && maxCount < allPermittedIds.size) ||
+            allPermittedIds.any { it in removedIds }
         } else {
           val customList = loadStoredCustomAssets()
           val includedMediaStoreIds = mutableSetOf<String>()
@@ -407,7 +448,11 @@ class DefaultPhotoLibraryService(
   override suspend fun hasUnaddedPermittedMediaStoreAssets(): Boolean =
     fetchPermittedMediaStoreCountIfUnadded() > 0
 
-  private fun queryMediaStoreAssetIds(removedIds: Set<String>): List<String> {
+  private fun queryMediaStoreAssetIds(
+    removedIds: Set<String>,
+    maxCount: Int? = null,
+  ): List<String> {
+    if (maxCount != null && maxCount <= 0) return emptyList()
     val ids = mutableListOf<String>()
     val projection =
       arrayOf(
@@ -424,6 +469,7 @@ class DefaultPhotoLibraryService(
       )
     val sortOrder = "${MediaStore.Files.FileColumns.DATE_TAKEN} DESC"
     val resolver: ContentResolver = context.contentResolver
+    var scannedCount = 0
     try {
       resolver
         .query(
@@ -436,6 +482,8 @@ class DefaultPhotoLibraryService(
         ?.use { cursor ->
           val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID)
           while (cursor.moveToNext()) {
+            if (maxCount != null && scannedCount >= maxCount) break
+            scannedCount++
             val id = cursor.getLong(idColumn).toString()
             if (id !in removedIds) {
               ids.add(id)
@@ -445,7 +493,7 @@ class DefaultPhotoLibraryService(
     } catch (e: Exception) {
       Log.e(TAG, "MediaStore.Files query failed: ${e.message}")
     }
-    if (ids.isEmpty()) {
+    if (ids.isEmpty() && scannedCount == 0) {
       val imageVideoIds = mutableListOf<Pair<Long, Long>>()
       try {
         resolver
@@ -462,9 +510,7 @@ class DefaultPhotoLibraryService(
             while (cursor.moveToNext()) {
               val id = cursor.getLong(idColumn)
               val dateTaken = if (dateColumn >= 0) cursor.getLong(dateColumn) else 0L
-              if (id.toString() !in removedIds) {
-                imageVideoIds.add(id to dateTaken)
-              }
+              imageVideoIds.add(id to dateTaken)
             }
           }
       } catch (e: Exception) {
@@ -485,16 +531,16 @@ class DefaultPhotoLibraryService(
             while (cursor.moveToNext()) {
               val id = cursor.getLong(idColumn)
               val dateTaken = if (dateColumn >= 0) cursor.getLong(dateColumn) else 0L
-              if (id.toString() !in removedIds) {
-                imageVideoIds.add(id to dateTaken)
-              }
+              imageVideoIds.add(id to dateTaken)
             }
           }
       } catch (e: Exception) {
         Log.e(TAG, "MediaStore.Video query fallback failed: ${e.message}")
       }
       imageVideoIds.sortByDescending { it.second }
-      ids.addAll(imageVideoIds.map { it.first.toString() }.distinct())
+      val distinctIds = imageVideoIds.map { it.first.toString() }.distinct()
+      val limitedIds = if (maxCount != null) distinctIds.take(maxCount) else distinctIds
+      ids.addAll(limitedIds.filter { it !in removedIds })
     }
     return ids
   }
@@ -504,7 +550,7 @@ class DefaultPhotoLibraryService(
       val removedIds = getRemovedAssetIdentifiers()
       val ids = mutableListOf<String>()
       if (isFullLibraryAccessEnabled()) {
-        ids.addAll(queryMediaStoreAssetIds(removedIds))
+        ids.addAll(queryMediaStoreAssetIds(removedIds, getMaxMediaStoreAssetCount()))
       }
       val customList = loadStoredCustomAssets()
       val existingIds = ids.toHashSet()
@@ -706,8 +752,9 @@ class DefaultPhotoLibraryService(
   override suspend fun fetchAllAssets(): List<PhotoAsset> =
     withContext(ioDispatcher) {
       val removedIds = getRemovedAssetIdentifiers()
+      val maxCount = getMaxMediaStoreAssetCount()
       val assets = mutableListOf<PhotoAsset>()
-      if (isFullLibraryAccessEnabled()) {
+      if (isFullLibraryAccessEnabled() && (maxCount == null || maxCount > 0)) {
         val projection =
           arrayOf(
             MediaStore.Files.FileColumns._ID,
@@ -726,6 +773,7 @@ class DefaultPhotoLibraryService(
           )
         val sortOrder = "${MediaStore.Files.FileColumns.DATE_TAKEN} DESC"
         val resolver: ContentResolver = context.contentResolver
+        var scannedCount = 0
         try {
           resolver
             .query(
@@ -744,6 +792,8 @@ class DefaultPhotoLibraryService(
               val durCol = cursor.getColumnIndex(MediaStore.Files.FileColumns.DURATION)
 
               while (cursor.moveToNext()) {
+                if (maxCount != null && scannedCount >= maxCount) break
+                scannedCount++
                 val id = cursor.getLong(idCol).toString()
                 if (id in removedIds) continue
                 val numericId = cursor.getLong(idCol)
@@ -794,7 +844,7 @@ class DefaultPhotoLibraryService(
         } catch (e: Exception) {
           Log.e(TAG, "MediaStore batch query error: ${e.message}")
         }
-        if (assets.isEmpty()) {
+        if (assets.isEmpty() && scannedCount == 0) {
           val fallbackAssets = mutableListOf<PhotoAsset>()
           try {
             resolver
@@ -818,7 +868,6 @@ class DefaultPhotoLibraryService(
                 while (cursor.moveToNext()) {
                   val numericId = cursor.getLong(idCol)
                   val id = numericId.toString()
-                  if (id in removedIds) continue
                   val contentUri =
                     ContentUris.withAppendedId(
                       MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
@@ -874,7 +923,6 @@ class DefaultPhotoLibraryService(
                 while (cursor.moveToNext()) {
                   val numericId = cursor.getLong(idCol)
                   val id = numericId.toString()
-                  if (id in removedIds) continue
                   val contentUri =
                     ContentUris.withAppendedId(
                       MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
@@ -909,7 +957,9 @@ class DefaultPhotoLibraryService(
             Log.e(TAG, "MediaStore.Video fetchAllAssets fallback failed: ${e.message}")
           }
           fallbackAssets.sortByDescending { it.dateTaken }
-          assets.addAll(fallbackAssets)
+          val limitedFallback =
+            if (maxCount != null) fallbackAssets.take(maxCount) else fallbackAssets
+          assets.addAll(limitedFallback.filterNot { it.id in removedIds })
         }
       }
 
@@ -975,7 +1025,7 @@ class DefaultPhotoLibraryService(
             } catch (e: Exception) {
               asset.contentUri
             }
-          val inputStream = context.contentResolver.openInputStream(targetUri)
+          val inputStream = openSafeInputStream(context, targetUri)
           inputStream?.use { stream ->
             val exif = ExifInterface(stream)
             val latLong = FloatArray(2)

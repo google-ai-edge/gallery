@@ -88,6 +88,9 @@ class SmartAlbumSearchViewModel(
   private val _addAllPhotosCount = MutableStateFlow(0)
   val addAllPhotosCount: StateFlow<Int> = _addAllPhotosCount.asStateFlow()
 
+  private val _shouldRequestPhotoAccess = MutableStateFlow(false)
+  val shouldRequestPhotoAccess: StateFlow<Boolean> = _shouldRequestPhotoAccess.asStateFlow()
+
   private val _isLoadingAssets = MutableStateFlow(true)
   val isLoadingAssets: StateFlow<Boolean> = _isLoadingAssets.asStateFlow()
 
@@ -369,6 +372,9 @@ class SmartAlbumSearchViewModel(
         loadAssetsForCurrentSource()
       } else {
         loadAssetsForCurrentSource()
+        if (_allAssets.value.isNotEmpty()) {
+          _fallbackIsIndexingPaused.value = false
+        }
         val unindexedAssets =
           _allAssets.value.filterNot { it.id in currentRetrievalService.indexedIds.value }
         indexFallbackAssets(unindexedAssets, "smartalbum_add_all_permitted_photos_error")
@@ -396,7 +402,16 @@ class SmartAlbumSearchViewModel(
     clearSearch()
     clearSelectedImage()
     _cameraSearchResults.value = emptyList()
-    viewModelScope.launch { loadAssetsForCurrentSource() }
+    viewModelScope.launch {
+      loadAssetsForCurrentSource()
+      if (newSource == SmartAlbumSource.USER_PHOTOS && _allAssets.value.isEmpty()) {
+        _shouldRequestPhotoAccess.value = true
+      }
+    }
+  }
+
+  fun onPhotoAccessRequestHandled() {
+    _shouldRequestPhotoAccess.value = false
   }
 
   fun refreshAssets() {

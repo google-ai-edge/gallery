@@ -118,6 +118,9 @@ data class Task(
   /** Whether this task uses audio input when the selected model also supports audio. */
   val supportAudio: Boolean = false,
 
+  /** Whether this task supports multi-turn context compaction. */
+  val supportContextCompact: Boolean = false,
+
   // The following fields are only used for built-in tasks. Can ignore if you are creating your own
   // custom tasks.
   //
@@ -143,6 +146,15 @@ data class Task(
 
   /** Whether audio is enabled for the given [model] in this task. */
   fun isAudioEnabled(model: Model): Boolean = supportAudio && model.supportAudio
+
+  /**
+   * Whether context compaction is supported for the given [model] in this task.
+   *
+   * Requires the task to support multi-turn context compaction ([supportContextCompact]), a
+   * non-AICore model (`!model.isAiCore`), and the global feature flag.
+   */
+  fun isContextCompactSupported(model: Model): Boolean =
+    supportContextCompact && !model.isAiCore && Config.isContextCompactEnabled()
 }
 
 object BuiltInTaskId {

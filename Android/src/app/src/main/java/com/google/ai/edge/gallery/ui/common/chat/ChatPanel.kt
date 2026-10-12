@@ -27,10 +27,12 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
@@ -78,6 +80,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -102,9 +105,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
-import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.AudioAnimation
@@ -117,6 +120,9 @@ import com.google.ai.edge.gallery.ui.theme.customColors
 import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGChatPanel"
@@ -153,9 +159,30 @@ fun ChatPanel(
   onNewChatClicked: () -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsState()
-  val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val messages = uiState.messagesByModel[selectedModel.name] ?: listOf()
   val modelInitStatus by selectedModel.initStatusFlow.collectAsState()
+  val isLiveMetricsFlagEnabled = false
+  val isLiveMetricsSupported = isLiveMetricsFlagEnabled && !selectedModel.isAiCore
+  val hasLiveMetrics by
+    remember(viewModel, selectedModel.name, isLiveMetricsSupported) {
+        if (isLiveMetricsSupported) {
+          viewModel.liveMetrics
+            .map { metrics ->
+              metrics != null &&
+                (metrics.metadata.modelName.isEmpty() ||
+                  metrics.metadata.modelName == selectedModel.name)
+            }
+            .distinctUntilChanged()
+        } else {
+          flowOf(false)
+        }
+      }
+      .collectAsStateWithLifecycle(initialValue = false)
+  var showLiveMetrics by rememberSaveable { mutableStateOf(true) }
+
+  if (isLiveMetricsFlagEnabled) {
+    LaunchedEffect(viewModel, selectedModel) { viewModel.observeLiveMetrics(selectedModel) }
+  }
   val scope = rememberCoroutineScope()
   val snackbarHostState = remember { SnackbarHostState() }
   val context = LocalContext.current
@@ -355,13 +382,15 @@ fun ChatPanel(
     Column(
       modifier = modifier.padding(innerPadding).consumeWindowInsets(innerPadding).imePadding()
     ) {
+
       Box(
         contentAlignment = Alignment.BottomCenter,
         modifier =
-          Modifier.weight(1f).onSizeChanged {
-            // Update the viewport height when the size of the box changes.
-            viewportHeightPx = it.height
-          },
+          Modifier.weight(1f)
+            .onSizeChanged {
+              // Update the viewport height when the size of the box changes.
+              viewportHeightPx = it.height
+            }
       ) {
         val cdChatPanel = stringResource(R.string.cd_chat_panel)
         Column(
@@ -434,11 +463,11 @@ fun ChatPanel(
                 agentName = "$agentName on ${message.accelerator}"
               }
               if (!message.hideSenderLabel) {
-                MessageSender(
-                  message = message,
-                  agentName = agentName,
-                  imageHistoryCurIndex = imageHistoryCurIndex.intValue,
-                )
+                  MessageSender(
+                    message = message,
+                    agentName = agentName,
+                    imageHistoryCurIndex = imageHistoryCurIndex.intValue,
+                  )
               }
 
               // Message body.
@@ -682,7 +711,7 @@ fun ChatPanel(
       val imageLimitIgnoredMsg = stringResource(R.string.image_limit_ignored_message)
       val contextCompactionFailedMsg = stringResource(R.string.context_compaction_failed_message)
 
-      val contextCompactEnabled = Config.isContextCompactEnabled()
+      val contextCompactEnabled = task.isContextCompactSupported(selectedModel)
       val contextCompactionStatus =
         if (contextCompactEnabled) {
           uiState.contextCompactionStatusByModel[selectedModel.name] ?: ContextCompactionStatus.IDLE
@@ -695,19 +724,18 @@ fun ChatPanel(
             contextCompactionStatus == ContextCompactionStatus.COMPACTING)
 
       if (contextCompactEnabled) {
-        val isAutoCompactEnabled =
-          uiState.autoCompactByModel[selectedModel.name]
-            ?: viewModel.isAutoCompactEnabled(selectedModel)
+        LaunchedEffect(task.id) { viewModel.loadAutoCompact(task.id) }
+        val isAutoCompactEnabled = uiState.autoCompactByTask[task.id] ?: false
 
         ContextCompactionBanner(
           status = contextCompactionStatus,
           initialDefaultToBehavior = isAutoCompactEnabled,
           onDefaultToBehaviorChanged = { defaultToBehavior ->
-            viewModel.setAutoCompact(selectedModel, defaultToBehavior)
+            viewModel.setAutoCompact(task.id, defaultToBehavior)
             modelManagerViewModel.updateConfigValuesUpdateTrigger()
           },
           onCompressClicked = { defaultToBehavior ->
-            viewModel.setAutoCompact(selectedModel, defaultToBehavior)
+            viewModel.setAutoCompact(task.id, defaultToBehavior)
             modelManagerViewModel.updateConfigValuesUpdateTrigger()
             viewModel.compactContext(
               model = selectedModel,
@@ -724,6 +752,21 @@ fun ChatPanel(
             viewModel.setContextCompactionStatus(selectedModel, ContextCompactionStatus.IDLE)
           },
         )
+      }
+
+      if (hasLiveMetrics) {
+        AnimatedVisibility(
+          visible = showLiveMetrics,
+          enter = fadeIn() + expandVertically(),
+          exit = fadeOut() + shrinkVertically(),
+        ) {
+          LiveMetricsBar(
+            liveMetricsFlow = viewModel.liveMetrics,
+            modelName = selectedModel.name,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            isCompactingContext = contextCompactionStatus == ContextCompactionStatus.COMPACTING,
+          )
+        }
       }
 
       MessageInputText(
@@ -772,6 +815,9 @@ fun ChatPanel(
         showPromptTemplatesInMenu = false,
         showSkillsPicker = task.id === BuiltInTaskId.LLM_AGENT_CHAT,
         showMcpPicker = task.id === BuiltInTaskId.LLM_AGENT_CHAT,
+        showLiveMetricsToggle = hasLiveMetrics,
+        isLiveMetricsVisible = showLiveMetrics,
+        onToggleLiveMetrics = { showLiveMetrics = !showLiveMetrics },
         showImagePicker = showImagePicker,
         showAudioPicker = showAudioPicker,
         showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,

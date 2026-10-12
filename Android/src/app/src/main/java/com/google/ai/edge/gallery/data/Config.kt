@@ -179,6 +179,15 @@ open class Config(
     /** Returns whether the context compaction feature is enabled via feature flags. */
     fun isContextCompactEnabled(): Boolean = false
 
+    /** Creates the configuration setting for automatic context compaction. */
+    fun createAutoContextCompactConfig(): Config =
+      BooleanSwitchConfig(
+        key = ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT,
+        defaultValue = false,
+        needReinitialization = false,
+        descriptionRes = R.string.config_desc_enable_context_compression,
+      )
+
     /**
      * Creates the configuration settings displayed when importing an LLM model.
      *
@@ -417,7 +426,6 @@ fun createLlmChatConfigs(
   accelerators: List<Accelerator> = DEFAULT_ACCELERATORS,
   supportThinking: Boolean = false,
   supportSpeculativeDecoding: Boolean = false,
-  supportContextCompression: Boolean = true,
 ): List<Config> {
   var maxTokensConfig: Config =
     LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken")
@@ -452,9 +460,6 @@ fun createLlmChatConfigs(
       BooleanSwitchConfig(key = ConfigKeys.ENABLE_SPECULATIVE_DECODING, defaultValue = false)
     )
   }
-  if (supportContextCompression && Config.isContextCompactEnabled()) {
-    configs.add(createAutoContextCompactConfig())
-  }
   return configs
 }
 
@@ -466,7 +471,6 @@ fun createLlmChatConfigs(
 fun createLlmChatConfigsForNpuModel(
   defaultMaxToken: Int = DEFAULT_MAX_TOKEN,
   accelerators: List<Accelerator> = DEFAULT_ACCELERATORS,
-  supportContextCompression: Boolean = true,
 ): List<Config> = buildList {
   add(LabelConfig(key = ConfigKeys.MAX_TOKENS, defaultValue = "$defaultMaxToken"))
   add(
@@ -476,18 +480,7 @@ fun createLlmChatConfigsForNpuModel(
       options = accelerators.map { it.label },
     )
   )
-  if (supportContextCompression && Config.isContextCompactEnabled()) {
-    add(createAutoContextCompactConfig())
-  }
 }
-
-private fun createAutoContextCompactConfig(): Config =
-  BooleanSwitchConfig(
-    key = ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT,
-    defaultValue = false,
-    needReinitialization = false,
-    descriptionRes = R.string.config_desc_enable_context_compression,
-  )
 
 /**
  * Creates the configuration settings for an AICore model.

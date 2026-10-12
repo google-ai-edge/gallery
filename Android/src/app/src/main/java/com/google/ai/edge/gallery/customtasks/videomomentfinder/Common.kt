@@ -31,6 +31,7 @@ import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.Transformer
+import com.google.ai.edge.gallery.common.openSafeOutputStream
 import com.google.ai.edge.gallery.proto.VideoMomentProject
 import java.io.File
 import java.util.Locale
@@ -208,8 +209,9 @@ suspend fun exportVideoClipToMediaStore(
       val uri = resolver.insert(videoCollection, contentValues) ?: return@withContext false
       mediaStoreUri = uri
 
+      val outputStream = openSafeOutputStream(context, uri)
       copySuccess =
-        resolver.openOutputStream(uri)?.use { outStream ->
+        outputStream?.use { outStream ->
           tempOutputFile.inputStream().use { inStream -> inStream.copyTo(outStream) }
           true
         } ?: false

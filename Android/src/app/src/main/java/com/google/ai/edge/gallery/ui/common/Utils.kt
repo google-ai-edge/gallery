@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import com.google.ai.edge.gallery.common.openSafeOutputStream
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
@@ -501,10 +502,10 @@ suspend fun Context.saveBitmapToMediaStore(
     var imageUri: Uri? = null
     try {
       imageUri = resolver.insert(imageCollection, contentValues) ?: return@withContext false
+      val outputStream = openSafeOutputStream(this@saveBitmapToMediaStore, imageUri)
       val success =
-        resolver.openOutputStream(imageUri)?.use { outputStream ->
-          bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-        } ?: false
+        outputStream?.use { stream -> bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream) }
+          ?: false
 
       if (!success) {
         resolver.delete(imageUri, null, null)

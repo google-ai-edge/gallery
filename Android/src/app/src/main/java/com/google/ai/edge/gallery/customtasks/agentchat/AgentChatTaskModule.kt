@@ -146,6 +146,7 @@ constructor(
       defaultSystemPrompt = DEFAULT_SYSTEM_PROMPT_TRIMMED,
       supportImage = true,
       supportAudio = true,
+      supportContextCompact = true,
     )
   }
 
