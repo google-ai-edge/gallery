@@ -202,6 +202,11 @@ constructor(
       }
     }
 
+  override fun setSessionConfig(sessionId: String, config: SessionConfig) {
+    activeSessionIdRef.set(sessionId)
+    sessionConfigs[sessionId] = config
+  }
+
   override suspend fun listSessions(taskId: String?): List<ChatSessionProto> =
     withContext(ioDispatcher) {
       val allSessions = chatSessionRepository.getAllChatSessions()

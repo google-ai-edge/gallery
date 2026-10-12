@@ -103,6 +103,7 @@ object LlmChatModelHelper : LlmModelHelper {
     systemInstruction: Contents?,
     tools: List<ToolProvider>,
     enableConversationConstrainedDecoding: Boolean,
+    initialMessages: List<Message>,
     coroutineScope: CoroutineScope?,
     enableResponseFormat: Boolean,
   ) {
@@ -116,10 +117,6 @@ object LlmChatModelHelper : LlmModelHelper {
     // Prepare options.
     val maxTokens =
       model.getIntConfigValue(key = ConfigKeys.MAX_TOKENS, defaultValue = DEFAULT_MAX_TOKEN)
-    val topK = model.getIntConfigValue(key = ConfigKeys.TOPK, defaultValue = DEFAULT_TOPK)
-    val topP = model.getFloatConfigValue(key = ConfigKeys.TOPP, defaultValue = DEFAULT_TOPP)
-    val temperature =
-      model.getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
     val visionBackend =
       when (model.currentVisionAccelerator) {
         Accelerator.CPU -> Backend.CPU()
@@ -198,28 +195,22 @@ object LlmChatModelHelper : LlmModelHelper {
         ExperimentalFlags.enableBenchmark = false
       }
 
-      ExperimentalFlags.enableConversationConstrainedDecoding =
-        enableConversationConstrainedDecoding
       val conversation =
         try {
-          engine.createConversation(
-            ConversationConfig(
-              samplerConfig =
-                if (preferredBackend is Backend.NPU) {
-                  null
-                } else {
-                  SamplerConfig(
-                    topK = topK,
-                    topP = topP.toDouble(),
-                    temperature = temperature.toDouble(),
-                  )
-                },
-              systemInstruction = systemInstruction,
-              tools = tools,
-            )
+          createConversation(
+            engine = engine,
+            model = model,
+            systemInstruction = systemInstruction,
+            tools = tools,
+            enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+            initialMessages = initialMessages,
+            enableResponseFormat = enableResponseFormat,
           )
-        } finally {
-          ExperimentalFlags.enableConversationConstrainedDecoding = false
+        } catch (e: Exception) {
+          try {
+            engine.close()
+          } catch (_: Exception) {}
+          throw e
         }
       model.markInitialized(
         LlmModelInstance(
@@ -239,7 +230,6 @@ object LlmChatModelHelper : LlmModelHelper {
     onDone("")
   }
 
-  @OptIn(ExperimentalApi::class) // opt-in experimental flags
   override fun resetConversation(
     model: Model,
     supportImage: Boolean,
@@ -259,38 +249,21 @@ object LlmChatModelHelper : LlmModelHelper {
       } catch (e: Exception) {
         Log.w(TAG, "Failed to close previous conversation: ${e.message}", e)
       }
-      val engine = instance.engine
-      val topK = model.getIntConfigValue(key = ConfigKeys.TOPK, defaultValue = DEFAULT_TOPK)
-      val topP = model.getFloatConfigValue(key = ConfigKeys.TOPP, defaultValue = DEFAULT_TOPP)
-      val temperature =
-        model.getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
       val shouldEnableImage = supportImage
       val shouldEnableAudio = supportAudio
       Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
       Log.d(TAG, "Enable response format: $enableResponseFormat")
 
-      val accelerator = model.currentAccelerator ?: Accelerator.GPU
-      ExperimentalFlags.enableConversationConstrainedDecoding =
-        enableConversationConstrainedDecoding
       val newConversation =
-        engine.createConversation(
-          ConversationConfig(
-            samplerConfig =
-              if (accelerator == Accelerator.NPU || accelerator == Accelerator.TPU) {
-                null
-              } else {
-                SamplerConfig(
-                  topK = topK,
-                  topP = topP.toDouble(),
-                  temperature = temperature.toDouble(),
-                )
-              },
-            systemInstruction = systemInstruction,
-            tools = tools,
-            initialMessages = initialMessages,
-          )
+        createConversation(
+          engine = instance.engine,
+          model = model,
+          systemInstruction = systemInstruction,
+          tools = tools,
+          enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+          initialMessages = initialMessages,
+          enableResponseFormat = enableResponseFormat,
         )
-      ExperimentalFlags.enableConversationConstrainedDecoding = false
       instance.conversation = newConversation
       // The replacement conversation starts on an empty KV cache, so per-session token accounting
       // and sensor histories are rewound to match. This also clears a turn left active by closing
@@ -300,6 +273,42 @@ object LlmChatModelHelper : LlmModelHelper {
       Log.d(TAG, "Resetting done")
     } catch (e: Exception) {
       Log.d(TAG, "Failed to reset conversation", e)
+    }
+  }
+
+  @OptIn(ExperimentalApi::class) // opt-in experimental flags
+  private fun createConversation(
+    engine: Engine,
+    model: Model,
+    systemInstruction: Contents?,
+    tools: List<ToolProvider>,
+    enableConversationConstrainedDecoding: Boolean,
+    initialMessages: List<Message>,
+    enableResponseFormat: Boolean,
+  ): Conversation {
+    val topK = model.getIntConfigValue(key = ConfigKeys.TOPK, defaultValue = DEFAULT_TOPK)
+    val topP = model.getFloatConfigValue(key = ConfigKeys.TOPP, defaultValue = DEFAULT_TOPP)
+    val temperature =
+      model.getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
+    val accelerator = model.currentAccelerator ?: Accelerator.GPU
+    val samplerConfig =
+      if (accelerator == Accelerator.NPU || accelerator == Accelerator.TPU) {
+        null
+      } else {
+        SamplerConfig(topK = topK, topP = topP.toDouble(), temperature = temperature.toDouble())
+      }
+    ExperimentalFlags.enableConversationConstrainedDecoding = enableConversationConstrainedDecoding
+    return try {
+      engine.createConversation(
+        ConversationConfig(
+          samplerConfig = samplerConfig,
+          systemInstruction = systemInstruction,
+          tools = tools,
+          initialMessages = initialMessages,
+        )
+      )
+    } finally {
+      ExperimentalFlags.enableConversationConstrainedDecoding = false
     }
   }
 
