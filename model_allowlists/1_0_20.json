@@ -177,9 +177,9 @@
       "modelId": "litert-community/Qwen2.5-1.5B-Instruct",
       "modelFile": "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm",
       "description": "A variant of [Qwen/Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct) ready for deployment on Android using [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM/blob/main/kotlin/README.md).",
-      "sizeInBytes": 1597931520,
+      "sizeInBytes": 1597922856,
       "minDeviceMemoryInGb": 6,
-      "commitHash": "19edb84c69a0212f29a6ef17ba0d6f278b6a1614",
+      "commitHash": "5e6e7a58d03777898b31330a15d2e0a5a9107de3",
       "defaultConfig": {
         "topK": 20,
         "topP": 0.8,
