@@ -145,14 +145,20 @@ fun ModelNameAndStatus(
       )
     }
 
-    // Model name and action buttons.
-    Text(
-      model.displayName.ifEmpty { model.name },
-      maxLines = 1,
-      overflow = TextOverflow.MiddleEllipsis,
-      style = MaterialTheme.typography.titleMedium,
+    // Model name and optional ASR/TTS modality badge.
+    Row(
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
       modifier = Modifier.padding(end = 64.dp),
-    )
+    ) {
+      Text(
+        model.displayName.ifEmpty { model.name },
+        maxLines = 1,
+        overflow = TextOverflow.MiddleEllipsis,
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.weight(1f, fill = false),
+      )
+    }
 
     // Status icon + size + download progress details.
     val showStatusForNonDownloadable =

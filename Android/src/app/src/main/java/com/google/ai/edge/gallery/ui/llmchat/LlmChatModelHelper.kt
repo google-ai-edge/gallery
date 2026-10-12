@@ -104,6 +104,7 @@ object LlmChatModelHelper : LlmModelHelper {
     tools: List<ToolProvider>,
     enableConversationConstrainedDecoding: Boolean,
     coroutineScope: CoroutineScope?,
+    enableResponseFormat: Boolean,
   ) {
     if (model.instance != null) {
       Log.d(TAG, "Model '${model.name}' already initialized in LlmChatModelHelper. Skipping.")
@@ -247,6 +248,7 @@ object LlmChatModelHelper : LlmModelHelper {
     tools: List<ToolProvider>,
     enableConversationConstrainedDecoding: Boolean,
     initialMessages: List<Message>,
+    enableResponseFormat: Boolean,
   ) {
     try {
       Log.d(TAG, "Resetting conversation for model '${model.name}'")
@@ -265,6 +267,7 @@ object LlmChatModelHelper : LlmModelHelper {
       val shouldEnableImage = supportImage
       val shouldEnableAudio = supportAudio
       Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
+      Log.d(TAG, "Enable response format: $enableResponseFormat")
 
       val accelerator = model.currentAccelerator ?: Accelerator.GPU
       ExperimentalFlags.enableConversationConstrainedDecoding =
@@ -358,6 +361,7 @@ object LlmChatModelHelper : LlmModelHelper {
     audioClips: List<ByteArray>,
     coroutineScope: CoroutineScope?,
     extraContext: Map<String, String>,
+    responseJsonSchema: String?,
   ) {
     val instance = model.instance as? LlmModelInstance
     if (instance == null) {

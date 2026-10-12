@@ -26,6 +26,7 @@ import android.util.Size
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraInfoUnavailableException
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -74,6 +75,8 @@ fun LiveCameraView(
   cameraSelector: CameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA,
   isPaused: Boolean = false,
   onError: (() -> Unit)? = null,
+  fallBackToAvailableCamera: Boolean = false,
+  skipFramesWhilePaused: Boolean = false,
 ) {
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
@@ -83,6 +86,7 @@ fun LiveCameraView(
 
   val currentOnBitmap by rememberUpdatedState(onBitmap)
   val currentIsPaused by rememberUpdatedState(isPaused)
+  val currentSkipFramesWhilePaused by rememberUpdatedState(skipFramesWhilePaused)
   val currentOnError by rememberUpdatedState(onError)
 
   val onBitmapFn: (Bitmap, ImageProxy) -> Unit = { bitmap, imageProxy ->
@@ -105,6 +109,8 @@ fun LiveCameraView(
               preferredSize = preferredSize,
               outputImageFormat = outputImageFormat,
               cameraSelector = cameraSelector,
+              fallBackToAvailableCamera = fallBackToAvailableCamera,
+              shouldSkipFrame = { currentSkipFramesWhilePaused && currentIsPaused },
               onError = currentOnError,
             )
         }
@@ -124,6 +130,8 @@ fun LiveCameraView(
             preferredSize = preferredSize,
             outputImageFormat = outputImageFormat,
             cameraSelector = cameraSelector,
+            fallBackToAvailableCamera = fallBackToAvailableCamera,
+            shouldSkipFrame = { currentSkipFramesWhilePaused && currentIsPaused },
             onError = currentOnError,
           )
       }
@@ -188,9 +196,18 @@ private suspend fun startCamera(
   preferredSize: Int,
   @ImageAnalysis.OutputImageFormat outputImageFormat: Int,
   cameraSelector: CameraSelector,
+  fallBackToAvailableCamera: Boolean,
+  shouldSkipFrame: () -> Boolean,
   onError: (() -> Unit)? = null,
 ): ProcessCameraProvider {
   val cameraProvider = ProcessCameraProvider.awaitInstance(context)
+
+  val effectiveCameraSelector =
+    if (fallBackToAvailableCamera) {
+      resolveAvailableCameraSelector(cameraProvider, cameraSelector)
+    } else {
+      cameraSelector
+    }
 
   val resolutionSelector =
     ResolutionSelector.Builder()
@@ -209,16 +226,29 @@ private suspend fun startCamera(
       .build()
       .also {
         it.setAnalyzer(Dispatchers.Default.asExecutor()) { imageProxy ->
+          // When paused (e.g. during LLM inference), avoid any bitmap decoding or CPU overhead.
+          if (shouldSkipFrame()) {
+            imageProxy.close()
+            return@setAnalyzer
+          }
+
           var bitmap = imageProxy.toBitmap()
           val rotation = imageProxy.imageInfo.rotationDegrees
           val matrix = Matrix()
           if (rotation != 0) {
             matrix.postRotate(rotation.toFloat())
           }
-          if (cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA) {
+          if (effectiveCameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA) {
             matrix.postScale(-1f, 1f)
           }
-          bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+          if (!matrix.isIdentity) {
+            val transformed =
+              Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            if (transformed != bitmap) {
+              bitmap.recycle()
+              bitmap = transformed
+            }
+          }
           //  The caller is responsible of calling `.close` on imageProxy to mark that the
           //  processing of the current frame is done.
           onBitmap(bitmap, imageProxy)
@@ -227,11 +257,35 @@ private suspend fun startCamera(
 
   try {
     cameraProvider.unbindAll()
-    cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, imageAnalysis)
+    cameraProvider.bindToLifecycle(lifecycleOwner, effectiveCameraSelector, imageAnalysis)
   } catch (exc: Exception) {
     Log.e("LiveCameraView", "Failed to start camera", exc)
     Toast.makeText(context, R.string.camera_init_failed, Toast.LENGTH_LONG).show()
     onError?.invoke()
   }
   return cameraProvider
+}
+
+/**
+ * Returns [cameraSelector] if the device has that camera, otherwise the front or back camera,
+ * whichever is available. Falls back to [cameraSelector] if neither is available.
+ */
+private fun resolveAvailableCameraSelector(
+  cameraProvider: ProcessCameraProvider,
+  cameraSelector: CameraSelector,
+): CameraSelector {
+  fun hasCamera(selector: CameraSelector): Boolean =
+    try {
+      cameraProvider.hasCamera(selector)
+    } catch (e: CameraInfoUnavailableException) {
+      false
+    }
+  return when {
+    hasCamera(cameraSelector) -> cameraSelector
+    cameraSelector != CameraSelector.DEFAULT_FRONT_CAMERA &&
+      hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) -> CameraSelector.DEFAULT_FRONT_CAMERA
+    cameraSelector != CameraSelector.DEFAULT_BACK_CAMERA &&
+      hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) -> CameraSelector.DEFAULT_BACK_CAMERA
+    else -> cameraSelector
+  }
 }

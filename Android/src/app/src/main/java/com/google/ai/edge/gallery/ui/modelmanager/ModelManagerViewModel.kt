@@ -1399,7 +1399,9 @@ constructor(
                 continue
               }
               Log.d(TAG, "Adding model '$modelName' to task '${task.label}' from modelNames.")
-              task.models.add(model)
+              if (model !in task.models) {
+                task.models.add(model)
+              }
             }
           }
         }
