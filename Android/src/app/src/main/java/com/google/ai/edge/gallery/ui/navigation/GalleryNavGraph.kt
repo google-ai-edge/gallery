@@ -295,6 +295,7 @@ fun GalleryNavHost(
             var customPromptProvider by remember { mutableStateOf<(() -> String)?>(null) }
             var customOnPromptChanged by remember { mutableStateOf<((String) -> Unit)?>(null) }
             var customHistoryClickHandler by remember { mutableStateOf<(() -> Unit)?>(null) }
+            var customDefaultPromptProvider by remember { mutableStateOf<(() -> String)?>(null) }
             CustomTaskScreen(
               task = customTask.task,
               initialModel = initialModel,
@@ -328,6 +329,8 @@ fun GalleryNavHost(
               allowEditingSystemPrompt = customPromptProvider != null,
               curSystemPrompt =
                 customPromptProvider?.invoke() ?: customTask.task.defaultSystemPrompt,
+              defaultSystemPrompt =
+                customDefaultPromptProvider?.invoke() ?: customTask.task.defaultSystemPrompt,
               onSystemPromptChanged = { newPrompt -> customOnPromptChanged?.invoke(newPrompt) },
               onHistoryClicked = customHistoryClickHandler,
             ) { bottomPadding ->
@@ -344,6 +347,7 @@ fun GalleryNavHost(
                       customOnPromptChanged = onPromptChanged
                     },
                     setHistoryClickHandler = { customHistoryClickHandler = it },
+                    setDefaultSystemPromptProvider = { customDefaultPromptProvider = it },
                   )
               )
             }
@@ -518,6 +522,7 @@ private fun CustomTaskScreen(
   onNavigateUp: () -> Unit,
   allowEditingSystemPrompt: Boolean = false,
   curSystemPrompt: String = "",
+  defaultSystemPrompt: String = task.defaultSystemPrompt,
   onSystemPromptChanged: (String) -> Unit = {},
   onHistoryClicked: (() -> Unit)? = null,
   content: @Composable (bottomPadding: Dp) -> Unit,
@@ -608,6 +613,7 @@ private fun CustomTaskScreen(
           },
           allowEditingSystemPrompt = allowEditingSystemPrompt,
           curSystemPrompt = curSystemPrompt,
+          defaultSystemPrompt = defaultSystemPrompt,
           onSystemPromptChanged = onSystemPromptChanged,
         )
       }

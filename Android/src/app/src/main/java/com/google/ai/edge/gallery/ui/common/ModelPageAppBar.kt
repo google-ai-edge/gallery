@@ -87,6 +87,7 @@ fun ModelPageAppBar(
     },
   allowEditingSystemPrompt: Boolean = false,
   curSystemPrompt: String = "",
+  defaultSystemPrompt: String = task.defaultSystemPrompt,
   onSystemPromptChanged: (String) -> Unit = {},
   shouldShowHistoryButton: Boolean = false,
   onHistoryClicked: (Model) -> Unit = {},
@@ -361,7 +362,7 @@ fun ModelPageAppBar(
       showSystemPromptEditorTab =
         // AICore doesn't support system prompt yet.
         allowEditingSystemPrompt && !model.isAiCore,
-      defaultSystemPrompt = task.defaultSystemPrompt,
+      defaultSystemPrompt = defaultSystemPrompt,
       curSystemPrompt = curSystemPrompt,
     )
   }
