@@ -505,3 +505,24 @@ fun convertStringToJsonObject(jsonString: String): JsonObject {
     JsonObject(emptyMap())
   }
 }
+
+/**
+ * Listener for virtual-device permission request results dispatched via
+ * `Activity.requestPermissions`.
+ */
+@Suppress("KotlinArray")
+fun interface PermissionsResultListener {
+  fun onPermissionsResult(
+    requestCode: Int,
+    permissions: Array<out String>,
+    grantResults: IntArray,
+    deviceId: Int,
+  )
+}
+
+/** Host activity interface for observing virtual-device permission results. */
+interface VirtualDevicePermissionsHost {
+  fun registerPermissionsResultListener(listener: PermissionsResultListener)
+
+  fun unregisterPermissionsResultListener(listener: PermissionsResultListener)
+}
