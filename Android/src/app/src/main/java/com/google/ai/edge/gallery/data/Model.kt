@@ -49,6 +49,9 @@ data class Model(
    */
   val name: String,
 
+  /** Canonical identifier for the model (e.g., from the allowlist `modelId` field). */
+  val modelId: String = "",
+
   /**
    * The display name of the model, for display purpose.
    *

@@ -232,6 +232,7 @@ data class AllowedModel(
       }
     return Model(
       name = name,
+      modelId = modelId,
       info = finalDescription,
       minDeviceMemoryInGb = minDeviceMemoryInGb,
       configs = configs,
@@ -278,7 +279,7 @@ data class DeviceRequirements(
 
 /** The model allowlist. */
 data class ModelAllowlist(
-  val models: List<AllowedModel>,
+  val models: List<AllowedModel> = emptyList(),
   @SerializedName("aicoreRequirements") val aicoreRequirements: DeviceRequirements? = null,
   /** Flag overrides configured remotely via the allowlist. */
   @SerializedName("flags") val flags: Map<String, Boolean>? = null,
