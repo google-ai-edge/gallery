@@ -72,6 +72,7 @@ import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.MarkdownText
+import com.google.ai.edge.gallery.ui.common.ProvideTrackableUriHandler
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.bodyMediumMedium
@@ -200,12 +201,15 @@ fun ModelItem(
         if (targetState) {
           Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (model.info.isNotEmpty()) {
-              MarkdownText(
-                model.info,
-                smallFontSize = true,
-                textColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 12.dp),
-              )
+              // Track clicks on links embedded in the allowlist-provided model description.
+              ProvideTrackableUriHandler {
+                MarkdownText(
+                  model.info,
+                  smallFontSize = true,
+                  textColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                  modifier = Modifier.padding(top = 12.dp),
+                )
+              }
             }
             val unavailability = downloadStatus?.unavailability
             when {

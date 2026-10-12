@@ -25,10 +25,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -38,12 +41,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.theme.customColors
 
 @Composable
 fun buildTrackableUrlAnnotatedString(url: String, linkText: String): AnnotatedString {
-  val uriHandler = LocalUriHandler.current
+  val uriHandler = rememberTrackableUriHandler()
   return buildAnnotatedString {
     withLink(
       link =
@@ -57,18 +61,37 @@ fun buildTrackableUrlAnnotatedString(url: String, linkText: String): AnnotatedSt
                   textDecoration = TextDecoration.Underline,
                 )
             ),
-          linkInteractionListener = {
-            uriHandler.openUri(url)
-            firebaseAnalytics?.logEvent(
-              "resource_link_click",
-              Bundle().apply { putString("link_destination", url) },
-            )
-          },
+          linkInteractionListener = { uriHandler.openUri(url) },
         )
     ) {
       append(linkText)
     }
   }
+}
+
+/**
+ * Provides a [LocalUriHandler] to [content] that logs a `resource_link_click` analytics event for
+ * every URI it opens.
+ *
+ * Use this to track clicks on links that rely on the default [LocalUriHandler] (i.e.
+ * [LinkAnnotation.Url] without a custom listener), such as links rendered by [MarkdownText].
+ *
+ * This is idempotent: if the current [LocalUriHandler] already tracks clicks (e.g. when nested
+ * inside another [ProvideTrackableUriHandler]), it is reused as-is so each click is logged once.
+ *
+ * @param onLogUri Invoked with the URI before it is opened by the outer [LocalUriHandler]. Defaults
+ *   to logging a `resource_link_click` analytics event. Ignored when already nested in a tracking
+ *   handler.
+ */
+@Composable
+fun ProvideTrackableUriHandler(
+  onLogUri: (String) -> Unit = ::logResourceLinkClick,
+  content: @Composable () -> Unit,
+) {
+  CompositionLocalProvider(
+    LocalUriHandler provides rememberTrackableUriHandler(onLogUri),
+    content = content,
+  )
 }
 
 @Composable
@@ -96,5 +119,37 @@ fun ClickableLink(
       style = MaterialTheme.typography.bodyMedium,
       modifier = Modifier.padding(start = if (icon != null) 6.dp else 0.dp),
     )
+  }
+}
+
+private fun logResourceLinkClick(url: String) {
+  firebaseAnalytics?.logEvent(
+    GalleryEvent.RESOURCE_LINK_CLICK.id,
+    Bundle().apply { putString("link_destination", url) },
+  )
+}
+
+/**
+ * Returns a [TrackableUriHandler] wrapping the current [LocalUriHandler], or the current handler
+ * itself if it already tracks clicks, so nested usages never log the same click twice.
+ */
+@Composable
+private fun rememberTrackableUriHandler(
+  onLogUri: (String) -> Unit = ::logResourceLinkClick
+): UriHandler {
+  val uriHandler = LocalUriHandler.current
+  return remember(uriHandler, onLogUri) {
+    uriHandler as? TrackableUriHandler ?: TrackableUriHandler(uriHandler, onLogUri)
+  }
+}
+
+/** A [UriHandler] that calls [onLogUri] with each URI before opening it via [delegate]. */
+private class TrackableUriHandler(
+  private val delegate: UriHandler,
+  private val onLogUri: (String) -> Unit,
+) : UriHandler {
+  override fun openUri(uri: String) {
+    onLogUri(uri)
+    delegate.openUri(uri)
   }
 }
