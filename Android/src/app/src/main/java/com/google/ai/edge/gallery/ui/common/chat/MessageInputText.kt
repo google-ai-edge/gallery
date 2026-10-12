@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.ui.common.chat
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -37,6 +38,7 @@ import androidx.camera.core.CameraControl
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
@@ -98,7 +100,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -133,16 +134,22 @@ import com.google.ai.edge.gallery.common.rotateBitmap
 import com.google.ai.edge.gallery.data.MAX_AUDIO_CLIP_COUNT
 import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT
 import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT_AI_CORE
+import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.getTaskIconColor
-import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
 import java.util.concurrent.Executors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGMessageInputText"
+
+/** The content shown in the input bar. */
+private enum class InputMode {
+  TEXT,
+  AUDIO_RECORDER,
+}
 
 /**
  * Composable function to display a text input field for composing chat messages.
@@ -154,7 +161,7 @@ private const val TAG = "AGMessageInputText"
 @Composable
 fun MessageInputText(
   task: Task,
-  modelManagerViewModel: ModelManagerViewModel,
+  selectedModel: Model,
   curMessage: String,
   isResettingSession: Boolean,
   inProgress: Boolean,
@@ -189,24 +196,27 @@ fun MessageInputText(
   onImagesIgnored: () -> Unit = {},
   onModelNotSupportImage: () -> Unit = {},
   onModelNotSupportAudio: () -> Unit = {},
+  textInputHistory: List<String> = emptyList(),
+  onPromoteTextInputHistoryItem: (String) -> Unit = {},
+  onDeleteTextInputHistoryItem: (String) -> Unit = {},
+  onClearTextInputHistory: () -> Unit = {},
 ) {
   val context = LocalContext.current
   val lifecycleOwner = LocalLifecycleOwner.current
   val scope = rememberCoroutineScope()
-  val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   var showAddContentMenu by remember { mutableStateOf(false) }
   var showTextInputHistorySheet by remember { mutableStateOf(false) }
   var showCameraCaptureBottomSheet by remember { mutableStateOf(false) }
   val cameraCaptureSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   var showAudioRecorder by remember { mutableStateOf(false) }
   val audioRecorderSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-  var pickedImages by remember { mutableStateOf<List<Bitmap>>(listOf()) }
-  var pickedAudioClips by remember { mutableStateOf<List<AudioClip>>(listOf()) }
+  var pickedImages by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
+  var pickedAudioClips by remember { mutableStateOf<List<AudioClip>>(emptyList()) }
   var hasFrontCamera by remember { mutableStateOf(false) }
   val sensorObserver = remember { SensorObserver(context) }
 
   val updatePickedImages: (List<Bitmap>) -> Unit = { bitmaps ->
-    val isAiCore = modelManagerUiState.selectedModel.isAiCore
+    val isAiCore = selectedModel.isAiCore
     var limit = MAX_IMAGE_COUNT
     if (isAiCore) {
       limit = MAX_IMAGE_COUNT_AI_CORE
@@ -294,7 +304,7 @@ fun MessageInputText(
     rememberLauncherForActivityResult(
       contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-      if (result.resultCode == android.app.Activity.RESULT_OK) {
+      if (result.resultCode == Activity.RESULT_OK) {
         result.data?.data?.let { uri ->
           Log.d(TAG, "Picked wav file: $uri")
           scope.launch(Dispatchers.IO) {
@@ -373,11 +383,16 @@ fun MessageInputText(
       }
     }
 
+    val inputMode =
+      when {
+        showAudioRecorder -> InputMode.AUDIO_RECORDER
+        else -> InputMode.TEXT
+      }
     Box(contentAlignment = Alignment.Center, modifier = Modifier.heightIn(min = 76.dp)) {
-      AnimatedContent(targetState = showAudioRecorder) { curShowAudioRecorder ->
-        when (curShowAudioRecorder) {
+      AnimatedContent(targetState = inputMode) { curInputMode ->
+        when (curInputMode) {
           // Input
-          false ->
+          InputMode.TEXT ->
             Column(
               modifier =
                 Modifier.padding(horizontal = 12.dp)
@@ -458,11 +473,11 @@ fun MessageInputText(
                     ) {
                       if (showImagePicker) {
                         val isImageLimitExceededForAiCore =
-                          modelManagerUiState.selectedModel.isAiCore &&
+                          selectedModel.isAiCore &&
                             (imageCount + pickedImages.size) >= MAX_IMAGE_COUNT_AI_CORE
                         val enableAddImageMenuItems =
                           (imageCount + pickedImages.size) < MAX_IMAGE_COUNT
-                        val isImageSupported = modelManagerUiState.selectedModel.supportImage
+                        val isImageSupported = selectedModel.supportImage
                         val imageItemColors =
                           MenuDefaults.itemColors(
                             textColor =
@@ -554,7 +569,7 @@ fun MessageInputText(
                       if (showAudioPicker) {
                         val enableRecordAudioClipMenuItems =
                           (audioClipMessageCount + pickedAudioClips.size) < MAX_AUDIO_CLIP_COUNT
-                        val isAudioSupported = modelManagerUiState.selectedModel.supportAudio
+                        val isAudioSupported = selectedModel.supportAudio
                         val audioItemColors =
                           MenuDefaults.itemColors(
                             textColor =
@@ -784,8 +799,8 @@ fun MessageInputText(
                           text = message,
                         )
                       )
-                      pickedImages = listOf()
-                      pickedAudioClips = listOf()
+                      pickedImages = emptyList()
+                      pickedAudioClips = emptyList()
                     },
                     colors =
                       IconButtonDefaults.iconButtonColors(
@@ -805,7 +820,7 @@ fun MessageInputText(
             }
 
           // Audio recorder.
-          true ->
+          InputMode.AUDIO_RECORDER ->
             AudioRecorderPanel(
               task = task,
               onSendAudioClip = { audioData ->
@@ -832,7 +847,7 @@ fun MessageInputText(
   // A bottom sheet to show the text input history to pick from.
   if (showTextInputHistorySheet) {
     TextInputHistorySheet(
-      history = modelManagerUiState.textInputHistory,
+      history = textInputHistory,
       onDismissed = { showTextInputHistorySheet = false },
       onHistoryItemClicked = { item ->
         onSendMessage(
@@ -842,12 +857,12 @@ fun MessageInputText(
             text = item,
           )
         )
-        pickedImages = listOf()
-        pickedAudioClips = listOf()
-        modelManagerViewModel.promoteTextInputHistoryItem(item)
+        pickedImages = emptyList()
+        pickedAudioClips = emptyList()
+        onPromoteTextInputHistoryItem(item)
       },
-      onHistoryItemDeleted = { item -> modelManagerViewModel.deleteTextInputHistory(item) },
-      onHistoryItemsDeleteAll = { modelManagerViewModel.clearTextInputHistory() },
+      onHistoryItemDeleted = onDeleteTextInputHistoryItem,
+      onHistoryItemsDeleteAll = onClearTextInputHistory,
     )
   }
 
@@ -857,7 +872,7 @@ fun MessageInputText(
       onDismissRequest = { showCameraCaptureBottomSheet = false },
     ) {
       val lifecycleOwner = LocalLifecycleOwner.current
-      val previewUseCase = remember { androidx.camera.core.Preview.Builder().build() }
+      val previewUseCase = remember { Preview.Builder().build() }
       val imageCaptureUseCase = remember {
         // Try to limit the image size.
         val preferredSize = Size(512, 512)
