@@ -28,6 +28,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -41,10 +42,14 @@ private const val AUDIO_METER_MAX_DB = 100.0f
 data class HoldToDictateUiState(val recognizing: Boolean = false, val recognizedText: String = "")
 
 @HiltViewModel
-class HoldToDictateViewModel @Inject constructor(@ApplicationContext private val context: Context) :
-  ViewModel(), RecognitionListener {
-  protected val _uiState = MutableStateFlow(HoldToDictateUiState())
-  val uiState = _uiState.asStateFlow()
+class HoldToDictateViewModel
+@Inject
+constructor(
+  @ApplicationContext private val context: Context,
+) : ViewModel(), RecognitionListener {
+  protected val _uiState: MutableStateFlow<HoldToDictateUiState> =
+    MutableStateFlow(HoldToDictateUiState())
+  val uiState: StateFlow<HoldToDictateUiState> = _uiState.asStateFlow()
 
   private val speechRecognizer: SpeechRecognizer
   private val recognizerIntent: Intent
@@ -66,6 +71,10 @@ class HoldToDictateViewModel @Inject constructor(@ApplicationContext private val
         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
       }
+  }
+
+  override fun onCleared() {
+    speechRecognizer.destroy()
   }
 
   fun startSpeechRecognition(onDone: (String) -> Unit, onAmplitudeChanged: (Int) -> Unit) {
@@ -90,11 +99,11 @@ class HoldToDictateViewModel @Inject constructor(@ApplicationContext private val
   }
 
   fun setRecognizing(recognizing: Boolean) {
-    _uiState.update { uiState.value.copy(recognizing = recognizing) }
+    _uiState.update { it.copy(recognizing = recognizing) }
   }
 
   fun setRecognizedText(text: String) {
-    _uiState.update { uiState.value.copy(recognizedText = text) }
+    _uiState.update { it.copy(recognizedText = text) }
   }
 
   override fun onReadyForSpeech(params: Bundle?) {}
@@ -114,7 +123,7 @@ class HoldToDictateViewModel @Inject constructor(@ApplicationContext private val
   override fun onResults(results: Bundle?) {
     val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
     if (matches != null && matches.size > 0) {
-      setRecognizedText(matches.get(0) ?: "")
+      setRecognizedText(matches[0] ?: "")
     } else {
       setRecognizedText("")
     }
@@ -130,7 +139,7 @@ class HoldToDictateViewModel @Inject constructor(@ApplicationContext private val
   override fun onPartialResults(partialResults: Bundle?) {
     val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
     if (matches != null && matches.size > 0) {
-      setRecognizedText(matches.get(0) ?: "")
+      setRecognizedText(matches[0] ?: "")
     } else {
       setRecognizedText("")
     }
