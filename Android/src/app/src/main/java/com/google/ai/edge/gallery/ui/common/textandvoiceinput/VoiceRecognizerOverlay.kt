@@ -64,15 +64,15 @@ fun VoiceRecognizerOverlay(
     // Audio level animation.
     AudioAnimation(bgColor = Color.Black.copy(alpha = 0.8f), amplitude = curAmplitude)
 
-    // Recognized text.
-    Text(
-      uiState.recognizedText.ifEmpty { stringResource(R.string.listening) },
-      modifier =
-        Modifier.padding(horizontal = 16.dp)
-          .padding(bottom = (48.dp + bottomPadding) / 2)
-          .align(Alignment.Center),
-      color = Color.White,
-    )
+      // Recognized text.
+      Text(
+        uiState.recognizedText.ifEmpty { stringResource(R.string.listening) },
+        modifier =
+          Modifier.padding(horizontal = 16.dp)
+            .padding(bottom = (48.dp + bottomPadding) / 2)
+            .align(Alignment.Center),
+        color = Color.White,
+      )
 
     Column(
       modifier =

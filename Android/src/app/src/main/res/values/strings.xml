@@ -101,6 +101,7 @@
   <string name="download" translatable="true" description="Button label to start downloading a model. [CHAR_LIMIT=18]">Download</string>
   <string name="downloaded_size" translatable="true" description="Label showing how much data has been downloaded (e.g. '1.2 GB downloaded'). [CHAR_LIMIT=25]">%1$s downloaded</string>
   <string name="drawer_settings_label" translatable="true" description="Label for the settings item in the navigation drawer. [CHAR_LIMIT=26]">Settings</string>
+
   <string name="drawer_settings_description" translatable="true" description="Description for the settings item in the navigation drawer. [CHAR_LIMIT=45]">Manage application settings</string>
   <string name="drawer_models_label" translatable="true" description="Label for the models item in the navigation drawer. [CHAR_LIMIT=18]">Models</string>
   <string name="drawer_models_description" translatable="true" description="Description for the models item in the navigation drawer. [CHAR_LIMIT=45]">Browse, try, and benchmark models</string>
