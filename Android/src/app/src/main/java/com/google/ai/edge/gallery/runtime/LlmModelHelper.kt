@@ -75,6 +75,7 @@ interface LlmModelHelper {
    * @param tools tools available for the model to use.
    * @param enableConversationConstrainedDecoding whether to enable constrained decoding for
    *   conversations.
+   * @param initialMessages messages used to seed initial conversation history on initialization.
    * @param coroutineScope optional coroutine scope for async execution.
    */
   fun initialize(
@@ -87,6 +88,7 @@ interface LlmModelHelper {
     systemInstruction: Contents? = null,
     tools: List<ToolProvider> = listOf(),
     enableConversationConstrainedDecoding: Boolean = false,
+    initialMessages: List<Message> = listOf(),
     coroutineScope: CoroutineScope? = null,
     enableResponseFormat: Boolean = false,
   )

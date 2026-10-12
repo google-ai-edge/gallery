@@ -126,6 +126,15 @@ interface LlmSessionManager {
   )
 
   /**
+   * Registers the configuration to use for [sessionId] and sets it as [activeSessionId] without
+   * resetting the conversation on the model.
+   *
+   * @param sessionId The session identifier to register.
+   * @param config The [SessionConfig] to associate with [sessionId].
+   */
+  fun setSessionConfig(sessionId: String, config: SessionConfig)
+
+  /**
    * Lists metadata for all persisted chat sessions.
    *
    * @param taskId Optional task ID filter. If null, returns sessions across all tasks.

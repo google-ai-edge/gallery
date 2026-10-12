@@ -103,6 +103,7 @@ object AICoreModelHelper : LlmModelHelper {
     systemInstruction: Contents?,
     tools: List<ToolProvider>,
     enableConversationConstrainedDecoding: Boolean,
+    initialMessages: List<Message>,
     coroutineScope: CoroutineScope?,
     enableResponseFormat: Boolean,
   ) {
@@ -119,8 +120,9 @@ object AICoreModelHelper : LlmModelHelper {
             generativeModel.warmup()
             updateTokenLimit(model, generativeModel)
             model.instance =
-              AICoreModelInstance(
+              createModelInstance(
                 generativeModel = generativeModel,
+                initialMessages = initialMessages,
                 systemInstructionText = sysText,
               )
             onDone("Feature is available")
@@ -142,8 +144,9 @@ object AICoreModelHelper : LlmModelHelper {
                   generativeModel.warmup()
                   updateTokenLimit(model, generativeModel)
                   model.instance =
-                    AICoreModelInstance(
+                    createModelInstance(
                       generativeModel = generativeModel,
+                      initialMessages = initialMessages,
                       systemInstructionText = sysText,
                     )
                   onDone("Download completed")
@@ -169,6 +172,22 @@ object AICoreModelHelper : LlmModelHelper {
     initJobs[model.name] = job
     job.invokeOnCompletion { initJobs.remove(model.name, job) }
   }
+
+  private fun createModelInstance(
+    generativeModel: GenerativeModel,
+    initialMessages: List<Message>,
+    systemInstructionText: String?,
+  ): AICoreModelInstance =
+    AICoreModelInstance(
+      generativeModel = generativeModel,
+      chatHistory =
+        CopyOnWriteArrayList(
+          initialMessages.map { msg ->
+            AICoreChatMessage(isUser = (msg.role == Role.USER), text = msg.contents.toString())
+          }
+        ),
+      systemInstructionText = systemInstructionText,
+    )
 
   fun downloadModel(
     context: Context,
