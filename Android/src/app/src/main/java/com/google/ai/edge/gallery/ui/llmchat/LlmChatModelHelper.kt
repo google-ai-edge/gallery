@@ -56,12 +56,18 @@ import com.google.ai.edge.litertlm.ModelInfo
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
 import java.io.ByteArrayOutputStream
+import java.util.Collections
 import java.util.concurrent.CancellationException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.DisposableHandle
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 private const val TAG = "AGLlmChatModelHelper"
+private const val EXTRA_CONTEXT_EPHEMERAL_INFERENCE = "aicore_ephemeral_inference"
 
 /**
  * Holds the runtime state for an initialized LiteRT-LM model.
@@ -80,6 +86,9 @@ data class LlmModelInstance(
   var conversation: Conversation,
   val metricsTracker: MetricsTracker? = null,
 ) : LlmConversationInstance {
+  val activeEphemeralConversations: MutableSet<Conversation> =
+    Collections.synchronizedSet(mutableSetOf())
+
   override fun getTokenCount(): Int = conversation.getTokenCount()
 
   override fun sendMessage(prompt: String): Message = conversation.sendMessage(prompt)
@@ -320,6 +329,21 @@ object LlmChatModelHelper : LlmModelHelper {
 
     val instance = model.instance as LlmModelInstance
 
+    val snapshotEphemerals = instance.activeEphemeralConversations.toList()
+    instance.activeEphemeralConversations.clear()
+    for (ephemeral in snapshotEphemerals) {
+      try {
+        ephemeral.cancelProcess()
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to cancel ephemeral conversation during cleanup: ${e.message}")
+      }
+      try {
+        ephemeral.close()
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to close ephemeral conversation during cleanup: ${e.message}")
+      }
+    }
+
     try {
       instance.conversation.close()
     } catch (e: Exception) {
@@ -357,6 +381,13 @@ object LlmChatModelHelper : LlmModelHelper {
       Log.w(TAG, "Failed to cancel conversation process", e)
       val unused = instance.metricsTracker?.cancelTurn()
     }
+    for (ephemeral in instance.activeEphemeralConversations.toList()) {
+      try {
+        ephemeral.cancelProcess()
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to cancel ephemeral conversation process", e)
+      }
+    }
   }
 
   @OptIn(ExperimentalApi::class) // opt-in experimental flags
@@ -383,10 +414,72 @@ object LlmChatModelHelper : LlmModelHelper {
       cleanUpListeners[model.name] = cleanUpListener
     }
 
+    val isEphemeral = extraContext[EXTRA_CONTEXT_EPHEMERAL_INFERENCE] == "true"
+    val conversation =
+      if (isEphemeral) {
+        val accelerator = model.currentAccelerator ?: Accelerator.GPU
+        val topK = model.getIntConfigValue(key = ConfigKeys.TOPK, defaultValue = DEFAULT_TOPK)
+        val topP = model.getFloatConfigValue(key = ConfigKeys.TOPP, defaultValue = DEFAULT_TOPP)
+        val temperature =
+          model.getFloatConfigValue(
+            key = ConfigKeys.TEMPERATURE,
+            defaultValue = DEFAULT_TEMPERATURE,
+          )
+        instance.engine.createConversation(
+          ConversationConfig(
+            samplerConfig =
+              if (accelerator == Accelerator.NPU || accelerator == Accelerator.TPU) {
+                null
+              } else {
+                SamplerConfig(
+                  topK = topK,
+                  topP = topP.toDouble(),
+                  temperature = temperature.toDouble(),
+                )
+              },
+          )
+        )
+      } else {
+        instance.conversation
+      }
+
+    val ephemeralClosed = AtomicBoolean(false)
+    var scopeCompletionHandle: DisposableHandle? = null
+    fun closeEphemeralConversationOnce() {
+      if (!isEphemeral || !ephemeralClosed.compareAndSet(false, true)) return
+      scopeCompletionHandle?.dispose()
+      scopeCompletionHandle = null
+      instance.activeEphemeralConversations.remove(conversation)
+      // Offload native Conversation.close() onto ioDispatcher so MessageCallback threads never
+      // self-join their own native LiteRT-LM worker thread.
+      CoroutineScope(ioDispatcher).launch {
+        try {
+          conversation.close()
+        } catch (e: Exception) {
+          Log.w(TAG, "Failed to close ephemeral conversation: ${e.message}", e)
+        }
+      }
+    }
+
+    if (isEphemeral) {
+      instance.activeEphemeralConversations.add(conversation)
+      scopeCompletionHandle =
+        coroutineScope?.coroutineContext?.get(Job)?.invokeOnCompletion { cause ->
+          if (cause != null) {
+            try {
+              conversation.cancelProcess()
+            } catch (e: Exception) {
+              Log.w(TAG, "Failed to cancel ephemeral conversation on scope cancellation", e)
+            }
+          }
+        }
+    }
+
     // Step 1: Start the turn before processing the input, so its latency includes the input
     // processing the user waits for.
-    val conversation = instance.conversation
-    instance.metricsTracker?.startTurn(conversation.asSession())
+    if (!isEphemeral) {
+      instance.metricsTracker?.startTurn(conversation.asSession())
+    }
     try {
       // Step 2: Assemble multimodal prompt attachments (images, audio clips, and text).
       val contents = mutableListOf<Content>()
@@ -413,35 +506,46 @@ object LlmChatModelHelper : LlmModelHelper {
             val text = message.toString()
             val thinking = message.channels[THOUGHT_CHANNEL]
             // Record streaming token to lock TTFT on first token and update live metrics.
-            instance.metricsTracker?.onNewToken(tokenText = text, thinkingText = thinking)
+            if (!isEphemeral) {
+              instance.metricsTracker?.onNewToken(tokenText = text, thinkingText = thinking)
+            }
             resultListener(text, false, thinking)
           }
 
           override fun onDone() {
-            // Finalize turn metrics with SUCCESS status.
-            val unused =
-              instance.metricsTracker?.endTurn(
-                statusCode = InferenceStatus.Code.SUCCESS,
-                errorMessage = null,
-              )
+            if (isEphemeral) {
+              closeEphemeralConversationOnce()
+            } else {
+              // Finalize turn metrics with SUCCESS status.
+              val unused =
+                instance.metricsTracker?.endTurn(
+                  statusCode = InferenceStatus.Code.SUCCESS,
+                  errorMessage = null,
+                )
+            }
             resultListener("", true, null)
           }
 
           override fun onError(throwable: Throwable) {
+            closeEphemeralConversationOnce()
             if (throwable is CancellationException) {
               // Native cancellation via cancelProcess() completed on the worker thread; finalize
               // cancelled-turn metrics now that engine benchmark and token counts are ready.
               Log.i(TAG, "The inference is cancelled.")
-              val unused = instance.metricsTracker?.cancelTurn()
+              if (!isEphemeral) {
+                val unused = instance.metricsTracker?.cancelTurn()
+              }
               resultListener("", true, null)
             } else {
               // Engine error or crash: record ERROR status with error message.
               Log.e(TAG, "onError", throwable)
-              val unused =
-                instance.metricsTracker?.endTurn(
-                  statusCode = InferenceStatus.Code.ERROR,
-                  errorMessage = throwable.message ?: "Unknown error",
-                )
+              if (!isEphemeral) {
+                val unused =
+                  instance.metricsTracker?.endTurn(
+                    statusCode = InferenceStatus.Code.ERROR,
+                    errorMessage = throwable.message ?: "Unknown error",
+                  )
+              }
               onError("Error: ${throwable.message}")
             }
           }
@@ -449,12 +553,16 @@ object LlmChatModelHelper : LlmModelHelper {
         finalExtraContext,
       )
     } catch (e: Exception) {
-      // No engine callback follows a failure before the message is sent, so end the turn here.
-      val unused =
-        instance.metricsTracker?.endTurn(
-          statusCode = InferenceStatus.Code.ERROR,
-          errorMessage = e.message ?: "Unknown error",
-        )
+      if (isEphemeral) {
+        closeEphemeralConversationOnce()
+      } else {
+        // No engine callback follows a failure before the message is sent, so end the turn here.
+        val unused =
+          instance.metricsTracker?.endTurn(
+            statusCode = InferenceStatus.Code.ERROR,
+            errorMessage = e.message ?: "Unknown error",
+          )
+      }
       throw e
     }
   }

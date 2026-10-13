@@ -93,6 +93,14 @@ fun ModelUnavailabilityPanel(unavailability: ModelUnavailability, fallbackGuideU
     )
     if (guideUrl != null) {
       val context = LocalContext.current
+      val buttonTextRes =
+        if (
+          unavailability.reason == ModelUnavailabilityReason.SPEECH_SERVICES_OUTDATED_OR_MISSING
+        ) {
+          R.string.update
+        } else {
+          R.string.aicore_access_panel_button
+        }
       TextButton(
         onClick = {
           val intent = Intent(Intent.ACTION_VIEW, guideUrl.toUri())
@@ -101,7 +109,7 @@ fun ModelUnavailabilityPanel(unavailability: ModelUnavailability, fallbackGuideU
         contentPadding = PaddingValues(horizontal = 8.dp),
       ) {
         Text(
-          stringResource(R.string.aicore_access_panel_button),
+          stringResource(buttonTextRes),
           color = MaterialTheme.colorScheme.primary,
           style = MaterialTheme.typography.labelLarge,
         )
