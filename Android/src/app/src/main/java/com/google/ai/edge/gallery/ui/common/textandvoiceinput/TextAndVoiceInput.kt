@@ -55,6 +55,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.ui.common.asr.HoldToDictate
+import com.google.ai.edge.gallery.ui.common.asr.HoldToDictateViewModel
 import com.google.ai.edge.gallery.ui.common.getTaskIconColor
 import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
 
