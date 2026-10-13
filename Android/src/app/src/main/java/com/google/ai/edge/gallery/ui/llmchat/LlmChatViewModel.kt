@@ -21,7 +21,6 @@ import android.graphics.Bitmap
 import android.os.Build
 import android.util.Log
 import androidx.lifecycle.viewModelScope
-import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.agent.AgentEvent
 import com.google.ai.edge.gallery.agent.AgentExecutionContext
 import com.google.ai.edge.gallery.agent.AgentRequest
@@ -42,7 +41,6 @@ import com.google.ai.edge.gallery.data.awaitInitialization
 import com.google.ai.edge.gallery.proto.ChatSessionProto
 import com.google.ai.edge.gallery.tools.ToolAction
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
-import com.google.ai.edge.gallery.ui.common.chat.ChatMessageDivider
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageError
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageInfo
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageLoading
@@ -254,20 +252,6 @@ open class LlmChatViewModelBase(
         ->
         when (event) {
           is AgentEvent.LoopInitiated -> {}
-          is AgentEvent.ContextCompactionStarted -> {
-            setContextCompactionStatus(model, ContextCompactionStatus.COMPACTING)
-          }
-          is AgentEvent.ContextCompactionFinished -> {
-            if (event.success) {
-              insertMessageBeforeCurrentTurn(
-                model = model,
-                message = ChatMessageDivider(textResId = R.string.context_compressed_success),
-              )
-            }
-            if (getContextCompactionStatus(model) == ContextCompactionStatus.COMPACTING) {
-              setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
-            }
-          }
           is AgentEvent.StreamToken -> {
             val lastMessage = getLastMessage(model = model)
             val wasLoading = lastMessage?.type == ChatMessageType.LOADING
