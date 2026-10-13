@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -96,6 +97,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -114,6 +118,15 @@ import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+/** Minimum height of a config dialog tab, matching the Material 3 text tab height. */
+private val TAB_MIN_HEIGHT = 48.dp
+
+/** Horizontal padding around a tab label; narrower than the 16dp text tab default. */
+private val TAB_LABEL_HORIZONTAL_PADDING = 4.dp
+
+/** Vertical padding around a tab label, so two-line labels don't touch the indicator. */
+private val TAB_LABEL_VERTICAL_PADDING = 8.dp
 
 private const val TAG = "AGConfigDialog"
 
@@ -201,15 +214,10 @@ fun ConfigDialog(
         if (tabs.size > 1) {
           PrimaryTabRow(selectedTabIndex = selectedTabIndex, containerColor = Color.Transparent) {
             tabs.forEachIndexed { index, (_, tabTitle) ->
-              Tab(
+              ConfigTab(
+                title = tabTitle,
                 selected = selectedTabIndex == index,
                 onClick = { selectedTabIndex = index },
-                text = {
-                  val titleColor =
-                    if (selectedTabIndex == index) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
-                  Text(tabTitle, color = titleColor)
-                },
               )
             }
           }
@@ -783,4 +791,40 @@ private fun Modifier.verticalScrollbar(
     size = Size(barWidthPx, thumbHeight),
     cornerRadius = cornerRadius,
   )
+}
+
+/**
+ * Config dialog tab whose label keeps the standard tab text size and wraps onto up to two balanced
+ * lines when it doesn't fit (for example "System prompt" at large font scales).
+ *
+ * Uses the content overload of [Tab] with narrower horizontal padding than the default text tab so
+ * that single words such as "Advanced" fit on one line instead of breaking mid-word. Words that
+ * still don't fit are hyphenated rather than split arbitrarily.
+ */
+@Composable
+internal fun ConfigTab(title: String, selected: Boolean, onClick: () -> Unit) {
+  Tab(
+    selected = selected,
+    onClick = onClick,
+    modifier = Modifier.heightIn(min = TAB_MIN_HEIGHT),
+    selectedContentColor = MaterialTheme.colorScheme.primary,
+    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+  ) {
+    Text(
+      text = title,
+      style =
+        MaterialTheme.typography.titleSmall.copy(
+          lineBreak = LineBreak.Heading,
+          hyphens = Hyphens.Auto,
+        ),
+      textAlign = TextAlign.Center,
+      maxLines = 2,
+      overflow = TextOverflow.Ellipsis,
+      modifier =
+        Modifier.padding(
+          horizontal = TAB_LABEL_HORIZONTAL_PADDING,
+          vertical = TAB_LABEL_VERTICAL_PADDING,
+        ),
+    )
+  }
 }
