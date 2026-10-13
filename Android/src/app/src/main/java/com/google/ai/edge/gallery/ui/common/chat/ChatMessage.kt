@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.ui.common.chat
 
 import android.graphics.Bitmap
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.ui.graphics.ImageBitmap
@@ -49,6 +50,7 @@ enum class ChatMessageType {
   WEBVIEW,
   COLLAPSABLE_PROGRESS_PANEL,
   THINKING,
+  DIVIDER,
 }
 
 enum class ChatSide {
@@ -111,6 +113,14 @@ class ChatMessageConfigValuesChange(
   val oldValues: Map<String, Any>,
   val newValues: Map<String, Any>,
 ) : ChatMessage(type = ChatMessageType.CONFIG_VALUES_CHANGE, side = ChatSide.SYSTEM)
+
+/** Chat message for showing a horizontal divider with centered text. */
+class ChatMessageDivider(@StringRes val textResId: Int = 0, val text: String = "") :
+  ChatMessage(type = ChatMessageType.DIVIDER, side = ChatSide.SYSTEM) {
+  override fun clone(): ChatMessageDivider {
+    return ChatMessageDivider(textResId = textResId, text = text)
+  }
+}
 
 /** Chat message for plain text. */
 open class ChatMessageText(

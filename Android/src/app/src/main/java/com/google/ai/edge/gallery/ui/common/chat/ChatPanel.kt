@@ -430,6 +430,9 @@ fun ChatPanel(
               if (message.type == ChatMessageType.PROMPT_TEMPLATES) {
                 extraPaddingStart = 12.dp
                 extraPaddingEnd = 12.dp
+              } else if (message.type == ChatMessageType.DIVIDER) {
+                extraPaddingStart = 0.dp
+                extraPaddingEnd = 4.dp
               }
             }
             if (message.type == ChatMessageType.IMAGE) {
@@ -486,6 +489,9 @@ fun ChatPanel(
 
                 // Config values change.
                 is ChatMessageConfigValuesChange -> MessageBodyConfigUpdate(message = message)
+
+                // Divider.
+                is ChatMessageDivider -> MessageBodyDivider(message = message)
 
                 // Prompt templates.
                 is ChatMessagePromptTemplates ->

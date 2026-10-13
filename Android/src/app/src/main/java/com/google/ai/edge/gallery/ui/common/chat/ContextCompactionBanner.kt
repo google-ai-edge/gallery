@@ -59,13 +59,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.fromHtml
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 
 /**
- * Context compaction banner displaying token limit reached prompt, compression in-progress, or
- * confirmation messages above the chat message input.
+ * Context compaction banner displaying token limit reached prompt or compression in-progress status
+ * above the chat message input.
  */
 @Composable
 fun ContextCompactionBanner(
@@ -210,21 +209,6 @@ fun ContextCompactionBanner(
                 text = stringResource(R.string.compressing_context),
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                 color = MaterialTheme.colorScheme.onSurface,
-              )
-            }
-          }
-
-          ContextCompactionStatus.COMPACTED -> {
-            Row(
-              modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-              horizontalArrangement = Arrangement.Center,
-              verticalAlignment = Alignment.CenterVertically,
-            ) {
-              Text(
-                text = stringResource(R.string.context_compressed_success),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
               )
             }
           }

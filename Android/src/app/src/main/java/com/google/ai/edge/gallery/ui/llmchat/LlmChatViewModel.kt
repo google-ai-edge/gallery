@@ -21,6 +21,7 @@ import android.graphics.Bitmap
 import android.os.Build
 import android.util.Log
 import androidx.lifecycle.viewModelScope
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.agent.AgentEvent
 import com.google.ai.edge.gallery.agent.AgentExecutionContext
 import com.google.ai.edge.gallery.agent.AgentRequest
@@ -41,6 +42,7 @@ import com.google.ai.edge.gallery.data.awaitInitialization
 import com.google.ai.edge.gallery.proto.ChatSessionProto
 import com.google.ai.edge.gallery.tools.ToolAction
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessageDivider
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageError
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageInfo
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageLoading
@@ -226,7 +228,6 @@ open class LlmChatViewModelBase(
       val executionContext = AgentExecutionContext()
 
       var firstRun = true
-      var compactionSucceeded = false
       val start = System.currentTimeMillis()
 
       if (sessionStoppedByModel[model.name] == true) {
@@ -254,15 +255,16 @@ open class LlmChatViewModelBase(
         when (event) {
           is AgentEvent.LoopInitiated -> {}
           is AgentEvent.ContextCompactionStarted -> {
-            compactionSucceeded = false
             setContextCompactionStatus(model, ContextCompactionStatus.COMPACTING)
           }
           is AgentEvent.ContextCompactionFinished -> {
-            compactionSucceeded = event.success
-            if (
-              !event.success &&
-                getContextCompactionStatus(model) == ContextCompactionStatus.COMPACTING
-            ) {
+            if (event.success) {
+              insertMessageBeforeCurrentTurn(
+                model = model,
+                message = ChatMessageDivider(textResId = R.string.context_compressed_success),
+              )
+            }
+            if (getContextCompactionStatus(model) == ContextCompactionStatus.COMPACTING) {
               setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
             }
           }
@@ -372,16 +374,6 @@ open class LlmChatViewModelBase(
                   type = ChatMessageType.THINKING,
                 )
               }
-            }
-            if (getContextCompactionStatus(model) == ContextCompactionStatus.COMPACTING) {
-              setContextCompactionStatus(
-                model,
-                if (compactionSucceeded) {
-                  ContextCompactionStatus.COMPACTED
-                } else {
-                  ContextCompactionStatus.IDLE
-                },
-              )
             }
             setPreparing(false)
             val isLimitReached = llmSessionManager.isTokenLimitReached(currentSessionId, model)

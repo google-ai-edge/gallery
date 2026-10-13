@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.GalleryEvent
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.common.metrics.InferenceMetrics
@@ -49,7 +50,6 @@ enum class ContextCompactionStatus {
   IDLE,
   TOKEN_LIMIT_REACHED,
   COMPACTING,
-  COMPACTED,
 }
 
 /** Source that triggered context compaction. */
@@ -143,17 +143,28 @@ abstract class ChatViewModel(
         newMessages.removeAt(newMessages.size - 1)
       }
       newMessages.add(message)
-      val status = state.contextCompactionStatusByModel[model.name]
-      val newStatusMap =
-        if (status == ContextCompactionStatus.COMPACTED && message.side == ChatSide.USER) {
-          state.contextCompactionStatusByModel + (model.name to ContextCompactionStatus.IDLE)
-        } else {
-          state.contextCompactionStatusByModel
-        }
-      state.copy(
-        messagesByModel = newMessagesByModel,
-        contextCompactionStatusByModel = newStatusMap,
-      )
+      state.copy(messagesByModel = newMessagesByModel)
+    }
+  }
+
+  /**
+   * Inserts [message] immediately before the active turn's trailing loading and user messages for
+   * [model].
+   */
+  fun insertMessageBeforeCurrentTurn(model: Model, message: ChatMessage) {
+    _uiState.update { state ->
+      val newMessagesByModel = state.messagesByModel.toMutableMap()
+      val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
+      newMessagesByModel[model.name] = newMessages
+      var insertIndex = newMessages.size
+      if (insertIndex > 0 && newMessages[insertIndex - 1] is ChatMessageLoading) {
+        insertIndex--
+      }
+      while (insertIndex > 0 && newMessages[insertIndex - 1].side == ChatSide.USER) {
+        insertIndex--
+      }
+      newMessages.add(insertIndex, message)
+      state.copy(messagesByModel = newMessagesByModel)
     }
   }
 
@@ -429,7 +440,11 @@ abstract class ChatViewModel(
       val success = llmSessionManager.compactContextIfNeeded(currentSessionId, model, force = true)
       if (success) {
         Log.d(TAG, "Context compacted for session $currentSessionId on model ${model.name}")
-        setContextCompactionStatus(model, ContextCompactionStatus.COMPACTED)
+        addMessage(
+          model = model,
+          message = ChatMessageDivider(textResId = R.string.context_compressed_success),
+        )
+        setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
         onSuccess()
       } else {
         Log.d(
