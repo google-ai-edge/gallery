@@ -64,6 +64,7 @@ enum class InferenceMetricsParam(val key: String) {
   TURN_INDEX("turn_index"),
   INIT_DURATION_MS("init_duration_ms"),
   SAMPLER_CONFIG("sampler_config"),
+  MODEL_CAPABILITIES("model_capabilities"),
   TOTAL_LATENCY_MS("total_latency_ms"),
   TTFT_MS("ttft_ms"),
   DECODE_DURATION_MS("decode_duration_ms"),
