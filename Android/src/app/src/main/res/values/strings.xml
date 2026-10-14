@@ -63,7 +63,6 @@
   <string name="chat_you" translatable="true" description="Label indicating a message was sent by the user. [CHAR_LIMIT=18]">You</string>
   <string name="chat_llm_agent_name" translatable="true" description="Display name for the LLM agent in chat. [CHAR_LIMIT=18]">LLM</string>
   <string name="show_thinking" translatable="true" description="Label for a button to show the model's reasoning/thinking steps. [CHAR_LIMIT=24]">Show thinking</string>
-  <string name="checking_access" translatable="true" description="Message shown while checking if the user has access to a model. [CHAR_LIMIT=31]">Checking access…</string>
   <string name="close" translatable="true" description="Common button label to close a screen or dialog. [CHAR_LIMIT=9]">Close</string>
   <string name="collapse_all" translatable="true" description="Button label to collapse all expanded sections. [CHAR_LIMIT=23]">Collapse all</string>
   <string name="discard" translatable="true" description="Button label to discard changes. [CHAR_LIMIT=18]">Discard</string>
@@ -740,10 +739,6 @@
   <string name="gated_model_agreement_help" translatable="true" description="Instruction explaining that the model is gated and the user must agree to terms externally before downloading. [CHAR_LIMIT=264]">This is a gated model. Please click the button below to view and agree to the user agreement. After accepting, simply close that tab to proceed with the model download.</string>
   <!-- Button label to open user agreement in browser. -->
   <string name="open_user_agreement" translatable="true" description="Label for the button that opens the user agreement in a web browser. [CHAR_LIMIT=30]">Open user agreement</string>
-  <!-- Error message for unknown network issues. -->
-  <string name="error_unknown_network" translatable="true" description="Title for the error dialog when an unspecified network error occurs. [CHAR_LIMIT=35]">Unknown network error</string>
-  <!-- Error message suggesting to check internet connection. -->
-  <string name="error_check_internet" translatable="true" description="Message in the network error dialog asking the user to verify their internet connection. [CHAR_LIMIT=60]">Please check your internet connection.</string>
   <!-- Title of dialog warning that a skill is disabled. %s is the skill name. -->
   <string name="disabled_skill_dialog_title" translatable="true" description="Title of the alert dialog indicating that a specific agent skill (passed as a parameter) is disabled. [CHAR_LIMIT=45]">The \'%s\' skill is currently disabled</string>
   <!-- Introductory text for Agent Skills screen. Contains HTML links. -->
@@ -898,8 +893,8 @@
   <!-- Description for the Try EmbeddingGemma 2 onboarding section. [CHAR_LIMIT=120] -->
   <string name="try_egv2_description" translatable="true" description="Description for the Try EmbeddingGemma 2 section. [CHAR_LIMIT=120]">EmbeddingGemma 2 is now available! Try it in Instant Media Search or Video Moment Finder today.</string>
 
-  <!-- Section header for other use cases. [CHAR_LIMIT=30] -->
-  <string name="explore_other_use_cases" translatable="true" description="Section header for other use cases. [CHAR_LIMIT=30]">Explore other use cases</string>
+  <!-- Section header for other use cases. [CHAR_LIMIT=40] -->
+  <string name="explore_other_use_cases" translatable="true" description="Section header for other use cases. [CHAR_LIMIT=40]">Explore other use cases</string>
 
   <!-- Task Labels & Descriptions -->
   <string name="task_label_ai_chat" translatable="false">AI Chat</string>

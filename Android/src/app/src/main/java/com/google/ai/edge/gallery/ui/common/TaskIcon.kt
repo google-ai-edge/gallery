@@ -65,6 +65,7 @@ fun TaskIcon(
   modifier: Modifier = Modifier,
   width: Dp = 56.dp,
   animationProgress: Float = 1f,
+  index: Int = -1,
 ) {
   val revealingBrush =
     linearGradient(
@@ -75,9 +76,9 @@ fun TaskIcon(
         )
     )
   Box(modifier = modifier.width(width).aspectRatio(1f), contentAlignment = Alignment.Center) {
-    val brush = linearGradient(colors = getTaskBgGradientColors(task = task))
+    val brush = linearGradient(colors = getTaskBgGradientColors(task = task, index = index))
     Image(
-      painter = getTaskIconBgShape(task = task),
+      painter = getTaskIconBgShape(task = task, index = index),
       contentDescription = null,
       modifier =
         Modifier.fillMaxSize()
@@ -112,8 +113,9 @@ fun TaskIcon(
 }
 
 @Composable
-private fun getTaskIconBgShape(task: Task): Painter {
-  val colorIndex: Int = task.index % SHAPES.size
+private fun getTaskIconBgShape(task: Task, index: Int = -1): Painter {
+  val rawIndex = if (index >= 0) index else task.index
+  val colorIndex: Int = rawIndex.coerceAtLeast(0) % SHAPES.size
   return painterResource(SHAPES[colorIndex])
 }
 

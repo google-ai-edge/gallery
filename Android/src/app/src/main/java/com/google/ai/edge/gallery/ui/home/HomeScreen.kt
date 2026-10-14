@@ -26,6 +26,7 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -33,9 +34,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -413,6 +416,7 @@ fun HomeScreen(
 
               Column(modifier = Modifier.fillMaxWidth()) {
                 var selectedCategoryIndex by remember { mutableIntStateOf(0) }
+                val isSpeechHighlightEnabled = false
 
                 // App title and intro text.
                 Column(
@@ -424,7 +428,12 @@ fun HomeScreen(
                 ) {
                   AppTitle(enableAnimation = enableAnimation)
                   IntroText(enableAnimation = enableAnimation)
-                  TryEgv2IntroText(enableAnimation = enableAnimation)
+                  FeaturedIntroText(
+                    titleRes = R.string.try_egv2_title,
+                    descriptionRes = R.string.try_egv2_description,
+                    iconRes = R.drawable.gemma_logo,
+                    enableAnimation = enableAnimation,
+                  )
                 }
 
                 // Tab header for categories.
@@ -454,6 +463,7 @@ fun HomeScreen(
                   pagerState = pagerState,
                   sortedCategories = sortedCategories,
                   tasksByCategories = uiState.tasksByCategory,
+                  isSpeechHighlightEnabled = isSpeechHighlightEnabled,
                   enableAnimation = enableAnimation,
                   navigateToTaskScreen = navigateToTaskScreen,
                 )
@@ -650,7 +660,12 @@ private fun TryGm4IntroText(enableAnimation: Boolean) {
 }
 
 @Composable
-private fun TryEgv2IntroText(enableAnimation: Boolean) {
+private fun FeaturedIntroText(
+  @StringRes titleRes: Int,
+  @StringRes descriptionRes: Int,
+  @DrawableRes iconRes: Int = R.drawable.gemma_logo,
+  enableAnimation: Boolean,
+) {
   // fade in + slide up.
   val progress =
     if (!enableAnimation) {
@@ -672,13 +687,13 @@ private fun TryEgv2IntroText(enableAnimation: Boolean) {
     horizontalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     Icon(
-      ImageVector.vectorResource(R.drawable.gemma_logo),
+      ImageVector.vectorResource(iconRes),
       contentDescription = null,
       modifier = Modifier.size(24.dp),
       tint = MaterialTheme.colorScheme.primary,
     )
     Text(
-      text = stringResource(R.string.try_egv2_title),
+      text = stringResource(titleRes),
       style =
         MaterialTheme.typography.headlineSmall.copy(
           fontWeight = FontWeight.Medium,
@@ -692,7 +707,7 @@ private fun TryEgv2IntroText(enableAnimation: Boolean) {
   }
 
   Text(
-    stringResource(R.string.try_egv2_description),
+    stringResource(descriptionRes),
     style = MaterialTheme.typography.bodyMedium,
     modifier =
       Modifier.graphicsLayer {
@@ -787,6 +802,7 @@ private fun TaskList(
   pagerState: PagerState,
   sortedCategories: List<CategoryInfo>,
   tasksByCategories: Map<String, List<Task>>,
+  isSpeechHighlightEnabled: Boolean,
   enableAnimation: Boolean,
   navigateToTaskScreen: (Task) -> Unit,
 ) {
@@ -814,7 +830,8 @@ private fun TaskList(
     initialAnimationDone = true
   }
 
-  val taskIds = listOf(BuiltInTaskId.SMART_ALBUM, BuiltInTaskId.VIDEO_MOMENT_FINDER)
+  val taskIds =
+  listOf(BuiltInTaskId.SMART_ALBUM, BuiltInTaskId.VIDEO_MOMENT_FINDER)
 
   // The highlighted tiles at the top.
   Column(
@@ -828,20 +845,20 @@ private fun TaskList(
     val chatToDescription =
       mapOf(
         BuiltInTaskId.LLM_CHAT to stringResource(R.string.gemma_reskin_try_gemma_4_chat),
-        // use "\u00a0" to make sure the word before and after it should always be together when
-        // wrapping lines.
         BuiltInTaskId.LLM_AGENT_CHAT to stringResource(R.string.gemma_reskin_try_gemma_4_skills),
         BuiltInTaskId.SMART_ALBUM to stringResource(R.string.task_desc_smart_album),
-        BuiltInTaskId.VIDEO_MOMENT_FINDER to stringResource(R.string.task_desc_video_moment_finder),
+        BuiltInTaskId.VIDEO_MOMENT_FINDER to
+    stringResource(R.string.task_desc_video_moment_finder),
       )
-    for (task in taskIds.map { modelManagerViewModel.getTaskById(it)!! }) {
+    for ((promoIndex, task) in
+      taskIds.mapNotNull { modelManagerViewModel.getTaskById(it) }.withIndex()) {
       TaskCard(
         task = task,
-        index = 0,
+        index = promoIndex,
         animate = !initialAnimationDone && enableAnimation,
         onClick = { navigateToTaskScreen(task) },
         modifier = Modifier.fillMaxWidth(),
-        description = chatToDescription[task.id]!!,
+        description = chatToDescription[task.id] ?: task.shortDescription,
       )
     }
 
@@ -863,7 +880,7 @@ private fun TaskList(
     verticalAlignment = Alignment.Top,
     contentPadding = PaddingValues(horizontal = 20.dp),
   ) { pageIndex ->
-    val tasks = tasksByCategories[sortedCategories[pageIndex].id]!!.filter { it.id !in taskIds }
+    val tasks = tasksByCategories[sortedCategories[pageIndex].id] ?: emptyList()
     Column(
       verticalArrangement = Arrangement.spacedBy(16.dp),
       modifier =
@@ -873,7 +890,7 @@ private fun TaskList(
     ) {
       for (i in tasks.indices step 2) {
         Row(
-          modifier = Modifier.fillMaxWidth(),
+          modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
           horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
           // First item in the row
@@ -883,7 +900,7 @@ private fun TaskList(
             animate =
               (pageIndex == 0 || pageIndex == 1) && !initialAnimationDone && enableAnimation,
             onClick = { navigateToTaskScreen(tasks[i]) },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
             square = true,
           )
 
@@ -895,7 +912,7 @@ private fun TaskList(
               animate =
                 (pageIndex == 0 || pageIndex == 1) && !initialAnimationDone && enableAnimation,
               onClick = { navigateToTaskScreen(tasks[i + 1]) },
-              modifier = Modifier.weight(1f),
+              modifier = Modifier.weight(1f).fillMaxHeight(),
               square = true,
             )
           } else {
@@ -980,7 +997,7 @@ private fun TaskCard(
         modifier = Modifier.fillMaxSize().padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
       ) {
-        TaskIcon(task = task, width = 40.dp)
+        TaskIcon(task = task, index = index, width = 40.dp)
         Column() {
           Text(
             curModelCountLabel,
@@ -991,6 +1008,8 @@ private fun TaskCard(
             task.label,
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.titleMedium,
+            minLines = 2,
+            maxLines = 2,
           )
           Text(
             task.shortDescription,
@@ -1010,7 +1029,7 @@ private fun TaskCard(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         // Icon.
-        TaskIcon(task = task, width = 40.dp)
+        TaskIcon(task = task, index = index, width = 40.dp)
 
         // Title and description.
         Column(modifier = Modifier.weight(1f).padding(start = 16.dp)) {

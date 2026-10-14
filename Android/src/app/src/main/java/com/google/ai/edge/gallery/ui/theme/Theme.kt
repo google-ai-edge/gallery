@@ -162,36 +162,36 @@ val lightCustomColors =
     taskCardBgColor = surfaceContainerLowestLight,
     taskBgColors =
       listOf(
-        // red
-        Color(0xFFFFF5F5),
-        // green
-        Color(0xFFF4FBF6),
         // blue
         Color(0xFFF1F6FE),
+        // green
+        Color(0xFFF4FBF6),
         // yellow
         Color(0xFFFFFBF0),
+        // red
+        Color(0xFFFFF5F5),
       ),
     taskBgGradientColors =
       listOf(
-        // red
-        listOf(Color(0xFFE25F57), Color(0xFFDB372D)),
-        // green
-        listOf(Color(0xFF41A15F), Color(0xFF128937)),
         // blue
         listOf(Color(0xFF669DF6), Color(0xFF3174F1)),
+        // green
+        listOf(Color(0xFF41A15F), Color(0xFF128937)),
         // yellow
         listOf(Color(0xFFFDD45D), Color(0xFFCAA12A)),
+        // red
+        listOf(Color(0xFFE25F57), Color(0xFFDB372D)),
       ),
     taskIconColors =
       listOf(
-        // red.
-        Color(0xFFDB372D),
-        // green
-        Color(0xFF128937),
         // blue
         Color(0xFF3174F1),
+        // green
+        Color(0xFF128937),
         // yellow
         Color(0xFFCAA12A),
+        // red
+        Color(0xFFDB372D),
       ),
     taskIconShapeBgColor = Color.White,
     homeBottomGradient = listOf(Color(0x00F8F9FF), Color(0xffFFEFC9)),
@@ -245,36 +245,36 @@ val darkCustomColors =
     taskCardBgColor = surfaceContainerHighDark,
     taskBgColors =
       listOf(
-        // red
-        Color(0xFF181210),
-        // green
-        Color(0xFF131711),
         // blue
         Color(0xFF191924),
+        // green
+        Color(0xFF131711),
         // yellow
         Color(0xFF1A1813),
+        // red
+        Color(0xFF181210),
       ),
     taskBgGradientColors =
       listOf(
-        // red
-        listOf(Color(0xFFE25F57), Color(0xFFDB372D)),
-        // green
-        listOf(Color(0xFF41A15F), Color(0xFF128937)),
         // blue
         listOf(Color(0xFF669DF6), Color(0xFF3174F1)),
+        // green
+        listOf(Color(0xFF41A15F), Color(0xFF128937)),
         // yellow
         listOf(Color(0xFFFDD45D), Color(0xFFCAA12A)),
+        // red
+        listOf(Color(0xFFE25F57), Color(0xFFDB372D)),
       ),
     taskIconColors =
       listOf(
-        // red.
-        Color(0xFFE25F57),
-        // green
-        Color(0xFF41A15F),
         // blue
         Color(0xFF669DF6),
+        // green
+        Color(0xFF41A15F),
         // yellow
         Color(0xFFCAA12A),
+        // red
+        Color(0xFFE25F57),
       ),
     taskIconShapeBgColor = Color(0xFF202124),
     homeBottomGradient = listOf(Color(0x00F8F9FF), Color(0x1AF6AD01)),
