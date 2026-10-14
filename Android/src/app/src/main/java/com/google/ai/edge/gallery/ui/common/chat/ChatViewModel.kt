@@ -147,27 +147,6 @@ abstract class ChatViewModel(
     }
   }
 
-  /**
-   * Inserts [message] immediately before the active turn's trailing loading and user messages for
-   * [model].
-   */
-  fun insertMessageBeforeCurrentTurn(model: Model, message: ChatMessage) {
-    _uiState.update { state ->
-      val newMessagesByModel = state.messagesByModel.toMutableMap()
-      val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
-      newMessagesByModel[model.name] = newMessages
-      var insertIndex = newMessages.size
-      if (insertIndex > 0 && newMessages[insertIndex - 1] is ChatMessageLoading) {
-        insertIndex--
-      }
-      while (insertIndex > 0 && newMessages[insertIndex - 1].side == ChatSide.USER) {
-        insertIndex--
-      }
-      newMessages.add(insertIndex, message)
-      state.copy(messagesByModel = newMessagesByModel)
-    }
-  }
-
   fun insertMessageAfter(model: Model, anchorMessage: ChatMessage, messageToAdd: ChatMessage) {
     val newMessagesByModel = _uiState.value.messagesByModel.toMutableMap()
     val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
