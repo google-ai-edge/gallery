@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery.ui.common.modelitem
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
@@ -76,12 +77,17 @@ fun ModelNameAndStatus(
   isExpanded: Boolean,
   modifier: Modifier = Modifier,
   showModelSizeAndDownloadProgressLabel: Boolean = true,
+  showBestOverallBadge: Boolean = false,
+  statusContent: (@Composable () -> Unit)? = null,
 ) {
   var showUpdateDialog by remember { mutableStateOf(false) }
 
   Column(modifier = modifier) {
-    // Show "best overall" only for the first model if it is indeed the best for this task.
-    if (task != null && model.bestForTaskIds.contains(task.id) && task.models[0] == model) {
+    // Show "best overall" only for the first model if it is indeed the best for this task, or when
+    // the caller marks a model without a task (e.g. a supplementary model) as best.
+    val isBestForTask =
+      task != null && model.bestForTaskIds.contains(task.id) && task.models[0] == model
+    if (isBestForTask || showBestOverallBadge) {
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -160,13 +166,17 @@ fun ModelNameAndStatus(
       )
     }
 
-    // Status icon + size + download progress details.
+    // Status icon + size + download progress details, unless the caller provides its own status.
+    if (statusContent != null) {
+      Box(modifier = Modifier.padding(top = 4.dp)) { statusContent() }
+    }
     val showStatusForNonDownloadable =
       downloadStatus?.status == ModelDownloadStatusType.UNAVAILABLE ||
         downloadStatus?.status == ModelDownloadStatusType.FAILED ||
         downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
     if (
-      !model.autoDownloadsOnStartup &&
+      statusContent == null &&
+        !model.autoDownloadsOnStartup &&
         showModelSizeAndDownloadProgressLabel &&
         (model.supportsTopLevelDownload || showStatusForNonDownloadable)
     ) {
