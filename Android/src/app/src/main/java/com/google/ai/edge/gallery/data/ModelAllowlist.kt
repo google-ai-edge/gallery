@@ -87,6 +87,7 @@ data class AllowedModel(
 ) {
   fun toModel(): Model? {
     val effectiveModelType = modelType ?: ModelType.TASK
+    val resolvedRuntime = runtimeType ?: RuntimeType.LITERT_LM
 
     // Construct HF download url. `modelFile` may be a path relative to the repo root (e.g.
     // "subfolder/model.litertlm"): the full path is used in the download url, while only the base
@@ -191,7 +192,6 @@ data class AllowedModel(
           .toMutableList()
     }
 
-    val resolvedRuntime = runtimeType ?: RuntimeType.LITERT_LM
     var resolvedLearnMoreUrl =
       this.learnMoreUrl ?: if (modelId.isEmpty()) "" else "https://huggingface.co/${modelId}"
 
