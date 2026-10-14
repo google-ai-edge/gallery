@@ -52,8 +52,13 @@ interface LlmConversationInstance {
   /** Returns the current token count in the active conversation's KV cache. */
   fun getTokenCount(): Int
 
-  /** Sends a synchronous prompt to the active conversation and returns the generated [Message]. */
-  fun sendMessage(prompt: String): Message
+  /**
+   * Sends a synchronous prompt to the active conversation and returns the generated [Message].
+   *
+   * @param prompt The prompt text to send.
+   * @param maxOutputTokens Optional cap on the number of output tokens generated for this message.
+   */
+  fun sendMessage(prompt: String, maxOutputTokens: Int? = null): Message
 }
 
 /**
