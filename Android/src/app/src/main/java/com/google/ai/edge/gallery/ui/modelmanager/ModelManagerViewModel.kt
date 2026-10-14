@@ -41,13 +41,13 @@ import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.DataStoreRepository
+import com.google.ai.edge.gallery.data.DownloadAuthError
 import com.google.ai.edge.gallery.data.DownloadRepository
 import com.google.ai.edge.gallery.data.EMPTY_MODEL
 import com.google.ai.edge.gallery.data.IMPORTS_DIR
 import com.google.ai.edge.gallery.data.LiteRtLmModelDownloader
 import com.google.ai.edge.gallery.data.LlmProfile
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.ModelAccessibility
 import com.google.ai.edge.gallery.data.ModelAllowlist
 import com.google.ai.edge.gallery.data.ModelDownloadInfo
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
@@ -81,8 +81,6 @@ import com.google.gson.Gson
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
@@ -138,6 +136,15 @@ enum class TokenRequestResultType {
 data class TokenStatusAndData(val status: TokenStatus, val data: AccessTokenData?)
 
 data class TokenRequestResult(val status: TokenRequestResultType, val errorMessage: String? = null)
+
+/** What clicking a model's download button does. */
+sealed interface DownloadClickAction {
+  /** Download the model, sending [accessToken] if it isn't `null`. */
+  data class Download(val accessToken: String?) : DownloadClickAction
+
+  /** Ask the user for the access the last download attempt was refused for. */
+  data class ResolveAuth(val authError: DownloadAuthError) : DownloadClickAction
+}
 
 data class ModelManagerUiState(
   /** A list of tasks available in the application. */
@@ -293,6 +300,11 @@ constructor(
   // Tracks the initialized backends for each model by model name.
   private val initializedBackends = ConcurrentHashMap<String, MutableSet<Accelerator>>()
 
+  // Models whose download the user started from a download button, mapped to whether that download
+  // retries right after a Hugging Face sign-in. Kept here rather than in the button, which can be
+  // recomposed or replaced (e.g. by AnimatedContent) while the download runs.
+  private val userStartedDownloads = ConcurrentHashMap<String, Boolean>()
+
   fun isFirstInitialization(model: Model): Boolean {
     val backend = getModelCurrentAccelerator(model)
     return initializedBackends[model.name]?.contains(backend) != true
@@ -437,6 +449,9 @@ constructor(
       return
     }
     downloader?.cancel(model)
+    // deleteModel below resets the status without setDownloadStatus, so forget the download here.
+    // (Not in deleteModel itself: downloadModel calls it when a download starts.)
+    userStartedDownloads.remove(model.name)
     if (model.downloadsViaRepository) {
       deleteModel(model = model, removeImportedFromModelList = false)
     } else {
@@ -877,6 +892,16 @@ constructor(
   }
 
   fun setDownloadStatus(curModel: Model, status: ModelDownloadStatus) {
+    // A download that ended without an auth error leaves nothing to ask the user about.
+    if (
+      status.authError == null &&
+        (status.status == ModelDownloadStatusType.SUCCEEDED ||
+          status.status == ModelDownloadStatusType.FAILED ||
+          status.status == ModelDownloadStatusType.NOT_DOWNLOADED)
+    ) {
+      userStartedDownloads.remove(curModel.name)
+    }
+
     // Delete downloaded file if status is failed or not_downloaded.
     if (
       curModel.downloadsViaRepository &&
@@ -979,56 +1004,6 @@ constructor(
     firebaseAnalytics?.setAnalyticsCollectionEnabled(enabled)
   }
 
-  /**
-   * Checks the accessibility of a remote model URL.
-   *
-   * @param model The model to probe.
-   * @param accessToken Optional Hugging Face or server access token.
-   * @return [ModelAccessibility] indicating if the model URL is accessible, gated, or needs auth.
-   */
-  suspend fun checkModelAccessibility(
-    model: Model,
-    accessToken: String? = null,
-  ): ModelAccessibility =
-    withContext(Dispatchers.IO) {
-      if (model.downloadInfo.url.isEmpty()) {
-        return@withContext ModelAccessibility.ACCESSIBLE
-      }
-      // If it's a Hugging Face URL, delegate to HuggingFaceApiClient.
-      if (HuggingFaceApiClient.isHuggingFaceUrl(model.downloadInfo.url)) {
-        return@withContext huggingFaceApiClient.checkModelAccessibility(
-          modelUrl = model.downloadInfo.url,
-          accessToken = accessToken,
-        )
-      }
-
-      val responseCode: Int
-      try {
-        val url = URL(model.downloadInfo.url)
-        val connection = url.openConnection() as HttpURLConnection
-        connection.requestMethod = "HEAD"
-        connection.connect()
-
-        responseCode = connection.responseCode
-      } catch (e: Exception) {
-        Log.e(TAG, "Error checking model accessibility for '${model.name}'", e)
-        return@withContext ModelAccessibility.ERROR
-      }
-
-      when (responseCode) {
-        in 200..299 -> ModelAccessibility.ACCESSIBLE
-        HttpURLConnection.HTTP_UNAUTHORIZED -> ModelAccessibility.NEEDS_TOKEN_EXCHANGE
-        HttpURLConnection.HTTP_FORBIDDEN -> ModelAccessibility.GATED
-        else -> {
-          Log.w(
-            TAG,
-            "Unexpected response code checking model accessibility for '${model.name}': $responseCode",
-          )
-          ModelAccessibility.ERROR
-        }
-      }
-    }
-
   fun addImportedLlmModel(info: ImportedModel) {
     Log.d(TAG, "adding imported llm model: $info")
 
@@ -1119,6 +1094,69 @@ constructor(
     }
 
     return TokenStatusAndData(status = tokenStatus, data = tokenData)
+  }
+
+  /** Returns the stored Hugging Face access token, or `null` if there's none or it has expired. */
+  fun validStoredAccessToken(): String? {
+    val tokenStatusAndData = getTokenStatusAndData()
+    return tokenStatusAndData.data?.accessToken?.takeIf {
+      tokenStatusAndData.status == TokenStatus.NOT_EXPIRED && it.isNotEmpty()
+    }
+  }
+
+  /**
+   * Records that the user started downloading [model] from a download button, so that if Hugging
+   * Face refuses this download, the user is asked for the missing access (see
+   * [takeAuthErrorToPrompt]).
+   *
+   * @param afterSignIn Whether this download retries right after a Hugging Face sign-in.
+   */
+  fun onUserStartedDownload(model: Model, afterSignIn: Boolean) {
+    userStartedDownloads[model.name] = afterSignIn
+  }
+
+  /**
+   * Returns the access error to ask the user about for [model]'s refused download, or `null` if
+   * there's nothing to ask.
+   *
+   * Only downloads recorded with [onUserStartedDownload] are asked about, and each refusal at most
+   * once, even if several buttons show the model. A sign-in refusal right after signing in isn't
+   * asked about again: the OAuth flow can complete without user input, so it could loop.
+   */
+  fun takeAuthErrorToPrompt(model: Model): DownloadAuthError? {
+    val authError = uiState.value.modelDownloadStatus[model.name]?.authError ?: return null
+    val afterSignIn = userStartedDownloads.remove(model.name) ?: return null
+    if (authError == DownloadAuthError.NEEDS_SIGN_IN && afterSignIn) {
+      Log.w(TAG, "Model '${model.name}' is still refused after signing in. Not signing in again.")
+      return null
+    }
+    return authError
+  }
+
+  /**
+   * Decides what clicking [model]'s download button does: download, with the stored Hugging Face
+   * token if the model is on Hugging Face, or first ask for the access the last attempt was refused
+   * for.
+   *
+   * The URL isn't probed before downloading: Hugging Face counts every request to a model file,
+   * including HEAD, as a download. Missing access shows up as an auth error on the download itself.
+   */
+  fun downloadClickAction(model: Model): DownloadClickAction {
+    if (!HuggingFaceApiClient.isHuggingFaceUrl(model.downloadInfo.url)) {
+      return DownloadClickAction.Download(accessToken = null)
+    }
+    val storedToken = validStoredAccessToken()
+    val authError = uiState.value.modelDownloadStatus[model.name]?.authError
+    return when {
+      authError == null -> DownloadClickAction.Download(accessToken = storedToken)
+      // A token stored since the refused attempt (e.g. the user signed in while downloading another
+      // model) may have access, so try it before asking the user to sign in again.
+      authError == DownloadAuthError.NEEDS_SIGN_IN &&
+        storedToken != null &&
+        storedToken != model.downloadInfo.accessToken ->
+        DownloadClickAction.Download(accessToken = storedToken)
+      else -> DownloadClickAction.ResolveAuth(authError = authError)
+    }
   }
 
   fun getAuthorizationRequest(): AuthorizationRequest {

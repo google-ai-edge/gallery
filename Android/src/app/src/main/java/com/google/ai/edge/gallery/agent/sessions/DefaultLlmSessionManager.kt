@@ -297,40 +297,10 @@ constructor(
     resultListener: ResultListener,
     cleanUpListener: CleanUpListener,
     onError: (message: String) -> Unit,
-    onCompactionStart: () -> Unit,
-    onCompactionFinished: (Boolean) -> Unit,
     images: List<Bitmap>,
     audioClips: List<ByteArray>,
     extraContext: Map<String, String>,
   ) {
-    var compactionStarted = false
-    try {
-      val compacted =
-        compactContextIfNeeded(
-          sessionId = sessionId,
-          model = model,
-          onCompactionStart = {
-            compactionStarted = true
-            onCompactionStart()
-          },
-        )
-      if (compactionStarted) {
-        onCompactionFinished(compacted)
-      }
-      if (compacted) {
-        Log.d(TAG, "Context compacted before inference for session $sessionId")
-      } else {
-        Log.d(TAG, "Context compaction not needed before inference for session $sessionId")
-      }
-    } catch (e: CancellationException) {
-      throw e
-    } catch (e: Exception) {
-      if (compactionStarted) {
-        onCompactionFinished(false)
-      }
-      Log.w(TAG, "Context compaction check failed for session $sessionId: ${e.message}", e)
-    }
-
     if (model.instance == null) {
       try {
         model.awaitInitialization()
