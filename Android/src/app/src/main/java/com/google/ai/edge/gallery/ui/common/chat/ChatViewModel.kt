@@ -197,13 +197,45 @@ abstract class ChatViewModel(
    * Updates whether automatic context compaction is enabled for the given [taskId] in both
    * [DataStoreRepository] and the UI state.
    *
+   * When [compactIfLimitReached] is `true`, transitioning [enabled] from `false` to `true` will
+   * also trigger automatic context compaction if [model] is provided, idle, and the active session
+   * has reached its token limit.
+   *
    * @param taskId The identifier of the task for which to update the auto-compaction setting.
    * @param enabled Whether automatic context compaction should be enabled.
+   * @param model Optional active [Model] to evaluate and compact if the token limit is reached.
+   * @param compactIfLimitReached Whether to immediately trigger compaction if the token limit is
+   *   already reached when enabling auto-compaction.
    */
-  fun setAutoCompact(taskId: String, enabled: Boolean) {
+  fun setAutoCompact(
+    taskId: String,
+    enabled: Boolean,
+    model: Model? = null,
+    compactIfLimitReached: Boolean = false,
+  ) {
+    val wasEnabled = isAutoCompactEnabled(taskId)
     dataStoreRepository?.saveAutoContextCompact(taskId, enabled)
     _uiState.update { state ->
       state.copy(autoCompactByTask = state.autoCompactByTask + (taskId to enabled))
+    }
+    if (
+      !wasEnabled &&
+        enabled &&
+        compactIfLimitReached &&
+        model != null &&
+        !model.initializing &&
+        !_uiState.value.inProgress &&
+        !_uiState.value.isResettingSession &&
+        getContextCompactionStatus(model) != ContextCompactionStatus.COMPACTING
+    ) {
+      val sessionId = llmSessionManager.activeSessionId
+      if (sessionId != null && llmSessionManager.isTokenLimitReached(sessionId, model)) {
+        compactContext(
+          model = model,
+          taskId = taskId,
+          triggerType = ContextCompactionTriggerType.AUTO,
+        )
+      }
     }
   }
 
