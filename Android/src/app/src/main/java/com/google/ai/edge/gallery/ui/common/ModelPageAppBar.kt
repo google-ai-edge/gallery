@@ -92,10 +92,12 @@ fun ModelPageAppBar(
   shouldShowHistoryButton: Boolean = false,
   onHistoryClicked: (Model) -> Unit = {},
   isAutoCompactEnabled: Boolean = false,
+  // Disables the model picker, config and history buttons but, unlike [inProgress], keeps the back
+  // button enabled. For example while a task is still starting its own engines.
+  actionsDisabled: Boolean = false,
 ) {
   var showConfigDialog by remember { mutableStateOf(false) }
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
-  val context = LocalContext.current
   val curDownloadStatus = modelManagerUiState.modelDownloadStatus[model.name]
   val initStatus by model.initStatusFlow.collectAsStateWithLifecycle()
   val isModelInitializing = initStatus is Model.InitializationStatus.Initializing
@@ -124,7 +126,7 @@ fun ModelPageAppBar(
 
         // Model chips pager.
         if (!hideModelSelector) {
-          val enableModelPickerChip = !isModelInitializing && !inProgress
+          val enableModelPickerChip = !isModelInitializing && !inProgress && !actionsDisabled
           ModelPickerChip(
             enabled = enableModelPickerChip,
             task = task,
@@ -156,7 +158,8 @@ fun ModelPageAppBar(
           configButtonOffset = (-40).dp
         }
         if (showConfigButton) {
-          val enableConfigButton = !isModelInitializing && !inProgress && isModelInitialized
+          val enableConfigButton =
+            !isModelInitializing && !inProgress && !actionsDisabled && isModelInitialized
           IconButton(
             onClick = { showConfigDialog = true },
             enabled = enableConfigButton,
@@ -173,7 +176,11 @@ fun ModelPageAppBar(
         }
         if (downloadSucceeded && shouldShowHistoryButton) {
           val enableHistoryButton =
-            !isModelInitializing && !modelPreparing && !inProgress && isModelInitialized
+            !isModelInitializing &&
+              !modelPreparing &&
+              !inProgress &&
+              !actionsDisabled &&
+              isModelInitialized
           IconButton(
             onClick = { onHistoryClicked(model) },
             enabled = enableHistoryButton,
@@ -193,177 +200,217 @@ fun ModelPageAppBar(
 
   // Config dialog.
   if (showConfigDialog) {
-    var supportsSpeculativeDecoding by
-      remember(model.name, task.id) {
-        mutableStateOf(model.configs.any { it.key == ConfigKeys.ENABLE_SPECULATIVE_DECODING })
-      }
-    var currentConfigs by remember(model.name, task.id) { mutableStateOf(model.configs) }
-    var currentConfigValues by remember(model.name, task.id) { mutableStateOf(model.configValues) }
+    TaskConfigDialog(
+      task = task,
+      model = model,
+      modelManagerViewModel = modelManagerViewModel,
+      onDismissed = { showConfigDialog = false },
+      onConfigChanged = onConfigChanged,
+      allowEditingSystemPrompt = allowEditingSystemPrompt,
+      curSystemPrompt = curSystemPrompt,
+      defaultSystemPrompt = defaultSystemPrompt,
+      onSystemPromptChanged = onSystemPromptChanged,
+      isAutoCompactEnabled = isAutoCompactEnabled,
+    )
+  }
+}
 
-    LaunchedEffect(model.name, task.id) {
-      // Check if the model file supports speculative decoding and visual token budget selection.
-      // The model file is read off the main thread; the model configs are updated on the main
-      // thread.
-      try {
-        val (specSupport, visionOptions, visionCeiling) =
-          withContext(Dispatchers.IO) {
-            ModelInfo.from(model.getPath(context)).use { modelInfo ->
-              Triple(
-                (modelInfo as? ModelInfo.Llm)?.hasSpeculativeDecodingSupport(),
-                modelInfo.visionSignatureSelection(),
-                modelInfo.maxVisionTokenBudget(),
-              )
-            }
+/**
+ * Displays [ConfigDialog] for [task] and [model], computing task-filtered model configs, observing
+ * the Audio tab state, and handling model re-initialization and analytics when configs change.
+ */
+@Composable
+fun TaskConfigDialog(
+  task: Task,
+  model: Model,
+  modelManagerViewModel: ModelManagerViewModel,
+  onDismissed: () -> Unit,
+  onConfigChanged: (oldConfigValues: Map<String, Any>, newConfigValues: Map<String, Any>) -> Unit =
+    { _, _ ->
+    },
+  allowEditingSystemPrompt: Boolean = false,
+  curSystemPrompt: String = "",
+  defaultSystemPrompt: String = task.defaultSystemPrompt,
+  onSystemPromptChanged: (String) -> Unit = {},
+  isAutoCompactEnabled: Boolean = false,
+) {
+  val context = LocalContext.current
+  var supportsSpeculativeDecoding by
+    remember(model.name, task.id) {
+      mutableStateOf(model.configs.any { it.key == ConfigKeys.ENABLE_SPECULATIVE_DECODING })
+    }
+  var currentConfigs by remember(model.name, task.id) { mutableStateOf(model.configs) }
+  var currentConfigValues by remember(model.name, task.id) { mutableStateOf(model.configValues) }
+
+  LaunchedEffect(model.name, task.id) {
+    // Check if the model file supports speculative decoding and visual token budget selection.
+    // The model file is read off the main thread; the model configs are updated on the main
+    // thread.
+    try {
+      val (specSupport, visionOptions, visionCeiling) =
+        withContext(Dispatchers.IO) {
+          ModelInfo.from(model.getPath(context)).use { modelInfo ->
+            Triple(
+              (modelInfo as? ModelInfo.Llm)?.hasSpeculativeDecodingSupport(),
+              modelInfo.visionSignatureSelection(),
+              modelInfo.maxVisionTokenBudget(),
+            )
           }
-        if (specSupport != null) {
-          supportsSpeculativeDecoding = specSupport
         }
-        val unused =
-          ModelUtils.configureVisualTokenBudgetForModel(
-            model = model,
-            shouldEnableImage = task.isVisionEnabled(model),
-            rawOptions = visionOptions,
-            ceiling = visionCeiling,
-          )
-        currentConfigs = model.configs
-        currentConfigValues = model.configValues
-      } catch (e: CancellationException) {
-        throw e
-      } catch (e: Exception) {
-        // Ignore exceptions and assume not supported.
+      if (specSupport != null) {
+        supportsSpeculativeDecoding = specSupport
+      }
+      val unused =
+        ModelUtils.configureVisualTokenBudgetForModel(
+          model = model,
+          shouldEnableImage = task.isVisionEnabled(model),
+          rawOptions = visionOptions,
+          ceiling = visionCeiling,
+        )
+      currentConfigs = model.configs
+      currentConfigValues = model.configValues
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      // Ignore exceptions and assume not supported.
+    }
+  }
+
+  // Remove the reset conversation turn count config for non-tiny-garden tasks.
+  //
+  // This may happen when user imports a model with "enable tiny garden" turned on and use the
+  // model in another non-tiny-garden task.
+  val modelConfigs =
+    remember(currentConfigs, supportsSpeculativeDecoding, task, model) {
+      currentConfigs.toMutableList().apply {
+        if (task.id != BuiltInTaskId.LLM_TINY_GARDEN) {
+          removeIf { it.key == ConfigKeys.RESET_CONVERSATION_TURN_COUNT }
+        }
+        if (!task.allowCapability(ModelCapability.LLM_THINKING, model)) {
+          removeIf { it.key == ConfigKeys.ENABLE_THINKING }
+        }
+        if (!task.isVisionEnabled(model)) {
+          removeIf { it.key == ConfigKeys.VISUAL_TOKEN_BUDGET }
+        }
+        if (
+          !supportsSpeculativeDecoding ||
+            !task.allowCapability(ModelCapability.SPECULATIVE_DECODING, model)
+        ) {
+          removeIf { it.key == ConfigKeys.ENABLE_SPECULATIVE_DECODING }
+        }
+        if (task.isContextCompactSupported(model)) {
+          if (none { it.key == ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT }) {
+            add(Config.createAutoContextCompactConfig())
+          }
+        } else {
+          removeIf { it.key == ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT }
+        }
       }
     }
-
-    // Remove the reset conversation turn count config for non-tiny-garden tasks.
-    //
-    // This may happen when user imports a model with "enable tiny garden" turned on and use the
-    // model in another non-tiny-garden task.
-    val modelConfigs =
-      remember(currentConfigs, supportsSpeculativeDecoding, task, model) {
-        currentConfigs.toMutableList().apply {
-          if (task.id != BuiltInTaskId.LLM_TINY_GARDEN) {
-            removeIf { it.key == ConfigKeys.RESET_CONVERSATION_TURN_COUNT }
-          }
-          if (!task.allowCapability(ModelCapability.LLM_THINKING, model)) {
-            removeIf { it.key == ConfigKeys.ENABLE_THINKING }
-          }
-          if (!task.isVisionEnabled(model)) {
-            removeIf { it.key == ConfigKeys.VISUAL_TOKEN_BUDGET }
-          }
-          if (
-            !supportsSpeculativeDecoding ||
-              !task.allowCapability(ModelCapability.SPECULATIVE_DECODING, model)
-          ) {
-            removeIf { it.key == ConfigKeys.ENABLE_SPECULATIVE_DECODING }
-          }
-          if (task.isContextCompactSupported(model)) {
-            if (none { it.key == ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT }) {
-              add(Config.createAutoContextCompactConfig())
-            }
-          } else {
-            removeIf { it.key == ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT }
-          }
+  val dialogInitialValues =
+    remember(currentConfigValues, task, model, isAutoCompactEnabled) {
+      currentConfigValues.toMutableMap().apply {
+        if (task.isContextCompactSupported(model)) {
+          put(ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label, isAutoCompactEnabled)
         }
       }
-    val dialogInitialValues =
-      remember(currentConfigValues, task, model, isAutoCompactEnabled) {
-        currentConfigValues.toMutableMap().apply {
-          if (task.isContextCompactSupported(model)) {
-            put(ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label, isAutoCompactEnabled)
-          }
-        }
-      }
-    ConfigDialog(
-      title = stringResource(R.string.config_dialog_title),
-      configs = modelConfigs,
-      initialValues = dialogInitialValues,
-      onDismissed = { showConfigDialog = false },
-      onOk = { curConfigValues, oldSystemPrompt, newSystemPrompt ->
-        // Hide config dialog.
-        showConfigDialog = false
+    }
+  ConfigDialog(
+    title = stringResource(R.string.config_dialog_title),
+    configs = modelConfigs,
+    initialValues = dialogInitialValues,
+    onDismissed = onDismissed,
+    onOk = { curConfigValues, oldSystemPrompt, newSystemPrompt ->
+      // Hide config dialog.
+      onDismissed()
 
-        // Check if the configs are changed or not. Also check if the model needs to be
-        // re-initialized.
-        var same = true
-        var needReinitialization = false
-        for (config in modelConfigs) {
-          val key = config.key.label
-          val oldValue =
-            convertValueToTargetType(
-              value = dialogInitialValues.getValue(key),
-              valueType = config.valueType,
-            )
-          val newValue =
-            convertValueToTargetType(
-              value = curConfigValues.getValue(key),
-              valueType = config.valueType,
-            )
-          if (oldValue != newValue) {
-            same = false
-            if (config.needReinitialization) {
-              needReinitialization = true
-            }
+      // Check if the configs are changed or not. Also check if the model needs to be
+      // re-initialized.
+      var same = true
+      var modelConfigChanged = false
+      var needReinitialization = false
+      for (config in modelConfigs) {
+        val key = config.key.label
+        val oldValue =
+          convertValueToTargetType(
+            value = dialogInitialValues.getValue(key),
+            valueType = config.valueType,
+          )
+        val newValue =
+          convertValueToTargetType(
+            value = curConfigValues.getValue(key),
+            valueType = config.valueType,
+          )
+        if (oldValue != newValue) {
+          same = false
+          if (config.key != ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT) {
+            modelConfigChanged = true
+          }
+          if (config.needReinitialization) {
+            needReinitialization = true
+          }
+          if (modelConfigChanged && needReinitialization) {
             break
           }
         }
-        val systemPromptChanged = newSystemPrompt != oldSystemPrompt
+      }
+      val systemPromptChanged = newSystemPrompt != oldSystemPrompt
 
-        if (!same || systemPromptChanged) {
-          firebaseAnalytics?.logEvent(
-            GalleryEvent.MODEL_CONFIG_CHANGE.id,
-            Bundle().apply {
-              putString("model_id", model.name)
-              putString("capability_name", task.id)
-              putString("model_version", model.downloadInfo.version)
-              putString("app_version", BuildConfig.VERSION_NAME)
+      if (modelConfigChanged || systemPromptChanged) {
+        firebaseAnalytics?.logEvent(
+          GalleryEvent.MODEL_CONFIG_CHANGE.id,
+          Bundle().apply {
+            putString("model_id", model.name)
+            putString("capability_name", task.id)
+            putString("model_version", model.downloadInfo.version)
+            putString("app_version", BuildConfig.VERSION_NAME)
+          },
+        )
+      }
+
+      if (same) {
+        if (systemPromptChanged) {
+          onSystemPromptChanged(newSystemPrompt)
+        }
+        return@ConfigDialog
+      }
+
+      // Save the config values to Model (excluding task-level auto context compaction setting).
+      val oldConfigValues = model.configValues
+      model.prevConfigValues = oldConfigValues
+      model.configValues = curConfigValues.filterKeys {
+        it != ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label
+      }
+      when (task.id) {
+        BuiltInTaskId.LLM_AGENT_CHAT -> {
+          model.agentSkillTopKAdjusted = true
+          model.agentSkillTopK = curConfigValues[ConfigKeys.TOPK.label]
+        }
+      }
+      modelManagerViewModel.updateConfigValuesUpdateTrigger()
+
+      if (!task.handleModelConfigChangesInTask) {
+        // Force to re-initialize the model with the new configs.
+        if (needReinitialization) {
+          modelManagerViewModel.initializeModel(
+            context = context,
+            task = task,
+            model = model,
+            force = true,
+            onDone = {
+              if (oldSystemPrompt != newSystemPrompt) {
+                onSystemPromptChanged(newSystemPrompt)
+              }
             },
           )
         }
 
-        if (same) {
-          if (systemPromptChanged) {
-            onSystemPromptChanged(newSystemPrompt)
-          }
-          return@ConfigDialog
-        }
-
-        // Save the config values to Model (excluding task-level auto context compaction setting).
-        val oldConfigValues = model.configValues
-        model.prevConfigValues = oldConfigValues
-        model.configValues = curConfigValues.filterKeys {
-          it != ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label
-        }
-        when (task.id) {
-          BuiltInTaskId.LLM_AGENT_CHAT -> {
-            model.agentSkillTopKAdjusted = true
-            model.agentSkillTopK = curConfigValues[ConfigKeys.TOPK.label]
-          }
-        }
-        modelManagerViewModel.updateConfigValuesUpdateTrigger()
-
-        if (!task.handleModelConfigChangesInTask) {
-          // Force to re-initialize the model with the new configs.
-          if (needReinitialization) {
-            modelManagerViewModel.initializeModel(
-              context = context,
-              task = task,
-              model = model,
-              force = true,
-              onDone = {
-                if (oldSystemPrompt != newSystemPrompt) {
-                  onSystemPromptChanged(newSystemPrompt)
-                }
-              },
-            )
-          }
-
-          // Notify.
-          onConfigChanged(dialogInitialValues, curConfigValues)
-        }
-      },
-      showSystemPromptEditorTab = allowEditingSystemPrompt && !model.isAiCore,
-      defaultSystemPrompt = defaultSystemPrompt,
-      curSystemPrompt = curSystemPrompt,
-    )
-  }
+        // Notify.
+        onConfigChanged(dialogInitialValues, curConfigValues)
+      }
+    },
+    showSystemPromptEditorTab = allowEditingSystemPrompt && !model.isAiCore,
+    defaultSystemPrompt = defaultSystemPrompt,
+    curSystemPrompt = curSystemPrompt,
+  )
 }
