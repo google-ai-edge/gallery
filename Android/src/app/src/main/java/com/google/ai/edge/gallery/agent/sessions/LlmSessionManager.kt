@@ -183,10 +183,6 @@ interface LlmSessionManager {
    *   channel output.
    * @param cleanUpListener Callback invoked when inference cleanup finishes.
    * @param onError Callback invoked upon an error during inference.
-   * @param onCompactionStart Callback invoked immediately when compaction is triggered, before
-   *   summarization and reset begin.
-   * @param onCompactionFinished Callback invoked when triggered compaction finishes, with `true` if
-   *   context was compacted and conversation reset, or `false` if compaction failed.
    * @param images Optional input images.
    * @param audioClips Optional input audio clips.
    * @param extraContext Optional key-value parameters for engine inference (e.g.
@@ -199,8 +195,6 @@ interface LlmSessionManager {
     resultListener: ResultListener,
     cleanUpListener: CleanUpListener = {},
     onError: (message: String) -> Unit = {},
-    onCompactionStart: () -> Unit = {},
-    onCompactionFinished: (Boolean) -> Unit = {},
     images: List<Bitmap> = emptyList(),
     audioClips: List<ByteArray> = emptyList(),
     extraContext: Map<String, String> = emptyMap(),

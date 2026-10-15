@@ -46,4 +46,9 @@ data class ModelDownloadStatus(
   val isUpdatable: Boolean = false,
   val installedModelFile: ModelFile? = null,
   val unavailability: ModelUnavailability? = null,
+  /**
+   * Set when the last download stopped because Hugging Face refused access, telling the UI to run
+   * the sign-in or license flow before retrying.
+   */
+  val authError: DownloadAuthError? = null,
 )
