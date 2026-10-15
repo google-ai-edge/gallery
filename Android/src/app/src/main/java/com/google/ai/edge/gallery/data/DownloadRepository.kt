@@ -82,6 +82,50 @@ interface DownloadRepository {
   fun cancelDownloadExtraDataFiles(model: Model)
 }
 
+/** How a download that ended without succeeding is reported. */
+data class UnsuccessfulDownloadOutcome(
+  /** The model's download status afterwards. */
+  val status: ModelDownloadStatusType,
+  /** Whether to notify the user that the download failed. */
+  val notifyFailure: Boolean,
+  /** The `event_type` of the `model_download` analytics event. */
+  val analyticsEventType: String,
+) {
+  companion object {
+    /**
+     * Decides how to report a download that ended without succeeding.
+     *
+     * @param cancelled Whether the download was cancelled rather than failed.
+     * @param authError Set when Hugging Face refused the download. That isn't a failure: the UI
+     *   asks the user to sign in to Hugging Face or accept the model's license, then retries the
+     *   download.
+     */
+    fun from(cancelled: Boolean, authError: DownloadAuthError?): UnsuccessfulDownloadOutcome =
+      when {
+        // Cancellations are still logged as "failure", as before auth errors were reported
+        // separately.
+        cancelled ->
+          UnsuccessfulDownloadOutcome(
+            status = ModelDownloadStatusType.NOT_DOWNLOADED,
+            notifyFailure = false,
+            analyticsEventType = "failure",
+          )
+        authError != null ->
+          UnsuccessfulDownloadOutcome(
+            status = ModelDownloadStatusType.NOT_DOWNLOADED,
+            notifyFailure = false,
+            analyticsEventType = "auth_required",
+          )
+        else ->
+          UnsuccessfulDownloadOutcome(
+            status = ModelDownloadStatusType.FAILED,
+            notifyFailure = true,
+            analyticsEventType = "failure",
+          )
+      }
+  }
+}
+
 private const val EXTRA_DATA_SUFFIX = "_extra_data"
 
 private const val DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID = "___"
@@ -320,7 +364,7 @@ class DefaultDownloadRepository(
 
               WorkInfo.State.SUCCEEDED -> {
                 liveData.removeObserver(this)
-                Log.d("repo", "worker $workerId success")
+                Log.d(TAG, "worker $workerId success")
                 onStatusUpdated(
                   model,
                   ModelDownloadStatus(status = ModelDownloadStatusType.SUCCEEDED),
@@ -366,41 +410,42 @@ class DefaultDownloadRepository(
               WorkInfo.State.FAILED,
               WorkInfo.State.CANCELLED -> {
                 liveData.removeObserver(this)
-                var status = ModelDownloadStatusType.FAILED
                 val errorMessage =
                   workInfo.outputData.getString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE) ?: ""
-                Log.d("repo", "worker $workerId FAILED or CANCELLED: $errorMessage")
-                if (workInfo.state == WorkInfo.State.CANCELLED) {
-                  status = ModelDownloadStatusType.NOT_DOWNLOADED
-                } else {
-                  if (isExtraDataOnly) {
-                    sendNotification(
-                      title =
-                        context.getString(R.string.download_extra_data_notification_title_fail),
-                      text =
+                val authError =
+                  DownloadAuthError.fromName(
+                    workInfo.outputData.getString(KEY_MODEL_DOWNLOAD_AUTH_ERROR)
+                  )
+                Log.d(TAG, "worker $workerId ${workInfo.state}: $errorMessage")
+                val outcome =
+                  UnsuccessfulDownloadOutcome.from(
+                    cancelled = workInfo.state == WorkInfo.State.CANCELLED,
+                    authError = authError,
+                  )
+                if (outcome.notifyFailure) {
+                  val (title, text) =
+                    if (isExtraDataOnly) {
+                      context.getString(R.string.download_extra_data_notification_title_fail) to
                         context
                           .getString(R.string.download_extra_data_notification_content_fail)
                           .format(
                             model.downloadInfo.optionalComponentsLabel(context, task?.id).ifEmpty {
                               model.name
                             }
-                          ),
-                      taskId = "",
-                      modelName = "",
-                    )
-                  } else {
-                    sendNotification(
-                      title = context.getString(R.string.notification_title_fail),
-                      text =
-                        context.getString(R.string.notification_content_fail).format(model.name),
-                      taskId = "",
-                      modelName = "",
-                    )
-                  }
+                          )
+                    } else {
+                      context.getString(R.string.notification_title_fail) to
+                        context.getString(R.string.notification_content_fail).format(model.name)
+                    }
+                  sendNotification(title = title, text = text, taskId = "", modelName = "")
                 }
                 onStatusUpdated(
                   model,
-                  ModelDownloadStatus(status = status, errorMessage = errorMessage),
+                  ModelDownloadStatus(
+                    status = outcome.status,
+                    errorMessage = errorMessage,
+                    authError = authError,
+                  ),
                 )
 
                 val startTime = downloadStartTimeSharedPreferences.getLong(model.name, 0L)
@@ -408,7 +453,7 @@ class DefaultDownloadRepository(
                 firebaseAnalytics?.logEvent(
                   GalleryEvent.MODEL_DOWNLOAD.id,
                   bundleOf(
-                    "event_type" to "failure",
+                    "event_type" to outcome.analyticsEventType,
                     "model_id" to model.name,
                     "duration_ms" to duration,
                   ),
