@@ -23,26 +23,29 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.theme.customColors
 
 @Composable
-fun getTaskBgColor(task: Task): Color {
+fun getTaskBgColor(task: Task, index: Int = -1): Color {
   val colors = MaterialTheme.customColors.taskBgColors
   if (colors.isEmpty()) return Color.Transparent
-  val colorIndex: Int = (task.index.coerceAtLeast(0)) % colors.size
+  val rawIndex = if (index >= 0) index else task.index
+  val colorIndex: Int = (rawIndex.coerceAtLeast(0)) % colors.size
   return colors[colorIndex]
 }
 
 @Composable
-fun getTaskBgGradientColors(task: Task): List<Color> {
+fun getTaskBgGradientColors(task: Task, index: Int = -1): List<Color> {
   val colors = MaterialTheme.customColors.taskBgGradientColors
   if (colors.isEmpty()) return emptyList()
-  val colorIndex: Int = (task.index.coerceAtLeast(0)) % colors.size
+  val rawIndex = if (index >= 0) index else task.index
+  val colorIndex: Int = (rawIndex.coerceAtLeast(0)) % colors.size
   return colors[colorIndex]
 }
 
 @Composable
-fun getTaskIconColor(task: Task): Color {
+fun getTaskIconColor(task: Task, index: Int = -1): Color {
   val colors = MaterialTheme.customColors.taskIconColors
   if (colors.isEmpty()) return Color.Transparent
-  val colorIndex: Int = (task.index.coerceAtLeast(0)) % colors.size
+  val rawIndex = if (index >= 0) index else task.index
+  val colorIndex: Int = (rawIndex.coerceAtLeast(0)) % colors.size
   return colors[colorIndex]
 }
 
