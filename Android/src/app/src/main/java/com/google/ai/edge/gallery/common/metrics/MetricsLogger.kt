@@ -48,12 +48,24 @@ internal class MetricsLogger(internal val model: Model, internal val taskId: Str
         if (llmConfig.defaultMaxTokens > 0) {
           append("max_tokens=${llmConfig.defaultMaxTokens}, ")
         }
-        append("thinking=${llmConfig.supportThinking}, ")
-        append("speculative_decoding=${llmConfig.supportSpeculativeDecoding}, ")
-        if (llmConfig.supportImage) append("image=true, ")
-        if (llmConfig.supportAudio) append("audio=true, ")
       }
       .trimEnd(',', ' ')
+  }
+
+  internal fun formatModelCapabilities(llmConfig: LlmConfig): String {
+    val thinking = if (llmConfig.supportThinking) 1 else 0
+    val specDecode = if (llmConfig.supportSpeculativeDecoding) 1 else 0
+    val image = if (llmConfig.supportImage) 1 else 0
+    val audio = if (llmConfig.supportAudio) 1 else 0
+    return "thinking=$thinking, spec_decode=$specDecode, image=$image, audio=$audio"
+  }
+
+  private fun Bundle.putLlmConfig(llmConfig: LlmConfig) {
+    val samplerConfigStr = formatSamplerConfig(llmConfig)
+    if (samplerConfigStr.isNotEmpty()) {
+      putString(InferenceMetricsParam.SAMPLER_CONFIG.key, samplerConfigStr)
+    }
+    putString(InferenceMetricsParam.MODEL_CAPABILITIES.key, formatModelCapabilities(llmConfig))
   }
 
   private fun formatStatus(status: InferenceStatus): String {
@@ -161,7 +173,8 @@ internal class MetricsLogger(internal val model: Model, internal val taskId: Str
         "  • Task:          ${taskId}\n" +
         "  • Status:        ${status.name}${if (!errorMessage.isNullOrEmpty()) " ($errorMessage)" else ""}\n" +
         "  • Duration:      ${initDuration.inWholeMilliseconds} ms\n" +
-        "  • LlmConfig:     ${formatSamplerConfig(llmConfig)}",
+        "  • SamplerConfig: ${formatSamplerConfig(llmConfig).ifEmpty { "N/A" }}\n" +
+        "  • Capabilities:  ${formatModelCapabilities(llmConfig)}",
     )
   }
 
@@ -197,10 +210,7 @@ internal class MetricsLogger(internal val model: Model, internal val taskId: Str
       }
       putString(InferenceMetricsParam.STATUS.key, status.name)
       putLong(InferenceMetricsParam.INIT_DURATION_MS.key, initDuration.inWholeMilliseconds)
-      val samplerConfigStr = formatSamplerConfig(llmConfig)
-      if (samplerConfigStr.isNotEmpty()) {
-        putString(InferenceMetricsParam.SAMPLER_CONFIG.key, samplerConfigStr)
-      }
+      putLlmConfig(llmConfig)
     }
   }
 
@@ -245,6 +255,9 @@ internal class MetricsLogger(internal val model: Model, internal val taskId: Str
       putCommonMetadata()
       if (metrics.metadata.accelerator.isNotEmpty()) {
         putString(InferenceMetricsParam.ACCELERATOR.key, metrics.metadata.accelerator)
+      }
+      if (metrics.metadata.hasLlmConfig()) {
+        putLlmConfig(metrics.metadata.llmConfig)
       }
       val status = metrics.inference.status
       putString(InferenceMetricsParam.STATUS.key, status.code.name)
