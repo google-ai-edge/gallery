@@ -40,8 +40,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FileDownload
-import androidx.compose.material.icons.rounded.Error
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,14 +50,12 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,26 +69,22 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.data.DownloadAuthError
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.ModelAccessibility
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.isForTestOnly
-import com.google.ai.edge.gallery.huggingface.HuggingFaceApiClient
 import com.google.ai.edge.gallery.ui.common.tos.GemmaTermsOfUseDialog
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
+import com.google.ai.edge.gallery.ui.modelmanager.DownloadClickAction
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.TokenRequestResultType
-import com.google.ai.edge.gallery.ui.modelmanager.TokenStatus
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 private const val TAG = "AGDownloadAndTryButton"
 private const val SYSTEM_RESERVED_MEMORY_IN_BYTES = 3 * (1L shl 30)
@@ -104,27 +96,27 @@ private val MODEL_NAMES_TO_SHOW_GEMMA_LICENSES =
  * Handles the "Download & Try it" button click, managing the model download process based on
  * various conditions.
  *
- * If the button is enabled and not currently checking the token, it initiates a coroutine to handle
- * the download logic.
+ * If the button is enabled, it initiates the download logic.
  *
- * For models requiring download first, it specifically addresses HuggingFace URLs by first checking
- * if authentication is necessary. If no authentication is needed, the download starts directly.
- * Otherwise, it checks the current token status; if the token is invalid or expired, a token
- * exchange flow is initiated. If a valid token exists, it attempts to access the download URL. If
- * access is granted, the download begins; if not, a new token is requested.
+ * For models requiring download first, the download starts directly. For HuggingFace URLs, it
+ * passes the stored access token if one exists and hasn't expired. The URL isn't probed first:
+ * Hugging Face counts every request to a model file, including HEAD, as a download.
  *
- * For non-HuggingFace URLs that need downloading, the download starts directly.
+ * If Hugging Face refuses the download, the download status carries a [DownloadAuthError]:
+ * - [DownloadAuthError.NEEDS_SIGN_IN]: a token exchange flow is initiated, and the download is
+ *   retried with the new token. If that token is refused too, the button doesn't sign in again
+ *   until the next click.
+ * - [DownloadAuthError.NEEDS_LICENSE_ACCEPTANCE]: a modal bottom sheet is displayed, prompting the
+ *   user to acknowledge the user agreement by opening it in a custom tab. Upon closing the tab, the
+ *   download is retried.
+ *
+ * A refused download that wasn't started from a download button (e.g. an update) is handled on the
+ * next click. If the user signed in since the refusal, that click downloads with the new token.
  *
  * If the model doesn't need to be downloaded first, the provided `onClicked` callback is executed.
  *
- * Additionally, for gated HuggingFace models, if accessing the model after token exchange results
- * in a forbidden error, a modal bottom sheet is displayed, prompting the user to acknowledge the
- * user agreement by opening it in a custom tab. Upon closing the tab, the download process is
- * retried.
- *
- * The composable also manages UI states for indicating token checking and displaying the agreement
- * acknowledgement sheet, and it handles requesting notification permissions before initiating the
- * actual download.
+ * The composable also manages UI states for displaying the agreement acknowledgement sheet, and it
+ * handles requesting notification permissions before initiating the actual download.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -142,17 +134,16 @@ fun DownloadAndTryButton(
   compact: Boolean = false,
   canShowTryIt: Boolean = true,
   downloadButtonBackgroundColor: Color = MaterialTheme.colorScheme.surfaceContainer,
-  mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) {
-  val scope = rememberCoroutineScope()
   val context = LocalContext.current
-  var checkingToken by remember { mutableStateOf(false) }
-  var showAgreementAckSheet by remember { mutableStateOf(false) }
-  var showErrorDialog by remember { mutableStateOf(false) }
+  var showAgreementAckSheet by remember(model.name) { mutableStateOf(false) }
   var showMemoryWarning by remember { mutableStateOf(false) }
   var showGemmaTermsOfUseDialog by remember { mutableStateOf(false) }
-  var downloadStarted by remember { mutableStateOf(false) }
+  var downloadStarted by remember(model.name) { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
+  val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
+  // Set when Hugging Face refused the last download of this model (HTTP 401 or 403).
+  val authError = modelManagerUiState.modelDownloadStatus[model.name]?.authError
 
   // Unavailable models can neither be downloaded nor opened, so render the button disabled.
   val isUnavailable = downloadStatus == ModelDownloadStatusType.UNAVAILABLE
@@ -166,7 +157,7 @@ fun DownloadAndTryButton(
   val downloadSucceeded = downloadStatus == ModelDownloadStatusType.SUCCEEDED
   val isPartiallyDownloaded = downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
   val showDownloadProgress =
-    !downloadSucceeded && (downloadStarted || checkingToken || inProgress || isPartiallyDownloaded)
+    !downloadSucceeded && (downloadStarted || inProgress || isPartiallyDownloaded)
 
   val view = LocalView.current
   val completedCd = stringResource(R.string.cd_download_completed)
@@ -183,11 +174,13 @@ fun DownloadAndTryButton(
       modelManagerViewModel.downloadModel(task = task, model = model)
     }
 
-  // Function to kick off download.
-  val startDownload: (accessToken: String?) -> Unit = { accessToken ->
+  // Function to kick off download. `afterSignIn` marks a retry right after a Hugging Face sign-in,
+  // so
+  // a second sign-in refusal doesn't start the OAuth flow again.
+  fun startDownload(accessToken: String?, afterSignIn: Boolean = false) {
     downloadStarted = true
-    checkingToken = false
-    model.downloadInfo.accessToken = accessToken
+    model.downloadInfo.accessToken = accessToken?.takeIf { it.isNotEmpty() }
+    modelManagerViewModel.onUserStartedDownload(model = model, afterSignIn = afterSignIn)
     checkNotificationPermissionAndStartDownload(
       context = context,
       launcher = permissionLauncher,
@@ -197,47 +190,10 @@ fun DownloadAndTryButton(
     )
   }
 
-  // Function to fetch the remote model accessibility.
-  fun processModelAccessibility(token: String? = null, onNeedsTokenExchange: (() -> Unit)? = null) {
-    val accessToken = token?.takeIf { it.isNotEmpty() }
-    scope.launch(mainDispatcher) {
-      checkingToken = true
-      val accessibility =
-        modelManagerViewModel.checkModelAccessibility(model = model, accessToken = accessToken)
-
-      when (accessibility) {
-        ModelAccessibility.ACCESSIBLE -> {
-          Log.d(TAG, "Model '${model.name}' is accessible. Starting download...")
-          startDownload(accessToken)
-        }
-        ModelAccessibility.GATED -> {
-          Log.d(
-            TAG,
-            "Model '${model.name}' is gated (403). Displaying license acknowledgment sheet.",
-          )
-          checkingToken = false
-          downloadStarted = false
-          showAgreementAckSheet = true
-        }
-        ModelAccessibility.NEEDS_TOKEN_EXCHANGE -> {
-          Log.d(TAG, "Model '${model.name}' requires a new token. Initiating OAuth exchange...")
-          checkingToken = false
-          downloadStarted = false
-          onNeedsTokenExchange?.invoke()
-        }
-        ModelAccessibility.ERROR -> {
-          Log.e(TAG, "Unknown network error when accessing model '${model.name}'")
-          checkingToken = false
-          downloadStarted = false
-          showErrorDialog = true
-        }
-      }
-    }
-  }
-
   // A launcher for handling the authentication flow.
-  // It processes the result of the authentication activity and then checks if a user agreement
-  // acknowledgement is needed before proceeding with the model download.
+  // Once the user signs in, it restarts the download with the new token. If the model is gated and
+  // its license isn't accepted yet, that download fails with NEEDS_LICENSE_ACCEPTANCE, which shows
+  // the license sheet.
   val authResultLauncher =
     rememberLauncherForActivityResult(
       contract = ActivityResultContracts.StartActivityForResult()
@@ -247,9 +203,8 @@ fun DownloadAndTryButton(
         onTokenRequested = { tokenRequestResult ->
           when (tokenRequestResult.status) {
             TokenRequestResultType.SUCCEEDED -> {
-              Log.d(TAG, "Token request succeeded. Checking model accessibility.")
-              val token = modelManagerViewModel.curAccessToken
-              processModelAccessibility(token)
+              Log.d(TAG, "Token request succeeded. Restarting the download.")
+              startDownload(modelManagerViewModel.curAccessToken, afterSignIn = true)
             }
 
             TokenRequestResultType.FAILED -> {
@@ -257,13 +212,11 @@ fun DownloadAndTryButton(
                 TAG,
                 "Token request done. Error message: ${tokenRequestResult.errorMessage ?: ""}",
               )
-              checkingToken = false
               downloadStarted = false
             }
 
             TokenRequestResultType.USER_CANCELLED -> {
               Log.d(TAG, "User cancelled. Do nothing")
-              checkingToken = false
               downloadStarted = false
             }
           }
@@ -279,43 +232,53 @@ fun DownloadAndTryButton(
   }
 
   // A launcher for opening the custom tabs intent for requesting user agreement ack.
-  // Once the tab is closed, re-probe model accessibility before starting download.
+  // Once the tab is closed, restart the download. If the license still isn't accepted, the
+  // download fails again and the license sheet comes back.
   val agreementAckLauncher: ActivityResultLauncher<Intent> =
     rememberLauncherForActivityResult(
       contract = ActivityResultContracts.StartActivityForResult()
     ) { _ ->
-      Log.d(TAG, "User closes the browser tab. Re-probe model accessibility before downloading.")
-      val token =
-        modelManagerViewModel.curAccessToken.takeIf { it.isNotEmpty() }
-          ?: modelManagerViewModel.getTokenStatusAndData().data?.accessToken
-      processModelAccessibility(token, onNeedsTokenExchange = startTokenExchange)
+      Log.d(TAG, "User closes the browser tab. Restarting the download.")
+      // The token may have expired while the tab was open; sign in again rather than retry with it.
+      val token = modelManagerViewModel.validStoredAccessToken()
+      if (token == null) {
+        startTokenExchange()
+      } else {
+        startDownload(token)
+      }
     }
 
-  // Handles the initial check and potential authentication flow before downloading the model.
-  // If the model is from Hugging Face, verifies accessibility asynchronously and initiates
-  // token exchange or downloads directly.
+  // Runs the flow that a download refused by Hugging Face asks for.
+  val handleAuthError: (DownloadAuthError) -> Unit = { error ->
+    when (error) {
+      DownloadAuthError.NEEDS_SIGN_IN -> {
+        Log.d(TAG, "Model '${model.name}' needs a Hugging Face token. Initiating OAuth exchange...")
+        startTokenExchange()
+      }
+      DownloadAuthError.NEEDS_LICENSE_ACCEPTANCE -> {
+        Log.d(TAG, "Model '${model.name}' is gated. Displaying license acknowledgment sheet.")
+        showAgreementAckSheet = true
+      }
+    }
+  }
+
+  // When Hugging Face refuses a download the user started, ask for the missing access. The
+  // ViewModel tracks which downloads the user started, so this works even if this button was
+  // recomposed or replaced while the download ran, and only one button asks per refusal.
+  LaunchedEffect(model.name, authError) {
+    if (authError != null) {
+      downloadStarted = false
+      modelManagerViewModel.takeAuthErrorToPrompt(model)?.let(handleAuthError)
+    }
+  }
+
+  // Starts the download, or the sign-in or license flow if the last attempt was refused (see
+  // ModelManagerViewModel.downloadClickAction).
   val handleClickButton = {
     if (needToDownloadFirst) {
-      // For HuggingFace urls
-      if (HuggingFaceApiClient.isHuggingFaceUrl(model.downloadInfo.url)) {
-        Log.d(
-          TAG,
-          "Model '${model.name}' is from HuggingFace. Checking token status and model accessibility.",
-        )
-        val tokenStatusAndData = modelManagerViewModel.getTokenStatusAndData()
-        val storedToken =
-          if (tokenStatusAndData.status == TokenStatus.NOT_EXPIRED) {
-            tokenStatusAndData.data?.accessToken
-          } else {
-            null
-          }
-
-        processModelAccessibility(storedToken, onNeedsTokenExchange = startTokenExchange)
-      }
-      // For other urls, just download the model.
-      else {
-        Log.d(TAG, "Model '${model.name}' is not from huggingface. Start downloading the model...")
-        startDownload(null)
+      when (val action = modelManagerViewModel.downloadClickAction(model)) {
+        is DownloadClickAction.Download -> startDownload(action.accessToken)
+        is DownloadClickAction.ResolveAuth -> handleAuthError(action.authError)
       }
     }
     // No need to download. Directly open the model.
@@ -352,7 +315,7 @@ fun DownloadAndTryButton(
         ),
       contentPadding = PaddingValues(horizontal = 12.dp),
       onClick = {
-        if (!buttonEnabled || checkingToken) {
+        if (!buttonEnabled) {
           return@Button
         }
 
@@ -428,81 +391,71 @@ fun DownloadAndTryButton(
         .padding(horizontal = 8.dp)
         .height(42.dp)
     Row(modifier = downloadProgressModifier, verticalAlignment = Alignment.CenterVertically) {
-      if (checkingToken) {
-        Text(
-          stringResource(R.string.checking_access),
-          style = MaterialTheme.typography.bodyMedium,
-          color = MaterialTheme.colorScheme.onSurface,
-          textAlign = TextAlign.Center,
-          modifier = if (!compact) Modifier.fillMaxWidth() else Modifier.padding(horizontal = 4.dp),
-        )
-      } else {
-        val progressPercent = (downloadProgress * 100).toInt()
-        val progressCd = stringResource(R.string.cd_download_progress, progressPercent)
-        val textSemanticsModifier =
-          if (compact) {
-            Modifier.semantics {
-                progressBarRangeInfo = ProgressBarRangeInfo(downloadProgress, 0f..1f)
-                contentDescription = progressCd
-              }
-              .padding(start = 12.dp)
-              .width(32.dp)
-          } else {
-            Modifier.clearAndSetSemantics {}.padding(start = 12.dp).width(44.dp)
-          }
-        Text(
-          "$progressPercent%",
-          style =
-            MaterialTheme.typography.bodyMedium.copy(
-              // This stops numbers from "jumping around" when being updated.
-              fontFeatureSettings = "tnum"
-            ),
-          color = MaterialTheme.colorScheme.onSurface,
-          modifier = textSemanticsModifier,
-        )
-        if (!compact) {
-          val color =
-            if (task != null) getTaskBgGradientColors(task = task)[1]
-            else MaterialTheme.colorScheme.primary
-          if (!model.downloadsViaRepository && downloadProgress <= 0f) {
-            LinearProgressIndicator(
-              modifier =
-                Modifier.weight(1f).padding(horizontal = 4.dp).semantics {
-                  contentDescription = progressCd
-                },
-              color = color,
-              trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-            )
-          } else {
-            LinearProgressIndicator(
-              modifier =
-                Modifier.weight(1f).padding(horizontal = 4.dp).semantics {
-                  contentDescription = progressCd
-                },
-              progress = { animatedProgress.value },
-              color = color,
-              trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-            )
-          }
+      val progressPercent = (downloadProgress * 100).toInt()
+      val progressCd = stringResource(R.string.cd_download_progress, progressPercent)
+      val textSemanticsModifier =
+        if (compact) {
+          Modifier.semantics {
+              progressBarRangeInfo = ProgressBarRangeInfo(downloadProgress, 0f..1f)
+              contentDescription = progressCd
+            }
+            .padding(start = 12.dp)
+            .width(32.dp)
+        } else {
+          Modifier.clearAndSetSemantics {}.padding(start = 12.dp).width(44.dp)
         }
-        val cbStop = stringResource(R.string.cd_stop_icon)
-        IconButton(
-          onClick = {
-            downloadStarted = false
-            modelManagerViewModel.cancelDownloadModel(model = model)
-          },
-          colors =
-            IconButtonDefaults.iconButtonColors(
-              containerColor = MaterialTheme.colorScheme.surfaceContainer
-            ),
-          modifier = Modifier.semantics { contentDescription = cbStop },
-        ) {
-          Icon(
-            Icons.Outlined.Close,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface,
+      Text(
+        "$progressPercent%",
+        style =
+          MaterialTheme.typography.bodyMedium.copy(
+            // This stops numbers from "jumping around" when being updated.
+            fontFeatureSettings = "tnum"
+          ),
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = textSemanticsModifier,
+      )
+      if (!compact) {
+        val color =
+          if (task != null) getTaskBgGradientColors(task = task)[1]
+          else MaterialTheme.colorScheme.primary
+        if (!model.downloadsViaRepository && downloadProgress <= 0f) {
+          LinearProgressIndicator(
+            modifier =
+              Modifier.weight(1f).padding(horizontal = 4.dp).semantics {
+                contentDescription = progressCd
+              },
+            color = color,
+            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+          )
+        } else {
+          LinearProgressIndicator(
+            modifier =
+              Modifier.weight(1f).padding(horizontal = 4.dp).semantics {
+                contentDescription = progressCd
+              },
+            progress = { animatedProgress.value },
+            color = color,
+            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
           )
         }
+      }
+      val cbStop = stringResource(R.string.cd_stop_icon)
+      IconButton(
+        onClick = {
+          downloadStarted = false
+          modelManagerViewModel.cancelDownloadModel(model = model)
+        },
+        colors =
+          IconButtonDefaults.iconButtonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+          ),
+        modifier = Modifier.semantics { contentDescription = cbStop },
+      ) {
+        Icon(
+          Icons.Outlined.Close,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.onSurface,
+        )
       }
     }
     LaunchedEffect(downloadProgress) {
@@ -518,7 +471,6 @@ fun DownloadAndTryButton(
     ModalBottomSheet(
       onDismissRequest = {
         showAgreementAckSheet = false
-        checkingToken = false
         downloadStarted = false
       },
       sheetState = sheetState,
@@ -551,7 +503,6 @@ fun DownloadAndTryButton(
             }
             // Dismiss the sheet.
             showAgreementAckSheet = false
-            checkingToken = false
             downloadStarted = false
           }
         ) {
@@ -559,24 +510,6 @@ fun DownloadAndTryButton(
         }
       }
     }
-  }
-
-  if (showErrorDialog) {
-    AlertDialog(
-      icon = {
-        Icon(
-          Icons.Rounded.Error,
-          contentDescription = stringResource(R.string.cd_error),
-          tint = MaterialTheme.colorScheme.error,
-        )
-      },
-      title = { Text(stringResource(R.string.error_unknown_network)) },
-      text = { Text(stringResource(R.string.error_check_internet)) },
-      onDismissRequest = { showErrorDialog = false },
-      confirmButton = {
-        TextButton(onClick = { showErrorDialog = false }) { Text(stringResource(R.string.close)) }
-      },
-    )
   }
 
   if (showMemoryWarning) {
