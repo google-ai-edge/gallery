@@ -172,6 +172,19 @@ interface LlmSessionManager {
   )
 
   /**
+   * Caches the given [bitmaps] for [sessionId] to local session storage and returns the resulting
+   * absolute file paths.
+   */
+  suspend fun cacheSessionImages(sessionId: String, bitmaps: List<Bitmap>): List<String> =
+    emptyList()
+
+  /**
+   * Caches the given raw PCM [audioData] for [sessionId] to local session storage and returns the
+   * resulting absolute file path, or null if caching fails.
+   */
+  suspend fun cacheSessionAudio(sessionId: String, audioData: ByteArray): String? = null
+
+  /**
    * Runs inference for the given session on the specified [model].
    *
    * Assumes only one session and inference operation can run at a time in the application.

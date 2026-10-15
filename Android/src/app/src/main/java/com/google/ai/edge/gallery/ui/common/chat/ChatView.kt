@@ -156,18 +156,6 @@ fun ChatView(
 
   val context = LocalContext.current
 
-  val currentMessages = uiState.messagesByModel[selectedModel.name] ?: emptyList()
-  LaunchedEffect(uiState.inProgress, uiState.isResettingSession) {
-    if (!uiState.inProgress && !uiState.isResettingSession && currentMessages.isNotEmpty()) {
-      viewModel.saveSession(
-        sessionId = viewModel.currentSessionId,
-        messages = currentMessages,
-        originalModel = selectedModel.name,
-        taskId = task.id,
-        context = context,
-      )
-    }
-  }
   val scope = rememberCoroutineScope()
   var navigatingUp by remember { mutableStateOf(false) }
 
@@ -240,13 +228,13 @@ fun ChatView(
               },
               onHistoryItemDeleted = { sessionId ->
                 val wasActiveSession = (sessionId == viewModel.currentSessionId)
-                viewModel.deleteSession(sessionId, context)
+                viewModel.deleteSession(sessionId)
                 if (wasActiveSession) {
                   onNewChatClicked()
                 }
               },
               onHistoryItemsDeleteAll = {
-                viewModel.clearAllSessions(context)
+                viewModel.clearAllSessions()
                 onNewChatClicked()
                 scope.launch { drawerState.close() }
               },

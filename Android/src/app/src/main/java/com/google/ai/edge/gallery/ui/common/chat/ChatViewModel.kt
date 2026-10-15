@@ -16,7 +16,6 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
-import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -105,6 +104,9 @@ abstract class ChatViewModel(
     set(value) {
       llmSessionManager.activeSessionId = value
     }
+
+  /** The current task ID for the session. */
+  protected var currentTaskId: String = ""
 
   private val _uiState = MutableStateFlow(createUiState())
   val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
@@ -246,7 +248,11 @@ abstract class ChatViewModel(
    * @param taskId The identifier of the task whose setting should be loaded.
    */
   fun loadAutoCompact(taskId: String) {
-    if (taskId.isEmpty() || _uiState.value.autoCompactByTask.containsKey(taskId)) {
+    if (taskId.isEmpty()) {
+      return
+    }
+    currentTaskId = taskId
+    if (_uiState.value.autoCompactByTask.containsKey(taskId)) {
       return
     }
     val repo = dataStoreRepository ?: return
@@ -446,11 +452,13 @@ abstract class ChatViewModel(
       )
     }
     val thisJob = compactionJob
+    var sessionId: String? = null
     setContextCompactionStatus(model, ContextCompactionStatus.COMPACTING)
     try {
-      val success = llmSessionManager.compactContextIfNeeded(currentSessionId, model, force = true)
+      val resolvedSessionId = currentSessionId.also { sessionId = it }
+      val success = llmSessionManager.compactContextIfNeeded(resolvedSessionId, model, force = true)
       if (success) {
-        Log.d(TAG, "Context compacted for session $currentSessionId on model ${model.name}")
+        Log.d(TAG, "Context compacted for session $resolvedSessionId on model ${model.name}")
         addMessage(
           model = model,
           message = ChatMessageDivider(textResId = R.string.context_compressed_success),
@@ -460,7 +468,7 @@ abstract class ChatViewModel(
       } else {
         Log.d(
           TAG,
-          "Context compaction did not occur for session $currentSessionId on model ${model.name}",
+          "Context compaction did not occur for session $resolvedSessionId on model ${model.name}",
         )
         setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
       }
@@ -470,12 +478,40 @@ abstract class ChatViewModel(
       }
       throw e
     } catch (e: Exception) {
-      Log.e(TAG, "Failed to compact context for session $currentSessionId", e)
+      Log.e(TAG, "Failed to compact context for session $sessionId", e)
       setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
       onError()
     } finally {
       if (compactionJob === thisJob) {
         compactionJob = null
+      }
+    }
+  }
+
+  /**
+   * Snapshots and persists the current in-memory messages for [model] to the active session history
+   * if non-empty.
+   */
+  protected suspend fun persistCurrentSession(
+    model: Model,
+    taskId: String,
+    sessionId: String = currentSessionId,
+  ) {
+    val currentMessages = _uiState.value.messagesByModel[model.name]?.toList().orEmpty()
+    if (currentMessages.isNotEmpty()) {
+      try {
+        val protoMessages =
+          ChatMessageMapper.serializeMessages(currentMessages, sessionId, llmSessionManager)
+        llmSessionManager.saveSessionHistory(
+          sessionId = sessionId,
+          messages = protoMessages,
+          originalModel = model.name,
+          taskId = taskId,
+        )
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to persist session history for session $sessionId", e)
       }
     }
   }
@@ -774,11 +810,11 @@ abstract class ChatViewModel(
     messages: List<ChatMessage>,
     originalModel: String,
     taskId: String,
-    context: Context? = null,
   ) {
     val messagesSnapshot = messages.toList()
     viewModelScope.launch(Dispatchers.IO) {
-      val protoMessages = ChatMessageMapper.serializeMessages(messagesSnapshot, sessionId, context)
+      val protoMessages =
+        ChatMessageMapper.serializeMessages(messagesSnapshot, sessionId, llmSessionManager)
       llmSessionManager.saveSessionHistory(
         sessionId = sessionId,
         messages = protoMessages,
@@ -793,12 +829,12 @@ abstract class ChatViewModel(
    *
    * @param sessionId The ID of the session to delete.
    */
-  fun deleteSession(sessionId: String, context: Context? = null) {
+  fun deleteSession(sessionId: String) {
     viewModelScope.launch(Dispatchers.IO) { llmSessionManager.deleteSession(sessionId) }
   }
 
   /** Clears all saved chat sessions from persistent storage. */
-  fun clearAllSessions(context: Context? = null) {
+  fun clearAllSessions() {
     viewModelScope.launch(Dispatchers.IO) { llmSessionManager.clearAllSessions() }
   }
 }

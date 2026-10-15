@@ -32,6 +32,7 @@ import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.agent.sessions.generateSessionId
 import com.google.ai.edge.gallery.common.SystemPromptHelper
 import com.google.ai.edge.gallery.common.metrics.InferenceMetrics
+import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.Model
@@ -90,8 +91,6 @@ open class LlmChatViewModelBase(
   private var observedLiveMetricsModel: Model? = null
   // Map to track if the session was stopped by the model for a given model name.
   private val sessionStoppedByModel = mutableMapOf<String, Boolean>()
-  // The current task ID for the session.
-  private var currentTaskId: String = ""
   // Active session transition job to ensure transitions (restore, new session, reset) do not race.
   private var sessionTransitionJob: Job? = null
 
@@ -360,18 +359,21 @@ open class LlmChatViewModelBase(
               }
             }
             setPreparing(false)
-            val isLimitReached = llmSessionManager.isTokenLimitReached(currentSessionId, model)
             try {
-              if (isLimitReached) {
-                if (isAutoCompactEnabled(currentTaskId)) {
-                  executeCompactContext(
-                    model = model,
-                    taskId = currentTaskId,
-                    triggerType = ContextCompactionTriggerType.AUTO,
-                  )
-                } else {
-                  setContextCompactionStatus(model, ContextCompactionStatus.TOKEN_LIMIT_REACHED)
-                }
+              persistCurrentSession(model = model, taskId = currentTaskId)
+              val isLimitReached = llmSessionManager.isTokenLimitReached(currentSessionId, model)
+              if (
+                isLimitReached &&
+                  isAutoCompactEnabled(currentTaskId) &&
+                  Config.isContextCompactEnabled()
+              ) {
+                executeCompactContext(
+                  model = model,
+                  taskId = currentTaskId,
+                  triggerType = ContextCompactionTriggerType.AUTO,
+                )
+              } else if (isLimitReached) {
+                setContextCompactionStatus(model, ContextCompactionStatus.TOKEN_LIMIT_REACHED)
               }
             } finally {
               setInProgress(false)

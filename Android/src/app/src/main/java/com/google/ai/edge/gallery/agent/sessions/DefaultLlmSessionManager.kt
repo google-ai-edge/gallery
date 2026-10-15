@@ -33,6 +33,8 @@ import com.google.ai.edge.gallery.runtime.ResultListener
 import com.google.ai.edge.gallery.runtime.runtimeHelper
 import com.google.ai.edge.litertlm.Message
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
+import java.io.FileOutputStream
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
@@ -265,8 +267,15 @@ constructor(
       val existingSessions = chatSessionRepository.getAllChatSessions()
       val existing = existingSessions.firstOrNull { it.sessionId == sessionId }
       val resolvedOriginalModel =
-        originalModel?.ifEmpty { null } ?: existing?.originalModel?.ifEmpty { null } ?: ""
-      val resolvedTaskId = taskId?.ifEmpty { null } ?: existing?.taskId?.ifEmpty { null } ?: ""
+        originalModel?.ifEmpty { null }
+          ?: sessionConfigs[sessionId]?.model?.name?.ifEmpty { null }
+          ?: existing?.originalModel?.ifEmpty { null }
+          ?: ""
+      val resolvedTaskId =
+        taskId?.ifEmpty { null }
+          ?: sessionConfigs[sessionId]?.taskId?.ifEmpty { null }
+          ?: existing?.taskId?.ifEmpty { null }
+          ?: ""
 
       val firstTextMessage =
         messages
@@ -288,6 +297,39 @@ constructor(
           .build()
 
       chatSessionRepository.saveChatSession(updatedSession)
+    }
+
+  override suspend fun cacheSessionImages(sessionId: String, bitmaps: List<Bitmap>): List<String> =
+    withContext(ioDispatcher) {
+      val now = System.currentTimeMillis()
+      buildList {
+        bitmaps.forEachIndexed { index, bitmap ->
+          val fileName = "img_${sessionId}_${now}_$index.png"
+          val file = File(context.cacheDir, fileName)
+          try {
+            FileOutputStream(file).use { fos ->
+              bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+            }
+            add(file.absolutePath)
+          } catch (e: Exception) {
+            Log.e(TAG, "Failed to cache session image to ${file.absolutePath}: ${e.message}", e)
+          }
+        }
+      }
+    }
+
+  override suspend fun cacheSessionAudio(sessionId: String, audioData: ByteArray): String? =
+    withContext(ioDispatcher) {
+      val now = System.currentTimeMillis()
+      val fileName = "audio_${sessionId}_$now.pcm"
+      val file = File(context.cacheDir, fileName)
+      try {
+        FileOutputStream(file).use { fos -> fos.write(audioData) }
+        file.absolutePath
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to cache session audio to ${file.absolutePath}: ${e.message}", e)
+        null
+      }
     }
 
   override suspend fun generateResponse(
