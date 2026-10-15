@@ -462,6 +462,30 @@ constructor(
     }
   }
 
+  /**
+   * Asks [model]'s downloader for its current status, publishes it in [uiState], and returns it.
+   *
+   * Returns `null`, leaving the status unchanged, when no downloader is registered for the model's
+   * runtime.
+   */
+  open suspend fun refreshModelStatus(model: Model): ModelDownloadStatus? {
+    val downloader = downloaders[model.backendSpec.runtimeType] ?: return null
+    val status =
+      try {
+        downloader.queryStatus(model)
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to query the status of model '${model.name}'", e)
+        ModelDownloadStatus(
+          status = ModelDownloadStatusType.FAILED,
+          errorMessage = e.localizedMessage.orEmpty(),
+        )
+      }
+    setDownloadStatus(curModel = model, status = status)
+    return status
+  }
+
   private fun isExtraDataPresentOnDisk(model: Model, taskId: String? = null): Boolean {
     val extraFiles = model.downloadInfo.extraDataFiles(taskId)
     if (extraFiles.isEmpty()) return false
