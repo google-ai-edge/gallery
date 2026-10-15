@@ -292,13 +292,6 @@ fun ChatView(
               isAutoCompactEnabled = isAutoCompactEnabled,
               onConfigChanged = { old, new ->
                 val isContextCompactSupported = task.isContextCompactSupported(selectedModel)
-                if (isContextCompactSupported) {
-                  val oldAutoCompact = old[ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label] as? Boolean
-                  val newAutoCompact = new[ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label] as? Boolean
-                  if (newAutoCompact != null && newAutoCompact != oldAutoCompact) {
-                    viewModel.setAutoCompact(task.id, newAutoCompact)
-                  }
-                }
                 // Filter out config values that are not relevant to the task.
                 //
                 // - The "reset conversation turn count" is only valid for tiny garden task.
@@ -321,6 +314,18 @@ fun ChatView(
                   newConfigValues = filteredNew,
                   model = selectedModel,
                 )
+                if (isContextCompactSupported) {
+                  val oldAutoCompact = old[ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label] as? Boolean
+                  val newAutoCompact = new[ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label] as? Boolean
+                  if (newAutoCompact != null && newAutoCompact != oldAutoCompact) {
+                    viewModel.setAutoCompact(
+                      taskId = task.id,
+                      enabled = newAutoCompact,
+                      model = selectedModel,
+                      compactIfLimitReached = true,
+                    )
+                  }
+                }
               },
               onBackClicked = { handleNavigateUp() },
               onModelSelected = { prevModel, curModel ->
