@@ -45,6 +45,7 @@ import com.google.ai.edge.gallery.data.DownloadAuthError
 import com.google.ai.edge.gallery.data.DownloadRepository
 import com.google.ai.edge.gallery.data.EMPTY_MODEL
 import com.google.ai.edge.gallery.data.IMPORTS_DIR
+import com.google.ai.edge.gallery.data.ImportOrigin
 import com.google.ai.edge.gallery.data.LiteRtLmModelDownloader
 import com.google.ai.edge.gallery.data.LlmProfile
 import com.google.ai.edge.gallery.data.Model
@@ -57,6 +58,7 @@ import com.google.ai.edge.gallery.data.ModelFile
 import com.google.ai.edge.gallery.data.ModelType
 import com.google.ai.edge.gallery.data.ModelUtils
 import com.google.ai.edge.gallery.data.NumberSliderConfig
+import com.google.ai.edge.gallery.data.OssModelImportLogger
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.SOC
 import com.google.ai.edge.gallery.data.SystemPromptRepository
@@ -239,6 +241,7 @@ constructor(
   val huggingFaceApiClient: HuggingFaceApiClient,
   @ApplicationContext private val context: Context,
   protected val downloaders: Map<RuntimeType, @JvmSuppressWildcards ModelDownloader>,
+  private val ossModelImportLogger: OssModelImportLogger,
 ) :
   ViewModel()
 {
@@ -250,6 +253,7 @@ constructor(
     systemPromptRepository: SystemPromptRepository,
     huggingFaceApiClient: HuggingFaceApiClient,
     context: Context,
+    ossModelImportLogger: OssModelImportLogger = OssModelImportLogger(),
   ) : this(
     downloadRepository = downloadRepository,
     dataStoreRepository = dataStoreRepository,
@@ -264,6 +268,7 @@ constructor(
         RuntimeType.LITERT_LM to LiteRtLmModelDownloader(context, downloadRepository),
         RuntimeType.AICORE to AICoreModelDownloader(context),
       ),
+    ossModelImportLogger = ossModelImportLogger,
   )
 
   private val modelsDir = getModelStorageDir(context)
@@ -1028,7 +1033,7 @@ constructor(
     firebaseAnalytics?.setAnalyticsCollectionEnabled(enabled)
   }
 
-  fun addImportedLlmModel(info: ImportedModel) {
+  fun addImportedLlmModel(info: ImportedModel, origin: ImportOrigin? = null) {
     Log.d(TAG, "adding imported llm model: $info")
 
     val importsDir = File(modelsDir, IMPORTS_DIR)
@@ -1086,6 +1091,19 @@ constructor(
     }
     importedModels.add(info)
     dataStoreRepository.saveImportedModels(importedModels = importedModels)
+
+    if (origin != null) {
+      ossModelImportLogger.logImportSuccess(source = origin.source, modelId = origin.modelId)
+    }
+  }
+
+  /** Logs that a model import from [origin] failed while copying into app storage. */
+  fun onModelImportFailed(origin: ImportOrigin) {
+    ossModelImportLogger.logImportFailure(
+      source = origin.source,
+      errorType = OssModelImportLogger.ErrorType.IMPORT_FAILED,
+      modelId = origin.modelId,
+    )
   }
 
   fun getTokenStatusAndData(): TokenStatusAndData {
