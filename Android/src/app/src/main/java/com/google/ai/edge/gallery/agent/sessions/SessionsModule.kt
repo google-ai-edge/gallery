@@ -34,8 +34,8 @@ internal object SessionsModule {
 
   @Provides
   @Singleton
-  fun provideContextCompactor(): ContextCompactor {
-    return SummarizationContextCompactor()
+  fun provideContextCompactor(truncationCompactor: TruncationContextCompactor): ContextCompactor {
+    return SummarizationContextCompactor(truncationCompactor)
   }
 
   @Provides
