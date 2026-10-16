@@ -91,7 +91,8 @@ data class LlmModelInstance(
 
   override fun getTokenCount(): Int = conversation.getTokenCount()
 
-  override fun sendMessage(prompt: String): Message = conversation.sendMessage(prompt)
+  override fun sendMessage(prompt: String, maxOutputTokens: Int?): Message =
+    conversation.sendMessage(prompt, maxOutputToken = maxOutputTokens)
 }
 
 object LlmChatModelHelper : LlmModelHelper {
