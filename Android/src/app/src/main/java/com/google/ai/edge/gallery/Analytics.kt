@@ -51,6 +51,7 @@ enum class GalleryEvent(val id: String) {
   CONTEXT_COMPRESSION(id = "context_compression"),
   AUTO_COMPACTION_ENABLE(id = "auto_compaction_enable"),
   RESOURCE_LINK_CLICK(id = "resource_link_click"),
+  OSS_MODEL_IMPORT(id = "oss_model_import"),
 }
 
 /** Strongly typed Firebase Analytics parameter keys for inference and model lifecycle telemetry. */
