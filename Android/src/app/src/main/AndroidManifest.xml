@@ -123,19 +123,23 @@
             tools:node="merge">
         </service>
 
-        <!-- For Firebase Analytics. -->
+        <!-- For Firebase Analytics. Telemetry is disabled: the measurement components below are
+             turned off so no analytics data is ever collected or uploaded. -->
         <receiver
             android:name="com.google.android.gms.measurement.AppMeasurementReceiver"
-            android:enabled="true"
-            android:exported="false" />
+            android:enabled="false"
+            android:exported="false"
+            tools:replace="android:enabled" />
         <service android:name="com.google.android.gms.measurement.AppMeasurementService"
-            android:enabled="true"
-            android:exported="false" />
+            android:enabled="false"
+            android:exported="false"
+            tools:replace="android:enabled" />
         <service
             android:name="com.google.android.gms.measurement.AppMeasurementJobService"
-            android:enabled="true"
+            android:enabled="false"
             android:exported="false"
-            android:permission="android.permission.BIND_JOB_SERVICE" />
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            tools:replace="android:enabled" />
 
         <service
             android:name=".GalleryFcmMessagingService"
@@ -160,6 +164,18 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="gallery_high_priority_push_channel" />
+
+        <!-- Telemetry is fully disabled. These flags keep every Firebase SDK from collecting or
+             uploading any data, regardless of the in-app analytics setting. -->
+        <meta-data
+            android:name="firebase_analytics_collection_deactivated"
+            android:value="true" />
+        <meta-data
+            android:name="firebase_crashlytics_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="firebase_messaging_auto_init_enabled"
+            android:value="false" />
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>
         <uses-native-library android:name="libOpenCL.so" android:required="false"/>
         <uses-native-library android:name="libcdsprpc.so" android:required="false" />
