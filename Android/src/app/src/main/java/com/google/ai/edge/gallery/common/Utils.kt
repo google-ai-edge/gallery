@@ -90,9 +90,15 @@ fun processLlmResponse(response: String): String {
   return response.replace("\\n", "\n")
 }
 
-inline fun <reified T> getJsonResponse(url: String): JsonObjAndTextContent<T>? {
+inline fun <reified T> getJsonResponse(
+  url: String,
+  connectTimeoutMs: Int? = null,
+  readTimeoutMs: Int? = null,
+): JsonObjAndTextContent<T>? {
   try {
     val connection = URL(url).openConnection() as HttpURLConnection
+    connectTimeoutMs?.let { connection.connectTimeout = it }
+    readTimeoutMs?.let { connection.readTimeout = it }
     connection.requestMethod = "GET"
     connection.connect()
 

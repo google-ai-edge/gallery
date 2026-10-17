@@ -131,6 +131,8 @@ import com.google.ai.edge.gallery.ui.common.tos.AppTosDialog
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
+import java.text.DateFormat
+import java.util.Date
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -497,6 +499,46 @@ fun HomeScreen(
       curFirebaseAnalytics = modelManagerViewModel.readFirebaseAnalytics(),
       modelManagerViewModel = modelManagerViewModel,
       onDismissed = { showSettingsDialog = false },
+    )
+  }
+
+  // Shown when the model list couldn't be synced from the internet but a previously synced copy
+  // exists. Lets the user decide whether to continue with the cached copy or retry the sync.
+  if (uiState.showStaleAllowlistPrompt) {
+    val lastSyncTimeMs = uiState.staleAllowlistLastSyncTimeMs
+    AlertDialog(
+      icon = {
+        Icon(
+          Icons.Rounded.Error,
+          contentDescription = stringResource(R.string.cd_error),
+          tint = MaterialTheme.colorScheme.error,
+        )
+      },
+      title = { Text(stringResource(R.string.stale_model_list_title)) },
+      text = {
+        if (lastSyncTimeMs > 0) {
+          Text(
+            stringResource(
+              R.string.stale_model_list_text,
+              DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+                .format(Date(lastSyncTimeMs)),
+            )
+          )
+        } else {
+          Text(stringResource(R.string.stale_model_list_text_unknown_time))
+        }
+      },
+      onDismissRequest = { modelManagerViewModel.proceedWithStaleAllowlist() },
+      confirmButton = {
+        TextButton(onClick = { modelManagerViewModel.proceedWithStaleAllowlist() }) {
+          Text(stringResource(R.string.stale_model_list_continue_button))
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { modelManagerViewModel.loadModelAllowlist() }) {
+          Text(stringResource(R.string.retry))
+        }
+      },
     )
   }
 

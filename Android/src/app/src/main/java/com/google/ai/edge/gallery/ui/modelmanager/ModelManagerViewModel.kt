@@ -110,6 +110,12 @@ private const val ALLOWLIST_BASE_URL =
   "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlists"
 private const val PLACEHOLDER_FILENAME = "placeholder"
 private const val UNPACKED_FILE_EXT = "unpacked"
+private const val MODEL_ALLOWLIST_LAST_SYNC_FILENAME = "model_allowlist_last_sync.txt"
+
+// Bounds the allowlist network sync so a missing internet connection fails within a few seconds
+// instead of blocking startup until the OS network stack gives up.
+private const val ALLOWLIST_SYNC_CONNECT_TIMEOUT_MS = 2000
+private const val ALLOWLIST_SYNC_READ_TIMEOUT_MS = 2000
 
 /**
  * Location of an optional local model allowlist used for testing.
@@ -154,6 +160,16 @@ data class ModelManagerUiState(
 
   /** The error message when loading the model allowlist. */
   val loadingModelAllowlistError: String = "",
+
+  /** Whether to show a prompt asking the user whether to continue with the cached allowlist. */
+  val showStaleAllowlistPrompt: Boolean = false,
+
+  /**
+   * Epoch ms of the last successful model allowlist sync, shown in the stale allowlist prompt.
+   * May be <= 0 when the time is unknown; the prompt itself is controlled by
+   * [showStaleAllowlistPrompt].
+   */
+  val staleAllowlistLastSyncTimeMs: Long = -1L,
 
   /**
    * Whether to show a warning that the model allowlist was loaded from the local test file at
@@ -266,6 +282,12 @@ constructor(
 
   /** Dispatcher that [loadModelAllowlist] runs on. Overridden in tests to load synchronously. */
   @VisibleForTesting internal var allowlistLoadingDispatcher: CoroutineDispatcher = Dispatchers.IO
+
+  /**
+   * Allowlist parsed from the disk cache while waiting for the user to decide whether to continue
+   * with it after a failed sync. See [proceedWithStaleAllowlist].
+   */
+  private var pendingStaleAllowlist: ModelAllowlist? = null
 
   protected val _uiState: MutableStateFlow<ModelManagerUiState> =
     MutableStateFlow(createEmptyUiState())
@@ -1273,7 +1295,15 @@ constructor(
   }
 
   fun loadModelAllowlist() {
-    _uiState.update { it.copy(loadingModelAllowlist = true, loadingModelAllowlistError = "") }
+    _uiState.update {
+      it.copy(
+        loadingModelAllowlist = true,
+        loadingModelAllowlistError = "",
+        showStaleAllowlistPrompt = false,
+        staleAllowlistLastSyncTimeMs = -1L,
+      )
+    }
+    pendingStaleAllowlist = null
 
     viewModelScope.launch(allowlistLoadingDispatcher) {
       try {
@@ -1290,12 +1320,18 @@ constructor(
           Log.w(TAG, "Using local test model allowlist: ${localTestAllowlistFile.absolutePath}")
         }
 
+        var syncedFromInternet = false
         if (modelAllowlist == null) {
           // Load from github.
           var version = BuildConfig.VERSION_NAME.replace(".", "_")
           val url = getAllowlistUrl(version)
           Log.d(TAG, "Loading model allowlist from internet. Url: $url")
-          val data = getJsonResponse<ModelAllowlist>(url = url)
+          val data =
+            getJsonResponse<ModelAllowlist>(
+              url = url,
+              connectTimeoutMs = ALLOWLIST_SYNC_CONNECT_TIMEOUT_MS,
+              readTimeoutMs = ALLOWLIST_SYNC_READ_TIMEOUT_MS,
+            )
           modelAllowlist = data?.jsonObj
 
           if (modelAllowlist == null) {
@@ -1303,15 +1339,64 @@ constructor(
             modelAllowlist = readModelAllowlistFromDisk()
           } else {
             Log.d(TAG, "Done: loading model allowlist from internet")
-            saveModelAllowlistToDisk(modelAllowlistContent = data?.textContent ?: "{}")
+            val cached = saveModelAllowlistToDisk(modelAllowlistContent = data?.textContent ?: "{}")
+            if (cached) {
+              // Only record the sync time if the cached list was actually updated, so the prompt
+              // never shows a fresh time while still serving an older cache.
+              saveAllowlistLastSyncTimeToDisk(timeMs = System.currentTimeMillis())
+            }
+            syncedFromInternet = true
           }
         }
 
         if (modelAllowlist == null) {
+          // There is no cached copy to fall back on. The user has to get online anyway since the
+          // model files themselves are also fetched from the internet.
           _uiState.update { it.copy(loadingModelAllowlistError = "Failed to load model list") }
           return@launch
         }
 
+        if (!syncedFromInternet && !loadedFromTestAllowlist) {
+          // Sync failed but a cached copy exists. Stash it and let the user decide whether to
+          // continue with it.
+          Log.w(TAG, "Model list sync failed; asking user whether to use the cached copy")
+          pendingStaleAllowlist = modelAllowlist
+          _uiState.update {
+            it.copy(
+              showStaleAllowlistPrompt = true,
+              staleAllowlistLastSyncTimeMs = readAllowlistLastSyncTimeFromDisk(),
+            )
+          }
+          return@launch
+        }
+
+        processAllowlist(
+          modelAllowlist = modelAllowlist,
+          loadedFromTestAllowlist = loadedFromTestAllowlist,
+        )
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to load model allowlist", e)
+      }
+    }
+  }
+
+  /** Continues startup with the cached model allowlist after the user chooses to use it. */
+  fun proceedWithStaleAllowlist() {
+    val modelAllowlist = pendingStaleAllowlist
+    pendingStaleAllowlist = null
+    _uiState.update {
+      it.copy(showStaleAllowlistPrompt = false, staleAllowlistLastSyncTimeMs = -1L)
+    }
+    if (modelAllowlist == null) {
+      return
+    }
+    processAllowlist(modelAllowlist = modelAllowlist, loadedFromTestAllowlist = false)
+  }
+
+  /** Converts the models in the given allowlist, registers them with tasks and updates UI state. */
+  private fun processAllowlist(modelAllowlist: ModelAllowlist, loadedFromTestAllowlist: Boolean) {
+    viewModelScope.launch(allowlistLoadingDispatcher) {
+      try {
         Log.d(TAG, "Allowlist: $modelAllowlist")
 
         val isAICoreAvailable by lazy {
@@ -1378,12 +1463,16 @@ constructor(
           for (taskType in allowedModel.taskTypes.orEmpty()) {
             if (taskType == BuiltInTaskId.LLM_TEST) continue
             val task = curTasks.find { it.id == taskType }
-            task?.models?.add(model)
+            // Dedup: a reload (e.g. after retrying a failed sync) must not append duplicates to
+            // the shared task model lists.
+            if (task != null && model !in task.models) {
+              task.models.add(model)
 
-            if (task?.id == BuiltInTaskId.LLM_TINY_GARDEN) {
-              val newConfigs = model.configs.toMutableList()
-              newConfigs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
-              model.configs = newConfigs
+              if (task.id == BuiltInTaskId.LLM_TINY_GARDEN) {
+                val newConfigs = model.configs.toMutableList()
+                newConfigs.add(RESET_CONVERSATION_TURN_COUNT_CONFIG)
+                model.configs = newConfigs
+              }
             }
           }
         }
@@ -1432,7 +1521,7 @@ constructor(
         refreshSupplementaryStatuses()
         Log.d(TAG, "loadModelAllowlist: Done")
       } catch (e: Exception) {
-        Log.e(TAG, "Failed to load model allowlist", e)
+        Log.e(TAG, "Failed to process model allowlist", e)
       }
     }
   }
@@ -1488,14 +1577,16 @@ constructor(
     lifecycleProvider.isAppInForeground = foreground
   }
 
-  private fun saveModelAllowlistToDisk(modelAllowlistContent: String) {
-    try {
+  private fun saveModelAllowlistToDisk(modelAllowlistContent: String): Boolean {
+    return try {
       Log.d(TAG, "Saving model allowlist to disk...")
       val file = File(modelsDir, MODEL_ALLOWLIST_FILENAME)
       file.writeText(modelAllowlistContent)
       Log.d(TAG, "Done: saving model allowlist to disk.")
+      true
     } catch (e: Exception) {
       Log.e(TAG, "failed to write model allowlist to disk", e)
+      false
     }
   }
 
@@ -1517,6 +1608,42 @@ constructor(
     }
 
     return null
+  }
+
+  private fun saveAllowlistLastSyncTimeToDisk(timeMs: Long) {
+    try {
+      Log.d(TAG, "Saving model allowlist last sync time to disk...")
+      val file = File(modelsDir, MODEL_ALLOWLIST_LAST_SYNC_FILENAME)
+      file.writeText(timeMs.toString())
+      Log.d(TAG, "Done: saving model allowlist last sync time to disk.")
+    } catch (e: Exception) {
+      Log.e(TAG, "failed to write model allowlist last sync time to disk", e)
+    }
+  }
+
+  private fun readAllowlistLastSyncTimeFromDisk(): Long {
+    try {
+      val file = File(modelsDir, MODEL_ALLOWLIST_LAST_SYNC_FILENAME)
+      if (file.exists()) {
+        return file.readText().trim().toLong()
+      }
+    } catch (e: Exception) {
+      // Fall through to the fallback below, e.g. when the stamp file is truncated or corrupt.
+      Log.e(TAG, "failed to read model allowlist last sync time from disk", e)
+    }
+
+    // Fall back to the cached allowlist's modification time, e.g. when the cached list was
+    // written by a version that didn't track the sync time yet.
+    try {
+      val allowlistFile = File(modelsDir, MODEL_ALLOWLIST_FILENAME)
+      if (allowlistFile.exists()) {
+        return allowlistFile.lastModified()
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "failed to read model allowlist last modified time from disk", e)
+    }
+
+    return -1L
   }
 
   private fun isModelPartiallyDownloaded(model: Model): Boolean {
