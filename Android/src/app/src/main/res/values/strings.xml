@@ -719,6 +719,8 @@
   <string name="stale_model_list_text" translatable="true" description="Body of the dialog shown when the list of available models could not be refreshed from the internet, asking the user whether to continue with the previously saved list. %1$s is the date and time of the last successful sync. [CHAR_LIMIT=140]">Couldn\'t connect to sync the model list. Last sync: %1$s. You can continue with the saved list.</string>
   <!-- Body of the dialog shown when the model list could not be refreshed and the last sync time is unknown. -->
   <string name="stale_model_list_text_unknown_time" translatable="true" description="Body of the dialog shown when the list of available models could not be refreshed from the internet and the time of the last successful sync is unknown, asking the user whether to continue with the previously saved list. [CHAR_LIMIT=140]">Couldn\'t connect to sync the model list. You can continue with the saved list.</string>
+  <!-- Label for the button that skips waiting for the model list sync and continues with the saved list. -->
+  <string name="skip_model_list_sync" translatable="true" description="Label for the button shown while the list of available models is loading, letting the user skip the wait and continue with the previously saved list. [CHAR_LIMIT=12]">Skip</string>
   <!-- Label for the button that continues using the previously saved model list. -->
   <string name="stale_model_list_continue_button" translatable="true" description="Label for the button that continues using the previously saved model list. [CHAR_LIMIT=12]">Continue</string>
   <!-- Title of the dialog warning that the model allowlist was loaded from a local test file. -->

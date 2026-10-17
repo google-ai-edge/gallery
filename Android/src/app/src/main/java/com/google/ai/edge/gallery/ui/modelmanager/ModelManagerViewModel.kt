@@ -111,6 +111,7 @@ private const val ALLOWLIST_BASE_URL =
 private const val PLACEHOLDER_FILENAME = "placeholder"
 private const val UNPACKED_FILE_EXT = "unpacked"
 private const val MODEL_ALLOWLIST_LAST_SYNC_FILENAME = "model_allowlist_last_sync.txt"
+private const val MODEL_ALLOWLIST_LOAD_ERROR = "Failed to load model list"
 
 // Bounds the allowlist network sync so a missing internet connection fails within a few seconds
 // instead of blocking startup until the OS network stack gives up.
@@ -288,6 +289,12 @@ constructor(
    * with it after a failed sync. See [proceedWithStaleAllowlist].
    */
   private var pendingStaleAllowlist: ModelAllowlist? = null
+
+  /**
+   * Bumped when a load is superseded (e.g. by [skipAllowlistLoading]) so that a slow in-flight
+   * sync's late result is discarded instead of overwriting the newer state.
+   */
+  private var allowlistLoadGeneration = 0
 
   protected val _uiState: MutableStateFlow<ModelManagerUiState> =
     MutableStateFlow(createEmptyUiState())
@@ -1304,9 +1311,15 @@ constructor(
       )
     }
     pendingStaleAllowlist = null
+    val generation = ++allowlistLoadGeneration
 
     viewModelScope.launch(allowlistLoadingDispatcher) {
       try {
+        if (generation != allowlistLoadGeneration) {
+          Log.d(TAG, "loadModelAllowlist: load superseded before starting; discarding")
+          return@launch
+        }
+
         // Clear existing allowlist models.
         _allowlistModels.clear()
         _supplementaryModels.clear()
@@ -1349,10 +1362,20 @@ constructor(
           }
         }
 
+        if (generation != allowlistLoadGeneration) {
+          Log.d(TAG, "loadModelAllowlist: load was skipped by the user; discarding result")
+          return@launch
+        }
+
         if (modelAllowlist == null) {
           // There is no cached copy to fall back on. The user has to get online anyway since the
           // model files themselves are also fetched from the internet.
-          _uiState.update { it.copy(loadingModelAllowlistError = "Failed to load model list") }
+          _uiState.update { it.copy(loadingModelAllowlistError = MODEL_ALLOWLIST_LOAD_ERROR) }
+          return@launch
+        }
+
+        if (generation != allowlistLoadGeneration) {
+          Log.d(TAG, "loadModelAllowlist: load superseded while handling result; discarding")
           return@launch
         }
 
@@ -1373,10 +1396,40 @@ constructor(
         processAllowlist(
           modelAllowlist = modelAllowlist,
           loadedFromTestAllowlist = loadedFromTestAllowlist,
+          generation = generation,
         )
       } catch (e: Exception) {
         Log.e(TAG, "Failed to load model allowlist", e)
       }
+    }
+  }
+
+  /**
+   * Skips an in-progress model list sync and immediately continues with the cached allowlist.
+   * When no cached list exists yet, shows the error dialog instead — the app still has to sync at
+   * least once, since models themselves are fetched from the internet.
+   */
+  fun skipAllowlistLoading() {
+    // Invalidate the in-flight load so its late result can't overwrite the skipped state.
+    allowlistLoadGeneration++
+    pendingStaleAllowlist = null
+    _uiState.update {
+      it.copy(showStaleAllowlistPrompt = false, staleAllowlistLastSyncTimeMs = -1L)
+    }
+
+    // Parse the cached allowlist off the main thread, like every other allowlist disk access.
+    viewModelScope.launch(allowlistLoadingDispatcher) {
+      val cached = readModelAllowlistFromDisk()
+      if (cached == null) {
+        _uiState.update {
+          it.copy(
+            loadingModelAllowlist = false,
+            loadingModelAllowlistError = MODEL_ALLOWLIST_LOAD_ERROR,
+          )
+        }
+        return@launch
+      }
+      processAllowlist(modelAllowlist = cached, loadedFromTestAllowlist = false)
     }
   }
 
@@ -1394,9 +1447,19 @@ constructor(
   }
 
   /** Converts the models in the given allowlist, registers them with tasks and updates UI state. */
-  private fun processAllowlist(modelAllowlist: ModelAllowlist, loadedFromTestAllowlist: Boolean) {
+  private fun processAllowlist(
+    modelAllowlist: ModelAllowlist,
+    loadedFromTestAllowlist: Boolean,
+    // Defaults to the current generation so callers like skip/proceed are invalidated by any
+    // newer skip/retry/load that starts before this run's body executes.
+    generation: Int = allowlistLoadGeneration,
+  ) {
     viewModelScope.launch(allowlistLoadingDispatcher) {
       try {
+        if (generation != allowlistLoadGeneration) {
+          Log.d(TAG, "processAllowlist: run superseded; discarding")
+          return@launch
+        }
         Log.d(TAG, "Allowlist: $modelAllowlist")
 
         val isAICoreAvailable by lazy {

@@ -220,8 +220,12 @@ fun HomeScreen(
     // The `loadingModelAllowlistDelayed` state is used to control the actual
     // visibility of the indicator based on this debounced logic.
     var loadingModelAllowlistDelayed by remember { mutableStateOf(false) }
+    // Set after the first tap on the skip button so it is single-shot: a double-tap must not
+    // start two concurrent allowlist loads. Reset whenever loading restarts.
+    var skipRequested by remember { mutableStateOf(false) }
     // This effect runs whenever uiState.loadingModelAllowlist changes
     LaunchedEffect(uiState.loadingModelAllowlist) {
+      skipRequested = false
       if (uiState.loadingModelAllowlist) {
         // If loading starts, wait for 200ms
         delay(200)
@@ -235,22 +239,45 @@ fun HomeScreen(
       }
     }
 
-    // Label and spinner to show when in the process of loading model allowlist.
-    if (loadingModelAllowlistDelayed) {
-      Row(
+    // Label and spinner to show when in the process of loading model allowlist. The skip button
+    // is deliberately shown immediately (not debounced like the spinner) so it is available
+    // without any wait.
+    if (uiState.loadingModelAllowlist) {
+      Column(
         modifier = Modifier.fillMaxSize(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
       ) {
-        CircularProgressIndicator(
-          trackColor = MaterialTheme.colorScheme.surfaceVariant,
-          strokeWidth = 3.dp,
-          modifier = Modifier.padding(end = 8.dp).size(20.dp),
-        )
-        Text(
-          stringResource(R.string.loading_model_list),
-          style = MaterialTheme.typography.bodyMedium,
-        )
+        if (loadingModelAllowlistDelayed) {
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+          ) {
+            CircularProgressIndicator(
+              trackColor = MaterialTheme.colorScheme.surfaceVariant,
+              strokeWidth = 3.dp,
+              modifier = Modifier.padding(end = 8.dp).size(20.dp),
+            )
+            Text(
+              stringResource(R.string.loading_model_list),
+              style = MaterialTheme.typography.bodyMedium,
+            )
+          }
+        }
+        // Hidden while the stale-list dialog is up: the dialog already offers Continue, and the
+        // button would sit dead behind the dialog's scrim.
+        if (!uiState.showStaleAllowlistPrompt) {
+          TextButton(
+            modifier = Modifier.padding(top = 16.dp),
+            enabled = !skipRequested,
+            onClick = {
+              skipRequested = true
+              modelManagerViewModel.skipAllowlistLoading()
+            },
+          ) {
+            Text(stringResource(R.string.skip_model_list_sync))
+          }
+        }
       }
     }
     // Main UI when allowlist is done loading.
