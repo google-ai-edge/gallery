@@ -28,17 +28,23 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Mms
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -52,6 +58,9 @@ import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
+import com.google.ai.edge.gallery.ui.common.chat.ChatSide
+import com.google.ai.edge.gallery.ui.common.chat.SendMessageTrigger
 import com.google.ai.edge.gallery.ui.theme.emptyStateContent
 import com.google.ai.edge.gallery.ui.theme.emptyStateTitle
 import com.google.ai.edge.litertlm.Contents
@@ -140,6 +149,16 @@ abstract class BaseLlmChatTask(
     LaunchedEffect(task) { viewModel.loadSystemPrompt(task) }
     val uiSystemPrompt by viewModel.uiSystemPrompt.collectAsStateWithLifecycle()
     val systemPromptUpdatedMessage = stringResource(R.string.system_prompt_updated)
+
+    // Text shared into the app via the share sheet (ACTION_SEND), delivered through the
+    // `?query=` deep link. Per the contract on CustomTaskDataForBuiltinTask.initialQuery, it is
+    // shown to the user and only sent to the model after explicit confirmation.
+    val sharedText = remember { myData.initialQuery }
+    var showSharedTextDialog by remember { mutableStateOf(!sharedText.isNullOrEmpty()) }
+    var sendMessageTrigger by remember { mutableStateOf<SendMessageTrigger?>(null) }
+    val selectedModel = myData.modelManagerViewModel.uiState.collectAsStateWithLifecycle().value.selectedModel
+    val selectedModelInitStatus by selectedModel.initStatusFlow.collectAsStateWithLifecycle()
+
     LlmChatScreen(
       modelManagerViewModel = myData.modelManagerViewModel,
       navigateUp = myData.onNavUp,
@@ -147,6 +166,7 @@ abstract class BaseLlmChatTask(
       taskId = task.id,
       allowEditingSystemPrompt = true,
       curSystemPrompt = uiSystemPrompt,
+      sendMessageTrigger = sendMessageTrigger,
       showImagePicker = true,
       showAudioPicker = true,
       onSystemPromptChanged = { newPrompt ->
@@ -211,6 +231,58 @@ abstract class BaseLlmChatTask(
         }
       },
     )
+
+    // Confirmation dialog for text shared into the app via the share sheet. The model must be
+    // initialized before the text can be run through it.
+    if (showSharedTextDialog && sharedText != null) {
+      val modelReady = selectedModelInitStatus is Model.InitializationStatus.Initialized
+      AlertDialog(
+        onDismissRequest = { showSharedTextDialog = false },
+        title = { Text("Shared text") },
+        text = {
+          Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            Text(
+              "Text shared from another app. Run it through the loaded model?",
+              style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+              sharedText,
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              maxLines = 10,
+              overflow = TextOverflow.Ellipsis,
+              modifier = Modifier.padding(top = 8.dp),
+            )
+            if (!modelReady) {
+              Text(
+                "The model is not initialized yet. Download and initialize it first, then confirm.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+              )
+            }
+          }
+        },
+        confirmButton = {
+          TextButton(
+            enabled = modelReady,
+            onClick = {
+              showSharedTextDialog = false
+              sendMessageTrigger =
+                SendMessageTrigger(
+                  model = selectedModel,
+                  messages = listOf(ChatMessageText(content = sharedText, side = ChatSide.USER)),
+                )
+            }
+          ) {
+            Text("Run")
+          }
+        },
+        dismissButton = {
+          TextButton(onClick = { showSharedTextDialog = false }) { Text("Cancel") }
+        },
+      )
+    }
   }
 }
 

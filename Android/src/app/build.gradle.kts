@@ -139,6 +139,7 @@ dependencies {
   implementation(libs.androidx.media3.transformer)
   implementation(libs.androidx.media3.ui)
   implementation(libs.coil.compose)
+  implementation(libs.nanohttpd)
 }
 
 configurations.all { resolutionStrategy.force("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.0") }

@@ -55,6 +55,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,6 +79,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.edgeserver.EdgeServerManager
 import com.google.ai.edge.gallery.proto.Theme
 import com.google.ai.edge.gallery.ui.common.ClickableLink
 import com.google.ai.edge.gallery.ui.common.tos.AppTosDialog
@@ -253,6 +255,50 @@ fun SettingsDialog(
               }
             ) {
               Text(stringResource(R.string.settings_dialog_sync_model_list_now))
+            }
+          }
+
+          // Local API server (OpenAI-compatible endpoint over the loaded model).
+          val edgeServerState by EdgeServerManager.state.collectAsState()
+          Column(
+            modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+          ) {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+              Column(
+                modifier = Modifier.weight(1f).padding(end = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+              ) {
+                Text(
+                  "Local API server",
+                  style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+                )
+                Text(
+                  if (edgeServerState.isRunning) {
+                    "Running at http://${edgeServerState.host}:${edgeServerState.port}/v1 — " +
+                      "an OpenAI-compatible API backed by the loaded model"
+                  } else {
+                    "Expose the loaded model via an OpenAI-compatible HTTP API " +
+                      "(localhost only, port ${edgeServerState.port})"
+                  },
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
+              Switch(
+                checked = edgeServerState.isRunning,
+                onCheckedChange = { checked ->
+                  if (checked) {
+                    EdgeServerManager.modelLookup = { modelManagerViewModel.findLoadedLlmModel() }
+                    EdgeServerManager.startServer()
+                  } else {
+                    EdgeServerManager.stopServer()
+                  }
+                },
+              )
             }
           }
 

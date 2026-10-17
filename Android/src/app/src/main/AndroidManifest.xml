@@ -94,6 +94,16 @@
 
                 <data android:scheme="com.google.ai.edge.gallery" />
             </intent-filter>
+
+            <!-- Share-sheet target: receive plain text shared from other apps and run it
+                 through the loaded on-device model. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <!-- Set themes for activities that are used for viewing open source licenses -->

@@ -372,6 +372,19 @@ constructor(
     return uiState.value.selectedModel
   }
 
+  /** Returns the currently loaded LLM model (instance initialized), or null if none is loaded. */
+  fun findLoadedLlmModel(): Model? {
+    val state = uiState.value
+    val candidates = buildList {
+      add(state.selectedModel)
+      for (task in state.tasks) {
+        addAll(task.models)
+      }
+      addAll(state.supplementaryModels)
+    }
+    return candidates.firstOrNull { it.isLlm && it.instance != null }
+  }
+
   open fun getModelByName(name: String): Model? {
     for (task in uiState.value.tasks) {
       for (model in task.models) {

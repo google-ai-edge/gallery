@@ -102,6 +102,9 @@ class MainActivity : ComponentActivity(), VirtualDevicePermissionsHost {
       }
     }
 
+    // Convert a share-sheet ACTION_SEND text into intent data for GalleryNavGraph to pick up.
+    convertShareIntentToDeeplink(intent)
+
     fun setContent() {
       if (contentSet) {
         return
@@ -214,6 +217,32 @@ class MainActivity : ComponentActivity(), VirtualDevicePermissionsHost {
         intent.data = link.toUri()
       }
     }
+
+    // Convert a share-sheet ACTION_SEND text into intent data for GalleryNavGraph to pick up.
+    convertShareIntentToDeeplink(intent)
+  }
+
+  /**
+   * Routes text shared via the share sheet (ACTION_SEND, text/plain) into the app: rewrites the
+   * intent into the app's `com.google.ai.edge.gallery://llm_chat?query=...` deep link, which
+   * GalleryNavGraph resolves to the LLM chat page. The shared text is then shown to the user for
+   * explicit confirmation before it is sent to the model.
+   */
+  private fun convertShareIntentToDeeplink(intent: Intent?) {
+    if (intent == null || intent.action != Intent.ACTION_SEND) {
+      return
+    }
+    if (intent.type != "text/plain") {
+      return
+    }
+    val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
+    if (sharedText.isNullOrEmpty()) {
+      return
+    }
+    Log.d(TAG, "convertShareIntentToDeeplink: shared ${sharedText.length} chars")
+    intent.action = null
+    intent.data =
+      "com.google.ai.edge.gallery://llm_chat?query=${android.net.Uri.encode(sharedText)}".toUri()
   }
 
   override fun onRequestPermissionsResult(
