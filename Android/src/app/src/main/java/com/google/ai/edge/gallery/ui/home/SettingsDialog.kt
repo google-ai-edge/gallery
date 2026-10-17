@@ -229,6 +229,33 @@ fun SettingsDialog(
               )
             }
 
+          // Model list. The app starts with the list bundled in the APK and never syncs on its
+          // own; this is the explicit way to refresh it from the internet.
+          Column(
+            modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            Text(
+              stringResource(R.string.settings_dialog_model_list_title),
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+            )
+            Text(
+              stringResource(R.string.settings_dialog_model_list_description),
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(
+              onClick = {
+                // Close the dialog so the sync progress, its skip button and the error/stale-list
+                // dialogs are visible on the home screen.
+                onDismissed()
+                modelManagerViewModel.syncModelAllowlistNow()
+              }
+            ) {
+              Text(stringResource(R.string.settings_dialog_sync_model_list_now))
+            }
+          }
+
           // HF Token management.
           Column(
             modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},

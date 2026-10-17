@@ -106,6 +106,12 @@ import net.openid.appauth.ResponseTypeValues
 private const val TAG = "AGModelManagerViewModel"
 private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
 private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
+
+/**
+ * Copy of the model allowlist bundled into the APK's assets. Startup loads this instead of
+ * fetching from the internet, so the app starts instantly and works fully offline.
+ */
+private const val MODEL_ALLOWLIST_ASSET_FILENAME = "model_allowlist.json"
 private const val ALLOWLIST_BASE_URL =
   "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlists"
 private const val PLACEHOLDER_FILENAME = "placeholder"
@@ -113,8 +119,8 @@ private const val UNPACKED_FILE_EXT = "unpacked"
 private const val MODEL_ALLOWLIST_LAST_SYNC_FILENAME = "model_allowlist_last_sync.txt"
 private const val MODEL_ALLOWLIST_LOAD_ERROR = "Failed to load model list"
 
-// Bounds the allowlist network sync so a missing internet connection fails within a few seconds
-// instead of blocking startup until the OS network stack gives up.
+// Bounds the manual allowlist network sync ([syncModelAllowlistNow]) so a missing internet
+// connection fails within a few seconds instead of hanging until the OS network stack gives up.
 private const val ALLOWLIST_SYNC_CONNECT_TIMEOUT_MS = 2000
 private const val ALLOWLIST_SYNC_READ_TIMEOUT_MS = 2000
 
@@ -1301,7 +1307,11 @@ constructor(
     }
   }
 
-  fun loadModelAllowlist() {
+  /**
+   * Resets the allowlist load state and starts a new load generation. See
+   * [allowlistLoadGeneration] for why the generation counter exists.
+   */
+  private fun beginAllowlistLoad(): Int {
     _uiState.update {
       it.copy(
         loadingModelAllowlist = true,
@@ -1311,7 +1321,17 @@ constructor(
       )
     }
     pendingStaleAllowlist = null
-    val generation = ++allowlistLoadGeneration
+    return ++allowlistLoadGeneration
+  }
+
+  /**
+   * Loads the model allowlist from local sources only, never touching the network: the copy
+   * bundled in the APK's assets first, then the disk cache written by a previous manual sync.
+   * Startup is therefore instant and works offline. Use [syncModelAllowlistNow] to refresh the
+   * list from the internet.
+   */
+  fun loadModelAllowlist() {
+    val generation = beginAllowlistLoad()
 
     viewModelScope.launch(allowlistLoadingDispatcher) {
       try {
@@ -1333,12 +1353,74 @@ constructor(
           Log.w(TAG, "Using local test model allowlist: ${localTestAllowlistFile.absolutePath}")
         }
 
+        if (modelAllowlist == null) {
+          // Load the allowlist bundled in the APK.
+          modelAllowlist = readModelAllowlistFromAssets()
+        }
+
+        if (modelAllowlist == null) {
+          // Fall back to the disk cache from a previous [syncModelAllowlistNow].
+          modelAllowlist = readModelAllowlistFromDisk()
+        }
+
+        if (generation != allowlistLoadGeneration) {
+          Log.d(TAG, "loadModelAllowlist: load superseded while handling result; discarding")
+          return@launch
+        }
+
+        if (modelAllowlist == null) {
+          // Neither a bundled nor a cached copy exists. The user has to sync at least once since
+          // the model files themselves are also fetched from the internet.
+          _uiState.update { it.copy(loadingModelAllowlistError = MODEL_ALLOWLIST_LOAD_ERROR) }
+          return@launch
+        }
+
+        processAllowlist(
+          modelAllowlist = modelAllowlist,
+          loadedFromTestAllowlist = loadedFromTestAllowlist,
+          generation = generation,
+        )
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to load model allowlist", e)
+      }
+    }
+  }
+
+  /**
+   * Manually re-syncs the model allowlist from the internet (triggered from the settings dialog).
+   *
+   * This is the only path that fetches the list over the network. The request is bounded by short
+   * timeouts; while the sync runs the regular loading UI with its skip button shows, and if the
+   * sync fails the user is asked whether to continue with the previously saved list.
+   */
+  fun syncModelAllowlistNow() {
+    val generation = beginAllowlistLoad()
+
+    viewModelScope.launch(allowlistLoadingDispatcher) {
+      try {
+        if (generation != allowlistLoadGeneration) {
+          Log.d(TAG, "syncModelAllowlistNow: sync superseded before starting; discarding")
+          return@launch
+        }
+
+        // Clear existing allowlist models.
+        _allowlistModels.clear()
+        _supplementaryModels.clear()
+
+        // The local test allowlist keeps precedence over the network copy.
+        Log.d(TAG, "Loading test model allowlist from ${localTestAllowlistFile.absolutePath}.")
+        var modelAllowlist = readModelAllowlistFromDisk(file = localTestAllowlistFile)
+        val loadedFromTestAllowlist = modelAllowlist != null
+        if (loadedFromTestAllowlist) {
+          Log.w(TAG, "Using local test model allowlist: ${localTestAllowlistFile.absolutePath}")
+        }
+
         var syncedFromInternet = false
         if (modelAllowlist == null) {
           // Load from github.
           var version = BuildConfig.VERSION_NAME.replace(".", "_")
           val url = getAllowlistUrl(version)
-          Log.d(TAG, "Loading model allowlist from internet. Url: $url")
+          Log.d(TAG, "Syncing model allowlist from internet. Url: $url")
           val data =
             getJsonResponse<ModelAllowlist>(
               url = url,
@@ -1348,10 +1430,10 @@ constructor(
           modelAllowlist = data?.jsonObj
 
           if (modelAllowlist == null) {
-            Log.w(TAG, "Failed to load model allowlist from internet. Trying to load it from disk")
+            Log.w(TAG, "Failed to sync model allowlist from internet. Trying to load it from disk")
             modelAllowlist = readModelAllowlistFromDisk()
           } else {
-            Log.d(TAG, "Done: loading model allowlist from internet")
+            Log.d(TAG, "Done: syncing model allowlist from internet")
             val cached = saveModelAllowlistToDisk(modelAllowlistContent = data?.textContent ?: "{}")
             if (cached) {
               // Only record the sync time if the cached list was actually updated, so the prompt
@@ -1363,7 +1445,7 @@ constructor(
         }
 
         if (generation != allowlistLoadGeneration) {
-          Log.d(TAG, "loadModelAllowlist: load was skipped by the user; discarding result")
+          Log.d(TAG, "syncModelAllowlistNow: sync was skipped by the user; discarding result")
           return@launch
         }
 
@@ -1375,7 +1457,7 @@ constructor(
         }
 
         if (generation != allowlistLoadGeneration) {
-          Log.d(TAG, "loadModelAllowlist: load superseded while handling result; discarding")
+          Log.d(TAG, "syncModelAllowlistNow: sync superseded while handling result; discarding")
           return@launch
         }
 
@@ -1399,15 +1481,15 @@ constructor(
           generation = generation,
         )
       } catch (e: Exception) {
-        Log.e(TAG, "Failed to load model allowlist", e)
+        Log.e(TAG, "Failed to sync model allowlist", e)
       }
     }
   }
 
   /**
-   * Skips an in-progress model list sync and immediately continues with the cached allowlist.
-   * When no cached list exists yet, shows the error dialog instead — the app still has to sync at
-   * least once, since models themselves are fetched from the internet.
+   * Skips an in-progress model list sync and immediately continues with the allowlist on disk,
+   * falling back to the copy bundled in the APK. The error dialog is only shown when neither
+   * exists.
    */
   fun skipAllowlistLoading() {
     // Invalidate the in-flight load so its late result can't overwrite the skipped state.
@@ -1417,9 +1499,10 @@ constructor(
       it.copy(showStaleAllowlistPrompt = false, staleAllowlistLastSyncTimeMs = -1L)
     }
 
-    // Parse the cached allowlist off the main thread, like every other allowlist disk access.
+    // Parse the local allowlist off the main thread, like every other allowlist disk access.
+    // The disk cache may be newer than the bundled copy, so try it first.
     viewModelScope.launch(allowlistLoadingDispatcher) {
-      val cached = readModelAllowlistFromDisk()
+      val cached = readModelAllowlistFromDisk() ?: readModelAllowlistFromAssets()
       if (cached == null) {
         _uiState.update {
           it.copy(
@@ -1671,6 +1754,22 @@ constructor(
     }
 
     return null
+  }
+
+  /** Reads the model allowlist bundled in the APK's assets. Returns null when unavailable. */
+  private fun readModelAllowlistFromAssets(): ModelAllowlist? {
+    try {
+      Log.d(TAG, "Reading model allowlist from assets: $MODEL_ALLOWLIST_ASSET_FILENAME")
+      val content =
+        context.assets.open(MODEL_ALLOWLIST_ASSET_FILENAME).bufferedReader().use { it.readText() }
+      Log.d(TAG, "Model allowlist read from assets. Length: ${content.length}")
+
+      val gson = Gson()
+      return gson.fromJson(content, ModelAllowlist::class.java)
+    } catch (e: Exception) {
+      Log.e(TAG, "failed to read model allowlist from assets", e)
+      return null
+    }
   }
 
   private fun saveAllowlistLastSyncTimeToDisk(timeMs: Long) {

@@ -723,6 +723,12 @@
   <string name="skip_model_list_sync" translatable="true" description="Label for the button shown while the list of available models is loading, letting the user skip the wait and continue with the previously saved list. [CHAR_LIMIT=12]">Skip</string>
   <!-- Label for the button that continues using the previously saved model list. -->
   <string name="stale_model_list_continue_button" translatable="true" description="Label for the button that continues using the previously saved model list. [CHAR_LIMIT=12]">Continue</string>
+  <!-- Title of the model list section in the settings dialog. -->
+  <string name="settings_dialog_model_list_title" translatable="true" description="Title of the model list section in the settings dialog. [CHAR_LIMIT=26]">Model list</string>
+  <!-- Description of the model list section in the settings dialog. -->
+  <string name="settings_dialog_model_list_description" translatable="true" description="Description of the model list section in the settings dialog, explaining that the app starts with a bundled model list without internet access and that syncing fetches the latest list. [CHAR_LIMIT=140]">The app starts with a built-in model list, no internet needed. Syncing fetches the latest model list from the internet.</string>
+  <!-- Label for the button that manually syncs the model list from the internet. -->
+  <string name="settings_dialog_sync_model_list_now" translatable="true" description="Label for the button in the settings dialog that manually refreshes the list of available models from the internet. [CHAR_LIMIT=26]">Sync model list now</string>
   <!-- Title of the dialog warning that the model allowlist was loaded from a local test file. -->
   <string name="local_test_allowlist_dialog_title" translatable="true" description="Title of a warning dialog shown when the app loaded its allowlist of AI models from a local test file on the device instead of the official online source. [CHAR_LIMIT=50]">Using local test model allowlist</string>
   <!-- Body of the dialog warning that the model allowlist was loaded from a local test file. -->

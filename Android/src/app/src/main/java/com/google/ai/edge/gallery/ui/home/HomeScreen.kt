@@ -562,7 +562,7 @@ fun HomeScreen(
         }
       },
       dismissButton = {
-        TextButton(onClick = { modelManagerViewModel.loadModelAllowlist() }) {
+        TextButton(onClick = { modelManagerViewModel.syncModelAllowlistNow() }) {
           Text(stringResource(R.string.retry))
         }
       },
@@ -580,9 +580,9 @@ fun HomeScreen(
       },
       title = { Text(uiState.loadingModelAllowlistError) },
       text = { Text(stringResource(R.string.error_internet_connection)) },
-      onDismissRequest = { modelManagerViewModel.loadModelAllowlist() },
+      onDismissRequest = { modelManagerViewModel.syncModelAllowlistNow() },
       confirmButton = {
-        TextButton(onClick = { modelManagerViewModel.loadModelAllowlist() }) {
+        TextButton(onClick = { modelManagerViewModel.syncModelAllowlistNow() }) {
           Text(stringResource(R.string.retry))
         }
       },
