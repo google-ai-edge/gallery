@@ -17,7 +17,6 @@
 package com.google.ai.edge.gallery.ui.modelmanager
 
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
@@ -193,15 +192,15 @@ fun GlobalModelManager(
       }
     }
 
-  val filePickerLauncher: ActivityResultLauncher<Intent> =
-    rememberLauncherForActivityResult(
-      contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-      if (result.resultCode == android.app.Activity.RESULT_OK) {
-        result.data?.data?.let { uri -> processModelUri(uri, /* isWebImport= */ false) }
-          ?: run { Log.d(TAG, "No file selected or URI is null.") }
+  // Lets the user pick any local model file (e.g. a .litertlm) via the Storage Access Framework.
+  // The picked file is copied into the app's model storage dir and registered as an imported model
+  // without consulting the model allowlist.
+  val filePickerLauncher: ActivityResultLauncher<Array<String>> =
+    rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocument()) { uri ->
+      if (uri != null) {
+        processModelUri(uri, /* isWebImport= */ false)
       } else {
-        Log.d(TAG, "File picking cancelled.")
+        Log.d(TAG, "No file selected or URI is null.")
       }
     }
 
@@ -471,14 +470,7 @@ fun GlobalModelManager(
                 showImportModelSheet = false
 
                 // Show file picker.
-                val intent =
-                  Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "*/*"
-                    // Single select.
-                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
-                  }
-                filePickerLauncher.launch(intent)
+                filePickerLauncher.launch(arrayOf("*/*"))
               }
             }
             .semantics {
@@ -635,7 +627,11 @@ private fun validateAndProcessModelUri(
     if (isWebImport) {
       fileName != null && fileName.endsWith(".litertlm")
     } else {
-      fileName != null && (fileName.endsWith(".task") || fileName.endsWith(".litertlm"))
+      // Match case-insensitively so that any local .litertlm file can be imported, regardless of
+      // how its extension is capitalized on disk.
+      val lowerFileName = fileName?.lowercase()
+      lowerFileName != null &&
+        (lowerFileName.endsWith(".task") || lowerFileName.endsWith(".litertlm"))
     }
 
   if (!hasValidExtension) {

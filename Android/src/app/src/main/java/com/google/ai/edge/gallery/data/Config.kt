@@ -193,11 +193,25 @@ open class Config(
      *
      * When [isForTestOnly] is true, specialized task toggles (`SUPPORT_TINY_GARDEN` and
      * `SUPPORT_MOBILE_ACTIONS`) are omitted.
+     *
+     * The initially selected accelerators are the accelerators from [defaultAccelerators] that are
+     * also offered in [accelerators], falling back to the first offered accelerator when the
+     * intersection is empty.
      */
     fun createLlmImportConfigs(
       accelerators: List<Accelerator> = DEFAULT_ACCELERATORS,
+      defaultAccelerators: List<Accelerator> = emptyList(),
       isForTestOnly: Boolean = false,
     ): List<Config> {
+      val defaultAcceleratorSelection =
+        (
+          if (defaultAccelerators.isEmpty()) {
+            accelerators
+          } else {
+            accelerators.filter { defaultAccelerators.contains(it) }
+          }
+        )
+          .ifEmpty { accelerators.firstOrNull()?.let { listOf(it) } ?: emptyList() }
       return buildList {
         add(LabelConfig(key = ConfigKeys.NAME))
         add(LabelConfig(key = ConfigKeys.MODEL_TYPE))
@@ -218,7 +232,7 @@ open class Config(
         add(
           SegmentedButtonConfig(
             key = ConfigKeys.COMPATIBLE_ACCELERATORS,
-            defaultValue = accelerators.firstOrNull()?.label.orEmpty(),
+            defaultValue = defaultAcceleratorSelection.joinToString(separator = ",") { it.label },
             options = accelerators.map { it.label },
             allowMultiple = true,
           )

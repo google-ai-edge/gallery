@@ -103,6 +103,14 @@ private val SUPPORTED_ACCELERATORS: List<Accelerator> =
     listOf(Accelerator.CPU, Accelerator.GPU, Accelerator.NPU)
   }
 
+/**
+ * The accelerators an imported model defaults to: a normal LiteRT-LM spec of CPU and GPU, like the
+ * other chat models. Only offered accelerators end up pre-selected (see
+ * [Config.createLlmImportConfigs]).
+ */
+private val DEFAULT_IMPORT_ACCELERATORS: List<Accelerator> =
+  listOf(Accelerator.CPU, Accelerator.GPU)
+
 @Composable
 fun ModelImportDialog(
   uri: Uri,
@@ -120,6 +128,7 @@ fun ModelImportDialog(
     remember(uri) {
       Config.createLlmImportConfigs(
         accelerators = SUPPORTED_ACCELERATORS,
+        defaultAccelerators = DEFAULT_IMPORT_ACCELERATORS,
         isForTestOnly = ModelUtils.isImportedUrlForTestOnly(uri.toString()),
       )
     }
