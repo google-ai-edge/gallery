@@ -95,15 +95,14 @@ class RunJsTool(
                 },
             )
           executionContext?.actionChannel?.send(action)
-          secret = action.result.await()
+          secret = action.result.await().trim()
           if (secret.isNotEmpty()) {
             dataStoreRepository.saveSecret(
               key = getSkillSecretKey(skillName = skillName),
               value = secret,
             )
-            Log.d(TAG, "Got Secret from ask info dialog: ${secret.substring(0, 3)}")
           } else {
-            Log.d(TAG, "The ask info dialog got cancelled. No secret.")
+            Log.d(TAG, "The ask info dialog got cancelled or the secret was empty. No secret.")
           }
         } else {
           secret = savedSecret
