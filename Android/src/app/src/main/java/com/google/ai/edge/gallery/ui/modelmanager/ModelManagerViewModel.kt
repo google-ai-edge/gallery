@@ -1395,6 +1395,12 @@ constructor(
         )
       } catch (e: Exception) {
         Log.e(TAG, "Failed to load model allowlist", e)
+        _uiState.update {
+          it.copy(
+            loadingModelAllowlist = false,
+            loadingModelAllowlistError = MODEL_ALLOWLIST_LOAD_ERROR,
+          )
+        }
       }
     }
   }
@@ -1444,7 +1450,9 @@ constructor(
 
           if (modelAllowlist == null) {
             Log.w(TAG, "Failed to sync model allowlist from internet. Trying to load it from disk")
-            modelAllowlist = readModelAllowlistFromDisk()
+            // Fall back to the disk cache, then to the copy bundled in the APK, so an offline
+            // sync attempt can never end worse than the state the app was already in.
+            modelAllowlist = readModelAllowlistFromDisk() ?: readModelAllowlistFromAssets()
           } else {
             Log.d(TAG, "Done: syncing model allowlist from internet")
             val cached = saveModelAllowlistToDisk(modelAllowlistContent = data?.textContent ?: "{}")
@@ -1495,6 +1503,12 @@ constructor(
         )
       } catch (e: Exception) {
         Log.e(TAG, "Failed to sync model allowlist", e)
+        _uiState.update {
+          it.copy(
+            loadingModelAllowlist = false,
+            loadingModelAllowlistError = MODEL_ALLOWLIST_LOAD_ERROR,
+          )
+        }
       }
     }
   }
@@ -1622,9 +1636,10 @@ constructor(
           for (taskType in allowedModel.taskTypes.orEmpty()) {
             if (taskType == BuiltInTaskId.LLM_TEST) continue
             val task = curTasks.find { it.id == taskType }
-            // Dedup: a reload (e.g. after retrying a failed sync) must not append duplicates to
-            // the shared task model lists.
-            if (task != null && model !in task.models) {
+            // Dedup by name: Model's structural equality can't match a freshly parsed instance
+            // (Config uses identity equality), so a re-process after a manual sync would
+            // otherwise append every model a second time.
+            if (task != null && task.models.none { it.name == model.name }) {
               task.models.add(model)
 
               if (task.id == BuiltInTaskId.LLM_TINY_GARDEN) {
@@ -1647,7 +1662,7 @@ constructor(
                 continue
               }
               Log.d(TAG, "Adding model '$modelName' to task '${task.label}' from modelNames.")
-              if (model !in task.models) {
+              if (task.models.none { it.name == model.name }) {
                 task.models.add(model)
               }
             }
@@ -1681,6 +1696,14 @@ constructor(
         Log.d(TAG, "loadModelAllowlist: Done")
       } catch (e: Exception) {
         Log.e(TAG, "Failed to process model allowlist", e)
+        // Recover instead of spinning on the loading screen forever: surface the error so the
+        // user can retry (the bundled/cached list stays usable on disk).
+        _uiState.update {
+          it.copy(
+            loadingModelAllowlist = false,
+            loadingModelAllowlistError = MODEL_ALLOWLIST_LOAD_ERROR,
+          )
+        }
       }
     }
   }
@@ -1891,7 +1914,12 @@ constructor(
 
       // Add to task.
       for (taskId in model.getTargetTaskIdsForImportedModel()) {
-        tasks.get(key = taskId)?.models?.add(model)
+        val task = tasks.get(key = taskId)
+        // Dedup by name: createUiState() runs after every allowlist (re)process, and a freshly
+        // constructed instance never compares equal to the one already in the list.
+        if (task != null && task.models.none { it.name == model.name }) {
+          task.models.add(model)
+        }
       }
 
       // Update status.
