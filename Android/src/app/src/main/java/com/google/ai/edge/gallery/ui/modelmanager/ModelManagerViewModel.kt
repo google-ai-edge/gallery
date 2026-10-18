@@ -85,11 +85,13 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import kotlin.collections.sortedWith
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -336,6 +338,15 @@ constructor(
 
   // Tracks the initialized backends for each model by model name.
   private val initializedBackends = ConcurrentHashMap<String, MutableSet<Accelerator>>()
+
+  // Tracks the in-flight initialization coroutine for each model by model name so a load can be
+  // cancelled via [cancelModelLoad].
+  private val initializationJobs = ConcurrentHashMap<String, Job>()
+
+  // Per-attempt cancellation flags, indexed by model name. Captured by the initialization's
+  // on-done handler so a late result from the cancelled attempt can be recognized and discarded
+  // even after the flags map has been replaced by a newer attempt.
+  private val initializationCancelFlags = ConcurrentHashMap<String, AtomicBoolean>()
 
   fun isFirstInitialization(model: Model): Boolean {
     val backend = getModelCurrentAccelerator(model)
@@ -826,65 +837,118 @@ constructor(
     onDone: () -> Unit = {},
     onError: (String) -> Unit = {},
   ) {
-    viewModelScope.launch {
-      // Skip if initialized already.
-      if (!force && model.initStatusFlow.value is Model.InitializationStatus.Initialized) {
-        Log.d(TAG, "Model '${model.name}' has been initialized. Skipping.")
-        onDone()
-        return@launch
-      }
+    // Per-attempt cancellation flag; see [cancelModelLoad]. It is captured by the on-done handler
+    // below so a late result from THIS attempt can be recognized even if a newer attempt for the
+    // same model has since started.
+    val cancelFlag = AtomicBoolean(false)
+    initializationCancelFlags.put(model.name, cancelFlag)
 
-      // Skip if initialization is in progress.
-      if (model.initializing) {
-        model.cleanUpAfterInit = false
-        Log.d(TAG, "Model '${model.name}' is being initialized. Skipping.")
-        return@launch
-      }
-
-      // Clean up.
-      cleanupModel(context = context, task = task, model = model)
-
-      // Start initialization.
-      Log.d(TAG, "Initializing model '${model.name}'...")
-      model.markInitializationStarted()
-
-      val onDoneFn: (error: String) -> Unit = { error ->
-        if (model.instance != null) {
-          Log.d(TAG, "Model '${model.name}' initialized successfully")
-          val backend = getModelCurrentAccelerator(model)
-          initializedBackends.getOrPut(model.name) { ConcurrentHashMap.newKeySet() }.add(backend)
-
-          if (model.cleanUpAfterInit) {
-            model.markInitializationFailed(
-              IllegalStateException("Model cleaned up after initialization")
-            )
-            Log.d(TAG, "Model '${model.name}' needs cleaning up after init.")
-            cleanupModel(context = context, task = task, model = model)
-          } else {
-            model.markInitialized()
+    val job =
+      viewModelScope.launch {
+        try {
+          // Skip if initialized already.
+          if (!force && model.initStatusFlow.value is Model.InitializationStatus.Initialized) {
+            Log.d(TAG, "Model '${model.name}' has been initialized. Skipping.")
+            onDone()
+            return@launch
           }
-          onDone()
-        } else if (error.isNotEmpty()) {
-          model.markInitializationFailed(error)
-          Log.d(TAG, "Model '${model.name}' failed to initialize")
-          onError(error)
-        } else {
-          model.markInitialized(null)
+
+          // Skip if initialization is in progress.
+          if (model.initializing) {
+            model.cleanUpAfterInit = false
+            Log.d(TAG, "Model '${model.name}' is being initialized. Skipping.")
+            return@launch
+          }
+
+          // Clean up.
+          cleanupModel(context = context, task = task, model = model)
+
+          // Start initialization.
+          Log.d(TAG, "Initializing model '${model.name}'...")
+          model.markInitializationStarted()
+
+          val onDoneFn: (error: String) -> Unit = { error ->
+            if (cancelFlag.get()) {
+              // The load was cancelled via [cancelModelLoad] while the native engine creation
+              // (LlmChatModelHelper.initialize) was blocking a background thread. That call
+              // cannot be interrupted mid-flight, so discard the late result here and close any
+              // engine it managed to create, instead of reporting it initialized or failed
+              // (which would pop an error dialog). The status was already reset to Idle by
+              // [cancelModelLoad]; onDone/onError are deliberately not invoked so a cancelled
+              // load triggers neither navigation nor error UI.
+              Log.d(TAG, "Model '${model.name}' load was cancelled. Discarding the result.")
+              if (model.instance != null) {
+                cleanupModel(context = context, task = task, model = model)
+              }
+            } else if (model.instance != null) {
+              Log.d(TAG, "Model '${model.name}' initialized successfully")
+              val backend = getModelCurrentAccelerator(model)
+              initializedBackends.getOrPut(model.name) { ConcurrentHashMap.newKeySet() }.add(backend)
+
+              if (model.cleanUpAfterInit) {
+                model.markInitializationFailed(
+                  IllegalStateException("Model cleaned up after initialization")
+                )
+                Log.d(TAG, "Model '${model.name}' needs cleaning up after init.")
+                cleanupModel(context = context, task = task, model = model)
+              } else {
+                model.markInitialized()
+              }
+              onDone()
+            } else if (error.isNotEmpty()) {
+              model.markInitializationFailed(error)
+              Log.d(TAG, "Model '${model.name}' failed to initialize")
+              onError(error)
+            } else {
+              model.markInitialized(null)
+            }
+          }
+
+          // Call the model initialization function.
+          val systemPrompt = SystemPromptHelper.getEffectiveSystemPrompt(systemPromptRepository, task)
+          withContext(Dispatchers.IO) {
+            getCustomTaskByTaskId(id = task.id)
+              ?.initializeModelFn(
+                context = context,
+                coroutineScope = viewModelScope,
+                model = model,
+                systemInstruction = Contents.of(systemPrompt),
+                onDone = onDoneFn,
+              )
+          }
+        } catch (e: CancellationException) {
+          // Handle cancellation explicitly: rethrow it instead of letting it fall into the
+          // generic error handling. The model's status reset is done by [cancelModelLoad] so the
+          // UI recovers immediately and the model doesn't get stuck in Initializing.
+          throw e
         }
       }
+    initializationJobs.put(model.name, job)
+    // Two-arg removes: only drop the entries that still belong to THIS attempt.
+    job.invokeOnCompletion {
+      initializationJobs.remove(model.name, job)
+      initializationCancelFlags.remove(model.name, cancelFlag)
+    }
+  }
 
-      // Call the model initialization function.
-      val systemPrompt = SystemPromptHelper.getEffectiveSystemPrompt(systemPromptRepository, task)
-      withContext(Dispatchers.IO) {
-        getCustomTaskByTaskId(id = task.id)
-          ?.initializeModelFn(
-            context = context,
-            coroutineScope = viewModelScope,
-            model = model,
-            systemInstruction = Contents.of(systemPrompt),
-            onDone = onDoneFn,
-          )
-      }
+  /**
+   * Cancels an in-flight model load started by [initializeModel].
+   *
+   * The coordinating coroutine is cancelled and the model's status is reset immediately, so the
+   * loading UI goes away and the app stays interactive right away. Note that the actual native
+   * engine creation ([com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper.initialize]) blocks
+   * a Dispatchers.Default thread and cannot be interrupted mid-flight: cancellation takes effect
+   * when that blocking call returns, at which point its late result is discarded and any
+   * partially created engine is closed (see the cancel handling in [initializeModel]).
+   */
+  fun cancelModelLoad(model: Model) {
+    val job = initializationJobs.remove(model.name)
+    job?.cancel(CancellationException("Model load for '${model.name}' was cancelled"))
+    initializationCancelFlags[model.name]?.set(true)
+    if (model.initializing) {
+      // Reset the status right away so the UI recovers even though the native initialization may
+      // still be running on a background thread.
+      model.resetInitialization()
     }
   }
 

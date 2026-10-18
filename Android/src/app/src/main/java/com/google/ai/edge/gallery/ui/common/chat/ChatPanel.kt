@@ -68,6 +68,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -671,6 +672,14 @@ fun ChatPanel(
                   color = MaterialTheme.colorScheme.onSurfaceVariant,
                   textAlign = TextAlign.Center,
                 )
+                // Lets the user back out of a slow load. The native engine creation can't be
+                // interrupted mid-flight, but cancelling resets the status right away so the UI
+                // recovers immediately; the late result is discarded by the view model.
+                TextButton(
+                  onClick = { modelManagerViewModel.cancelModelLoad(model = selectedModel) }
+                ) {
+                  Text(stringResource(R.string.cancel))
+                }
               }
             }
           }
