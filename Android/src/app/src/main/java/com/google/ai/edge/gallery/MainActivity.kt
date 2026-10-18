@@ -52,6 +52,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.google.ai.edge.gallery.common.PermissionsResultListener
 import com.google.ai.edge.gallery.common.VirtualDevicePermissionsHost
+import com.google.ai.edge.gallery.services.LocalApiServerService
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import com.google.ai.edge.litertlm.ExperimentalApi
@@ -140,6 +141,18 @@ class MainActivity : ComponentActivity(), VirtualDevicePermissionsHost {
     }
 
     modelManagerViewModel.loadModelAllowlist()
+
+    // Restore the local API server if the user left it enabled, so it survives process death and
+    // comes back with the app. Done here (an activity callback) rather than in the Application so
+    // foreground-service start restrictions can't reject a background-started launch; the
+    // service's start is idempotent if the activity is recreated.
+    if (modelManagerViewModel.dataStoreRepository.readLocalApiServerEnabled()) {
+      try {
+        LocalApiServerService.start(this)
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to restore the local API server", e)
+      }
+    }
 
     // Show splash screen.
     val splashScreen = installSplashScreen()

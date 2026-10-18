@@ -27,10 +27,8 @@ private const val TAG = "EdgeServerManager"
 
 /**
  * Singleton that manages the [EdgeServer] lifecycle and exposes observable state for the UI
- * (the start/stop toggle in the settings dialog).
- *
- * Adapted from open PR google-ai-edge/gallery#647, simplified: no foreground service — the server
- * runs in-process while the app is alive, started and stopped from the settings dialog.
+ * (the start/stop toggle in the settings dialog and the persistent notification of
+ * [com.google.ai.edge.gallery.services.LocalApiServerService], which owns the server's lifecycle).
  */
 object EdgeServerManager {
 
@@ -38,6 +36,8 @@ object EdgeServerManager {
     val isRunning: Boolean = false,
     val host: String = EdgeServer.DEFAULT_HOST,
     val port: Int = EdgeServer.DEFAULT_PORT,
+    /** Set when starting the server failed (e.g. the port is already in use). */
+    val errorMessage: String? = null,
   )
 
   private val _state = MutableStateFlow(ServerState())
@@ -46,8 +46,10 @@ object EdgeServerManager {
   val state: StateFlow<ServerState> = _state.asStateFlow()
 
   /**
-   * Provides the currently loaded LLM model for inference. Assign before [startServer] — typically
-   * a lambda over `ModelManagerViewModel`. The server consults it once per request.
+   * Resolves the model the server serves: the app's single active model (the one selected in
+   * Chat), or null when none is selected. The server consults it once per request. Wired by
+   * [com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel] so the server follows the
+   * active model instead of silently serving whichever instance happens to be alive.
    */
   @Volatile var modelLookup: (() -> Model?)? = null
 
@@ -68,8 +70,9 @@ object EdgeServerManager {
         ServerState(isRunning = true, host = EdgeServer.DEFAULT_HOST, port = newServer.listeningPort)
       Log.i(TAG, "Edge server started on ${EdgeServer.DEFAULT_HOST}:${newServer.listeningPort}")
     } catch (e: IOException) {
+      // Surface the failure (e.g. port already in use) to the UI instead of only logging it.
       Log.e(TAG, "Failed to start edge server", e)
-      _state.value = ServerState(isRunning = false)
+      _state.value = ServerState(isRunning = false, errorMessage = e.message ?: "Unknown error")
     }
   }
 
@@ -82,9 +85,9 @@ object EdgeServerManager {
     } catch (e: Exception) {
       Log.w(TAG, "Error stopping edge server", e)
     }
-    // Release the model lookup (which captures a ViewModel) so the singleton does not retain the
-    // activity-scoped ViewModel after the server is stopped; startServer re-assigns it.
-    modelLookup = null
+    // Deliberately keep modelLookup wired: it is owned by ModelManagerViewModel (assigned in its
+    // init) and must keep resolving the active model for later start/stop cycles in this session,
+    // because nothing else re-wires it. A freshly created ViewModel instance re-assigns it.
     _state.value = ServerState(isRunning = false)
     Log.i(TAG, "Edge server stopped")
   }

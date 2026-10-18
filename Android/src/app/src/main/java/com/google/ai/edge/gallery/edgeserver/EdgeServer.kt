@@ -38,15 +38,16 @@ private const val TAG = "EdgeServer"
 
 /**
  * On-device HTTP server that exposes an OpenAI-compatible REST API backed by AI Edge Gallery's
- * currently loaded LiteRT-LM model.
+ * active model — the single model selected in Chat ([EdgeServerManager.modelLookup] resolves to
+ * it; other models are never served).
  *
  * Adapted from open PR google-ai-edge/gallery#647, with the binding restricted to localhost only
  * (127.0.0.1 — never 0.0.0.0) and streaming dropped; only the non-streaming JSON response is
  * implemented.
  *
  * Endpoints:
- *   GET  /health              → server & model status
- *   GET  /v1/models           → the currently loaded model
+ *   GET  /health              → server & active-model status
+ *   GET  /v1/models           → the active model
  *   POST /v1/chat/completions → chat completion (non-streaming JSON)
  */
 class EdgeServer(
@@ -71,8 +72,9 @@ class EdgeServer(
   }
 
   /**
-   * Returns the currently loaded LLM model (with an initialized instance), or null if no model is
-   * loaded. Called on server worker threads for each request. Set by [EdgeServerManager].
+   * Returns the app's active model (the one selected in Chat), or null if no model is selected.
+   * The model's instance may not be initialized yet; callers decide how to handle that. Called on
+   * server worker threads for each request. Set by [EdgeServerManager].
    */
   @Volatile var modelLookup: (() -> Model?)? = null
 
@@ -114,14 +116,14 @@ class EdgeServer(
     val model = lookupModel()
     val json = JsonObject().apply {
       addProperty("status", "ok")
-      addProperty("model_loaded", model != null)
+      addProperty("model_loaded", model?.instance != null)
       addProperty("model", model?.displayName?.ifEmpty { model?.name } ?: "")
     }
     return newFixedLengthResponse(Response.Status.OK, MIME_JSON, gson.toJson(json))
   }
 
   // ───────────────────────────────────────────────────────────────────────
-  // GET /v1/models
+  // GET /v1/models — always reports the active model, even if it isn't loaded yet.
   // ───────────────────────────────────────────────────────────────────────
 
   private fun handleListModels(): Response {
@@ -178,11 +180,19 @@ class EdgeServer(
       }
 
     val model = lookupModel()
-    if (model == null || model.instance == null) {
+    if (model == null) {
       return errorResponse(
         Response.Status.SERVICE_UNAVAILABLE,
         "server_error",
-        "No model loaded. Open the Gallery app and load a model first.",
+        "No active model. Open the Gallery app and select a model in Chat first.",
+      )
+    }
+    if (model.instance == null) {
+      return errorResponse(
+        Response.Status.SERVICE_UNAVAILABLE,
+        "server_error",
+        "The active model \"${model.displayName.ifEmpty { model.name }}\" isn't loaded. " +
+          "Open the Gallery app to load it, or select a different model in Chat.",
       )
     }
 

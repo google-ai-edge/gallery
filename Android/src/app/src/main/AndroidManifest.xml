@@ -96,7 +96,7 @@
             </intent-filter>
 
             <!-- Share-sheet target: receive plain text shared from other apps and run it
-                 through the loaded on-device model. -->
+                 through the active on-device model. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
 
@@ -132,6 +132,14 @@
             android:exported="false"
             tools:node="merge">
         </service>
+
+        <!-- Local OpenAI-compatible API server. Runs as a foreground service (with the dataSync
+             type required to be declared on API 34+) so it keeps serving the active model while
+             the app is backgrounded. -->
+        <service
+            android:name="com.google.ai.edge.gallery.services.LocalApiServerService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <!-- For Firebase Analytics. Telemetry is disabled: the measurement components below are
              turned off so no analytics data is ever collected or uploaded. -->

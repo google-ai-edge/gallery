@@ -236,13 +236,14 @@ abstract class BaseLlmChatTask(
     // initialized before the text can be run through it.
     if (showSharedTextDialog && sharedText != null) {
       val modelReady = selectedModelInitStatus is Model.InitializationStatus.Initialized
+      val activeModelName = selectedModel.displayName.ifEmpty { selectedModel.name }
       AlertDialog(
         onDismissRequest = { showSharedTextDialog = false },
-        title = { Text("Shared text") },
+        title = { Text(stringResource(R.string.shared_text_dialog_title)) },
         text = {
           Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
             Text(
-              "Text shared from another app. Run it through the loaded model?",
+              stringResource(R.string.shared_text_dialog_message, activeModelName),
               style = MaterialTheme.typography.bodyMedium,
             )
             Text(
@@ -255,7 +256,7 @@ abstract class BaseLlmChatTask(
             )
             if (!modelReady) {
               Text(
-                "The model is not initialized yet. Download and initialize it first, then confirm.",
+                stringResource(R.string.shared_text_dialog_model_not_ready),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp),
@@ -275,11 +276,13 @@ abstract class BaseLlmChatTask(
                 )
             }
           ) {
-            Text("Run")
+            Text(stringResource(R.string.run))
           }
         },
         dismissButton = {
-          TextButton(onClick = { showSharedTextDialog = false }) { Text("Cancel") }
+          TextButton(onClick = { showSharedTextDialog = false }) {
+            Text(stringResource(R.string.cancel))
+          }
         },
       )
     }

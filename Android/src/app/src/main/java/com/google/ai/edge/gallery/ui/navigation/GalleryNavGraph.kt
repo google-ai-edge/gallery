@@ -54,6 +54,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -66,8 +67,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.google.ai.edge.gallery.GalleryEvent
+import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskData
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskDataForBuiltinTask
+import com.google.ai.edge.gallery.data.BuiltInTaskId
+import com.google.ai.edge.gallery.data.EMPTY_MODEL
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
@@ -156,6 +160,9 @@ fun GalleryNavHost(
   var enableHomeScreenAnimation by remember { mutableStateOf(true) }
   var enableModelListAnimation by remember { mutableStateOf(true) }
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+  // Set to the display name of the active model when text is shared into the app while that model
+  // isn't downloaded, so the error dialog can name it.
+  var sharedTextModelNotDownloaded by remember { mutableStateOf<String?>(null) }
 
   // Track whether app is in foreground.
   DisposableEffect(lifecycleOwner) {
@@ -487,27 +494,73 @@ fun GalleryNavHost(
         val queryStr = data.getQueryParameter("query")
         val task = modelManagerUiState.tasks.find { it.id == host }
         if (task != null) {
-          // Pick the first successfully downloaded model or the default active model for this task
-          val defaultModel =
-            task.models.firstOrNull { model ->
-              modelManagerUiState.modelDownloadStatus[model.name]?.status ==
-                ModelDownloadStatusType.SUCCEEDED
-            } ?: task.models.firstOrNull()
-
-          if (defaultModel != null) {
-            val route =
-              if (!queryStr.isNullOrEmpty()) {
-                "$ROUTE_MODEL/${task.id}/${defaultModel.name}?query=${Uri.encode(queryStr)}"
+          if (task.id == BuiltInTaskId.LLM_CHAT) {
+            // The share sheet runs text through the app's single active model — the one
+            // selected in Chat — so follow it instead of silently switching to another model.
+            val activeModel =
+              if (modelManagerUiState.selectedModel.name != EMPTY_MODEL.name) {
+                modelManagerUiState.selectedModel
               } else {
-                "$ROUTE_MODEL/${task.id}/${defaultModel.name}"
+                // No active model chosen yet; fall back to the first downloaded model.
+                task.models.firstOrNull { model ->
+                  modelManagerUiState.modelDownloadStatus[model.name]?.status ==
+                    ModelDownloadStatusType.SUCCEEDED
+                } ?: task.models.firstOrNull()
               }
-            navController.navigate(route)
+
+            if (
+              activeModel != null &&
+                modelManagerUiState.modelDownloadStatus[activeModel.name]?.status ==
+                  ModelDownloadStatusType.SUCCEEDED
+            ) {
+              // Navigating to the active model's own page; selectModel there is a no-op, so the
+              // user's selection is never switched.
+              val route =
+                if (!queryStr.isNullOrEmpty()) {
+                  "$ROUTE_MODEL/${task.id}/${activeModel.name}?query=${Uri.encode(queryStr)}"
+                } else {
+                  "$ROUTE_MODEL/${task.id}/${activeModel.name}"
+                }
+              navController.navigate(route)
+            } else if (activeModel != null) {
+              // Don't run another model; tell the user which one needs to be downloaded.
+              sharedTextModelNotDownloaded = activeModel.displayName.ifEmpty { activeModel.name }
+            } else {
+              Log.e(TAG, "No available model found for task: $host")
+            }
           } else {
-            Log.e(TAG, "No available model found for task: $host")
+            // Pick the first successfully downloaded model or the default active model for this
+            // task
+            val defaultModel =
+              task.models.firstOrNull { model ->
+                modelManagerUiState.modelDownloadStatus[model.name]?.status ==
+                  ModelDownloadStatusType.SUCCEEDED
+              } ?: task.models.firstOrNull()
+
+            if (defaultModel != null) {
+              val route =
+                if (!queryStr.isNullOrEmpty()) {
+                  "$ROUTE_MODEL/${task.id}/${defaultModel.name}?query=${Uri.encode(queryStr)}"
+                } else {
+                  "$ROUTE_MODEL/${task.id}/${defaultModel.name}"
+                }
+              navController.navigate(route)
+            } else {
+              Log.e(TAG, "No available model found for task: $host")
+            }
           }
         }
       }
     }
+  }
+
+  // Shown when text was shared into the app but the active model isn't downloaded. Names the
+  // model instead of silently running a different one.
+  sharedTextModelNotDownloaded?.let { modelName ->
+    ErrorDialog(
+      error = stringResource(R.string.share_model_not_downloaded, modelName),
+      onDismiss = { sharedTextModelNotDownloaded = null },
+    )
   }
 }
 

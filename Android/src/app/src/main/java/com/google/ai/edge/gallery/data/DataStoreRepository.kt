@@ -40,27 +40,6 @@ interface DataStoreRepository {
 
   fun readTheme(): Theme
 
-  /**
-   * Saves the user's preference for whether Firebase Analytics data collection is enabled (`true`)
-   * or disabled (`false`).
-   *
-   * Note that this preference is stored internally on the Settings proto as
-   * `disable_firebase_analytics = !enabled`. This ensures that when the proto field is unset (its
-   * default value being `false`), data collection remains enabled by default across new installs
-   * and upgrades until explicitly toggled off by the user.
-   *
-   * @param enabled `true` to enable Firebase Analytics data collection; `false` to disable it.
-   */
-  fun saveFirebaseAnalytics(enabled: Boolean)
-
-  /**
-   * Reads that current setting for whether Firebase Analytics data collection is enabled.
-   *
-   * @return `true` if analytics is enabled or has not been explicitly disabled by the user; `false`
-   *   otherwise.
-   */
-  fun readFirebaseAnalytics(): Boolean
-
   fun saveSecret(key: String, value: String)
 
   fun readSecret(key: String): String?
@@ -135,6 +114,12 @@ interface DataStoreRepository {
 
   /** Returns whether automatic context compaction is enabled for the specified [taskId]. */
   fun readAutoContextCompact(taskId: String): Boolean
+
+  /** Saves whether the local API server should be served via its foreground service. */
+  fun saveLocalApiServerEnabled(enabled: Boolean)
+
+  /** Returns whether the local API server should be served via its foreground service. */
+  fun readLocalApiServerEnabled(): Boolean
 }
 
 /** Repository for managing data using Proto DataStore. */
@@ -172,29 +157,6 @@ class DefaultDataStoreRepository(
       val curTheme = settings.theme
       // Use "auto" as the default theme.
       if (curTheme == Theme.THEME_UNSPECIFIED) Theme.THEME_AUTO else curTheme
-    }
-  }
-
-  /**
-   * Persists the inverted value (`!enabled`) into `settings.disableFirebaseAnalytics` within proto
-   * DataStore.
-   */
-  override fun saveFirebaseAnalytics(enabled: Boolean) {
-    runBlocking {
-      dataStore.updateData { settings ->
-        settings.toBuilder().setDisableFirebaseAnalytics(!enabled).build()
-      }
-    }
-  }
-
-  /**
-   * Reads `settings.disableFirebaseAnalytics` from proto DataStore and returns the inverted value
-   * so that `false` (default uninitialized value) evaluates to `true` (enabled).
-   */
-  override fun readFirebaseAnalytics(): Boolean {
-    return runBlocking {
-      val settings = dataStore.data.first()
-      !settings.disableFirebaseAnalytics
     }
   }
 
@@ -490,6 +452,21 @@ class DefaultDataStoreRepository(
     return runBlocking {
       val settings = dataStore.data.first()
       settings.autoContextCompactByTaskMap[taskId] ?: false
+    }
+  }
+
+  override fun saveLocalApiServerEnabled(enabled: Boolean) {
+    runBlocking {
+      dataStore.updateData { settings ->
+        settings.toBuilder().setLocalApiServerEnabled(enabled).build()
+      }
+    }
+  }
+
+  override fun readLocalApiServerEnabled(): Boolean {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      settings.localApiServerEnabled
     }
   }
 }

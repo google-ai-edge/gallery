@@ -81,6 +81,7 @@ import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.edgeserver.EdgeServerManager
 import com.google.ai.edge.gallery.proto.Theme
+import com.google.ai.edge.gallery.services.LocalApiServerService
 import com.google.ai.edge.gallery.ui.common.ClickableLink
 import com.google.ai.edge.gallery.ui.common.tos.AppTosDialog
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
@@ -98,12 +99,10 @@ private val THEME_OPTIONS = listOf(Theme.THEME_AUTO, Theme.THEME_LIGHT, Theme.TH
 @Composable
 fun SettingsDialog(
   curThemeOverride: Theme,
-  curFirebaseAnalytics: Boolean,
   modelManagerViewModel: ModelManagerViewModel,
   onDismissed: () -> Unit,
 ) {
   var selectedTheme by remember { mutableStateOf(curThemeOverride) }
-  var selectedFirebaseAnalytics by remember { mutableStateOf(curFirebaseAnalytics) }
   var hfToken by remember { mutableStateOf(modelManagerViewModel.getTokenStatusAndData().data) }
   val dateFormatter = remember {
     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
@@ -203,36 +202,32 @@ fun SettingsDialog(
             }
           }
 
-            Row(
-              modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.SpaceBetween,
+          // Usage data. Telemetry is fully disabled in this build, so this row is static and
+          // purely informational — there is nothing for the user to toggle.
+          Row(
+            modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+          ) {
+            Column(
+              modifier = Modifier.weight(1f).padding(end = 16.dp),
+              verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-              Column(
-                modifier = Modifier.weight(1f).padding(end = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-              ) {
-                Text(
-                  stringResource(R.string.settings_dialog_firebase_analytics_title),
-                  style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
-                )
-                Text(
-                  stringResource(R.string.settings_dialog_firebase_analytics_description),
-                  style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-              }
-              Switch(
-                checked = selectedFirebaseAnalytics,
-                onCheckedChange = { checked ->
-                  selectedFirebaseAnalytics = checked
-                  modelManagerViewModel.saveFirebaseAnalytics(checked)
-                },
+              Text(
+                stringResource(R.string.settings_dialog_firebase_analytics_title),
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+              )
+              Text(
+                stringResource(R.string.settings_dialog_firebase_analytics_disabled),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
             }
+          }
 
-          // Model list. The app starts with the list bundled in the APK and never syncs on its
-          // own; this is the explicit way to refresh it from the internet.
+          // Model list. The app starts with the last synced model list, falling back to the copy
+          // bundled in the APK, and never syncs on its own; this is the explicit way to refresh
+          // it from the internet.
           Column(
             modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -258,8 +253,14 @@ fun SettingsDialog(
             }
           }
 
-          // Local API server (OpenAI-compatible endpoint over the loaded model).
+          // Local API server. Serves the app's single active model (the one selected in Chat)
+          // via an OpenAI-compatible HTTP API. The toggle starts/stops a foreground service that
+          // owns the server, and the enabled state is persisted so the server comes back with
+          // the app.
           val edgeServerState by EdgeServerManager.state.collectAsState()
+          val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+          val servedModel = modelManagerViewModel.findActiveLlmModel()
+          val servedModelName = servedModel?.let { it.displayName.ifEmpty { it.name } }
           Column(
             modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
           ) {
@@ -273,29 +274,70 @@ fun SettingsDialog(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
               ) {
                 Text(
-                  "Local API server",
+                  stringResource(R.string.settings_dialog_local_api_server_title),
                   style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
                 )
                 Text(
                   if (edgeServerState.isRunning) {
-                    "Running at http://${edgeServerState.host}:${edgeServerState.port}/v1 — " +
-                      "an OpenAI-compatible API backed by the loaded model"
+                    stringResource(
+                      R.string.settings_dialog_local_api_server_description_running,
+                      edgeServerState.host,
+                      edgeServerState.port,
+                    )
                   } else {
-                    "Expose the loaded model via an OpenAI-compatible HTTP API " +
-                      "(localhost only, port ${edgeServerState.port})"
+                    stringResource(
+                      R.string.settings_dialog_local_api_server_description_stopped,
+                      edgeServerState.port,
+                    )
                   },
                   style = MaterialTheme.typography.bodySmall,
                   color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // Always name the model being served, whether the server is on or off — or say
+                // plainly that nothing is selected yet (the server would 503 in that state).
+                when {
+                  servedModelName != null ->
+                    Text(
+                      stringResource(
+                        if (edgeServerState.isRunning) {
+                          R.string.settings_dialog_local_api_server_serving
+                        } else {
+                          R.string.settings_dialog_local_api_server_will_serve
+                        },
+                        servedModelName,
+                      ),
+                      style = MaterialTheme.typography.bodySmall,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                  else ->
+                    Text(
+                      stringResource(R.string.settings_dialog_local_api_server_no_model_selected),
+                      style = MaterialTheme.typography.bodySmall,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                // Surface bind failures (e.g. the port is already in use) instead of only
+                // logging them.
+                edgeServerState.errorMessage?.let { errorMessage ->
+                  Text(
+                    stringResource(
+                      R.string.settings_dialog_local_api_server_start_failed,
+                      errorMessage,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                  )
+                }
               }
               Switch(
                 checked = edgeServerState.isRunning,
                 onCheckedChange = { checked ->
                   if (checked) {
-                    EdgeServerManager.modelLookup = { modelManagerViewModel.findLoadedLlmModel() }
-                    EdgeServerManager.startServer()
+                    modelManagerViewModel.dataStoreRepository.saveLocalApiServerEnabled(true)
+                    LocalApiServerService.start(context)
                   } else {
-                    EdgeServerManager.stopServer()
+                    modelManagerViewModel.dataStoreRepository.saveLocalApiServerEnabled(false)
+                    LocalApiServerService.stop(context)
                   }
                 },
               )

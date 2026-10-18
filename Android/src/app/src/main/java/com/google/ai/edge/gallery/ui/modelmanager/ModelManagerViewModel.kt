@@ -69,7 +69,7 @@ import com.google.ai.edge.gallery.data.markInitializationFailed
 import com.google.ai.edge.gallery.data.markInitializationStarted
 import com.google.ai.edge.gallery.data.markInitialized
 import com.google.ai.edge.gallery.data.resetInitialization
-import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.edgeserver.EdgeServerManager
 import com.google.ai.edge.gallery.huggingface.HuggingFaceApiClient
 import com.google.ai.edge.gallery.proto.AccessTokenData
 import com.google.ai.edge.gallery.proto.HfModelItemProto
@@ -108,8 +108,9 @@ private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
 private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
 
 /**
- * Copy of the model allowlist bundled into the APK's assets. Startup loads this instead of
- * fetching from the internet, so the app starts instantly and works fully offline.
+ * Copy of the model allowlist bundled into the APK's assets. It is the factory-reset floor: on a
+ * fresh install (before the user has ever synced) startup loads this instead of fetching from the
+ * internet, so the app starts instantly and works fully offline.
  */
 private const val MODEL_ALLOWLIST_ASSET_FILENAME = "model_allowlist.json"
 private const val ALLOWLIST_BASE_URL =
@@ -284,6 +285,14 @@ constructor(
 
   private val modelsDir = getModelStorageDir(context)
 
+  init {
+    // The app has a single active model — the one selected in Chat — and every other surface
+    // (share sheet, local API server) follows it. Wire the server's model lookup here so the
+    // server always serves the active model whenever this view model is alive, including when
+    // the server is restored with the app before any UI has been created.
+    EdgeServerManager.modelLookup = { findActiveLlmModel() }
+  }
+
   /** Local test allowlist; see [MODEL_ALLOWLIST_TEST_FILE_PATH]. Overridden in tests. */
   @VisibleForTesting internal var localTestAllowlistFile = File(MODEL_ALLOWLIST_TEST_FILE_PATH)
 
@@ -372,17 +381,14 @@ constructor(
     return uiState.value.selectedModel
   }
 
-  /** Returns the currently loaded LLM model (instance initialized), or null if none is loaded. */
-  fun findLoadedLlmModel(): Model? {
-    val state = uiState.value
-    val candidates = buildList {
-      add(state.selectedModel)
-      for (task in state.tasks) {
-        addAll(task.models)
-      }
-      addAll(state.supplementaryModels)
-    }
-    return candidates.firstOrNull { it.isLlm && it.instance != null }
+  /**
+   * Returns the app's single active model — the one selected in Chat — which other surfaces
+   * (share sheet, local API server) follow without switching the user's selection. Returns null
+   * when no model has been selected yet.
+   */
+  fun findActiveLlmModel(): Model? {
+    val model = uiState.value.selectedModel
+    return if (model.name == EMPTY_MODEL.name || !model.isLlm) null else model
   }
 
   open fun getModelByName(name: String): Model? {
@@ -1005,29 +1011,6 @@ constructor(
   }
 
   /**
-   * Retrieves whether Firebase Analytics collection is currently enabled.
-   *
-   * @return `true` if enabled or not explicitly disabled in settings; `false` if disabled.
-   */
-  fun readFirebaseAnalytics(): Boolean {
-    return dataStoreRepository.readFirebaseAnalytics()
-  }
-
-  /**
-   * Updates the user preference for Firebase Analytics data collection right away.
-   *
-   * Persists the setting to on-disk DataStore
-   * (`dataStoreRepository.saveFirebaseAnalytics(enabled)`) and dynamically updates the live
-   * Firebase SDK state via `firebaseAnalytics?.setAnalyticsCollectionEnabled(enabled)`.
-   *
-   * @param enabled `true` to enable diagnostic/analytics gathering; `false` to disable.
-   */
-  fun saveFirebaseAnalytics(enabled: Boolean) {
-    dataStoreRepository.saveFirebaseAnalytics(enabled = enabled)
-    firebaseAnalytics?.setAnalyticsCollectionEnabled(enabled)
-  }
-
-  /**
    * Checks the accessibility of a remote model URL.
    *
    * @param model The model to probe.
@@ -1338,9 +1321,10 @@ constructor(
   }
 
   /**
-   * Loads the model allowlist from local sources only, never touching the network: the copy
-   * bundled in the APK's assets first, then the disk cache written by a previous manual sync.
-   * Startup is therefore instant and works offline. Use [syncModelAllowlistNow] to refresh the
+   * Loads the model allowlist from local sources only, never touching the network: the disk cache
+   * written by the last successful manual sync ([syncModelAllowlistNow]) first, then the copy
+   * bundled in the APK's assets as the factory-reset floor. A manual sync therefore survives
+   * restarts. Startup is instant and works offline; use [syncModelAllowlistNow] to refresh the
    * list from the internet.
    */
   fun loadModelAllowlist() {
@@ -1367,13 +1351,14 @@ constructor(
         }
 
         if (modelAllowlist == null) {
-          // Load the allowlist bundled in the APK.
-          modelAllowlist = readModelAllowlistFromAssets()
+          // Prefer the disk cache written by a successful manual sync, so a synced list survives
+          // restarts instead of being shadowed by the older bundled copy.
+          modelAllowlist = readModelAllowlistFromDisk()
         }
 
         if (modelAllowlist == null) {
-          // Fall back to the disk cache from a previous [syncModelAllowlistNow].
-          modelAllowlist = readModelAllowlistFromDisk()
+          // Fall back to the copy bundled in the APK (factory-reset floor).
+          modelAllowlist = readModelAllowlistFromAssets()
         }
 
         if (generation != allowlistLoadGeneration) {
@@ -1382,8 +1367,9 @@ constructor(
         }
 
         if (modelAllowlist == null) {
-          // Neither a bundled nor a cached copy exists. The user has to sync at least once since
-          // the model files themselves are also fetched from the internet.
+          // Neither a cached copy from a previous sync nor the bundled copy exists. The user has
+          // to sync at least once since the model files themselves are also fetched from the
+          // internet.
           _uiState.update { it.copy(loadingModelAllowlistError = MODEL_ALLOWLIST_LOAD_ERROR) }
           return@launch
         }
