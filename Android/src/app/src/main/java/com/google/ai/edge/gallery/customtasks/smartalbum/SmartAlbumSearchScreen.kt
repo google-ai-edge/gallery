@@ -266,9 +266,7 @@ fun SmartAlbumSearchScreen(
   }
 
   DisposableEffect(Unit) {
-    SmartAlbumIndexingCoordinator.isGalleryVisible = true
     onDispose {
-      SmartAlbumIndexingCoordinator.isGalleryVisible = false
       SmartAlbumIndexingCoordinator.isScrollInProgress = false
       setTopBarVisible(true)
     }
