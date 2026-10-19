@@ -33,6 +33,7 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.ChatSessionProto
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,6 +82,9 @@ data class ChatUiState(
   /** A map of task IDs to whether auto-compaction is enabled by default for that task. */
   val autoCompactByTask: Map<String, Boolean> = mapOf(),
 
+  /** Whether the live inference metrics banner is visible for the current task. */
+  val showLiveMetrics: Boolean = false,
+
 )
 
 /**
@@ -90,11 +94,13 @@ data class ChatUiState(
  * @property llmSessionManager [LlmSessionManager] to delegate session management and persistence.
  * @property dataStoreRepository Optional [DataStoreRepository] for reading and persisting
  *   task-level settings.
+ * @property ioDispatcher Coroutine dispatcher for background DataStore I/O.
  */
 abstract class ChatViewModel(
   open val runtimeExecutor: AgentRuntimeExecutor? = null,
   val llmSessionManager: LlmSessionManager,
   open val dataStoreRepository: DataStoreRepository? = null,
+  private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
   /** The identifier for the current active chat session. */
   open var currentSessionId: String
@@ -119,6 +125,46 @@ abstract class ChatViewModel(
    * Attaches [liveMetrics] observation to the given [model] across its initialization lifecycle.
    */
   open fun observeLiveMetrics(model: Model) {}
+
+  /**
+   * Synchronizes the current live metrics visibility toggle state to the active model's metrics
+   * tracker.
+   */
+  protected open fun syncLiveMetricsVisibility(model: Model?, enabled: Boolean) {}
+
+  internal val liveMetricsVisibilityManager by lazy {
+    LiveMetricsVisibilityManager(
+      uiState = _uiState,
+      dataStoreRepository = dataStoreRepository,
+      scope = viewModelScope,
+      ioDispatcher = ioDispatcher,
+      onSyncVisibility = ::syncLiveMetricsVisibility,
+    )
+  }
+
+  /**
+   * Loads the persisted live metrics visibility setting for [taskId] into the UI state and
+   * synchronizes the active metrics tracker.
+   *
+   * @param taskId The identifier of the task whose setting should be loaded.
+   */
+  suspend fun loadLiveMetricsVisibility(taskId: String) {
+    if (taskId.isNotEmpty()) {
+      currentTaskId = taskId
+    }
+    liveMetricsVisibilityManager.loadVisibility(taskId)
+  }
+
+  /**
+   * Toggles the visibility of the live inference metrics banner for [taskId], persists the
+   * preference, updates the active metrics tracker, and logs the action to Firebase Analytics.
+   */
+  fun toggleLiveMetrics(taskId: String, model: Model) {
+    if (taskId.isNotEmpty()) {
+      currentTaskId = taskId
+    }
+    liveMetricsVisibilityManager.toggle(taskId, model)
+  }
 
   private var compactionJob: Job? = null
 

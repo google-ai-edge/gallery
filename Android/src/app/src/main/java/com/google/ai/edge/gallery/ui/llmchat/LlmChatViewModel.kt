@@ -32,6 +32,7 @@ import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.agent.sessions.generateSessionId
 import com.google.ai.edge.gallery.common.SystemPromptHelper
 import com.google.ai.edge.gallery.common.metrics.InferenceMetrics
+import com.google.ai.edge.gallery.common.metrics.MetricsTracker
 import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DataStoreRepository
@@ -39,6 +40,7 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.SystemPromptRepository
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.awaitInitialization
+import com.google.ai.edge.gallery.di.IoDispatcher
 import com.google.ai.edge.gallery.proto.ChatSessionProto
 import com.google.ai.edge.gallery.tools.ToolAction
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
@@ -62,6 +64,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.SendChannel
@@ -71,6 +74,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGLlmChatViewModel"
@@ -82,7 +86,8 @@ open class LlmChatViewModelBase(
   override val runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
   dataStoreRepository: DataStoreRepository? = null,
-) : ChatViewModel(runtimeExecutor, llmSessionManager, dataStoreRepository) {
+  ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+) : ChatViewModel(runtimeExecutor, llmSessionManager, dataStoreRepository, ioDispatcher) {
   private val _uiSystemPrompt = MutableStateFlow("")
   val uiSystemPrompt: StateFlow<String> = _uiSystemPrompt.asStateFlow()
   private val _liveMetrics = MutableStateFlow<InferenceMetrics?>(null)
@@ -93,6 +98,10 @@ open class LlmChatViewModelBase(
   private val sessionStoppedByModel = mutableMapOf<String, Boolean>()
   // Active session transition job to ensure transitions (restore, new session, reset) do not race.
   private var sessionTransitionJob: Job? = null
+
+  private fun Model.InitializationStatus.llmMetricsTracker(): MetricsTracker? =
+    ((this as? Model.InitializationStatus.Initialized)?.instance as? LlmModelInstance)
+      ?.metricsTracker
 
   /**
    * Reactively observes the live [InferenceMetrics] stream of [model] across its initialization and
@@ -106,6 +115,9 @@ open class LlmChatViewModelBase(
       return
     }
     if (observedLiveMetricsModel === model && liveMetricsJob?.isActive == true) {
+      if (currentTaskId.isNotEmpty()) {
+        syncLiveMetricsVisibility(model = model, enabled = uiState.value.showLiveMetrics)
+      }
       return
     }
     observedLiveMetricsModel = model
@@ -113,13 +125,19 @@ open class LlmChatViewModelBase(
     _liveMetrics.value = null
     liveMetricsJob = viewModelScope.launch {
       model.initStatusFlow
-        .flatMapLatest { status ->
-          ((status as? Model.InitializationStatus.Initialized)?.instance as? LlmModelInstance)
-            ?.metricsTracker
-            ?.liveMetrics ?: flowOf(null)
+        .onEach { status ->
+          if (currentTaskId.isNotEmpty()) {
+            status.llmMetricsTracker()?.updateLiveMetrics(enabled = uiState.value.showLiveMetrics)
+          }
         }
+        .flatMapLatest { status -> status.llmMetricsTracker()?.liveMetrics ?: flowOf(null) }
         .collect { metrics -> _liveMetrics.value = metrics }
     }
+  }
+
+  override fun syncLiveMetricsVisibility(model: Model?, enabled: Boolean) {
+    val targetModel = model ?: observedLiveMetricsModel ?: return
+    targetModel.initStatusFlow.value.llmMetricsTracker()?.updateLiveMetrics(enabled = enabled)
   }
 
   /**
@@ -670,9 +688,10 @@ constructor(
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
   dataStoreRepository: DataStoreRepository? = null,
+  @IoDispatcher ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) :
 LlmChatViewModelBase(systemPromptRepository, null, runtimeExecutor,
-llmSessionManager, dataStoreRepository)
+llmSessionManager, dataStoreRepository, ioDispatcher)
 
 @HiltViewModel
 class LlmAskImageViewModel
@@ -682,9 +701,10 @@ constructor(
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
   dataStoreRepository: DataStoreRepository? = null,
+  @IoDispatcher ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) :
 LlmChatViewModelBase(systemPromptRepository, null, runtimeExecutor,
-llmSessionManager, dataStoreRepository)
+llmSessionManager, dataStoreRepository, ioDispatcher)
 
 @HiltViewModel
 class LlmAskAudioViewModel
@@ -694,6 +714,7 @@ constructor(
   @AiChatExecutor runtimeExecutor: AgentRuntimeExecutor,
   llmSessionManager: LlmSessionManager,
   dataStoreRepository: DataStoreRepository? = null,
+  @IoDispatcher ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) :
 LlmChatViewModelBase(systemPromptRepository, null, runtimeExecutor,
-llmSessionManager, dataStoreRepository)
+llmSessionManager, dataStoreRepository, ioDispatcher)

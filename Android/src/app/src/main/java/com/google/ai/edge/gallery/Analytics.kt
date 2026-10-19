@@ -54,6 +54,14 @@ enum class GalleryEvent(val id: String) {
   OSS_MODEL_IMPORT(id = "oss_model_import"),
 }
 
+const val BUTTON_CLICK_EVENT_LIVE_METRICS_TOGGLE = "live_metrics_toggle"
+
+/** Strongly typed action values for [GalleryEvent.BUTTON_CLICKED] telemetry. */
+enum class ButtonClickAction(val id: String) {
+  TURN_ON("turn_on"),
+  TURN_OFF("turn_off"),
+}
+
 /** Strongly typed Firebase Analytics parameter keys for inference and model lifecycle telemetry. */
 enum class InferenceMetricsParam(val key: String) {
   MODEL_NAME("model_name"),
@@ -78,4 +86,5 @@ enum class InferenceMetricsParam(val key: String) {
   MAX_CONTEXT_TOKENS("max_context_tokens"),
   PEAK_MEMORY_MB("peak_memory_mb"),
   AVG_MEMORY_MB("avg_memory_mb"),
+  LIVE_METRICS_ENABLED("live_metrics_enabled"),
 }

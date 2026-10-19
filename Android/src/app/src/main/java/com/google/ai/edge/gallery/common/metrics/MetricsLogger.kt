@@ -215,19 +215,20 @@ internal class MetricsLogger(internal val model: Model, internal val taskId: Str
   }
 
   /** Dispatches turn-end inference metrics to Logcat and Firebase Analytics. */
-  fun logMetrics(metrics: InferenceMetrics) {
-    logToLogcat(metrics)
-    logToFirebase(metrics)
+  fun logMetrics(metrics: InferenceMetrics, isLiveMetricsEnabled: Boolean) {
+    logToLogcat(metrics, isLiveMetricsEnabled = isLiveMetricsEnabled)
+    logToFirebase(metrics, isLiveMetricsEnabled = isLiveMetricsEnabled)
   }
 
   /** Logs the turn-end inference metrics to Logcat for debugging. */
-  internal fun logToLogcat(metrics: InferenceMetrics) {
+  internal fun logToLogcat(metrics: InferenceMetrics, isLiveMetricsEnabled: Boolean) {
     Log.d(
       TAG,
       "[Inference Telemetry]\n" +
         "  • Task:          ${taskId} (Model: ${model.name}, Accelerator: ${metrics.metadata.accelerator})\n" +
         "  • Turn:          ${metrics.inference.turnIndex}\n" +
         "  • Status:        ${if (metrics.inference.hasStatus()) formatStatus(metrics.inference.status) else "N/A"}\n" +
+        "  • Live Metrics:  ${if (isLiveMetricsEnabled) "on" else "off"}\n" +
         "  • Latency:       ${if (metrics.inference.hasLatency()) formatLatency(metrics.inference.latency) else "N/A"}\n" +
         "  • Tokens:        ${if (metrics.inference.hasTokens()) formatTokens(metrics.inference.tokens) else "N/A"}\n" +
         "  • Context:       ${if (metrics.inference.hasContext()) formatContext(metrics.inference.context) else "N/A"}\n" +
@@ -236,9 +237,9 @@ internal class MetricsLogger(internal val model: Model, internal val taskId: Str
   }
 
   /** Uploads privacy-compliant, non-PII inference performance metrics to Firebase Analytics. */
-  internal fun logToFirebase(metrics: InferenceMetrics) {
+  internal fun logToFirebase(metrics: InferenceMetrics, isLiveMetricsEnabled: Boolean) {
     val analytics = firebaseAnalytics ?: return
-    val bundle = buildFirebaseBundle(metrics)
+    val bundle = buildFirebaseBundle(metrics, isLiveMetricsEnabled = isLiveMetricsEnabled)
     try {
       analytics.logEvent(GalleryEvent.INFERENCE_METRICS.id, bundle)
     } catch (e: Exception) {
@@ -250,7 +251,10 @@ internal class MetricsLogger(internal val model: Model, internal val taskId: Str
    * Constructs a strongly typed, privacy-preserving [Bundle] containing numerical telemetry and
    * non-PII diagnostic metadata for Firebase Analytics.
    */
-  internal fun buildFirebaseBundle(metrics: InferenceMetrics): Bundle {
+  internal fun buildFirebaseBundle(
+    metrics: InferenceMetrics,
+    isLiveMetricsEnabled: Boolean,
+  ): Bundle {
     return Bundle().apply {
       putCommonMetadata()
       if (metrics.metadata.accelerator.isNotEmpty()) {
@@ -274,6 +278,7 @@ internal class MetricsLogger(internal val model: Model, internal val taskId: Str
       }
 
       putInt(InferenceMetricsParam.TURN_INDEX.key, metrics.inference.turnIndex)
+      putBoolean(InferenceMetricsParam.LIVE_METRICS_ENABLED.key, isLiveMetricsEnabled)
 
       // Latency & Speed metrics.
       val latency = metrics.inference.latency
