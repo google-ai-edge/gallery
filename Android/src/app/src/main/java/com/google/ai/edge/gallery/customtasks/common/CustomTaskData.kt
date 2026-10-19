@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.customtasks.common
 
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.data.ModelSelectionTarget
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 
 /**
@@ -35,6 +36,9 @@ import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
  * @param setDefaultSystemPromptProvider A callback function that the custom task screen can call to
  *   provide the system prompt that the config dialog restores as the default, when it differs from
  *   `Task.defaultSystemPrompt`. Pass `null` to clear it.
+ * @param navigateToModelSelection A callback function that a task with a
+ *   [CustomTask.modelSelectionConfig] can call to leave the task for its model selection screen,
+ *   with the section that picks the given [ModelSelectionTarget] expanded.
  */
 data class CustomTaskData(
   val modelManagerViewModel: ModelManagerViewModel,
@@ -45,6 +49,7 @@ data class CustomTaskData(
   val setSystemPromptProvider: (((() -> String), ((String) -> Unit)) -> Unit) = { _, _ -> },
   val setHistoryClickHandler: ((() -> Unit)?) -> Unit = {},
   val setDefaultSystemPromptProvider: ((() -> String)?) -> Unit = {},
+  val navigateToModelSelection: (ModelSelectionTarget) -> Unit = {},
 )
 
 data class CustomTaskDataForBuiltinTask(
