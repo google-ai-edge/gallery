@@ -59,6 +59,7 @@ import com.google.ai.edge.gallery.data.ModelType
 import com.google.ai.edge.gallery.data.ModelUtils
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.OssModelImportLogger
+import com.google.ai.edge.gallery.data.PendingDownload
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.SOC
 import com.google.ai.edge.gallery.data.SystemPromptRepository
@@ -83,6 +84,7 @@ import com.google.gson.Gson
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
@@ -600,15 +602,24 @@ constructor(
     downloadRepository.downloadExtraDataFiles(
       task = task,
       model = targetModel,
-      onStatusUpdated = { _, status ->
-        if (status.status == ModelDownloadStatusType.SUCCEEDED) {
-          syncExtraDataAcrossFamily(targetModel, family)
-        }
-        for (m in family) {
-          setExtraDataDownloadStatus(m, status)
-        }
-      },
+      onStatusUpdated = extraDataStatusUpdater(targetModel = targetModel, family = family),
     )
+  }
+
+  /**
+   * Returns the callback for the extra data download of [targetModel], which applies its status to
+   * the whole model [family].
+   */
+  private fun extraDataStatusUpdater(
+    targetModel: Model,
+    family: List<Model>,
+  ): (Model, ModelDownloadStatus) -> Unit = { _, status ->
+    if (status.status == ModelDownloadStatusType.SUCCEEDED) {
+      syncExtraDataAcrossFamily(targetModel, family)
+    }
+    for (m in family) {
+      setExtraDataDownloadStatus(m, status)
+    }
   }
 
   fun cancelDownloadExtraDataFiles(model: Model, modelVariants: List<Model> = emptyList()) {
@@ -1314,41 +1325,125 @@ constructor(
     }
   }
 
+  /**
+   * Picks up the downloads left over from an earlier activity or app process.
+   *
+   * Downloads that WorkManager still has queued or running keep going, and this ViewModel only
+   * attaches to their progress, so a recreated activity logs no cancel and no second start for
+   * them. Partially downloaded models of tasks with no pending download are restarted, resuming
+   * from their partial file. Supplementary models are only attached to.
+   */
   private fun processPendingDownloads() {
-    // Cancel all pending downloads for the retrieved models.
-    downloadRepository.cancelAll {
-      Log.d(TAG, "All workers are cancelled.")
-
+    downloadRepository.getPendingDownloads { pendingDownloads ->
       viewModelScope.launch(Dispatchers.Main) {
+        val pendingByModelName = pendingDownloads.groupBy { it.modelName }
+        val observedWorkerIds = mutableSetOf<UUID>()
         val checkedModelNames = mutableSetOf<String>()
         val tokenStatusAndData = getTokenStatusAndData()
-        for (task in uiState.value.tasks) {
-          for (model in task.models) {
-            if (checkedModelNames.contains(model.name)) {
-              continue
-            }
+        val tasks = uiState.value.tasks
+        val tasksAndModels =
+          tasks.flatMap { task -> task.models.map { model -> task to model } } +
+            _supplementaryModels.map { model -> null to model }
+        for ((task, model) in tasksAndModels) {
+          if (!checkedModelNames.add(model.name)) {
+            continue
+          }
 
-            // Start download for partially downloaded models.
-            val downloadStatus = uiState.value.modelDownloadStatus[model.name]?.status
-            if (downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED) {
-              if (
-                tokenStatusAndData.status == TokenStatus.NOT_EXPIRED &&
-                  tokenStatusAndData.data != null
-              ) {
-                model.downloadInfo.accessToken = tokenStatusAndData.data.accessToken
+          // Downloads of another version of the model are left to be cancelled below: they would
+          // store files where this version of the model isn't looked for.
+          val pendingForModel =
+            pendingByModelName[model.name].orEmpty().filter {
+              it.version == model.downloadInfo.version
+            }
+          for (pendingDownload in pendingForModel) {
+            Log.d(TAG, "Observing the pending download of '${model.name}'")
+            // Prefer the task the download was started from: it decides the extra data files and
+            // where the download's notification leads.
+            val downloadTask =
+              when (pendingDownload.taskId) {
+                null -> task
+                // Started from the global model manager, outside any task.
+                "" -> null
+                else -> tasks.find { it.id == pendingDownload.taskId } ?: task
               }
-              Log.d(TAG, "Sending a new download request for '${model.name}'")
-              downloadRepository.downloadModel(
-                task = task,
-                model = model,
-                onStatusUpdated = this@ModelManagerViewModel::setDownloadStatus,
-              )
-            }
+            observePendingDownload(
+              pendingDownload = pendingDownload,
+              task = downloadTask,
+              model = model,
+            )
+            observedWorkerIds.add(pendingDownload.workerId)
+          }
 
-            checkedModelNames.add(model.name)
+          // Restart downloads of partially downloaded task models that nothing is downloading.
+          val downloadStatus = uiState.value.modelDownloadStatus[model.name]?.status
+          val isModelDownloadPending = pendingForModel.any { !it.isExtraDataOnly }
+          if (
+            task != null &&
+              downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED &&
+              !isModelDownloadPending
+          ) {
+            if (
+              tokenStatusAndData.status == TokenStatus.NOT_EXPIRED &&
+                tokenStatusAndData.data != null
+            ) {
+              model.downloadInfo.accessToken = tokenStatusAndData.data.accessToken
+            }
+            Log.d(TAG, "Sending a new download request for '${model.name}'")
+            downloadRepository.downloadModel(
+              task = task,
+              model = model,
+              // A pending extra data download already writes the extra data files.
+              includeExtraDataFiles = pendingForModel.none { it.isExtraDataOnly },
+              onStatusUpdated = this@ModelManagerViewModel::setDownloadStatus,
+            )
+          }
+        }
+
+        // Cancel downloads of models, or versions of models, that are no longer in the allowlist.
+        for (pendingDownload in pendingDownloads) {
+          if (pendingDownload.workerId !in observedWorkerIds) {
+            Log.d(TAG, "Cancelling the download of unknown model '${pendingDownload.modelName}'")
+            downloadRepository.cancelPendingDownload(pendingDownload)
           }
         }
       }
+    }
+  }
+
+  /**
+   * Marks the model or its extra data as downloading and reports the progress of [pendingDownload]
+   * to this ViewModel.
+   */
+  private fun observePendingDownload(pendingDownload: PendingDownload, task: Task?, model: Model) {
+    if (pendingDownload.isExtraDataOnly) {
+      val family = getModelFamily(model)
+      val inProgress =
+        ModelDownloadStatus(
+          status = ModelDownloadStatusType.IN_PROGRESS,
+          totalBytes = model.downloadInfo.extraDataFiles(task?.id).sumOf { it.sizeInBytes },
+        )
+      for (m in family) {
+        setExtraDataDownloadStatus(curModel = m, status = inProgress)
+      }
+      downloadRepository.observePendingDownload(
+        pendingDownload = pendingDownload,
+        task = task,
+        model = model,
+        onStatusUpdated = extraDataStatusUpdater(targetModel = model, family = family),
+      )
+    } else {
+      // Keep the bytes already downloaded until the download reports its progress.
+      val inProgress =
+        uiState.value.modelDownloadStatus[model.name]?.copy(
+          status = ModelDownloadStatusType.IN_PROGRESS
+        ) ?: ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS)
+      setDownloadStatus(model, inProgress)
+      downloadRepository.observePendingDownload(
+        pendingDownload = pendingDownload,
+        task = task,
+        model = model,
+        onStatusUpdated = this::setDownloadStatus,
+      )
     }
   }
 
@@ -1540,6 +1635,16 @@ constructor(
       }
       for ((model, pendingStatus) in pendingStatuses) {
         val status = pendingStatus.await()
+        // A download in flight reports its own status. The files on disk don't show it, e.g. when
+        // processPendingDownloads has just attached to a download left by an earlier activity.
+        val curStatus = uiState.value.modelDownloadStatus[model.name]?.status
+        if (
+          model.downloadsViaRepository &&
+            (curStatus == ModelDownloadStatusType.IN_PROGRESS ||
+              curStatus == ModelDownloadStatusType.UNZIPPING)
+        ) {
+          continue
+        }
         setDownloadStatus(curModel = model, status = status)
       }
     }

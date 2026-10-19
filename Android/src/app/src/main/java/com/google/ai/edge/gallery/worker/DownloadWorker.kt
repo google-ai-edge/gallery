@@ -24,6 +24,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.Data
@@ -32,10 +33,13 @@ import androidx.work.ListenableWorker
 import androidx.work.WorkerParameters
 import com.google.ai.edge.gallery.common.getModelStorageDir
 import com.google.ai.edge.gallery.data.DownloadAuthError
+import com.google.ai.edge.gallery.data.ERROR_TYPE_HTTP_PREFIX
+import com.google.ai.edge.gallery.data.ERROR_TYPE_MISSING_URL
 import com.google.ai.edge.gallery.data.KEY_MODEL_COMMIT_HASH
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_AUTH_ERROR
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ERROR_MESSAGE
+import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ERROR_TYPE
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_FILE_NAME
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_MODEL_DIR
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_RATE
@@ -61,6 +65,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -116,7 +121,9 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
     return withContext(Dispatchers.IO) {
       if (!isExtraDataOnly && (fileUrl == null || fileName == null)) {
-        Result.failure()
+        Result.failure(
+          Data.Builder().putString(KEY_MODEL_DOWNLOAD_ERROR_TYPE, ERROR_TYPE_MISSING_URL).build()
+        )
       } else {
         return@withContext try {
           // Set the worker as a foreground service immediately.
@@ -259,6 +266,8 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                     .putLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, downloadedBytes)
                     .putLong(KEY_MODEL_DOWNLOAD_RATE, (bytesPerMs * 1000).toLong())
                     .putLong(KEY_MODEL_DOWNLOAD_REMAINING_MS, remainingMs.toLong())
+                    // Lets an observer that attaches mid-download show the right total.
+                    .putLong(KEY_MODEL_TOTAL_BYTES, totalBytes)
                     .build()
                 )
                 setForeground(
@@ -365,15 +374,31 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           Result.success()
         } catch (e: IOException) {
           Log.e(TAG, e.message, e)
-          Result.failure(
-            Data.Builder().putString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE, e.message).build()
-          )
+          exceptionResult(e)
+        } catch (e: CancellationException) {
+          // The work was stopped. Let WorkManager handle it rather than reporting a failure.
+          throw e
+        } catch (e: Exception) {
+          // Any other error fails the download as well (WorkManager would mark the work failed).
+          // Catch it only to report its type, e.g. a foreground service that couldn't start.
+          Log.e(TAG, e.message, e)
+          exceptionResult(e)
         }
       }
     }
   }
 
   companion object {
+    /** Returns the failed worker result for an exception, recording the exception's type. */
+    @VisibleForTesting
+    fun exceptionResult(e: Exception): ListenableWorker.Result =
+      ListenableWorker.Result.failure(
+        Data.Builder()
+          .putString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE, e.message)
+          .putString(KEY_MODEL_DOWNLOAD_ERROR_TYPE, e.javaClass.simpleName.ifEmpty { "Exception" })
+          .build()
+      )
+
     /**
      * Returns the worker result for a download request that got a non-2xx response.
      *
@@ -391,7 +416,10 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
       sentAccessToken: Boolean,
     ): ListenableWorker.Result {
       val errorMessage = "HTTP error code: $httpCode"
-      val outputData = Data.Builder().putString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE, errorMessage)
+      val outputData =
+        Data.Builder()
+          .putString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE, errorMessage)
+          .putString(KEY_MODEL_DOWNLOAD_ERROR_TYPE, "$ERROR_TYPE_HTTP_PREFIX$httpCode")
       val authError = DownloadAuthError.fromResponse(url, httpCode, sentAccessToken)
       if (authError != null) {
         Log.w(TAG, "Download needs Hugging Face access ($authError): $errorMessage")
