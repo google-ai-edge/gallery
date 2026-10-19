@@ -85,7 +85,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
+import com.google.ai.edge.gallery.data.ImportOrigin
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.OssModelImportLogger
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.supportModelBenchmark
 import com.google.ai.edge.gallery.huggingface.extractHfUrlInfo
@@ -99,6 +101,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGGlobalMM"
+
+private data class PendingModelImport(
+  val uri: Uri,
+  val origin: ImportOrigin,
+  val info: ImportedModel? = null,
+)
+
+private data class ModelDetailsContext(val model: HfModelItemProto, val origin: ImportOrigin)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,20 +133,18 @@ fun GlobalModelManager(
   var huggingFaceUrlInput by remember { mutableStateOf("") }
   var showUnsupportedModelDialog by remember { mutableStateOf(false) }
   var unsupportedModelErrorMessage by remember { mutableStateOf("") }
-  val selectedLocalModelFileUri = remember { mutableStateOf<Uri?>(null) }
-  val selectedImportedModelInfo = remember { mutableStateOf<ImportedModel?>(null) }
+  var pendingModelImport by remember { mutableStateOf<PendingModelImport?>(null) }
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   var showImportDialog by remember { mutableStateOf(false) }
   var showImportingDialog by remember { mutableStateOf(false) }
-  var selectedModelForDetails by remember { mutableStateOf<HfModelItemProto?>(null) }
-  var showModelDetailsSheet by remember { mutableStateOf(false) }
+  var modelDetailsContext by remember { mutableStateOf<ModelDetailsContext?>(null) }
   var isLoadingModelCardDetails by remember { mutableStateOf(false) }
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
   val snackbarHostState = remember { SnackbarHostState() }
   val modelItemExpandedStates = remember { mutableStateMapOf<String, Boolean>() }
 
-  val processModelUri: (Uri, Boolean) -> Unit = { uri, isWebImport ->
+  val processModelUri: (Uri, Boolean, ImportOrigin) -> Unit = { uri, isWebImport, origin ->
     validateAndProcessModelUri(
       uri = uri,
       context = context,
@@ -146,7 +154,7 @@ fun GlobalModelManager(
         showUnsupportedModelDialog = true
       },
       onValidModelUri = { validUri ->
-        selectedLocalModelFileUri.value = validUri
+        pendingModelImport = PendingModelImport(uri = validUri, origin = origin)
         showImportDialog = true
       },
     )
@@ -157,6 +165,7 @@ fun GlobalModelManager(
       { rawUrl: String ->
         val url = rawUrl.trim()
         if (url.isNotEmpty()) {
+          val origin = ImportOrigin(source = OssModelImportLogger.Source.HF_URL)
           showHuggingFaceUrlDialog = false
           val urlInfo = extractHfUrlInfo(url)
           val targetModelId = urlInfo.modelId
@@ -169,15 +178,14 @@ fun GlobalModelManager(
                 } else {
                   url.toUri()
                 }
-              processModelUri(fileUri, /* isWebImport= */ true)
+              processModelUri(fileUri, /* isWebImport= */ true, origin)
             }
             targetModelId != null -> {
               isLoadingModelCardDetails = true
               viewModel.fetchModelDetails(targetModelId) { detailedModel ->
                 isLoadingModelCardDetails = false
                 if (detailedModel != null) {
-                  selectedModelForDetails = detailedModel
-                  showModelDetailsSheet = true
+                  modelDetailsContext = ModelDetailsContext(model = detailedModel, origin = origin)
                 } else {
                   unsupportedModelErrorMessage =
                     getErrorMessage(context, R.string.could_not_fetch_model_details, targetModelId)
@@ -186,7 +194,7 @@ fun GlobalModelManager(
               }
             }
             else -> {
-              processModelUri(url.toUri(), /* isWebImport= */ true)
+              processModelUri(url.toUri(), /* isWebImport= */ true, origin)
             }
           }
         }
@@ -198,8 +206,13 @@ fun GlobalModelManager(
       contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
       if (result.resultCode == android.app.Activity.RESULT_OK) {
-        result.data?.data?.let { uri -> processModelUri(uri, /* isWebImport= */ false) }
-          ?: run { Log.d(TAG, "No file selected or URI is null.") }
+        result.data?.data?.let { uri ->
+          processModelUri(
+            uri,
+            /* isWebImport= */ false,
+            ImportOrigin(source = OssModelImportLogger.Source.LOCAL_FILE),
+          )
+        } ?: run { Log.d(TAG, "No file selected or URI is null.") }
       } else {
         Log.d(TAG, "File picking cancelled.")
       }
@@ -530,21 +543,28 @@ fun GlobalModelManager(
       onNavigateUp = { showHfExploreScreen = false },
       onOpenUrlImportDialog = { showHuggingFaceUrlDialog = true },
       onModelCardSelected = { detailedModel ->
-        selectedModelForDetails = detailedModel
-        showModelDetailsSheet = true
+        modelDetailsContext =
+          ModelDetailsContext(
+            model = detailedModel,
+            origin =
+              ImportOrigin(
+                source = OssModelImportLogger.Source.HF_MODEL_CARD,
+                modelId = detailedModel.id,
+              ),
+          )
       },
     )
   }
 
   // Import dialog
   if (showImportDialog) {
-    selectedLocalModelFileUri.value?.let { uri ->
+    pendingModelImport?.let { pending ->
       ModelImportDialog(
-        uri = uri,
+        uri = pending.uri,
         huggingFaceApiClient = viewModel.huggingFaceApiClient,
         onDismiss = { showImportDialog = false },
         onDone = { info ->
-          selectedImportedModelInfo.value = info
+          pendingModelImport = pending.copy(info = info)
           showImportDialog = false
           showHfExploreScreen = false
           showImportingDialog = true
@@ -556,14 +576,15 @@ fun GlobalModelManager(
 
   // Importing in progress dialog.
   if (showImportingDialog) {
-    selectedLocalModelFileUri.value?.let { uri ->
-      selectedImportedModelInfo.value?.let { info ->
+    pendingModelImport?.let { pending ->
+      pending.info?.let { info ->
         ModelImportingDialog(
-          uri = uri,
+          uri = pending.uri,
           info = info,
           onDismiss = { showImportingDialog = false },
+          onError = { viewModel.onModelImportFailed(pending.origin) },
           onDone = {
-            viewModel.addImportedLlmModel(info = it)
+            viewModel.addImportedLlmModel(info = it, origin = pending.origin)
             showImportingDialog = false
 
             // Show a snack bar for successful import.
@@ -605,18 +626,15 @@ fun GlobalModelManager(
   }
 
   // Model card details sheet
-  if (showModelDetailsSheet && selectedModelForDetails != null) {
+  modelDetailsContext?.let { details ->
     HfModelDetailsSheet(
-      modelItem = selectedModelForDetails!!,
-      onDismiss = {
-        showModelDetailsSheet = false
-        selectedModelForDetails = null
-      },
+      modelItem = details.model,
+      onDismiss = { modelDetailsContext = null },
       onImportModelFile = { modelId, fileName ->
-        showModelDetailsSheet = false
-        selectedModelForDetails = null
+        val origin = details.origin
+        modelDetailsContext = null
         val fileUrl = "https://huggingface.co/$modelId/resolve/main/$fileName?download=true"
-        processModelUri(fileUrl.toUri(), true)
+        processModelUri(fileUrl.toUri(), true, origin)
       },
     )
   }
