@@ -201,11 +201,6 @@ open class DefaultAgentRuntimeExecutor(
       Unit
     }
 
-    val onCompactionStart = { emitEvent(AgentEvent.ContextCompactionStarted) }
-    val onCompactionFinished = { success: Boolean ->
-      emitEvent(AgentEvent.ContextCompactionFinished(success = success))
-    }
-
     llmSessionManager.generateResponse(
       sessionId = sessionId,
       model = curModel,
@@ -213,8 +208,6 @@ open class DefaultAgentRuntimeExecutor(
       resultListener = resultListener,
       cleanUpListener = cleanUpListener,
       onError = onError,
-      onCompactionStart = onCompactionStart,
-      onCompactionFinished = onCompactionFinished,
       images = images,
       audioClips = audioClips,
       extraContext = extraContext,

@@ -16,7 +16,6 @@
 
 package com.google.ai.edge.gallery.ui.common.chat
 
-import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -106,6 +105,9 @@ abstract class ChatViewModel(
       llmSessionManager.activeSessionId = value
     }
 
+  /** The current task ID for the session. */
+  protected var currentTaskId: String = ""
+
   private val _uiState = MutableStateFlow(createUiState())
   val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
@@ -143,27 +145,6 @@ abstract class ChatViewModel(
         newMessages.removeAt(newMessages.size - 1)
       }
       newMessages.add(message)
-      state.copy(messagesByModel = newMessagesByModel)
-    }
-  }
-
-  /**
-   * Inserts [message] immediately before the active turn's trailing loading and user messages for
-   * [model].
-   */
-  fun insertMessageBeforeCurrentTurn(model: Model, message: ChatMessage) {
-    _uiState.update { state ->
-      val newMessagesByModel = state.messagesByModel.toMutableMap()
-      val newMessages = newMessagesByModel[model.name]?.toMutableList() ?: mutableListOf()
-      newMessagesByModel[model.name] = newMessages
-      var insertIndex = newMessages.size
-      if (insertIndex > 0 && newMessages[insertIndex - 1] is ChatMessageLoading) {
-        insertIndex--
-      }
-      while (insertIndex > 0 && newMessages[insertIndex - 1].side == ChatSide.USER) {
-        insertIndex--
-      }
-      newMessages.add(insertIndex, message)
       state.copy(messagesByModel = newMessagesByModel)
     }
   }
@@ -218,13 +199,45 @@ abstract class ChatViewModel(
    * Updates whether automatic context compaction is enabled for the given [taskId] in both
    * [DataStoreRepository] and the UI state.
    *
+   * When [compactIfLimitReached] is `true`, transitioning [enabled] from `false` to `true` will
+   * also trigger automatic context compaction if [model] is provided, idle, and the active session
+   * has reached its token limit.
+   *
    * @param taskId The identifier of the task for which to update the auto-compaction setting.
    * @param enabled Whether automatic context compaction should be enabled.
+   * @param model Optional active [Model] to evaluate and compact if the token limit is reached.
+   * @param compactIfLimitReached Whether to immediately trigger compaction if the token limit is
+   *   already reached when enabling auto-compaction.
    */
-  fun setAutoCompact(taskId: String, enabled: Boolean) {
+  fun setAutoCompact(
+    taskId: String,
+    enabled: Boolean,
+    model: Model? = null,
+    compactIfLimitReached: Boolean = false,
+  ) {
+    val wasEnabled = isAutoCompactEnabled(taskId)
     dataStoreRepository?.saveAutoContextCompact(taskId, enabled)
     _uiState.update { state ->
       state.copy(autoCompactByTask = state.autoCompactByTask + (taskId to enabled))
+    }
+    if (
+      !wasEnabled &&
+        enabled &&
+        compactIfLimitReached &&
+        model != null &&
+        !model.initializing &&
+        !_uiState.value.inProgress &&
+        !_uiState.value.isResettingSession &&
+        getContextCompactionStatus(model) != ContextCompactionStatus.COMPACTING
+    ) {
+      val sessionId = llmSessionManager.activeSessionId
+      if (sessionId != null && llmSessionManager.isTokenLimitReached(sessionId, model)) {
+        compactContext(
+          model = model,
+          taskId = taskId,
+          triggerType = ContextCompactionTriggerType.AUTO,
+        )
+      }
     }
   }
 
@@ -235,7 +248,11 @@ abstract class ChatViewModel(
    * @param taskId The identifier of the task whose setting should be loaded.
    */
   fun loadAutoCompact(taskId: String) {
-    if (taskId.isEmpty() || _uiState.value.autoCompactByTask.containsKey(taskId)) {
+    if (taskId.isEmpty()) {
+      return
+    }
+    currentTaskId = taskId
+    if (_uiState.value.autoCompactByTask.containsKey(taskId)) {
       return
     }
     val repo = dataStoreRepository ?: return
@@ -435,11 +452,13 @@ abstract class ChatViewModel(
       )
     }
     val thisJob = compactionJob
+    var sessionId: String? = null
     setContextCompactionStatus(model, ContextCompactionStatus.COMPACTING)
     try {
-      val success = llmSessionManager.compactContextIfNeeded(currentSessionId, model, force = true)
+      val resolvedSessionId = currentSessionId.also { sessionId = it }
+      val success = llmSessionManager.compactContextIfNeeded(resolvedSessionId, model, force = true)
       if (success) {
-        Log.d(TAG, "Context compacted for session $currentSessionId on model ${model.name}")
+        Log.d(TAG, "Context compacted for session $resolvedSessionId on model ${model.name}")
         addMessage(
           model = model,
           message = ChatMessageDivider(textResId = R.string.context_compressed_success),
@@ -449,7 +468,7 @@ abstract class ChatViewModel(
       } else {
         Log.d(
           TAG,
-          "Context compaction did not occur for session $currentSessionId on model ${model.name}",
+          "Context compaction did not occur for session $resolvedSessionId on model ${model.name}",
         )
         setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
       }
@@ -459,12 +478,40 @@ abstract class ChatViewModel(
       }
       throw e
     } catch (e: Exception) {
-      Log.e(TAG, "Failed to compact context for session $currentSessionId", e)
+      Log.e(TAG, "Failed to compact context for session $sessionId", e)
       setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
       onError()
     } finally {
       if (compactionJob === thisJob) {
         compactionJob = null
+      }
+    }
+  }
+
+  /**
+   * Snapshots and persists the current in-memory messages for [model] to the active session history
+   * if non-empty.
+   */
+  protected suspend fun persistCurrentSession(
+    model: Model,
+    taskId: String,
+    sessionId: String = currentSessionId,
+  ) {
+    val currentMessages = _uiState.value.messagesByModel[model.name]?.toList().orEmpty()
+    if (currentMessages.isNotEmpty()) {
+      try {
+        val protoMessages =
+          ChatMessageMapper.serializeMessages(currentMessages, sessionId, llmSessionManager)
+        llmSessionManager.saveSessionHistory(
+          sessionId = sessionId,
+          messages = protoMessages,
+          originalModel = model.name,
+          taskId = taskId,
+        )
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to persist session history for session $sessionId", e)
       }
     }
   }
@@ -763,11 +810,11 @@ abstract class ChatViewModel(
     messages: List<ChatMessage>,
     originalModel: String,
     taskId: String,
-    context: Context? = null,
   ) {
     val messagesSnapshot = messages.toList()
     viewModelScope.launch(Dispatchers.IO) {
-      val protoMessages = ChatMessageMapper.serializeMessages(messagesSnapshot, sessionId, context)
+      val protoMessages =
+        ChatMessageMapper.serializeMessages(messagesSnapshot, sessionId, llmSessionManager)
       llmSessionManager.saveSessionHistory(
         sessionId = sessionId,
         messages = protoMessages,
@@ -782,12 +829,12 @@ abstract class ChatViewModel(
    *
    * @param sessionId The ID of the session to delete.
    */
-  fun deleteSession(sessionId: String, context: Context? = null) {
+  fun deleteSession(sessionId: String) {
     viewModelScope.launch(Dispatchers.IO) { llmSessionManager.deleteSession(sessionId) }
   }
 
   /** Clears all saved chat sessions from persistent storage. */
-  fun clearAllSessions(context: Context? = null) {
+  fun clearAllSessions() {
     viewModelScope.launch(Dispatchers.IO) { llmSessionManager.clearAllSessions() }
   }
 }
