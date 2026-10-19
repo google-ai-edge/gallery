@@ -172,6 +172,19 @@ interface LlmSessionManager {
   )
 
   /**
+   * Caches the given [bitmaps] for [sessionId] to local session storage and returns the resulting
+   * absolute file paths.
+   */
+  suspend fun cacheSessionImages(sessionId: String, bitmaps: List<Bitmap>): List<String> =
+    emptyList()
+
+  /**
+   * Caches the given raw PCM [audioData] for [sessionId] to local session storage and returns the
+   * resulting absolute file path, or null if caching fails.
+   */
+  suspend fun cacheSessionAudio(sessionId: String, audioData: ByteArray): String? = null
+
+  /**
    * Runs inference for the given session on the specified [model].
    *
    * Assumes only one session and inference operation can run at a time in the application.
@@ -183,10 +196,6 @@ interface LlmSessionManager {
    *   channel output.
    * @param cleanUpListener Callback invoked when inference cleanup finishes.
    * @param onError Callback invoked upon an error during inference.
-   * @param onCompactionStart Callback invoked immediately when compaction is triggered, before
-   *   summarization and reset begin.
-   * @param onCompactionFinished Callback invoked when triggered compaction finishes, with `true` if
-   *   context was compacted and conversation reset, or `false` if compaction failed.
    * @param images Optional input images.
    * @param audioClips Optional input audio clips.
    * @param extraContext Optional key-value parameters for engine inference (e.g.
@@ -199,8 +208,6 @@ interface LlmSessionManager {
     resultListener: ResultListener,
     cleanUpListener: CleanUpListener = {},
     onError: (message: String) -> Unit = {},
-    onCompactionStart: () -> Unit = {},
-    onCompactionFinished: (Boolean) -> Unit = {},
     images: List<Bitmap> = emptyList(),
     audioClips: List<ByteArray> = emptyList(),
     extraContext: Map<String, String> = emptyMap(),
