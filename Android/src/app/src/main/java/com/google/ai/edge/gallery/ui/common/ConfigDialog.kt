@@ -137,6 +137,10 @@ private enum class ConfigTab {
 
 /**
  * Displays a configuration dialog allowing users to modify settings through various input controls.
+ *
+ * When `hideSystemSpeechDefaults` is true, the Basic tab's speech recognition and text-to-speech
+ * dropdowns hide the System defaults and only list downloaded models; `downloadedAsrEngineTypes`
+ * then tells which built-in speech recognition engines are downloaded.
  */
 @Suppress("DEPRECATION")
 @Composable

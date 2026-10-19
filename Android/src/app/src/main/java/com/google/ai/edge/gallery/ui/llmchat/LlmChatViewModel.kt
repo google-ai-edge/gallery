@@ -21,7 +21,6 @@ import android.graphics.Bitmap
 import android.os.Build
 import android.util.Log
 import androidx.lifecycle.viewModelScope
-import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.agent.AgentEvent
 import com.google.ai.edge.gallery.agent.AgentExecutionContext
 import com.google.ai.edge.gallery.agent.AgentRequest
@@ -33,6 +32,7 @@ import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.agent.sessions.generateSessionId
 import com.google.ai.edge.gallery.common.SystemPromptHelper
 import com.google.ai.edge.gallery.common.metrics.InferenceMetrics
+import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.Model
@@ -42,7 +42,6 @@ import com.google.ai.edge.gallery.data.awaitInitialization
 import com.google.ai.edge.gallery.proto.ChatSessionProto
 import com.google.ai.edge.gallery.tools.ToolAction
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
-import com.google.ai.edge.gallery.ui.common.chat.ChatMessageDivider
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageError
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageInfo
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageLoading
@@ -92,8 +91,6 @@ open class LlmChatViewModelBase(
   private var observedLiveMetricsModel: Model? = null
   // Map to track if the session was stopped by the model for a given model name.
   private val sessionStoppedByModel = mutableMapOf<String, Boolean>()
-  // The current task ID for the session.
-  private var currentTaskId: String = ""
   // Active session transition job to ensure transitions (restore, new session, reset) do not race.
   private var sessionTransitionJob: Job? = null
 
@@ -254,20 +251,6 @@ open class LlmChatViewModelBase(
         ->
         when (event) {
           is AgentEvent.LoopInitiated -> {}
-          is AgentEvent.ContextCompactionStarted -> {
-            setContextCompactionStatus(model, ContextCompactionStatus.COMPACTING)
-          }
-          is AgentEvent.ContextCompactionFinished -> {
-            if (event.success) {
-              insertMessageBeforeCurrentTurn(
-                model = model,
-                message = ChatMessageDivider(textResId = R.string.context_compressed_success),
-              )
-            }
-            if (getContextCompactionStatus(model) == ContextCompactionStatus.COMPACTING) {
-              setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
-            }
-          }
           is AgentEvent.StreamToken -> {
             val lastMessage = getLastMessage(model = model)
             val wasLoading = lastMessage?.type == ChatMessageType.LOADING
@@ -376,18 +359,21 @@ open class LlmChatViewModelBase(
               }
             }
             setPreparing(false)
-            val isLimitReached = llmSessionManager.isTokenLimitReached(currentSessionId, model)
             try {
-              if (isLimitReached) {
-                if (isAutoCompactEnabled(currentTaskId)) {
-                  executeCompactContext(
-                    model = model,
-                    taskId = currentTaskId,
-                    triggerType = ContextCompactionTriggerType.AUTO,
-                  )
-                } else {
-                  setContextCompactionStatus(model, ContextCompactionStatus.TOKEN_LIMIT_REACHED)
-                }
+              persistCurrentSession(model = model, taskId = currentTaskId)
+              val isLimitReached = llmSessionManager.isTokenLimitReached(currentSessionId, model)
+              if (
+                isLimitReached &&
+                  isAutoCompactEnabled(currentTaskId) &&
+                  Config.isContextCompactEnabled()
+              ) {
+                executeCompactContext(
+                  model = model,
+                  taskId = currentTaskId,
+                  triggerType = ContextCompactionTriggerType.AUTO,
+                )
+              } else if (isLimitReached) {
+                setContextCompactionStatus(model, ContextCompactionStatus.TOKEN_LIMIT_REACHED)
               }
             } finally {
               setInProgress(false)
