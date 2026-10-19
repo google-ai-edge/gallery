@@ -80,7 +80,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -178,10 +177,13 @@ fun ChatPanel(
         }
       }
       .collectAsStateWithLifecycle(initialValue = false)
-  var showLiveMetrics by rememberSaveable { mutableStateOf(true) }
+  val showLiveMetrics = uiState.showLiveMetrics
 
   if (isLiveMetricsFlagEnabled) {
-    LaunchedEffect(viewModel, selectedModel) { viewModel.observeLiveMetrics(selectedModel) }
+    LaunchedEffect(viewModel, task.id, selectedModel) {
+      viewModel.loadLiveMetricsVisibility(task.id)
+      viewModel.observeLiveMetrics(selectedModel)
+    }
   }
   val scope = rememberCoroutineScope()
   val snackbarHostState = remember { SnackbarHostState() }
@@ -825,7 +827,9 @@ fun ChatPanel(
         showMcpPicker = task.id === BuiltInTaskId.LLM_AGENT_CHAT,
         showLiveMetricsToggle = hasLiveMetrics,
         isLiveMetricsVisible = showLiveMetrics,
-        onToggleLiveMetrics = { showLiveMetrics = !showLiveMetrics },
+        onToggleLiveMetrics = {
+          viewModel.toggleLiveMetrics(taskId = task.id, model = selectedModel)
+        },
         showImagePicker = showImagePicker,
         showAudioPicker = showAudioPicker,
         showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,

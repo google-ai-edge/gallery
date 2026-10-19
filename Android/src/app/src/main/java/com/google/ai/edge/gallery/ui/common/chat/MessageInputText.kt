@@ -738,7 +738,8 @@ fun MessageInputText(
 
                   // Live metrics toggle.
                   if (showLiveMetricsToggle) {
-                    val enableLiveMetricsToggle = !isResettingSession && !modelInitializing
+                    val enableLiveMetricsToggle =
+                      !inProgress && !isResettingSession && !modelInitializing
                     IconToggleButton(
                       checked = isLiveMetricsVisible,
                       onCheckedChange = { onToggleLiveMetrics() },

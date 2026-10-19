@@ -40,6 +40,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.core.net.toUri
 import androidx.exifinterface.media.ExifInterface
+import com.google.ai.edge.gallery.ButtonClickAction
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.firebaseAnalytics
@@ -482,17 +483,28 @@ fun logErrorToFirebase(event: GalleryEvent, errorType: String, errorMessage: Str
  *
  * [eventType] identifies the button and must be unique per button, so that two different buttons
  * are never distinguished by their parameters alone. Pass [buttonId] only for a single button that
- * carries a value, such as one segment of a segmented button. Use [extras] to report any further
- * parameters describing the press; it cannot overwrite the two keys above, which are always written
- * last.
+ * carries a value, such as one segment of a segmented button. Pass [action], [capabilityName], and
+ * [modelId] when the button toggles or acts within a specific task/model context. Use [extras] to
+ * report any further parameters describing the press; it cannot overwrite the standard keys, which
+ * are always written last.
  */
-fun logButtonClick(eventType: String, buttonId: String? = null, extras: Bundle.() -> Unit = {}) {
+fun logButtonClick(
+  eventType: String,
+  buttonId: String? = null,
+  action: ButtonClickAction? = null,
+  capabilityName: String? = null,
+  modelId: String? = null,
+  extras: Bundle.() -> Unit = {},
+) {
   firebaseAnalytics?.logEvent(
     GalleryEvent.BUTTON_CLICKED.id,
     Bundle().apply {
       extras()
       putString("event_type", eventType)
       buttonId?.let { putString("button_id", it) }
+      action?.let { putString("action", it.id) }
+      capabilityName?.let { putString("capability_name", it) }
+      modelId?.let { putString("model_id", it) }
     },
   )
 }
