@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.ui.common.chat
 
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import com.google.ai.edge.gallery.BUTTON_CLICK_EVENT_LIVE_METRICS_TOGGLE
 import com.google.ai.edge.gallery.ButtonClickAction
 import com.google.ai.edge.gallery.common.logButtonClick
@@ -34,8 +35,20 @@ import kotlinx.coroutines.withContext
 private const val TAG = "AGLiveMetricsVisMgr"
 
 /**
- * Manages per-task visibility, [DataStoreRepository] persistence, `MetricsTracker` synchronization,
- * and toggle analytics for the live inference metrics banner.
+ * Persistent promo ID prefix for the per-task expandable discovery pill on the live metrics toggle.
+ */
+private const val LIVE_METRICS_TOGGLE_PROMPT_PROMO_ID = "live_metrics_toggle_prompt"
+
+/**
+ * Returns the persistent per-task promo ID for [taskId]'s live metrics expandable discovery pill.
+ */
+@VisibleForTesting
+fun liveMetricsTogglePromptPromoId(taskId: String): String =
+  "${LIVE_METRICS_TOGGLE_PROMPT_PROMO_ID}_$taskId"
+
+/**
+ * Manages per-task visibility, one-time discovery prompt state, [DataStoreRepository] persistence,
+ * `MetricsTracker` synchronization, and toggle analytics for the live inference metrics banner.
  */
 internal class LiveMetricsVisibilityManager(
   private val uiState: MutableStateFlow<ChatUiState>,
@@ -58,12 +71,22 @@ internal class LiveMetricsVisibilityManager(
     if (taskId.isEmpty()) {
       return
     }
+    val isSwitchingTask = currentTaskId != taskId
     currentTaskId = taskId
     val cached = visibilityByTask[taskId]
     if (cached != null) {
-      uiState.update { it.copy(showLiveMetrics = cached) }
+      uiState.update { state ->
+        state.copy(
+          showLiveMetrics = cached,
+          showLiveMetricsPrompt =
+            if (isSwitchingTask || cached) false else state.showLiveMetricsPrompt,
+        )
+      }
       onSyncVisibility(null, cached)
       return
+    }
+    if (isSwitchingTask && uiState.value.showLiveMetricsPrompt) {
+      uiState.update { it.copy(showLiveMetricsPrompt = false) }
     }
     val repo = dataStoreRepository
     if (repo == null) {
@@ -75,7 +98,12 @@ internal class LiveMetricsVisibilityManager(
     val visible = withContext(ioDispatcher) { repo.readShowLiveMetrics(taskId) }
     val resolved = visibilityByTask.getOrPut(taskId) { visible }
     if (currentTaskId == taskId) {
-      uiState.update { it.copy(showLiveMetrics = resolved) }
+      uiState.update { state ->
+        state.copy(
+          showLiveMetrics = resolved,
+          showLiveMetricsPrompt = if (resolved) false else state.showLiveMetricsPrompt,
+        )
+      }
       onSyncVisibility(null, resolved)
     }
   }
@@ -92,7 +120,7 @@ internal class LiveMetricsVisibilityManager(
     val currentVisible = visibilityByTask[taskId] ?: uiState.value.showLiveMetrics
     val newVisible = !currentVisible
     visibilityByTask[taskId] = newVisible
-    uiState.update { it.copy(showLiveMetrics = newVisible) }
+    uiState.update { it.copy(showLiveMetrics = newVisible, showLiveMetricsPrompt = false) }
     onSyncVisibility(model, newVisible)
     dataStoreRepository?.let { repo ->
       scope.launch(ioDispatcher) {
@@ -110,5 +138,41 @@ internal class LiveMetricsVisibilityManager(
       capabilityName = taskId,
       modelId = model.name,
     )
+  }
+
+  /**
+   * Shows the once-per-task expandable discovery pill label on the live metrics toggle button if
+   * the user has not viewed it for [taskId] before and the live metrics banner is currently
+   * collapsed.
+   */
+  suspend fun maybeShowPrompt(taskId: String) {
+    if (taskId.isEmpty()) {
+      return
+    }
+    loadVisibility(taskId)
+    if (uiState.value.showLiveMetrics || uiState.value.showLiveMetricsPrompt) {
+      return
+    }
+    val repo = dataStoreRepository ?: return
+    val promoId = liveMetricsTogglePromptPromoId(taskId)
+    val shouldShow =
+      withContext(ioDispatcher) {
+        if (!repo.hasViewedPromo(promoId)) {
+          repo.addViewedPromoId(promoId)
+          true
+        } else {
+          false
+        }
+      }
+    if (shouldShow && currentTaskId == taskId && !uiState.value.showLiveMetrics) {
+      uiState.update { it.copy(showLiveMetricsPrompt = true) }
+    }
+  }
+
+  /** Dismisses the live metrics discovery pill prompt if currently visible. */
+  fun dismissPrompt() {
+    if (uiState.value.showLiveMetricsPrompt) {
+      uiState.update { it.copy(showLiveMetricsPrompt = false) }
+    }
   }
 }

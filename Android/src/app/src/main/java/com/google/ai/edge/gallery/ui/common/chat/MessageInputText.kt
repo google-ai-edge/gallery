@@ -46,6 +46,8 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.lifecycle.awaitInstance
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -87,12 +89,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedIconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -106,6 +108,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -142,8 +145,10 @@ import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
 import java.util.concurrent.Executors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "AGMessageInputText"
+private const val LIVE_METRICS_PROMPT_SCROLL_TIMEOUT_MS = 600L
 
 /** The content shown in the input bar. */
 private enum class InputMode {
@@ -187,6 +192,8 @@ fun MessageInputText(
   showMcpPicker: Boolean = false,
   showLiveMetricsToggle: Boolean = false,
   isLiveMetricsVisible: Boolean = false,
+  showLiveMetricsPrompt: Boolean = false,
+  onDismissLiveMetricsPrompt: () -> Unit = {},
   onToggleLiveMetrics: () -> Unit = {},
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
@@ -429,12 +436,31 @@ fun MessageInputText(
               }
 
               // Second row: buttons to add extra content, and the action button.
+              val toolbarScrollState = rememberScrollState()
+              val enableLiveMetricsToggle = !inProgress && !isResettingSession && !modelInitializing
+              val showPromptLabel =
+                showLiveMetricsToggle && showLiveMetricsPrompt && enableLiveMetricsToggle
+              LaunchedEffect(showPromptLabel) {
+                if (showPromptLabel) {
+                  // Follow toolbarScrollState.maxValue across layout frames as AnimatedVisibility
+                  // expands the prompt pill at the trailing end of the toolbar.
+                  withTimeoutOrNull(LIVE_METRICS_PROMPT_SCROLL_TIMEOUT_MS) {
+                    snapshotFlow { toolbarScrollState.maxValue }
+                      .collect { maxValue ->
+                        if (maxValue > 0) {
+                          toolbarScrollState.scrollTo(maxValue)
+                        }
+                      }
+                  }
+                }
+              }
               Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).offset(y = (-8).dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
               ) {
                 Row(
+                  modifier = Modifier.weight(1f).horizontalScroll(toolbarScrollState),
                   verticalAlignment = Alignment.CenterVertically,
                   horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
@@ -738,30 +764,15 @@ fun MessageInputText(
 
                   // Live metrics toggle.
                   if (showLiveMetricsToggle) {
-                    val enableLiveMetricsToggle =
-                      !inProgress && !isResettingSession && !modelInitializing
-                    IconToggleButton(
+                    LiveMetricsToggleButton(
                       checked = isLiveMetricsVisible,
-                      onCheckedChange = { onToggleLiveMetrics() },
                       enabled = enableLiveMetricsToggle,
-                      colors =
-                        IconButtonDefaults.iconToggleButtonColors(
-                          containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                          contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                          disabledContainerColor =
-                            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
-                          disabledContentColor =
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
-                          checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                          checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        ),
-                    ) {
-                      Icon(
-                        Icons.Outlined.InsertChart,
-                        contentDescription = stringResource(R.string.cd_toggle_live_metrics),
-                        modifier = Modifier.size(20.dp),
-                      )
-                    }
+                      showPromptLabel = showPromptLabel,
+                      onToggle = {
+                        onDismissLiveMetricsPrompt()
+                        onToggleLiveMetrics()
+                      },
+                    )
                   }
                 }
 
@@ -1257,4 +1268,66 @@ private class SensorObserver(context: Context) : DefaultLifecycleObserver, Senso
   }
 
   override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+}
+
+@Composable
+private fun LiveMetricsToggleButton(
+  checked: Boolean,
+  enabled: Boolean,
+  showPromptLabel: Boolean,
+  onToggle: () -> Unit,
+) {
+  val containerColor =
+    when {
+      !enabled -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f)
+      checked -> MaterialTheme.colorScheme.secondaryContainer
+      else -> MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+  val contentColor =
+    when {
+      !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+      checked -> MaterialTheme.colorScheme.onSecondaryContainer
+      else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+  val startPadding by
+    animateDpAsState(
+      targetValue = if (showPromptLabel) 11.dp else 10.dp,
+      label = "liveMetricsStartPadding",
+    )
+  val endPadding by
+    animateDpAsState(
+      targetValue = if (showPromptLabel) 14.dp else 10.dp,
+      label = "liveMetricsEndPadding",
+    )
+
+  // Uses the toggleable Surface overload so the 40dp circle can expand to hold the one-time
+  // discovery prompt label while preserving TalkBack on/off toggle semantics.
+  Surface(
+    checked = checked,
+    onCheckedChange = { onToggle() },
+    enabled = enabled,
+    shape = CircleShape,
+    color = containerColor,
+    contentColor = contentColor,
+    modifier = Modifier.height(40.dp).widthIn(min = 40.dp),
+  ) {
+    Row(
+      modifier = Modifier.padding(start = startPadding, end = endPadding),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+      Icon(
+        Icons.Outlined.InsertChart,
+        contentDescription = stringResource(R.string.cd_toggle_live_metrics),
+        modifier = Modifier.size(20.dp),
+      )
+      AnimatedVisibility(visible = showPromptLabel) {
+        Text(
+          text = stringResource(R.string.live_metrics_toggle_prompt),
+          style = MaterialTheme.typography.labelMedium,
+          maxLines = 1,
+        )
+      }
+    }
+  }
 }

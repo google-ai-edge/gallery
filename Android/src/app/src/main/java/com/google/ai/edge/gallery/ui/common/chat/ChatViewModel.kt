@@ -85,6 +85,12 @@ data class ChatUiState(
   /** Whether the live inference metrics banner is visible for the current task. */
   val showLiveMetrics: Boolean = false,
 
+  /**
+   * Whether the one-time expandable discovery pill label prompting the user to try live inference
+   * metrics is currently shown on the toggle button.
+   */
+  val showLiveMetricsPrompt: Boolean = false,
+
 )
 
 /**
@@ -164,6 +170,23 @@ abstract class ChatViewModel(
       currentTaskId = taskId
     }
     liveMetricsVisibilityManager.toggle(taskId, model)
+  }
+
+  /**
+   * Shows the once-per-task expandable discovery pill label on the live metrics toggle button if
+   * the user has not viewed it for [taskId] before and the live metrics banner is currently
+   * collapsed.
+   */
+  suspend fun maybeShowLiveMetricsPrompt(taskId: String) {
+    if (taskId.isNotEmpty()) {
+      currentTaskId = taskId
+    }
+    liveMetricsVisibilityManager.maybeShowPrompt(taskId)
+  }
+
+  /** Dismisses the live metrics discovery pill prompt if currently visible. */
+  fun dismissLiveMetricsPrompt() {
+    liveMetricsVisibilityManager.dismissPrompt()
   }
 
   private var compactionJob: Job? = null
