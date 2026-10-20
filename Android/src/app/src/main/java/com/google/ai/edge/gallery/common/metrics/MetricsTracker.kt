@@ -125,6 +125,13 @@ interface MetricsTracker {
     errorMessage: String? = null,
   ): InferenceMetrics?
 
+  /**
+   * Updates whether the live metrics UI banner is currently enabled by the user.
+   *
+   * Logged at the end of each turn (`endTurn` and `cancelTurn`) via [MetricsLogger].
+   */
+  fun updateLiveMetrics(enabled: Boolean) {}
+
   /** Releases background sampling resources when the model instance is unloaded. */
   fun close() {}
 
@@ -247,6 +254,9 @@ internal constructor(
    */
   @Volatile private var inferenceTracker: LitertlmInferenceMetricsTracker? = null
 
+  /** Whether the user currently has the live metrics UI banner toggled on. */
+  @Volatile private var isLiveMetricsEnabled: Boolean = false
+
   /**
    * Refreshes the internal state when a new conversation session is started: session metadata and
    * [LitertlmInferenceMetricsTracker].
@@ -302,15 +312,17 @@ internal constructor(
     }
     memoryMonitor?.start(scope)
     powerMonitor?.start(scope)
-    liveUpdateSampler?.start(scope)
-    emitLiveSnapshot()
+    if (isLiveMetricsEnabled) {
+      liveUpdateSampler?.start(scope)
+      emitLiveSnapshot()
+    }
   }
 
   override fun onNewToken(tokenText: String, thinkingText: String?) {
     inferenceTracker?.onNewToken(
       tokenText = tokenText,
       thinkingText = thinkingText,
-      onFirstToken = ::emitLiveSnapshot,
+      onFirstToken = ::emitLiveSnapshotIfEnabled,
     )
   }
 
@@ -349,11 +361,31 @@ internal constructor(
     )
 
   @Synchronized
+  override fun updateLiveMetrics(enabled: Boolean) {
+    if (isLiveMetricsEnabled == enabled) {
+      return
+    }
+    isLiveMetricsEnabled = enabled
+    if (enabled) {
+      emitLiveSnapshot()
+    } else {
+      liveUpdateSampler?.stop()
+    }
+  }
+
+  @Synchronized
   override fun close() {
     liveUpdateSampler?.stop()
     memoryMonitor?.reset()
     powerMonitor?.reset()
     scope.cancel()
+  }
+
+  @Synchronized
+  private fun emitLiveSnapshotIfEnabled() {
+    if (isLiveMetricsEnabled) {
+      emitLiveSnapshot()
+    }
   }
 
   @Synchronized
@@ -380,33 +412,36 @@ internal constructor(
   }
 
   private fun emitLiveSnapshotIfTurnActive() {
-    if (inferenceTracker?.hasActiveTurn != true) return
+    if (!isLiveMetricsEnabled || inferenceTracker?.hasActiveTurn != true) return
     synchronized(this) {
-      if (inferenceTracker?.hasActiveTurn != true) return
+      if (!isLiveMetricsEnabled || inferenceTracker?.hasActiveTurn != true) return
       emitLiveSnapshot()
     }
   }
 
   private fun endTurnInternal(status: InferenceStatus): InferenceMetrics? {
-    val finalMetrics =
+    val (finalMetrics, liveMetricsEnabled) =
       synchronized(this) {
         liveUpdateSampler?.stop()
         val turnMetrics = inferenceTracker?.endTurn(status = status) ?: return null
         val memoryMetrics = memoryMonitor?.stop() ?: MemoryMetrics.getDefaultInstance()
         val batteryMetrics = powerMonitor?.stop() ?: BatteryMetrics.getDefaultInstance()
-        inferenceMetrics {
-            this.metadata = this@LitertlmMetricsTracker.metadata
-            this.inference = turnMetrics
-            this.memory = memoryMetrics
-            this.battery = batteryMetrics
-          }
-          .also {
-            if (enableLiveMetrics) {
-              _liveMetrics.value = it
+        val liveEnabled = enableLiveMetrics && isLiveMetricsEnabled
+        val metrics =
+          inferenceMetrics {
+              this.metadata = this@LitertlmMetricsTracker.metadata
+              this.inference = turnMetrics
+              this.memory = memoryMetrics
+              this.battery = batteryMetrics
             }
-          }
+            .also {
+              if (liveEnabled) {
+                _liveMetrics.value = it
+              }
+            }
+        metrics to liveEnabled
       }
-    metricsLogger.logMetrics(finalMetrics)
+    metricsLogger.logMetrics(finalMetrics, isLiveMetricsEnabled = liveMetricsEnabled)
     return finalMetrics
   }
 
