@@ -81,6 +81,7 @@ message Settings {
   repeated string viewed_promo_id = 10;
   bool disable_firebase_analytics = 11;
   map<string, bool> auto_context_compact_by_task = 15;
+  map<string, bool> show_live_metrics_by_task = 16;
 }
 
 message McpAuth {
