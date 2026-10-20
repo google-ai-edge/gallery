@@ -156,18 +156,6 @@ fun ChatView(
 
   val context = LocalContext.current
 
-  val currentMessages = uiState.messagesByModel[selectedModel.name] ?: emptyList()
-  LaunchedEffect(uiState.inProgress, uiState.isResettingSession) {
-    if (!uiState.inProgress && !uiState.isResettingSession && currentMessages.isNotEmpty()) {
-      viewModel.saveSession(
-        sessionId = viewModel.currentSessionId,
-        messages = currentMessages,
-        originalModel = selectedModel.name,
-        taskId = task.id,
-        context = context,
-      )
-    }
-  }
   val scope = rememberCoroutineScope()
   var navigatingUp by remember { mutableStateOf(false) }
 
@@ -240,13 +228,13 @@ fun ChatView(
               },
               onHistoryItemDeleted = { sessionId ->
                 val wasActiveSession = (sessionId == viewModel.currentSessionId)
-                viewModel.deleteSession(sessionId, context)
+                viewModel.deleteSession(sessionId)
                 if (wasActiveSession) {
                   onNewChatClicked()
                 }
               },
               onHistoryItemsDeleteAll = {
-                viewModel.clearAllSessions(context)
+                viewModel.clearAllSessions()
                 onNewChatClicked()
                 scope.launch { drawerState.close() }
               },
@@ -292,13 +280,6 @@ fun ChatView(
               isAutoCompactEnabled = isAutoCompactEnabled,
               onConfigChanged = { old, new ->
                 val isContextCompactSupported = task.isContextCompactSupported(selectedModel)
-                if (isContextCompactSupported) {
-                  val oldAutoCompact = old[ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label] as? Boolean
-                  val newAutoCompact = new[ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label] as? Boolean
-                  if (newAutoCompact != null && newAutoCompact != oldAutoCompact) {
-                    viewModel.setAutoCompact(task.id, newAutoCompact)
-                  }
-                }
                 // Filter out config values that are not relevant to the task.
                 //
                 // - The "reset conversation turn count" is only valid for tiny garden task.
@@ -321,6 +302,18 @@ fun ChatView(
                   newConfigValues = filteredNew,
                   model = selectedModel,
                 )
+                if (isContextCompactSupported) {
+                  val oldAutoCompact = old[ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label] as? Boolean
+                  val newAutoCompact = new[ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label] as? Boolean
+                  if (newAutoCompact != null && newAutoCompact != oldAutoCompact) {
+                    viewModel.setAutoCompact(
+                      taskId = task.id,
+                      enabled = newAutoCompact,
+                      model = selectedModel,
+                      compactIfLimitReached = true,
+                    )
+                  }
+                }
               },
               onBackClicked = { handleNavigateUp() },
               onModelSelected = { prevModel, curModel ->
