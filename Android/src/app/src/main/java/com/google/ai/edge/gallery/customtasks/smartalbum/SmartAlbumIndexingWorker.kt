@@ -265,6 +265,8 @@ constructor(
         Log.d(TAG, "Worker stopped; saving progress and exiting user photo indexing loop")
         break
       }
+      // Pause indexing while the user is actively scrolling the gallery or search results grid
+      // to prevent indexing from causing UI frame drops.
       while (SmartAlbumIndexingCoordinator.isScrollInProgress) {
         if (isStopped) break
         delay(100)
@@ -341,8 +343,6 @@ constructor(
           )
         )
       }
-      val pauseDuration = if (SmartAlbumIndexingCoordinator.isGalleryVisible) 100L else 20L
-      delay(pauseDuration)
     }
     return newlyIndexed
   }
@@ -429,6 +429,8 @@ constructor(
         break
       }
 
+      // Pause indexing while the user is actively scrolling the gallery or search results grid
+      // to prevent indexing tasks from causing UI frame drops.
       while (SmartAlbumIndexingCoordinator.isScrollInProgress) {
         if (isStopped) break
         delay(100)
@@ -508,8 +510,6 @@ constructor(
         )
       }
     }
-    val pauseDuration = if (SmartAlbumIndexingCoordinator.isGalleryVisible) 100L else 20L
-    delay(pauseDuration)
     return newlyIndexed
   }
 
