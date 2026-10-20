@@ -252,6 +252,7 @@ fun ModelImportingDialog(
   uri: Uri,
   info: ImportedModel,
   onDismiss: () -> Unit,
+  onError: (String) -> Unit = {},
   onDone: (ImportedModel) -> Unit,
 ) {
   var error by remember { mutableStateOf("") }
@@ -269,7 +270,10 @@ fun ModelImportingDialog(
       uri = uri,
       onDone = { onDone(info) },
       onProgress = { progress = it },
-      onError = { error = it },
+      onError = {
+        error = it
+        onError(it)
+      },
     )
   }
 
@@ -372,42 +376,48 @@ private fun importModel(
     }
 
     // Import by copying the file over.
-    val outputFile = File(modelsDir, "$IMPORTS_DIR/$fileName")
-    val outputStream = FileOutputStream(outputFile)
-    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-    var bytesRead: Int
-    var lastSetProgressTs: Long = 0
-    var importedBytes = 0L
     val inputStream = openSafeInputStream(context, uri)
-    try {
-      if (inputStream != null) {
-        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-          ensureActive()
-          outputStream.write(buffer, 0, bytesRead)
-          importedBytes += bytesRead
+    if (inputStream == null) {
+      Log.e(TAG, "Failed to open input stream for $uri")
+      withContext(Dispatchers.Main) { onError(context.getString(R.string.failed_to_import)) }
+      return@launch
+    }
 
-          // Report progress every 200 ms.
-          val curTs = System.currentTimeMillis()
-          if (curTs - lastSetProgressTs > 200) {
-            Log.d(TAG, "importing progress: $importedBytes, $fileSize")
-            lastSetProgressTs = curTs
-            if (fileSize != 0L) {
-              onProgress(importedBytes.toFloat() / fileSize.toFloat())
+    val outputFile = File(modelsDir, "$IMPORTS_DIR/$fileName")
+    try {
+      FileOutputStream(outputFile).use { outputStream ->
+        inputStream.use { stream ->
+          val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+          var bytesRead: Int
+          var lastSetProgressTs: Long = 0
+          var importedBytes = 0L
+          while (stream.read(buffer).also { bytesRead = it } != -1) {
+            ensureActive()
+            outputStream.write(buffer, 0, bytesRead)
+            importedBytes += bytesRead
+
+            // Report progress every 200 ms.
+            val curTs = System.currentTimeMillis()
+            if (curTs - lastSetProgressTs > 200) {
+              Log.d(TAG, "importing progress: $importedBytes, $fileSize")
+              lastSetProgressTs = curTs
+              if (fileSize != 0L) {
+                onProgress(importedBytes.toFloat() / fileSize.toFloat())
+              }
             }
           }
         }
       }
     } catch (e: CancellationException) {
+      outputFile.delete()
       throw e
     } catch (e: Exception) {
       Log.e(TAG, "Failed to import model", e)
+      outputFile.delete()
       withContext(Dispatchers.Main) {
         onError(e.message ?: context.getString(R.string.failed_to_import))
       }
       return@launch
-    } finally {
-      inputStream?.close()
-      outputStream.close()
     }
     Log.d(TAG, "import done")
     withContext(Dispatchers.Main) {
