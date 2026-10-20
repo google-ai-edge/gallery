@@ -1405,6 +1405,27 @@ constructor(
               includeExtraDataFiles = pendingForModel.none { it.isExtraDataOnly },
               onStatusUpdated = this@ModelManagerViewModel::setDownloadStatus,
             )
+          } else if (
+            task == null &&
+              model.downloadsViaRepository &&
+              downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED &&
+              !isModelDownloadPending
+          ) {
+            if (
+              tokenStatusAndData.status == TokenStatus.NOT_EXPIRED &&
+                tokenStatusAndData.data != null
+            ) {
+              model.downloadInfo.accessToken = tokenStatusAndData.data.accessToken
+            }
+            Log.d(TAG, "Resuming the download of supplementary model '${model.name}'")
+            downloadRepository.downloadModel(
+              task = null,
+              model = model,
+              includeExtraDataFiles = pendingForModel.none { it.isExtraDataOnly },
+              onStatusUpdated = { curModel, status ->
+                setDownloadStatus(curModel = curModel, status = status)
+              },
+            )
           }
         }
 
@@ -1451,7 +1472,9 @@ constructor(
         pendingDownload = pendingDownload,
         task = task,
         model = model,
-        onStatusUpdated = this::setDownloadStatus,
+        onStatusUpdated = { curModel, status ->
+          setDownloadStatus(curModel = curModel, status = status)
+        },
       )
     }
   }
