@@ -78,15 +78,17 @@ class DeviceRequirementRegistry(sets: Map<String, DeviceRequirements>) {
     allowedModel.requiredDeviceRequirementSet
 
   private class Matcher(set: DeviceRequirements) {
+    @Suppress("USELESS_ELVIS")
     private val deviceModels: Set<String> =
       set.allowedDeviceGroups
         .orEmpty()
-        .flatMap { (it.deviceModels as List<String>?).orEmpty().filterNotNull() }
+        .flatMap { (it.deviceModels ?: emptyList()).filterNotNull() }
         .toLowercaseSet()
+    @Suppress("USELESS_ELVIS")
     private val socModels: Set<String> =
       set.allowedDeviceGroups
         .orEmpty()
-        .flatMap { (it.socModels as List<String>?).orEmpty().filterNotNull() }
+        .flatMap { (it.socModels ?: emptyList()).filterNotNull() }
         .toLowercaseSet()
 
     val isEmpty: Boolean
