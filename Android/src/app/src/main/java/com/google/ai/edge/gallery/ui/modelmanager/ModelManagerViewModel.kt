@@ -30,7 +30,6 @@ import com.google.ai.edge.gallery.common.ProjectConfig
 import com.google.ai.edge.gallery.common.SystemPromptHelper
 import com.google.ai.edge.gallery.common.getJsonResponse
 import com.google.ai.edge.gallery.common.getModelStorageDir
-import com.google.ai.edge.gallery.common.isAICoreSupported
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.BackendSpec
@@ -41,6 +40,8 @@ import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.DataStoreRepository
+import com.google.ai.edge.gallery.data.DeviceIdentity
+import com.google.ai.edge.gallery.data.DeviceRequirementRegistry
 import com.google.ai.edge.gallery.data.DownloadAuthError
 import com.google.ai.edge.gallery.data.DownloadRepository
 import com.google.ai.edge.gallery.data.EMPTY_MODEL
@@ -280,6 +281,12 @@ constructor(
 
   /** Dispatcher that [loadModelAllowlist] runs on. Overridden in tests to load synchronously. */
   @VisibleForTesting internal var allowlistLoadingDispatcher: CoroutineDispatcher = Dispatchers.IO
+
+  /**
+   * The provider of device identity matched against device-requirement sets. Overridden in tests.
+   */
+  @VisibleForTesting
+  internal var deviceProvider: () -> DeviceIdentity = { DeviceIdentity.current() }
 
   protected val _uiState: MutableStateFlow<ModelManagerUiState> =
     MutableStateFlow(createEmptyUiState())
@@ -1489,20 +1496,8 @@ constructor(
 
         Log.d(TAG, "Allowlist: $modelAllowlist")
 
-        val isAICoreAvailable by lazy {
-          Log.d(TAG, "loadModelAllowlist: Checking AICore availability")
-          // Build a fast-lookup set of all supported device models.
-          // This extracts the models from all allowed groups, flattens them into a single stream,
-          // lowercases them for case-insensitive matching, and stores them in a Set.
-          val allowedDeviceModelsSet =
-            modelAllowlist.aicoreRequirements
-              ?.allowedDeviceGroups
-              ?.asSequence()
-              ?.flatMap { it.deviceModels }
-              ?.map { it.lowercase() }
-              ?.toSet()
-          isAICoreSupported(allowedDeviceModelsSet)
-        }
+        val deviceRequirements = DeviceRequirementRegistry.from(modelAllowlist)
+        val device = deviceProvider()
 
         // Convert models in the allowlist.
         Log.d(
@@ -1516,7 +1511,14 @@ constructor(
             continue
           }
 
-          if (allowedModel.runtimeType == RuntimeType.AICORE && !isAICoreAvailable) {
+          // Hide models whose device-requirement set doesn't include this device.
+          val requiredSet = allowedModel.requiredDeviceRequirementSet
+          if (requiredSet != null && !deviceRequirements.isSatisfied(requiredSet, device)) {
+            Log.d(
+              TAG,
+              "Ignoring model '${allowedModel.name}' because device '${device.model}' (SOC" +
+                " '${device.soc}') is not in device-requirement set '$requiredSet'",
+            )
             continue
           }
 

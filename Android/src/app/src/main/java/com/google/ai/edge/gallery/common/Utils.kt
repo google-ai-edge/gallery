@@ -447,26 +447,6 @@ fun Modifier.clearFocusOnKeyboardDismiss(): Modifier = composed {
   }
 }
 
-fun isAICoreSupported(allowedDeviceModels: Set<String>?): Boolean {
-  if (allowedDeviceModels.isNullOrEmpty()) {
-    Log.w(TAG, "isAICoreSupported: allowedDeviceModels is null or empty")
-    return false
-  }
-  val currentModel = android.os.Build.MODEL?.lowercase()
-  if (currentModel == null) {
-    Log.w(TAG, "isAICoreSupported: current device model is null")
-    return false
-  }
-  val supported = allowedDeviceModels.contains(currentModel)
-  if (!supported) {
-    Log.w(
-      TAG,
-      "isAICoreSupported: device model '$currentModel' is not in the allowed list: $allowedDeviceModels",
-    )
-  }
-  return supported
-}
-
 fun logErrorToFirebase(event: GalleryEvent, errorType: String, errorMessage: String?) {
   firebaseAnalytics?.logEvent(
     event.id,
