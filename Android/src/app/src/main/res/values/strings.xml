@@ -1393,6 +1393,38 @@
     <item quantity="one">%d TTS model selected</item>
     <item quantity="other">%d TTS models selected</item>
   </plurals>
+  <plurals name="model_selection_main_models_available" translatable="true" description="Part of the line under the task description on the model selection screen saying how many main models (the AI models that run the task) the user can choose from. It is shown next to the ASR and TTS counts, for example '4 main models • 2 ASR models • 2 TTS models'. %d is the number of models. [CHAR_LIMIT=24] applies across all plural variants.">
+    <item quantity="one">%d main model</item>
+    <item quantity="other">%d main models</item>
+  </plurals>
+  <plurals name="model_selection_asr_models_available" translatable="true" description="Part of the line under the task description on the model selection screen saying how many automatic speech recognition (ASR) models the user can choose from, for example '2 ASR models'. Keep the abbreviation ASR. %d is the number of models. [CHAR_LIMIT=24] applies across all plural variants.">
+    <item quantity="one">%d ASR model</item>
+    <item quantity="other">%d ASR models</item>
+  </plurals>
+  <plurals name="model_selection_tts_models_available" translatable="true" description="Part of the line under the task description on the model selection screen saying how many text-to-speech (TTS) models the user can choose from, for example '2 TTS models'. Keep the abbreviation TTS. %d is the number of models. [CHAR_LIMIT=24] applies across all plural variants.">
+    <item quantity="one">%d TTS model</item>
+    <item quantity="other">%d TTS models</item>
+  </plurals>
+  <string name="model_selection_header_count_separator" translatable="true" description="Separator between the model counts on the model selection screen, for example between '4 main models' and '2 ASR models'. Keep the spaces around the dot. [CHAR_LIMIT=12]">" \u2022 "</string>
+  <plurals name="model_selection_main_models_selected_short" translatable="true" description="Short count of the selected main models (the AI models that run the task) in the collapsed summary panel of the model selection screen. It is joined with the ASR and TTS counts into a locale-formatted list and completed by model_selection_summary_collapsed, for example 'Selected: 1 main, 1 ASR, and 0 TTS'. %d is the number of selected models. [CHAR_LIMIT=12] applies across all plural variants.">
+    <item quantity="one">%d main</item>
+    <item quantity="other">%d main</item>
+  </plurals>
+  <plurals name="model_selection_asr_models_selected_short" translatable="true" description="Short count of the selected automatic speech recognition (ASR) models in the collapsed summary panel of the model selection screen, for example '1 ASR' in 'Selected: 1 main, 1 ASR, and 0 TTS'. Keep the abbreviation ASR. %d is the number of selected models. [CHAR_LIMIT=12] applies across all plural variants.">
+    <item quantity="one">%d ASR</item>
+    <item quantity="other">%d ASR</item>
+  </plurals>
+  <plurals name="model_selection_tts_models_selected_short" translatable="true" description="Short count of the selected text-to-speech (TTS) models in the collapsed summary panel of the model selection screen, for example '0 TTS' in 'Selected: 1 main, 1 ASR, and 0 TTS'. Keep the abbreviation TTS. %d is the number of selected models. [CHAR_LIMIT=12] applies across all plural variants.">
+    <item quantity="one">%d TTS</item>
+    <item quantity="other">%d TTS</item>
+  </plurals>
+  <string name="model_selection_summary_collapsed" translatable="true" description="Collapsed summary panel at the bottom of the model selection screen; Selected is an adjective describing the chosen models. %1$s is a locale-formatted list of short counts per kind of model, for example '1 main, 1 ASR, and 0 TTS'. Example: 'Selected: 1 main, 1 ASR, and 0 TTS'. [CHAR_LIMIT=50]">Selected: %1$s</string>
+  <plurals name="model_selection_summary_expanded_title" translatable="true" description="Title of the expanded summary panel at the bottom of the model selection screen. %1$d is the number of kinds of model (main, ASR, TTS) that have a selection and %2$d the number of kinds the task needs, for example '2/3 models selected'. The plural follows %2$d. [CHAR_LIMIT=30] applies across all plural variants.">
+    <item quantity="one">%1$d/%2$d model selected</item>
+    <item quantity="other">%1$d/%2$d models selected</item>
+  </plurals>
+  <string name="model_selection_summary_none" translatable="true" description="Shown in the expanded summary panel of the model selection screen, in place of a model name, when no model of that kind is selected yet. [CHAR_LIMIT=16]">None</string>
+  <string name="cd_model_selection_section_info" translatable="true" description="Content description of the info button next to a section header on the model selection screen, which shows what that kind of model does. %1$s is the section title, for example 'Main models'. [CHAR_LIMIT=NONE]">About %1$s</string>
   <string name="model_selection_no_main_models" translatable="true" description="Message shown in the main models section of the model selection screen when no main model can run on this device. [CHAR_LIMIT=60]">No main models available on this device</string>
   <string name="model_selection_no_asr_models" translatable="true" description="Message shown in the automatic speech recognition (ASR) section of the model selection screen when no ASR model can run on this device. Keep the abbreviation ASR. [CHAR_LIMIT=60]">No ASR models available on this device</string>
   <string name="model_selection_no_tts_models" translatable="true" description="Message shown in the text-to-speech (TTS) section of the model selection screen when no TTS model can run on this device. Keep the abbreviation TTS. [CHAR_LIMIT=60]">No TTS models available on this device</string>

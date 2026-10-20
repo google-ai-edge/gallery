@@ -48,7 +48,7 @@ private const val TAG = "AGTaskModelSelectionVM"
 private const val KEY_INITIALIZED_TASK_ID = "initialized_task_id"
 private const val KEY_SELECTION_PREFIX = "selection_"
 private const val KEY_EXPANDED_SECTIONS = "expanded_sections"
-private const val KEY_EXPANDED_MODELS = "expanded_models"
+private const val KEY_COLLAPSED_MODELS = "collapsed_models"
 private const val KEY_SUMMARY_EXPANDED = "summary_expanded"
 // How long uiState keeps its upstream after the screen stops collecting, so that configuration
 // changes don't restart it.
@@ -269,7 +269,8 @@ private data class SelectionState(
   /** The selected model name of each section, by section id. */
   val selections: Map<String, String> = emptyMap(),
   val expandedSectionIds: Set<String> = emptySet(),
-  val expandedModelNames: Set<String> = emptySet(),
+  /** Names of the model cards the user collapsed. Every other card is expanded. */
+  val collapsedModelNames: Set<String> = emptySet(),
   val isSummaryExpanded: Boolean = false,
   val launchPhase: ModelSelectionLaunchPhase = ModelSelectionLaunchPhase.IDLE,
   val gateRequest: ModelSelectionGateRequest? = null,
@@ -326,9 +327,8 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
 
   /**
    * Binds the screen to [task] and its [config]. On first entry it preselects the "Best overall"
-   * main model and the speech models saved in the app settings (never the System defaults). It
-   * expands the main section and every section without a preselected model; preselected speech
-   * sections start collapsed.
+   * main model and the speech models saved in the app settings (never the System defaults), and
+   * expands every section and every model card.
    */
   fun bind(host: ModelSelectionHost, task: Task, config: ModelSelectionConfig) {
     val current = binding.value
@@ -355,9 +355,10 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
   }
 
   /**
-   * Selects [model] in the section [sectionId], collapses that section, and expands the next
-   * section without a selection, or the summary sheet once every section has one. Selecting another
-   * model while a launch is downloading cancels the replaced model's download and stops the launch.
+   * Selects [model] in the section [sectionId], keeps that section open, and expands and scrolls to
+   * the next section without a selection, or expands the summary sheet once every section has one.
+   * Selecting another model while a launch is downloading cancels the replaced model's download and
+   * stops the launch.
    */
   fun selectModel(sectionId: String, model: Model) {
     val currentBinding = binding.value ?: return
@@ -395,10 +396,8 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     // Look for the next section without a selection, wrapping around.
     val nextSectionId =
       (sectionIds.drop(index + 1) + sectionIds.take(index)).firstOrNull { it !in selections }
-    var expandedSectionIds = current.expandedSectionIds - sectionId
-    if (nextSectionId != null) {
-      expandedSectionIds = expandedSectionIds + nextSectionId
-    }
+    // The answered section stays open, so the user can still compare its models.
+    val expandedSectionIds = current.expandedSectionIds + listOfNotNull(nextSectionId)
     update(
       current.copy(
         selections = selections,
@@ -430,9 +429,9 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
   fun setModelExpanded(modelName: String, expanded: Boolean) {
     val current = state.value
     val names =
-      if (expanded) current.expandedModelNames + modelName
-      else current.expandedModelNames - modelName
-    update(current.copy(expandedModelNames = names))
+      if (expanded) current.collapsedModelNames - modelName
+      else current.collapsedModelNames + modelName
+    update(current.copy(collapsedModelNames = names))
   }
 
   /** Expands or collapses the summary sheet. */
@@ -688,7 +687,7 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
               downloadStatus = status,
               isSelected = model.name == selectedName,
               isSelectable = isModelSelectable(model, status),
-              isExpanded = model.name in selectionState.expandedModelNames,
+              isExpanded = model.name !in selectionState.collapsedModelNames,
             )
           }
         ModelSelectionSectionUiState(
@@ -716,7 +715,6 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
   private fun initialState(newBinding: Binding): SelectionState {
     val modelManagerUiState = newBinding.host.uiState.value
     val selections = mutableMapOf<String, String>()
-    var bestOverallModel: Model? = null
     for (section in newBinding.config.sections) {
       val candidates = candidatesFor(section, newBinding.task, modelManagerUiState)
       val preselected =
@@ -729,23 +727,12 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
         }
       if (preselected != null) {
         selections[section.id] = preselected.name
-        if (section.target == ModelSelectionTarget.MAIN_MODEL) {
-          bestOverallModel = preselected
-        }
       }
     }
     return SelectionState(
       selections = selections,
-      // The main section always starts expanded so the user sees the recommendation. Speech
-      // sections
-      // that already have a model (saved in the app settings) start collapsed and are skipped.
-      expandedSectionIds =
-        newBinding.config.sections
-          .filter { it.target == ModelSelectionTarget.MAIN_MODEL || it.id !in selections }
-          .map { it.id }
-          .toSet(),
-      // Like the regular model list, the "Best overall" card starts expanded.
-      expandedModelNames = setOfNotNull(bestOverallModel?.name),
+      // Every section starts expanded by default, even when a model is already preselected.
+      expandedSectionIds = newBinding.config.sections.map { it.id }.toSet(),
     )
   }
 
@@ -760,12 +747,12 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
         }
         .toMap()
     val expandedSectionIds: List<String> = savedStateHandle[KEY_EXPANDED_SECTIONS] ?: emptyList()
-    val expandedModelNames: List<String> = savedStateHandle[KEY_EXPANDED_MODELS] ?: emptyList()
+    val collapsedModelNames: List<String> = savedStateHandle[KEY_COLLAPSED_MODELS] ?: emptyList()
     val isSummaryExpanded: Boolean = savedStateHandle[KEY_SUMMARY_EXPANDED] ?: false
     return SelectionState(
       selections = selections,
       expandedSectionIds = expandedSectionIds.toSet(),
-      expandedModelNames = expandedModelNames.toSet(),
+      collapsedModelNames = collapsedModelNames.toSet(),
       isSummaryExpanded = isSummaryExpanded,
     )
   }
@@ -780,7 +767,7 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
       savedStateHandle[KEY_SELECTION_PREFIX + sectionId] = modelName
     }
     savedStateHandle[KEY_EXPANDED_SECTIONS] = ArrayList(selectionState.expandedSectionIds)
-    savedStateHandle[KEY_EXPANDED_MODELS] = ArrayList(selectionState.expandedModelNames)
+    savedStateHandle[KEY_COLLAPSED_MODELS] = ArrayList(selectionState.collapsedModelNames)
     savedStateHandle[KEY_SUMMARY_EXPANDED] = selectionState.isSummaryExpanded
   }
 

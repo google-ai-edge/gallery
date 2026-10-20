@@ -345,6 +345,7 @@ fun GalleryNavHost(
               )
             } else {
               var disableAppBarControls by remember { mutableStateOf(false) }
+              var disableAppBarActions by remember { mutableStateOf(false) }
               var hideTopBar by remember { mutableStateOf(false) }
               var customNavigateUpCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
               var customPromptProvider by remember { mutableStateOf<(() -> String)?>(null) }
@@ -372,6 +373,7 @@ fun GalleryNavHost(
                 initialModel = initialModel,
                 modelManagerViewModel = modelManagerViewModel,
                 disableAppBarControls = disableAppBarControls,
+                disableAppBarActions = disableAppBarActions,
                 hideTopBar = hideTopBar,
                 useThemeColor = customTask.task.useThemeColor,
                 onNavigateUp = {
@@ -397,6 +399,7 @@ fun GalleryNavHost(
                       modelManagerViewModel = modelManagerViewModel,
                       bottomPadding = bottomPadding,
                       setAppBarControlsDisabled = { disableAppBarControls = it },
+                      setAppBarActionsDisabled = { disableAppBarActions = it },
                       setTopBarVisible = { hideTopBar = !it },
                       setCustomNavigateUpCallback = { customNavigateUpCallback = it },
                       setSystemPromptProvider = { provider, onPromptChanged ->
@@ -591,6 +594,7 @@ private fun CustomTaskScreen(
   initialModel: Model,
   modelManagerViewModel: ModelManagerViewModel,
   disableAppBarControls: Boolean,
+  disableAppBarActions: Boolean,
   hideTopBar: Boolean,
   useThemeColor: Boolean,
   onNavigateUp: () -> Unit,
@@ -658,6 +662,7 @@ private fun CustomTaskScreen(
           modelManagerViewModel = modelManagerViewModel,
           inProgress = disableAppBarControls,
           modelPreparing = disableAppBarControls,
+          actionsDisabled = disableAppBarActions,
           shouldShowHistoryButton = onHistoryClicked != null,
           onHistoryClicked = { onHistoryClicked?.invoke() },
           useThemeColor = useThemeColor,

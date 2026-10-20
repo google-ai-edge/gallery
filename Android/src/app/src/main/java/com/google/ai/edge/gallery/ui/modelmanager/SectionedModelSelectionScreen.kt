@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.ui.modelmanager
 
+import android.icu.text.ListFormatter
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
@@ -43,6 +44,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -63,6 +65,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
@@ -81,6 +85,7 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelSelectionConfig
 import com.google.ai.edge.gallery.data.ModelSelectionTarget
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.ui.common.InfoTooltipIconButton
 import com.google.ai.edge.gallery.ui.common.ModelDownloadGatesHost
 import com.google.ai.edge.gallery.ui.common.SpeechEngineErrorDialog
 import com.google.ai.edge.gallery.ui.common.getTaskBgColor
@@ -88,8 +93,6 @@ import com.google.ai.edge.gallery.ui.common.getTaskBgGradientColors
 import com.google.ai.edge.gallery.ui.common.modelitem.ModelRadioItem
 import com.google.ai.edge.gallery.ui.common.rememberModelDownloadGates
 import com.google.ai.edge.gallery.ui.common.rememberOpenSpeechServicesStorePage
-
-import androidx.compose.ui.platform.LocalContext
 
 private val CONTENT_ANIMATION_OFFSET = 16.dp
 
@@ -284,6 +287,7 @@ fun SectionedModelSelectionContent(
           TaskHeader(
             task = task,
             modelCount = uiState.sections.sumOf { it.candidates.size },
+            modelCountText = sectionModelCountsText(uiState.sections),
             animation = headerAnimation,
           )
         }
@@ -355,8 +359,22 @@ internal fun sectionHeaderIndex(
 }
 
 /**
- * Header of a section: a caret and the section title. A collapsed header also shows the selected
- * model's name.
+ * The per-kind model counts shown in the task header, for example "4 main models • 2 ASR models • 2
+ * TTS models".
+ */
+@Composable
+private fun sectionModelCountsText(sections: List<ModelSelectionSectionUiState>): String {
+  val separator = stringResource(R.string.model_selection_header_count_separator)
+  return sections
+    .map {
+      pluralStringResource(it.section.availableCountResId, it.candidates.size, it.candidates.size)
+    }
+    .joinToString(separator)
+}
+
+/**
+ * Header of a section: a caret, the section title and, when the section has one, an info button
+ * explaining what its model does. A collapsed header also shows the selected model's name.
  */
 @Composable
 private fun ModelSelectionSectionHeader(
@@ -366,46 +384,58 @@ private fun ModelSelectionSectionHeader(
 ) {
   val stateDesc =
     stringResource(if (sectionState.isExpanded) R.string.cd_expanded else R.string.cd_collapsed)
+  val title = stringResource(sectionState.section.titleResId)
   Row(
     verticalAlignment = Alignment.CenterVertically,
-    modifier =
-      modifier
-        .fillMaxWidth()
-        .padding(top = 8.dp)
-        .clickable(role = Role.Button, onClick = onToggle)
-        .semantics { stateDescription = stateDesc }
-        .padding(vertical = 8.dp),
+    modifier = modifier.fillMaxWidth().padding(top = 8.dp),
   ) {
-    Icon(
-      Icons.Rounded.ArrowDropDown,
-      contentDescription = null,
-      tint = MaterialTheme.colorScheme.onSurfaceVariant,
-      modifier = Modifier.rotate(if (sectionState.isExpanded) 0f else -90f),
-    )
-    Spacer(modifier = Modifier.width(8.dp))
-    Text(
-      stringResource(sectionState.section.titleResId),
-      style = MaterialTheme.typography.titleSmall,
-      color = MaterialTheme.colorScheme.onSurface,
-    )
-    val selectedModel = sectionState.selectedModel
-    if (!sectionState.isExpanded && selectedModel != null) {
+    Row(
+      verticalAlignment = Alignment.CenterVertically,
+      modifier =
+        Modifier.weight(1f)
+          .clickable(role = Role.Button, onClick = onToggle)
+          .semantics { stateDescription = stateDesc }
+          .padding(vertical = 8.dp),
+    ) {
+      Icon(
+        Icons.Rounded.ArrowDropDown,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.rotate(if (sectionState.isExpanded) 0f else -90f),
+      )
+      Spacer(modifier = Modifier.width(8.dp))
       Text(
-        selectedModel.displayName.ifEmpty { selectedModel.name },
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        textAlign = TextAlign.End,
-        modifier = Modifier.weight(1f).padding(start = 12.dp, end = 4.dp),
+        title,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+      )
+      val selectedModel = sectionState.selectedModel
+      if (!sectionState.isExpanded && selectedModel != null) {
+        Text(
+          selectedModel.displayName.ifEmpty { selectedModel.name },
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+          textAlign = TextAlign.End,
+          modifier = Modifier.weight(1f).padding(start = 12.dp, end = 4.dp),
+        )
+      }
+    }
+    val infoResId = sectionState.section.infoResId
+    if (infoResId != null) {
+      InfoTooltipIconButton(
+        tooltipText = stringResource(infoResId),
+        contentDescription = stringResource(R.string.cd_model_selection_section_info, title),
       )
     }
   }
 }
 
 /**
- * The summary sheet at the bottom of the screen: how many models of each kind are selected (and
- * their names when expanded), and Try it, which turns into download progress with a cancel button.
+ * The summary sheet at the bottom of the screen and Try it, which turns into download progress with
+ * a cancel button. Collapsed, it shows how many models of each kind are selected on one line.
+ * Expanded, it shows one row per kind with its selected model.
  */
 @Composable
 private fun ModelSelectionSummarySheet(
@@ -415,7 +445,6 @@ private fun ModelSelectionSummarySheet(
   onTryIt: () -> Unit,
   onCancelLaunch: () -> Unit,
 ) {
-  val resources = LocalContext.current.resources
   val summaryStateDesc =
     stringResource(if (uiState.isSummaryExpanded) R.string.cd_expanded else R.string.cd_collapsed)
   Surface(
@@ -438,35 +467,16 @@ private fun ModelSelectionSummarySheet(
             .semantics { stateDescription = summaryStateDesc }
             .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
       ) {
-        Column(
+        Text(
+          if (uiState.isSummaryExpanded) {
+            expandedSummaryTitle(uiState.sections)
+          } else {
+            collapsedSummaryText(uiState.sections)
+          },
+          style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+          color = MaterialTheme.colorScheme.onSurface,
           modifier = Modifier.weight(1f),
-          verticalArrangement = Arrangement.spacedBy(if (uiState.isSummaryExpanded) 6.dp else 0.dp),
-        ) {
-          for (sectionState in uiState.sections) {
-            Column {
-              Text(
-                resources.getQuantityString(
-                  sectionState.section.selectedCountResId,
-                  sectionState.selectedCount,
-                  sectionState.selectedCount,
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
-              val selectedModel = sectionState.selectedModel
-              if (uiState.isSummaryExpanded && selectedModel != null) {
-                Text(
-                  selectedModel.displayName.ifEmpty { selectedModel.name },
-                  style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                  color = MaterialTheme.colorScheme.onSurface,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                  modifier = Modifier.padding(start = 12.dp),
-                )
-              }
-            }
-          }
-        }
+        )
         Icon(
           Icons.Rounded.ArrowDropDown,
           contentDescription =
@@ -474,8 +484,25 @@ private fun ModelSelectionSummarySheet(
               if (uiState.isSummaryExpanded) R.string.cd_collapse_icon else R.string.cd_expand_icon
             ),
           tint = MaterialTheme.colorScheme.onSurfaceVariant,
-          modifier = Modifier.rotate(if (uiState.isSummaryExpanded) 180f else 0f),
+          modifier = Modifier.rotate(if (uiState.isSummaryExpanded) 0f else 180f),
         )
+      }
+      if (uiState.isSummaryExpanded) {
+        Column(
+          verticalArrangement = Arrangement.spacedBy(12.dp),
+          modifier =
+            Modifier.padding(top = 8.dp)
+              .fillMaxWidth()
+              .background(
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                shape = RoundedCornerShape(12.dp),
+              )
+              .padding(horizontal = 12.dp, vertical = 12.dp),
+        ) {
+          for (sectionState in uiState.sections) {
+            SummarySectionRow(sectionState = sectionState)
+          }
+        }
       }
       Spacer(modifier = Modifier.height(12.dp))
       when (uiState.launchPhase) {
@@ -500,6 +527,71 @@ private fun ModelSelectionSummarySheet(
           )
       }
     }
+  }
+}
+
+/** One line for the collapsed summary sheet, for example "Selected: 1 main, 1 ASR, and 0 TTS". */
+@Composable
+private fun collapsedSummaryText(sections: List<ModelSelectionSectionUiState>): String {
+  val shortCounts = sections.map {
+    pluralStringResource(it.section.selectedShortCountResId, it.selectedCount, it.selectedCount)
+  }
+  // Joins with the locale's own list punctuation and conjunction.
+  val locale = LocalConfiguration.current.locales[0]
+  val joinedCounts =
+    remember(locale, shortCounts) { ListFormatter.getInstance(locale).format(shortCounts) }
+  return stringResource(R.string.model_selection_summary_collapsed, joinedCounts)
+}
+
+/** Title of the expanded summary sheet, for example "2/3 models selected". */
+@Composable
+private fun expandedSummaryTitle(sections: List<ModelSelectionSectionUiState>): String {
+  val completeCount = sections.count { it.selectedCount >= it.section.requiredCount }
+  return pluralStringResource(
+    R.plurals.model_selection_summary_expanded_title,
+    sections.size,
+    completeCount,
+    sections.size,
+  )
+}
+
+/**
+ * A row of the expanded summary sheet: how many models of a kind are selected, a check once the
+ * selection is complete, and the selected model's name or "None".
+ */
+@Composable
+private fun SummarySectionRow(sectionState: ModelSelectionSectionUiState) {
+  val selectedModel = sectionState.selectedModel
+  Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+    Text(
+      pluralStringResource(
+        sectionState.section.selectedCountResId,
+        sectionState.selectedCount,
+        sectionState.selectedCount,
+      ),
+      style = MaterialTheme.typography.bodyMedium,
+      color = MaterialTheme.colorScheme.onSurface,
+    )
+    if (sectionState.selectedCount >= sectionState.section.requiredCount) {
+      Spacer(modifier = Modifier.width(8.dp))
+      Icon(
+        Icons.Rounded.CheckCircle,
+        // The count text already says that a model is selected.
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.size(18.dp),
+      )
+    }
+    Text(
+      selectedModel?.let { it.displayName.ifEmpty { it.name } }
+        ?: stringResource(R.string.model_selection_summary_none),
+      style = MaterialTheme.typography.bodyMedium,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+      textAlign = TextAlign.End,
+      modifier = Modifier.weight(1f).padding(start = 12.dp),
+    )
   }
 }
 

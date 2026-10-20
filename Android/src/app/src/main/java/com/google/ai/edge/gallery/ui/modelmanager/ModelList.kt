@@ -314,6 +314,8 @@ fun rememberTaskHeaderAnimation(enableAnimation: Boolean): TaskHeaderAnimation {
 /**
  * The header at the top of a task's model list: the task icon, name, description, links, and the
  * number of available models.
+ *
+ * @param modelCountText Replaces the "N models available" line, for example with per-kind counts.
  */
 @Composable
 fun TaskHeader(
@@ -321,6 +323,7 @@ fun TaskHeader(
   modelCount: Int,
   animation: TaskHeaderAnimation,
   modifier: Modifier = Modifier,
+  modelCountText: String? = null,
 ) {
   Column(modifier = modifier) {
     Spacer(modifier = Modifier.height(32.dp))
@@ -424,11 +427,13 @@ fun TaskHeader(
       // Models available.
       val resources = LocalContext.current.resources
       Text(
-        resources.getQuantityString(
-          R.plurals.model_list_number_of_models_available,
-          modelCount,
-          modelCount,
-        ),
+        modelCountText
+          ?: resources.getQuantityString(
+            R.plurals.model_list_number_of_models_available,
+            modelCount,
+            modelCount,
+          ),
+        textAlign = TextAlign.Center,
         color = MaterialTheme.colorScheme.onSurface,
         style = MaterialTheme.typography.bodyMedium,
         modifier =

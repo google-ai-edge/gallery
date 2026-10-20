@@ -39,19 +39,29 @@ enum class ModelSelectionTarget {
  *
  * @property id Stable identifier of the section, unique within its [ModelSelectionConfig].
  * @property titleResId Section header, for example "Main models".
+ * @property availableCountResId Plural shown in the screen header, for example "4 main models". It
+ *   takes the number of models the section offers as its only argument.
  * @property selectedCountResId Plural shown in the summary sheet, for example "1 main model
  *   selected". It takes the number of selected models as its only argument.
+ * @property selectedShortCountResId Short plural joined with the other sections' in the collapsed
+ *   summary sheet, for example "1 main" in "Selected: 1 main, 1 ASR, and 0 TTS". It takes the
+ *   number of selected models as its only argument.
  * @property emptyMessageResId Message shown when the device has no candidate for this section.
  * @property target What the section picks. See [ModelSelectionTarget].
+ * @property infoResId Optional explanation of what the section's model does in the task, shown in a
+ *   tooltip next to the section header.
  * @property modelFilter Keeps only the candidates that belong to this section.
  * @property requiredCount How many models must be selected before the task can launch.
  */
 data class ModelSelectionSection(
   val id: String,
   @StringRes val titleResId: Int,
+  @PluralsRes val availableCountResId: Int,
   @PluralsRes val selectedCountResId: Int,
+  @PluralsRes val selectedShortCountResId: Int,
   @StringRes val emptyMessageResId: Int,
   val target: ModelSelectionTarget,
+  @StringRes val infoResId: Int? = null,
   val modelFilter: (Model) -> Boolean = { true },
   val requiredCount: Int = 1,
 )
