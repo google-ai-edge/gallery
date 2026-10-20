@@ -451,7 +451,9 @@ constructor(
       task = task,
       model = model,
       includeExtraDataFiles = actualIncludeExtraDataFiles,
-      onStatusUpdated = this::setDownloadStatus,
+      onStatusUpdated = { curModel, status ->
+        setDownloadStatus(curModel = curModel, status = status)
+      },
     )
   }
 
