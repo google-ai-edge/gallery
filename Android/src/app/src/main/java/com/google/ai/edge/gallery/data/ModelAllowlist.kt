@@ -157,8 +157,8 @@ data class AllowedModel(
       for (item in items) {
         Accelerator.fromLabel(item.trim())?.let { parsedAccelerators.add(it) }
       }
-      // Remove GPU from pixel 10 devices.
-      if (isPixel10()) {
+      // Remove GPU from pixel 10 devices for LLM models.
+      if (isPixel10() && isLlmModel) {
         parsedAccelerators.remove(Accelerator.GPU)
       }
       if (parsedAccelerators.isNotEmpty()) {
