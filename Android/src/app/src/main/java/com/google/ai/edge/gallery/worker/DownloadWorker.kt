@@ -28,10 +28,13 @@ import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ForegroundInfo
+import androidx.work.ListenableWorker
 import androidx.work.WorkerParameters
 import com.google.ai.edge.gallery.common.getModelStorageDir
+import com.google.ai.edge.gallery.data.DownloadAuthError
 import com.google.ai.edge.gallery.data.KEY_MODEL_COMMIT_HASH
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
+import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_AUTH_ERROR
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ERROR_MESSAGE
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_FILE_NAME
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_MODEL_DIR
@@ -207,7 +210,11 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
                 Log.d(TAG, "Download starts from beginning.")
               }
             } else {
-              throw IOException("HTTP error code: ${connection.responseCode}")
+              return@withContext httpErrorResult(
+                url = file.url,
+                httpCode = connection.responseCode,
+                sentAccessToken = accessToken != null,
+              )
             }
 
             val inputStream = connection.inputStream
@@ -363,6 +370,36 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           )
         }
       }
+    }
+  }
+
+  companion object {
+    /**
+     * Returns the worker result for a download request that got a non-2xx response.
+     *
+     * Hugging Face access errors carry a [DownloadAuthError] under [KEY_MODEL_DOWNLOAD_AUTH_ERROR],
+     * so the UI can ask the user to sign in or accept the model's license. Other errors are plain
+     * failures.
+     *
+     * @param url The requested URL.
+     * @param httpCode The HTTP status code of the response.
+     * @param sentAccessToken Whether the request carried a Hugging Face access token.
+     */
+    fun httpErrorResult(
+      url: String,
+      httpCode: Int,
+      sentAccessToken: Boolean,
+    ): ListenableWorker.Result {
+      val errorMessage = "HTTP error code: $httpCode"
+      val outputData = Data.Builder().putString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE, errorMessage)
+      val authError = DownloadAuthError.fromResponse(url, httpCode, sentAccessToken)
+      if (authError != null) {
+        Log.w(TAG, "Download needs Hugging Face access ($authError): $errorMessage")
+        outputData.putString(KEY_MODEL_DOWNLOAD_AUTH_ERROR, authError.name)
+      } else {
+        Log.e(TAG, errorMessage)
+      }
+      return ListenableWorker.Result.failure(outputData.build())
     }
   }
 
