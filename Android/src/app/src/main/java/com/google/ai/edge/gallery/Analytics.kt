@@ -64,9 +64,9 @@ enum class ButtonClickAction(val id: String) {
 
 /** Strongly typed Firebase Analytics parameter keys for inference and model lifecycle telemetry. */
 enum class InferenceMetricsParam(val key: String) {
-  MODEL_NAME("model_name"),
+  MODEL_ID("model_id"),
   MODEL_VERSION("model_version"),
-  TASK_ID("task_id"),
+  CAPABILITY_NAME("capability_name"),
   ACCELERATOR("accelerator"),
   STATUS("status"),
   ERROR_CODE("error_code"),

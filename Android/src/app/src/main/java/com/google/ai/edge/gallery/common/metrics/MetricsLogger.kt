@@ -131,12 +131,12 @@ internal class MetricsLogger(internal val model: Model, internal val taskId: Str
   }
 
   private fun Bundle.putCommonMetadata() {
-    putString(InferenceMetricsParam.MODEL_NAME.key, model.name)
+    putString(InferenceMetricsParam.MODEL_ID.key, model.name)
     val modelVersion = model.downloadInfo.version
     if (modelVersion.isNotEmpty()) {
       putString(InferenceMetricsParam.MODEL_VERSION.key, modelVersion)
     }
-    putString(InferenceMetricsParam.TASK_ID.key, taskId)
+    putString(InferenceMetricsParam.CAPABILITY_NAME.key, taskId)
   }
 
   /**
