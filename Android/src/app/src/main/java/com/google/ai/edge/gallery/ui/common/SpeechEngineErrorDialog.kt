@@ -30,7 +30,6 @@ import com.google.ai.edge.gallery.data.SpeechEngineError
 import com.google.ai.edge.gallery.data.SpeechEngineErrorAction
 import com.google.ai.edge.gallery.data.SpeechEngineErrorCause
 import com.google.ai.edge.gallery.data.SpeechEngineKind
-import com.google.ai.edge.gallery.services.speechservices.SpeechServicesVersion
 
 /**
  * Dialog shown when a speech engine couldn't start: "Couldn't start speech recognition" or
@@ -95,7 +94,11 @@ fun SpeechEngineErrorDialog(
 @Composable
 fun rememberOpenSpeechServicesStorePage(): () -> Unit {
   val uriHandler = LocalUriHandler.current
-  return remember(uriHandler) { { uriHandler.openUri(SpeechServicesVersion.PLAY_STORE_URL) } }
+  return remember(uriHandler) {
+    {
+      uriHandler.openUri("https://play.google.com/store/apps/details?id=com.google.android.tts")
+    }
+  }
 }
 
 @StringRes
