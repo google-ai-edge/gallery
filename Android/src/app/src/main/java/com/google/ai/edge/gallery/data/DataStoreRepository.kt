@@ -142,6 +142,15 @@ interface DataStoreRepository {
 
   /** Returns whether the live inference metrics banner is visible for the specified [taskId]. */
   fun readShowLiveMetrics(taskId: String): Boolean
+
+  /**
+   * Saves [modelName] as the main model last launched from the model selection screen of the task
+   * [taskId].
+   */
+  suspend fun saveLastMainModel(taskId: String, modelName: String)
+
+  /** Returns the name of the main model last launched for each task, by task id. */
+  suspend fun readLastMainModels(): Map<String, String>
 }
 
 /** Repository for managing data using Proto DataStore. */
@@ -512,4 +521,11 @@ class DefaultDataStoreRepository(
       settings.showLiveMetricsByTaskMap[taskId] ?: false
     }
   }
+
+  override suspend fun saveLastMainModel(taskId: String, modelName: String) {
+    dataStore.updateData { settings -> settings.copy { lastMainModelByTask[taskId] = modelName } }
+  }
+
+  override suspend fun readLastMainModels(): Map<String, String> =
+    dataStore.data.first().lastMainModelByTaskMap
 }

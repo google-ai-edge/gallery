@@ -85,6 +85,7 @@ import com.google.gson.Gson
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -193,6 +194,12 @@ data class ModelManagerUiState(
 
   /** Supplementary models that are not bound to a specific task. */
   val supplementaryModels: List<Model> = emptyList(),
+
+  /**
+   * The name of the main model last launched from the model selection screen of each task that has
+   * one, by task id.
+   */
+  val lastMainModelByTaskId: Map<String, String> = mapOf(),
 ) {
   fun isDownloadOptionalComponentsEnabled(modelName: String): Boolean {
     return downloadOptionalComponents[modelName] ?: true
@@ -414,6 +421,39 @@ constructor(
     if (_uiState.value.selectedModel.name != model.name) {
       _uiState.update { it.copy(selectedModel = model) }
     }
+  }
+
+  /**
+   * Remembers [model] as the main model last launched from the model selection screen of [task], so
+   * that the screen preselects it next time.
+   */
+  fun saveLastMainModel(task: Task, model: Model) {
+    _uiState.update {
+      it.copy(lastMainModelByTaskId = it.lastMainModelByTaskId + (task.id to model.name))
+    }
+    viewModelScope.launch {
+      try {
+        dataStoreRepository.saveLastMainModel(taskId = task.id, modelName = model.name)
+      } catch (e: IOException) {
+        Log.w(TAG, "Failed to save the last main model of '${task.id}'", e)
+      }
+    }
+  }
+
+  /**
+   * Reads the main model last launched for each task from the settings, or none if the read fails,
+   * so that a settings error doesn't fail loading the model list.
+   */
+  private suspend fun readSavedLastMainModels(): Map<String, String> {
+    // `null` if the read fails, in which case no model is restored.
+    val saved: Map<String, String>? =
+      try {
+        dataStoreRepository.readLastMainModels()
+      } catch (e: IOException) {
+        Log.w(TAG, "Failed to read the last main models", e)
+        null
+      }
+    return saved ?: emptyMap()
   }
 
   open fun downloadModel(
@@ -1612,10 +1652,12 @@ constructor(
         Log.d(TAG, "loadModelAllowlist: Processing tasks")
         processTasks()
 
+        val savedLastMainModels = readSavedLastMainModels()
+
         // Update UI state.
         Log.d(TAG, "loadModelAllowlist: Updating UI state")
         _uiState.update {
-          createUiState()
+          createUiState(savedLastMainModels = savedLastMainModels)
             .copy(
               loadingModelAllowlist = false,
               tasks = curTasks,
@@ -1753,7 +1795,15 @@ constructor(
     )
   }
 
-  private fun createUiState(): ModelManagerUiState {
+  /**
+   * Builds the UI state from the loaded tasks and models.
+   *
+   * @param savedLastMainModels The last main models read from the settings, by task id. They are
+   *   merged with the ones already in the UI state.
+   */
+  private fun createUiState(
+    savedLastMainModels: Map<String, String> = emptyMap()
+  ): ModelManagerUiState {
     val modelDownloadStatus: MutableMap<String, ModelDownloadStatus> = mutableMapOf()
     val extraDataDownloadStatus = _uiState.value.extraDataDownloadStatus.toMutableMap()
     val tasks: MutableMap<String, Task> = mutableMapOf()
@@ -1820,6 +1870,9 @@ constructor(
     val textInputHistory = dataStoreRepository.readTextInputHistory()
     Log.d(TAG, "text input history: $textInputHistory")
 
+    // Choices saved in this session take precedence, as their writes may still be pending.
+    val lastMainModelByTaskId = savedLastMainModels + _uiState.value.lastMainModelByTaskId
+
     Log.d(TAG, "model download status: $modelDownloadStatus")
     return ModelManagerUiState(
       tasks = getActiveCustomTasks().map { it.task }.toList(),
@@ -1829,6 +1882,7 @@ constructor(
       downloadOptionalComponents = _uiState.value.downloadOptionalComponents,
       extraDataDownloadStatus = extraDataDownloadStatus,
       supplementaryModels = _supplementaryModels.toList(),
+      lastMainModelByTaskId = lastMainModelByTaskId,
     )
   }
 

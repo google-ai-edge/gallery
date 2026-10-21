@@ -75,9 +75,16 @@ interface ModelSelectionHost {
   fun isSavedSelection(target: ModelSelectionTarget, model: Model): Boolean
 
   /**
-   * Saves [model] as the app-wide choice for [target]. No-op for [ModelSelectionTarget.MAIN_MODEL].
+   * Saves [model] as the app-wide choice for [target]. No-op for [ModelSelectionTarget.MAIN_MODEL],
+   * which is saved per task with [saveMainModel].
    */
   fun saveSelection(target: ModelSelectionTarget, model: Model)
+
+  /**
+   * Saves [model] as the main model launched for [task]. It is read back from
+   * [ModelManagerUiState.lastMainModelByTaskId].
+   */
+  fun saveMainModel(task: Task, model: Model)
 }
 
 /** Adapts this [ModelManagerViewModel] to [ModelSelectionHost]. */
@@ -105,6 +112,10 @@ private class ModelManagerSelectionHost(private val viewModel: ModelManagerViewM
   }
 
   override fun saveSelection(target: ModelSelectionTarget, model: Model) {
+  }
+
+  override fun saveMainModel(task: Task, model: Model) {
+    viewModel.saveLastMainModel(task = task, model = model)
   }
 }
 
@@ -292,9 +303,10 @@ private data class Binding(
  * [com.google.ai.edge.gallery.customtasks.common.CustomTask.modelSelectionConfig].
  *
  * It holds the pending selection of each section, which sections and cards are expanded, and the
- * Try it flow: download checks, concurrent downloads, a status check, then launch. Speech choices
- * are written to the app settings only at launch, because starting or cancelling a download resets
- * the saved speech choice of that model. The pending selection is kept in the [SavedStateHandle].
+ * Try it flow: download checks, concurrent downloads, a status check, then launch. Choices are
+ * saved only at launch: the speech choices to the app settings, because starting or cancelling a
+ * download resets the saved speech choice of that model, and the main model for the task. The
+ * pending selection is kept in the [SavedStateHandle].
  *
  * Call [bind] before using it.
  */
@@ -326,9 +338,10 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
       )
 
   /**
-   * Binds the screen to [task] and its [config]. On first entry it preselects the "Best overall"
-   * main model and the speech models saved in the app settings (never the System defaults), and
-   * expands every section and every model card.
+   * Binds the screen to [task] and its [config]. On first entry it preselects the main model last
+   * launched for [task] (or the "Best overall" one if that can no longer be picked) and the speech
+   * models saved in the app settings (never the System defaults), and expands every section and
+   * every model card.
    */
   fun bind(host: ModelSelectionHost, task: Task, config: ModelSelectionConfig) {
     val current = binding.value
@@ -345,12 +358,9 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     binding.value = newBinding
     observeJob?.cancel()
     observeJob = viewModelScope.launch {
-      combine(host.uiState, state) { modelManagerUiState, selectionState ->
-          modelManagerUiState to selectionState
-        }
-        .collect { (modelManagerUiState, selectionState) ->
-          continueLaunch(newBinding, modelManagerUiState, selectionState)
-        }
+      // The selection state only triggers a check here; continueLaunch reads its live value.
+      combine(host.uiState, state) { modelManagerUiState, _ -> modelManagerUiState }
+        .collect { modelManagerUiState -> continueLaunch(newBinding, modelManagerUiState) }
     }
   }
 
@@ -594,14 +604,14 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
 
   /**
    * Launches once every selected model is downloaded: checks the status of the system-managed
-   * speech models, saves the speech choices to the app settings, and asks the screen to navigate.
-   * Stops when a download fails.
+   * speech models, saves the speech choices to the app settings and the main model for the task,
+   * and asks the screen to navigate. Stops when a download fails.
    */
-  private fun continueLaunch(
-    currentBinding: Binding,
-    modelManagerUiState: ModelManagerUiState,
-    selectionState: SelectionState,
-  ) {
+  private fun continueLaunch(currentBinding: Binding, modelManagerUiState: ModelManagerUiState) {
+    // Reads the live state rather than the snapshot that triggered this call: a host update during
+    // the launch (for example saving the choices, or a status refresh) can deliver a stale
+    // DOWNLOADING snapshot after the launch moved on, which would launch again.
+    val selectionState = state.value
     if (selectionState.launchPhase != ModelSelectionLaunchPhase.DOWNLOADING) {
       return
     }
@@ -656,6 +666,7 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
         if (model == null) continue
         if (section.target == ModelSelectionTarget.MAIN_MODEL) {
           mainModel = model
+          currentBinding.host.saveMainModel(currentBinding.task, model)
         } else {
           currentBinding.host.saveSelection(section.target, model)
         }
@@ -719,8 +730,14 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
       val candidates = candidatesFor(section, newBinding.task, modelManagerUiState)
       val preselected =
         when (section.target) {
-          ModelSelectionTarget.MAIN_MODEL ->
-            candidates.firstOrNull { newBinding.task.id in it.bestForTaskIds }
+          ModelSelectionTarget.MAIN_MODEL -> {
+            // The main model last launched for the task, as long as it can still be picked.
+            val lastName = modelManagerUiState.lastMainModelByTaskId[newBinding.task.id]
+            candidates.firstOrNull {
+              it.name == lastName &&
+                isModelSelectable(it, modelManagerUiState.modelDownloadStatus[it.name])
+            } ?: candidates.firstOrNull { newBinding.task.id in it.bestForTaskIds }
+          }
           ModelSelectionTarget.ASR_MODEL,
           ModelSelectionTarget.TTS_MODEL ->
             candidates.firstOrNull { newBinding.host.isSavedSelection(section.target, it) }
