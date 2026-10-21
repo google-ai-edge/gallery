@@ -80,6 +80,7 @@ class LitertlmInferenceMetricsTracker(
       override val startContextTokens: Int?,
       override val startTimeMark: TimeMark,
       override val ttftDuration: Duration,
+      /** Captured once in [onNewToken] on the [Prefilling] -> [Decoding] transition (TTFT). */
       val prefillBenchmark: InferenceBenchmark?,
       val outputTokenCount: AtomicInteger = AtomicInteger(1),
     ) : Active {
@@ -166,6 +167,10 @@ class LitertlmInferenceMetricsTracker(
     when (val current = turnState.get()) {
       is TurnState.Prefilling -> {
         val ttftDuration = current.startTimeMark.elapsedNow()
+        // Query the prefill benchmark once on the Prefilling -> Decoding transition (TTFT).
+        // Querying it again at endTurn() is unsafe because C++ post-decode channel stripping
+        // (filter_channel_content_from_kv_cache) can run a second RunPrefillAsync before
+        // onDone() and overwrite the user prompt's prefill token count and speed.
         val prefillBenchmark = queryPrefillBenchmark(current.session)
         val decoding =
           TurnState.Decoding(
@@ -215,6 +220,10 @@ class LitertlmInferenceMetricsTracker(
   }
 
   private data class SessionDiagnostics(
+    /**
+     * Prefill benchmark captured once in [onNewToken] on the [Prefilling] -> [Decoding] transition.
+     */
+    val prefillBenchmark: InferenceBenchmark? = null,
     val benchmark: InferenceBenchmark? = null,
     val tokenCount: Int? = null,
   )
@@ -284,9 +293,10 @@ class LitertlmInferenceMetricsTracker(
     /**
      * Computes finalized turn metrics at turn end (`endTurn`).
      *
-     * At turn end, engine benchmark info and KV-cache token counts are available and used as the
-     * source of truth for token counts and prefill throughput, while app-measured timings are
-     * preferred for latency milestones and decode throughput.
+     * At turn end, `prefillBenchmark` captured at TTFT is preferred for `promptTokens` and
+     * `prefillSpeedTps` so post-decode channel-stripping prefills in C++ do not overwrite the
+     * user-prompt prefill stats, while final `diagnostics.benchmark` is used for `outputTokens` and
+     * `diagnostics.tokenCount` for KV-cache context utilization.
      *
      * Engine diagnostics are queried only after C++ `Tasks::Decode` finishes (`SUCCESS`, or
      * `CANCELLED` after at least one token was emitted) and releases
@@ -295,11 +305,17 @@ class LitertlmInferenceMetricsTracker(
      * unavailable fields remain unset.
      */
     fun calculateStatsOnTurnEnd(snapshot: RawTurnSnapshot): TurnInferenceMetrics {
-      // Token counts and prefill throughput come from engine InferenceBenchmark.
+      // Prefer the prefill benchmark captured at TTFT (Prefilling -> Decoding) for promptTokens
+      // and prefillSpeedTps so C++ post-decode channel-stripping RunPrefillAsync calls do not
+      // clobber the user prompt's prefill count. Fall back to final diagnostics.benchmark when
+      // a turn ends before the first token arrives.
       // Note: LiteRT-LM JNI returns 0 for lastDecodeTokenCount when no decode turn was recorded
       // (and resolveSessionDiagnostics skips benchmark queries when cancelled during prefill).
+      val prefillBenchmark = snapshot.diagnostics.prefillBenchmark
       val benchmark = snapshot.diagnostics.benchmark
-      val promptTokens = benchmark?.prefillTokenCount?.takeIf { it > 0 }
+      val promptTokens =
+        prefillBenchmark?.prefillTokenCount?.takeIf { it > 0 }
+          ?: benchmark?.prefillTokenCount?.takeIf { it > 0 }
       val outputTokens = benchmark?.decodeTokenCount?.takeIf { it > 0 }
       val totalTokens =
         if (promptTokens != null || outputTokens != null) {
@@ -317,7 +333,9 @@ class LitertlmInferenceMetricsTracker(
         } else {
           null
         }
-      val prefillSpeed = benchmark?.prefillSpeedTps?.takeIf { it > 0f }
+      val prefillSpeed =
+        prefillBenchmark?.prefillSpeedTps?.takeIf { it > 0f }
+          ?: benchmark?.prefillSpeedTps?.takeIf { it > 0f }
       // Decode speed is derived from engine decodeTokenCount and app-measured decode duration:
       // (outputTokens - 1) / decodeSeconds.
       val decodeSpeed =
@@ -492,8 +510,8 @@ class LitertlmInferenceMetricsTracker(
    * - [TurnState.Prefilling] + [InferenceStatus.Code.SUCCESS]: Queries engine benchmark and token
    *   count after the C++ worker has finished the turn and released `executor_mutex_`.
    * - [TurnState.Decoding] + ([InferenceStatus.Code.SUCCESS] or [InferenceStatus.Code.CANCELLED]):
-   *   Queries engine benchmark and token count after the C++ worker has finished `Tasks::Decode`
-   *   and released `executor_mutex_`.
+   *   Preserves `turn.prefillBenchmark` captured at TTFT and queries final engine benchmark and
+   *   token count after the C++ worker has finished `Tasks::Decode` and released `executor_mutex_`.
    * - All other states (e.g. [InferenceStatus.Code.ERROR]): Returns empty [SessionDiagnostics].
    */
   private fun resolveSessionDiagnostics(
@@ -514,14 +532,21 @@ class LitertlmInferenceMetricsTracker(
       is TurnState.Decoding ->
         when (status.code) {
           InferenceStatus.Code.SUCCESS,
-          InferenceStatus.Code.CANCELLED -> querySessionDiagnostics(session = turn.session)
+          InferenceStatus.Code.CANCELLED ->
+            querySessionDiagnostics(
+              session = turn.session,
+              prefillBenchmark = turn.prefillBenchmark,
+            )
           else -> SessionDiagnostics()
         }
     }
   }
 
-  private fun querySessionDiagnostics(session: ConversationSession): SessionDiagnostics {
-    if (!session.isAlive) return SessionDiagnostics()
+  private fun querySessionDiagnostics(
+    session: ConversationSession,
+    prefillBenchmark: InferenceBenchmark? = null,
+  ): SessionDiagnostics {
+    if (!session.isAlive) return SessionDiagnostics(prefillBenchmark = prefillBenchmark)
 
     val benchmark =
       try {
@@ -533,6 +558,10 @@ class LitertlmInferenceMetricsTracker(
 
     val tokens = queryTokenCount(session)
 
-    return SessionDiagnostics(benchmark = benchmark, tokenCount = tokens)
+    return SessionDiagnostics(
+      prefillBenchmark = prefillBenchmark,
+      benchmark = benchmark,
+      tokenCount = tokens,
+    )
   }
 }
