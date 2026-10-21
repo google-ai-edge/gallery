@@ -43,23 +43,20 @@ private const val MIN_SUMMARY_OUTPUT_TOKENS = 64
 private const val MIN_TOKENS_LEFT_FOR_SUMMARIZATION =
   SUMMARY_PROMPT_OVERHEAD_TOKENS + MIN_SUMMARY_OUTPUT_TOKENS
 private const val MAX_SUMMARY_OUTPUT_TOKENS = 1350
-private const val FAILURE_BACKOFF_CHECKS = 3
 
 /**
- * Default [ContextCompactor] implementation that checks the active conversation token budget and
- * performs dynamic LLM auto-summarization and conversation KV-cache reset when approaching model
- * token limits, falling back to [fallbackCompactor] when token headroom is insufficient or
- * summarization fails.
+ * [ContextCompactor] implementation that checks the active conversation token budget and performs
+ * dynamic LLM auto-summarization and conversation KV-cache reset when approaching model token
+ * limits.
+ *
+ * Summarization needs a prefilled conversation and enough token headroom to generate the summary;
+ * it reports [CompactionResult.FAILED] when compaction is needed but cannot be completed, so that
+ * the caller can fall back to another compaction strategy.
  */
 @Singleton
-class SummarizationContextCompactor
-@Inject
-constructor(private val fallbackCompactor: ContextCompactor?) : ContextCompactor {
-
-  constructor() : this(fallbackCompactor = null)
+class SummarizationContextCompactor @Inject constructor() : ContextCompactor {
 
   private val sessionMutexes = ConcurrentHashMap<String, Mutex>()
-  private val backoffChecksRemaining = ConcurrentHashMap<String, Int>()
 
   override suspend fun compactContextIfNeeded(
     sessionId: String,
@@ -67,154 +64,113 @@ constructor(private val fallbackCompactor: ContextCompactor?) : ContextCompactor
     sessionConfig: SessionConfig?,
     onCompactionStart: (() -> Unit)?,
     force: Boolean,
-  ): Boolean {
+  ): CompactionResult {
     val mutex = sessionMutexes.getOrPut(sessionId) { Mutex() }
     return mutex.withLock {
       currentCoroutineContext().ensureActive()
-      val instance = model.instance as? LlmConversationInstance ?: return@withLock false
+      val instance =
+        model.instance as? LlmConversationInstance ?: return@withLock CompactionResult.NOT_NEEDED
       val maxTokens =
         model.getIntConfigValue(key = ConfigKeys.MAX_TOKENS, defaultValue = DEFAULT_MAX_TOKEN)
       val currentTokens = getSafeTokenCount(instance)
-      val overThreshold = isOverTokenThreshold(currentTokens, maxTokens)
-
-      if (!overThreshold) {
-        backoffChecksRemaining.remove(sessionId)
-      }
-
       val tokensLeft = maxTokens - currentTokens
       Log.d(
         TAG,
         "Checking token budget for session $sessionId: currentTokens=$currentTokens, maxTokens=$maxTokens, tokensLeft=$tokensLeft, force=$force",
       )
 
-      if (currentTokens > 0 && (force || overThreshold)) {
-        if (!force) {
-          val remainingBackoff = backoffChecksRemaining[sessionId] ?: 0
-          if (remainingBackoff > 0) {
-            backoffChecksRemaining[sessionId] = remainingBackoff - 1
-            Log.d(
-              TAG,
-              "Skipping auto-compaction for session $sessionId due to previous failure back-off (remaining=$remainingBackoff).",
-            )
-            return@withLock false
-          }
+      if (currentTokens == 0) {
+        // The conversation has not been prefilled yet (e.g. right after a session restore or
+        // reset), so its token usage is unknown and it cannot summarize itself.
+        return@withLock if (force) CompactionResult.FAILED else CompactionResult.NOT_NEEDED
+      }
+      if (!force && !isOverTokenThreshold(currentTokens, maxTokens)) {
+        return@withLock CompactionResult.NOT_NEEDED
+      }
+
+      Log.i(
+        TAG,
+        "Triggering summarization and reset for session $sessionId (force=$force, tokensLeft=$tokensLeft out of $maxTokens).",
+      )
+      onCompactionStart?.invoke()
+
+      if (tokensLeft < MIN_TOKENS_LEFT_FOR_SUMMARIZATION) {
+        Log.w(
+          TAG,
+          "Insufficient token headroom for summarization in session $sessionId (tokensLeft=$tokensLeft < min=$MIN_TOKENS_LEFT_FOR_SUMMARIZATION).",
+        )
+        return@withLock CompactionResult.FAILED
+      }
+
+      val availableSummaryTokens =
+        (tokensLeft - SUMMARY_PROMPT_OVERHEAD_TOKENS).coerceAtMost(MAX_SUMMARY_OUTPUT_TOKENS)
+      val wordLimit =
+        min(
+          (availableSummaryTokens * WORD_TO_TOKEN_RATIO)
+            .toInt()
+            .coerceAtLeast(MIN_SUMMARY_WORD_LIMIT),
+          MAX_SUMMARY_WORD_LIMIT,
+        )
+      val summaryStartTimestamp = System.currentTimeMillis()
+      val summaryMessage =
+        try {
+          instance.sendMessage(
+            prompt =
+              "Summarize the core points of our conversation so far in less than $wordLimit words, ensuring no important context is lost.",
+            maxOutputTokens = availableSummaryTokens,
+          )
+        } catch (e: CancellationException) {
+          throw e
+        } catch (e: Exception) {
+          Log.e(
+            TAG,
+            "Failed to dynamically summarize conversation history for session $sessionId",
+            e,
+          )
+          return@withLock CompactionResult.FAILED
         }
 
+      currentCoroutineContext().ensureActive()
+
+      val summaryDurationMs = System.currentTimeMillis() - summaryStartTimestamp
+      val summaryText = summaryMessage.toString()
+      Log.d(
+        TAG,
+        "Generated summary text length: ${summaryText.length}. Time taken: ${summaryDurationMs}ms.",
+      )
+      if (summaryText.isBlank()) {
+        Log.w(TAG, "Generated a blank summary for session $sessionId.")
+        return@withLock CompactionResult.FAILED
+      }
+
+      val initialMessages =
+        listOf(
+          Message.user(Contents.of("Here is a summary of our past conversation for context:")),
+          Message.model(Contents.of(summaryText)),
+        )
+      try {
+        currentCoroutineContext().ensureActive()
+        model.runtimeHelper.resetConversation(
+          model = model,
+          supportImage = sessionConfig?.supportImage ?: false,
+          supportAudio = sessionConfig?.supportAudio ?: false,
+          systemInstruction = sessionConfig?.systemInstruction,
+          tools = sessionConfig?.tools ?: emptyList(),
+          enableConversationConstrainedDecoding =
+            sessionConfig?.enableConversationConstrainedDecoding ?: false,
+          initialMessages = initialMessages,
+        )
         Log.i(
           TAG,
-          "Triggering summarization and reset for session $sessionId (force=$force, tokensLeft=$tokensLeft out of $maxTokens).",
+          "Auto-summarization and conversation reset process complete for session $sessionId.",
         )
-        onCompactionStart?.invoke()
-
-        val summaryText =
-          if (tokensLeft >= MIN_TOKENS_LEFT_FOR_SUMMARIZATION) {
-            val availableSummaryTokens =
-              (tokensLeft - SUMMARY_PROMPT_OVERHEAD_TOKENS).coerceAtMost(MAX_SUMMARY_OUTPUT_TOKENS)
-            val wordLimit =
-              min(
-                (availableSummaryTokens * WORD_TO_TOKEN_RATIO)
-                  .toInt()
-                  .coerceAtLeast(MIN_SUMMARY_WORD_LIMIT),
-                MAX_SUMMARY_WORD_LIMIT,
-              )
-            val summaryStartTimestamp = System.currentTimeMillis()
-            val summaryMessage =
-              try {
-                instance.sendMessage(
-                  prompt =
-                    "Summarize the core points of our conversation so far in less than $wordLimit words, ensuring no important context is lost.",
-                  maxOutputTokens = availableSummaryTokens,
-                )
-              } catch (e: CancellationException) {
-                throw e
-              } catch (e: Exception) {
-                Log.e(
-                  TAG,
-                  "Failed to dynamically summarize conversation history for session $sessionId",
-                  e,
-                )
-                null
-              }
-
-            currentCoroutineContext().ensureActive()
-
-            val summaryDurationMs = System.currentTimeMillis() - summaryStartTimestamp
-            val generatedText = summaryMessage?.toString() ?: ""
-            Log.d(
-              TAG,
-              "Generated summary text length: ${generatedText.length}. Time taken: ${summaryDurationMs}ms.",
-            )
-            generatedText
-          } else {
-            Log.w(
-              TAG,
-              "Insufficient token headroom for summarization in session $sessionId (tokensLeft=$tokensLeft < min=$MIN_TOKENS_LEFT_FOR_SUMMARIZATION); falling back to truncation.",
-            )
-            ""
-          }
-
-        if (summaryText.isNotBlank()) {
-          val initialMessages =
-            listOf(
-              Message.user(Contents.of("Here is a summary of our past conversation for context:")),
-              Message.model(Contents.of(summaryText)),
-            )
-
-          val supportImage = sessionConfig?.supportImage ?: false
-          val supportAudio = sessionConfig?.supportAudio ?: false
-          val systemInstruction = sessionConfig?.systemInstruction
-          val tools = sessionConfig?.tools ?: emptyList()
-          val enableConversationConstrainedDecoding =
-            sessionConfig?.enableConversationConstrainedDecoding ?: false
-
-          try {
-            currentCoroutineContext().ensureActive()
-            model.runtimeHelper.resetConversation(
-              model = model,
-              supportImage = supportImage,
-              supportAudio = supportAudio,
-              systemInstruction = systemInstruction,
-              tools = tools,
-              enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
-              initialMessages = initialMessages,
-            )
-            backoffChecksRemaining.remove(sessionId)
-            Log.i(
-              TAG,
-              "Auto-summarization and conversation reset process complete for session $sessionId.",
-            )
-            return@withLock true
-          } catch (e: CancellationException) {
-            throw e
-          } catch (e: Exception) {
-            Log.e(TAG, "Failed to reset conversation with summary for session $sessionId", e)
-          }
-        }
-
-        currentCoroutineContext().ensureActive()
-        val fallbackSucceeded =
-          try {
-            fallbackCompactor?.compactContextIfNeeded(
-              sessionId = sessionId,
-              model = model,
-              sessionConfig = sessionConfig,
-              onCompactionStart = null,
-              force = true,
-            ) ?: false
-          } catch (e: CancellationException) {
-            throw e
-          } catch (e: Exception) {
-            Log.e(TAG, "Fallback context compaction failed for session $sessionId", e)
-            false
-          }
-        if (fallbackSucceeded) {
-          backoffChecksRemaining.remove(sessionId)
-          return@withLock true
-        }
-        backoffChecksRemaining[sessionId] = FAILURE_BACKOFF_CHECKS
-        return@withLock false
+        CompactionResult.COMPACTED
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to reset conversation with summary for session $sessionId", e)
+        CompactionResult.FAILED
       }
-      false
     }
   }
 

@@ -24,6 +24,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
+import com.google.ai.edge.gallery.agent.sessions.CompactionResult
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.common.metrics.InferenceMetrics
 import com.google.ai.edge.gallery.common.processLlmResponse
@@ -402,7 +403,7 @@ abstract class ChatViewModel(
    * @param taskId The identifier of the task or capability associated with the chat session.
    * @param triggerType The [ContextCompactionTriggerType] indicating what initiated compaction.
    * @param onSuccess Callback invoked when context compaction completes and compacts the session.
-   * @param onError Callback invoked if context compaction fails with an exception.
+   * @param onError Callback invoked if context compaction fails.
    */
   open fun compactContext(
     model: Model,
@@ -492,6 +493,78 @@ abstract class ChatViewModel(
     onError: () -> Unit,
   ) {
     val defaultToBehavior = isAutoCompactEnabled(taskId)
+    var compactionStarted = false
+    // Logs analytics and shows the compaction progress once compaction actually begins, so that
+    // checks that end up not compacting anything (e.g. right after a session is restored) leave
+    // the UI untouched.
+    val onCompactionStart = {
+      if (!compactionStarted) {
+        compactionStarted = true
+        logCompactionStarted(model, taskId, triggerType, defaultToBehavior)
+        setContextCompactionStatus(model, ContextCompactionStatus.COMPACTING)
+      }
+    }
+    val thisJob = compactionJob
+    var sessionId: String? = null
+    try {
+      val resolvedSessionId = currentSessionId.also { sessionId = it }
+      // Automatic compaction after a turn, the manual "Compress & Continue" banner action, and
+      // truncation after a session load all compact only once a token threshold is reached.
+      val result =
+        llmSessionManager.compactContextIfNeeded(
+          sessionId = resolvedSessionId,
+          model = model,
+          onCompactionStart = onCompactionStart,
+          force = false,
+        )
+      when (result) {
+        CompactionResult.COMPACTED -> {
+          Log.d(TAG, "Context compacted for session $resolvedSessionId on model ${model.name}")
+          addMessage(
+            model = model,
+            message = ChatMessageDivider(textResId = R.string.context_compressed_success),
+          )
+          setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
+          onSuccess()
+        }
+        CompactionResult.NOT_NEEDED -> {
+          Log.d(
+            TAG,
+            "Context compaction did not occur for session $resolvedSessionId on model ${model.name}",
+          )
+          setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
+        }
+        CompactionResult.FAILED -> {
+          Log.w(
+            TAG,
+            "Context compaction failed for session $resolvedSessionId on model ${model.name}",
+          )
+          setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
+          onError()
+        }
+      }
+    } catch (e: CancellationException) {
+      if (getContextCompactionStatus(model) == ContextCompactionStatus.COMPACTING) {
+        setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
+      }
+      throw e
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to compact context for session $sessionId", e)
+      setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
+      onError()
+    } finally {
+      if (compactionJob === thisJob) {
+        compactionJob = null
+      }
+    }
+  }
+
+  private fun logCompactionStarted(
+    model: Model,
+    taskId: String,
+    triggerType: ContextCompactionTriggerType,
+    defaultToBehavior: Boolean,
+  ) {
     Log.d(
       TAG,
       "Analytics: context_compression, capability_name=$taskId, model_id=${model.name}, model_version=${model.downloadInfo.version}, trigger_type=${triggerType.value}, default_to_behavior=$defaultToBehavior",
@@ -519,41 +592,6 @@ abstract class ChatViewModel(
           putString("model_version", model.downloadInfo.version)
         },
       )
-    }
-    val thisJob = compactionJob
-    var sessionId: String? = null
-    setContextCompactionStatus(model, ContextCompactionStatus.COMPACTING)
-    try {
-      val resolvedSessionId = currentSessionId.also { sessionId = it }
-      val success = llmSessionManager.compactContextIfNeeded(resolvedSessionId, model, force = true)
-      if (success) {
-        Log.d(TAG, "Context compacted for session $resolvedSessionId on model ${model.name}")
-        addMessage(
-          model = model,
-          message = ChatMessageDivider(textResId = R.string.context_compressed_success),
-        )
-        setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
-        onSuccess()
-      } else {
-        Log.d(
-          TAG,
-          "Context compaction did not occur for session $resolvedSessionId on model ${model.name}",
-        )
-        setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
-      }
-    } catch (e: CancellationException) {
-      if (getContextCompactionStatus(model) == ContextCompactionStatus.COMPACTING) {
-        setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
-      }
-      throw e
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to compact context for session $sessionId", e)
-      setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
-      onError()
-    } finally {
-      if (compactionJob === thisJob) {
-        compactionJob = null
-      }
     }
   }
 

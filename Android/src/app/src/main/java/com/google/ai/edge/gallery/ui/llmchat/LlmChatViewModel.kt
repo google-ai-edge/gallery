@@ -215,6 +215,31 @@ open class LlmChatViewModelBase(
       setInProgress(true)
       setPreparing(true)
 
+      if (sessionStoppedByModel[model.name] == true) {
+        sessionStoppedByModel[model.name] = false
+        val initialMessages =
+          (uiState.value.messagesByModel[model.name] ?: emptyList())
+            .filterIsInstance<ChatMessageText>()
+            .dropLast(1)
+            .mapNotNull { convertToLitertMessage(it) }
+        val config =
+          AgentRuntimeConfig(
+            model = model,
+            taskId = currentTaskId,
+            supportImage = model.supportImage,
+            supportAudio = model.supportAudio,
+            systemInstruction = _uiSystemPrompt.value.ifEmpty { null },
+            initialMessages = initialMessages,
+          )
+        runtimeExecutor.resetSession(config = config)
+        if (initialMessages.isNotEmpty()) {
+          // The stopped turn was never persisted, so persist the in-memory history first. Runs
+          // before the loading message is added so that a compaction divider does not follow it.
+          persistCurrentSession(model = model, taskId = currentTaskId)
+          compactSeededHistoryIfNeeded(model = model, taskId = currentTaskId)
+        }
+      }
+
       // Loading.
       addMessage(model = model, message = ChatMessageLoading(accelerator = accelerator))
 
@@ -244,25 +269,6 @@ open class LlmChatViewModelBase(
 
       var firstRun = true
       val start = System.currentTimeMillis()
-
-      if (sessionStoppedByModel[model.name] == true) {
-        sessionStoppedByModel[model.name] = false
-        val initialMessages =
-          (uiState.value.messagesByModel[model.name] ?: emptyList())
-            .filterIsInstance<ChatMessageText>()
-            .dropLast(1)
-            .mapNotNull { convertToLitertMessage(it) }
-        val config =
-          AgentRuntimeConfig(
-            model = model,
-            taskId = currentTaskId,
-            supportImage = model.supportImage,
-            supportAudio = model.supportAudio,
-            systemInstruction = _uiSystemPrompt.value.ifEmpty { null },
-            initialMessages = initialMessages,
-          )
-        runtimeExecutor.resetSession(config = config)
-      }
 
       // Run inference.
       runtimeExecutor.executeStream(context = executionContext, request = request).collect { event
@@ -300,7 +306,7 @@ open class LlmChatViewModelBase(
               }
               updateLastThinkingMessageContentIncrementally(
                 model = model,
-                partialContent = thinkingText!!,
+                partialContent = thinkingText,
               )
             } else {
               if (currentLastMessage?.type == ChatMessageType.THINKING) {
@@ -500,6 +506,11 @@ open class LlmChatViewModelBase(
           initialMessages = initialMessages,
         )
       runtimeExecutor.resetSession(config = config)
+      if (!clearHistory && initialMessages.isNotEmpty()) {
+        // The seeded history comes from the persisted session (e.g. a restored session), so it is
+        // not persisted again here; that would only bump the session's timestamp.
+        compactSeededHistoryIfNeeded(model = model, taskId = task.id)
+      }
 
       setIsResettingSession(false)
       onDone()
@@ -509,6 +520,22 @@ open class LlmChatViewModelBase(
       Log.e(TAG, "Failed to reset session: ${e.message}", e)
       setIsResettingSession(false)
     }
+  }
+
+  /**
+   * Truncates the history that the conversation of [model] was just reset with if it no longer fits
+   * the context window, appending the context compressed divider if it does.
+   *
+   * The reset conversation is only prefilled with its history together with the next turn, so the
+   * compactor estimates the token usage from the persisted session; any history that is not
+   * persisted yet must be persisted before calling this.
+   */
+  private suspend fun compactSeededHistoryIfNeeded(model: Model, taskId: String) {
+    executeCompactContext(
+      model = model,
+      taskId = taskId,
+      triggerType = ContextCompactionTriggerType.AUTO,
+    )
   }
 
   /**
