@@ -31,10 +31,11 @@ interface ContextCompactor {
    * @param model The target model instance.
    * @param sessionConfig Optional session configuration (system prompt, tools).
    * @param onCompactionStart Optional callback invoked immediately when compaction is triggered,
-   *   before summarization and reset begin.
-   * @param force Whether to force compaction regardless of token budget thresholds (as long as
-   *   there are tokens in the conversation).
-   * @return True if context was compacted and conversation was reset, false otherwise.
+   *   before the context is compacted and the conversation is reset.
+   * @param force Whether to compact regardless of the compactor's token budget threshold.
+   * @return [CompactionResult.COMPACTED] if context was compacted and the conversation was reset,
+   *   [CompactionResult.NOT_NEEDED] if compaction was not needed, or [CompactionResult.FAILED] if
+   *   compaction was attempted but failed.
    */
   suspend fun compactContextIfNeeded(
     sessionId: String,
@@ -42,7 +43,7 @@ interface ContextCompactor {
     sessionConfig: SessionConfig? = null,
     onCompactionStart: (() -> Unit)? = null,
     force: Boolean = false,
-  ): Boolean
+  ): CompactionResult
 
   /**
    * Checks whether the active conversation has reached or is approaching the model's token limit.

@@ -26,6 +26,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -45,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -62,7 +64,6 @@ fun SideSheetDialog(
   modifier: Modifier = Modifier,
   content: @Composable (onDismiss: () -> Unit) -> Unit,
 ) {
-  val sheetInteractionSource = remember { MutableInteractionSource() }
   val visibleState = remember { MutableTransitionState(false) }
   val requestDismiss: () -> Unit = { visibleState.targetState = false }
   val currentOnDismissed by rememberUpdatedState(onDismissed)
@@ -126,9 +127,7 @@ fun SideSheetDialog(
               .statusBarsPadding()
               .navigationBarsPadding()
               .imePadding()
-              .clickable(interactionSource = sheetInteractionSource, indication = null) {
-                focusManager.clearFocus()
-              },
+              .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } },
           shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp),
           color = MaterialTheme.colorScheme.surfaceContainer,
           tonalElevation = 6.dp,
