@@ -1,0 +1,186 @@
+/*
+ * Copyright 2026 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.google.ai.edge.gallery.agent.sessions
+
+import android.util.Log
+import com.google.ai.edge.gallery.data.ChatSessionRepository
+import com.google.ai.edge.gallery.data.ConfigKeys
+import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
+import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.proto.ChatMessageProto
+import com.google.ai.edge.gallery.proto.ChatSideProto
+import com.google.ai.edge.gallery.runtime.LlmConversationInstance
+import com.google.ai.edge.gallery.runtime.runtimeHelper
+import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.Message
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+
+private const val TAG = "AGTruncationCompactor"
+private const val TOKEN_LIMIT_THRESHOLD_RATIO = 0.75f
+private const val TRUNCATION_TARGET_RATIO = 0.5f
+private const val CHARS_PER_TOKEN_ESTIMATE = 4
+private const val MESSAGE_TEMPLATE_OVERHEAD_TOKENS = 8
+
+/**
+ * [ContextCompactor] implementation that compacts conversation context by truncating older
+ * persisted messages and resetting the conversation KV cache with the most recent turns that fit
+ * within a target token budget.
+ */
+@Singleton
+class TruncationContextCompactor
+@Inject
+constructor(private val chatSessionRepository: ChatSessionRepository) : ContextCompactor {
+
+  override suspend fun compactContextIfNeeded(
+    sessionId: String,
+    model: Model,
+    sessionConfig: SessionConfig?,
+    onCompactionStart: (() -> Unit)?,
+    force: Boolean,
+  ): Boolean {
+    currentCoroutineContext().ensureActive()
+    val instance = model.instance as? LlmConversationInstance ?: return false
+    val maxTokens =
+      model.getIntConfigValue(key = ConfigKeys.MAX_TOKENS, defaultValue = DEFAULT_MAX_TOKEN)
+    if (maxTokens <= 0) {
+      return false
+    }
+    val currentTokens = getSafeTokenCount(instance)
+    val overThreshold = isOverTokenThreshold(currentTokens, maxTokens)
+
+    if (!force && !overThreshold) {
+      return false
+    }
+
+    onCompactionStart?.invoke()
+
+    currentCoroutineContext().ensureActive()
+    val persistedMessages =
+      try {
+        chatSessionRepository
+          .getAllChatSessions()
+          .firstOrNull { it.sessionId == sessionId }
+          ?.messagesList
+          .orEmpty()
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.w(
+          TAG,
+          "Failed to read persisted chat sessions for $sessionId; resetting with empty history",
+          e,
+        )
+        emptyList()
+      }
+
+    val allTextMessages = persistedMessages.filter {
+      it.messageType == "TEXT" &&
+        (it.side == ChatSideProto.CHAT_SIDE_USER || it.side == ChatSideProto.CHAT_SIDE_MODEL)
+    }
+
+    val targetTokenBudget = (maxTokens * TRUNCATION_TARGET_RATIO).toInt()
+    val selectedReversed = mutableListOf<ChatMessageProto>()
+    var accumulatedTokens = 0
+    for (i in allTextMessages.indices.reversed()) {
+      val message = allTextMessages[i]
+      val messageTokens = estimateMessageTokens(message.content)
+      if (accumulatedTokens + messageTokens > targetTokenBudget) {
+        break
+      }
+      accumulatedTokens += messageTokens
+      selectedReversed.add(message)
+    }
+
+    val keptMessages = selectedReversed.asReversed().toMutableList()
+    if (keptMessages.size == allTextMessages.size && keptMessages.isNotEmpty()) {
+      keptMessages.removeAt(0)
+    }
+    while (keptMessages.isNotEmpty() && keptMessages.first().side != ChatSideProto.CHAT_SIDE_USER) {
+      keptMessages.removeAt(0)
+    }
+
+    val truncatedMessages = keptMessages.map { proto ->
+      if (proto.side == ChatSideProto.CHAT_SIDE_USER) {
+        Message.user(Contents.of(proto.content))
+      } else {
+        Message.model(Contents.of(proto.content))
+      }
+    }
+
+    val supportImage = sessionConfig?.supportImage ?: false
+    val supportAudio = sessionConfig?.supportAudio ?: false
+    val systemInstruction = sessionConfig?.systemInstruction
+    val tools = sessionConfig?.tools ?: emptyList()
+    val enableConversationConstrainedDecoding =
+      sessionConfig?.enableConversationConstrainedDecoding ?: false
+
+    return try {
+      currentCoroutineContext().ensureActive()
+      model.runtimeHelper.resetConversation(
+        model = model,
+        supportImage = supportImage,
+        supportAudio = supportAudio,
+        systemInstruction = systemInstruction,
+        tools = tools,
+        enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+        initialMessages = truncatedMessages,
+      )
+      Log.i(
+        TAG,
+        "Context truncation and conversation reset complete for session $sessionId (kept ${truncatedMessages.size} of ${allTextMessages.size} messages).",
+      )
+      true
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to reset conversation with truncated history for session $sessionId", e)
+      false
+    }
+  }
+
+  override fun isTokenLimitReached(
+    sessionId: String,
+    model: Model,
+    sessionConfig: SessionConfig?,
+  ): Boolean {
+    val instance = model.instance as? LlmConversationInstance ?: return false
+    val maxTokens =
+      model.getIntConfigValue(key = ConfigKeys.MAX_TOKENS, defaultValue = DEFAULT_MAX_TOKEN)
+    val currentTokens = getSafeTokenCount(instance)
+    return isOverTokenThreshold(currentTokens, maxTokens)
+  }
+
+  private fun isOverTokenThreshold(currentTokens: Int, maxTokens: Int): Boolean =
+    currentTokens > 0 && maxTokens > 0 && currentTokens > (maxTokens * TOKEN_LIMIT_THRESHOLD_RATIO)
+
+  private fun estimateMessageTokens(content: String): Int =
+    (content.length + CHARS_PER_TOKEN_ESTIMATE - 1) / CHARS_PER_TOKEN_ESTIMATE +
+      MESSAGE_TEMPLATE_OVERHEAD_TOKENS
+
+  private fun getSafeTokenCount(instance: LlmConversationInstance): Int =
+    try {
+      instance.getTokenCount()
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      0
+    }
+}
