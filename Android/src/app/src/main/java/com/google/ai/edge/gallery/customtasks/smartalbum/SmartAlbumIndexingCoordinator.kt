@@ -25,7 +25,4 @@ package com.google.ai.edge.gallery.customtasks.smartalbum
 object SmartAlbumIndexingCoordinator {
   /** Indicates whether the gallery or search results grid is actively scrolling. */
   @Volatile var isScrollInProgress: Boolean = false
-
-  /** Indicates whether the Smart Album gallery screen is currently in the foreground. */
-  @Volatile var isGalleryVisible: Boolean = false
 }
