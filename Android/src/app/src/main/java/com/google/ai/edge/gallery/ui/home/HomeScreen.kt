@@ -26,6 +26,7 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -413,6 +414,7 @@ fun HomeScreen(
 
               Column(modifier = Modifier.fillMaxWidth()) {
                 var selectedCategoryIndex by remember { mutableIntStateOf(0) }
+                val isSpeechHighlightEnabled = false
 
                 // App title and intro text.
                 Column(
@@ -424,7 +426,12 @@ fun HomeScreen(
                 ) {
                   AppTitle(enableAnimation = enableAnimation)
                   IntroText(enableAnimation = enableAnimation)
-                  TryEgv2IntroText(enableAnimation = enableAnimation)
+                  FeaturedIntroText(
+                    titleRes = R.string.try_egv2_title,
+                    descriptionRes = R.string.try_egv2_description,
+                    iconRes = R.drawable.gemma_logo,
+                    enableAnimation = enableAnimation,
+                  )
                 }
 
                 // Tab header for categories.
@@ -454,6 +461,7 @@ fun HomeScreen(
                   pagerState = pagerState,
                   sortedCategories = sortedCategories,
                   tasksByCategories = uiState.tasksByCategory,
+                  isSpeechHighlightEnabled = isSpeechHighlightEnabled,
                   enableAnimation = enableAnimation,
                   navigateToTaskScreen = navigateToTaskScreen,
                 )
@@ -650,7 +658,12 @@ private fun TryGm4IntroText(enableAnimation: Boolean) {
 }
 
 @Composable
-private fun TryEgv2IntroText(enableAnimation: Boolean) {
+private fun FeaturedIntroText(
+  @StringRes titleRes: Int,
+  @StringRes descriptionRes: Int,
+  @DrawableRes iconRes: Int = R.drawable.gemma_logo,
+  enableAnimation: Boolean,
+) {
   // fade in + slide up.
   val progress =
     if (!enableAnimation) {
@@ -672,13 +685,13 @@ private fun TryEgv2IntroText(enableAnimation: Boolean) {
     horizontalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     Icon(
-      ImageVector.vectorResource(R.drawable.gemma_logo),
+      ImageVector.vectorResource(iconRes),
       contentDescription = null,
       modifier = Modifier.size(24.dp),
       tint = MaterialTheme.colorScheme.primary,
     )
     Text(
-      text = stringResource(R.string.try_egv2_title),
+      text = stringResource(titleRes),
       style =
         MaterialTheme.typography.headlineSmall.copy(
           fontWeight = FontWeight.Medium,
@@ -692,7 +705,7 @@ private fun TryEgv2IntroText(enableAnimation: Boolean) {
   }
 
   Text(
-    stringResource(R.string.try_egv2_description),
+    stringResource(descriptionRes),
     style = MaterialTheme.typography.bodyMedium,
     modifier =
       Modifier.graphicsLayer {
@@ -787,6 +800,7 @@ private fun TaskList(
   pagerState: PagerState,
   sortedCategories: List<CategoryInfo>,
   tasksByCategories: Map<String, List<Task>>,
+  isSpeechHighlightEnabled: Boolean,
   enableAnimation: Boolean,
   navigateToTaskScreen: (Task) -> Unit,
 ) {
@@ -814,7 +828,8 @@ private fun TaskList(
     initialAnimationDone = true
   }
 
-  val taskIds = listOf(BuiltInTaskId.SMART_ALBUM, BuiltInTaskId.VIDEO_MOMENT_FINDER)
+  val taskIds =
+  listOf(BuiltInTaskId.SMART_ALBUM, BuiltInTaskId.VIDEO_MOMENT_FINDER)
 
   // The highlighted tiles at the top.
   Column(
@@ -825,9 +840,10 @@ private fun TaskList(
         translationY = (CONTENT_COMPOSABLES_OFFSET_Y.dp * (1 - progress)).toPx()
       },
   ) {
+    val chatDescription = stringResource(R.string.gemma_reskin_try_gemma_4_chat)
     val chatToDescription =
       mapOf(
-        BuiltInTaskId.LLM_CHAT to stringResource(R.string.gemma_reskin_try_gemma_4_chat),
+        BuiltInTaskId.LLM_CHAT to chatDescription,
         // use "\u00a0" to make sure the word before and after it should always be together when
         // wrapping lines.
         BuiltInTaskId.LLM_AGENT_CHAT to stringResource(R.string.gemma_reskin_try_gemma_4_skills),
@@ -841,7 +857,8 @@ private fun TaskList(
         animate = !initialAnimationDone && enableAnimation,
         onClick = { navigateToTaskScreen(task) },
         modifier = Modifier.fillMaxWidth(),
-        description = chatToDescription[task.id]!!,
+        // Tasks without a promo description (e.g. XR Language Teacher) use their own description.
+        description = chatToDescription[task.id] ?: task.description,
       )
     }
 
@@ -863,7 +880,12 @@ private fun TaskList(
     verticalAlignment = Alignment.Top,
     contentPadding = PaddingValues(horizontal = 20.dp),
   ) { pageIndex ->
-    val tasks = tasksByCategories[sortedCategories[pageIndex].id]!!.filter { it.id !in taskIds }
+    // Featured tasks are also listed in the grid when speech is highlighted; otherwise they are
+    // de-duplicated from it.
+    val tasks =
+      tasksByCategories[sortedCategories[pageIndex].id].orEmpty().filter {
+        isSpeechHighlightEnabled || it.id !in taskIds
+      }
     Column(
       verticalArrangement = Arrangement.spacedBy(16.dp),
       modifier =
@@ -987,10 +1009,14 @@ private fun TaskCard(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
           )
+          // Reserve two lines for the label so all grid tiles share the same height, even when a
+          // long label (e.g. "Instant Media Search") wraps.
           Text(
             task.label,
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.titleMedium,
+            minLines = 2,
+            maxLines = 2,
           )
           Text(
             task.shortDescription,
