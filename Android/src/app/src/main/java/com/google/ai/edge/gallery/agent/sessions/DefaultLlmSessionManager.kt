@@ -21,7 +21,6 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.google.ai.edge.gallery.data.ChatSessionRepository
 import com.google.ai.edge.gallery.data.Config
-import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.awaitInitialization
 import com.google.ai.edge.gallery.di.IoDispatcher
@@ -33,7 +32,10 @@ import com.google.ai.edge.gallery.runtime.ResultListener
 import com.google.ai.edge.gallery.runtime.runtimeHelper
 import com.google.ai.edge.litertlm.Message
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
+import java.io.FileOutputStream
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -60,8 +62,11 @@ data class SessionFeedbackLink(val feedbackId: String, val messageIndex: Int? = 
  *
  * @param context The Android application [Context].
  * @param chatSessionRepository Repository for persisting and retrieving user session data.
+ * @param contextCompactor Optional primary [ContextCompactor] used to compact the conversation
+ *   context when it approaches the model's token limit.
  * @param ioDispatcher Coroutine dispatcher for background IO operations.
- * @param dataStoreRepository Optional repository for reading task-level user settings.
+ * @param fallbackContextCompactor Optional [ContextCompactor] used when [contextCompactor] does not
+ *   need to compact (to let it evaluate its own threshold) or fails to compact (forcing it).
  */
 @Singleton
 class DefaultLlmSessionManager
@@ -71,7 +76,7 @@ constructor(
   private val chatSessionRepository: ChatSessionRepository,
   private val contextCompactor: ContextCompactor? = null,
   @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-  private val dataStoreRepository: DataStoreRepository? = null,
+  private val fallbackContextCompactor: ContextCompactor? = null,
 ) : LlmSessionManager {
 
   private val feedbackLinks = ConcurrentHashMap<String, MutableList<SessionFeedbackLink>>()
@@ -265,8 +270,15 @@ constructor(
       val existingSessions = chatSessionRepository.getAllChatSessions()
       val existing = existingSessions.firstOrNull { it.sessionId == sessionId }
       val resolvedOriginalModel =
-        originalModel?.ifEmpty { null } ?: existing?.originalModel?.ifEmpty { null } ?: ""
-      val resolvedTaskId = taskId?.ifEmpty { null } ?: existing?.taskId?.ifEmpty { null } ?: ""
+        originalModel?.ifEmpty { null }
+          ?: sessionConfigs[sessionId]?.model?.name?.ifEmpty { null }
+          ?: existing?.originalModel?.ifEmpty { null }
+          ?: ""
+      val resolvedTaskId =
+        taskId?.ifEmpty { null }
+          ?: sessionConfigs[sessionId]?.taskId?.ifEmpty { null }
+          ?: existing?.taskId?.ifEmpty { null }
+          ?: ""
 
       val firstTextMessage =
         messages
@@ -290,6 +302,39 @@ constructor(
       chatSessionRepository.saveChatSession(updatedSession)
     }
 
+  override suspend fun cacheSessionImages(sessionId: String, bitmaps: List<Bitmap>): List<String> =
+    withContext(ioDispatcher) {
+      val now = System.currentTimeMillis()
+      buildList {
+        bitmaps.forEachIndexed { index, bitmap ->
+          val fileName = "img_${sessionId}_${now}_$index.png"
+          val file = File(context.cacheDir, fileName)
+          try {
+            FileOutputStream(file).use { fos ->
+              bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+            }
+            add(file.absolutePath)
+          } catch (e: Exception) {
+            Log.e(TAG, "Failed to cache session image to ${file.absolutePath}: ${e.message}", e)
+          }
+        }
+      }
+    }
+
+  override suspend fun cacheSessionAudio(sessionId: String, audioData: ByteArray): String? =
+    withContext(ioDispatcher) {
+      val now = System.currentTimeMillis()
+      val fileName = "audio_${sessionId}_$now.pcm"
+      val file = File(context.cacheDir, fileName)
+      try {
+        FileOutputStream(file).use { fos -> fos.write(audioData) }
+        file.absolutePath
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to cache session audio to ${file.absolutePath}: ${e.message}", e)
+        null
+      }
+    }
+
   override suspend fun generateResponse(
     sessionId: String,
     model: Model,
@@ -297,40 +342,10 @@ constructor(
     resultListener: ResultListener,
     cleanUpListener: CleanUpListener,
     onError: (message: String) -> Unit,
-    onCompactionStart: () -> Unit,
-    onCompactionFinished: (Boolean) -> Unit,
     images: List<Bitmap>,
     audioClips: List<ByteArray>,
     extraContext: Map<String, String>,
   ) {
-    var compactionStarted = false
-    try {
-      val compacted =
-        compactContextIfNeeded(
-          sessionId = sessionId,
-          model = model,
-          onCompactionStart = {
-            compactionStarted = true
-            onCompactionStart()
-          },
-        )
-      if (compactionStarted) {
-        onCompactionFinished(compacted)
-      }
-      if (compacted) {
-        Log.d(TAG, "Context compacted before inference for session $sessionId")
-      } else {
-        Log.d(TAG, "Context compaction not needed before inference for session $sessionId")
-      }
-    } catch (e: CancellationException) {
-      throw e
-    } catch (e: Exception) {
-      if (compactionStarted) {
-        onCompactionFinished(false)
-      }
-      Log.w(TAG, "Context compaction check failed for session $sessionId: ${e.message}", e)
-    }
-
     if (model.instance == null) {
       try {
         model.awaitInitialization()
@@ -363,22 +378,66 @@ constructor(
     model: Model,
     onCompactionStart: (() -> Unit)?,
     force: Boolean,
-  ): Boolean =
+  ): CompactionResult =
     withContext(ioDispatcher) {
       if (!Config.isContextCompactEnabled() || model.isAiCore) {
-        return@withContext false
+        return@withContext CompactionResult.NOT_NEEDED
       }
-      if (!force) {
-        val taskId = sessionConfigs[sessionId]?.taskId ?: ""
-        val autoCompactEnabled = dataStoreRepository?.readAutoContextCompact(taskId) ?: false
-        if (!autoCompactEnabled) {
-          return@withContext false
+      if (contextCompactor == null && fallbackContextCompactor == null) {
+        return@withContext CompactionResult.NOT_NEEDED
+      }
+      // The primary compactor may start compacting and then fail over to the fallback compactor,
+      // so make sure the caller is only notified once.
+      val compactionStartNotified = AtomicBoolean(false)
+      val notifyStartOnce = {
+        if (compactionStartNotified.compareAndSet(false, true)) {
+          onCompactionStart?.invoke()
         }
       }
-      val compactor = contextCompactor ?: return@withContext false
       sessionMutex(sessionId).withLock {
         val config = sessionConfigs[sessionId]
-        compactor.compactContextIfNeeded(sessionId, model, config, onCompactionStart, force)
+        val primaryResult =
+          runCompactor(
+            compactor = contextCompactor,
+            sessionId = sessionId,
+            model = model,
+            config = config,
+            onCompactionStart = notifyStartOnce,
+            force = force,
+          )
+        when (primaryResult) {
+          CompactionResult.COMPACTED -> CompactionResult.COMPACTED
+          // Let the fallback compactor evaluate its own threshold, e.g. by estimating the token
+          // usage of a session that has not been prefilled yet.
+          CompactionResult.NOT_NEEDED ->
+            runCompactor(
+              compactor = fallbackContextCompactor,
+              sessionId = sessionId,
+              model = model,
+              config = config,
+              onCompactionStart = notifyStartOnce,
+              force = force,
+            )
+          // The primary compactor determined that compaction is needed but failed, so force the
+          // fallback compactor to compact even if usage is below the fallback's own threshold.
+          CompactionResult.FAILED -> {
+            Log.w(TAG, "Primary context compaction failed for session $sessionId; falling back.")
+            val fallbackResult =
+              runCompactor(
+                compactor = fallbackContextCompactor,
+                sessionId = sessionId,
+                model = model,
+                config = config,
+                onCompactionStart = notifyStartOnce,
+                force = true,
+              )
+            if (fallbackResult == CompactionResult.COMPACTED) {
+              CompactionResult.COMPACTED
+            } else {
+              CompactionResult.FAILED
+            }
+          }
+        }
       }
     }
 
@@ -386,9 +445,43 @@ constructor(
     if (!Config.isContextCompactEnabled() || model.isAiCore) {
       return false
     }
-    val compactor = contextCompactor ?: return false
     val config = sessionConfigs[sessionId]
-    return compactor.isTokenLimitReached(sessionId, model, config)
+    return (contextCompactor ?: fallbackContextCompactor)?.isTokenLimitReached(
+      sessionId,
+      model,
+      config,
+    ) ?: false
+  }
+
+  /**
+   * Runs [compactor], treating a missing compactor as [CompactionResult.NOT_NEEDED] and an
+   * exception thrown by it as [CompactionResult.FAILED].
+   */
+  private suspend fun runCompactor(
+    compactor: ContextCompactor?,
+    sessionId: String,
+    model: Model,
+    config: SessionConfig?,
+    onCompactionStart: () -> Unit,
+    force: Boolean,
+  ): CompactionResult {
+    if (compactor == null) {
+      return CompactionResult.NOT_NEEDED
+    }
+    return try {
+      compactor.compactContextIfNeeded(
+        sessionId = sessionId,
+        model = model,
+        sessionConfig = config,
+        onCompactionStart = onCompactionStart,
+        force = force,
+      )
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      Log.e(TAG, "Context compaction failed for session $sessionId", e)
+      CompactionResult.FAILED
+    }
   }
 
   override fun stopResponse(sessionId: String, model: Model) {
