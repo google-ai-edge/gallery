@@ -100,13 +100,13 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.data.convertValueToTargetType
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.ui.common.asr.HoldToDictateViewModel
+import com.google.ai.edge.gallery.ui.common.asr.VoiceRecognizerOverlay
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageText
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageWarning
 import com.google.ai.edge.gallery.ui.common.chat.ChatSide
 import com.google.ai.edge.gallery.ui.common.getTaskBgGradientColors
-import com.google.ai.edge.gallery.ui.common.textandvoiceinput.HoldToDictateViewModel
 import com.google.ai.edge.gallery.ui.common.textandvoiceinput.TextAndVoiceInput
-import com.google.ai.edge.gallery.ui.common.textandvoiceinput.VoiceRecognizerOverlay
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
 import com.google.ai.edge.litertlm.ToolProvider
