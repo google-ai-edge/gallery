@@ -428,6 +428,8 @@ open class SmartAlbumViewModel(
       viewModelScope.launch {
         photoLibraryService.setFullLibraryAccessEnabled(false)
         var total = 0
+        // MediaStore may briefly return 0 rows right after runtime photo permissions are granted
+        // while the OS propagates the MediaProvider access grant; retry briefly until visible.
         for (attempt in 0 until 10) {
           try {
             total = photoLibraryService.fetchMediaStoreAssetCount()
@@ -483,6 +485,7 @@ open class SmartAlbumViewModel(
     viewModelScope.launch {
       refreshUserPhotos()
       triggerPrioritizedIndexing()
+      // Retry briefly in case MediaStore has not finished propagating a newly granted permission.
       for (attempt in 0 until 5) {
         if (_userIndexingProgress.value.totalCount > 0) break
         delay(200)
