@@ -16,7 +16,10 @@
 package com.google.ai.edge.gallery.customtasks.scrapbook
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskData
@@ -25,17 +28,26 @@ import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.litertlm.Contents
-import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.interactivesegmenter.InteractiveSegmenter
-import com.google.mediapipe.tasks.vision.interactivesegmenter.InteractiveSegmenterOptions
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+
+private const val TAG = "AGScrapbookTask"
 
 /**
  * A custom task that demonstrates MediaPipe interactive image segmentation task in a scrapbook demo
  * where users extract, edit, and create cutouts.
  */
 class ScrapbookTask @Inject constructor() : CustomTask {
+  // The backends that the initialized segmenters run on, keyed by model name.
+  private val backends = MutableStateFlow<Map<String, SegmenterBackend>>(emptyMap())
+
   override val task =
     Task(
       id = BuiltInTaskId.MP_SCRAPBOOK,
@@ -58,14 +70,45 @@ class ScrapbookTask @Inject constructor() : CustomTask {
     systemInstruction: Contents?,
     onDone: (error: String) -> Unit,
   ) {
+    coroutineScope.launch(Dispatchers.IO) {
+      backends.update { it - model.name }
+      try {
+        val initializedSegmenter = createInitializedSegmenter(context = context, model = model)
+        // Creating the segmenter blocks in native code, which cancellation can't interrupt. Don't
+        // publish it if the init was cancelled meanwhile (e.g. the screen was closed): nothing
+        // would
+        // clean it up.
+        if (!isActive) {
+          Log.d(TAG, "Initialization of '${model.name}' was cancelled. Closing the segmenter.")
+          closeSegmenter(model = model, segmenter = initializedSegmenter.segmenter)
+          return@launch
+        }
+        Log.i(TAG, "Initialized '${model.name}' on ${initializedSegmenter.backend}.")
+        backends.update { it + (model.name to initializedSegmenter.backend) }
+        model.instance = initializedSegmenter.segmenter
+        onDone("")
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        // Show a localized message; the details are in the log.
+        Log.e(TAG, "Failed to initialize '${model.name}'", e)
+        onDone(context.getString(R.string.scrapbook_model_init_failed, model.name))
+      }
+    }
+  }
+
+  /** Creates a segmenter for [model] on the best runtime available. Call off the main thread. */
+  private suspend fun createInitializedSegmenter(
+    context: Context,
+    model: Model,
+  ): InitializedSegmenter {
     val path = model.getPath(context = context)
-    val options =
-      InteractiveSegmenterOptions.builder()
-        .setBaseOptions(BaseOptions.builder().setModelAssetPath(path).build())
-        .build()
-    val interactiveSegmenter = InteractiveSegmenter.createFromOptions(context, options)
-    model.instance = interactiveSegmenter
-    onDone("")
+    return createBundledSegmenter(context = context, modelPath = path)
+  }
+
+  /** Closes [segmenter] and releases the runtime resources kept alive for [model]. */
+  private fun closeSegmenter(model: Model, segmenter: InteractiveSegmenter) {
+    segmenter.close()
   }
 
   override fun cleanUpModelFn(
@@ -76,8 +119,8 @@ class ScrapbookTask @Inject constructor() : CustomTask {
   ) {
     val instance = model.instance
     if (instance != null) {
-      val interactiveSegmenter = instance as InteractiveSegmenter
-      interactiveSegmenter.close()
+      closeSegmenter(model = model, segmenter = instance as InteractiveSegmenter)
+      backends.update { it - model.name }
       model.instance = null
       onDone()
     }
@@ -86,9 +129,13 @@ class ScrapbookTask @Inject constructor() : CustomTask {
   @Composable
   override fun MainScreen(data: Any) {
     val customTaskData = data as CustomTaskData
+    val curBackends by backends.collectAsStateWithLifecycle()
+    val modelManagerUiState by
+      customTaskData.modelManagerViewModel.uiState.collectAsStateWithLifecycle()
     ScrapbookScreen(
       task = task,
       modelManagerViewModel = customTaskData.modelManagerViewModel,
+      backend = curBackends[modelManagerUiState.selectedModel.name],
       bottomPadding = customTaskData.bottomPadding,
       setAppBarControlsDisabled = customTaskData.setAppBarControlsDisabled,
       setTopBarVisible = customTaskData.setTopBarVisible,
