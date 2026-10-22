@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery.customtasks.common
 import android.content.Context
 import androidx.compose.runtime.Composable
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.ModelSelectionConfig
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.litertlm.Contents
 import kotlinx.coroutines.CoroutineScope
@@ -127,6 +128,14 @@ interface CustomTask {
    * @param model The `Model` object whose extra data files are being deleted.
    */
   fun onDeleteExtraDataFn(context: Context, model: Model) {}
+
+  /**
+   * Optional sectioned model selection screen shown in place of the regular model list, for tasks
+   * that need several models picked together (for example a main model plus speech models).
+   * Defaults to `null`, which keeps the regular model list.
+   */
+  val modelSelectionConfig: ModelSelectionConfig?
+    get() = null
 
   /**
    * The main Composable UI for your custom task's detail screen.
