@@ -30,7 +30,6 @@ import com.google.ai.edge.gallery.common.ProjectConfig
 import com.google.ai.edge.gallery.common.SystemPromptHelper
 import com.google.ai.edge.gallery.common.getJsonResponse
 import com.google.ai.edge.gallery.common.getModelStorageDir
-import com.google.ai.edge.gallery.common.isAICoreSupported
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.BackendSpec
@@ -41,13 +40,16 @@ import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.DataStoreRepository
+import com.google.ai.edge.gallery.data.DeviceIdentity
+import com.google.ai.edge.gallery.data.DeviceRequirementRegistry
+import com.google.ai.edge.gallery.data.DownloadAuthError
 import com.google.ai.edge.gallery.data.DownloadRepository
 import com.google.ai.edge.gallery.data.EMPTY_MODEL
 import com.google.ai.edge.gallery.data.IMPORTS_DIR
+import com.google.ai.edge.gallery.data.ImportOrigin
 import com.google.ai.edge.gallery.data.LiteRtLmModelDownloader
 import com.google.ai.edge.gallery.data.LlmProfile
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.data.ModelAccessibility
 import com.google.ai.edge.gallery.data.ModelAllowlist
 import com.google.ai.edge.gallery.data.ModelDownloadInfo
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
@@ -57,6 +59,8 @@ import com.google.ai.edge.gallery.data.ModelFile
 import com.google.ai.edge.gallery.data.ModelType
 import com.google.ai.edge.gallery.data.ModelUtils
 import com.google.ai.edge.gallery.data.NumberSliderConfig
+import com.google.ai.edge.gallery.data.OssModelImportLogger
+import com.google.ai.edge.gallery.data.PendingDownload
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.SOC
 import com.google.ai.edge.gallery.data.SystemPromptRepository
@@ -81,8 +85,8 @@ import com.google.gson.Gson
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
+import java.io.IOException
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
@@ -139,6 +143,15 @@ data class TokenStatusAndData(val status: TokenStatus, val data: AccessTokenData
 
 data class TokenRequestResult(val status: TokenRequestResultType, val errorMessage: String? = null)
 
+/** What clicking a model's download button does. */
+sealed interface DownloadClickAction {
+  /** Download the model, sending [accessToken] if it isn't `null`. */
+  data class Download(val accessToken: String?) : DownloadClickAction
+
+  /** Ask the user for the access the last download attempt was refused for. */
+  data class ResolveAuth(val authError: DownloadAuthError) : DownloadClickAction
+}
+
 data class ModelManagerUiState(
   /** A list of tasks available in the application. */
   val tasks: List<Task>,
@@ -181,6 +194,12 @@ data class ModelManagerUiState(
 
   /** Supplementary models that are not bound to a specific task. */
   val supplementaryModels: List<Model> = emptyList(),
+
+  /**
+   * The name of the main model last launched from the model selection screen of each task that has
+   * one, by task id.
+   */
+  val lastMainModelByTaskId: Map<String, String> = mapOf(),
 ) {
   fun isDownloadOptionalComponentsEnabled(modelName: String): Boolean {
     return downloadOptionalComponents[modelName] ?: true
@@ -201,10 +220,10 @@ private val RESET_CONVERSATION_TURN_COUNT_CONFIG =
   )
 private val PREDEFINED_LLM_TASK_ORDER =
   listOf(
-    BuiltInTaskId.SMART_ALBUM,
-    BuiltInTaskId.VIDEO_MOMENT_FINDER,
     BuiltInTaskId.LLM_CHAT,
     BuiltInTaskId.LLM_AGENT_CHAT,
+    BuiltInTaskId.SMART_ALBUM,
+    BuiltInTaskId.VIDEO_MOMENT_FINDER,
     BuiltInTaskId.LLM_ASK_IMAGE,
     BuiltInTaskId.LLM_ASK_AUDIO,
     BuiltInTaskId.LLM_PROMPT_LAB,
@@ -232,6 +251,7 @@ constructor(
   val huggingFaceApiClient: HuggingFaceApiClient,
   @ApplicationContext private val context: Context,
   protected val downloaders: Map<RuntimeType, @JvmSuppressWildcards ModelDownloader>,
+  private val ossModelImportLogger: OssModelImportLogger,
 ) :
   ViewModel()
 {
@@ -243,6 +263,7 @@ constructor(
     systemPromptRepository: SystemPromptRepository,
     huggingFaceApiClient: HuggingFaceApiClient,
     context: Context,
+    ossModelImportLogger: OssModelImportLogger = OssModelImportLogger(),
   ) : this(
     downloadRepository = downloadRepository,
     dataStoreRepository = dataStoreRepository,
@@ -257,6 +278,7 @@ constructor(
         RuntimeType.LITERT_LM to LiteRtLmModelDownloader(context, downloadRepository),
         RuntimeType.AICORE to AICoreModelDownloader(context),
       ),
+    ossModelImportLogger = ossModelImportLogger,
   )
 
   private val modelsDir = getModelStorageDir(context)
@@ -266,6 +288,12 @@ constructor(
 
   /** Dispatcher that [loadModelAllowlist] runs on. Overridden in tests to load synchronously. */
   @VisibleForTesting internal var allowlistLoadingDispatcher: CoroutineDispatcher = Dispatchers.IO
+
+  /**
+   * The provider of device identity matched against device-requirement sets. Overridden in tests.
+   */
+  @VisibleForTesting
+  internal var deviceProvider: () -> DeviceIdentity = { DeviceIdentity.current() }
 
   protected val _uiState: MutableStateFlow<ModelManagerUiState> =
     MutableStateFlow(createEmptyUiState())
@@ -292,6 +320,11 @@ constructor(
 
   // Tracks the initialized backends for each model by model name.
   private val initializedBackends = ConcurrentHashMap<String, MutableSet<Accelerator>>()
+
+  // Models whose download the user started from a download button, mapped to whether that download
+  // retries right after a Hugging Face sign-in. Kept here rather than in the button, which can be
+  // recomposed or replaced (e.g. by AnimatedContent) while the download runs.
+  private val userStartedDownloads = ConcurrentHashMap<String, Boolean>()
 
   fun isFirstInitialization(model: Model): Boolean {
     val backend = getModelCurrentAccelerator(model)
@@ -390,17 +423,44 @@ constructor(
     }
   }
 
+  /**
+   * Remembers [model] as the main model last launched from the model selection screen of [task], so
+   * that the screen preselects it next time.
+   */
+  fun saveLastMainModel(task: Task, model: Model) {
+    _uiState.update {
+      it.copy(lastMainModelByTaskId = it.lastMainModelByTaskId + (task.id to model.name))
+    }
+    viewModelScope.launch {
+      try {
+        dataStoreRepository.saveLastMainModel(taskId = task.id, modelName = model.name)
+      } catch (e: IOException) {
+        Log.w(TAG, "Failed to save the last main model of '${task.id}'", e)
+      }
+    }
+  }
+
+  /**
+   * Reads the main model last launched for each task from the settings, or none if the read fails,
+   * so that a settings error doesn't fail loading the model list.
+   */
+  private suspend fun readSavedLastMainModels(): Map<String, String> {
+    // `null` if the read fails, in which case no model is restored.
+    val saved: Map<String, String>? =
+      try {
+        dataStoreRepository.readLastMainModels()
+      } catch (e: IOException) {
+        Log.w(TAG, "Failed to read the last main models", e)
+        null
+      }
+    return saved ?: emptyMap()
+  }
+
   open fun downloadModel(
     task: Task?,
     model: Model,
     includeExtraDataFiles: Boolean = isDownloadOptionalComponentsEnabled(model.name),
   ) {
-    // Update status.
-    setDownloadStatus(
-      curModel = model,
-      status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
-    )
-
     if (model.downloadsViaRepository) {
       // Delete the model files first.
       deleteModel(
@@ -409,6 +469,13 @@ constructor(
         preserveOptionalComponentsState = true,
       )
     }
+
+    // Update status. Deleting the model files above resets it to NOT_DOWNLOADED, so update it after
+    // them for the download to show as started until the downloader reports its first progress.
+    setDownloadStatus(
+      curModel = model,
+      status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
+    )
 
     val family = getModelFamily(model)
     val isExtraDataAlreadyDownloaded =
@@ -425,7 +492,9 @@ constructor(
       task = task,
       model = model,
       includeExtraDataFiles = actualIncludeExtraDataFiles,
-      onStatusUpdated = this::setDownloadStatus,
+      onStatusUpdated = { curModel, status ->
+        setDownloadStatus(curModel = curModel, status = status)
+      },
     )
   }
 
@@ -437,6 +506,9 @@ constructor(
       return
     }
     downloader?.cancel(model)
+    // deleteModel below resets the status without setDownloadStatus, so forget the download here.
+    // (Not in deleteModel itself: downloadModel calls it when a download starts.)
+    userStartedDownloads.remove(model.name)
     if (model.downloadsViaRepository) {
       deleteModel(model = model, removeImportedFromModelList = false)
     } else {
@@ -445,6 +517,30 @@ constructor(
         status = ModelDownloadStatus(status = ModelDownloadStatusType.NOT_DOWNLOADED),
       )
     }
+  }
+
+  /**
+   * Asks [model]'s downloader for its current status, publishes it in [uiState], and returns it.
+   *
+   * Returns `null`, leaving the status unchanged, when no downloader is registered for the model's
+   * runtime.
+   */
+  open suspend fun refreshModelStatus(model: Model): ModelDownloadStatus? {
+    val downloader = downloaders[model.backendSpec.runtimeType] ?: return null
+    val status =
+      try {
+        downloader.queryStatus(model)
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to query the status of model '${model.name}'", e)
+        ModelDownloadStatus(
+          status = ModelDownloadStatusType.FAILED,
+          errorMessage = e.localizedMessage.orEmpty(),
+        )
+      }
+    setDownloadStatus(curModel = model, status = status)
+    return status
   }
 
   private fun isExtraDataPresentOnDisk(model: Model, taskId: String? = null): Boolean {
@@ -556,15 +652,24 @@ constructor(
     downloadRepository.downloadExtraDataFiles(
       task = task,
       model = targetModel,
-      onStatusUpdated = { _, status ->
-        if (status.status == ModelDownloadStatusType.SUCCEEDED) {
-          syncExtraDataAcrossFamily(targetModel, family)
-        }
-        for (m in family) {
-          setExtraDataDownloadStatus(m, status)
-        }
-      },
+      onStatusUpdated = extraDataStatusUpdater(targetModel = targetModel, family = family),
     )
+  }
+
+  /**
+   * Returns the callback for the extra data download of [targetModel], which applies its status to
+   * the whole model [family].
+   */
+  private fun extraDataStatusUpdater(
+    targetModel: Model,
+    family: List<Model>,
+  ): (Model, ModelDownloadStatus) -> Unit = { _, status ->
+    if (status.status == ModelDownloadStatusType.SUCCEEDED) {
+      syncExtraDataAcrossFamily(targetModel, family)
+    }
+    for (m in family) {
+      setExtraDataDownloadStatus(m, status)
+    }
   }
 
   fun cancelDownloadExtraDataFiles(model: Model, modelVariants: List<Model> = emptyList()) {
@@ -877,6 +982,16 @@ constructor(
   }
 
   fun setDownloadStatus(curModel: Model, status: ModelDownloadStatus) {
+    // A download that ended without an auth error leaves nothing to ask the user about.
+    if (
+      status.authError == null &&
+        (status.status == ModelDownloadStatusType.SUCCEEDED ||
+          status.status == ModelDownloadStatusType.FAILED ||
+          status.status == ModelDownloadStatusType.NOT_DOWNLOADED)
+    ) {
+      userStartedDownloads.remove(curModel.name)
+    }
+
     // Delete downloaded file if status is failed or not_downloaded.
     if (
       curModel.downloadsViaRepository &&
@@ -979,57 +1094,7 @@ constructor(
     firebaseAnalytics?.setAnalyticsCollectionEnabled(enabled)
   }
 
-  /**
-   * Checks the accessibility of a remote model URL.
-   *
-   * @param model The model to probe.
-   * @param accessToken Optional Hugging Face or server access token.
-   * @return [ModelAccessibility] indicating if the model URL is accessible, gated, or needs auth.
-   */
-  suspend fun checkModelAccessibility(
-    model: Model,
-    accessToken: String? = null,
-  ): ModelAccessibility =
-    withContext(Dispatchers.IO) {
-      if (model.downloadInfo.url.isEmpty()) {
-        return@withContext ModelAccessibility.ACCESSIBLE
-      }
-      // If it's a Hugging Face URL, delegate to HuggingFaceApiClient.
-      if (HuggingFaceApiClient.isHuggingFaceUrl(model.downloadInfo.url)) {
-        return@withContext huggingFaceApiClient.checkModelAccessibility(
-          modelUrl = model.downloadInfo.url,
-          accessToken = accessToken,
-        )
-      }
-
-      val responseCode: Int
-      try {
-        val url = URL(model.downloadInfo.url)
-        val connection = url.openConnection() as HttpURLConnection
-        connection.requestMethod = "HEAD"
-        connection.connect()
-
-        responseCode = connection.responseCode
-      } catch (e: Exception) {
-        Log.e(TAG, "Error checking model accessibility for '${model.name}'", e)
-        return@withContext ModelAccessibility.ERROR
-      }
-
-      when (responseCode) {
-        in 200..299 -> ModelAccessibility.ACCESSIBLE
-        HttpURLConnection.HTTP_UNAUTHORIZED -> ModelAccessibility.NEEDS_TOKEN_EXCHANGE
-        HttpURLConnection.HTTP_FORBIDDEN -> ModelAccessibility.GATED
-        else -> {
-          Log.w(
-            TAG,
-            "Unexpected response code checking model accessibility for '${model.name}': $responseCode",
-          )
-          ModelAccessibility.ERROR
-        }
-      }
-    }
-
-  fun addImportedLlmModel(info: ImportedModel) {
+  fun addImportedLlmModel(info: ImportedModel, origin: ImportOrigin? = null) {
     Log.d(TAG, "adding imported llm model: $info")
 
     val importsDir = File(modelsDir, IMPORTS_DIR)
@@ -1087,6 +1152,19 @@ constructor(
     }
     importedModels.add(info)
     dataStoreRepository.saveImportedModels(importedModels = importedModels)
+
+    if (origin != null) {
+      ossModelImportLogger.logImportSuccess(source = origin.source, modelId = origin.modelId)
+    }
+  }
+
+  /** Logs that a model import from [origin] failed while copying into app storage. */
+  fun onModelImportFailed(origin: ImportOrigin) {
+    ossModelImportLogger.logImportFailure(
+      source = origin.source,
+      errorType = OssModelImportLogger.ErrorType.IMPORT_FAILED,
+      modelId = origin.modelId,
+    )
   }
 
   fun getTokenStatusAndData(): TokenStatusAndData {
@@ -1119,6 +1197,69 @@ constructor(
     }
 
     return TokenStatusAndData(status = tokenStatus, data = tokenData)
+  }
+
+  /** Returns the stored Hugging Face access token, or `null` if there's none or it has expired. */
+  fun validStoredAccessToken(): String? {
+    val tokenStatusAndData = getTokenStatusAndData()
+    return tokenStatusAndData.data?.accessToken?.takeIf {
+      tokenStatusAndData.status == TokenStatus.NOT_EXPIRED && it.isNotEmpty()
+    }
+  }
+
+  /**
+   * Records that the user started downloading [model] from a download button, so that if Hugging
+   * Face refuses this download, the user is asked for the missing access (see
+   * [takeAuthErrorToPrompt]).
+   *
+   * @param afterSignIn Whether this download retries right after a Hugging Face sign-in.
+   */
+  fun onUserStartedDownload(model: Model, afterSignIn: Boolean) {
+    userStartedDownloads[model.name] = afterSignIn
+  }
+
+  /**
+   * Returns the access error to ask the user about for [model]'s refused download, or `null` if
+   * there's nothing to ask.
+   *
+   * Only downloads recorded with [onUserStartedDownload] are asked about, and each refusal at most
+   * once, even if several buttons show the model. A sign-in refusal right after signing in isn't
+   * asked about again: the OAuth flow can complete without user input, so it could loop.
+   */
+  fun takeAuthErrorToPrompt(model: Model): DownloadAuthError? {
+    val authError = uiState.value.modelDownloadStatus[model.name]?.authError ?: return null
+    val afterSignIn = userStartedDownloads.remove(model.name) ?: return null
+    if (authError == DownloadAuthError.NEEDS_SIGN_IN && afterSignIn) {
+      Log.w(TAG, "Model '${model.name}' is still refused after signing in. Not signing in again.")
+      return null
+    }
+    return authError
+  }
+
+  /**
+   * Decides what clicking [model]'s download button does: download, with the stored Hugging Face
+   * token if the model is on Hugging Face, or first ask for the access the last attempt was refused
+   * for.
+   *
+   * The URL isn't probed before downloading: Hugging Face counts every request to a model file,
+   * including HEAD, as a download. Missing access shows up as an auth error on the download itself.
+   */
+  fun downloadClickAction(model: Model): DownloadClickAction {
+    if (!HuggingFaceApiClient.isHuggingFaceUrl(model.downloadInfo.url)) {
+      return DownloadClickAction.Download(accessToken = null)
+    }
+    val storedToken = validStoredAccessToken()
+    val authError = uiState.value.modelDownloadStatus[model.name]?.authError
+    return when {
+      authError == null -> DownloadClickAction.Download(accessToken = storedToken)
+      // A token stored since the refused attempt (e.g. the user signed in while downloading another
+      // model) may have access, so try it before asking the user to sign in again.
+      authError == DownloadAuthError.NEEDS_SIGN_IN &&
+        storedToken != null &&
+        storedToken != model.downloadInfo.accessToken ->
+        DownloadClickAction.Download(accessToken = storedToken)
+      else -> DownloadClickAction.ResolveAuth(authError = authError)
+    }
   }
 
   fun getAuthorizationRequest(): AuthorizationRequest {
@@ -1234,41 +1375,148 @@ constructor(
     }
   }
 
+  /**
+   * Picks up the downloads left over from an earlier activity or app process.
+   *
+   * Downloads that WorkManager still has queued or running keep going, and this ViewModel only
+   * attaches to their progress, so a recreated activity logs no cancel and no second start for
+   * them. Partially downloaded models of tasks with no pending download are restarted, resuming
+   * from their partial file. Supplementary models are only attached to.
+   */
   private fun processPendingDownloads() {
-    // Cancel all pending downloads for the retrieved models.
-    downloadRepository.cancelAll {
-      Log.d(TAG, "All workers are cancelled.")
-
+    downloadRepository.getPendingDownloads { pendingDownloads ->
       viewModelScope.launch(Dispatchers.Main) {
+        val pendingByModelName = pendingDownloads.groupBy { it.modelName }
+        val observedWorkerIds = mutableSetOf<UUID>()
         val checkedModelNames = mutableSetOf<String>()
         val tokenStatusAndData = getTokenStatusAndData()
-        for (task in uiState.value.tasks) {
-          for (model in task.models) {
-            if (checkedModelNames.contains(model.name)) {
-              continue
-            }
+        val tasks = uiState.value.tasks
+        val tasksAndModels =
+          tasks.flatMap { task -> task.models.map { model -> task to model } } +
+            _supplementaryModels.map { model -> null to model }
+        for ((task, model) in tasksAndModels) {
+          if (!checkedModelNames.add(model.name)) {
+            continue
+          }
 
-            // Start download for partially downloaded models.
-            val downloadStatus = uiState.value.modelDownloadStatus[model.name]?.status
-            if (downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED) {
-              if (
-                tokenStatusAndData.status == TokenStatus.NOT_EXPIRED &&
-                  tokenStatusAndData.data != null
-              ) {
-                model.downloadInfo.accessToken = tokenStatusAndData.data.accessToken
+          // Downloads of another version of the model are left to be cancelled below: they would
+          // store files where this version of the model isn't looked for.
+          val pendingForModel =
+            pendingByModelName[model.name].orEmpty().filter {
+              it.version == model.downloadInfo.version
+            }
+          for (pendingDownload in pendingForModel) {
+            Log.d(TAG, "Observing the pending download of '${model.name}'")
+            // Prefer the task the download was started from: it decides the extra data files and
+            // where the download's notification leads.
+            val downloadTask =
+              when (pendingDownload.taskId) {
+                null -> task
+                // Started from the global model manager, outside any task.
+                "" -> null
+                else -> tasks.find { it.id == pendingDownload.taskId } ?: task
               }
-              Log.d(TAG, "Sending a new download request for '${model.name}'")
-              downloadRepository.downloadModel(
-                task = task,
-                model = model,
-                onStatusUpdated = this@ModelManagerViewModel::setDownloadStatus,
-              )
-            }
+            observePendingDownload(
+              pendingDownload = pendingDownload,
+              task = downloadTask,
+              model = model,
+            )
+            observedWorkerIds.add(pendingDownload.workerId)
+          }
 
-            checkedModelNames.add(model.name)
+          // Restart downloads of partially downloaded task models that nothing is downloading.
+          val downloadStatus = uiState.value.modelDownloadStatus[model.name]?.status
+          val isModelDownloadPending = pendingForModel.any { !it.isExtraDataOnly }
+          if (
+            task != null &&
+              downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED &&
+              !isModelDownloadPending
+          ) {
+            if (
+              tokenStatusAndData.status == TokenStatus.NOT_EXPIRED &&
+                tokenStatusAndData.data != null
+            ) {
+              model.downloadInfo.accessToken = tokenStatusAndData.data.accessToken
+            }
+            Log.d(TAG, "Sending a new download request for '${model.name}'")
+            downloadRepository.downloadModel(
+              task = task,
+              model = model,
+              // A pending extra data download already writes the extra data files.
+              includeExtraDataFiles = pendingForModel.none { it.isExtraDataOnly },
+              onStatusUpdated = this@ModelManagerViewModel::setDownloadStatus,
+            )
+          } else if (
+            task == null &&
+              model.downloadsViaRepository &&
+              downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED &&
+              !isModelDownloadPending
+          ) {
+            if (
+              tokenStatusAndData.status == TokenStatus.NOT_EXPIRED &&
+                tokenStatusAndData.data != null
+            ) {
+              model.downloadInfo.accessToken = tokenStatusAndData.data.accessToken
+            }
+            Log.d(TAG, "Resuming the download of supplementary model '${model.name}'")
+            downloadRepository.downloadModel(
+              task = null,
+              model = model,
+              includeExtraDataFiles = pendingForModel.none { it.isExtraDataOnly },
+              onStatusUpdated = { curModel, status ->
+                setDownloadStatus(curModel = curModel, status = status)
+              },
+            )
+          }
+        }
+
+        // Cancel downloads of models, or versions of models, that are no longer in the allowlist.
+        for (pendingDownload in pendingDownloads) {
+          if (pendingDownload.workerId !in observedWorkerIds) {
+            Log.d(TAG, "Cancelling the download of unknown model '${pendingDownload.modelName}'")
+            downloadRepository.cancelPendingDownload(pendingDownload)
           }
         }
       }
+    }
+  }
+
+  /**
+   * Marks the model or its extra data as downloading and reports the progress of [pendingDownload]
+   * to this ViewModel.
+   */
+  private fun observePendingDownload(pendingDownload: PendingDownload, task: Task?, model: Model) {
+    if (pendingDownload.isExtraDataOnly) {
+      val family = getModelFamily(model)
+      val inProgress =
+        ModelDownloadStatus(
+          status = ModelDownloadStatusType.IN_PROGRESS,
+          totalBytes = model.downloadInfo.extraDataFiles(task?.id).sumOf { it.sizeInBytes },
+        )
+      for (m in family) {
+        setExtraDataDownloadStatus(curModel = m, status = inProgress)
+      }
+      downloadRepository.observePendingDownload(
+        pendingDownload = pendingDownload,
+        task = task,
+        model = model,
+        onStatusUpdated = extraDataStatusUpdater(targetModel = model, family = family),
+      )
+    } else {
+      // Keep the bytes already downloaded until the download reports its progress.
+      val inProgress =
+        uiState.value.modelDownloadStatus[model.name]?.copy(
+          status = ModelDownloadStatusType.IN_PROGRESS
+        ) ?: ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS)
+      setDownloadStatus(model, inProgress)
+      downloadRepository.observePendingDownload(
+        pendingDownload = pendingDownload,
+        task = task,
+        model = model,
+        onStatusUpdated = { curModel, status ->
+          setDownloadStatus(curModel = curModel, status = status)
+        },
+      )
     }
   }
 
@@ -1314,20 +1562,8 @@ constructor(
 
         Log.d(TAG, "Allowlist: $modelAllowlist")
 
-        val isAICoreAvailable by lazy {
-          Log.d(TAG, "loadModelAllowlist: Checking AICore availability")
-          // Build a fast-lookup set of all supported device models.
-          // This extracts the models from all allowed groups, flattens them into a single stream,
-          // lowercases them for case-insensitive matching, and stores them in a Set.
-          val allowedDeviceModelsSet =
-            modelAllowlist.aicoreRequirements
-              ?.allowedDeviceGroups
-              ?.asSequence()
-              ?.flatMap { it.deviceModels }
-              ?.map { it.lowercase() }
-              ?.toSet()
-          isAICoreSupported(allowedDeviceModelsSet)
-        }
+        val deviceRequirements = DeviceRequirementRegistry.from(modelAllowlist)
+        val device = deviceProvider()
 
         // Convert models in the allowlist.
         Log.d(
@@ -1341,7 +1577,14 @@ constructor(
             continue
           }
 
-          if (allowedModel.runtimeType == RuntimeType.AICORE && !isAICoreAvailable) {
+          // Hide models whose device-requirement set doesn't include this device.
+          val requiredSet = allowedModel.requiredDeviceRequirementSet
+          if (requiredSet != null && !deviceRequirements.isSatisfied(requiredSet, device)) {
+            Log.d(
+              TAG,
+              "Ignoring model '${allowedModel.name}' because device '${device.model}' (SOC" +
+                " '${device.soc}') is not in device-requirement set '$requiredSet'",
+            )
             continue
           }
 
@@ -1410,10 +1653,12 @@ constructor(
         Log.d(TAG, "loadModelAllowlist: Processing tasks")
         processTasks()
 
+        val savedLastMainModels = readSavedLastMainModels()
+
         // Update UI state.
         Log.d(TAG, "loadModelAllowlist: Updating UI state")
         _uiState.update {
-          createUiState()
+          createUiState(savedLastMainModels = savedLastMainModels)
             .copy(
               loadingModelAllowlist = false,
               tasks = curTasks,
@@ -1460,6 +1705,16 @@ constructor(
       }
       for ((model, pendingStatus) in pendingStatuses) {
         val status = pendingStatus.await()
+        // A download in flight reports its own status. The files on disk don't show it, e.g. when
+        // processPendingDownloads has just attached to a download left by an earlier activity.
+        val curStatus = uiState.value.modelDownloadStatus[model.name]?.status
+        if (
+          model.downloadsViaRepository &&
+            (curStatus == ModelDownloadStatusType.IN_PROGRESS ||
+              curStatus == ModelDownloadStatusType.UNZIPPING)
+        ) {
+          continue
+        }
         setDownloadStatus(curModel = model, status = status)
       }
     }
@@ -1541,7 +1796,15 @@ constructor(
     )
   }
 
-  private fun createUiState(): ModelManagerUiState {
+  /**
+   * Builds the UI state from the loaded tasks and models.
+   *
+   * @param savedLastMainModels The last main models read from the settings, by task id. They are
+   *   merged with the ones already in the UI state.
+   */
+  private fun createUiState(
+    savedLastMainModels: Map<String, String> = emptyMap()
+  ): ModelManagerUiState {
     val modelDownloadStatus: MutableMap<String, ModelDownloadStatus> = mutableMapOf()
     val extraDataDownloadStatus = _uiState.value.extraDataDownloadStatus.toMutableMap()
     val tasks: MutableMap<String, Task> = mutableMapOf()
@@ -1608,6 +1871,9 @@ constructor(
     val textInputHistory = dataStoreRepository.readTextInputHistory()
     Log.d(TAG, "text input history: $textInputHistory")
 
+    // Choices saved in this session take precedence, as their writes may still be pending.
+    val lastMainModelByTaskId = savedLastMainModels + _uiState.value.lastMainModelByTaskId
+
     Log.d(TAG, "model download status: $modelDownloadStatus")
     return ModelManagerUiState(
       tasks = getActiveCustomTasks().map { it.task }.toList(),
@@ -1617,6 +1883,7 @@ constructor(
       downloadOptionalComponents = _uiState.value.downloadOptionalComponents,
       extraDataDownloadStatus = extraDataDownloadStatus,
       supplementaryModels = _supplementaryModels.toList(),
+      lastMainModelByTaskId = lastMainModelByTaskId,
     )
   }
 

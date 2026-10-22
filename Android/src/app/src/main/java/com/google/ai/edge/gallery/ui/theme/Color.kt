@@ -89,3 +89,6 @@ val inversePrimaryDark = Color(0xFF0B57D0)
 val surfaceDimDark = Color(0xFF131314)
 val surfaceBrightDark = Color(0xFF37393B)
 val scrimDark = Color(0xFF000000)
+
+// Non-semantic static palette colors (md.ref.palette), unchanged across light and dark themes.
+val staticGreen60 = Color(0xFF1AA64A)
