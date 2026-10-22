@@ -92,6 +92,9 @@ fun ModelPageAppBar(
   shouldShowHistoryButton: Boolean = false,
   onHistoryClicked: (Model) -> Unit = {},
   isAutoCompactEnabled: Boolean = false,
+  // Disables the model picker, config and history buttons but, unlike [inProgress], keeps the back
+  // button enabled. For example while a task is still starting its own engines.
+  actionsDisabled: Boolean = false,
 ) {
   var showConfigDialog by remember { mutableStateOf(false) }
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
@@ -124,7 +127,7 @@ fun ModelPageAppBar(
 
         // Model chips pager.
         if (!hideModelSelector) {
-          val enableModelPickerChip = !isModelInitializing && !inProgress
+          val enableModelPickerChip = !isModelInitializing && !inProgress && !actionsDisabled
           ModelPickerChip(
             enabled = enableModelPickerChip,
             task = task,
@@ -156,7 +159,8 @@ fun ModelPageAppBar(
           configButtonOffset = (-40).dp
         }
         if (showConfigButton) {
-          val enableConfigButton = !isModelInitializing && !inProgress && isModelInitialized
+          val enableConfigButton =
+            !isModelInitializing && !inProgress && !actionsDisabled && isModelInitialized
           IconButton(
             onClick = { showConfigDialog = true },
             enabled = enableConfigButton,
@@ -173,7 +177,11 @@ fun ModelPageAppBar(
         }
         if (downloadSucceeded && shouldShowHistoryButton) {
           val enableHistoryButton =
-            !isModelInitializing && !modelPreparing && !inProgress && isModelInitialized
+            !isModelInitializing &&
+              !modelPreparing &&
+              !inProgress &&
+              !actionsDisabled &&
+              isModelInitialized
           IconButton(
             onClick = { onHistoryClicked(model) },
             enabled = enableHistoryButton,
@@ -285,6 +293,7 @@ fun ModelPageAppBar(
         // Check if the configs are changed or not. Also check if the model needs to be
         // re-initialized.
         var same = true
+        var modelConfigChanged = false
         var needReinitialization = false
         for (config in modelConfigs) {
           val key = config.key.label
@@ -300,15 +309,20 @@ fun ModelPageAppBar(
             )
           if (oldValue != newValue) {
             same = false
+            if (config.key != ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT) {
+              modelConfigChanged = true
+            }
             if (config.needReinitialization) {
               needReinitialization = true
             }
-            break
+            if (modelConfigChanged && needReinitialization) {
+              break
+            }
           }
         }
         val systemPromptChanged = newSystemPrompt != oldSystemPrompt
 
-        if (!same || systemPromptChanged) {
+        if (modelConfigChanged || systemPromptChanged) {
           firebaseAnalytics?.logEvent(
             GalleryEvent.MODEL_CONFIG_CHANGE.id,
             Bundle().apply {
