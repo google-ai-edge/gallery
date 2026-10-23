@@ -63,7 +63,6 @@
   <string name="chat_you" translatable="true" description="Label indicating a message was sent by the user. [CHAR_LIMIT=18]">You</string>
   <string name="chat_llm_agent_name" translatable="true" description="Display name for the LLM agent in chat. [CHAR_LIMIT=18]">LLM</string>
   <string name="show_thinking" translatable="true" description="Label for a button to show the model's reasoning/thinking steps. [CHAR_LIMIT=24]">Show thinking</string>
-  <string name="checking_access" translatable="true" description="Message shown while checking if the user has access to a model. [CHAR_LIMIT=31]">Checking access…</string>
   <string name="close" translatable="true" description="Common button label to close a screen or dialog. [CHAR_LIMIT=9]">Close</string>
   <string name="collapse_all" translatable="true" description="Button label to collapse all expanded sections. [CHAR_LIMIT=23]">Collapse all</string>
   <string name="discard" translatable="true" description="Button label to discard changes. [CHAR_LIMIT=18]">Discard</string>
@@ -82,11 +81,11 @@
   <string name="clear" translatable="true" description="Content description for a button to clear text input. [CHAR_LIMIT=9]">Clear</string>
   <string name="collect" translatable="true" description="Action label to collect items. [CHAR_LIMIT=18]">Collect</string>
   <string name="color" translatable="true" description="Label for color picker or color configuration. [CHAR_LIMIT=18]">Color</string>
-  <string name="config_dialog_tab_basic" translatable="true" description="Tab label for basic model configurations. [CHAR_LIMIT=12]">Basic</string>
-  <string name="config_dialog_tab_advanced" translatable="true" description="Tab label for advanced model configurations. [CHAR_LIMIT=15]">Advanced</string>
-  <string name="config_dialog_tab_model_configs" translatable="false" description="Tab label for model-specific configurations. [CHAR_LIMIT=22]">Model configs</string>
-  <string name="config_dialog_tab_system_prompt" translatable="true" description="Tab label for system prompt configuration. [CHAR_LIMIT=22]">System prompt</string>
+  <string name="config_dialog_tab_model_configs" translatable="true" description="Tab label for model-specific configurations in the configuration side sheet. [CHAR_LIMIT=22]">Model\nconfigs</string>
+  <string name="config_dialog_tab_system_prompt" translatable="true" description="Tab label for system prompt configuration. [CHAR_LIMIT=22]">System\nprompt</string>
+  <string name="config_dialog_tab_audio" translatable="true" description="Tab label for speech recognition and text-to-speech audio settings in the configuration side sheet. [CHAR_LIMIT=12]">Audio</string>
   <string name="config_dialog_title" translatable="false" description="Title of the settings/configuration dialog. [CHAR_LIMIT=26]">Configurations</string>
+  <string name="config_dialog_configure_settings_title" translatable="true" description="Title of the configuration dialog when voice and TTS settings are included. [CHAR_LIMIT=40]">Configure settings</string>
   <string name="benchmark_config_dialog_title" translatable="true" description="Title of the benchmark configuration dialog. [CHAR_LIMIT=29]">Benchmark configs</string>
   <string name="start" translatable="true" description="Button label to start benchmarking. [CHAR_LIMIT=9]">Start</string>
   <string name="continue_button_label" translatable="true" description="Button label to proceed to next step. [CHAR_LIMIT=18]">Continue</string>
@@ -329,6 +328,8 @@
   <string name="segmentation_instruction_add" translatable="true" description="This string appears within the Scrapbook cutout editor as an instructional banner within the segmentation view. It means how to add to the selection. [CHAR_LIMIT=100]">Brush over an area to add to the selection</string>
   <string name="segmentation_instruction_subtract" translatable="true" description="This string appears within the Scrapbook cutout editor as an instructional banner within the segmentation view. It means how to remove from the selection. [CHAR_LIMIT=100]">Brush over an area to remove from the selection</string>
   <string name="segmentation_instruction_lasso" translatable="true" description="This string appears within the Scrapbook cutout editor as an instructional banner within the segmentation view. It means how to use the lasso tool. [CHAR_LIMIT=100]">Draw a circle around an area to select</string>
+  <string name="scrapbook_backend_chip_mediapipe" translatable="true" description="This string appears within the Scrapbook create cutout tab as a chip at the top of the empty state. It tells the user that the image segmentation model runs on the MediaPipe runtime bundled in the app, and on which hardware accelerator. %1$s is the hardware accelerator name, 'GPU' or 'CPU', which is not translated. 'MediaPipe' is a product name and must not be translated. [CHAR_LIMIT=45]">Using MediaPipe runtime with %1$s</string>
+  <string name="scrapbook_model_init_failed" translatable="true" description="Error message shown in a dialog when the Scrapbook image segmentation model fails to load. %1$s is the model name, e.g. 'Magic touch'. [CHAR_LIMIT=60]">Couldn\'t load %1$s</string>
   <plurals name="snackbar_save_cutouts_to_album_success" translatable="true" description="This string appears within the Scrapbook main screen as a snackbar notification within the cutout manager. It means the cutouts were successfully saved to the device album. [CHAR_LIMIT=100]">
     <item quantity="one">Saved %d cutout to photo album</item>
     <item quantity="other">Saved %d cutouts to photo album</item>
@@ -740,10 +741,6 @@
   <string name="gated_model_agreement_help" translatable="true" description="Instruction explaining that the model is gated and the user must agree to terms externally before downloading. [CHAR_LIMIT=264]">This is a gated model. Please click the button below to view and agree to the user agreement. After accepting, simply close that tab to proceed with the model download.</string>
   <!-- Button label to open user agreement in browser. -->
   <string name="open_user_agreement" translatable="true" description="Label for the button that opens the user agreement in a web browser. [CHAR_LIMIT=30]">Open user agreement</string>
-  <!-- Error message for unknown network issues. -->
-  <string name="error_unknown_network" translatable="true" description="Title for the error dialog when an unspecified network error occurs. [CHAR_LIMIT=35]">Unknown network error</string>
-  <!-- Error message suggesting to check internet connection. -->
-  <string name="error_check_internet" translatable="true" description="Message in the network error dialog asking the user to verify their internet connection. [CHAR_LIMIT=60]">Please check your internet connection.</string>
   <!-- Title of dialog warning that a skill is disabled. %s is the skill name. -->
   <string name="disabled_skill_dialog_title" translatable="true" description="Title of the alert dialog indicating that a specific agent skill (passed as a parameter) is disabled. [CHAR_LIMIT=45]">The \'%s\' skill is currently disabled</string>
   <!-- Introductory text for Agent Skills screen. Contains HTML links. -->
@@ -1317,7 +1314,7 @@
   <string name="new_chat_button" translatable="true" description="This string appears within the token limit banner as a button label. When tapped, it starts a new chat session with cleared history. [CHAR_LIMIT=20]">New chat</string>
   <string name="compressing_context" translatable="true" description="This string appears within the chat banner alongside a loading spinner while the conversation context is being summarized and compressed. [CHAR_LIMIT=70]">Token limit approaching. Compressing context…</string>
   <string name="context_compressed_success" translatable="true" description="This string appears within the chat banner as a confirmation message indicating that conversation context compression completed successfully. [CHAR_LIMIT=70]">Context compressed! You may continue chatting.</string>
-  <string name="token_limit_default_behavior_checkbox" translatable="true" description="This string appears within the token limit banner as a checkbox label, allowing the user to remember this compression behavior for future sessions. [CHAR_LIMIT=80]">Default to this behavior next time I run out of context</string>
+  <string name="token_limit_default_behavior_checkbox" translatable="true" description="This string appears within the token limit banner as a checkbox label, allowing the user to remember this compression behavior for future sessions. [CHAR_LIMIT=100]">Compress my conversation by default the next time I run out of context</string>
   <string name="context_compaction_failed_message" translatable="true" description="This string appears in an error dialog when compressing the conversation context fails. [CHAR_LIMIT=120]">Failed to compress conversation context. Please try again.</string>
   <string name="model_manager_models_count_title" translatable="true" description="Title in the Global Model Manager top app bar showing the total number of models. [CHAR_LIMIT=30]">Models (%1$d)</string>
 
@@ -1359,25 +1356,90 @@
   <!-- Fallback label for generated tokens count when unknown. -->
   <string name="live_metrics_tokens_empty" translatable="true" description="Placeholder value in the Tokens column of the live inference metrics banner when no output tokens have been generated yet. [CHAR_LIMIT=15]">-- gen</string>
   <!-- Format for memory usage in megabytes when under 1 GB. -->
-  <string name="live_metrics_ram_mb_format" translatable="true" description="Primary value in the RAM column of the live inference metrics banner showing peak resident memory usage in megabytes when under 1 GB. %1$,.0f is the memory usage in megabytes (for example, 512). [CHAR_LIMIT=20]">%1$,.0f MB</string>
+  <string name="live_metrics_ram_mb_format" translatable="true" description="Primary value in the RAM column of the live inference metrics banner showing peak app memory usage in megabytes when under 1 GB. %1$,.0f is the memory usage in megabytes (for example, 512). [CHAR_LIMIT=20]">%1$,.0f MB</string>
   <!-- Format for memory usage in gigabytes when 1 GB or above. -->
-  <string name="live_metrics_ram_gb_format" translatable="true" description="Primary value in the RAM column of the live inference metrics banner showing peak resident memory usage in gigabytes when 1 GB or above. %1$.2f is the memory usage in gigabytes (for example, 3.18). [CHAR_LIMIT=20]">%1$.2f GB</string>
+  <string name="live_metrics_ram_gb_format" translatable="true" description="Primary value in the RAM column of the live inference metrics banner showing peak app memory usage in gigabytes when 1 GB or above. %1$.2f is the memory usage in gigabytes (for example, 3.18). [CHAR_LIMIT=20]">%1$.2f GB</string>
   <!-- Fallback label for RAM usage when unknown. -->
   <string name="live_metrics_ram_empty" translatable="true" description="Placeholder value in the RAM column of the live inference metrics banner when memory usage has not been sampled yet. [CHAR_LIMIT=15]">-- MB</string>
   <!-- Format for RAM percentage used of total system memory. -->
-  <string name="live_metrics_ram_percent_format" translatable="true" description="Subtext in the RAM column of the live inference metrics banner showing the percentage of total device memory used. %1$.1f is the memory percentage (for example, 20.9). [CHAR_LIMIT=20]">%1$.1f%% RAM</string>
+  <string name="live_metrics_ram_percent_format" translatable="true" description="Subtext in the RAM column of the live inference metrics banner showing the percentage of total device memory used, rounded to the nearest whole number. %1$.0f is the memory percentage (for example, 20). [CHAR_LIMIT=20]">%1$.0f%% RAM</string>
   <!-- Format for power draw in Watts. -->
   <string name="live_metrics_power_w_format" translatable="true" description="Subtext in the RAM column of the live inference metrics banner showing peak power draw in Watts when available. %1$.2f is the power in Watts (for example, 1.10). [CHAR_LIMIT=20]">%1$.2f W</string>
   <!-- Format for power draw in milliwatts. -->
   <string name="live_metrics_power_mw_format" translatable="true" description="Subtext in the RAM column of the live inference metrics banner showing peak power draw in milliwatts when available. %1$.0f is the power in milliwatts (for example, 920). [CHAR_LIMIT=20]">%1$.0f mW</string>
   <!-- Format for context window token usage and percentage. -->
-  <string name="live_metrics_context_usage_format" translatable="true" description="Value in the Context row of the live inference metrics banner showing consumed tokens out of maximum capacity and percentage used. %1$d is consumed tokens (for example, 188), %2$d is maximum context tokens (for example, 4096), and %3$.1f is the percentage used (for example, 4.6). [CHAR_LIMIT=30]">%1$d / %2$d (%3$.1f%%)</string>
+  <string name="live_metrics_context_usage_format" translatable="true" description="Value in the Context row of the live inference metrics banner showing consumed tokens out of maximum capacity and percentage used, rounded to the nearest whole number. %1$d is consumed tokens (for example, 188), %2$d is maximum context tokens (for example, 4096), and %3$.0f is the percentage used (for example, 5). [CHAR_LIMIT=30]">%1$d / %2$d (%3$.0f%%)</string>
   <!-- Fallback label for context window token usage when consumed tokens are not yet available. -->
   <string name="live_metrics_context_usage_empty_format" translatable="true" description="Placeholder value in the Context row of the live inference metrics banner when the current context token count is not yet available (for example, during prompt prefill). %1$d is maximum context tokens (for example, 4096). [CHAR_LIMIT=25]">-- / %1$d</string>
   <!-- Accessibility description for the info icon in the live metrics banner. -->
   <string name="cd_live_metrics_info" translatable="true" description="Accessibility content description for the info icon button in the top-right corner of the live inference metrics banner. [CHAR_LIMIT=40]">About live metrics</string>
   <!-- Tooltip text shown when tapping the info icon in the live metrics banner. -->
-  <string name="live_metrics_info_tooltip" translatable="true" description="Tooltip text shown when the user taps the info icon in the live inference metrics banner, explaining the metrics shown and the percentage threshold where automatic context compression triggers. %1$d is the percentage threshold (for example, 75). [CHAR_LIMIT=140]">Live stats for response speed, token usage, memory, and context space. Context compression triggers around %1$d%%.</string>
+  <string name="live_metrics_info_tooltip" translatable="true" description="Tooltip text shown when the user taps the info icon in the live inference metrics banner, starting with a summary line and concisely explaining each metric on its own line: RAM (peak total app memory and percentage of device RAM) and Context (percentage threshold where automatic context compression triggers). %1$d is the context compression percentage threshold (for example, 75). Note: %% represents a literal percent sign '%' and must be preserved as %%. [CHAR_LIMIT=200]">Live stats for response speed, token usage, memory, and context space.\nRAM: Peak total app memory (%% of device RAM)\nContext: Compresses around %1$d%%</string>
   <!-- Status text indicating that conversation context is actively being compressed. -->
   <string name="live_metrics_compressing_context" translatable="true" description="Status text shown in the Context row of the live inference metrics banner while conversation context is actively being compressed. [CHAR_LIMIT=30]">Compressing context\u2026</string>
+  <!-- Expandable discovery pill button label prompting the user to try the live inference metrics toggle. -->
+  <string name="live_metrics_toggle_prompt" translatable="true" description="Short discovery label shown once inside the expandable live inference metrics toggle pill button in the chat input bar, inviting the user to tap it to view real-time model performance metrics. [CHAR_LIMIT=30]">Try live metrics!</string>
+  <!-- Sectioned model selection screen, where a main model, a speech recognition (ASR) model and a text-to-speech (TTS) model are picked before a task starts. -->
+  <string name="model_selection_main_models_title" translatable="true" description="Header of the section listing the main models (the AI models that run the task) on the model selection screen. [CHAR_LIMIT=24]">Main models</string>
+  <string name="model_selection_asr_models_title" translatable="true" description="Header of the section listing the automatic speech recognition (ASR) models on the model selection screen. Keep the abbreviation ASR. [CHAR_LIMIT=24]">ASR models</string>
+  <string name="model_selection_tts_models_title" translatable="true" description="Header of the section listing the text-to-speech (TTS) models on the model selection screen. Keep the abbreviation TTS. [CHAR_LIMIT=24]">TTS models</string>
+  <plurals name="model_selection_main_models_selected" translatable="true" description="Line in the summary panel at the bottom of the model selection screen saying how many main models (the AI models that run the task) are selected. %d is the number of selected models, for example 1. [CHAR_LIMIT=40] applies across all plural variants.">
+    <item quantity="one">%d main model selected</item>
+    <item quantity="other">%d main models selected</item>
+  </plurals>
+  <plurals name="model_selection_asr_models_selected" translatable="true" description="Line in the summary panel at the bottom of the model selection screen saying how many automatic speech recognition (ASR) models are selected. Keep the abbreviation ASR. %d is the number of selected models, for example 1. [CHAR_LIMIT=40] applies across all plural variants.">
+    <item quantity="one">%d ASR model selected</item>
+    <item quantity="other">%d ASR models selected</item>
+  </plurals>
+  <plurals name="model_selection_tts_models_selected" translatable="true" description="Line in the summary panel at the bottom of the model selection screen saying how many text-to-speech (TTS) models are selected. Keep the abbreviation TTS. %d is the number of selected models, for example 1. [CHAR_LIMIT=40] applies across all plural variants.">
+    <item quantity="one">%d TTS model selected</item>
+    <item quantity="other">%d TTS models selected</item>
+  </plurals>
+  <plurals name="model_selection_main_models_available" translatable="true" description="Part of the line under the task description on the model selection screen saying how many main models (the AI models that run the task) the user can choose from. It is shown next to the ASR and TTS counts, for example '4 main models • 2 ASR models • 2 TTS models'. %d is the number of models. [CHAR_LIMIT=24] applies across all plural variants.">
+    <item quantity="one">%d main model</item>
+    <item quantity="other">%d main models</item>
+  </plurals>
+  <plurals name="model_selection_asr_models_available" translatable="true" description="Part of the line under the task description on the model selection screen saying how many automatic speech recognition (ASR) models the user can choose from, for example '2 ASR models'. Keep the abbreviation ASR. %d is the number of models. [CHAR_LIMIT=24] applies across all plural variants.">
+    <item quantity="one">%d ASR model</item>
+    <item quantity="other">%d ASR models</item>
+  </plurals>
+  <plurals name="model_selection_tts_models_available" translatable="true" description="Part of the line under the task description on the model selection screen saying how many text-to-speech (TTS) models the user can choose from, for example '2 TTS models'. Keep the abbreviation TTS. %d is the number of models. [CHAR_LIMIT=24] applies across all plural variants.">
+    <item quantity="one">%d TTS model</item>
+    <item quantity="other">%d TTS models</item>
+  </plurals>
+  <string name="model_selection_header_count_separator" translatable="true" description="Separator between the model counts on the model selection screen, for example between '4 main models' and '2 ASR models'. Keep the spaces around the dot. [CHAR_LIMIT=12]">" \u2022 "</string>
+  <plurals name="model_selection_main_models_selected_short" translatable="true" description="Short count of the selected main models (the AI models that run the task) in the collapsed summary panel of the model selection screen. It is joined with the ASR and TTS counts into a locale-formatted list and completed by model_selection_summary_collapsed, for example 'Selected: 1 main, 1 ASR, and 0 TTS'. %d is the number of selected models. [CHAR_LIMIT=12] applies across all plural variants.">
+    <item quantity="one">%d main</item>
+    <item quantity="other">%d main</item>
+  </plurals>
+  <plurals name="model_selection_asr_models_selected_short" translatable="true" description="Short count of the selected automatic speech recognition (ASR) models in the collapsed summary panel of the model selection screen, for example '1 ASR' in 'Selected: 1 main, 1 ASR, and 0 TTS'. Keep the abbreviation ASR. %d is the number of selected models. [CHAR_LIMIT=12] applies across all plural variants.">
+    <item quantity="one">%d ASR</item>
+    <item quantity="other">%d ASR</item>
+  </plurals>
+  <plurals name="model_selection_tts_models_selected_short" translatable="true" description="Short count of the selected text-to-speech (TTS) models in the collapsed summary panel of the model selection screen, for example '0 TTS' in 'Selected: 1 main, 1 ASR, and 0 TTS'. Keep the abbreviation TTS. %d is the number of selected models. [CHAR_LIMIT=12] applies across all plural variants.">
+    <item quantity="one">%d TTS</item>
+    <item quantity="other">%d TTS</item>
+  </plurals>
+  <string name="model_selection_summary_collapsed" translatable="true" description="Collapsed summary panel at the bottom of the model selection screen; Selected is an adjective describing the chosen models. %1$s is a locale-formatted list of short counts per kind of model, for example '1 main, 1 ASR, and 0 TTS'. Example: 'Selected: 1 main, 1 ASR, and 0 TTS'. [CHAR_LIMIT=50]">Selected: %1$s</string>
+  <plurals name="model_selection_summary_expanded_title" translatable="true" description="Title of the expanded summary panel at the bottom of the model selection screen. %1$d is the number of kinds of model (main, ASR, TTS) that have a selection and %2$d the number of kinds the task needs, for example '2/3 models selected'. The plural follows %2$d. [CHAR_LIMIT=30] applies across all plural variants.">
+    <item quantity="one">%1$d/%2$d model selected</item>
+    <item quantity="other">%1$d/%2$d models selected</item>
+  </plurals>
+  <string name="model_selection_summary_none" translatable="true" description="Shown in the expanded summary panel of the model selection screen, in place of a model name, when no model of that kind is selected yet. [CHAR_LIMIT=16]">None</string>
+  <string name="cd_model_selection_section_info" translatable="true" description="Content description of the info button next to a section header on the model selection screen, which shows what that kind of model does. %1$s is the section title, for example 'Main models'. [CHAR_LIMIT=NONE]">About %1$s</string>
+  <string name="model_selection_no_main_models" translatable="true" description="Message shown in the main models section of the model selection screen when no main model can run on this device. [CHAR_LIMIT=60]">No main models available on this device</string>
+  <string name="model_selection_no_asr_models" translatable="true" description="Message shown in the automatic speech recognition (ASR) section of the model selection screen when no ASR model can run on this device. Keep the abbreviation ASR. [CHAR_LIMIT=60]">No ASR models available on this device</string>
+  <string name="model_selection_no_tts_models" translatable="true" description="Message shown in the text-to-speech (TTS) section of the model selection screen when no TTS model can run on this device. Keep the abbreviation TTS. [CHAR_LIMIT=60]">No TTS models available on this device</string>
+  <string name="model_selection_downloading" translatable="true" description="Status shown in the summary panel of the model selection screen while the selected models are downloading before the task starts. [CHAR_LIMIT=32]">Downloading models\u2026</string>
+  <string name="model_selection_checking" translatable="true" description="Status shown in the summary panel of the model selection screen while the app checks that the selected models are ready, just before the task starts. [CHAR_LIMIT=32]">Checking models\u2026</string>
+  <string name="speech_engine_error_asr_title" translatable="true" description="Title of the dialog shown when the selected speech recognition model, which turns what the user says into text, can't start. [CHAR_LIMIT=50]">Couldn\'t start speech recognition</string>
+  <string name="speech_engine_error_tts_title" translatable="true" description="Title of the dialog shown when the selected text-to-speech model, which reads answers aloud, can't start. [CHAR_LIMIT=40]">Couldn\'t start voice</string>
+  <string name="speech_engine_error_outdated_message" translatable="true" description="Body of the dialog shown when a speech model can't start because the Speech Services by Google app is missing or too old. Speech Services by Google is an app name; keep it as is. [CHAR_LIMIT=160]">This model needs a newer version of Speech Services by Google. Update it from the Play Store, then try again.</string>
+  <string name="speech_engine_error_language_message" translatable="true" description="Body of the dialog shown when a speech model can't start because the language pack for a language the user chose isn't installed. [CHAR_LIMIT=150]">One of your languages isn\'t installed for this model. Download it, or choose another language.</string>
+  <string name="speech_engine_error_not_supported_message" translatable="true" description="Body of the dialog shown when the selected speech model can't be used by this feature yet. [CHAR_LIMIT=110]">This model isn\'t supported here yet. Choose another model.</string>
+  <string name="speech_engine_error_other_message" translatable="true" description="Body of the dialog shown when a speech model can't start for any other reason, for example because it is missing or failed to load. [CHAR_LIMIT=150]">Something went wrong while starting this model. Try again, or choose another model.</string>
+  <string name="speech_engine_error_update" translatable="true" description="Button in the speech model error dialog that opens the Play Store page of the Speech Services by Google app so the user can update it. [CHAR_LIMIT=18]">Update</string>
+  <string name="speech_engine_error_choose_language" translatable="true" description="Button in the speech model error dialog that opens the language settings so the user can download or change a language. [CHAR_LIMIT=30]">Choose language</string>
+  <string name="speech_engine_error_choose_another_model" translatable="true" description="Button in the speech model error dialog that goes back to the model selection screen so the user can pick a different speech model. [CHAR_LIMIT=30]">Choose another model</string>
+  <string name="config_dialog_speech_model_none_selected" translatable="true" description="Placeholder shown in the speech recognition or text-to-speech model dropdown of the model settings dialog when no model is selected yet. [CHAR_LIMIT=24]">Choose a model</string>
 </resources>
