@@ -18,12 +18,14 @@ package com.google.ai.edge.gallery.ui.common.chat
 
 import android.os.Bundle
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
+import com.google.ai.edge.gallery.agent.sessions.ContextCompactionOutcome
 import com.google.ai.edge.gallery.agent.sessions.ContextCompactionSource
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.common.metrics.InferenceMetrics
@@ -64,6 +66,33 @@ enum class AutoCompactionEnableSource(val value: String) {
   BANNER("banner"),
   SETTINGS("settings"),
 }
+
+/**
+ * Returns the Firebase Analytics parameters of the [GalleryEvent.CONTEXT_COMPRESSION] event logged
+ * when context compaction of [model] succeeds with [outcome].
+ *
+ * The `chat_char_count` and `compacted_char_count` parameters are only included when the
+ * [ContextCompactionOutcome.sizes] are available.
+ */
+@VisibleForTesting
+internal fun contextCompressionEventParams(
+  taskId: String,
+  model: Model,
+  triggerType: ContextCompactionTriggerType,
+  outcome: ContextCompactionOutcome,
+): Bundle =
+  Bundle().apply {
+    putString("capability_name", taskId)
+    putString("model_id", model.name)
+    putString("model_version", model.downloadInfo.version)
+    putString("trigger_type", triggerType.value)
+    putString("compaction_algorithm", outcome.algorithm.value)
+    putString("compaction_reason", outcome.source.value)
+    outcome.sizes?.let { sizes ->
+      putInt("chat_char_count", sizes.chatCharCount)
+      putInt("compacted_char_count", sizes.compactedCharCount)
+    }
+  }
 
 data class ChatUiState(
   /** Indicates whether the runtime is currently processing a message. */
@@ -555,18 +584,16 @@ abstract class ChatViewModel(
         )
         Log.d(
           TAG,
-          "Analytics: context_compression, capability_name=$taskId, model_id=${model.name}, model_version=${model.downloadInfo.version}, trigger_type=${triggerType.value}, compaction_algorithm=${outcome.algorithm.value}, compaction_reason=${outcome.source.value}",
+          "Analytics: context_compression, capability_name=$taskId, model_id=${model.name}, model_version=${model.downloadInfo.version}, trigger_type=${triggerType.value}, compaction_algorithm=${outcome.algorithm.value}, compaction_reason=${outcome.source.value}, chat_char_count=${outcome.sizes?.chatCharCount}, compacted_char_count=${outcome.sizes?.compactedCharCount}",
         )
         firebaseAnalytics?.logEvent(
           GalleryEvent.CONTEXT_COMPRESSION.id,
-          Bundle().apply {
-            putString("capability_name", taskId)
-            putString("model_id", model.name)
-            putString("model_version", model.downloadInfo.version)
-            putString("trigger_type", triggerType.value)
-            putString("compaction_algorithm", outcome.algorithm.value)
-            putString("compaction_reason", outcome.source.value)
-          },
+          contextCompressionEventParams(
+            taskId = taskId,
+            model = model,
+            triggerType = triggerType,
+            outcome = outcome,
+          ),
         )
         addMessage(
           model = model,

@@ -17,6 +17,8 @@
 package com.google.ai.edge.gallery.agent.sessions
 
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.proto.ChatMessageProto
+import com.google.ai.edge.gallery.proto.ChatSideProto
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ToolProvider
 
@@ -44,15 +46,52 @@ enum class ContextCompactionSource(val value: String) {
 }
 
 /**
+ * Result of a context compaction call together with the size of the compacted history.
+ *
+ * @property result The [CompactionResult] of the compaction call.
+ * @property compactedCharCount Total characters of the compacted history the conversation was reset
+ *   with (e.g. the generated summary, or the kept messages), or `null` if the conversation was not
+ *   compacted or the compactor does not report it.
+ */
+data class CompactionReport(val result: CompactionResult, val compactedCharCount: Int? = null)
+
+/**
+ * Sizes of the conversation context before and after a context compaction.
+ *
+ * All sizes are lengths in UTF-16 code units ([String.length]).
+ *
+ * @property chatCharCount Total characters of the session's cumulative persisted user and model
+ *   text chat history (excluding system and non-text messages). This is not the size of the live
+ *   conversation context, which can be smaller after an earlier compaction in the session.
+ * @property compactedCharCount Total characters of the compacted history the conversation was reset
+ *   with: for summarization, the summary text only (excluding the framing user turn that introduces
+ *   it); for truncation, the content of every kept message as seeded into the conversation.
+ */
+data class ContextCompactionSizes(val chatCharCount: Int, val compactedCharCount: Int)
+
+/**
  * Outcome of a successful context compaction operation.
  *
  * @property algorithm The [ContextCompactionAlgorithm] that compacted the conversation.
  * @property source The [ContextCompactionSource] describing why that algorithm ran.
+ * @property sizes The [ContextCompactionSizes] of the conversation context before and after
+ *   compaction, or `null` if the compactor did not report them or the session has no persisted text
+ *   chat history.
  */
 data class ContextCompactionOutcome(
   val algorithm: ContextCompactionAlgorithm,
   val source: ContextCompactionSource,
+  val sizes: ContextCompactionSizes? = null,
 )
+
+/**
+ * Whether this persisted message is a user or model text message, i.e. a message that is seeded
+ * into the conversation history when a session is restored or its context is truncated.
+ */
+internal val ChatMessageProto.isSeededTextMessage: Boolean
+  get() =
+    messageType == "TEXT" &&
+      (side == ChatSideProto.CHAT_SIDE_USER || side == ChatSideProto.CHAT_SIDE_MODEL)
 
 /**
  * Data class representing session configuration (model, taskId, system prompt, tools).

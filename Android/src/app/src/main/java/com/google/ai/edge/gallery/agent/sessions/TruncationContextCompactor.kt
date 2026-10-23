@@ -63,18 +63,40 @@ constructor(private val chatSessionRepository: ChatSessionRepository) : ContextC
     sessionConfig: SessionConfig?,
     onCompactionStart: (() -> Unit)?,
     force: Boolean,
-  ): CompactionResult {
+  ): CompactionResult =
+    compactContextReportingSize(
+        sessionId = sessionId,
+        model = model,
+        sessionConfig = sessionConfig,
+        onCompactionStart = onCompactionStart,
+        force = force,
+      )
+      .result
+
+  /**
+   * Compacts the context by truncating it if needed, reporting the total content length of the
+   * messages the conversation was reset with as [CompactionReport.compactedCharCount].
+   */
+  override suspend fun compactContextReportingSize(
+    sessionId: String,
+    model: Model,
+    sessionConfig: SessionConfig?,
+    onCompactionStart: (() -> Unit)?,
+    force: Boolean,
+  ): CompactionReport {
     currentCoroutineContext().ensureActive()
-    val instance = model.instance as? LlmConversationInstance ?: return CompactionResult.NOT_NEEDED
+    val instance =
+      model.instance as? LlmConversationInstance
+        ?: return CompactionReport(CompactionResult.NOT_NEEDED)
     val maxTokens =
       model.getIntConfigValue(key = ConfigKeys.MAX_TOKENS, defaultValue = DEFAULT_MAX_TOKEN)
     if (maxTokens <= 0) {
-      return CompactionResult.NOT_NEEDED
+      return CompactionReport(CompactionResult.NOT_NEEDED)
     }
     val currentTokens = getSafeTokenCount(instance)
     val isPrefilled = currentTokens > 0
     if (isPrefilled && !force && !isOverTokenThreshold(currentTokens, maxTokens)) {
-      return CompactionResult.NOT_NEEDED
+      return CompactionReport(CompactionResult.NOT_NEEDED)
     }
 
     currentCoroutineContext().ensureActive()
@@ -96,7 +118,7 @@ constructor(private val chatSessionRepository: ChatSessionRepository) : ContextC
       val estimatedTokens =
         systemTokens + toolTokens + allTextMessages.sumOf { estimateMessageTokens(it.content) }
       if (!isOverTokenThreshold(estimatedTokens, maxTokens)) {
-        return CompactionResult.NOT_NEEDED
+        return CompactionReport(CompactionResult.NOT_NEEDED)
       }
       Log.d(
         TAG,
@@ -168,12 +190,15 @@ constructor(private val chatSessionRepository: ChatSessionRepository) : ContextC
         TAG,
         "Context truncation and conversation reset complete for session $sessionId (kept ${truncatedMessages.size} of ${allTextMessages.size} messages, targetBudget=$targetTokenBudget tokens).",
       )
-      CompactionResult.COMPACTED
+      CompactionReport(
+        result = CompactionResult.COMPACTED,
+        compactedCharCount = keptMessages.sumOf { it.content.length },
+      )
     } catch (e: CancellationException) {
       throw e
     } catch (e: Exception) {
       Log.e(TAG, "Failed to reset conversation with truncated history for session $sessionId", e)
-      CompactionResult.FAILED
+      CompactionReport(CompactionResult.FAILED)
     }
   }
 
@@ -211,10 +236,7 @@ constructor(private val chatSessionRepository: ChatSessionRepository) : ContextC
         )
         emptyList()
       }
-    return persistedMessages.filter {
-      it.messageType == "TEXT" &&
-        (it.side == ChatSideProto.CHAT_SIDE_USER || it.side == ChatSideProto.CHAT_SIDE_MODEL)
-    }
+    return persistedMessages.filter { it.isSeededTextMessage }
   }
 
   private fun isOverTokenThreshold(currentTokens: Int, maxTokens: Int): Boolean =

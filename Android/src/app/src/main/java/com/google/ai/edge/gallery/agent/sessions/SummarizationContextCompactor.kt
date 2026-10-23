@@ -66,12 +66,33 @@ class SummarizationContextCompactor @Inject constructor() : ContextCompactor {
     sessionConfig: SessionConfig?,
     onCompactionStart: (() -> Unit)?,
     force: Boolean,
-  ): CompactionResult {
+  ): CompactionResult =
+    compactContextReportingSize(
+        sessionId = sessionId,
+        model = model,
+        sessionConfig = sessionConfig,
+        onCompactionStart = onCompactionStart,
+        force = force,
+      )
+      .result
+
+  /**
+   * Compacts the context by summarizing it if needed, reporting the length of the summary text the
+   * conversation was reset with as [CompactionReport.compactedCharCount].
+   */
+  override suspend fun compactContextReportingSize(
+    sessionId: String,
+    model: Model,
+    sessionConfig: SessionConfig?,
+    onCompactionStart: (() -> Unit)?,
+    force: Boolean,
+  ): CompactionReport {
     val mutex = sessionMutexes.getOrPut(sessionId) { Mutex() }
     return mutex.withLock {
       currentCoroutineContext().ensureActive()
       val instance =
-        model.instance as? LlmConversationInstance ?: return@withLock CompactionResult.NOT_NEEDED
+        model.instance as? LlmConversationInstance
+          ?: return@withLock CompactionReport(CompactionResult.NOT_NEEDED)
       val maxTokens =
         model.getIntConfigValue(key = ConfigKeys.MAX_TOKENS, defaultValue = DEFAULT_MAX_TOKEN)
       val currentTokens = getSafeTokenCount(instance)
@@ -84,10 +105,12 @@ class SummarizationContextCompactor @Inject constructor() : ContextCompactor {
       if (currentTokens == 0) {
         // The conversation has not been prefilled yet (e.g. right after a session restore or
         // reset), so its token usage is unknown and it cannot summarize itself.
-        return@withLock if (force) CompactionResult.FAILED else CompactionResult.NOT_NEEDED
+        return@withLock CompactionReport(
+          if (force) CompactionResult.FAILED else CompactionResult.NOT_NEEDED
+        )
       }
       if (!force && !isOverTokenThreshold(currentTokens, maxTokens)) {
-        return@withLock CompactionResult.NOT_NEEDED
+        return@withLock CompactionReport(CompactionResult.NOT_NEEDED)
       }
 
       Log.i(
@@ -101,7 +124,7 @@ class SummarizationContextCompactor @Inject constructor() : ContextCompactor {
           TAG,
           "Insufficient token headroom for summarization in session $sessionId (tokensLeft=$tokensLeft < min=$MIN_TOKENS_LEFT_FOR_SUMMARIZATION).",
         )
-        return@withLock CompactionResult.FAILED
+        return@withLock CompactionReport(CompactionResult.FAILED)
       }
 
       val availableSummaryTokens =
@@ -129,20 +152,20 @@ class SummarizationContextCompactor @Inject constructor() : ContextCompactor {
             "Failed to dynamically summarize conversation history for session $sessionId",
             e,
           )
-          return@withLock CompactionResult.FAILED
+          return@withLock CompactionReport(CompactionResult.FAILED)
         }
 
       currentCoroutineContext().ensureActive()
 
       val summaryDurationMs = System.currentTimeMillis() - summaryStartTimestamp
-      val summaryText = summaryMessage.toString()
+      val summaryText = summaryMessage.toString().trim()
       Log.d(
         TAG,
         "Generated summary text length: ${summaryText.length}. Time taken: ${summaryDurationMs}ms.",
       )
       if (summaryText.isBlank()) {
         Log.w(TAG, "Generated a blank summary for session $sessionId.")
-        return@withLock CompactionResult.FAILED
+        return@withLock CompactionReport(CompactionResult.FAILED)
       }
 
       val initialMessages =
@@ -166,12 +189,15 @@ class SummarizationContextCompactor @Inject constructor() : ContextCompactor {
           TAG,
           "Auto-summarization and conversation reset process complete for session $sessionId.",
         )
-        CompactionResult.COMPACTED
+        CompactionReport(
+          result = CompactionResult.COMPACTED,
+          compactedCharCount = summaryText.length,
+        )
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {
         Log.e(TAG, "Failed to reset conversation with summary for session $sessionId", e)
-        CompactionResult.FAILED
+        CompactionReport(CompactionResult.FAILED)
       }
     }
   }

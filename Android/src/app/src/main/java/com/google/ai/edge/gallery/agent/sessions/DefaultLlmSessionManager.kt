@@ -439,7 +439,7 @@ constructor(
       }
       sessionMutex(sessionId).withLock {
         val config = sessionConfigs[sessionId]
-        val primaryResult =
+        val primaryReport =
           runCompactor(
             compactor = contextCompactor,
             sessionId = sessionId,
@@ -448,26 +448,23 @@ constructor(
             onCompactionStart = notifyStartOnce,
             force = force,
           )
-        when (primaryResult) {
+        when (primaryReport.result) {
           CompactionResult.COMPACTED -> {
-            val algorithm =
-              if (
-                contextCompactor?.algorithm == ContextCompactionAlgorithm.TRUNCATION ||
-                  source != ContextCompactionSource.TOKEN_LIMIT
-              ) {
-                ContextCompactionAlgorithm.TRUNCATION
-              } else {
-                ContextCompactionAlgorithm.SUMMARIZATION
-              }
             InternalCompactionResult(
               result = CompactionResult.COMPACTED,
-              outcome = ContextCompactionOutcome(algorithm = algorithm, source = source),
+              outcome =
+                ContextCompactionOutcome(
+                  algorithm =
+                    contextCompactor?.algorithm ?: ContextCompactionAlgorithm.SUMMARIZATION,
+                  source = source,
+                  sizes = compactionSizes(sessionId, primaryReport.compactedCharCount),
+                ),
             )
           }
           // Let the fallback compactor evaluate its own threshold, e.g. by estimating the token
           // usage of a session that has not been prefilled yet.
           CompactionResult.NOT_NEEDED -> {
-            val fallbackResult =
+            val fallbackReport =
               runCompactor(
                 compactor = fallbackContextCompactor,
                 sessionId = sessionId,
@@ -476,7 +473,7 @@ constructor(
                 onCompactionStart = notifyStartOnce,
                 force = force,
               )
-            if (fallbackResult == CompactionResult.COMPACTED) {
+            if (fallbackReport.result == CompactionResult.COMPACTED) {
               InternalCompactionResult(
                 result = CompactionResult.COMPACTED,
                 outcome =
@@ -484,17 +481,18 @@ constructor(
                     algorithm =
                       fallbackContextCompactor?.algorithm ?: ContextCompactionAlgorithm.TRUNCATION,
                     source = source,
+                    sizes = compactionSizes(sessionId, fallbackReport.compactedCharCount),
                   ),
               )
             } else {
-              InternalCompactionResult(result = fallbackResult)
+              InternalCompactionResult(result = fallbackReport.result)
             }
           }
           // The primary compactor determined that compaction is needed but failed, so force the
           // fallback compactor to compact even if usage is below the fallback's own threshold.
           CompactionResult.FAILED -> {
             Log.w(TAG, "Primary context compaction failed for session $sessionId; falling back.")
-            val fallbackResult =
+            val fallbackReport =
               runCompactor(
                 compactor = fallbackContextCompactor,
                 sessionId = sessionId,
@@ -503,7 +501,7 @@ constructor(
                 onCompactionStart = notifyStartOnce,
                 force = true,
               )
-            if (fallbackResult == CompactionResult.COMPACTED) {
+            if (fallbackReport.result == CompactionResult.COMPACTED) {
               InternalCompactionResult(
                 result = CompactionResult.COMPACTED,
                 outcome =
@@ -511,6 +509,7 @@ constructor(
                     algorithm =
                       fallbackContextCompactor?.algorithm ?: ContextCompactionAlgorithm.TRUNCATION,
                     source = ContextCompactionSource.SUMMARIZATION_FALLBACK,
+                    sizes = compactionSizes(sessionId, fallbackReport.compactedCharCount),
                   ),
               )
             } else {
@@ -544,12 +543,12 @@ constructor(
     config: SessionConfig?,
     onCompactionStart: () -> Unit,
     force: Boolean,
-  ): CompactionResult {
+  ): CompactionReport {
     if (compactor == null) {
-      return CompactionResult.NOT_NEEDED
+      return CompactionReport(CompactionResult.NOT_NEEDED)
     }
     return try {
-      compactor.compactContextIfNeeded(
+      compactor.compactContextReportingSize(
         sessionId = sessionId,
         model = model,
         sessionConfig = config,
@@ -560,8 +559,46 @@ constructor(
       throw e
     } catch (e: Exception) {
       Log.e(TAG, "Context compaction failed for session $sessionId", e)
-      CompactionResult.FAILED
+      CompactionReport(CompactionResult.FAILED)
     }
+  }
+
+  /**
+   * Returns the [ContextCompactionSizes] of a compaction of [sessionId] whose compactor reported
+   * [compactedCharCount].
+   *
+   * The chat size is the total content length of the persisted text messages that are restored into
+   * the conversation when the session is loaded. Returns `null` if the compactor did not report
+   * [compactedCharCount], the persisted session cannot be read or is not found, or it has no such
+   * text messages, so that the event never reports an empty chat size (e.g. as a ratio
+   * denominator).
+   */
+  private suspend fun compactionSizes(
+    sessionId: String,
+    compactedCharCount: Int?,
+  ): ContextCompactionSizes? {
+    if (compactedCharCount == null) {
+      return null
+    }
+    val sessions =
+      try {
+        chatSessionRepository.getAllChatSessions()
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to read persisted chat history for session $sessionId", e)
+        return null
+      }
+    val session = sessions.firstOrNull { it.sessionId == sessionId } ?: return null
+    val chatCharCount =
+      session.messagesList.sumOf { if (it.isSeededTextMessage) it.content.length else 0 }
+    if (chatCharCount == 0) {
+      return null
+    }
+    return ContextCompactionSizes(
+      chatCharCount = chatCharCount,
+      compactedCharCount = compactedCharCount,
+    )
   }
 
   override fun stopResponse(sessionId: String, model: Model) {
@@ -584,13 +621,13 @@ constructor(
     }
 
   private fun protoToLitertMessage(proto: ChatMessageProto): Message? {
-    if (proto.messageType == "TEXT") {
-      return when (proto.side) {
-        ChatSideProto.CHAT_SIDE_USER -> Message.user(proto.content)
-        ChatSideProto.CHAT_SIDE_MODEL -> Message.model(proto.content)
-        else -> null
-      }
+    if (!proto.isSeededTextMessage) {
+      return null
     }
-    return null
+    return if (proto.side == ChatSideProto.CHAT_SIDE_USER) {
+      Message.user(proto.content)
+    } else {
+      Message.model(proto.content)
+    }
   }
 }

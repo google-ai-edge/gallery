@@ -50,6 +50,39 @@ interface ContextCompactor {
   ): CompactionResult
 
   /**
+   * Same as [compactContextIfNeeded], but also reports the size of the compacted history the
+   * conversation was reset with.
+   *
+   * The default implementation delegates to [compactContextIfNeeded] and does not report a size.
+   *
+   * @param sessionId The active session identifier.
+   * @param model The target model instance.
+   * @param sessionConfig Optional session configuration (system prompt, tools).
+   * @param onCompactionStart Optional callback invoked immediately when compaction is triggered,
+   *   before the context is compacted and the conversation is reset.
+   * @param force Whether to compact regardless of the compactor's token budget threshold.
+   * @return A [CompactionReport] with the [CompactionResult] and, if the context was compacted, the
+   *   total characters of the compacted history.
+   */
+  suspend fun compactContextReportingSize(
+    sessionId: String,
+    model: Model,
+    sessionConfig: SessionConfig? = null,
+    onCompactionStart: (() -> Unit)? = null,
+    force: Boolean = false,
+  ): CompactionReport =
+    CompactionReport(
+      result =
+        compactContextIfNeeded(
+          sessionId = sessionId,
+          model = model,
+          sessionConfig = sessionConfig,
+          onCompactionStart = onCompactionStart,
+          force = force,
+        )
+    )
+
+  /**
    * Inspects the model's active conversation token count and compacts context if token budget
    * thresholds are exceeded, returning a [ContextCompactionOutcome] when compaction succeeds or
    * `null` if no compaction occurred.
