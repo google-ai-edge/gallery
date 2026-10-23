@@ -305,7 +305,11 @@ object LlmChatModelHelper : LlmModelHelper {
       if (accelerator == Accelerator.NPU || accelerator == Accelerator.TPU) {
         null
       } else {
-        SamplerConfig(topK = topK, topP = topP.toDouble(), temperature = temperature.toDouble())
+        SamplerConfig(
+          topK = topK,
+          topP = topP.toDouble(),
+          temperature = temperature.toDouble(),
+        )
       }
     ExperimentalFlags.enableConversationConstrainedDecoding = enableConversationConstrainedDecoding
     return try {
