@@ -106,12 +106,25 @@ fun ModelItem(
   tosViewModel: TosViewModel? = null,
   showProgressIndicator: Boolean = true,
   canShowTryIt: Boolean = true,
+  /** Whether to show the "Best overall" badge for a model shown without a task. */
+  showBestOverallBadge: Boolean = false,
+  /**
+   * Whether the model's download status drives the card's status line, unavailability panel, and
+   * action menu. `false` for models whose state the caller renders itself through [statusContent]
+   * and [extraContent].
+   */
+  usesDownloadStatus: Boolean = true,
+  /** Replaces the download status line under the model name when set. */
+  statusContent: (@Composable () -> Unit)? = null,
   extraContent: (@Composable () -> Unit)? = null,
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
-  val downloadStatus by remember {
-    derivedStateOf { modelManagerUiState.modelDownloadStatus[model.name] }
-  }
+  val downloadStatus by
+    remember(usesDownloadStatus) {
+      derivedStateOf {
+        if (usesDownloadStatus) modelManagerUiState.modelDownloadStatus[model.name] else null
+      }
+    }
 
   val isBestOverall = model.bestForTaskIds.contains(task?.id ?: "")
   var isExpanded by remember { mutableStateOf(expanded ?: isBestOverall) }
@@ -163,6 +176,8 @@ fun ModelItem(
           isExpanded = isExpanded,
           modifier = Modifier.fillMaxWidth(),
           showModelSizeAndDownloadProgressLabel = modelVariants.isEmpty(),
+          showBestOverallBadge = showBestOverallBadge,
+          statusContent = statusContent,
         )
         // Model action menu (benchmark, delete), and button to expand/collapse button at the right.
         Row(verticalAlignment = Alignment.Top, modifier = Modifier.align(Alignment.TopEnd)) {
