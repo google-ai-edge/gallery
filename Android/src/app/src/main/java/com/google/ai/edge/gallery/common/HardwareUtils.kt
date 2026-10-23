@@ -38,17 +38,16 @@ object HardwareUtils {
 
     // Pixel 9 and later should use GPU.
     if (
-      lowerModel.contains("pixel 9") ||
+      "pixel 9" in lowerModel ||
         lowerDevice in PIXEL_9_CODENAMES ||
         lowerBoard in PIXEL_9_CODENAMES ||
-        lowerSocModel.contains("tensor g4") ||
-        lowerHardware.contains("zumapro")
+        "tensor g4" in lowerSocModel ||
+        "zumapro" in lowerHardware
     ) {
       return false
     }
     val combined = "$lowerHardware $lowerBoard $lowerSocModel"
-    return !combined.contains("malibu") &&
-      (combined.contains("exynos") || combined.contains("mali"))
+    return "malibu" !in combined && ("exynos" in combined || "mali" in combined)
   }
 
   private val TENSOR_G3_OR_HIGHER_CODENAMES =
@@ -74,30 +73,6 @@ object HardwareUtils {
       // Tensor G6 (Pixel 11)
       "malibu",
     )
-
-  private val TENSOR_G6_CODENAMES =
-    setOf("malibu", "cubs", "grizzly", "kodiak", "yogi", "formosan", "marmoset")
-
-  /** Returns true if device is Google Tensor G6 (Pixel 11 family). */
-  fun isTensorG6(
-    hardware: String = Build.HARDWARE,
-    board: String = Build.BOARD,
-    socModel: String = Build.SOC_MODEL,
-    device: String = Build.DEVICE,
-    model: String = Build.MODEL,
-  ): Boolean {
-    val lowerModel = model.lowercase(Locale.ROOT)
-    val lowerDevice = device.lowercase(Locale.ROOT)
-    val lowerBoard = board.lowercase(Locale.ROOT)
-    val lowerSocModel = socModel.lowercase(Locale.ROOT)
-    val lowerHardware = hardware.lowercase(Locale.ROOT)
-
-    return "pixel 11" in lowerModel ||
-      "tensor g6" in lowerSocModel ||
-      lowerDevice in TENSOR_G6_CODENAMES ||
-      lowerBoard in TENSOR_G6_CODENAMES ||
-      lowerHardware in TENSOR_G6_CODENAMES
-  }
 
   /** Returns true if device is Google Tensor G3 or higher (Pixel 8 and newer). */
   fun isTensorG3OrHigher(
