@@ -183,7 +183,6 @@ fun ChatPanel(
       }
       .collectAsStateWithLifecycle(initialValue = false)
   val showLiveMetrics = uiState.showLiveMetrics
-  val modelInitializing = modelInitStatus is Model.InitializationStatus.Initializing
   // The live metrics toggle button is interactive only when metrics are available for the
   // initialized model and no inference turn or session reset is active.
   val isLiveMetricsToggleEnabled =
@@ -197,7 +196,10 @@ fun ChatPanel(
       viewModel.loadLiveMetricsVisibility(task.id)
       viewModel.observeLiveMetrics(selectedModel)
     }
-    LaunchedEffect(isLiveMetricsToggleEnabled, task.id) {
+    LaunchedEffect(
+      isLiveMetricsToggleEnabled,
+      task.id,
+    ) {
       if (isLiveMetricsToggleEnabled) {
         viewModel.maybeShowLiveMetricsPrompt(task.id)
       }

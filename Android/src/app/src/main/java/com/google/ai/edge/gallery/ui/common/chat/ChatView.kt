@@ -276,6 +276,7 @@ fun ChatView(
               modelManagerViewModel = modelManagerViewModel,
               inProgress = uiState.inProgress,
               modelPreparing = uiState.preparing,
+              actionsDisabled = drawerState.isOpen,
               shouldShowHistoryButton = true,
               isAutoCompactEnabled = isAutoCompactEnabled,
               onConfigChanged = { old, new ->

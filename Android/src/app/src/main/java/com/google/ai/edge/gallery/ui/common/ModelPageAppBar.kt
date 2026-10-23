@@ -161,10 +161,13 @@ fun ModelPageAppBar(
           val enableConfigButton =
             !isModelInitializing && !inProgress && !actionsDisabled && isModelInitialized
           IconButton(
-            onClick = { showConfigDialog = true },
+            onClick = {
+              showConfigDialog = true
+            },
             enabled = enableConfigButton,
             modifier =
-              Modifier.offset(x = configButtonOffset).alpha(if (!enableConfigButton) 0.5f else 1f),
+              Modifier.offset(x = configButtonOffset)
+                .alpha(if (!enableConfigButton) 0.5f else 1f),
           ) {
             Icon(
               imageVector = Icons.Rounded.Tune,
