@@ -461,12 +461,6 @@ constructor(
     model: Model,
     includeExtraDataFiles: Boolean = isDownloadOptionalComponentsEnabled(model.name),
   ) {
-    // Update status.
-    setDownloadStatus(
-      curModel = model,
-      status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
-    )
-
     if (model.downloadsViaRepository) {
       // Delete the model files first.
       deleteModel(
@@ -475,6 +469,13 @@ constructor(
         preserveOptionalComponentsState = true,
       )
     }
+
+    // Update status. Deleting the model files above resets it to NOT_DOWNLOADED, so update it after
+    // them for the download to show as started until the downloader reports its first progress.
+    setDownloadStatus(
+      curModel = model,
+      status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
+    )
 
     val family = getModelFamily(model)
     val isExtraDataAlreadyDownloaded =

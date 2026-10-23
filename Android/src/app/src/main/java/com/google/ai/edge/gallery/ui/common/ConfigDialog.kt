@@ -21,6 +21,7 @@ package com.google.ai.edge.gallery.ui.common
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.util.Log
 import androidx.annotation.StringRes
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -41,6 +42,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -55,6 +57,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -68,6 +71,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -122,6 +126,7 @@ import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.SegmentedButtonConfig
 import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
+import kotlin.math.ceil
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -805,11 +810,14 @@ private fun Modifier.verticalScrollbar(
 }
 
 /**
- * Config side-sheet tab bar whose labels share one auto-sized font size.
+ * Config side-sheet tab bar whose labels share one auto-sized font size and stay on one line.
  *
- * Steps down from `titleSmall` (`14.sp`) to a `12.sp` floor, picking the largest size at which
- * every tab label fits its tab width on 1 line; below the `12.sp` floor, wraps at the shared
- * `12.sp` size (`maxLines = 2`).
+ * Each tab is as wide as its label, plus an equal share of the leftover width, so a short label
+ * like "Audio" leaves room for longer ones. Steps down from `titleSmall` (`14.sp`) to a `12.sp`
+ * floor, picking the largest size at which every label fits on 1 line this way. Only when no size
+ * down to the floor fits, such as with very large accessibility text, do the tabs split the width
+ * equally and wrap their labels onto 2 lines at the largest size that fits that way. Labels with an
+ * explicit line break, such as "Model\nconfigs", always render on 2 centered lines.
  */
 @Composable
 internal fun ConfigTabRow(
@@ -824,47 +832,146 @@ internal fun ConfigTabRow(
     MaterialTheme.typography.titleSmall.copy(lineBreak = LineBreak.Heading, hyphens = Hyphens.Auto)
 
   BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+    val rowWidthPx = constraints.maxWidth
     val tabCount = tabTitles.size.coerceAtLeast(1)
     val horizontalPaddingPx = with(density) { (TAB_LABEL_HORIZONTAL_PADDING * 2).roundToPx() }
-    val tabAvailableWidthPx =
-      ((constraints.maxWidth / tabCount) - horizontalPaddingPx).coerceAtLeast(1)
+    val equalTabAvailableWidthPx = ((rowWidthPx / tabCount) - horizontalPaddingPx).coerceAtLeast(1)
 
-    val (sharedFontSize, maxLines) =
-      remember(tabTitles, tabAvailableWidthPx, baseStyle, density) {
+    val layout =
+      remember(tabTitles, rowWidthPx, baseStyle, density) {
         val startSp = baseStyle.fontSize.value
         val floorSp = TAB_TITLE_MIN_FONT_SIZE.value
         var candidateSp = startSp
-        var fittedSp: Float? = null
+        while (candidateSp >= floorSp - 0.001f) {
+          // Width of each label on one line at this size.
+          val labelWidthsPx = tabTitles.map { title ->
+            ceil(
+                textMeasurer
+                  .measure(text = title, style = baseStyle.copy(fontSize = candidateSp.sp))
+                  .multiParagraph
+                  .intrinsics
+                  .maxIntrinsicWidth
+              )
+              .toInt()
+          }
+          val leftoverPx = rowWidthPx - labelWidthsPx.sumOf { it + horizontalPaddingPx }
+          if (leftoverPx >= 0) {
+            return@remember ConfigTabRowLayout.SingleLine(
+              fontSize = candidateSp.sp,
+              tabWidthsPx = labelWidthsPx.map { it + horizontalPaddingPx + leftoverPx / tabCount },
+              labelWidthsPx = labelWidthsPx,
+            )
+          }
+          candidateSp -= TAB_TITLE_FONT_STEP_SP
+        }
+        // Even the floor size doesn't fit on one line: equal tabs, labels on up to 2 lines.
+        candidateSp = startSp
         while (candidateSp >= floorSp - 0.001f) {
           val fitsAll = tabTitles.all { title ->
             val result =
               textMeasurer.measure(
                 text = title,
                 style = baseStyle.copy(fontSize = candidateSp.sp),
-                constraints = Constraints(maxWidth = tabAvailableWidthPx),
+                constraints = Constraints(maxWidth = equalTabAvailableWidthPx),
               )
             result.lineCount <= 2 && !result.hasVisualOverflow
           }
           if (fitsAll) {
-            fittedSp = candidateSp
-            break
+            return@remember ConfigTabRowLayout.Wrapped(fontSize = candidateSp.sp)
           }
           candidateSp -= TAB_TITLE_FONT_STEP_SP
         }
-        (fittedSp?.sp ?: TAB_TITLE_MIN_FONT_SIZE) to 2
+        ConfigTabRowLayout.Wrapped(fontSize = TAB_TITLE_MIN_FONT_SIZE)
       }
 
-    PrimaryTabRow(selectedTabIndex = selectedTabIndex, containerColor = Color.Transparent) {
-      tabTitles.forEachIndexed { index, tabTitle ->
-        ConfigTab(
-          title = tabTitle,
-          selected = selectedTabIndex == index,
-          onClick = { onSelectTab(index) },
-          fontSize = sharedFontSize,
-          maxLines = maxLines,
+    when (layout) {
+      is ConfigTabRowLayout.SingleLine ->
+        ContentWidthTabRow(
+          tabTitles = tabTitles,
+          selectedTabIndex = selectedTabIndex,
+          onSelectTab = onSelectTab,
+          layout = layout,
         )
-      }
+      is ConfigTabRowLayout.Wrapped ->
+        PrimaryTabRow(selectedTabIndex = selectedTabIndex, containerColor = Color.Transparent) {
+          tabTitles.forEachIndexed { index, tabTitle ->
+            ConfigTab(
+              title = tabTitle,
+              selected = selectedTabIndex == index,
+              onClick = { onSelectTab(index) },
+              fontSize = layout.fontSize,
+              maxLines = 2,
+            )
+          }
+        }
     }
+  }
+}
+
+/** How [ConfigTabRow] lays out its tabs. */
+private sealed interface ConfigTabRowLayout {
+  /**
+   * Every label fits on one line at [fontSize] when each tab is [tabWidthsPx] wide; its label is
+   * [labelWidthsPx] wide.
+   */
+  data class SingleLine(
+    val fontSize: TextUnit,
+    val tabWidthsPx: List<Int>,
+    val labelWidthsPx: List<Int>,
+  ) : ConfigTabRowLayout
+
+  /** Equal-width tabs whose labels wrap onto up to 2 lines at [fontSize]. */
+  data class Wrapped(val fontSize: TextUnit) : ConfigTabRowLayout
+}
+
+/**
+ * Tab row styled like [PrimaryTabRow] whose tabs have the widths in [layout] instead of equal
+ * widths. The indicator spans the selected tab's label and slides between tabs.
+ */
+@Composable
+private fun ContentWidthTabRow(
+  tabTitles: List<String>,
+  selectedTabIndex: Int,
+  onSelectTab: (Int) -> Unit,
+  layout: ConfigTabRowLayout.SingleLine,
+) {
+  val density = LocalDensity.current
+  val selectedIndex = selectedTabIndex.coerceIn(0, (tabTitles.size - 1).coerceAtLeast(0))
+  val tabLeftPx = layout.tabWidthsPx.take(selectedIndex).sum()
+  val tabWidthPx = layout.tabWidthsPx.getOrElse(selectedIndex) { 0 }
+  val labelWidthPx = layout.labelWidthsPx.getOrElse(selectedIndex) { 0 }
+  val indicatorWidth by
+    animateDpAsState(
+      targetValue = with(density) { labelWidthPx.toDp() },
+      label = "ConfigTabIndicatorWidth",
+    )
+  val indicatorLeft by
+    animateDpAsState(
+      targetValue = with(density) { (tabLeftPx + (tabWidthPx - labelWidthPx) / 2).toDp() },
+      label = "ConfigTabIndicatorLeft",
+    )
+  Column(modifier = Modifier.fillMaxWidth()) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+      Row(modifier = Modifier.fillMaxWidth().selectableGroup()) {
+        tabTitles.forEachIndexed { index, tabTitle ->
+          Box(modifier = Modifier.width(with(density) { layout.tabWidthsPx[index].toDp() })) {
+            ConfigTab(
+              title = tabTitle,
+              selected = selectedTabIndex == index,
+              onClick = { onSelectTab(index) },
+              fontSize = layout.fontSize,
+              // Titles with an explicit line break (e.g. "Model\nconfigs") render on 2 lines.
+              maxLines = 2,
+            )
+          }
+        }
+      }
+      TabRowDefaults.PrimaryIndicator(
+        width = indicatorWidth,
+        modifier = Modifier.align(Alignment.BottomStart).offset(x = indicatorLeft),
+      )
+    }
+    HorizontalDivider()
   }
 }
 

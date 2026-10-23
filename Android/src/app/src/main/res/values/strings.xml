@@ -81,8 +81,8 @@
   <string name="clear" translatable="true" description="Content description for a button to clear text input. [CHAR_LIMIT=9]">Clear</string>
   <string name="collect" translatable="true" description="Action label to collect items. [CHAR_LIMIT=18]">Collect</string>
   <string name="color" translatable="true" description="Label for color picker or color configuration. [CHAR_LIMIT=18]">Color</string>
-  <string name="config_dialog_tab_model_configs" translatable="true" description="Tab label for model-specific configurations in the configuration side sheet. [CHAR_LIMIT=22]">Model\nconfigs</string>
-  <string name="config_dialog_tab_system_prompt" translatable="true" description="Tab label for system prompt configuration. [CHAR_LIMIT=22]">System\nprompt</string>
+  <string name="config_dialog_tab_model_configs" translatable="true" description="Tab label for model-specific configurations in the configuration side sheet; shown on two lines. [CHAR_LIMIT=22]">Model\nconfigs</string>
+  <string name="config_dialog_tab_system_prompt" translatable="true" description="Tab label for system prompt configuration; shown on two lines. [CHAR_LIMIT=22]">System\nprompt</string>
   <string name="config_dialog_tab_audio" translatable="true" description="Tab label for speech recognition and text-to-speech audio settings in the configuration side sheet. [CHAR_LIMIT=12]">Audio</string>
   <string name="config_dialog_title" translatable="false" description="Title of the settings/configuration dialog. [CHAR_LIMIT=26]">Configurations</string>
   <string name="config_dialog_configure_settings_title" translatable="true" description="Title of the configuration dialog when voice and TTS settings are included. [CHAR_LIMIT=40]">Configure settings</string>
