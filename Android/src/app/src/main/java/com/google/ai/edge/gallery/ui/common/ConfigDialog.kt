@@ -20,19 +20,21 @@ package com.google.ai.edge.gallery.ui.common
 // import com.google.ai.edge.gallery.ui.preview.MODEL_TEST1
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.util.Log
+import androidx.annotation.StringRes
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -40,6 +42,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -49,12 +52,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MultiChoiceSegmentedButtonRow
@@ -66,6 +71,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -91,19 +97,23 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BooleanSwitchConfig
 import com.google.ai.edge.gallery.data.BottomSheetSelectorConfig
@@ -116,6 +126,7 @@ import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.SegmentedButtonConfig
 import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
+import kotlin.math.ceil
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -128,20 +139,27 @@ private val TAB_LABEL_HORIZONTAL_PADDING = 4.dp
 /** Vertical padding around a tab label, so two-line labels don't touch the indicator. */
 private val TAB_LABEL_VERTICAL_PADDING = 8.dp
 
+/** Floor font size for config dialog tab titles before allowing two-line wrapping. */
+private val TAB_TITLE_MIN_FONT_SIZE = 12.sp
+
+/** Step size when auto-sizing config dialog tab titles down from [TextStyle.fontSize]. */
+private const val TAB_TITLE_FONT_STEP_SP = 0.5f
+
 private const val TAG = "AGConfigDialog"
 
-private enum class ConfigTab {
+enum class ConfigTab {
   MODEL_CONFIGS,
   SYSTEM_PROMPT,
 }
 
 /**
- * Displays a configuration dialog allowing users to modify settings through various input controls.
+ * Displays a configuration side sheet allowing users to modify model parameters, the system prompt,
+ * and task audio (ASR and TTS) settings.
  */
-@Suppress("DEPRECATION")
+@Suppress("DEPRECATION", "UNUSED_PARAMETER")
 @Composable
 fun ConfigDialog(
-  title: String,
+  title: String = "",
   configs: List<Config>,
   initialValues: Map<String, Any>,
   onDismissed: () -> Unit,
@@ -156,8 +174,6 @@ fun ConfigDialog(
   val values: SnapshotStateMap<String, Any> = remember {
     mutableStateMapOf<String, Any>().apply { putAll(initialValues) }
   }
-  val interactionSource = remember { MutableInteractionSource() }
-  var selectedTabIndex by remember { mutableIntStateOf(0) }
   val savedSystemPrompt = remember { curSystemPrompt }
   var systemPrompt by remember { mutableStateOf(curSystemPrompt) }
 
@@ -172,65 +188,61 @@ fun ConfigDialog(
         }
       }
     }
+  var selectedTabIndex by remember { mutableIntStateOf(0) }
   val selectedTab = tabs.getOrElse(selectedTabIndex) { tabs.first() }.first
 
-  Dialog(onDismissRequest = onDismissed) {
-    val focusManager = LocalFocusManager.current
-    Card(
-      modifier =
-        Modifier.fillMaxWidth()
-          .clickable(
-            interactionSource = interactionSource,
-            indication = null, // Disable the ripple effect
-          ) {
-            focusManager.clearFocus()
-          }
-          .imePadding(),
-      shape = RoundedCornerShape(16.dp),
+  SideSheetDialog(onDismissed = onDismissed) { requestDismiss ->
+    Column(
+      modifier = Modifier.fillMaxSize().padding(20.dp),
+      verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-      Column(
-        modifier = Modifier.padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+      // Header: Title and Close button.
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
       ) {
-        // Dialog title and subtitle.
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
           Text(
-            title,
+            stringResource(R.string.config_dialog_configure_settings_title),
             style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 8.dp),
+            modifier = Modifier.padding(bottom = 4.dp),
           )
-          // Subtitle.
           if (subtitle.isNotEmpty()) {
             Text(
               subtitle,
               style = labelSmallNarrow,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier = Modifier.offset(y = (-6).dp),
             )
           }
         }
-
-        // Tab.
-        if (tabs.size > 1) {
-          PrimaryTabRow(selectedTabIndex = selectedTabIndex, containerColor = Color.Transparent) {
-            tabs.forEachIndexed { index, (_, tabTitle) ->
-              ConfigTab(
-                title = tabTitle,
-                selected = selectedTabIndex == index,
-                onClick = { selectedTabIndex = index },
-              )
-            }
-          }
+        IconButton(onClick = requestDismiss) {
+          Icon(
+            Icons.Rounded.Close,
+            contentDescription = stringResource(R.string.cancel),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
         }
+      }
 
+      // Tab bar.
+      if (tabs.size > 1) {
+        ConfigTabRow(
+          tabTitles = tabs.map { it.second },
+          selectedTabIndex = selectedTabIndex,
+          onSelectTab = { selectedTabIndex = it },
+        )
+      }
+
+      // Content tab (scrollable inside weight(1f)).
+      Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
         when (selectedTab) {
           ConfigTab.MODEL_CONFIGS -> {
             val scrollState = rememberScrollState()
             val scrollbarColor = MaterialTheme.colorScheme.onSurfaceVariant
-            // List of config rows.
             Column(
               modifier =
-                Modifier.weight(1f, fill = false)
+                Modifier.fillMaxSize()
                   .verticalScrollbar(scrollState = scrollState, color = scrollbarColor)
                   .verticalScroll(scrollState),
               verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -241,7 +253,7 @@ fun ConfigDialog(
           ConfigTab.SYSTEM_PROMPT ->
             OutlinedTextField(
               value = systemPrompt,
-              modifier = Modifier.weight(1f, fill = false),
+              modifier = Modifier.fillMaxSize(),
               textStyle = MaterialTheme.typography.bodySmall,
               onValueChange = { systemPrompt = it },
               placeholder = {
@@ -255,37 +267,41 @@ fun ConfigDialog(
               },
             )
         }
+      }
 
-        // Button row(s).
-        if (selectedTab == ConfigTab.SYSTEM_PROMPT) {
-          Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            // Restore default button to restore system prompt.
-            OutlinedButton(
-              onClick = { systemPrompt = defaultSystemPrompt },
-              contentPadding = SMALL_BUTTON_CONTENT_PADDING,
-            ) {
-              Text(stringResource(R.string.restore_default))
+      // Footer action bar: Restore default on the left, Cancel and OK on the right.
+      Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        OutlinedButton(
+          onClick = {
+            when (selectedTab) {
+              ConfigTab.MODEL_CONFIGS -> {
+                for (config in configs) {
+                  values[config.key.label] = config.defaultValue
+                }
+              }
+              ConfigTab.SYSTEM_PROMPT -> {
+                systemPrompt = defaultSystemPrompt
+              }
             }
-          }
+          },
+          contentPadding = SMALL_BUTTON_CONTENT_PADDING,
+        ) {
+          Text(stringResource(R.string.restore_default))
         }
 
         Row(
-          modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
           horizontalArrangement = Arrangement.End,
           verticalAlignment = Alignment.CenterVertically,
         ) {
-          // Cancel button.
           if (showCancel) {
-            TextButton(onClick = { onDismissed() }) { Text(stringResource(R.string.cancel)) }
+            TextButton(onClick = requestDismiss) { Text(stringResource(R.string.cancel)) }
+            Spacer(modifier = Modifier.width(8.dp))
           }
 
-          Spacer(modifier = Modifier.width(8.dp))
-
-          // Ok button
           Button(
             onClick = {
               Log.d(TAG, "Values from dialog: $values")
@@ -794,15 +810,182 @@ private fun Modifier.verticalScrollbar(
 }
 
 /**
- * Config dialog tab whose label keeps the standard tab text size and wraps onto up to two balanced
- * lines when it doesn't fit (for example "System prompt" at large font scales).
+ * Config side-sheet tab bar whose labels share one auto-sized font size and stay on one line.
  *
- * Uses the content overload of [Tab] with narrower horizontal padding than the default text tab so
- * that single words such as "Advanced" fit on one line instead of breaking mid-word. Words that
- * still don't fit are hyphenated rather than split arbitrarily.
+ * Each tab is as wide as its label, plus an equal share of the leftover width, so a short label
+ * like "Audio" leaves room for longer ones. Steps down from `titleSmall` (`14.sp`) to a `12.sp`
+ * floor, picking the largest size at which every label fits on 1 line this way. Only when no size
+ * down to the floor fits, such as with very large accessibility text, do the tabs split the width
+ * equally and wrap their labels onto 2 lines at the largest size that fits that way. Labels with an
+ * explicit line break, such as "Model\nconfigs", always render on 2 centered lines.
  */
 @Composable
-internal fun ConfigTab(title: String, selected: Boolean, onClick: () -> Unit) {
+internal fun ConfigTabRow(
+  tabTitles: List<String>,
+  selectedTabIndex: Int,
+  onSelectTab: (Int) -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  val textMeasurer = rememberTextMeasurer()
+  val density = LocalDensity.current
+  val baseStyle =
+    MaterialTheme.typography.titleSmall.copy(lineBreak = LineBreak.Heading, hyphens = Hyphens.Auto)
+
+  BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+    val rowWidthPx = constraints.maxWidth
+    val tabCount = tabTitles.size.coerceAtLeast(1)
+    val horizontalPaddingPx = with(density) { (TAB_LABEL_HORIZONTAL_PADDING * 2).roundToPx() }
+    val equalTabAvailableWidthPx = ((rowWidthPx / tabCount) - horizontalPaddingPx).coerceAtLeast(1)
+
+    val layout =
+      remember(tabTitles, rowWidthPx, baseStyle, density) {
+        val startSp = baseStyle.fontSize.value
+        val floorSp = TAB_TITLE_MIN_FONT_SIZE.value
+        var candidateSp = startSp
+        while (candidateSp >= floorSp - 0.001f) {
+          // Width of each label on one line at this size.
+          val labelWidthsPx = tabTitles.map { title ->
+            ceil(
+                textMeasurer
+                  .measure(text = title, style = baseStyle.copy(fontSize = candidateSp.sp))
+                  .multiParagraph
+                  .intrinsics
+                  .maxIntrinsicWidth
+              )
+              .toInt()
+          }
+          val leftoverPx = rowWidthPx - labelWidthsPx.sumOf { it + horizontalPaddingPx }
+          if (leftoverPx >= 0) {
+            return@remember ConfigTabRowLayout.SingleLine(
+              fontSize = candidateSp.sp,
+              tabWidthsPx = labelWidthsPx.map { it + horizontalPaddingPx + leftoverPx / tabCount },
+              labelWidthsPx = labelWidthsPx,
+            )
+          }
+          candidateSp -= TAB_TITLE_FONT_STEP_SP
+        }
+        // Even the floor size doesn't fit on one line: equal tabs, labels on up to 2 lines.
+        candidateSp = startSp
+        while (candidateSp >= floorSp - 0.001f) {
+          val fitsAll = tabTitles.all { title ->
+            val result =
+              textMeasurer.measure(
+                text = title,
+                style = baseStyle.copy(fontSize = candidateSp.sp),
+                constraints = Constraints(maxWidth = equalTabAvailableWidthPx),
+              )
+            result.lineCount <= 2 && !result.hasVisualOverflow
+          }
+          if (fitsAll) {
+            return@remember ConfigTabRowLayout.Wrapped(fontSize = candidateSp.sp)
+          }
+          candidateSp -= TAB_TITLE_FONT_STEP_SP
+        }
+        ConfigTabRowLayout.Wrapped(fontSize = TAB_TITLE_MIN_FONT_SIZE)
+      }
+
+    when (layout) {
+      is ConfigTabRowLayout.SingleLine ->
+        ContentWidthTabRow(
+          tabTitles = tabTitles,
+          selectedTabIndex = selectedTabIndex,
+          onSelectTab = onSelectTab,
+          layout = layout,
+        )
+      is ConfigTabRowLayout.Wrapped ->
+        PrimaryTabRow(selectedTabIndex = selectedTabIndex, containerColor = Color.Transparent) {
+          tabTitles.forEachIndexed { index, tabTitle ->
+            ConfigTab(
+              title = tabTitle,
+              selected = selectedTabIndex == index,
+              onClick = { onSelectTab(index) },
+              fontSize = layout.fontSize,
+              maxLines = 2,
+            )
+          }
+        }
+    }
+  }
+}
+
+/** How [ConfigTabRow] lays out its tabs. */
+private sealed interface ConfigTabRowLayout {
+  /**
+   * Every label fits on one line at [fontSize] when each tab is [tabWidthsPx] wide; its label is
+   * [labelWidthsPx] wide.
+   */
+  data class SingleLine(
+    val fontSize: TextUnit,
+    val tabWidthsPx: List<Int>,
+    val labelWidthsPx: List<Int>,
+  ) : ConfigTabRowLayout
+
+  /** Equal-width tabs whose labels wrap onto up to 2 lines at [fontSize]. */
+  data class Wrapped(val fontSize: TextUnit) : ConfigTabRowLayout
+}
+
+/**
+ * Tab row styled like [PrimaryTabRow] whose tabs have the widths in [layout] instead of equal
+ * widths. The indicator spans the selected tab's label and slides between tabs.
+ */
+@Composable
+private fun ContentWidthTabRow(
+  tabTitles: List<String>,
+  selectedTabIndex: Int,
+  onSelectTab: (Int) -> Unit,
+  layout: ConfigTabRowLayout.SingleLine,
+) {
+  val density = LocalDensity.current
+  val selectedIndex = selectedTabIndex.coerceIn(0, (tabTitles.size - 1).coerceAtLeast(0))
+  val tabLeftPx = layout.tabWidthsPx.take(selectedIndex).sum()
+  val tabWidthPx = layout.tabWidthsPx.getOrElse(selectedIndex) { 0 }
+  val labelWidthPx = layout.labelWidthsPx.getOrElse(selectedIndex) { 0 }
+  val indicatorWidth by
+    animateDpAsState(
+      targetValue = with(density) { labelWidthPx.toDp() },
+      label = "ConfigTabIndicatorWidth",
+    )
+  val indicatorLeft by
+    animateDpAsState(
+      targetValue = with(density) { (tabLeftPx + (tabWidthPx - labelWidthPx) / 2).toDp() },
+      label = "ConfigTabIndicatorLeft",
+    )
+  Column(modifier = Modifier.fillMaxWidth()) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+      Row(modifier = Modifier.fillMaxWidth().selectableGroup()) {
+        tabTitles.forEachIndexed { index, tabTitle ->
+          Box(modifier = Modifier.width(with(density) { layout.tabWidthsPx[index].toDp() })) {
+            ConfigTab(
+              title = tabTitle,
+              selected = selectedTabIndex == index,
+              onClick = { onSelectTab(index) },
+              fontSize = layout.fontSize,
+              // Titles with an explicit line break (e.g. "Model\nconfigs") render on 2 lines.
+              maxLines = 2,
+            )
+          }
+        }
+      }
+      TabRowDefaults.PrimaryIndicator(
+        width = indicatorWidth,
+        modifier = Modifier.align(Alignment.BottomStart).offset(x = indicatorLeft),
+      )
+    }
+    HorizontalDivider()
+  }
+}
+
+/**
+ * Config dialog tab rendered at the shared [fontSize] and [maxLines] computed by [ConfigTabRow].
+ */
+@Composable
+internal fun ConfigTab(
+  title: String,
+  selected: Boolean,
+  onClick: () -> Unit,
+  fontSize: TextUnit = MaterialTheme.typography.titleSmall.fontSize,
+  maxLines: Int = 2,
+) {
   Tab(
     selected = selected,
     onClick = onClick,
@@ -814,11 +997,12 @@ internal fun ConfigTab(title: String, selected: Boolean, onClick: () -> Unit) {
       text = title,
       style =
         MaterialTheme.typography.titleSmall.copy(
+          fontSize = fontSize,
           lineBreak = LineBreak.Heading,
           hyphens = Hyphens.Auto,
         ),
       textAlign = TextAlign.Center,
-      maxLines = 2,
+      maxLines = maxLines,
       overflow = TextOverflow.Ellipsis,
       modifier =
         Modifier.padding(
