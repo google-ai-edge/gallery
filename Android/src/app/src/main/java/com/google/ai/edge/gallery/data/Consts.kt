@@ -30,6 +30,19 @@ const val KEY_MODEL_DOWNLOAD_RECEIVED_BYTES = "KEY_MODEL_DOWNLOAD_RECEIVED_BYTES
 const val KEY_MODEL_DOWNLOAD_RATE = "KEY_MODEL_DOWNLOAD_RATE"
 const val KEY_MODEL_DOWNLOAD_REMAINING_MS = "KEY_MODEL_DOWNLOAD_REMAINING_SECONDS"
 const val KEY_MODEL_DOWNLOAD_ERROR_MESSAGE = "KEY_MODEL_DOWNLOAD_ERROR_MESSAGE"
+/**
+ * The key of a failed download's error type, a short, low-cardinality category for analytics:
+ * [ERROR_TYPE_MISSING_URL], [ERROR_TYPE_HTTP_PREFIX] followed by the HTTP status code, or the
+ * simple class name of the exception that failed the download, such as "SocketException".
+ */
+const val KEY_MODEL_DOWNLOAD_ERROR_TYPE = "KEY_MODEL_DOWNLOAD_ERROR_TYPE"
+/** The prefix of the error type of a non-2xx HTTP response, followed by the status code. */
+const val ERROR_TYPE_HTTP_PREFIX = "http_"
+/** The error type of a download request without a URL or file name. */
+const val ERROR_TYPE_MISSING_URL = "missing_url"
+/** The error type logged for a failure that reported no error type. */
+const val ERROR_TYPE_UNKNOWN = "unknown"
+const val KEY_MODEL_DOWNLOAD_AUTH_ERROR = "KEY_MODEL_DOWNLOAD_AUTH_ERROR"
 const val KEY_MODEL_DOWNLOAD_ACCESS_TOKEN = "KEY_MODEL_DOWNLOAD_ACCESS_TOKEN"
 const val KEY_MODEL_EXTRA_DATA_URLS = "KEY_MODEL_EXTRA_DATA_URLS"
 const val KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES = "KEY_MODEL_EXTRA_DATA_DOWNLOAD_FILE_NAMES"
