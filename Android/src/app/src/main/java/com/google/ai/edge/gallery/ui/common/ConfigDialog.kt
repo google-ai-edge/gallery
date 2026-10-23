@@ -147,7 +147,7 @@ private const val TAB_TITLE_FONT_STEP_SP = 0.5f
 
 private const val TAG = "AGConfigDialog"
 
-private enum class ConfigTab {
+enum class ConfigTab {
   MODEL_CONFIGS,
   SYSTEM_PROMPT,
 }
@@ -174,7 +174,6 @@ fun ConfigDialog(
   val values: SnapshotStateMap<String, Any> = remember {
     mutableStateMapOf<String, Any>().apply { putAll(initialValues) }
   }
-  var selectedTabIndex by remember { mutableIntStateOf(0) }
   val savedSystemPrompt = remember { curSystemPrompt }
   var systemPrompt by remember { mutableStateOf(curSystemPrompt) }
 
@@ -189,6 +188,7 @@ fun ConfigDialog(
         }
       }
     }
+  var selectedTabIndex by remember { mutableIntStateOf(0) }
   val selectedTab = tabs.getOrElse(selectedTabIndex) { tabs.first() }.first
 
   SideSheetDialog(onDismissed = onDismissed) { requestDismiss ->
