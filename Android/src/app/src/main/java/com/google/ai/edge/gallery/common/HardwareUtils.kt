@@ -38,17 +38,16 @@ object HardwareUtils {
 
     // Pixel 9 and later should use GPU.
     if (
-      lowerModel.contains("pixel 9") ||
+      "pixel 9" in lowerModel ||
         lowerDevice in PIXEL_9_CODENAMES ||
         lowerBoard in PIXEL_9_CODENAMES ||
-        lowerSocModel.contains("tensor g4") ||
-        lowerHardware.contains("zumapro")
+        "tensor g4" in lowerSocModel ||
+        "zumapro" in lowerHardware
     ) {
       return false
     }
     val combined = "$lowerHardware $lowerBoard $lowerSocModel"
-    return !combined.contains("malibu") &&
-      (combined.contains("exynos") || combined.contains("mali"))
+    return "malibu" !in combined && ("exynos" in combined || "mali" in combined)
   }
 
   private val TENSOR_G3_OR_HIGHER_CODENAMES =

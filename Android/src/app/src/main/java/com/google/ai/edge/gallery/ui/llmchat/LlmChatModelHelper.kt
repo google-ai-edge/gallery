@@ -91,7 +91,8 @@ data class LlmModelInstance(
 
   override fun getTokenCount(): Int = conversation.getTokenCount()
 
-  override fun sendMessage(prompt: String): Message = conversation.sendMessage(prompt)
+  override fun sendMessage(prompt: String, maxOutputTokens: Int?): Message =
+    conversation.sendMessage(prompt, maxOutputToken = maxOutputTokens)
 }
 
 object LlmChatModelHelper : LlmModelHelper {
@@ -304,7 +305,11 @@ object LlmChatModelHelper : LlmModelHelper {
       if (accelerator == Accelerator.NPU || accelerator == Accelerator.TPU) {
         null
       } else {
-        SamplerConfig(topK = topK, topP = topP.toDouble(), temperature = temperature.toDouble())
+        SamplerConfig(
+          topK = topK,
+          topP = topP.toDouble(),
+          temperature = temperature.toDouble(),
+        )
       }
     ExperimentalFlags.enableConversationConstrainedDecoding = enableConversationConstrainedDecoding
     return try {
