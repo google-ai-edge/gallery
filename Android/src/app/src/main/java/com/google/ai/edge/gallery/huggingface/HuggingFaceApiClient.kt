@@ -17,8 +17,7 @@
 package com.google.ai.edge.gallery.huggingface
 
 import android.util.Log
-import androidx.core.net.toUri
-import com.google.ai.edge.gallery.data.ModelAccessibility
+import com.google.ai.edge.gallery.data.HuggingFaceUrls
 import com.google.ai.edge.gallery.di.IoDispatcher
 import com.google.ai.edge.gallery.proto.HfModelItemProto
 import com.google.ai.edge.gallery.proto.HfSiblingProto
@@ -27,6 +26,7 @@ import com.google.ai.edge.gallery.proto.hfModelItemProto
 import com.google.ai.edge.gallery.proto.hfSiblingProto
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -41,9 +41,14 @@ private const val USER_AGENT = "AIEdgeGallery/1.0 (Android)"
 open class HuggingFaceApiClient
 @Inject
 constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
+
   /**
    * Fetches models from the Hugging Face API and applies official community promotion sorting.
    * Search fetching and model sorting are decoupled via [fetchModels] and [sortModels].
+   *
+   * @return The sorted list of compatible models (empty when the request succeeds with `200 OK` and
+   *   zero compatible models match [query]).
+   * @throws IOException when the HTTP request fails or the response body is not a valid JSON array.
    */
   open suspend fun searchModels(
     query: String = "",
@@ -56,7 +61,13 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
     return sortModels(rawModels, sort)
   }
 
-  /** Fetches matching catalog items from Hugging Face API with the given sort order. */
+  /**
+   * Fetches matching catalog items from the Hugging Face API with the given sort order.
+   *
+   * @return The list of compatible models (empty when the API returns `200 OK` with zero compatible
+   *   matches).
+   * @throws IOException when the HTTP request fails or the response body is not a valid JSON array.
+   */
   open suspend fun fetchModels(
     query: String = "",
     sort: HfSortOptionProto = HfSortOptionProto.HF_SORT_OPTION_DOWNLOADS,
@@ -66,24 +77,26 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
     withContext(ioDispatcher) {
       val urlString = buildApiUrl(query = query, sort = sort, limit = limit)
       val responseText = executeGetRequest(urlString = urlString, accessToken = accessToken)
-
-      if (responseText.isNullOrEmpty()) {
-        return@withContext emptyList()
-      }
-
       return@withContext parseModelListJson(responseText)
     }
 
+  /**
+   * Parses a Hugging Face `/api/models` JSON response into compatible [HfModelItemProto] items.
+   *
+   * @return The filtered list of compatible models (empty when the JSON array contains zero
+   *   compatible models).
+   * @throws IOException when [responseText] is malformed JSON or not a JSON array.
+   */
   private fun parseModelListJson(responseText: String): List<HfModelItemProto> {
     val jsonElement =
       try {
         JsonParser.parseString(responseText)
       } catch (e: Exception) {
         Log.e(TAG, "Failed to parse model list JSON", e)
-        return emptyList()
+        throw IOException("Failed to parse Hugging Face model list JSON", e)
       }
     if (!jsonElement.isJsonArray) {
-      return emptyList()
+      throw IOException("Expected JSON array from Hugging Face model list API")
     }
     val jsonArray = jsonElement.asJsonArray
     val models = jsonArray.mapNotNull { element ->
@@ -117,6 +130,13 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
     return "$HF_API_BASE_URL/models?$queryString"
   }
 
+  /**
+   * Fetches detailed model card information for a single Hugging Face model repository.
+   *
+   * @return The parsed [HfModelItemProto] if the response is a JSON object, or `null` if the
+   *   response body is empty or not a JSON object.
+   * @throws IOException when the HTTP request fails or the response body is malformed JSON.
+   */
   open suspend fun getModelDetails(
     modelId: String,
     accessToken: String? = null,
@@ -125,10 +145,16 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
       val urlString = "$HF_API_BASE_URL/models/$modelId?blobs=true"
       val responseText = executeGetRequest(urlString = urlString, accessToken = accessToken)
 
-      if (responseText.isNullOrEmpty()) {
+      if (responseText.isEmpty()) {
         return@withContext null
       }
-      val jsonElement = JsonParser.parseString(responseText)
+      val jsonElement =
+        try {
+          JsonParser.parseString(responseText)
+        } catch (e: Exception) {
+          Log.e(TAG, "Failed to parse model details JSON for $modelId", e)
+          throw IOException("Failed to parse Hugging Face model details JSON for $modelId", e)
+        }
       if (jsonElement.isJsonObject) {
         return@withContext parseHfModelItemProto(jsonElement.asJsonObject)
       }
@@ -150,7 +176,13 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
     accessToken: String? = null,
   ): Long? =
     withContext(ioDispatcher) {
-      val details = getModelDetails(modelId, accessToken = accessToken) ?: return@withContext null
+      val details =
+        try {
+          getModelDetails(modelId, accessToken = accessToken)
+        } catch (e: IOException) {
+          Log.w(TAG, "Failed to fetch model details for file size lookup: $modelId", e)
+          null
+        } ?: return@withContext null
       val matchingSibling =
         details.siblingsList.firstOrNull {
           it.rfilename == fileName || it.rfilename.endsWith("/$fileName")
@@ -162,60 +194,15 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
     }
 
   /**
-   * Probes the accessibility of a Hugging Face model URL using an optional Bearer access token.
-   *
-   * @param modelUrl The download URL of the model.
-   * @param accessToken Optional Bearer access token for authorization.
-   * @return [ModelAccessibility] indicating whether the model is accessible, gated, or needs token
-   *   exchange.
-   */
-  open suspend fun checkModelAccessibility(
-    modelUrl: String,
-    accessToken: String? = null,
-  ): ModelAccessibility =
-    withContext(ioDispatcher) {
-      if (modelUrl.isEmpty()) {
-        return@withContext ModelAccessibility.ACCESSIBLE
-      }
-      val responseCode =
-        try {
-          val connection =
-            openHttpConnection(urlString = modelUrl, method = "HEAD", accessToken = accessToken)
-          connection.connect()
-          connection.responseCode
-        } catch (e: Exception) {
-          Log.e(TAG, "Failed to probe model accessibility for URL: $modelUrl", e)
-          return@withContext ModelAccessibility.ERROR
-        }
-
-      when (responseCode) {
-        in 200..299 -> ModelAccessibility.ACCESSIBLE
-        HttpURLConnection.HTTP_UNAUTHORIZED -> ModelAccessibility.NEEDS_TOKEN_EXCHANGE
-        HttpURLConnection.HTTP_FORBIDDEN -> {
-          if (accessToken.isNullOrEmpty()) {
-            ModelAccessibility.NEEDS_TOKEN_EXCHANGE
-          } else {
-            ModelAccessibility.GATED
-          }
-        }
-        else -> {
-          Log.w(TAG, "Unexpected response code checking HF model accessibility: $responseCode")
-          ModelAccessibility.ERROR
-        }
-      }
-    }
-
-  /**
    * Opens and configures an [HttpURLConnection] with default headers and optional authorization.
    */
-  protected open fun openHttpConnection(
+  private fun openHttpConnection(
     urlString: String,
-    method: String = "GET",
     accessToken: String? = null,
   ): HttpURLConnection {
     val url = URL(urlString)
     val connection = url.openConnection() as HttpURLConnection
-    connection.requestMethod = method
+    connection.requestMethod = "GET"
     connection.setRequestProperty("User-Agent", USER_AGENT)
     if (!accessToken.isNullOrEmpty()) {
       connection.setRequestProperty("Authorization", "Bearer $accessToken")
@@ -223,11 +210,10 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
     return connection
   }
 
-  private fun executeGetRequest(urlString: String, accessToken: String? = null): String? {
+  protected open fun executeGetRequest(urlString: String, accessToken: String? = null): String {
     Log.d(TAG, "Executing HF HTTP GET request: $urlString")
     return try {
-      val connection =
-        openHttpConnection(urlString = urlString, method = "GET", accessToken = accessToken)
+      val connection = openHttpConnection(urlString = urlString, accessToken = accessToken)
       connection.connect()
 
       val responseCode = connection.responseCode
@@ -235,11 +221,14 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
         connection.inputStream.bufferedReader().use { it.readText() }
       } else {
         Log.e(TAG, "HF API returned HTTP $responseCode for URL: $urlString")
-        null
+        throw IOException("HF API returned HTTP $responseCode for URL: $urlString")
       }
+    } catch (e: IOException) {
+      Log.e(TAG, "Failed HTTP GET request to HF API for URL: $urlString", e)
+      throw e
     } catch (e: Exception) {
       Log.e(TAG, "Failed HTTP GET request to HF API for URL: $urlString", e)
-      null
+      throw IOException("Failed HTTP GET request to HF API for URL: $urlString", e)
     }
   }
 
@@ -289,12 +278,6 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
 
   companion object {
     /** Checks if the given URL belongs to Hugging Face (host contains "huggingface.co"). */
-    fun isHuggingFaceUrl(url: String): Boolean {
-      val trimmed = url.trim()
-      if (trimmed.isEmpty()) return false
-      val uri = (if (trimmed.contains("://")) trimmed else "https://$trimmed").toUri()
-      val host = uri.host?.lowercase()
-      return host == "huggingface.co" || host?.endsWith(".huggingface.co") == true
-    }
+    fun isHuggingFaceUrl(url: String): Boolean = HuggingFaceUrls.isHuggingFaceUrl(url)
   }
 }
