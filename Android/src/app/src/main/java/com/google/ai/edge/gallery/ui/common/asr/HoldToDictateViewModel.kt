@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.ai.edge.gallery.ui.common.textandvoiceinput
+package com.google.ai.edge.gallery.ui.common.asr
 
 import android.content.Context
 import android.content.Intent
@@ -150,8 +150,7 @@ constructor(
 
 private fun convertRmsDbToAmplitude(rmsdB: Float): Int {
   // Clamp the input value to the defined range
-  var clampedRmsdB = Math.max(rmsdB, AUDIO_METER_MIN_DB)
-  clampedRmsdB = Math.min(clampedRmsdB, AUDIO_METER_MAX_DB)
+  val clampedRmsdB = rmsdB.coerceIn(AUDIO_METER_MIN_DB, AUDIO_METER_MAX_DB)
 
   // Linear scaling to a 0-65535 range
   return ((clampedRmsdB - AUDIO_METER_MIN_DB) * 65535f / (AUDIO_METER_MAX_DB - AUDIO_METER_MIN_DB))
