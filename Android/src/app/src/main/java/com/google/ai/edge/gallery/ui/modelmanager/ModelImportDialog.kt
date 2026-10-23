@@ -87,6 +87,7 @@ import java.net.URL
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -111,6 +112,7 @@ fun ModelImportDialog(
   onDone: (ImportedModel) -> Unit,
   defaultValues: Map<ConfigKey, Any> = emptyMap(),
   accessToken: String? = null,
+  ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
   val context = LocalContext.current
   val info = remember { getFileSizeAndDisplayNameFromUri(context = context, uri = uri) }
@@ -136,8 +138,9 @@ fun ModelImportDialog(
         val size =
           fetchFileSize(
             urlStr = downloadUrl,
-            huggingFaceAccessToken = accessToken,
             hfApiClient = huggingFaceApiClient,
+            huggingFaceAccessToken = accessToken,
+            ioDispatcher = ioDispatcher,
           )
         if (size > 0L) {
           fileSize = size
@@ -476,15 +479,16 @@ private fun getDownloadUrl(uri: Uri): String {
  */
 private suspend fun fetchFileSize(
   urlStr: String,
-  huggingFaceAccessToken: String? = null,
   hfApiClient: HuggingFaceApiClient,
+  huggingFaceAccessToken: String? = null,
+  ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ): Long =
-  withContext(Dispatchers.IO) {
+  withContext(ioDispatcher) {
     if (HuggingFaceApiClient.isHuggingFaceUrl(urlStr)) {
       return@withContext fetchHuggingFaceFileSize(
         urlStr = urlStr,
-        huggingFaceAccessToken = huggingFaceAccessToken,
         hfApiClient = hfApiClient,
+        huggingFaceAccessToken = huggingFaceAccessToken,
       )
     }
     return@withContext fetchHttpFileSize(urlStr)
@@ -493,8 +497,8 @@ private suspend fun fetchFileSize(
 /** Fetches the file size using the Hugging Face API client. */
 private suspend fun fetchHuggingFaceFileSize(
   urlStr: String,
-  huggingFaceAccessToken: String? = null,
   hfApiClient: HuggingFaceApiClient,
+  huggingFaceAccessToken: String? = null,
 ): Long {
   val urlInfo = extractHfUrlInfo(urlStr)
   val modelId = urlInfo.modelId
