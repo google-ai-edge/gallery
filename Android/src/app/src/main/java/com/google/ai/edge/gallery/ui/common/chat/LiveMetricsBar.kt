@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -201,6 +203,8 @@ fun LiveMetricsBar(
             text = stringResource(R.string.live_metrics_context),
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
           )
           Text(
             text = uiState.contextUsageText,
@@ -216,6 +220,10 @@ fun LiveMetricsBar(
                 uiState.isHighContextUsage -> warningColor
                 else -> MaterialTheme.colorScheme.onSurfaceVariant
               },
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            autoSize = LABEL_TEXT_AUTO_SIZE,
+            modifier = Modifier.weight(1f, fill = false),
           )
         }
 
@@ -511,6 +519,8 @@ private fun MetricColumn(
       style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
       color = MaterialTheme.colorScheme.onSurfaceVariant,
       maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+      autoSize = LABEL_TEXT_AUTO_SIZE,
     )
     Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
       Text(
@@ -523,7 +533,9 @@ private fun MetricColumn(
           ),
         color = MaterialTheme.colorScheme.onSurface,
         maxLines = 1,
-        modifier = Modifier.alignByBaseline(),
+        overflow = TextOverflow.Ellipsis,
+        autoSize = VALUE_TEXT_AUTO_SIZE,
+        modifier = Modifier.weight(1f, fill = false).alignByBaseline(),
       )
       if (!valueAnnotation.isNullOrEmpty()) {
         Text(
@@ -531,7 +543,9 @@ private fun MetricColumn(
           style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
           color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
           maxLines = 1,
-          modifier = Modifier.alignByBaseline(),
+          overflow = TextOverflow.Ellipsis,
+          autoSize = SUBTEXT_AUTO_SIZE,
+          modifier = Modifier.widthIn(max = 42.dp).alignByBaseline(),
         )
       }
     }
@@ -546,6 +560,8 @@ private fun MetricColumn(
           ),
         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
         maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        autoSize = SUBTEXT_AUTO_SIZE,
       )
     }
   }
@@ -556,3 +572,10 @@ private const val MILLIS_PER_SECOND: Long = 1000L
 private const val MILLIS_PER_SECOND_FLOAT: Float = 1000f
 private const val MILLIWATTS_PER_WATT: Float = 1000f
 private const val MEGABYTES_PER_GIGABYTE: Float = 1024f
+
+private val LABEL_TEXT_AUTO_SIZE =
+  TextAutoSize.StepBased(minFontSize = 7.5.sp, maxFontSize = 10.sp, stepSize = 0.5.sp)
+private val VALUE_TEXT_AUTO_SIZE =
+  TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 12.sp, stepSize = 0.5.sp)
+private val SUBTEXT_AUTO_SIZE =
+  TextAutoSize.StepBased(minFontSize = 7.sp, maxFontSize = 9.sp, stepSize = 0.5.sp)
