@@ -311,6 +311,7 @@ fun ChatView(
                       enabled = newAutoCompact,
                       model = selectedModel,
                       compactIfLimitReached = true,
+                      source = AutoCompactionEnableSource.SETTINGS,
                     )
                   }
                 }

@@ -28,6 +28,7 @@ import com.google.ai.edge.gallery.agent.AgentRuntimeConfig
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
 import com.google.ai.edge.gallery.agent.AiChatExecutor
 import com.google.ai.edge.gallery.agent.Attachment
+import com.google.ai.edge.gallery.agent.sessions.ContextCompactionSource
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.agent.sessions.generateSessionId
 import com.google.ai.edge.gallery.common.SystemPromptHelper
@@ -535,6 +536,7 @@ open class LlmChatViewModelBase(
       model = model,
       taskId = taskId,
       triggerType = ContextCompactionTriggerType.AUTO,
+      source = ContextCompactionSource.CHAT_HISTORY,
     )
   }
 

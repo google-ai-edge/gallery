@@ -293,6 +293,7 @@ fun ModelPageAppBar(
         // Check if the configs are changed or not. Also check if the model needs to be
         // re-initialized.
         var same = true
+        var modelConfigChanged = false
         var needReinitialization = false
         for (config in modelConfigs) {
           val key = config.key.label
@@ -308,15 +309,20 @@ fun ModelPageAppBar(
             )
           if (oldValue != newValue) {
             same = false
+            if (config.key != ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT) {
+              modelConfigChanged = true
+            }
             if (config.needReinitialization) {
               needReinitialization = true
             }
-            break
+            if (modelConfigChanged && needReinitialization) {
+              break
+            }
           }
         }
         val systemPromptChanged = newSystemPrompt != oldSystemPrompt
 
-        if (!same || systemPromptChanged) {
+        if (modelConfigChanged || systemPromptChanged) {
           firebaseAnalytics?.logEvent(
             GalleryEvent.MODEL_CONFIG_CHANGE.id,
             Bundle().apply {

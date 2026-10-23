@@ -24,7 +24,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.agent.AgentRuntimeExecutor
-import com.google.ai.edge.gallery.agent.sessions.CompactionResult
+import com.google.ai.edge.gallery.agent.sessions.ContextCompactionSource
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.common.metrics.InferenceMetrics
 import com.google.ai.edge.gallery.common.processLlmResponse
@@ -57,6 +57,12 @@ enum class ContextCompactionStatus {
 enum class ContextCompactionTriggerType(val value: String) {
   AUTO("auto"),
   MANUAL("manual"),
+}
+
+/** Source UI surface where automatic context compaction was updated. */
+enum class AutoCompactionEnableSource(val value: String) {
+  BANNER("banner"),
+  SETTINGS("settings"),
 }
 
 data class ChatUiState(
@@ -278,17 +284,34 @@ abstract class ChatViewModel(
    * @param model Optional active [Model] to evaluate and compact if the token limit is reached.
    * @param compactIfLimitReached Whether to immediately trigger compaction if the token limit is
    *   already reached when enabling auto-compaction.
+   * @param source The [AutoCompactionEnableSource] indicating where the setting was updated.
    */
   fun setAutoCompact(
     taskId: String,
     enabled: Boolean,
     model: Model? = null,
     compactIfLimitReached: Boolean = false,
+    source: AutoCompactionEnableSource = AutoCompactionEnableSource.SETTINGS,
   ) {
     val wasEnabled = isAutoCompactEnabled(taskId)
     dataStoreRepository?.saveAutoContextCompact(taskId, enabled)
     _uiState.update { state ->
       state.copy(autoCompactByTask = state.autoCompactByTask + (taskId to enabled))
+    }
+    if (!wasEnabled && enabled && model != null) {
+      Log.d(
+        TAG,
+        "Analytics: auto_compaction_enable, capability_name=$taskId, model_id=${model.name}, model_version=${model.downloadInfo.version}, entry_point=${source.value}",
+      )
+      firebaseAnalytics?.logEvent(
+        GalleryEvent.AUTO_COMPACTION_ENABLE.id,
+        Bundle().apply {
+          putString("capability_name", taskId)
+          putString("model_id", model.name)
+          putString("model_version", model.downloadInfo.version)
+          putString("entry_point", source.value)
+        },
+      )
     }
     if (
       !wasEnabled &&
@@ -395,13 +418,14 @@ abstract class ChatViewModel(
   /**
    * Triggers context compaction for the active chat session on the given [model].
    *
-   * Logs analytics events for the compaction request, updates the model's [ContextCompactionStatus]
-   * in the UI state while compaction runs asynchronously, and invokes [onSuccess] or [onError]
+   * Updates the model's [ContextCompactionStatus] in the UI state while compaction runs
+   * asynchronously, logs analytics when compaction succeeds, and invokes [onSuccess] or [onError]
    * based on the outcome.
    *
    * @param model The model whose session context should be compacted.
    * @param taskId The identifier of the task or capability associated with the chat session.
    * @param triggerType The [ContextCompactionTriggerType] indicating what initiated compaction.
+   * @param source The [ContextCompactionSource] describing why compaction was triggered.
    * @param onSuccess Callback invoked when context compaction completes and compacts the session.
    * @param onError Callback invoked if context compaction fails.
    */
@@ -414,6 +438,7 @@ abstract class ChatViewModel(
       } else {
         ContextCompactionTriggerType.MANUAL
       },
+    source: ContextCompactionSource = ContextCompactionSource.TOKEN_LIMIT,
     onSuccess: () -> Unit = {},
     onError: () -> Unit = {},
   ) {
@@ -422,6 +447,7 @@ abstract class ChatViewModel(
         model = model,
         taskId = taskId,
         triggerType = triggerType,
+        source = source,
         onSuccess = onSuccess,
         onError = onError,
       )
@@ -442,6 +468,7 @@ abstract class ChatViewModel(
       } else {
         ContextCompactionTriggerType.MANUAL
       },
+    source: ContextCompactionSource = ContextCompactionSource.TOKEN_LIMIT,
     onSuccess: () -> Unit = {},
     onError: () -> Unit = {},
   ) {
@@ -450,6 +477,7 @@ abstract class ChatViewModel(
         model = model,
         taskId = taskId,
         triggerType = triggerType,
+        source = source,
         onSuccess = onSuccess,
         onError = onError,
       ) ?: return
@@ -465,6 +493,7 @@ abstract class ChatViewModel(
     model: Model,
     taskId: String,
     triggerType: ContextCompactionTriggerType,
+    source: ContextCompactionSource,
     onSuccess: () -> Unit,
     onError: () -> Unit,
   ): Job? {
@@ -477,6 +506,7 @@ abstract class ChatViewModel(
         model = model,
         taskId = taskId,
         triggerType = triggerType,
+        source = source,
         onSuccess = onSuccess,
         onError = onError,
       )
@@ -489,59 +519,74 @@ abstract class ChatViewModel(
     model: Model,
     taskId: String,
     triggerType: ContextCompactionTriggerType,
+    source: ContextCompactionSource,
     onSuccess: () -> Unit,
     onError: () -> Unit,
   ) {
-    val defaultToBehavior = isAutoCompactEnabled(taskId)
     var compactionStarted = false
-    // Logs analytics and shows the compaction progress once compaction actually begins, so that
-    // checks that end up not compacting anything (e.g. right after a session is restored) leave
-    // the UI untouched.
+    // Shows the compaction progress once compaction actually begins, so that checks that end up
+    // not compacting anything (e.g. right after a session is restored) leave the UI untouched.
     val onCompactionStart = {
       if (!compactionStarted) {
         compactionStarted = true
-        logCompactionStarted(model, taskId, triggerType, defaultToBehavior)
         setContextCompactionStatus(model, ContextCompactionStatus.COMPACTING)
       }
     }
+    var compactionFailed = false
     val thisJob = compactionJob
     var sessionId: String? = null
     try {
       val resolvedSessionId = currentSessionId.also { sessionId = it }
       // Automatic compaction after a turn, the manual "Compress & Continue" banner action, and
       // truncation after a session load all compact only once a token threshold is reached.
-      val result =
-        llmSessionManager.compactContextIfNeeded(
+      val outcome =
+        llmSessionManager.compactContextWithOutcome(
           sessionId = resolvedSessionId,
           model = model,
           onCompactionStart = onCompactionStart,
+          onCompactionFailed = { compactionFailed = true },
           force = false,
+          source = source,
         )
-      when (result) {
-        CompactionResult.COMPACTED -> {
-          Log.d(TAG, "Context compacted for session $resolvedSessionId on model ${model.name}")
-          addMessage(
-            model = model,
-            message = ChatMessageDivider(textResId = R.string.context_compressed_success),
-          )
-          setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
-          onSuccess()
-        }
-        CompactionResult.NOT_NEEDED -> {
-          Log.d(
-            TAG,
-            "Context compaction did not occur for session $resolvedSessionId on model ${model.name}",
-          )
-          setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
-        }
-        CompactionResult.FAILED -> {
-          Log.w(
-            TAG,
-            "Context compaction failed for session $resolvedSessionId on model ${model.name}",
-          )
-          setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
-          onError()
-        }
+      if (outcome != null) {
+        Log.d(
+          TAG,
+          "Context compacted for session $resolvedSessionId on model ${model.name} (algorithm=${outcome.algorithm.value}, source=${outcome.source.value})",
+        )
+        Log.d(
+          TAG,
+          "Analytics: context_compression, capability_name=$taskId, model_id=${model.name}, model_version=${model.downloadInfo.version}, trigger_type=${triggerType.value}, compaction_algorithm=${outcome.algorithm.value}, compaction_reason=${outcome.source.value}",
+        )
+        firebaseAnalytics?.logEvent(
+          GalleryEvent.CONTEXT_COMPRESSION.id,
+          Bundle().apply {
+            putString("capability_name", taskId)
+            putString("model_id", model.name)
+            putString("model_version", model.downloadInfo.version)
+            putString("trigger_type", triggerType.value)
+            putString("compaction_algorithm", outcome.algorithm.value)
+            putString("compaction_reason", outcome.source.value)
+          },
+        )
+        addMessage(
+          model = model,
+          message = ChatMessageDivider(textResId = R.string.context_compressed_success),
+        )
+        setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
+        onSuccess()
+      } else if (compactionFailed) {
+        Log.w(
+          TAG,
+          "Context compaction failed for session $resolvedSessionId on model ${model.name}",
+        )
+        setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
+        onError()
+      } else {
+        Log.d(
+          TAG,
+          "Context compaction did not occur for session $resolvedSessionId on model ${model.name}",
+        )
+        setContextCompactionStatus(model, ContextCompactionStatus.IDLE)
       }
     } catch (e: CancellationException) {
       if (getContextCompactionStatus(model) == ContextCompactionStatus.COMPACTING) {
@@ -556,42 +601,6 @@ abstract class ChatViewModel(
       if (compactionJob === thisJob) {
         compactionJob = null
       }
-    }
-  }
-
-  private fun logCompactionStarted(
-    model: Model,
-    taskId: String,
-    triggerType: ContextCompactionTriggerType,
-    defaultToBehavior: Boolean,
-  ) {
-    Log.d(
-      TAG,
-      "Analytics: context_compression, capability_name=$taskId, model_id=${model.name}, model_version=${model.downloadInfo.version}, trigger_type=${triggerType.value}, default_to_behavior=$defaultToBehavior",
-    )
-    firebaseAnalytics?.logEvent(
-      GalleryEvent.CONTEXT_COMPRESSION.id,
-      Bundle().apply {
-        putString("capability_name", taskId)
-        putString("model_id", model.name)
-        putString("model_version", model.downloadInfo.version)
-        putString("trigger_type", triggerType.value)
-        putBoolean("default_to_behavior", defaultToBehavior)
-      },
-    )
-    if (triggerType == ContextCompactionTriggerType.MANUAL && defaultToBehavior) {
-      Log.d(
-        TAG,
-        "Analytics: auto_compaction_enable, capability_name=$taskId, model_id=${model.name}, model_version=${model.downloadInfo.version}",
-      )
-      firebaseAnalytics?.logEvent(
-        GalleryEvent.AUTO_COMPACTION_ENABLE.id,
-        Bundle().apply {
-          putString("capability_name", taskId)
-          putString("model_id", model.name)
-          putString("model_version", model.downloadInfo.version)
-        },
-      )
     }
   }
 

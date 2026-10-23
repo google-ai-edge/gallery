@@ -55,6 +55,8 @@ class TruncationContextCompactor
 @Inject
 constructor(private val chatSessionRepository: ChatSessionRepository) : ContextCompactor {
 
+  override val algorithm: ContextCompactionAlgorithm = ContextCompactionAlgorithm.TRUNCATION
+
   override suspend fun compactContextIfNeeded(
     sessionId: String,
     model: Model,

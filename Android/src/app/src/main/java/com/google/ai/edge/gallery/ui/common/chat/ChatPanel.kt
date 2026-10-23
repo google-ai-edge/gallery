@@ -777,11 +777,21 @@ fun ChatPanel(
           status = contextCompactionStatus,
           initialDefaultToBehavior = isAutoCompactEnabled,
           onDefaultToBehaviorChanged = { defaultToBehavior ->
-            viewModel.setAutoCompact(task.id, defaultToBehavior)
+            viewModel.setAutoCompact(
+              taskId = task.id,
+              enabled = defaultToBehavior,
+              model = selectedModel,
+              source = AutoCompactionEnableSource.BANNER,
+            )
             modelManagerViewModel.updateConfigValuesUpdateTrigger()
           },
           onCompressClicked = { defaultToBehavior ->
-            viewModel.setAutoCompact(task.id, defaultToBehavior)
+            viewModel.setAutoCompact(
+              taskId = task.id,
+              enabled = defaultToBehavior,
+              model = selectedModel,
+              source = AutoCompactionEnableSource.BANNER,
+            )
             modelManagerViewModel.updateConfigValuesUpdateTrigger()
             viewModel.compactContext(
               model = selectedModel,

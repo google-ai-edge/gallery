@@ -230,6 +230,54 @@ interface LlmSessionManager {
   ): CompactionResult = CompactionResult.NOT_NEEDED
 
   /**
+   * Checks the active conversation token budget against model limits and performs context
+   * compaction and conversation KV-cache reset if approaching token limits, returning the
+   * [ContextCompactionOutcome] when compaction succeeds or `null` otherwise.
+   *
+   * @param sessionId The session identifier.
+   * @param model The model whose conversation context should be inspected and compacted.
+   * @param onCompactionStart Optional callback invoked at most once, immediately when compaction is
+   *   triggered and before the context is compacted.
+   * @param onCompactionFailed Optional callback invoked when compaction was needed (or forced) and
+   *   attempted, but failed.
+   * @param force Whether to force compaction regardless of token budget thresholds.
+   * @param source The [ContextCompactionSource] describing what initiated the compaction check.
+   * @return [ContextCompactionOutcome] if context was compacted, or `null` otherwise.
+   */
+  suspend fun compactContextWithOutcome(
+    sessionId: String,
+    model: Model,
+    onCompactionStart: (() -> Unit)? = null,
+    onCompactionFailed: (() -> Unit)? = null,
+    force: Boolean = false,
+    source: ContextCompactionSource = ContextCompactionSource.TOKEN_LIMIT,
+  ): ContextCompactionOutcome? {
+    val result =
+      compactContextIfNeeded(
+        sessionId = sessionId,
+        model = model,
+        onCompactionStart = onCompactionStart,
+        force = force,
+      )
+    when (result) {
+      CompactionResult.COMPACTED -> {
+        val algorithm =
+          if (source == ContextCompactionSource.TOKEN_LIMIT) {
+            ContextCompactionAlgorithm.SUMMARIZATION
+          } else {
+            ContextCompactionAlgorithm.TRUNCATION
+          }
+        return ContextCompactionOutcome(algorithm = algorithm, source = source)
+      }
+      CompactionResult.NOT_NEEDED -> return null
+      CompactionResult.FAILED -> {
+        onCompactionFailed?.invoke()
+        return null
+      }
+    }
+  }
+
+  /**
    * Checks whether the active conversation has reached or is approaching the model's token limit.
    *
    * @param sessionId The session identifier.

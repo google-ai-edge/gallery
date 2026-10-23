@@ -373,18 +373,61 @@ constructor(
     )
   }
 
+  private data class InternalCompactionResult(
+    val result: CompactionResult,
+    val outcome: ContextCompactionOutcome? = null,
+  )
+
   override suspend fun compactContextIfNeeded(
     sessionId: String,
     model: Model,
     onCompactionStart: (() -> Unit)?,
     force: Boolean,
   ): CompactionResult =
+    compactContextInternal(
+        sessionId = sessionId,
+        model = model,
+        onCompactionStart = onCompactionStart,
+        force = force,
+        source = ContextCompactionSource.TOKEN_LIMIT,
+      )
+      .result
+
+  override suspend fun compactContextWithOutcome(
+    sessionId: String,
+    model: Model,
+    onCompactionStart: (() -> Unit)?,
+    onCompactionFailed: (() -> Unit)?,
+    force: Boolean,
+    source: ContextCompactionSource,
+  ): ContextCompactionOutcome? {
+    val internalResult =
+      compactContextInternal(
+        sessionId = sessionId,
+        model = model,
+        onCompactionStart = onCompactionStart,
+        force = force,
+        source = source,
+      )
+    if (internalResult.result == CompactionResult.FAILED) {
+      onCompactionFailed?.invoke()
+    }
+    return internalResult.outcome
+  }
+
+  private suspend fun compactContextInternal(
+    sessionId: String,
+    model: Model,
+    onCompactionStart: (() -> Unit)?,
+    force: Boolean,
+    source: ContextCompactionSource,
+  ): InternalCompactionResult =
     withContext(ioDispatcher) {
       if (!Config.isContextCompactEnabled() || model.isAiCore) {
-        return@withContext CompactionResult.NOT_NEEDED
+        return@withContext InternalCompactionResult(CompactionResult.NOT_NEEDED)
       }
       if (contextCompactor == null && fallbackContextCompactor == null) {
-        return@withContext CompactionResult.NOT_NEEDED
+        return@withContext InternalCompactionResult(CompactionResult.NOT_NEEDED)
       }
       // The primary compactor may start compacting and then fail over to the fallback compactor,
       // so make sure the caller is only notified once.
@@ -406,18 +449,47 @@ constructor(
             force = force,
           )
         when (primaryResult) {
-          CompactionResult.COMPACTED -> CompactionResult.COMPACTED
+          CompactionResult.COMPACTED -> {
+            val algorithm =
+              if (
+                contextCompactor?.algorithm == ContextCompactionAlgorithm.TRUNCATION ||
+                  source != ContextCompactionSource.TOKEN_LIMIT
+              ) {
+                ContextCompactionAlgorithm.TRUNCATION
+              } else {
+                ContextCompactionAlgorithm.SUMMARIZATION
+              }
+            InternalCompactionResult(
+              result = CompactionResult.COMPACTED,
+              outcome = ContextCompactionOutcome(algorithm = algorithm, source = source),
+            )
+          }
           // Let the fallback compactor evaluate its own threshold, e.g. by estimating the token
           // usage of a session that has not been prefilled yet.
-          CompactionResult.NOT_NEEDED ->
-            runCompactor(
-              compactor = fallbackContextCompactor,
-              sessionId = sessionId,
-              model = model,
-              config = config,
-              onCompactionStart = notifyStartOnce,
-              force = force,
-            )
+          CompactionResult.NOT_NEEDED -> {
+            val fallbackResult =
+              runCompactor(
+                compactor = fallbackContextCompactor,
+                sessionId = sessionId,
+                model = model,
+                config = config,
+                onCompactionStart = notifyStartOnce,
+                force = force,
+              )
+            if (fallbackResult == CompactionResult.COMPACTED) {
+              InternalCompactionResult(
+                result = CompactionResult.COMPACTED,
+                outcome =
+                  ContextCompactionOutcome(
+                    algorithm =
+                      fallbackContextCompactor?.algorithm ?: ContextCompactionAlgorithm.TRUNCATION,
+                    source = source,
+                  ),
+              )
+            } else {
+              InternalCompactionResult(result = fallbackResult)
+            }
+          }
           // The primary compactor determined that compaction is needed but failed, so force the
           // fallback compactor to compact even if usage is below the fallback's own threshold.
           CompactionResult.FAILED -> {
@@ -432,9 +504,17 @@ constructor(
                 force = true,
               )
             if (fallbackResult == CompactionResult.COMPACTED) {
-              CompactionResult.COMPACTED
+              InternalCompactionResult(
+                result = CompactionResult.COMPACTED,
+                outcome =
+                  ContextCompactionOutcome(
+                    algorithm =
+                      fallbackContextCompactor?.algorithm ?: ContextCompactionAlgorithm.TRUNCATION,
+                    source = ContextCompactionSource.SUMMARIZATION_FALLBACK,
+                  ),
+              )
             } else {
-              CompactionResult.FAILED
+              InternalCompactionResult(result = CompactionResult.FAILED)
             }
           }
         }

@@ -56,6 +56,8 @@ private const val MAX_SUMMARY_OUTPUT_TOKENS = 1350
 @Singleton
 class SummarizationContextCompactor @Inject constructor() : ContextCompactor {
 
+  override val algorithm: ContextCompactionAlgorithm = ContextCompactionAlgorithm.SUMMARIZATION
+
   private val sessionMutexes = ConcurrentHashMap<String, Mutex>()
 
   override suspend fun compactContextIfNeeded(

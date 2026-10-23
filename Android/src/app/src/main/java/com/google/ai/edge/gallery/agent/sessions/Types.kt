@@ -30,6 +30,30 @@ enum class CompactionResult {
   FAILED,
 }
 
+/** Algorithm used to compact conversation context. */
+enum class ContextCompactionAlgorithm(val value: String) {
+  SUMMARIZATION("summarization"),
+  TRUNCATION("truncation"),
+}
+
+/** Source reason that triggered conversation context compaction. */
+enum class ContextCompactionSource(val value: String) {
+  TOKEN_LIMIT("token_limit"),
+  SUMMARIZATION_FALLBACK("summarization_fallback"),
+  CHAT_HISTORY("chat_history"),
+}
+
+/**
+ * Outcome of a successful context compaction operation.
+ *
+ * @property algorithm The [ContextCompactionAlgorithm] that compacted the conversation.
+ * @property source The [ContextCompactionSource] describing why that algorithm ran.
+ */
+data class ContextCompactionOutcome(
+  val algorithm: ContextCompactionAlgorithm,
+  val source: ContextCompactionSource,
+)
+
 /**
  * Data class representing session configuration (model, taskId, system prompt, tools).
  *
