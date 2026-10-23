@@ -20,6 +20,7 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -62,15 +63,20 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import kotlinx.coroutines.launch
@@ -96,6 +102,7 @@ val TAB_BAR_HEIGHT = 78.dp
 fun ScrapbookScreen(
   task: Task,
   modelManagerViewModel: ModelManagerViewModel,
+  backend: SegmenterBackend?,
   bottomPadding: Dp,
   setAppBarControlsDisabled: (Boolean) -> Unit,
   setTopBarVisible: (Boolean) -> Unit,
@@ -105,6 +112,7 @@ fun ScrapbookScreen(
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
   val model = modelManagerUiState.selectedModel
+  val modelInitStatus by model.initStatusFlow.collectAsStateWithLifecycle()
   var selectedTabIndex by remember { mutableIntStateOf(0) }
   val snackbarHostState = remember { SnackbarHostState() }
   val scope = rememberCoroutineScope()
@@ -126,6 +134,7 @@ fun ScrapbookScreen(
               Segmenter(
                 model = model,
                 viewModel = viewModel,
+                backend = backend,
                 bottomPadding = bottomPadding,
                 setCustomNavigateUpCallback = setCustomNavigateUpCallback,
               )
@@ -293,6 +302,34 @@ fun ScrapbookScreen(
       modifier =
         Modifier.padding(bottom = bottomPadding + TAB_BAR_HEIGHT + 4.dp)
           .align(Alignment.BottomCenter),
+    )
+
+    // Model initialization status. Shown immediately, and faded out once the model is ready.
+    AnimatedVisibility(
+      visible = modelInitStatus is Model.InitializationStatus.Initializing,
+      enter = EnterTransition.None,
+      exit = fadeOut(),
+    ) {
+      ModelInitializationPanel()
+    }
+  }
+}
+
+/** Covers the screen with a spinner while the model initializes. */
+@Composable
+fun ModelInitializationPanel(modifier: Modifier = Modifier) {
+  val initializingMessage = stringResource(R.string.model_is_initializing_msg)
+  Box(
+    modifier =
+      modifier
+        .fillMaxSize()
+        .background(MaterialTheme.colorScheme.surface)
+        // Block touches to the screen underneath without exposing a click action to TalkBack.
+        .pointerInput(Unit) {},
+    contentAlignment = Alignment.Center,
+  ) {
+    CircularProgressIndicator(
+      modifier = Modifier.semantics { contentDescription = initializingMessage }
     )
   }
 }

@@ -20,19 +20,20 @@ package com.google.ai.edge.gallery.ui.common
 // import com.google.ai.edge.gallery.ui.preview.MODEL_TEST1
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -49,12 +50,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MultiChoiceSegmentedButtonRow
@@ -91,19 +93,23 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BooleanSwitchConfig
 import com.google.ai.edge.gallery.data.BottomSheetSelectorConfig
@@ -128,6 +134,12 @@ private val TAB_LABEL_HORIZONTAL_PADDING = 4.dp
 /** Vertical padding around a tab label, so two-line labels don't touch the indicator. */
 private val TAB_LABEL_VERTICAL_PADDING = 8.dp
 
+/** Floor font size for config dialog tab titles before allowing two-line wrapping. */
+private val TAB_TITLE_MIN_FONT_SIZE = 12.sp
+
+/** Step size when auto-sizing config dialog tab titles down from [TextStyle.fontSize]. */
+private const val TAB_TITLE_FONT_STEP_SP = 0.5f
+
 private const val TAG = "AGConfigDialog"
 
 private enum class ConfigTab {
@@ -136,12 +148,13 @@ private enum class ConfigTab {
 }
 
 /**
- * Displays a configuration dialog allowing users to modify settings through various input controls.
+ * Displays a configuration side sheet allowing users to modify model parameters, the system prompt,
+ * and task audio (ASR and TTS) settings.
  */
-@Suppress("DEPRECATION")
+@Suppress("DEPRECATION", "UNUSED_PARAMETER")
 @Composable
 fun ConfigDialog(
-  title: String,
+  title: String = "",
   configs: List<Config>,
   initialValues: Map<String, Any>,
   onDismissed: () -> Unit,
@@ -156,7 +169,6 @@ fun ConfigDialog(
   val values: SnapshotStateMap<String, Any> = remember {
     mutableStateMapOf<String, Any>().apply { putAll(initialValues) }
   }
-  val interactionSource = remember { MutableInteractionSource() }
   var selectedTabIndex by remember { mutableIntStateOf(0) }
   val savedSystemPrompt = remember { curSystemPrompt }
   var systemPrompt by remember { mutableStateOf(curSystemPrompt) }
@@ -174,63 +186,58 @@ fun ConfigDialog(
     }
   val selectedTab = tabs.getOrElse(selectedTabIndex) { tabs.first() }.first
 
-  Dialog(onDismissRequest = onDismissed) {
-    val focusManager = LocalFocusManager.current
-    Card(
-      modifier =
-        Modifier.fillMaxWidth()
-          .clickable(
-            interactionSource = interactionSource,
-            indication = null, // Disable the ripple effect
-          ) {
-            focusManager.clearFocus()
-          }
-          .imePadding(),
-      shape = RoundedCornerShape(16.dp),
+  SideSheetDialog(onDismissed = onDismissed) { requestDismiss ->
+    Column(
+      modifier = Modifier.fillMaxSize().padding(20.dp),
+      verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-      Column(
-        modifier = Modifier.padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+      // Header: Title and Close button.
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
       ) {
-        // Dialog title and subtitle.
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
           Text(
-            title,
+            stringResource(R.string.config_dialog_configure_settings_title),
             style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 8.dp),
+            modifier = Modifier.padding(bottom = 4.dp),
           )
-          // Subtitle.
           if (subtitle.isNotEmpty()) {
             Text(
               subtitle,
               style = labelSmallNarrow,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier = Modifier.offset(y = (-6).dp),
             )
           }
         }
-
-        // Tab.
-        if (tabs.size > 1) {
-          PrimaryTabRow(selectedTabIndex = selectedTabIndex, containerColor = Color.Transparent) {
-            tabs.forEachIndexed { index, (_, tabTitle) ->
-              ConfigTab(
-                title = tabTitle,
-                selected = selectedTabIndex == index,
-                onClick = { selectedTabIndex = index },
-              )
-            }
-          }
+        IconButton(onClick = requestDismiss) {
+          Icon(
+            Icons.Rounded.Close,
+            contentDescription = stringResource(R.string.cancel),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
         }
+      }
 
+      // Tab bar.
+      if (tabs.size > 1) {
+        ConfigTabRow(
+          tabTitles = tabs.map { it.second },
+          selectedTabIndex = selectedTabIndex,
+          onSelectTab = { selectedTabIndex = it },
+        )
+      }
+
+      // Content tab (scrollable inside weight(1f)).
+      Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
         when (selectedTab) {
           ConfigTab.MODEL_CONFIGS -> {
             val scrollState = rememberScrollState()
             val scrollbarColor = MaterialTheme.colorScheme.onSurfaceVariant
-            // List of config rows.
             Column(
               modifier =
-                Modifier.weight(1f, fill = false)
+                Modifier.fillMaxSize()
                   .verticalScrollbar(scrollState = scrollState, color = scrollbarColor)
                   .verticalScroll(scrollState),
               verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -241,7 +248,7 @@ fun ConfigDialog(
           ConfigTab.SYSTEM_PROMPT ->
             OutlinedTextField(
               value = systemPrompt,
-              modifier = Modifier.weight(1f, fill = false),
+              modifier = Modifier.fillMaxSize(),
               textStyle = MaterialTheme.typography.bodySmall,
               onValueChange = { systemPrompt = it },
               placeholder = {
@@ -255,37 +262,41 @@ fun ConfigDialog(
               },
             )
         }
+      }
 
-        // Button row(s).
-        if (selectedTab == ConfigTab.SYSTEM_PROMPT) {
-          Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            // Restore default button to restore system prompt.
-            OutlinedButton(
-              onClick = { systemPrompt = defaultSystemPrompt },
-              contentPadding = SMALL_BUTTON_CONTENT_PADDING,
-            ) {
-              Text(stringResource(R.string.restore_default))
+      // Footer action bar: Restore default on the left, Cancel and OK on the right.
+      Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        OutlinedButton(
+          onClick = {
+            when (selectedTab) {
+              ConfigTab.MODEL_CONFIGS -> {
+                for (config in configs) {
+                  values[config.key.label] = config.defaultValue
+                }
+              }
+              ConfigTab.SYSTEM_PROMPT -> {
+                systemPrompt = defaultSystemPrompt
+              }
             }
-          }
+          },
+          contentPadding = SMALL_BUTTON_CONTENT_PADDING,
+        ) {
+          Text(stringResource(R.string.restore_default))
         }
 
         Row(
-          modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
           horizontalArrangement = Arrangement.End,
           verticalAlignment = Alignment.CenterVertically,
         ) {
-          // Cancel button.
           if (showCancel) {
-            TextButton(onClick = { onDismissed() }) { Text(stringResource(R.string.cancel)) }
+            TextButton(onClick = requestDismiss) { Text(stringResource(R.string.cancel)) }
+            Spacer(modifier = Modifier.width(8.dp))
           }
 
-          Spacer(modifier = Modifier.width(8.dp))
-
-          // Ok button
           Button(
             onClick = {
               Log.d(TAG, "Values from dialog: $values")
@@ -794,15 +805,80 @@ private fun Modifier.verticalScrollbar(
 }
 
 /**
- * Config dialog tab whose label keeps the standard tab text size and wraps onto up to two balanced
- * lines when it doesn't fit (for example "System prompt" at large font scales).
+ * Config side-sheet tab bar whose labels share one auto-sized font size.
  *
- * Uses the content overload of [Tab] with narrower horizontal padding than the default text tab so
- * that single words such as "Advanced" fit on one line instead of breaking mid-word. Words that
- * still don't fit are hyphenated rather than split arbitrarily.
+ * Steps down from `titleSmall` (`14.sp`) to a `12.sp` floor, picking the largest size at which
+ * every tab label fits its tab width on 1 line; below the `12.sp` floor, wraps at the shared
+ * `12.sp` size (`maxLines = 2`).
  */
 @Composable
-internal fun ConfigTab(title: String, selected: Boolean, onClick: () -> Unit) {
+internal fun ConfigTabRow(
+  tabTitles: List<String>,
+  selectedTabIndex: Int,
+  onSelectTab: (Int) -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  val textMeasurer = rememberTextMeasurer()
+  val density = LocalDensity.current
+  val baseStyle =
+    MaterialTheme.typography.titleSmall.copy(lineBreak = LineBreak.Heading, hyphens = Hyphens.Auto)
+
+  BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+    val tabCount = tabTitles.size.coerceAtLeast(1)
+    val horizontalPaddingPx = with(density) { (TAB_LABEL_HORIZONTAL_PADDING * 2).roundToPx() }
+    val tabAvailableWidthPx =
+      ((constraints.maxWidth / tabCount) - horizontalPaddingPx).coerceAtLeast(1)
+
+    val (sharedFontSize, maxLines) =
+      remember(tabTitles, tabAvailableWidthPx, baseStyle, density) {
+        val startSp = baseStyle.fontSize.value
+        val floorSp = TAB_TITLE_MIN_FONT_SIZE.value
+        var candidateSp = startSp
+        var fittedSp: Float? = null
+        while (candidateSp >= floorSp - 0.001f) {
+          val fitsAll = tabTitles.all { title ->
+            val result =
+              textMeasurer.measure(
+                text = title,
+                style = baseStyle.copy(fontSize = candidateSp.sp),
+                constraints = Constraints(maxWidth = tabAvailableWidthPx),
+              )
+            result.lineCount <= 2 && !result.hasVisualOverflow
+          }
+          if (fitsAll) {
+            fittedSp = candidateSp
+            break
+          }
+          candidateSp -= TAB_TITLE_FONT_STEP_SP
+        }
+        (fittedSp?.sp ?: TAB_TITLE_MIN_FONT_SIZE) to 2
+      }
+
+    PrimaryTabRow(selectedTabIndex = selectedTabIndex, containerColor = Color.Transparent) {
+      tabTitles.forEachIndexed { index, tabTitle ->
+        ConfigTab(
+          title = tabTitle,
+          selected = selectedTabIndex == index,
+          onClick = { onSelectTab(index) },
+          fontSize = sharedFontSize,
+          maxLines = maxLines,
+        )
+      }
+    }
+  }
+}
+
+/**
+ * Config dialog tab rendered at the shared [fontSize] and [maxLines] computed by [ConfigTabRow].
+ */
+@Composable
+internal fun ConfigTab(
+  title: String,
+  selected: Boolean,
+  onClick: () -> Unit,
+  fontSize: TextUnit = MaterialTheme.typography.titleSmall.fontSize,
+  maxLines: Int = 2,
+) {
   Tab(
     selected = selected,
     onClick = onClick,
@@ -814,11 +890,12 @@ internal fun ConfigTab(title: String, selected: Boolean, onClick: () -> Unit) {
       text = title,
       style =
         MaterialTheme.typography.titleSmall.copy(
+          fontSize = fontSize,
           lineBreak = LineBreak.Heading,
           hyphens = Hyphens.Auto,
         ),
       textAlign = TextAlign.Center,
-      maxLines = 2,
+      maxLines = maxLines,
       overflow = TextOverflow.Ellipsis,
       modifier =
         Modifier.padding(
