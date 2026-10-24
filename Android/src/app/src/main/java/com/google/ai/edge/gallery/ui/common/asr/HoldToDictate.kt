@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.ui.common.OnAppBackgroundedEffect
 import com.google.ai.edge.gallery.ui.common.getTaskBgGradientColors
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -67,6 +68,9 @@ fun HoldToDictate(
 ) {
   val uiState by viewModel.uiState.collectAsState()
   var recordAudioPermissionGranted by remember { mutableStateOf(false) }
+
+  // Don't keep listening, or deliver a transcript, after the app leaves the foreground.
+  OnAppBackgroundedEffect { viewModel.cancelSpeechRecognition() }
   val context = LocalContext.current
 
   val recordAudioPermissionLauncher =
