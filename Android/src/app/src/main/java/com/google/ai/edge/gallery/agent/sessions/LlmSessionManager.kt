@@ -22,40 +22,13 @@ import com.google.ai.edge.gallery.proto.ChatMessageProto
 import com.google.ai.edge.gallery.proto.ChatSessionProto
 import com.google.ai.edge.gallery.runtime.CleanUpListener
 import com.google.ai.edge.gallery.runtime.ResultListener
-import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Message
-import com.google.ai.edge.litertlm.ToolProvider
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 
 /** Generates a unique session identifier. */
 fun generateSessionId(): String = UUID.randomUUID().toString()
-
-/**
- * Data class representing session configuration (model, taskId, system prompt, tools).
- *
- * Note that a session ID does not tie the session to a specific model; a session configuration can
- * be created or updated with different models over the lifetime of the same session ID.
- *
- * @property model The [Model] associated with this session configuration.
- * @property taskId The task ID associated with this session.
- * @property supportImage Whether image input is enabled for this session.
- * @property supportAudio Whether audio input is enabled for this session.
- * @property systemInstruction Optional system instruction prompt prefix.
- * @property tools List of tool providers available to the model.
- * @property enableConversationConstrainedDecoding Whether conversation constrained decoding is
- *   enabled for this session.
- */
-data class SessionConfig(
-  val model: Model,
-  val taskId: String,
-  val supportImage: Boolean = false,
-  val supportAudio: Boolean = false,
-  val systemInstruction: Contents? = null,
-  val tools: List<ToolProvider> = emptyList(),
-  val enableConversationConstrainedDecoding: Boolean = false,
-)
 
 /**
  * Orchestration manager for LLM sessions in AI Edge Gallery.
@@ -172,6 +145,19 @@ interface LlmSessionManager {
   )
 
   /**
+   * Caches the given [bitmaps] for [sessionId] to local session storage and returns the resulting
+   * absolute file paths.
+   */
+  suspend fun cacheSessionImages(sessionId: String, bitmaps: List<Bitmap>): List<String> =
+    emptyList()
+
+  /**
+   * Caches the given raw PCM [audioData] for [sessionId] to local session storage and returns the
+   * resulting absolute file path, or null if caching fails.
+   */
+  suspend fun cacheSessionAudio(sessionId: String, audioData: ByteArray): String? = null
+
+  /**
    * Runs inference for the given session on the specified [model].
    *
    * Assumes only one session and inference operation can run at a time in the application.
@@ -183,10 +169,6 @@ interface LlmSessionManager {
    *   channel output.
    * @param cleanUpListener Callback invoked when inference cleanup finishes.
    * @param onError Callback invoked upon an error during inference.
-   * @param onCompactionStart Callback invoked immediately when compaction is triggered, before
-   *   summarization and reset begin.
-   * @param onCompactionFinished Callback invoked when triggered compaction finishes, with `true` if
-   *   context was compacted and conversation reset, or `false` if compaction failed.
    * @param images Optional input images.
    * @param audioClips Optional input audio clips.
    * @param extraContext Optional key-value parameters for engine inference (e.g.
@@ -199,8 +181,6 @@ interface LlmSessionManager {
     resultListener: ResultListener,
     cleanUpListener: CleanUpListener = {},
     onError: (message: String) -> Unit = {},
-    onCompactionStart: () -> Unit = {},
-    onCompactionFinished: (Boolean) -> Unit = {},
     images: List<Bitmap> = emptyList(),
     audioClips: List<ByteArray> = emptyList(),
     extraContext: Map<String, String> = emptyMap(),
@@ -229,22 +209,73 @@ interface LlmSessionManager {
   )
 
   /**
-   * Checks the active conversation token budget against model limits and performs
-   * auto-summarization and conversation KV-cache reset if approaching token limits.
+   * Checks the active conversation token budget against model limits and compacts the conversation
+   * context (e.g. by summarizing or truncating it) and resets the conversation KV-cache if
+   * approaching token limits.
    *
    * @param sessionId The session identifier.
    * @param model The model whose conversation context should be inspected and compacted.
-   * @param onCompactionStart Optional callback invoked immediately when compaction is triggered,
-   *   before summarization and reset begin.
+   * @param onCompactionStart Optional callback invoked at most once, immediately when compaction is
+   *   triggered and before the context is compacted.
    * @param force Whether to force compaction regardless of token budget thresholds.
-   * @return True if context was compacted and conversation was reset, false otherwise.
+   * @return [CompactionResult.COMPACTED] if context was compacted and conversation was reset,
+   *   [CompactionResult.NOT_NEEDED] if compaction was not needed, or [CompactionResult.FAILED] if
+   *   compaction was needed (or forced) and attempted, but failed.
    */
   suspend fun compactContextIfNeeded(
     sessionId: String,
     model: Model,
     onCompactionStart: (() -> Unit)? = null,
     force: Boolean = false,
-  ): Boolean
+  ): CompactionResult = CompactionResult.NOT_NEEDED
+
+  /**
+   * Checks the active conversation token budget against model limits and performs context
+   * compaction and conversation KV-cache reset if approaching token limits, returning the
+   * [ContextCompactionOutcome] when compaction succeeds or `null` otherwise.
+   *
+   * @param sessionId The session identifier.
+   * @param model The model whose conversation context should be inspected and compacted.
+   * @param onCompactionStart Optional callback invoked at most once, immediately when compaction is
+   *   triggered and before the context is compacted.
+   * @param onCompactionFailed Optional callback invoked when compaction was needed (or forced) and
+   *   attempted, but failed.
+   * @param force Whether to force compaction regardless of token budget thresholds.
+   * @param source The [ContextCompactionSource] describing what initiated the compaction check.
+   * @return [ContextCompactionOutcome] if context was compacted, or `null` otherwise.
+   */
+  suspend fun compactContextWithOutcome(
+    sessionId: String,
+    model: Model,
+    onCompactionStart: (() -> Unit)? = null,
+    onCompactionFailed: (() -> Unit)? = null,
+    force: Boolean = false,
+    source: ContextCompactionSource = ContextCompactionSource.TOKEN_LIMIT,
+  ): ContextCompactionOutcome? {
+    val result =
+      compactContextIfNeeded(
+        sessionId = sessionId,
+        model = model,
+        onCompactionStart = onCompactionStart,
+        force = force,
+      )
+    when (result) {
+      CompactionResult.COMPACTED -> {
+        val algorithm =
+          if (source == ContextCompactionSource.TOKEN_LIMIT) {
+            ContextCompactionAlgorithm.SUMMARIZATION
+          } else {
+            ContextCompactionAlgorithm.TRUNCATION
+          }
+        return ContextCompactionOutcome(algorithm = algorithm, source = source)
+      }
+      CompactionResult.NOT_NEEDED -> return null
+      CompactionResult.FAILED -> {
+        onCompactionFailed?.invoke()
+        return null
+      }
+    }
+  }
 
   /**
    * Checks whether the active conversation has reached or is approaching the model's token limit.
