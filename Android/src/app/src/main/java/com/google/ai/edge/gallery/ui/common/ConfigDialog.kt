@@ -111,6 +111,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -372,7 +373,7 @@ fun LabelRow(config: LabelConfig, values: SnapshotStateMap<String, Any>) {
   }
 }
 
-fun getTextFieldDisplayValue(valueType: ValueType, value: Float): String {
+internal fun getTextFieldDisplayValue(valueType: ValueType, value: Float): String {
   return try {
     when (valueType) {
       ValueType.FLOAT -> {
@@ -399,6 +400,7 @@ fun getTextFieldDisplayValue(valueType: ValueType, value: Float): String {
  * value. The slider allows users to visually adjust the value within a specified range, while the
  * text field provides precise numeric input.
  */
+@Suppress("DEPRECATION")
 @Composable
 fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String, Any>) {
   val focusManager = LocalFocusManager.current
@@ -557,9 +559,7 @@ fun BooleanSwitchRow(config: BooleanSwitchConfig, values: SnapshotStateMap<Strin
 fun SegmentedButtonRow(config: SegmentedButtonConfig, values: SnapshotStateMap<String, Any>) {
   val selectedOptions: List<String> = remember { (values[config.key.label] as String).split(",") }
   var selectionStates: List<Boolean> by remember {
-    mutableStateOf(
-      List(config.options.size) { index -> selectedOptions.contains(config.options[index]) }
-    )
+    mutableStateOf(List(config.options.size) { index -> config.options[index] in selectedOptions })
   }
 
   Column(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
@@ -606,6 +606,7 @@ fun SegmentedButtonRow(config: SegmentedButtonConfig, values: SnapshotStateMap<S
  * from a bottom sheet.
  */
 @OptIn(ExperimentalMaterial3Api::class)
+@Suppress("DEPRECATION")
 @Composable
 fun BottomSheetSelectorRow(
   config: BottomSheetSelectorConfig,
@@ -968,7 +969,10 @@ private fun ContentWidthTabRow(
       }
       TabRowDefaults.PrimaryIndicator(
         width = indicatorWidth,
-        modifier = Modifier.align(Alignment.BottomStart).offset(x = indicatorLeft),
+        modifier =
+          Modifier.align(Alignment.BottomStart).offset {
+            IntOffset(x = indicatorLeft.roundToPx(), y = 0)
+          },
       )
     }
     HorizontalDivider()
