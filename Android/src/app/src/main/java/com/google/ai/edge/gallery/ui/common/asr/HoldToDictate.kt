@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.ai.edge.gallery.ui.common.textandvoiceinput
+package com.google.ai.edge.gallery.ui.common.asr
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.ui.common.OnAppBackgroundedEffect
 import com.google.ai.edge.gallery.ui.common.getTaskBgGradientColors
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -67,6 +68,9 @@ fun HoldToDictate(
 ) {
   val uiState by viewModel.uiState.collectAsState()
   var recordAudioPermissionGranted by remember { mutableStateOf(false) }
+
+  // Don't keep listening, or deliver a transcript, after the app leaves the foreground.
+  OnAppBackgroundedEffect { viewModel.cancelSpeechRecognition() }
   val context = LocalContext.current
 
   val recordAudioPermissionLauncher =
