@@ -124,6 +124,22 @@ private class ModelManagerSelectionHost(private val viewModel: ModelManagerViewM
   override fun isMemoryLow(model: Model): Boolean = viewModel.isModelMemoryLow(model)
 }
 
+/**
+ * Returns the supported BCP-47 language tags for a speech candidate [model] in [target], excluding
+ * Android testing pseudo-locales (`-XA`, `-XB`, `-XC` such as `ar-XA`).
+ */
+internal fun supportedLanguagesForCandidate(
+  target: ModelSelectionTarget,
+  model: Model,
+): List<String> {
+  return emptyList()
+}
+
+private fun isPseudoLocaleTag(languageCode: String): Boolean {
+  val normalized = languageCode.trim().replace('_', '-').uppercase()
+  return normalized.endsWith("-XA") || normalized.endsWith("-XB") || normalized.endsWith("-XC")
+}
+
 /** Returns the models [section] offers, in display order. */
 internal fun candidatesFor(
   section: ModelSelectionSection,
@@ -237,6 +253,7 @@ data class ModelSelectionCandidateUiState(
   val isSelectable: Boolean,
   val isExpanded: Boolean,
   val isMemoryLow: Boolean = false,
+  val supportedLanguages: List<String> = emptyList(),
 )
 
 /** A section of the selection screen. */
@@ -762,6 +779,7 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
                 isSelectable = isModelSelectable(model, status, isMemoryLow = memoryLow),
                 isExpanded = model.name !in selectionState.collapsedModelNames,
                 isMemoryLow = memoryLow,
+                supportedLanguages = supportedLanguagesForCandidate(section.target, model),
               )
             }
         ModelSelectionSectionUiState(

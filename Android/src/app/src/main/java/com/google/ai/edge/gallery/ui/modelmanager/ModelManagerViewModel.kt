@@ -348,7 +348,7 @@ constructor(
     }
   }
 
-  override fun onCleared() {
+  public override fun onCleared() {
     authService.dispose()
   }
 
@@ -357,7 +357,7 @@ constructor(
   }
 
   fun getTasksByIds(ids: Set<String>): List<Task> {
-    return uiState.value.tasks.filter { ids.contains(it.id) }
+    return uiState.value.tasks.filter { it.id in ids }
   }
 
   fun getCustomTaskByTaskId(id: String): CustomTask? {
@@ -425,7 +425,7 @@ constructor(
         model.preProcess()
       }
       // Move the model that is best for this task to the front.
-      val bestModel = task.models.find { it.bestForTaskIds.contains(task.id) }
+      val bestModel = task.models.find { task.id in it.bestForTaskIds }
       if (bestModel != null) {
         task.models.remove(bestModel)
         task.models.add(0, bestModel)
@@ -1614,7 +1614,7 @@ constructor(
           val acceleratorList = accelerators.split(",").map { it.trim() }.filter { it.isNotEmpty() }
           if (acceleratorList.size == 1 && acceleratorList[0] == "npu") {
             val socToModelFiles = allowedModel.socToModelFiles
-            if (socToModelFiles != null && !socToModelFiles.containsKey(SOC)) {
+            if (socToModelFiles != null && SOC !in socToModelFiles) {
               Log.d(
                 TAG,
                 "Ignoring model '${allowedModel.name}' because it's NPU-only and not supported on SOC: $SOC",
@@ -1832,9 +1832,9 @@ constructor(
     val checkedModels = mutableListOf<Model>()
     for (customTask in getActiveCustomTasks()) {
       val task = customTask.task
-      tasks.put(key = task.id, value = task)
+      tasks[task.id] = task
       for (model in task.models) {
-        if (checkedModelNames.contains(model.name)) {
+        if (model.name in checkedModelNames) {
           continue
         }
         modelDownloadStatus[model.name] = getModelDownloadStatus(model = model)
@@ -1872,7 +1872,7 @@ constructor(
 
       // Add to task.
       for (taskId in model.getTargetTaskIdsForImportedModel()) {
-        tasks.get(key = taskId)?.models?.add(model)
+        tasks[taskId]?.models?.add(model)
       }
 
       // Update status.

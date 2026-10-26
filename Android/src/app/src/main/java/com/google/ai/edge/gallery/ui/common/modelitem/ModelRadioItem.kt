@@ -17,22 +17,30 @@
 package com.google.ai.edge.gallery.ui.common.modelitem
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.UnfoldLess
 import androidx.compose.material.icons.rounded.UnfoldMore
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -40,10 +48,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +71,7 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.MarkdownText
 import com.google.ai.edge.gallery.ui.common.ProvideTrackableUriHandler
 import com.google.ai.edge.gallery.ui.theme.customColors
+import java.util.Locale
 
 /**
  * A selectable model card for screens where the user picks one model per section.
@@ -85,6 +100,7 @@ fun ModelRadioItem(
   modifier: Modifier = Modifier,
   isMemoryLow: Boolean = false,
   onMemoryLowClick: () -> Unit = {},
+  supportedLanguages: List<String> = emptyList(),
 ) {
   val unavailability = downloadStatus?.unavailability
   val showUnavailabilityPanel =
@@ -188,6 +204,14 @@ fun ModelRadioItem(
         }
       }
 
+      AnimatedVisibility(visible = expanded && supportedLanguages.isNotEmpty()) {
+        SupportedLanguagesSection(
+          modelName = model.name,
+          supportedLanguages = supportedLanguages,
+          modifier = Modifier.padding(top = 4.dp),
+        )
+      }
+
       // Explain why the model can't be used.
       val showPanel = expanded || !selectable
       when {
@@ -197,6 +221,82 @@ fun ModelRadioItem(
             fallbackGuideUrl = model.learnMoreUrl,
           )
         showPanel && showAICoreAccessPanel -> AICoreAccessPanel()
+      }
+    }
+  }
+}
+
+@Composable
+private fun SupportedLanguagesSection(
+  modelName: String,
+  supportedLanguages: List<String>,
+  modifier: Modifier = Modifier,
+) {
+  var isExpanded by rememberSaveable(modelName) { mutableStateOf(false) }
+
+  Column(
+    modifier =
+      modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(12.dp))
+        .background(MaterialTheme.colorScheme.surfaceContainer)
+  ) {
+    Row(
+      verticalAlignment = Alignment.CenterVertically,
+      modifier =
+        Modifier.fillMaxWidth()
+          .clickable { isExpanded = !isExpanded }
+          .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+      Text(
+        text = stringResource(R.string.model_selection_supported_languages_title),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+      )
+      Spacer(modifier = Modifier.width(8.dp))
+      Text(
+        text =
+          stringResource(R.string.model_selection_section_count_format, supportedLanguages.size),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      Spacer(modifier = Modifier.weight(1f))
+      Icon(
+        imageVector = Icons.Rounded.ArrowDropDown,
+        contentDescription =
+          stringResource(if (isExpanded) R.string.cd_collapse_icon else R.string.cd_expand_icon),
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.rotate(if (isExpanded) 180f else 0f),
+      )
+    }
+
+    AnimatedVisibility(
+      visible = isExpanded,
+      enter = fadeIn() + expandVertically(),
+      exit = fadeOut() + shrinkVertically(),
+    ) {
+      Column(modifier = Modifier.fillMaxWidth()) {
+        HorizontalDivider(
+          modifier = Modifier.padding(horizontal = 14.dp),
+          color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+        )
+        Column(
+          modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+          verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+          for (languageCode in supportedLanguages) {
+            val displayName =
+              remember(languageCode) {
+                Locale.forLanguageTag(languageCode).displayName.ifEmpty { languageCode }
+              }
+            Text(
+              text = displayName,
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurface,
+              modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            )
+          }
+        }
       }
     }
   }

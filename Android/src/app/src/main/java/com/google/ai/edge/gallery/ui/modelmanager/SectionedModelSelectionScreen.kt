@@ -334,6 +334,7 @@ fun SectionedModelSelectionContent(
                   expanded = candidate.isExpanded,
                   onSelected = { onSelectModel(sectionId, candidate.model) },
                   onExpandedChange = { onModelExpandedChange(candidate.model.name, it) },
+                  supportedLanguages = candidate.supportedLanguages,
                   modifier = itemModifier,
                   isMemoryLow = candidate.isMemoryLow,
                   onMemoryLowClick = { showMemoryNotAvailableDialog = true },

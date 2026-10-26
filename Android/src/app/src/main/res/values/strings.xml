@@ -1455,5 +1455,7 @@
   <string name="camera_access_denied_title" translatable="true" description="Title of the alert dialog or camera overlay shown when camera permission is turned off. Camera is a generic term, not a product name. [CHAR_LIMIT=35]">Camera Access Denied</string>
   <string name="camera_access_denied_message" translatable="true" description="Body message of the alert dialog or camera overlay instructing the user to enable camera access in the system Settings app to use the camera. [CHAR_LIMIT=125]">Please enable camera access for this app in Settings to use the camera.</string>
   <string name="open_settings" translatable="true" description="Button label in a permission denied dialog or camera overlay that opens the app's system Settings page so the user can grant permissions. [CHAR_LIMIT=25]">Open Settings</string>
+  <string name="model_selection_supported_languages_title" translatable="true" description="Header of the collapsible section inside an expanded speech model card on the model selection screen that lists the languages supported by the model. [CHAR_LIMIT=35]">Supported languages</string>
+  <string name="model_selection_section_count_format" translatable="true" tools:ignore="PluralsCandidate" description="Parenthetical item count shown next to the Supported languages header inside an expanded speech model card on the model selection screen, where %1$d is the number of supported languages (for example, (8)). [CHAR_LIMIT=12]">(%1$d)</string>
 
 </resources>
