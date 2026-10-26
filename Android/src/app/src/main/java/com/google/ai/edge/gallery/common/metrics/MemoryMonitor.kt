@@ -20,6 +20,7 @@ import android.app.ActivityManager
 import android.content.Context
 import android.os.Debug
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineDispatcher
@@ -30,15 +31,32 @@ private const val KILOBYTES_PER_MEGABYTE: Float = 1024f
 private const val BYTES_PER_MEGABYTE: Float = 1024f * 1024f
 
 /**
- * Monitors process memory consumption, tracking peak and average resident memory (PSS) in
- * megabytes.
+ * Monitors process memory consumption, tracking peak and average Proportional Set Size (PSS via
+ * [Debug.getPss]) in megabytes.
+ *
+ * On Android, PSS captures private dirty heap, resident file-backed `mmap` model pages,
+ * proportional shared pages, and `memtrack` GPU/NPU DMA-BUF allocations, serving as both total app
+ * memory usage and the metric Android's system memory accounting uses.
  */
-class MemoryMonitor(
-  context: Context? = null,
+class MemoryMonitor
+@VisibleForTesting
+internal constructor(
   samplingInterval: Duration = PeriodicSampler.DEFAULT_SAMPLING_INTERVAL,
   dispatcher: CoroutineDispatcher,
+  private val totalDeviceMemoryMb: Float?,
+  private val sampleProvider: () -> Float?,
 ) : PeriodicSensorMonitor<MemoryMetrics> {
-  private val totalDeviceMemoryMb: Float? = queryTotalDeviceMemoryMb(context)
+
+  constructor(
+    context: Context? = null,
+    samplingInterval: Duration = PeriodicSampler.DEFAULT_SAMPLING_INTERVAL,
+    dispatcher: CoroutineDispatcher,
+  ) : this(
+    samplingInterval = samplingInterval,
+    dispatcher = dispatcher,
+    totalDeviceMemoryMb = queryTotalDeviceMemoryMb(context),
+    sampleProvider = ::readResidentMemoryMb,
+  )
 
   private val sampler =
     PeriodicSampler(
@@ -71,8 +89,7 @@ class MemoryMonitor(
   }
 
   override fun sample() {
-    val memoryMb = readResidentMemoryMb() ?: return
-    if (memoryMb <= 0f) return
+    val memoryMb = sampleProvider()?.takeIf { it > 0f } ?: return
 
     state.updateAndGet { current ->
       val newPeak =
@@ -89,26 +106,6 @@ class MemoryMonitor(
     }
   }
 
-  /**
-   * Queries process Proportional Set Size (PSS) via [Debug.getPss] in kilobytes and converts to
-   * megabytes.
-   *
-   * Returns null if memory stats are unavailable or not positive.
-   */
-  private fun readResidentMemoryMb(): Float? {
-    val pssKb: Long
-    try {
-      pssKb = Debug.getPss()
-    } catch (e: Exception) {
-      Log.d(TAG, "Failed to query process PSS: ${e.message}")
-      return null
-    }
-    if (pssKb <= 0L) {
-      return null
-    }
-    return pssKb / KILOBYTES_PER_MEGABYTE
-  }
-
   override fun buildMetrics(): MemoryMetrics {
     val current = state.get()
     return memoryMetrics {
@@ -119,16 +116,36 @@ class MemoryMonitor(
       }
     }
   }
+}
 
-  private fun queryTotalDeviceMemoryMb(context: Context?): Float? {
-    val activityManager = context?.getSystemService(ActivityManager::class.java) ?: return null
-    return try {
-      val memoryInfo = ActivityManager.MemoryInfo()
-      activityManager.getMemoryInfo(memoryInfo)
-      (memoryInfo.totalMem / BYTES_PER_MEGABYTE).takeIf { it > 0f }
+/**
+ * Queries process Proportional Set Size (PSS) via [Debug.getPss] in kilobytes and converts to
+ * megabytes.
+ *
+ * Returns null if memory stats are unavailable or not positive.
+ */
+private fun readResidentMemoryMb(): Float? {
+  val pssKb =
+    try {
+      Debug.getPss()
     } catch (e: Exception) {
-      Log.d(TAG, "Failed to query total device memory: ${e.message}")
-      null
+      Log.d(TAG, "Failed to query process PSS: ${e.message}")
+      return null
     }
+  if (pssKb <= 0L) {
+    return null
+  }
+  return pssKb / KILOBYTES_PER_MEGABYTE
+}
+
+private fun queryTotalDeviceMemoryMb(context: Context?): Float? {
+  val activityManager = context?.getSystemService(ActivityManager::class.java) ?: return null
+  return try {
+    val memoryInfo = ActivityManager.MemoryInfo()
+    activityManager.getMemoryInfo(memoryInfo)
+    (memoryInfo.totalMem / BYTES_PER_MEGABYTE).takeIf { it > 0f }
+  } catch (e: Exception) {
+    Log.d(TAG, "Failed to query total device memory: ${e.message}")
+    null
   }
 }
