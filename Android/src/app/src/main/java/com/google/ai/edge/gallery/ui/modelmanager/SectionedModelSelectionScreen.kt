@@ -59,7 +59,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -87,6 +89,7 @@ import com.google.ai.edge.gallery.data.ModelSelectionTarget
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.InfoTooltipIconButton
 import com.google.ai.edge.gallery.ui.common.ModelDownloadGatesHost
+import com.google.ai.edge.gallery.ui.common.ModelNotAvailableMemoryAlert
 import com.google.ai.edge.gallery.ui.common.SpeechEngineErrorDialog
 import com.google.ai.edge.gallery.ui.common.getTaskBgColor
 import com.google.ai.edge.gallery.ui.common.getTaskBgGradientColors
@@ -201,6 +204,7 @@ fun SectionedModelSelectionScreen(
     onTryIt = viewModel::onTryItClicked,
     onCancelLaunch = viewModel::cancelLaunch,
     onScrolled = viewModel::onScrolled,
+    onDismissE4bRequiredMemoryAlert = viewModel::dismissE4bRequiredMemoryAlert,
     modifier = modifier,
   )
 
@@ -237,10 +241,12 @@ fun SectionedModelSelectionContent(
   onCancelLaunch: () -> Unit,
   onScrolled: () -> Unit,
   modifier: Modifier = Modifier,
+  onDismissE4bRequiredMemoryAlert: () -> Unit = {},
 ) {
   val headerAnimation = rememberTaskHeaderAnimation(enableAnimation = enableAnimation)
   val listProgress = headerAnimation.modelListProgress
   val listState = rememberLazyListState()
+  var showMemoryNotAvailableDialog by remember { mutableStateOf(false) }
 
   // When a section is auto-expanded, scroll its header to the top.
   LaunchedEffect(uiState.scrollToSectionId) {
@@ -329,6 +335,8 @@ fun SectionedModelSelectionContent(
                   onSelected = { onSelectModel(sectionId, candidate.model) },
                   onExpandedChange = { onModelExpandedChange(candidate.model.name, it) },
                   modifier = itemModifier,
+                  isMemoryLow = candidate.isMemoryLow,
+                  onMemoryLowClick = { showMemoryNotAvailableDialog = true },
                 )
               }
             }
@@ -336,6 +344,16 @@ fun SectionedModelSelectionContent(
         }
       }
     }
+  }
+
+  if (showMemoryNotAvailableDialog) {
+    ModelNotAvailableMemoryAlert(onDismissed = { showMemoryNotAvailableDialog = false })
+  }
+  if (uiState.showE4bRequiredMemoryAlert) {
+    ModelNotAvailableMemoryAlert(
+      onDismissed = onDismissE4bRequiredMemoryAlert,
+      messageResId = R.string.xrteacher_requires_e4b_memory_content,
+    )
   }
 }
 

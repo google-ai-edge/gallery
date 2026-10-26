@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.ui.common.modelitem
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,9 +26,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.UnfoldLess
 import androidx.compose.material.icons.rounded.UnfoldMore
 import androidx.compose.material3.Icon
@@ -35,6 +38,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,8 +46,10 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.data.MODEL_INFO_ICON_SIZE
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
@@ -77,12 +83,25 @@ fun ModelRadioItem(
   onSelected: () -> Unit,
   onExpandedChange: (Boolean) -> Unit,
   modifier: Modifier = Modifier,
+  isMemoryLow: Boolean = false,
+  onMemoryLowClick: () -> Unit = {},
 ) {
   val unavailability = downloadStatus?.unavailability
   val showUnavailabilityPanel =
     downloadStatus?.status == ModelDownloadStatusType.UNAVAILABLE && unavailability != null
   val showAICoreAccessPanel =
     model.autoDownloadsOnStartup && downloadStatus?.status == ModelDownloadStatusType.FAILED
+  val interactionModifier =
+    if (isMemoryLow && !selectable) {
+      Modifier.clickable(onClick = onMemoryLowClick)
+    } else {
+      Modifier.selectable(
+        selected = selected,
+        enabled = selectable,
+        role = Role.RadioButton,
+        onClick = onSelected,
+      )
+    }
 
   Box(
     modifier =
@@ -90,12 +109,7 @@ fun ModelRadioItem(
         .fillMaxWidth()
         .clip(RoundedCornerShape(size = 12.dp))
         .background(color = MaterialTheme.customColors.taskCardBgColor)
-        .selectable(
-          selected = selected,
-          enabled = selectable,
-          role = Role.RadioButton,
-          onClick = onSelected,
-        )
+        .then(interactionModifier)
   ) {
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       Box(contentAlignment = Alignment.CenterStart) {
@@ -113,6 +127,28 @@ fun ModelRadioItem(
             downloadStatus = downloadStatus,
             isExpanded = expanded,
             modifier = Modifier.weight(1f),
+            statusContent =
+              if (isMemoryLow) {
+                {
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                      Icons.Rounded.Error,
+                      tint = MaterialTheme.customColors.modelInfoIconColor,
+                      contentDescription = stringResource(R.string.cd_unavailable_icon),
+                      modifier = Modifier.padding(end = 4.dp).size(MODEL_INFO_ICON_SIZE),
+                    )
+                    Text(
+                      stringResource(R.string.not_available),
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      maxLines = 1,
+                      style = MaterialTheme.typography.bodyMedium,
+                      overflow = TextOverflow.Visible,
+                    )
+                  }
+                }
+              } else {
+                null
+              },
           )
         }
         // Button to expand/collapse the description at the right.

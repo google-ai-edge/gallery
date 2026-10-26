@@ -56,6 +56,7 @@ import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.ModelDownloader
 import com.google.ai.edge.gallery.data.ModelFile
+import com.google.ai.edge.gallery.data.ModelSelectionTarget
 import com.google.ai.edge.gallery.data.ModelType
 import com.google.ai.edge.gallery.data.ModelUtils
 import com.google.ai.edge.gallery.data.NumberSliderConfig
@@ -80,6 +81,7 @@ import com.google.ai.edge.gallery.proto.HfModelItemProto
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.proto.Theme
 import com.google.ai.edge.gallery.runtime.aicore.AICoreModelDownloader
+import com.google.ai.edge.gallery.ui.common.isMemoryLow
 import com.google.ai.edge.litertlm.Contents
 import com.google.gson.Gson
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -370,6 +372,11 @@ constructor(
     return uiState.value.selectedModel
   }
 
+  /** Whether the current device's memory is lower than [model]'s minimum required memory. */
+  open fun isModelMemoryLow(model: Model): Boolean {
+    return isMemoryLow(context = context, model = model)
+  }
+
   open fun getModelByName(name: String): Model? {
     for (task in uiState.value.tasks) {
       for (model in task.models) {
@@ -399,8 +406,21 @@ constructor(
   }
 
   fun processTasks() {
-    val curTasks = getActiveCustomTasks().map { it.task }
-    for (task in curTasks) {
+    for (customTask in getActiveCustomTasks()) {
+      val task = customTask.task
+      val mainModelFilter =
+        customTask.modelSelectionConfig
+          ?.sections
+          ?.firstOrNull { it.target == ModelSelectionTarget.MAIN_MODEL }
+          ?.modelFilter
+      if (mainModelFilter != null) {
+        val nonImported = task.models.filter { !it.downloadInfo.imported }
+        val filtered = nonImported.filter(mainModelFilter)
+        val allMainModelsMemoryLow = filtered.isNotEmpty() && filtered.all { isModelMemoryLow(it) }
+        if (!allMainModelsMemoryLow) {
+          task.models.retainAll { it.downloadInfo.imported || mainModelFilter(it) }
+        }
+      }
       for (model in task.models) {
         model.preProcess()
       }
