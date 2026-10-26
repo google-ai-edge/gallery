@@ -20,7 +20,6 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.hardware.Sensor
@@ -89,6 +88,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.ModalBottomSheet
@@ -140,6 +140,9 @@ import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT_AI_CORE
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.ui.common.PermissionAccessKind
+import com.google.ai.edge.gallery.ui.common.PermissionAccessTracker
+import com.google.ai.edge.gallery.ui.common.PermissionDeniedDialog
 import com.google.ai.edge.gallery.ui.common.getTaskIconColor
 import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
 import java.util.concurrent.Executors
@@ -266,13 +269,22 @@ fun MessageInputText(
 
   LaunchedEffect(pickedAudioClips) { onPickedAudioClipsChanged(pickedAudioClips) }
 
+  var deniedPermissionKind by remember { mutableStateOf<PermissionAccessKind?>(null) }
+
   // Permission request when taking picture.
   val takePicturePermissionLauncher =
     rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
       permissionGranted ->
+      PermissionAccessTracker.onPermissionResult(
+        context,
+        Manifest.permission.CAMERA,
+        permissionGranted,
+      )
+      showAddContentMenu = false
       if (permissionGranted) {
-        showAddContentMenu = false
         showCameraCaptureBottomSheet = true
+      } else {
+        deniedPermissionKind = PermissionAccessKind.CAMERA
       }
     }
 
@@ -286,10 +298,22 @@ fun MessageInputText(
   val recordAudioClipsPermissionLauncher =
     rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
       permissionGranted ->
+      PermissionAccessTracker.onPermissionResult(
+        context,
+        Manifest.permission.RECORD_AUDIO,
+        permissionGranted,
+      )
       if (permissionGranted) {
         handleClickRecordAudioClip()
+      } else {
+        showAddContentMenu = false
+        deniedPermissionKind = PermissionAccessKind.MICROPHONE
       }
     }
+
+  deniedPermissionKind?.let { kind ->
+    PermissionDeniedDialog(kind = kind, onDismiss = { deniedPermissionKind = null })
+  }
 
   // Registers a photo picker activity launcher in single-select mode.
   val pickMedia =
@@ -538,17 +562,21 @@ fun MessageInputText(
                               return@DropdownMenuItem
                             }
                             // Check permission
-                            when (PackageManager.PERMISSION_GRANTED) {
-                              // Already got permission. Call the lambda.
-                              ContextCompat.checkSelfPermission(
+                            when {
+                              PermissionAccessTracker.isPermissionGranted(
                                 context,
-                                Manifest.permission.CAMERA,
+                                PermissionAccessKind.CAMERA,
                               ) -> {
                                 showAddContentMenu = false
                                 showCameraCaptureBottomSheet = true
                               }
-
-                              // Otherwise, ask for permission
+                              PermissionAccessTracker.isPermissionDenied(
+                                context,
+                                PermissionAccessKind.CAMERA,
+                              ) -> {
+                                showAddContentMenu = false
+                                deniedPermissionKind = PermissionAccessKind.CAMERA
+                              }
                               else -> {
                                 takePicturePermissionLauncher.launch(Manifest.permission.CAMERA)
                               }
@@ -624,16 +652,20 @@ fun MessageInputText(
                               return@DropdownMenuItem
                             }
                             // Check permission
-                            when (PackageManager.PERMISSION_GRANTED) {
-                              // Already got permission. Call the lambda.
-                              ContextCompat.checkSelfPermission(
+                            when {
+                              PermissionAccessTracker.isPermissionGranted(
                                 context,
-                                Manifest.permission.RECORD_AUDIO,
+                                PermissionAccessKind.MICROPHONE,
                               ) -> {
                                 handleClickRecordAudioClip()
                               }
-
-                              // Otherwise, ask for permission
+                              PermissionAccessTracker.isPermissionDenied(
+                                context,
+                                PermissionAccessKind.MICROPHONE,
+                              ) -> {
+                                showAddContentMenu = false
+                                deniedPermissionKind = PermissionAccessKind.MICROPHONE
+                              }
                               else -> {
                                 recordAudioClipsPermissionLauncher.launch(
                                   Manifest.permission.RECORD_AUDIO
