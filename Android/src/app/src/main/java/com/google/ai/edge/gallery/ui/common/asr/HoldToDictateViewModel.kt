@@ -95,6 +95,8 @@ constructor(
   }
 
   fun cancelSpeechRecognition() {
+    speechRecognizer.cancel()
+    setRecognizedText(text = "")
     setRecognizing(recognizing = false)
   }
 
