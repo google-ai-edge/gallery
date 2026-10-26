@@ -47,6 +47,23 @@ fun MemoryWarningAlert(onProceeded: () -> Unit, onDismissed: () -> Unit) {
   )
 }
 
+/**
+ * Composable function to display an alert dialog when a model is not available due to insufficient
+ * device memory.
+ */
+@Composable
+fun ModelNotAvailableMemoryAlert(
+  onDismissed: () -> Unit,
+  messageResId: Int = R.string.model_not_available_memory_content,
+) {
+  AlertDialog(
+    title = { Text(stringResource(R.string.model_not_available_title)) },
+    text = { Text(stringResource(messageResId)) },
+    onDismissRequest = onDismissed,
+    confirmButton = { TextButton(onClick = onDismissed) { Text(stringResource(R.string.ok)) } },
+  )
+}
+
 /** Checks if the device's memory is lower than the required minimum for the given model. */
 fun isMemoryLow(context: Context, model: Model): Boolean {
   val activityManager =
