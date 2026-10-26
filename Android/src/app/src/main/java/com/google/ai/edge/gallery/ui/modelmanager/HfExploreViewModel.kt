@@ -20,6 +20,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.data.DataStoreRepository
+import com.google.ai.edge.gallery.data.OssModelImportLogger
 import com.google.ai.edge.gallery.di.IoDispatcher
 import com.google.ai.edge.gallery.huggingface.HuggingFaceApiClient
 import com.google.ai.edge.gallery.proto.HfModelItemProto
@@ -59,6 +60,7 @@ constructor(
   private val huggingFaceApiClient: HuggingFaceApiClient,
   private val dataStoreRepository: DataStoreRepository,
   @IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+  private val analyticsLogger: OssModelImportLogger,
 ) : ViewModel() {
 
   private val _uiState = MutableStateFlow(HfExploreUiState())
@@ -67,7 +69,13 @@ constructor(
   private var searchJob: Job? = null
 
   init {
-    refreshModels()
+    searchJob = viewModelScope.launch {
+      loadModels(
+        query = _uiState.value.searchQuery,
+        sort = _uiState.value.selectedSort,
+        isInitialLoad = true,
+      )
+    }
   }
 
   fun onSearchQueryChanged(query: String) {
@@ -106,11 +114,23 @@ constructor(
           huggingFaceApiClient.getModelDetails(modelId = model.id, accessToken = accessToken)
         val resolved = detailed ?: model
         _uiState.update { it.copy(selectedModelForDetails = resolved) }
+        if (detailed != null) {
+          analyticsLogger.logModelDetailsLoadSuccess(modelId = model.id)
+        } else {
+          analyticsLogger.logModelDetailsLoadFailure(
+            modelId = model.id,
+            errorType = OssModelImportLogger.ErrorType.DETAILS_UNAVAILABLE,
+          )
+        }
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {
         Log.e(TAG, "Failed to fetch model details for ${model.id}", e)
         _uiState.update { it.copy(selectedModelForDetails = model) }
+        analyticsLogger.logModelDetailsLoadFailure(
+          modelId = model.id,
+          errorType = OssModelImportLogger.ErrorType.FETCH_FAILED,
+        )
       } finally {
         _uiState.update { it.copy(isFetchingDetails = false) }
       }
@@ -121,7 +141,11 @@ constructor(
     _uiState.update { it.copy(selectedModelForDetails = null) }
   }
 
-  private suspend fun loadModels(query: String, sort: HfSortOptionProto) {
+  private suspend fun loadModels(
+    query: String,
+    sort: HfSortOptionProto,
+    isInitialLoad: Boolean = false,
+  ) {
     _uiState.update { it.copy(isLoading = true, hasError = false) }
     try {
       val accessToken =
@@ -129,11 +153,17 @@ constructor(
       val results =
         huggingFaceApiClient.searchModels(query = query, sort = sort, accessToken = accessToken)
       _uiState.update { it.copy(models = results, isLoading = false, hasError = false) }
+      if (isInitialLoad) {
+        analyticsLogger.logModelListLoadSuccess()
+      }
     } catch (e: CancellationException) {
       throw e
     } catch (e: Exception) {
       Log.e(TAG, "Failed to search Hugging Face models", e)
-      _uiState.update { it.copy(isLoading = false, hasError = true) }
+      _uiState.update { it.copy(models = emptyList(), isLoading = false, hasError = true) }
+      if (isInitialLoad) {
+        analyticsLogger.logModelListLoadFailure()
+      }
     }
   }
 }

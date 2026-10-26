@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.ui.common.onboarding
 
 import androidx.annotation.DrawableRes
+import androidx.annotation.RawRes
 import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.painter.Painter
 
@@ -31,6 +32,14 @@ import androidx.compose.ui.graphics.painter.Painter
  * @property description In-memory description markdown string (used when [descriptionRes] is 0).
  * @property imagePainter Optional in-memory [Painter] (e.g. `ColorPainter` for testing or
  *   previews).
+ * @property animationRes Optional raw resource ID of a looping animated image (an animated WebP in
+ *   `res/raw`) shown instead of [imageRes]. 0 if none. Screens that don't support animations ignore
+ *   it.
+ * @property imageAssetPath Optional path, in the app's assets, of the page image (e.g.
+ *   `xr/onboarding1.png`). Empty if none. Screens that don't support asset images ignore it.
+ * @property animationAssetPath Optional path, in the app's assets, of a looping animated image (an
+ *   animated WebP) shown instead of the image. Empty if none. Screens that don't support animations
+ *   ignore it.
  */
 data class OnboardingPageInfo(
   @StringRes val titleRes: Int = 0,
@@ -39,4 +48,7 @@ data class OnboardingPageInfo(
   val title: String = "",
   val description: String = "",
   val imagePainter: Painter? = null,
+  @RawRes val animationRes: Int = 0,
+  val imageAssetPath: String = "",
+  val animationAssetPath: String = "",
 )
