@@ -204,7 +204,6 @@ fun SectionedModelSelectionScreen(
     onTryIt = viewModel::onTryItClicked,
     onCancelLaunch = viewModel::cancelLaunch,
     onScrolled = viewModel::onScrolled,
-    onDismissE4bRequiredMemoryAlert = viewModel::dismissE4bRequiredMemoryAlert,
     modifier = modifier,
   )
 
@@ -241,7 +240,6 @@ fun SectionedModelSelectionContent(
   onCancelLaunch: () -> Unit,
   onScrolled: () -> Unit,
   modifier: Modifier = Modifier,
-  onDismissE4bRequiredMemoryAlert: () -> Unit = {},
 ) {
   val headerAnimation = rememberTaskHeaderAnimation(enableAnimation = enableAnimation)
   val listProgress = headerAnimation.modelListProgress
@@ -349,12 +347,6 @@ fun SectionedModelSelectionContent(
 
   if (showMemoryNotAvailableDialog) {
     ModelNotAvailableMemoryAlert(onDismissed = { showMemoryNotAvailableDialog = false })
-  }
-  if (uiState.showE4bRequiredMemoryAlert) {
-    ModelNotAvailableMemoryAlert(
-      onDismissed = onDismissE4bRequiredMemoryAlert,
-      messageResId = R.string.xrteacher_requires_e4b_memory_content,
-    )
   }
 }
 

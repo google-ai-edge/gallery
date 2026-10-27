@@ -145,18 +145,10 @@ internal fun candidatesFor(
   section: ModelSelectionSection,
   task: Task,
   modelManagerUiState: ModelManagerUiState,
-  isMemoryLow: (Model) -> Boolean = { false },
 ): List<Model> =
   when (section.target) {
-    ModelSelectionTarget.MAIN_MODEL -> {
-      val nonImported = task.models.toList().filter { !it.downloadInfo.imported }
-      val filtered = nonImported.filter(section.modelFilter)
-      if (filtered.isNotEmpty() && filtered.all(isMemoryLow)) {
-        nonImported
-      } else {
-        filtered
-      }
-    }
+    ModelSelectionTarget.MAIN_MODEL ->
+      task.models.filter { !it.downloadInfo.imported && section.modelFilter(it) }
     ModelSelectionTarget.ASR_MODEL,
     ModelSelectionTarget.TTS_MODEL ->
       modelManagerUiState.supplementaryModels.filter(section.modelFilter)
@@ -193,11 +185,10 @@ fun ModelSelectionHost.isSavedModelSelectionComplete(
   fun isDownloaded(model: Model) =
     modelManagerUiState.modelDownloadStatus[model.name]?.status == ModelDownloadStatusType.SUCCEEDED
   return config.sections.all { section ->
-    val candidates = candidatesFor(section, task, modelManagerUiState, ::isMemoryLow)
+    val candidates = candidatesFor(section, task, modelManagerUiState)
     when (section.target) {
       ModelSelectionTarget.MAIN_MODEL ->
         candidates.any { it.name == mainModel.name } &&
-          section.modelFilter(mainModel) &&
           isDownloaded(mainModel) &&
           !isMemoryLow(mainModel)
       ModelSelectionTarget.ASR_MODEL,
@@ -315,11 +306,6 @@ data class TaskModelSelectionUiState(
   val launchModel: Model? = null,
   /** The speech model that wasn't ready when the task was about to launch, if any. */
   val notReady: ModelNotReadyUiState? = null,
-  /**
-   * Whether to show the alert explaining that the task requires an E4B model which is not available
-   * on this device due to insufficient memory.
-   */
-  val showE4bRequiredMemoryAlert: Boolean = false,
 )
 
 private data class SelectionState(
@@ -336,7 +322,6 @@ private data class SelectionState(
   val scrollToSectionId: String? = null,
   val launchModel: Model? = null,
   val notReady: ModelNotReadyUiState? = null,
-  val showE4bRequiredMemoryAlert: Boolean = false,
 )
 
 private data class Binding(
@@ -421,13 +406,7 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     val currentBinding = binding.value ?: return
     val modelManagerUiState = currentBinding.host.uiState.value
     val section = currentBinding.config.sections.firstOrNull { it.id == sectionId } ?: return
-    val candidates =
-      candidatesFor(
-        section,
-        currentBinding.task,
-        modelManagerUiState,
-        currentBinding.host::isMemoryLow,
-      )
+    val candidates = candidatesFor(section, currentBinding.task, modelManagerUiState)
     if (
       candidates.none { it.name == model.name } ||
         !isModelSelectable(
@@ -518,19 +497,12 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     if (!uiState.canTryIt) {
       return
     }
-    val mainSectionState =
-      uiState.sections.firstOrNull { it.section.target == ModelSelectionTarget.MAIN_MODEL }
-    val mainModel = mainSectionState?.selectedModel
-    if (
-      mainSectionState != null &&
-        mainModel != null &&
-        !mainSectionState.section.modelFilter(mainModel)
-    ) {
-      update(state.value.copy(showE4bRequiredMemoryAlert = true))
-      return
-    }
     val selectedModels = uiState.sections.mapNotNull { it.selectedModel }
     val statuses = currentBinding.host.uiState.value.modelDownloadStatus
+    val mainModel =
+      uiState.sections
+        .firstOrNull { it.section.target == ModelSelectionTarget.MAIN_MODEL }
+        ?.selectedModel
     val request =
       ModelSelectionGateRequest(
         id = nextGateRequestId++,
@@ -544,14 +516,6 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
         notReady = null,
       )
     )
-  }
-
-  /**
-   * Dismisses the alert shown when the selected main model does not meet the task's E4B
-   * requirement.
-   */
-  fun dismissE4bRequiredMemoryAlert() {
-    update(state.value.copy(showE4bRequiredMemoryAlert = false))
   }
 
   /**
@@ -763,25 +727,19 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
       currentBinding.config.sections.map { section ->
         val selectedName = selectionState.selections[section.id]
         val candidates =
-          candidatesFor(
-              section,
-              currentBinding.task,
-              modelManagerUiState,
-              currentBinding.host::isMemoryLow,
+          candidatesFor(section, currentBinding.task, modelManagerUiState).map { model ->
+            val status = statuses[model.name]
+            val memoryLow = currentBinding.host.isMemoryLow(model)
+            ModelSelectionCandidateUiState(
+              model = model,
+              downloadStatus = status,
+              isSelected = model.name == selectedName,
+              isSelectable = isModelSelectable(model, status, isMemoryLow = memoryLow),
+              isExpanded = model.name !in selectionState.collapsedModelNames,
+              isMemoryLow = memoryLow,
+              supportedLanguages = supportedLanguagesForCandidate(section.target, model),
             )
-            .map { model ->
-              val status = statuses[model.name]
-              val memoryLow = currentBinding.host.isMemoryLow(model)
-              ModelSelectionCandidateUiState(
-                model = model,
-                downloadStatus = status,
-                isSelected = model.name == selectedName,
-                isSelectable = isModelSelectable(model, status, isMemoryLow = memoryLow),
-                isExpanded = model.name !in selectionState.collapsedModelNames,
-                isMemoryLow = memoryLow,
-                supportedLanguages = supportedLanguagesForCandidate(section.target, model),
-              )
-            }
+          }
         ModelSelectionSectionUiState(
           section = section,
           candidates = candidates,
@@ -801,7 +759,6 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
       scrollToSectionId = selectionState.scrollToSectionId,
       launchModel = selectionState.launchModel,
       notReady = selectionState.notReady,
-      showE4bRequiredMemoryAlert = selectionState.showE4bRequiredMemoryAlert,
     )
   }
 
@@ -809,8 +766,7 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     val modelManagerUiState = newBinding.host.uiState.value
     val selections = mutableMapOf<String, String>()
     for (section in newBinding.config.sections) {
-      val candidates =
-        candidatesFor(section, newBinding.task, modelManagerUiState, newBinding.host::isMemoryLow)
+      val candidates = candidatesFor(section, newBinding.task, modelManagerUiState)
       val preselected =
         when (section.target) {
           ModelSelectionTarget.MAIN_MODEL -> {
@@ -897,14 +853,7 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
   ): Model? =
     currentBinding.config.sections
       .asSequence()
-      .flatMap {
-        candidatesFor(
-          it,
-          currentBinding.task,
-          modelManagerUiState,
-          currentBinding.host::isMemoryLow,
-        )
-      }
+      .flatMap { candidatesFor(it, currentBinding.task, modelManagerUiState) }
       .firstOrNull { it.name == name }
 }
 

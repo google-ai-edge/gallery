@@ -414,12 +414,7 @@ constructor(
           ?.firstOrNull { it.target == ModelSelectionTarget.MAIN_MODEL }
           ?.modelFilter
       if (mainModelFilter != null) {
-        val nonImported = task.models.filter { !it.downloadInfo.imported }
-        val filtered = nonImported.filter(mainModelFilter)
-        val allMainModelsMemoryLow = filtered.isNotEmpty() && filtered.all { isModelMemoryLow(it) }
-        if (!allMainModelsMemoryLow) {
-          task.models.retainAll { it.downloadInfo.imported || mainModelFilter(it) }
-        }
+        task.models.retainAll { it.downloadInfo.imported || mainModelFilter(it) }
       }
       for (model in task.models) {
         model.preProcess()
