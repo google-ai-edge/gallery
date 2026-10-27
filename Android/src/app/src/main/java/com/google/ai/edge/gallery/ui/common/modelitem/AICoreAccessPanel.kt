@@ -16,7 +16,9 @@
 
 package com.google.ai.edge.gallery.ui.common.modelitem
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -38,6 +40,8 @@ import androidx.core.net.toUri
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.ModelUnavailability
 import com.google.ai.edge.gallery.data.ModelUnavailabilityReason
+
+private const val TAG = "AGAICoreAccessPanel"
 
 private const val AICORE_DEV_PREVIEW_URL =
   "https://developers.google.com/ml-kit/genai/aicore-dev-preview"
@@ -67,6 +71,8 @@ fun ModelUnavailabilityPanel(unavailability: ModelUnavailability, fallbackGuideU
     when (unavailability.reason) {
       ModelUnavailabilityReason.SPEECH_SERVICES_OUTDATED_OR_MISSING ->
         stringResource(R.string.model_unavailable_speech_services_outdated)
+      ModelUnavailabilityReason.AICORE_OUTDATED_OR_MISSING ->
+        stringResource(R.string.supplementary_notice_aicore_outdated)
       ModelUnavailabilityReason.AICORE_UNAVAILABLE ->
         stringResource(R.string.aicore_access_panel_title)
       ModelUnavailabilityReason.UNSUPPORTED_MODEL ->
@@ -95,7 +101,8 @@ fun ModelUnavailabilityPanel(unavailability: ModelUnavailability, fallbackGuideU
       val context = LocalContext.current
       val buttonTextRes =
         if (
-          unavailability.reason == ModelUnavailabilityReason.SPEECH_SERVICES_OUTDATED_OR_MISSING
+          unavailability.reason == ModelUnavailabilityReason.SPEECH_SERVICES_OUTDATED_OR_MISSING ||
+            unavailability.reason == ModelUnavailabilityReason.AICORE_OUTDATED_OR_MISSING
         ) {
           R.string.update
         } else {
@@ -103,8 +110,12 @@ fun ModelUnavailabilityPanel(unavailability: ModelUnavailability, fallbackGuideU
         }
       TextButton(
         onClick = {
-          val intent = Intent(Intent.ACTION_VIEW, guideUrl.toUri())
-          context.startActivity(intent)
+          try {
+            val intent = Intent(Intent.ACTION_VIEW, guideUrl.toUri())
+            context.startActivity(intent)
+          } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No app can open $guideUrl", e)
+          }
         },
         contentPadding = PaddingValues(horizontal = 8.dp),
       ) {
