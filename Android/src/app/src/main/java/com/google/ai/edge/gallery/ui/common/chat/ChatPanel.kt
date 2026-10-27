@@ -36,6 +36,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -80,18 +82,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -178,10 +182,28 @@ fun ChatPanel(
         }
       }
       .collectAsStateWithLifecycle(initialValue = false)
-  var showLiveMetrics by rememberSaveable { mutableStateOf(true) }
+  val showLiveMetrics = uiState.showLiveMetrics
+  // The live metrics toggle button is interactive only when metrics are available for the
+  // initialized model and no inference turn or session reset is active.
+  val isLiveMetricsToggleEnabled =
+    hasLiveMetrics &&
+      modelInitStatus is Model.InitializationStatus.Initialized &&
+      !uiState.isResettingSession &&
+      !uiState.inProgress
 
   if (isLiveMetricsFlagEnabled) {
-    LaunchedEffect(viewModel, selectedModel) { viewModel.observeLiveMetrics(selectedModel) }
+    LaunchedEffect(viewModel, task.id, selectedModel) {
+      viewModel.loadLiveMetricsVisibility(task.id)
+      viewModel.observeLiveMetrics(selectedModel)
+    }
+    LaunchedEffect(
+      isLiveMetricsToggleEnabled,
+      task.id,
+    ) {
+      if (isLiveMetricsToggleEnabled) {
+        viewModel.maybeShowLiveMetricsPrompt(task.id)
+      }
+    }
   }
   val scope = rememberCoroutineScope()
   val snackbarHostState = remember { SnackbarHostState() }
@@ -359,7 +381,27 @@ fun ChatPanel(
     }
   }
 
-  Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+  // Dismiss the one-time discovery pill on any user touch or scroll completion across the screen
+  // without consuming the event (so tapping the pill itself still toggles live metrics).
+  val dismissPromptModifier =
+    if (uiState.showLiveMetricsPrompt && isLiveMetricsToggleEnabled) {
+      Modifier.pointerInput(viewModel) {
+        awaitEachGesture {
+          awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Final)
+          do {
+            val event = awaitPointerEvent(PointerEventPass.Final)
+          } while (event.changes.any { it.pressed })
+          viewModel.dismissLiveMetricsPrompt()
+        }
+      }
+    } else {
+      Modifier
+    }
+
+  Box(
+    modifier = Modifier.fillMaxSize().then(dismissPromptModifier),
+    contentAlignment = Alignment.BottomCenter,
+  ) {
     // Audio record animation.
     AnimatedVisibility(
       showAudioRecorder,
@@ -737,11 +779,21 @@ fun ChatPanel(
           status = contextCompactionStatus,
           initialDefaultToBehavior = isAutoCompactEnabled,
           onDefaultToBehaviorChanged = { defaultToBehavior ->
-            viewModel.setAutoCompact(task.id, defaultToBehavior)
+            viewModel.setAutoCompact(
+              taskId = task.id,
+              enabled = defaultToBehavior,
+              model = selectedModel,
+              source = AutoCompactionEnableSource.BANNER,
+            )
             modelManagerViewModel.updateConfigValuesUpdateTrigger()
           },
           onCompressClicked = { defaultToBehavior ->
-            viewModel.setAutoCompact(task.id, defaultToBehavior)
+            viewModel.setAutoCompact(
+              taskId = task.id,
+              enabled = defaultToBehavior,
+              model = selectedModel,
+              source = AutoCompactionEnableSource.BANNER,
+            )
             modelManagerViewModel.updateConfigValuesUpdateTrigger()
             viewModel.compactContext(
               model = selectedModel,
@@ -792,6 +844,7 @@ fun ChatPanel(
         textFieldPlaceHolderRes = task.textInputPlaceHolderRes,
         onValueChanged = { curMessage = it },
         onSendMessage = {
+          viewModel.dismissLiveMetricsPrompt()
           onSendMessage(selectedModel, it)
           curMessage = ""
           // Hide software keyboard.
@@ -825,7 +878,11 @@ fun ChatPanel(
         showMcpPicker = task.id === BuiltInTaskId.LLM_AGENT_CHAT,
         showLiveMetricsToggle = hasLiveMetrics,
         isLiveMetricsVisible = showLiveMetrics,
-        onToggleLiveMetrics = { showLiveMetrics = !showLiveMetrics },
+        showLiveMetricsPrompt = uiState.showLiveMetricsPrompt,
+        onDismissLiveMetricsPrompt = viewModel::dismissLiveMetricsPrompt,
+        onToggleLiveMetrics = {
+          viewModel.toggleLiveMetrics(taskId = task.id, model = selectedModel)
+        },
         showImagePicker = showImagePicker,
         showAudioPicker = showAudioPicker,
         showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,

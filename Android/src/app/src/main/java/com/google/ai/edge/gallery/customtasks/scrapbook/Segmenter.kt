@@ -25,6 +25,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -39,6 +40,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Redo
 import androidx.compose.material.icons.automirrored.rounded.Undo
@@ -69,6 +71,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
@@ -112,6 +115,7 @@ private var curId = 0
 fun Segmenter(
   model: Model,
   viewModel: ScrapbookViewModel,
+  backend: SegmenterBackend?,
   bottomPadding: Dp,
   setCustomNavigateUpCallback: ((() -> Unit)?) -> Unit,
 ) {
@@ -189,6 +193,12 @@ fun Segmenter(
             // Info message when no picture is picked.
             if (bitmap == null) {
               Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                if (backend != null) {
+                  SegmenterBackendChip(
+                    backend = backend,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
+                  )
+                }
                 EmptyState(
                   icon = ImageVector.vectorResource(R.drawable.add_cutout),
                   titleResId = R.string.create_cutout_empty_state_info,
@@ -699,4 +709,20 @@ private fun getBrushMode(selectedSegmentMode: Int): BrushMode {
     2 -> BrushMode.LASSO
     else -> BrushMode.POSITIVE
   }
+}
+
+/** A tonal chip that shows the runtime and the accelerator that the segmenter runs on. */
+@Composable
+private fun SegmenterBackendChip(backend: SegmenterBackend, modifier: Modifier = Modifier) {
+  Text(
+    stringResource(backend.runtime.chipTextResId, backend.accelerator.label),
+    style = MaterialTheme.typography.labelMedium,
+    color = MaterialTheme.colorScheme.onSecondaryContainer,
+    textAlign = TextAlign.Center,
+    modifier =
+      modifier
+        .clip(CircleShape)
+        .background(MaterialTheme.colorScheme.secondaryContainer)
+        .padding(horizontal = 12.dp, vertical = 6.dp),
+  )
 }
