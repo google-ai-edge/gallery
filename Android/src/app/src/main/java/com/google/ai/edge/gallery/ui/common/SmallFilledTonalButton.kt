@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -48,13 +49,17 @@ fun SmallFilledTonalButton(
   label: String? = null,
   enabled: Boolean = true,
   textStyle: TextStyle = MaterialTheme.typography.labelMedium,
+  contentPadding: PaddingValues = BUTTON_CONTENT_PADDING,
+  maxLines: Int = 1,
+  overflow: TextOverflow = TextOverflow.Ellipsis,
 ) {
   FilledTonalButton(
     onClick = onClick,
     modifier = modifier.height(32.dp),
-    contentPadding = BUTTON_CONTENT_PADDING,
+    contentPadding = contentPadding,
     enabled = enabled,
   ) {
+    val hasIcon = imageVector != null || iconResId != null
     if (imageVector != null) {
       Icon(imageVector = imageVector, contentDescription = null, modifier = Modifier.size(size))
     } else if (iconResId != null) {
@@ -67,7 +72,9 @@ fun SmallFilledTonalButton(
     Text(
       text = label ?: if (labelResId != 0) stringResource(labelResId) else "",
       style = textStyle,
-      modifier = Modifier.padding(start = 4.dp),
+      maxLines = maxLines,
+      overflow = overflow,
+      modifier = if (hasIcon) Modifier.padding(start = 4.dp) else Modifier,
     )
   }
 }
