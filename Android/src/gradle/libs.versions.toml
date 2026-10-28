@@ -50,6 +50,7 @@ xrProjected = "1.0.0-alpha14"
 mlkitGenaiCommon = "1.0.0-beta5"
 mlkitGenaiSpeechRecognition = "1.0.0-alpha2"
 mlkitGenaiTextToSpeech = "1.0.0-alpha1"
+mlkitGenaiSchema = "1.0.0-alpha2"
 tasksAudio = "1.2.0"
 
 [libraries]
@@ -118,6 +119,8 @@ androidx-xr-projected = { group = "androidx.xr.projected", name = "projected", v
 mlkit-genai-common = { group = "com.google.mlkit", name = "genai-common", version.ref = "mlkitGenaiCommon" }
 mlkit-genai-speech-recognition = { group = "com.google.mlkit", name = "genai-speech-recognition", version.ref = "mlkitGenaiSpeechRecognition" }
 mlkit-genai-text-to-speech = { group = "com.google.mlkit", name = "genai-text-to-speech", version.ref = "mlkitGenaiTextToSpeech" }
+mlkit-genai-schema = { group = "com.google.mlkit", name = "genai-schema", version.ref = "mlkitGenaiSchema" }
+mlkit-genai-schema-compiler = { group = "com.google.mlkit", name = "genai-schema-compiler", version.ref = "mlkitGenaiSchema" }
 tasks-audio = { group = "com.google.mediapipe", name = "tasks-audio", version.ref = "tasksAudio" }
 
 [plugins]

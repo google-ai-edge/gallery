@@ -40,6 +40,7 @@ import com.google.ai.edge.litertlm.Role
 import com.google.ai.edge.litertlm.ToolProvider
 import com.google.mlkit.genai.common.DownloadStatus
 import com.google.mlkit.genai.common.FeatureStatus
+import com.google.mlkit.genai.prompt.GenerateContentRequest
 import com.google.mlkit.genai.prompt.Generation
 import com.google.mlkit.genai.prompt.GenerativeModel
 import com.google.mlkit.genai.prompt.ImagePart
@@ -47,11 +48,13 @@ import com.google.mlkit.genai.prompt.ModelPreference
 import com.google.mlkit.genai.prompt.ModelReleaseStage
 import com.google.mlkit.genai.prompt.TextPart
 import com.google.mlkit.genai.prompt.generateContentRequest
+import com.google.mlkit.genai.prompt.generateTypedContentRequest
 import com.google.mlkit.genai.prompt.generationConfig
 import com.google.mlkit.genai.prompt.modelConfig
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.reflect.KClass
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -524,6 +527,22 @@ object AICoreModelHelper : LlmModelHelper {
           }
         }
 
+      if (!generableClassName.isNullOrBlank()) {
+        val generableKClass =
+          Class.forName(generableClassName, true, Thread.currentThread().contextClassLoader).kotlin
+        val typedResponse = generateTypedContent(instance.generativeModel, request, generableKClass)
+        val jsonOutput =
+          (typedResponse as? AICoreGenerableResponse)?.toJsonString()
+            ?: typedResponse?.toString().orEmpty()
+        if (!isEphemeral) {
+          instance.chatHistory.add(AICoreChatMessage(isUser = true, text = input))
+          instance.chatHistory.add(AICoreChatMessage(isUser = false, text = jsonOutput))
+        }
+        hasDeliveredDone = true
+        resultListener(jsonOutput, true, null)
+        return
+      }
+
       val flow = instance.generativeModel.generateContentStream(request)
 
       var fullResponse = ""
@@ -560,6 +579,17 @@ object AICoreModelHelper : LlmModelHelper {
       onError("Error: ${e.message}")
     }
   }
+
+  private suspend fun <T : Any> generateTypedContent(
+    generativeModel: GenerativeModel,
+    request: GenerateContentRequest,
+    generableKClass: KClass<T>,
+  ): T? =
+    generativeModel
+      .generateContent(generateTypedContentRequest(request, generableKClass))
+      .candidates
+      .firstOrNull()
+      ?.response
 
   // Update the token limit of the model based on the value from AICore.
   private suspend fun updateTokenLimit(model: Model, generativeModel: GenerativeModel) {

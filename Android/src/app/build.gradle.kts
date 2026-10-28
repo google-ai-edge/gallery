@@ -143,6 +143,8 @@ dependencies {
   implementation(libs.mlkit.genai.common)
   implementation(libs.mlkit.genai.speech.recognition)
   implementation(libs.mlkit.genai.text.to.speech)
+  implementation(libs.mlkit.genai.schema)
+  ksp(libs.mlkit.genai.schema.compiler)
   implementation(libs.tasks.audio)
 }
 

@@ -21,6 +21,7 @@ import android.util.Log
 import androidx.core.graphics.scale
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.CharacterPersona
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.GenerableVocabCard
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherChatTurn
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherJsonResponse
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherOverlayState
@@ -254,7 +255,12 @@ internal fun XrLanguageTeacherViewModel.launchPass2CardExtraction(
   activePass2Job =
     viewModelScope.launch(inferenceDispatcher) {
       if (sessionEpoch.get() != turnEpoch) return@launch
-      val pass2SchemaClassName: String? = null
+      val pass2SchemaClassName =
+        if (model.isAiCore) {
+          GenerableVocabCard::class.java.name
+        } else {
+          null
+        }
       val pass2JsonSchema =
         if (!model.isAiCore) {
           TeacherResponseSchema.pass2CardJsonSchema()
