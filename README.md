@@ -21,20 +21,22 @@ For users without Google Play access, install the apk from the [**latest release
 
 ## App Preview
 
-<img width="480" alt="01" src="https://github.com/user-attachments/assets/d6edaadf-42be-4c87-a902-3fc96b09efde" />
-<img width="480" alt="02" src="https://github.com/user-attachments/assets/e597ae4c-8d32-4428-a267-8ac8f7e41a61" />
-<img width="480" alt="03" src="https://github.com/user-attachments/assets/c05ccc3b-628e-47d1-a635-8516fced08fa" />
-<img width="480" alt="04" src="https://github.com/user-attachments/assets/fc86b3f8-1eae-4199-be36-43b9f51c4f0b" />
-<img width="480" alt="05" src="https://github.com/user-attachments/assets/a22b5e2c-c456-483e-bf52-fe30d64d64e9" />
-<img width="480" alt="06" src="https://github.com/user-attachments/assets/4d0cf0ca-6806-40e2-990e-dc7d02d31b4e" />
-<img width="480" alt="07" src="https://github.com/user-attachments/assets/3390ddc1-7e38-4f03-9df3-aa9d1fe05df0" />
-<img width="480" alt="08" src="https://github.com/user-attachments/assets/222b66fd-6d39-4680-ab2c-cd695ceaeba4" />
+<img width="480" alt="01" src="https://github.com/user-attachments/assets/a270ffe9-c557-4f7d-8af1-209868a5cc95" />
+<img width="480" alt="02" src="https://github.com/user-attachments/assets/9480e21a-3545-41b3-945a-29fdf9be3b8d" />
+<img width="480" alt="03" src="https://github.com/user-attachments/assets/d82796c0-4072-4a99-bbe9-bbf3a9e314ff" />
+<img width="480" alt="04" src="https://github.com/user-attachments/assets/2bd59bc5-4b20-4f7a-b44f-6fc3cd217d22" />
+<img width="480" alt="05" src="https://github.com/user-attachments/assets/ebff12e8-60d5-4efa-96dd-2eaa5f5457c4" />
+<img width="480" alt="06" src="https://github.com/user-attachments/assets/c4891c86-e114-44cf-be99-5f948fc77bc3" />
+<img width="480" alt="07" src="https://github.com/user-attachments/assets/7f690bba-fcf9-4926-9142-c4176dc04672" />
+<img width="480" alt="08" src="https://github.com/user-attachments/assets/31f1d25f-f1ec-41bf-bb39-1c5f9a36223d" />
 
 ## ✨ Core Features
 
 * **Agent Skills**: Transform your LLM from a conversationalist into a proactive assistant. Use the Agent Skills tile to augment model capabilities with tools like Wikipedia for fact-grounding, interactive maps, and rich visual summary cards. You can even load modular skills from a URL or browse community contributions on GitHub Discussions.
 
-* **AI Chat with Thinking Mode**: Engage in fluid, multi-turn conversations and toggle the new Thinking Mode to peek "under the hood." This feature allows you to see the model’s step-by-step reasoning process, which is perfect for understanding complex problem-solving. Note: Thinking Mode currently works with supported models, starting with the Gemma 4 family.
+* **AI Chat with ASR & TTS**: Talk to your model instead of typing. Tap the mic button to dictate your message with on-device speech recognition, and tap the speaker on any reply (or turn on auto-play) to hear it read aloud. Choose your speech recognition and text-to-speech engines, voices, and languages in the chat's Audio settings.
+
+* **XR Language Teacher**: Learn a new language from the world around you. Point your camera at an object and ask about it by image, voice, or text. Your AI teacher answers in the language you're learning, reads the answer aloud, and turns key words into vocabulary cards you can save and study later. Use it on your phone, or hands-free with supported Android XR glasses.
 
 * **Instant Media Search**: Explore your photo library (or built-in sample media) with fast, search-as-you-type natural language queries and image-to-image similarity matching—with zero cloud roundtrips.
 
