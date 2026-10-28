@@ -24,11 +24,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -37,12 +39,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,10 +57,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.fromHtml
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 
@@ -144,50 +149,123 @@ fun ContextCompactionBanner(
                 )
               }
 
-              Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-              ) {
-                Button(
-                  onClick = { onCompressClicked(defaultToBehavior) },
-                  colors =
-                    ButtonDefaults.filledTonalButtonColors(
-                      containerColor = MaterialTheme.colorScheme.primaryContainer,
-                      contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
-                  shape = RoundedCornerShape(8.dp),
-                  contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                ) {
-                  Icon(
-                    Icons.Filled.Compress,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                  )
-                  Spacer(modifier = Modifier.width(6.dp))
-                  Text(
-                    text = stringResource(R.string.compress_and_continue_button),
-                    style = MaterialTheme.typography.labelLarge,
-                  )
-                }
+              val textMeasurer = rememberTextMeasurer()
+              val density = LocalDensity.current
+              val baseButtonTextStyle = MaterialTheme.typography.labelLarge
+              val compressLabel = stringResource(R.string.compress_and_continue_button)
+              val newChatLabel = stringResource(R.string.new_chat_button)
 
-                TextButton(
-                  onClick = onNewChatClicked,
-                  shape = RoundedCornerShape(8.dp),
-                  contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+              BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                val measuredTextWidthPx =
+                  textMeasurer
+                    .measure(
+                      text = compressLabel,
+                      style = baseButtonTextStyle,
+                      maxLines = 1,
+                      softWrap = false,
+                    )
+                    .size
+                    .width +
+                    textMeasurer
+                      .measure(
+                        text = newChatLabel,
+                        style = baseButtonTextStyle,
+                        maxLines = 1,
+                        softWrap = false,
+                      )
+                      .size
+                      .width
+
+                val fullChromeWidthPx =
+                  with(density) {
+                    4 * 12.dp.roundToPx() +
+                      2 * 18.dp.roundToPx() +
+                      2 * 6.dp.roundToPx() +
+                      8.dp.roundToPx()
+                  }
+                val fitsFullSpec = measuredTextWidthPx + fullChromeWidthPx <= constraints.maxWidth
+
+                val horizontalPadding = if (fitsFullSpec) 12.dp else 8.dp
+                val iconSize = if (fitsFullSpec) 18.dp else 16.dp
+                val iconToLabelGap = if (fitsFullSpec) 6.dp else 4.dp
+                val buttonSpacing = if (fitsFullSpec) 8.dp else 6.dp
+
+                val compactChromeWidthPx =
+                  with(density) {
+                    4 * horizontalPadding.roundToPx() +
+                      2 * iconSize.roundToPx() +
+                      2 * iconToLabelGap.roundToPx() +
+                      buttonSpacing.roundToPx()
+                  }
+                val availableTextWidthPx =
+                  (constraints.maxWidth - compactChromeWidthPx - with(density) { 2.dp.roundToPx() })
+                    .coerceAtLeast(0)
+                val textScale =
+                  if (fitsFullSpec || measuredTextWidthPx <= 0) {
+                    1f
+                  } else {
+                    (availableTextWidthPx.toFloat() / measuredTextWidthPx.toFloat()).coerceIn(
+                      0.75f,
+                      1f,
+                    )
+                  }
+                val buttonTextStyle =
+                  if (textScale < 1f) {
+                    baseButtonTextStyle.copy(
+                      fontSize = baseButtonTextStyle.fontSize * textScale,
+                      lineHeight = baseButtonTextStyle.lineHeight * textScale,
+                    )
+                  } else {
+                    baseButtonTextStyle
+                  }
+
+                Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.spacedBy(buttonSpacing),
+                  verticalAlignment = Alignment.CenterVertically,
                 ) {
-                  Icon(
-                    Icons.Rounded.AddComment,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                  )
-                  Spacer(modifier = Modifier.width(6.dp))
-                  Text(
-                    text = stringResource(R.string.new_chat_button),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                  )
+                  FilledTonalButton(
+                    onClick = { onCompressClicked(defaultToBehavior) },
+                    colors = ButtonDefaults.filledTonalButtonColors(),
+                    modifier = Modifier.height(32.dp),
+                    contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 2.dp),
+                  ) {
+                    Icon(
+                      Icons.Filled.Compress,
+                      contentDescription = null,
+                      modifier = Modifier.size(iconSize),
+                    )
+                    Spacer(modifier = Modifier.width(iconToLabelGap))
+                    Text(
+                      text = compressLabel,
+                      style = buttonTextStyle,
+                      maxLines = 1,
+                      softWrap = false,
+                      overflow = TextOverflow.Ellipsis,
+                    )
+                  }
+
+                  TextButton(
+                    onClick = onNewChatClicked,
+                    modifier = Modifier.height(32.dp),
+                    contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 2.dp),
+                  ) {
+                    Icon(
+                      Icons.Rounded.AddComment,
+                      contentDescription = null,
+                      modifier = Modifier.size(iconSize),
+                      tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.width(iconToLabelGap))
+                    Text(
+                      text = newChatLabel,
+                      style = buttonTextStyle,
+                      color = MaterialTheme.colorScheme.primary,
+                      maxLines = 1,
+                      softWrap = false,
+                      overflow = TextOverflow.Ellipsis,
+                    )
+                  }
                 }
               }
             }
