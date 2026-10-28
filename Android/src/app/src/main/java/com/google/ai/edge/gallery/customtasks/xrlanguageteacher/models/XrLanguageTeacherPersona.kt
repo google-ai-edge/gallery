@@ -129,7 +129,7 @@ enum class CharacterPersona(
     val sampleWantSentence = sampleTargetWantSentence(learnLangName) ?: return rules
     val example =
       """
-      Example ("What is this and how do I say I want this?"):
+      Example ("${sampleStudentQuestion(mainLangName)}"):
       <reply>
       ${sampleHostReply(mainLangName, "<target>$sampleWord</target>", "<target>$sampleWantSentence</target>")}
       </reply>
@@ -137,6 +137,29 @@ enum class CharacterPersona(
         .trimIndent()
     return "$rules\n\n$example"
   }
+
+  /**
+   * The example student question in [mainLangName] so the 1-shot header does not prime English when
+   * [mainLangName] is another language. Unlisted native languages use English.
+   */
+  private fun sampleStudentQuestion(mainLangName: String): String =
+    when (mainLangName.lowercase(Locale.ROOT)) {
+      "japanese" -> "これは何ですか？これが欲しいと言うにはどう言えばいいですか？"
+      "korean" -> "이건 뭐예요? 이걸 갖고 싶다고 어떻게 말해요?"
+      "chinese",
+      "mandarin" -> "这是什么？想说我想要这个该怎么说？"
+      "french" -> "Qu'est-ce que c'est et comment dire que je le veux ?"
+      "german" -> "Was ist das und wie sage ich, dass ich das möchte?"
+      "italian" -> "Che cos'è questo e come dico che lo voglio?"
+      "portuguese" -> "O que é isto e como digo que eu quero isto?"
+      "spanish" -> "¿Qué es esto y cómo digo que lo quiero?"
+      "hindi" -> "यह क्या है और मैं यह कैसे कहूँ कि मुझे यह चाहिए?"
+      "thai" -> "นี่คืออะไร และจะพูดว่าอยากได้สิ่งนี้ได้อย่างไร?"
+      "vietnamese" -> "Đây là gì và làm sao để nói tôi muốn cái này?"
+      "arabic" -> "ما هذا وكيف أقول إنني أريده؟"
+      "russian" -> "Что это и как сказать, что я это хочу?"
+      else -> "What is this and how do I say I want this?"
+    }
 
   /**
    * The example reply, with the text outside `<target>` in [mainLangName] so it matches

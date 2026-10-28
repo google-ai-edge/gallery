@@ -97,8 +97,6 @@ object XrLanguageTeacherDialogueFormatter {
     Regex("^(?i)<(?:r(?:e(?:p(?:l(?:y(?:\\s+[^>]*)?)?)?)?)?)?$")
   private val PARTIAL_TRAILING_SCHEMA_TAG_REGEX =
     Regex("(?i)</?(?:r(?:e(?:p(?:l(?:y)?)?)?)?|c(?:a(?:r(?:d)?)?)?)\\s*$")
-  private val SPANISH_INVERTED_CLAUSE_WITH_TARGET_REGEX =
-    Regex("(?is)([¿¡][^?!]*?<target>.*?</target>[^?!]*?[?!])")
 
   private val ABBREVIATION_SUFFIX_REGEX =
     Regex("""(?i)\b(?:prof|mr|mrs|ms|dr|st|jr|sr|vs|etc)\.\s*$""")
@@ -107,12 +105,6 @@ object XrLanguageTeacherDialogueFormatter {
 
   private const val SHIELD_OPEN = "___TARGET_OPEN_TOKEN___"
   private const val SHIELD_CLOSE = "___TARGET_CLOSE_TOKEN___"
-
-  private fun shouldExpandSpanishInvertedClauses(
-    mainLanguage: Language,
-    learnLanguage: Language,
-  ): Boolean =
-    learnLanguage == Language.LANGUAGE_SPANISH && mainLanguage != Language.LANGUAGE_SPANISH
 
   private fun isSentenceEndingPunctuation(ch: Char): Boolean =
     ch == '.' || ch == '!' || ch == '?' || ch == '。' || ch == '！' || ch == '？'
@@ -165,14 +157,7 @@ object XrLanguageTeacherDialogueFormatter {
         trimmed.substring(contentStartIndex).replace(PARTIAL_TRAILING_SCHEMA_TAG_REGEX, "")
       }
 
-    var cleanedRaw = rawSlice.replace(TRAILING_PARTIAL_TAG_REGEX, "")
-    if (shouldExpandSpanishInvertedClauses(mainLanguage, learnLanguage)) {
-      cleanedRaw =
-        cleanedRaw.replace(SPANISH_INVERTED_CLAUSE_WITH_TARGET_REGEX) { match ->
-          "<target>${stripTargetAndHtmlTags(match.value)}</target>"
-        }
-    }
-    cleanedRaw = cleanedRaw.trimStart()
+    val cleanedRaw = rawSlice.replace(TRAILING_PARTIAL_TAG_REGEX, "").trimStart()
     val sanitized = stripHtmlPreservingTargetTags(cleanedRaw)
 
     return StreamingReplyState(
@@ -184,8 +169,7 @@ object XrLanguageTeacherDialogueFormatter {
   }
 
   /**
-   * Parses the complete Pass 1 response (`<reply>...</reply>`), expanding partial `<target>` tags
-   * in Spanish `¿...?` and `¡...!` clauses and wrapping untagged occurrences of
+   * Parses the complete Pass 1 response (`<reply>...</reply>`), wrapping untagged occurrences of
    * [fallbackTargetWord], the word of the active card on follow-up turns. Anything after the reply,
    * such as a stray `<card>` block, is dropped.
    */
@@ -216,12 +200,7 @@ object XrLanguageTeacherDialogueFormatter {
       }
 
     val normalizedReply =
-      normalizeReply(
-        rawReply = rawReply,
-        mainLanguage = mainLanguage,
-        learnLanguage = learnLanguage,
-        fallbackTargetWord = fallbackTargetWord,
-      )
+      normalizeReply(rawReply = rawReply, fallbackTargetWord = fallbackTargetWord)
     val segments = parseDialogueSegments(normalizedReply)
     val cleanReply = stripTargetAndHtmlTags(normalizedReply)
 
@@ -236,15 +215,18 @@ object XrLanguageTeacherDialogueFormatter {
    * Strips leading/trailing stray punctuation and quotes (while preserving Spanish leading `¡`/`¿`
    * and sentence-ending punctuation unless [stripSentenceEndPunct] is true) and clears strings that
    * contain no letters or digits.
+   *
+   * A paired quote or bracket at the edge is kept when its partner is inside the field (e.g. the
+   * `」` in `彼は「ありがとう」`), and removed when it is unpaired or wraps the whole field (e.g. `「つくえ」`
+   * becomes `つくえ`).
    */
   fun cleanCardFieldValue(raw: String, stripSentenceEndPunct: Boolean = false): String =
     XrLanguageTeacherVocabCardSanitizer.cleanCardFieldValue(raw, stripSentenceEndPunct)
 
   /**
-   * Sanitizes [card] so full sentences, conversational introductory frames (e.g. `"To say that, you
-   * can say ..."`), or copula frames never render as the Vocab Card title, moving the full
-   * target-language sentence to `"example"` and extracting the core taught term/phrase into
-   * `"word"`.
+   * Sanitizes [card] fields by stripping stray HTML/XML tags and edge punctuation, backfilling an
+   * omitted translation field from the other, and isolating the shorter `<target>` span from
+   * [replyWithTargets] if `word` accidentally holds a full sentence.
    */
   fun sanitizeVocabCard(
     card: VocabCardData,
@@ -259,27 +241,9 @@ object XrLanguageTeacherDialogueFormatter {
       learnLanguage = learnLanguage,
     )
 
-  /**
-   * Expands Spanish clauses bounded by `¿...?` or `¡...!` that hold a partial `<target>` tag into a
-   * single target span, wraps untagged occurrences of [fallbackTargetWord], and normalizes the
-   * target tags.
-   */
-  private fun normalizeReply(
-    rawReply: String,
-    mainLanguage: Language,
-    learnLanguage: Language,
-    fallbackTargetWord: String?,
-  ): String {
+  /** Wraps untagged occurrences of [fallbackTargetWord] and normalizes the target tags. */
+  private fun normalizeReply(rawReply: String, fallbackTargetWord: String?): String {
     var reply = stripHtmlPreservingTargetTags(rawReply)
-
-    // Expand Spanish clauses bounded by ¿...? or ¡...! that have a partial <target> tag inside,
-    // only when Spanish is the target language being learned (never when Spanish is the host).
-    if (shouldExpandSpanishInvertedClauses(mainLanguage, learnLanguage)) {
-      reply =
-        reply.replace(SPANISH_INVERTED_CLAUSE_WITH_TARGET_REGEX) { match ->
-          "<target>${stripTargetAndHtmlTags(match.value)}</target>"
-        }
-    }
 
     val cleanFallbackWord = fallbackTargetWord?.trim().orEmpty()
     if (
