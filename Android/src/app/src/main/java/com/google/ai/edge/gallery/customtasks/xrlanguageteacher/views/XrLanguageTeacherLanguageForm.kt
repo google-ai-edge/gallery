@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -31,6 +32,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -46,6 +48,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,7 +57,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -62,6 +69,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.CharacterPersona
@@ -88,6 +96,12 @@ import com.google.ai.edge.gallery.ui.modelmanager.languagePackStatusText
 /** Size of the tonal action buttons next to the persona section title. */
 private val PERSONA_ACTION_BUTTON_SIZE = 32.dp
 
+/** Shape of the language dropdown menus, matching the Saved tab's language menu. */
+private val LANGUAGE_MENU_SHAPE = RoundedCornerShape(16.dp)
+
+/** Height of a language dropdown's title row: the title's line height. */
+private val LABEL_ROW_HEIGHT = 24.dp
+
 /** Icon size inside the persona section's tonal action buttons. */
 private val PERSONA_ACTION_ICON_SIZE = 18.dp
 
@@ -108,6 +122,17 @@ private val PERSONA_ACTION_ICON_SIZE = 18.dp
  * model manager's language pack download control and can't be selected until they're installed. The
  * control starts a download through [onDownloadLanguagePack], which also retries a failed one;
  * downloads can't be cancelled.
+ *
+ * The languages offered depend on the selected speech recognition and voice models; when they share
+ * no language, the native language dropdown says so. Languages only the speech recognition model
+ * supports ([unsupportedNativeLanguages]) are listed greyed out with a caption explaining that the
+ * current TTS model does not support them. [nativeLanguageNotice] and [learnLanguageNotice], when
+ * set, are shown in a light blue note under their dropdown, for example when a saved language
+ * stopped working after a model change. [learnLanguagePlaceholder] and [nativeLanguagePlaceholder],
+ * when set, leave that dropdown empty until the user picks a language ([onLearnLanguagePicked],
+ * [onNativeLanguagePicked]), as in the first-time setup or after a saved language stopped working.
+ * When [onChangeModels] is set, a "Missing a language? Change models" row under the language
+ * dropdowns calls it to open the model selection screen.
  */
 @Composable
 fun TeacherPreferencesForm(
@@ -122,6 +147,14 @@ fun TeacherPreferencesForm(
   isPersonaPreviewAvailable: Boolean = true,
   languagePacks: TeacherLanguagePackUiState = TeacherLanguagePackUiState(),
   onDownloadLanguagePack: (TeacherLanguageRole, Language) -> Unit = { _, _ -> },
+  onChangeModels: (() -> Unit)? = null,
+  unsupportedNativeLanguages: List<Language> = emptyList(),
+  nativeLanguageNotice: String? = null,
+  learnLanguageNotice: String? = null,
+  learnLanguagePlaceholder: String? = null,
+  onLearnLanguagePicked: () -> Unit = {},
+  nativeLanguagePlaceholder: String? = null,
+  onNativeLanguagePicked: () -> Unit = {},
 ) {
   var editingPersona by remember { mutableStateOf<CharacterPersona?>(null) }
   val languageOptions =
@@ -131,6 +164,12 @@ fun TeacherPreferencesForm(
   val nativeLanguages =
     remember(availableNativeLanguages) {
       availableNativeLanguages.map { language ->
+        language to localeTagToDisplayName(language.toLocale().toLanguageTag())
+      }
+    }
+  val unsupportedNative =
+    remember(unsupportedNativeLanguages) {
+      unsupportedNativeLanguages.map { language ->
         language to localeTagToDisplayName(language.toLocale().toLanguageTag())
       }
     }
@@ -156,27 +195,65 @@ fun TeacherPreferencesForm(
   Column(modifier = modifier.fillMaxWidth()) {
     LanguageDropdownField(
       label = stringResource(R.string.xrteacher_native_language_label),
+      helperText = stringResource(R.string.xrteacher_native_language_helper),
       selectedLanguage = draft.mainLanguage,
       languages = nativeLanguages,
       packStatusOf = { languagePacks.statusOf(TeacherLanguageRole.NATIVE, it) },
-      onLanguageSelected = { onLanguagesChosen(main = it, learn = draft.learnLanguage) },
+      onLanguageSelected = {
+        onNativeLanguagePicked()
+        onLanguagesChosen(main = it, learn = draft.learnLanguage)
+      },
       onDownloadLanguagePack = { onDownloadLanguagePack(TeacherLanguageRole.NATIVE, it) },
+      placeholder = nativeLanguagePlaceholder,
       infoTooltip = stringResource(R.string.xrteacher_native_language_info_tooltip),
       infoContentDescription = stringResource(R.string.cd_xrteacher_native_language_info),
+      unsupportedLanguages = unsupportedNative,
+      unsupportedReason = stringResource(R.string.xrteacher_language_not_supported_by_tts),
     )
+    when {
+      nativeLanguageNotice != null ->
+        LanguageNoticeBanner(
+          message = nativeLanguageNotice,
+          onChangeModels = onChangeModels,
+          modifier = Modifier.padding(top = 8.dp),
+        )
+      availableNativeLanguages.isEmpty() ->
+        // The selected speech models share no language, so no native language can be picked.
+        Text(
+          text = stringResource(R.string.xrteacher_no_shared_native_language),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error,
+          modifier = Modifier.padding(top = 6.dp),
+        )
+    }
 
     Spacer(modifier = Modifier.height(16.dp))
 
     LanguageDropdownField(
       label = stringResource(R.string.xrteacher_language_to_learn),
+      helperText = stringResource(R.string.xrteacher_learn_language_helper),
       selectedLanguage = draft.learnLanguage,
       languages = learnLanguages,
       packStatusOf = { languagePacks.statusOf(TeacherLanguageRole.LEARN, it) },
-      onLanguageSelected = { onLanguagesChosen(main = draft.mainLanguage, learn = it) },
+      onLanguageSelected = {
+        onLearnLanguagePicked()
+        onLanguagesChosen(main = draft.mainLanguage, learn = it)
+      },
       onDownloadLanguagePack = { onDownloadLanguagePack(TeacherLanguageRole.LEARN, it) },
       infoTooltip = stringResource(R.string.xrteacher_learn_language_info_tooltip),
       infoContentDescription = stringResource(R.string.cd_xrteacher_learn_language_info),
+      placeholder = learnLanguagePlaceholder,
     )
+    if (learnLanguageNotice != null) {
+      LanguageNoticeBanner(
+        message = learnLanguageNotice,
+        onChangeModels = onChangeModels,
+        modifier = Modifier.padding(top = 8.dp),
+      )
+    } else if (onChangeModels != null && nativeLanguageNotice == null) {
+      // A note already offers to switch models, so the helper line only shows without one.
+      ChangeModelsHelperLine(onChangeModels = onChangeModels)
+    }
 
     Spacer(modifier = Modifier.height(24.dp))
 
@@ -187,7 +264,7 @@ fun TeacherPreferencesForm(
     ) {
       Text(
         text = stringResource(R.string.xrteacher_persona_section_title),
-        style = MaterialTheme.typography.bodyLarge,
+        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
         color = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.weight(1f),
       )
@@ -284,6 +361,32 @@ fun TeacherPreferencesForm(
   }
 }
 
+/**
+ * "Missing a language? Change models" helper line right under the native language dropdown, styled
+ * like an input's helper text, because the languages offered depend on the selected speech models.
+ */
+@Composable
+private fun ChangeModelsHelperLine(onChangeModels: () -> Unit) {
+  Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Text(
+      text = stringResource(R.string.xrteacher_missing_language),
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    // Tight padding keeps it close to the dropdown; the button still has a 40dp tap height.
+    TextButton(
+      onClick = onChangeModels,
+      contentPadding = PaddingValues(horizontal = 8.dp),
+      modifier = Modifier.heightIn(min = 40.dp),
+    ) {
+      Text(
+        text = stringResource(R.string.xrteacher_change_models),
+        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+      )
+    }
+  }
+}
+
 @Composable
 internal fun DialogTitle(text: String) {
   Text(
@@ -298,11 +401,13 @@ internal fun DialogTitle(text: String) {
  *
  * Each language that isn't installed ([packStatusOf]) shows its status and the language pack
  * download control, both in the list and, for the selected language, in the pill. Such languages
- * can't be selected until they're installed.
+ * can't be selected until they're installed. [unsupportedLanguages] are listed last, greyed out and
+ * not selectable, with [unsupportedReason] under each.
  */
 @Composable
 private fun LanguageDropdownField(
   label: String,
+  helperText: String?,
   selectedLanguage: Language,
   languages: List<Pair<Language, String>>,
   packStatusOf: (Language) -> LanguagePackUiStatus,
@@ -310,36 +415,67 @@ private fun LanguageDropdownField(
   onDownloadLanguagePack: (Language) -> Unit,
   infoTooltip: String? = null,
   infoContentDescription: String? = null,
+  unsupportedLanguages: List<Pair<Language, String>> = emptyList(),
+  unsupportedReason: String? = null,
+  placeholder: String? = null,
 ) {
   var expanded by remember { mutableStateOf(false) }
+  // The menu is as wide as the dropdown field it opens from.
+  val density = LocalDensity.current
+  var fieldWidth by remember { mutableStateOf(0.dp) }
   val currentName =
-    languages.firstOrNull { it.first == selectedLanguage }?.second
+    placeholder
+      ?: languages.firstOrNull { it.first == selectedLanguage }?.second
       ?: localeTagToDisplayName(selectedLanguage.toLocale().toLanguageTag())
-  val selectedStatus = packStatusOf(selectedLanguage)
+  // With a placeholder, nothing is selected yet, so there's no status to show.
+  val selectedStatus =
+    if (placeholder != null) LanguagePackUiStatus.Installed else packStatusOf(selectedLanguage)
 
   Column(modifier = Modifier.fillMaxWidth()) {
     Row(
       verticalAlignment = Alignment.CenterVertically,
-      modifier = Modifier.padding(bottom = if (infoTooltip != null) 0.dp else 8.dp),
+      modifier = Modifier.padding(bottom = if (helperText != null) 2.dp else 8.dp),
     ) {
+      // Same style as the "Teacher persona" title.
       Text(
         text = label,
-        style = MaterialTheme.typography.bodyMedium,
+        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
         color = MaterialTheme.colorScheme.onSurface,
       )
       if (infoTooltip != null && infoContentDescription != null) {
         InfoTooltipIconButton(
           tooltipText = infoTooltip,
           contentDescription = infoContentDescription,
+          // Keeps its 48dp touch target, but only takes the title's line height in the layout, so
+          // the helper text sits close to the title.
+          modifier =
+            Modifier.layout { measurable, constraints ->
+              val placeable = measurable.measure(constraints.copy(minHeight = 0))
+              val height = LABEL_ROW_HEIGHT.roundToPx()
+              layout(placeable.width, height) {
+                placeable.place(0, (height - placeable.height) / 2)
+              }
+            },
         )
       }
+    }
+    if (helperText != null) {
+      Text(
+        text = helperText,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(bottom = 8.dp),
+      )
     }
     Box(modifier = Modifier.fillMaxWidth()) {
       Surface(
         onClick = { expanded = !expanded },
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceBright,
-        modifier = Modifier.fillMaxWidth().height(52.dp),
+        modifier =
+          Modifier.fillMaxWidth().height(52.dp).onGloballyPositioned { coordinates ->
+            fieldWidth = with(density) { coordinates.size.width.toDp() }
+          },
       ) {
         Row(
           modifier = Modifier.fillMaxSize().padding(start = 22.dp, end = 16.dp),
@@ -349,7 +485,9 @@ private fun LanguageDropdownField(
             Text(
               text = currentName,
               style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-              color = MaterialTheme.colorScheme.onSurface,
+              color =
+                if (placeholder != null) MaterialTheme.colorScheme.onSurfaceVariant
+                else MaterialTheme.colorScheme.onSurface,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
@@ -367,21 +505,29 @@ private fun LanguageDropdownField(
           )
         }
       }
+      // Styled like the Saved tab's language menu: a light rounded container with pill-shaped
+      // options, the current one filled in primaryContainer.
       DropdownMenu(
         expanded = expanded,
         onDismissRequest = { expanded = false },
-        modifier = Modifier.heightIn(max = 320.dp),
+        offset = DpOffset(x = 0.dp, y = 4.dp),
+        shape = LANGUAGE_MENU_SHAPE,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.width(fieldWidth).heightIn(max = 320.dp),
       ) {
         val disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
         for ((language, name) in languages) {
-          val isCurrent = language == selectedLanguage
+          val isCurrent = placeholder == null && language == selectedLanguage
           val status = packStatusOf(language)
           val isSelectable = isCurrent || status == LanguagePackUiStatus.Installed
           DropdownMenuItem(
             modifier =
-              Modifier.background(
-                if (isCurrent) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
-              ),
+              Modifier.padding(horizontal = 4.dp)
+                .clip(CircleShape)
+                .background(
+                  if (isCurrent) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                )
+                .semantics { selected = isCurrent },
             text = {
               Column {
                 Row(
@@ -393,9 +539,9 @@ private fun LanguageDropdownField(
                     fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
                     color =
                       when {
-                        isCurrent -> MaterialTheme.colorScheme.onSecondaryContainer
+                        isCurrent -> MaterialTheme.colorScheme.onPrimaryContainer
                         status == LanguagePackUiStatus.Installed ->
-                          MaterialTheme.colorScheme.onSurface
+                          MaterialTheme.colorScheme.onSurfaceVariant
                         else -> disabledContentColor
                       },
                   )
@@ -418,6 +564,26 @@ private fun LanguageDropdownField(
             onClick = { onLanguageSelected(language) },
             // A language that isn't installed can't be picked until its download finishes.
             enabled = isSelectable,
+          )
+        }
+        // Languages the selected models can't use together, listed last and greyed out with why.
+        for ((_, name) in unsupportedLanguages) {
+          DropdownMenuItem(
+            modifier = Modifier.padding(horizontal = 4.dp),
+            text = {
+              Column {
+                Text(text = name, color = disabledContentColor)
+                if (unsupportedReason != null) {
+                  Text(
+                    text = unsupportedReason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = disabledContentColor,
+                  )
+                }
+              }
+            },
+            onClick = {},
+            enabled = false,
           )
         }
       }
@@ -456,7 +622,7 @@ private fun LanguagePackStatusLine(
     color =
       when {
         status == LanguagePackUiStatus.Failed -> MaterialTheme.colorScheme.error
-        isCurrent -> MaterialTheme.colorScheme.onSecondaryContainer
+        isCurrent -> MaterialTheme.colorScheme.onPrimaryContainer
         isSelectable -> MaterialTheme.colorScheme.onSurfaceVariant
         else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
       },

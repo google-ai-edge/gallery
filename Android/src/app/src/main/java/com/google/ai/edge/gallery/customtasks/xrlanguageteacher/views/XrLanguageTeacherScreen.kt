@@ -31,10 +31,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
@@ -62,6 +60,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherInitStepStatus
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherLanguageAdjustment
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherOverlayState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherPreferencesDraft
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherDialogueFormatter
@@ -69,6 +68,7 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.saveCurre
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.teacherInitSteps
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.toNameResId
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.unsaveVocabCard
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.unsupportedNativeLanguages
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.cancelAsrRecording
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.clearAsrTranscript
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.isAsrRecordingOrPending
@@ -98,7 +98,7 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.showG
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.switchToPhone
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.switchToXr
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.ActiveLessonBottomSheet
-import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.TeacherInputMode
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.AskThreeWaysTooltip
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.TeacherSettingsTooltip
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.XrGlassesModeScreen
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.xrPipelineStatus
@@ -127,9 +127,10 @@ private val LESSON_SHEET_HEADER_PEEK_HEIGHT = 64.dp
  *   dialog is shown so the greeting uses the persona and languages chosen there.
  * @param canShowSpeechEngineError Whether the speech engine error popup may show. False while the
  *   first-time introduction dialog is shown, where the user picks and downloads languages.
- * @param showSettingsTooltip Whether to show the one-time tooltip on the language and teacher
- *   settings button once the teacher is ready.
- * @param onSettingsTooltipDismissed Called when the user dismisses the tooltip.
+ * @param showSettingsTooltip Whether to show the one-time tooltip tour once the teacher is ready:
+ *   the language and teacher settings button, followed by the 3-way input row.
+ * @param onSettingsTooltipDismissed Called when the user finishes the tour by dismissing its last
+ *   tooltip.
  * @param onLessonSheetShownChanged Called with whether the lesson bottom sheet is on screen,
  *   including while it animates in or out.
  * @param onInitializingChanged Called with whether the teacher model, speech recognition or voice
@@ -172,10 +173,14 @@ fun XrLanguageTeacherScreen(
   val isModelReady = initStatus is Model.InitializationStatus.Initialized
 
   var showPreferencesDialog by rememberSaveable { mutableStateOf(false) }
-  // Window bounds of the language and teacher settings button, for its one-time tooltip.
+  // Window bounds of the language and teacher settings button and of the 3-button input row, for
+  // the one-time tooltip tour.
   var settingsButtonBounds by remember { mutableStateOf<IntRect?>(null) }
-  // How the user asks about what the camera sees; Audio (speech recognition) by default.
-  var inputMode by rememberSaveable { mutableStateOf(TeacherInputMode.AUDIO) }
+  var inputRowBounds by remember { mutableStateOf<IntRect?>(null) }
+  // Which tooltip of the tour is showing: the settings button, then the 3-button input row.
+  var tooltipTourStep by rememberSaveable { mutableStateOf(TooltipTourStep.SETTINGS) }
+  // Whether the user is typing on the idle camera screen instead of using the default voice bar.
+  var cameraUsesText by rememberSaveable { mutableStateOf(false) }
   // Whether follow-up questions are typed rather than spoken. It follows the way the user just
   // asked, and the switch button in the lesson sheet changes it.
   var followUpUsesText by rememberSaveable { mutableStateOf(false) }
@@ -191,42 +196,42 @@ fun XrLanguageTeacherScreen(
     viewModel.clearErrorMessage()
   }
 
+  val isSubsystemWarming =
+    isTeacherSubsystemWarming(
+      isModelInitializing = isInitializing,
+      asrReadiness = uiState.asrReadiness,
+      ttsReadiness = uiState.ttsReadiness,
+    )
+
+  // When the saved languages don't work with newly selected speech models, Teacher settings opens
+  // with a note explaining why once initialization finishes, so the student picks again before
+  // using the camera and the persona voice preview is ready.
   val languageNotice by viewModel.languageNotice.collectAsStateWithLifecycle()
-  val languageNoticeMessage = languageNotice?.let { notice ->
-    val unsupportedMain = notice.unsupportedMain
-    val unsupportedLearn = notice.unsupportedLearn
-    when {
-      unsupportedMain != null ->
-        stringResource(
-          R.string.xrteacher_language_unavailable_main,
-          stringResource(unsupportedMain.toNameResId()),
-          stringResource(notice.used.main.toNameResId()),
-        )
-      unsupportedLearn != null ->
-        stringResource(
-          R.string.xrteacher_language_unavailable_learn,
-          stringResource(unsupportedLearn.toNameResId()),
-          stringResource(notice.used.learn.toNameResId()),
-        )
-      else -> null
-    }
-  }
-  val changeLanguagesLabel = stringResource(R.string.xrteacher_language_unavailable_action)
-  LaunchedEffect(languageNotice) {
+  var pendingLanguageNotice by remember { mutableStateOf<TeacherLanguageAdjustment?>(null) }
+  LaunchedEffect(languageNotice, canShowSpeechEngineError, isSubsystemWarming) {
     val notice = languageNotice ?: return@LaunchedEffect
-    val message = languageNoticeMessage ?: return@LaunchedEffect
-    val result =
-      snackbarHostState.showSnackbar(
-        message = message,
-        actionLabel = changeLanguagesLabel,
-        duration = SnackbarDuration.Long,
-      )
-    // Acknowledged once shown, so leaving the screen first shows it again next time.
-    viewModel.acknowledgeLanguageNotice(notice)
-    if (result == SnackbarResult.ActionPerformed) {
-      showPreferencesDialog = true
-    }
+    // Not while the first-time introduction, where languages are picked anyway, is shown, or while
+    // the teacher model and speech engines are still initializing.
+    if (!canShowSpeechEngineError || isSubsystemWarming) return@LaunchedEffect
+    pendingLanguageNotice = notice
+    showPreferencesDialog = true
   }
+  val activeLanguageNotice = pendingLanguageNotice ?: languageNotice
+  val hasLanguageNoticeToPresent = canShowSpeechEngineError && activeLanguageNotice != null
+  val nativeLanguageNotice =
+    activeLanguageNotice?.unsupportedMain?.let { language ->
+      stringResource(
+        R.string.xrteacher_rechoose_native_language,
+        stringResource(language.toNameResId()),
+      )
+    }
+  val learnLanguageNotice =
+    activeLanguageNotice?.unsupportedLearn?.let { language ->
+      stringResource(
+        R.string.xrteacher_rechoose_learn_language,
+        stringResource(language.toNameResId()),
+      )
+    }
 
   fun submitSpokenQuestion(rawTranscript: String) {
     // A blank transcript is sent as-is (normalized to "no question" by runLessonTurn) so the first
@@ -249,7 +254,8 @@ fun XrLanguageTeacherScreen(
       )
     } else {
       haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-      followUpUsesText = inputMode == TeacherInputMode.TEXT
+      // A photo (no question) starts follow-ups with the mic, even while typing on the camera.
+      followUpUsesText = cameraUsesText && textToSend.isNotEmpty()
       val frozenOrLiveBitmap =
         uiState.capturedBitmap?.takeUnless { it.isRecycled }
           ?: latestLiveBitmapRef.get().frozenCopy()
@@ -326,6 +332,16 @@ fun XrLanguageTeacherScreen(
     }
   }
 
+  // The 1-tap camera button: a blank question makes the teacher identify the object in the photo
+  // and make a vocabulary card, without the user speaking or typing.
+  fun takePhoto() {
+    if (isCameraPermissionDenied) {
+      cameraPermissionState.showDeniedDialog()
+      return
+    }
+    submitSpokenQuestion("")
+  }
+
   DisposableEffect(Unit) {
     onDispose {
       latestLiveBitmapRef.set(null)
@@ -351,12 +367,6 @@ fun XrLanguageTeacherScreen(
       (uiState.overlayState == TeacherOverlayState.THINKING ||
         (uiState.isRunningInference && uiState.isWaitingForFirstToken))
 
-  val isSubsystemWarming =
-    isTeacherSubsystemWarming(
-      isModelInitializing = isInitializing,
-      asrReadiness = uiState.asrReadiness,
-      ttsReadiness = uiState.ttsReadiness,
-    )
   val isLiveCameraFeedActive =
     uiState.isLiveCameraFeedActive(
       isModelInitializing = isInitializing,
@@ -378,7 +388,7 @@ fun XrLanguageTeacherScreen(
     )
 
   // Greets the user once when the feature is first opened and Gemma, ASR, TTS, and Camera are
-  // ready.
+  // ready, after any Teacher settings dialog closes.
   viewModel.setCameraAccessDenied(!isCameraPermissionGranted)
   val needsGreeting = uiState.sessionGreeting.isBlank()
   LaunchedEffect(
@@ -387,9 +397,17 @@ fun XrLanguageTeacherScreen(
     needsGreeting,
     canGreet,
     isCameraPermissionGranted,
+    showPreferencesDialog,
+    hasLanguageNoticeToPresent,
   ) {
     if (
-      isModelReady && !isSubsystemWarming && needsGreeting && canGreet && isCameraPermissionGranted
+      isModelReady &&
+        !isSubsystemWarming &&
+        needsGreeting &&
+        canGreet &&
+        isCameraPermissionGranted &&
+        !showPreferencesDialog &&
+        !hasLanguageNoticeToPresent
     ) {
       viewModel.greetNewSessionIfNeeded()
     }
@@ -582,8 +600,10 @@ fun XrLanguageTeacherScreen(
           onShowCameraPermissionDeniedDialog = { cameraPermissionState.showDeniedDialog() },
           onOpenPreferencesDialog = { showPreferencesDialog = true },
           onSettingsButtonBoundsChanged = { settingsButtonBounds = it },
-          inputMode = inputMode,
-          onInputModeChanged = { inputMode = it },
+          cameraUsesText = cameraUsesText,
+          onCameraUsesTextChanged = { cameraUsesText = it },
+          onTakePhoto = ::takePhoto,
+          onInputRowBoundsChanged = { inputRowBounds = it },
           latestLiveBitmapRef = latestLiveBitmapRef,
           pendingInitialQuestionRef = pendingInitialQuestionRef,
           onRunningStateChanged = onRunningStateChanged,
@@ -601,23 +621,42 @@ fun XrLanguageTeacherScreen(
     )
   }
 
-  // One-time tooltip on the language and teacher settings button once the teacher is ready.
-  val settingsAnchorBounds = settingsButtonBounds
-  if (
+  // One-time tooltip tour, only once the initializing screen (teacher model, speech recognition and
+  // voice) is gone and the live camera view shows: the language and teacher settings button, then
+  // the 3-button input row.
+  val canShowTooltipTour =
     showSettingsTooltip &&
-      settingsAnchorBounds != null &&
       isModelReady &&
+      !isSubsystemWarming &&
+      isLiveCameraFeedActive &&
       !isCameraPermissionDenied &&
       !uiState.isRecordingAsr &&
       !uiState.isRunningInference &&
       !showPreferencesDialog &&
+      !hasLanguageNoticeToPresent &&
       uiState.speechEngineError == null &&
       !WindowInsets.isImeVisible
-  ) {
-    TeacherSettingsTooltip(
-      anchorBounds = settingsAnchorBounds,
-      onGotIt = onSettingsTooltipDismissed,
-    )
+  val settingsAnchorBounds = settingsButtonBounds
+  val inputRowAnchorBounds = inputRowBounds
+  if (canShowTooltipTour) {
+    when (tooltipTourStep) {
+      TooltipTourStep.SETTINGS ->
+        if (settingsAnchorBounds != null) {
+          TeacherSettingsTooltip(
+            anchorBounds = settingsAnchorBounds,
+            onNext = { tooltipTourStep = TooltipTourStep.INPUT_ROW },
+          )
+        }
+      TooltipTourStep.INPUT_ROW ->
+        // The input row is only on the idle camera, before a lesson starts.
+        if (inputRowAnchorBounds != null && !uiState.isSessionActive) {
+          AskThreeWaysTooltip(
+            anchorBounds = inputRowAnchorBounds,
+            onPrevious = { tooltipTourStep = TooltipTourStep.SETTINGS },
+            onDismiss = onSettingsTooltipDismissed,
+          )
+        }
+    }
   }
 
   if (showPreferencesDialog) {
@@ -641,9 +680,15 @@ fun XrLanguageTeacherScreen(
       onPlayPersonaPreview = viewModel::playPersonaPreview,
       onApply = { preferences ->
         showPreferencesDialog = false
+        activeLanguageNotice?.let(viewModel::acknowledgeLanguageNotice)
+        pendingLanguageNotice = null
         viewModel.applyTeacherPreferences(preferences, model = model)
       },
-      onDismiss = { showPreferencesDialog = false },
+      onDismiss = {
+        showPreferencesDialog = false
+        activeLanguageNotice?.let(viewModel::acknowledgeLanguageNotice)
+        pendingLanguageNotice = null
+      },
       personaPreviewState = uiState.personaPreviewState,
       isPersonaPreviewAvailable =
         isPersonaPreviewAvailable(
@@ -653,6 +698,18 @@ fun XrLanguageTeacherScreen(
       onStopPersonaPreview = viewModel::stopPersonaPreview,
       languagePacks = languagePacks.uiState,
       onDownloadLanguagePack = languagePacks.onDownloadLanguagePack,
+      onChangeModels = {
+        showPreferencesDialog = false
+        activeLanguageNotice?.let(viewModel::acknowledgeLanguageNotice)
+        pendingLanguageNotice = null
+        onChooseAnotherModel(ModelSelectionTarget.ASR_MODEL)
+      },
+      unsupportedNativeLanguages =
+        remember(speechEngineLocales, availableNativeLanguages) {
+          unsupportedNativeLanguages(speechEngineLocales, availableNativeLanguages)
+        },
+      nativeLanguageNotice = nativeLanguageNotice,
+      learnLanguageNotice = learnLanguageNotice,
     )
   }
 
@@ -675,4 +732,12 @@ fun XrLanguageTeacherScreen(
       },
     )
   }
+}
+
+/** The tooltips of the camera screen's one-time tooltip tour, in order. */
+private enum class TooltipTourStep {
+  /** The language and teacher settings button. */
+  SETTINGS,
+  /** The 3-button input row (camera, Ask a question, keyboard). */
+  INPUT_ROW,
 }

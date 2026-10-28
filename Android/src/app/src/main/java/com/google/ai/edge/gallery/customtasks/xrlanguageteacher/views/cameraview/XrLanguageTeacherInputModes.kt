@@ -16,24 +16,17 @@
 
 package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview
 
-import androidx.annotation.StringRes
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -41,6 +34,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -61,10 +55,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -73,107 +67,74 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.ui.theme.inversePrimaryLight
-import com.google.ai.edge.gallery.ui.theme.onSurfaceLight
+import com.google.ai.edge.gallery.ui.theme.onSecondaryContainerDark
 import com.google.ai.edge.gallery.ui.theme.onSurfaceVariantDark
 import com.google.ai.edge.gallery.ui.theme.primaryLight
+import com.google.ai.edge.gallery.ui.theme.secondaryContainerDark
 import com.google.ai.edge.gallery.ui.theme.surfaceContainerDark
 
 /**
- * How the user asks the teacher about what the camera sees, in the order the switcher shows them,
- * with Audio (the default) in the middle.
- */
-internal enum class TeacherInputMode(@StringRes val labelResId: Int) {
-  /** Take a photo and let the teacher say what the object is, without a question. */
-  IMAGE(R.string.xrteacher_input_mode_image),
-  /** Ask out loud with the mic (speech recognition). */
-  AUDIO(R.string.xrteacher_input_mode_audio),
-  /** Type the question in a prompt box. */
-  TEXT(R.string.xrteacher_input_mode_text),
-}
-
-/**
- * Fixed high-contrast foreground color used by camera HUD overlays ([TeacherInputModeSwitcher] and
- * [CameraTextPromptBox]), which sit directly on live camera pixels rather than a themed surface in
- * both light and dark themes.
+ * Fixed high-contrast foreground color used by camera HUD overlays ([CameraTextPromptBox]), which
+ * sit directly on live camera pixels rather than a themed surface in both light and dark themes.
  */
 private val CameraHudForegroundColor = Color.White
 
+/** Shared height of the controls in the camera HUD's bottom input row. */
+internal val CAMERA_INPUT_ROW_HEIGHT = 56.dp
+
 /**
- * Pixel Camera style switcher between the [TeacherInputMode]s, shown below the camera's main input
- * (the Figma "MODES" toolbar): a `52.dp` dark capsule with one `40.dp` label button per mode, the
- * selected one in a white pill with dark text.
+ * Circular GM3 [FilledTonalIconButton] ([CAMERA_INPUT_ROW_HEIGHT]) for the camera HUD's bottom row:
+ * the 1-tap photo button for a vocabulary card, and the switch between typing and speaking.
  *
- * It sits on camera pixels rather than a themed surface, so it uses colors that are the same in
- * light and dark themes.
+ * It sits on camera pixels rather than a themed surface, so it uses the dark tonal colors
+ * ([secondaryContainerDark] and [onSecondaryContainerDark]) in both light and dark themes.
+ *
+ * @param appearDisabled When true while [enabled] is true, renders the button in its faded disabled
+ *   colors while keeping it clickable, so tapping it can explain why it can't be used.
  */
 @Composable
-internal fun TeacherInputModeSwitcher(
-  selected: TeacherInputMode,
-  onSelect: (TeacherInputMode) -> Unit,
+internal fun CameraHudIconButton(
+  icon: ImageVector,
+  enabled: Boolean,
+  onClick: () -> Unit,
   modifier: Modifier = Modifier,
-  enabled: Boolean = true,
+  contentDescription: String? = null,
   appearDisabled: Boolean = false,
 ) {
-  val visuallyEnabled = enabled && !appearDisabled
-  val switcherDescription = stringResource(R.string.xrteacher_input_mode_switcher_desc)
-  Row(
-    modifier =
-      modifier
-        .background(
-          if (visuallyEnabled) surfaceContainerDark else surfaceContainerDark.copy(alpha = 0.6f),
-          CircleShape,
-        )
-        .padding(horizontal = 12.dp, vertical = 6.dp)
-        .semantics { contentDescription = switcherDescription }
-        .selectableGroup(),
-    horizontalArrangement = Arrangement.spacedBy(12.dp),
-    verticalAlignment = Alignment.CenterVertically,
+  val fadedContainerColor = secondaryContainerDark.copy(alpha = 0.42f)
+  val fadedContentColor = onSecondaryContainerDark.copy(alpha = 0.45f)
+  FilledTonalIconButton(
+    onClick = onClick,
+    enabled = enabled,
+    shape = CircleShape,
+    colors =
+      IconButtonDefaults.filledTonalIconButtonColors(
+        containerColor = if (appearDisabled) fadedContainerColor else secondaryContainerDark,
+        contentColor = if (appearDisabled) fadedContentColor else onSecondaryContainerDark,
+        disabledContainerColor = fadedContainerColor,
+        disabledContentColor = fadedContentColor,
+      ),
+    modifier = modifier.size(CAMERA_INPUT_ROW_HEIGHT),
   ) {
-    for (mode in TeacherInputMode.entries) {
-      val isSelected = mode == selected
-      val targetPillColor =
-        when {
-          !isSelected -> Color.Transparent
-          visuallyEnabled -> CameraHudForegroundColor
-          else -> CameraHudForegroundColor.copy(alpha = 0.42f)
-        }
-      val pillColor by
-        animateColorAsState(targetValue = targetPillColor, label = "TeacherInputModePill")
-      val labelColor by
-        animateColorAsState(
-          targetValue = if (isSelected) onSurfaceLight else CameraHudForegroundColor,
-          label = "TeacherInputModeLabel",
-        )
-      Box(
-        modifier =
-          Modifier.height(40.dp)
-            .background(pillColor, CircleShape)
-            .selectable(
-              selected = isSelected,
-              enabled = enabled,
-              role = Role.Tab,
-              onClick = { onSelect(mode) },
-            )
-            .padding(horizontal = 16.dp),
-        contentAlignment = Alignment.Center,
-      ) {
-        Text(
-          text = stringResource(mode.labelResId),
-          style = MaterialTheme.typography.labelLarge,
-          color = if (visuallyEnabled) labelColor else labelColor.copy(alpha = 0.5f),
-        )
-      }
-    }
+    Icon(
+      imageVector = icon,
+      contentDescription = contentDescription,
+      modifier = Modifier.size(24.dp),
+    )
   }
 }
 
 /**
- * Text mode input on the camera: the dark translucent prompt box from the design prototype, with a
- * text field ("Ask Gemma about an object…") and a round send button that turns blue once there is
- * text. Sending clears the box and hides the keyboard.
+ * Text input on the camera, between the photo button and the mic button of the camera HUD's bottom
+ * row: the dark translucent prompt box from the design prototype, with a text field ("Ask a
+ * question…") and a round send button that turns blue once there is text. Sending clears the box
+ * and hides the keyboard.
  *
  * It sits on camera pixels rather than a themed surface, so it uses colors that are the same in
  * light and dark themes.
+ *
+ * @param focusOnShow whether to focus the box (and open the keyboard) when it appears, as when the
+ *   user just chose to type.
  */
 @Composable
 internal fun CameraTextPromptBox(
@@ -182,6 +143,8 @@ internal fun CameraTextPromptBox(
   modifier: Modifier = Modifier,
   appearDisabled: Boolean = false,
   onDisabledClick: () -> Unit = {},
+  focusOnShow: Boolean = false,
+  onFocusConsumed: () -> Unit = {},
 ) {
   TeacherPromptBox(
     placeholder = stringResource(R.string.xrteacher_text_prompt_hint),
@@ -210,6 +173,8 @@ internal fun CameraTextPromptBox(
       modifier.widthIn(max = 387.dp).shadow(16.dp, RoundedCornerShape(CAMERA_PROMPT_HEIGHT / 2)),
     appearDisabled = appearDisabled,
     onDisabledClick = onDisabledClick,
+    focusOnShow = focusOnShow,
+    onFocusConsumed = onFocusConsumed,
   )
 }
 
@@ -252,8 +217,8 @@ internal fun FollowUpTextPromptBox(
 /** The most lines a prompt box grows to before its text scrolls. */
 private const val MAX_PROMPT_LINES = 3
 
-/** Height of [CameraTextPromptBox] with one line of text. */
-private val CAMERA_PROMPT_HEIGHT = 64.dp
+/** Height of [CameraTextPromptBox] with one line of text, as tall as the row's other buttons. */
+private val CAMERA_PROMPT_HEIGHT = CAMERA_INPUT_ROW_HEIGHT
 
 /**
  * A rounded prompt box with a text field and a send button; see its callers. The box is [height]

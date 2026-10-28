@@ -308,6 +308,7 @@ private fun LanguageSelectionRow(
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.padding(horizontal = 12.dp),
         )
+      SupplementaryLanguageStatus.Bundled,
       SupplementaryLanguageStatus.Queued -> LanguagePackTrailingSlot {}
       SupplementaryLanguageStatus.Checking ->
         LanguagePackStatusControl(
@@ -426,6 +427,7 @@ private fun LanguagePackRow(
             )
           }
         }
+      SupplementaryLanguageStatus.Bundled,
       SupplementaryLanguageStatus.Queued -> LanguagePackTrailingSlot {}
       SupplementaryLanguageStatus.Checking ->
         LanguagePackStatusControl(
@@ -482,6 +484,7 @@ private fun languageStatusText(status: SupplementaryLanguageStatus): String? =
       } else {
         stringResource(R.string.supplementary_status_downloading_background)
       }
+    SupplementaryLanguageStatus.Bundled,
     SupplementaryLanguageStatus.Checking,
     SupplementaryLanguageStatus.Installed,
     SupplementaryLanguageStatus.Downloadable -> null
