@@ -21,7 +21,6 @@ import java.util.Locale
 
 /** Utility object for hardware and device detection. */
 object HardwareUtils {
-  private val PIXEL_9_CODENAMES = setOf("tokay", "caiman", "komodo", "comet", "tegu")
 
   fun isOldMaliGpu(
     hardware: String = Build.HARDWARE,
@@ -31,48 +30,21 @@ object HardwareUtils {
     model: String = Build.MODEL,
   ): Boolean {
     val lowerModel = model.lowercase(Locale.ROOT)
-    val lowerDevice = device.lowercase(Locale.ROOT)
     val lowerBoard = board.lowercase(Locale.ROOT)
     val lowerSocModel = socModel.lowercase(Locale.ROOT)
     val lowerHardware = hardware.lowercase(Locale.ROOT)
 
     // Pixel 9 and later should use GPU.
-    if (
-      "pixel 9" in lowerModel ||
-        lowerDevice in PIXEL_9_CODENAMES ||
-        lowerBoard in PIXEL_9_CODENAMES ||
-        "tensor g4" in lowerSocModel ||
-        "zumapro" in lowerHardware
-    ) {
+    val pixelGeneration =
+      Regex("""pixel\s+(\d+)""").find(lowerModel)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+    val tensorGeneration =
+      Regex("""tensor\s+g?(\d+)""").find(lowerSocModel)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+    if (pixelGeneration >= 9 || tensorGeneration >= 4) {
       return false
     }
     val combined = "$lowerHardware $lowerBoard $lowerSocModel"
-    return "malibu" !in combined && ("exynos" in combined || "mali" in combined)
+    return "exynos" in combined || "mali" in combined
   }
-
-  private val TENSOR_G3_OR_HIGHER_CODENAMES =
-    setOf(
-      // Tensor G3 (Pixel 8 / 8 Pro / 8a)
-      "shiba",
-      "husky",
-      "akita",
-      "zuma",
-      // Tensor G4 (Pixel 9 / 9 Pro / 9 Pro XL / 9 Pro Fold / 9a)
-      "tokay",
-      "caiman",
-      "komodo",
-      "comet",
-      "tegu",
-      "zumapro",
-      // Tensor G5 (Pixel 10 / 10 Pro / 10 Pro XL / 10 Pro Fold)
-      "frankel",
-      "blazer",
-      "mustang",
-      "rango",
-      "laguna",
-      // Tensor G6 (Pixel 11)
-      "malibu",
-    )
 
   /** Returns true if device is Google Tensor G3 or higher (Pixel 8 and newer). */
   fun isTensorG3OrHigher(
@@ -83,10 +55,7 @@ object HardwareUtils {
     model: String = Build.MODEL,
   ): Boolean {
     val lowerModel = model.lowercase(Locale.ROOT)
-    val lowerDevice = device.lowercase(Locale.ROOT)
-    val lowerBoard = board.lowercase(Locale.ROOT)
     val lowerSocModel = socModel.lowercase(Locale.ROOT)
-    val lowerHardware = hardware.lowercase(Locale.ROOT)
 
     // Check Pixel model name (e.g. "Pixel 8", "Pixel 9 Pro", "Pixel 10")
     val pixelMatch = Regex("""pixel\s+(\d+)""").find(lowerModel)
@@ -100,15 +69,6 @@ object HardwareUtils {
     if (tensorMatch != null) {
       val gen = tensorMatch.groupValues[1].toIntOrNull() ?: 0
       if (gen >= 3) return true
-    }
-
-    // Check known codenames and hardware boards
-    if (
-      lowerDevice in TENSOR_G3_OR_HIGHER_CODENAMES ||
-        lowerBoard in TENSOR_G3_OR_HIGHER_CODENAMES ||
-        lowerHardware in TENSOR_G3_OR_HIGHER_CODENAMES
-    ) {
-      return true
     }
 
     return false
