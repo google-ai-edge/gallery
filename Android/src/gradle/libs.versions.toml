@@ -20,7 +20,7 @@ webkit = "1.14.0"
 protobuf = "0.10.0"
 protobufJavaLite = "4.26.1"
 #noinspection GradleDependency
-litertlm = "0.18.0"
+litertlm = "0.18.1"
 commonmark = "1.0.0-alpha02"
 richtext = "1.0.0-alpha02"
 playServicesTfliteJava = "16.4.0"
@@ -39,11 +39,11 @@ securityCrypto = "1.1.0"
 kotlinReflect = "2.4.0"
 moshi = "1.15.2"
 ksp = "2.3.6"
-mlkit-genai-prompt = "1.0.0-beta2"  # Ref: https://developers.google.com/ml-kit/genai/prompt/android/get-started#configure-project
+mlkit-genai-prompt = "1.0.0-beta5"  # Ref: https://developers.google.com/ml-kit/genai/prompt/android/get-started#configure-project
 mcp = "0.8.0"
 ktor = "3.4.3"
-tasksVision = "1.0.0"
-tasksRetrieval = "1.1.0"
+tasksVision = "1.1.1"
+tasksRetrieval = "1.1.1"
 media3 = "1.11.1"
 coil = "2.7.0"
 
