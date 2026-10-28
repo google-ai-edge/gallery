@@ -24,6 +24,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
@@ -44,6 +45,21 @@ fun MemoryWarningAlert(onProceeded: () -> Unit, onDismissed: () -> Unit) {
       }
     },
     dismissButton = { TextButton(onClick = onDismissed) { Text(stringResource(R.string.cancel)) } },
+  )
+}
+
+/**
+ * Composable function to display an alert dialog when a model is not available due to insufficient
+ * device memory.
+ */
+@Composable
+fun ModelNotAvailableMemoryAlert(onDismissed: () -> Unit, modifier: Modifier = Modifier) {
+  AlertDialog(
+    modifier = modifier,
+    title = { Text(stringResource(R.string.model_not_available_title)) },
+    text = { Text(stringResource(R.string.model_not_available_memory_content)) },
+    onDismissRequest = onDismissed,
+    confirmButton = { TextButton(onClick = onDismissed) { Text(stringResource(R.string.ok)) } },
   )
 }
 
