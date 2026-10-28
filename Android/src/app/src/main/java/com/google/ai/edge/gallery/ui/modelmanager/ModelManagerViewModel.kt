@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.ui.modelmanager
 
 import android.content.Context
+import android.media.AudioTrack
 import android.util.Log
 import androidx.activity.result.ActivityResult
 import androidx.annotation.VisibleForTesting
@@ -57,7 +58,6 @@ import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.ModelDownloader
 import com.google.ai.edge.gallery.data.ModelFile
 import com.google.ai.edge.gallery.data.ModelSelectionTarget
-import com.google.ai.edge.gallery.data.ModelType
 import com.google.ai.edge.gallery.data.ModelUtils
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.OssModelImportLogger
@@ -74,6 +74,9 @@ import com.google.ai.edge.gallery.data.markInitializationFailed
 import com.google.ai.edge.gallery.data.markInitializationStarted
 import com.google.ai.edge.gallery.data.markInitialized
 import com.google.ai.edge.gallery.data.resetInitialization
+import com.google.ai.edge.gallery.data.supplementary.SpeechSelectionUseCase
+import com.google.ai.edge.gallery.data.supplementary.SupplementarySpeechModelRepository
+import com.google.ai.edge.gallery.di.IoDispatcher
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.huggingface.HuggingFaceApiClient
 import com.google.ai.edge.gallery.proto.AccessTokenData
@@ -81,6 +84,12 @@ import com.google.ai.edge.gallery.proto.HfModelItemProto
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.proto.Theme
 import com.google.ai.edge.gallery.runtime.aicore.AICoreModelDownloader
+import com.google.ai.edge.gallery.services.asr.AsrEngineType
+import com.google.ai.edge.gallery.services.asr.AsrServiceProvider
+import com.google.ai.edge.gallery.services.asr.AsrSettingsRepository
+import com.google.ai.edge.gallery.services.asr.SystemSpeechAsrService
+import com.google.ai.edge.gallery.services.tts.TtsSettingsRepository
+import com.google.ai.edge.gallery.services.tts.TtsSettingsUiState
 import com.google.ai.edge.gallery.ui.common.isMemoryLow
 import com.google.ai.edge.litertlm.Contents
 import com.google.gson.Gson
@@ -88,6 +97,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.IOException
+import java.util.Optional
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -95,8 +105,8 @@ import javax.inject.Inject
 import kotlin.collections.sortedWith
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -202,6 +212,11 @@ data class ModelManagerUiState(
    * one, by task id.
    */
   val lastMainModelByTaskId: Map<String, String> = mapOf(),
+  /**
+   * Download status of each language pack, indexed by model name and then by BCP-47 language tag.
+   * Only populated for models whose runtime installs language packs separately.
+   */
+  val languagePackStatus: Map<String, Map<String, ModelDownloadStatus>> = mapOf(),
 ) {
   fun isDownloadOptionalComponentsEnabled(modelName: String): Boolean {
     return downloadOptionalComponents[modelName] ?: true
@@ -251,12 +266,128 @@ constructor(
   private val customTasks: Set<@JvmSuppressWildcards CustomTask>,
   private val systemPromptRepository: SystemPromptRepository,
   val huggingFaceApiClient: HuggingFaceApiClient,
-  @ApplicationContext private val context: Context,
+  @ApplicationContext internal val context: Context,
   protected val downloaders: Map<RuntimeType, @JvmSuppressWildcards ModelDownloader>,
   private val ossModelImportLogger: OssModelImportLogger,
+  internal val ttsSettingsRepository: TtsSettingsRepository,
+  internal val asrSettingsRepository: AsrSettingsRepository,
+  internal val asrServiceProvider: AsrServiceProvider,
+  @IoDispatcher internal val ioDispatcher: CoroutineDispatcher,
+  /** Availability and language pack states of supplementary speech models. */
+  internal val supplementarySpeechModelRepository: SupplementarySpeechModelRepository,
+  /**
+   * Selection rules for supplementary speech models (only ready models are selectable, and a saved
+   * default that can't be used is never replaced).
+   */
+  internal val speechSelectionUseCase: SpeechSelectionUseCase =
+    createDefaultSpeechSelectionUseCase(
+      context,
+      ttsSettingsRepository,
+      asrSettingsRepository,
+      asrServiceProvider,
+    ),
 ) :
   ViewModel()
 {
+  constructor(
+    downloadRepository: DownloadRepository,
+    dataStoreRepository: DataStoreRepository,
+    lifecycleProvider: AppLifecycleProvider,
+    customTasks: Set<@JvmSuppressWildcards CustomTask>,
+    systemPromptRepository: SystemPromptRepository,
+    huggingFaceApiClient: HuggingFaceApiClient,
+    context: Context,
+    downloaders: Map<RuntimeType, @JvmSuppressWildcards ModelDownloader>,
+    ossModelImportLogger: OssModelImportLogger = OssModelImportLogger(),
+  ) : this(
+    downloadRepository = downloadRepository,
+    dataStoreRepository = dataStoreRepository,
+    lifecycleProvider = lifecycleProvider,
+    customTasks = customTasks,
+    systemPromptRepository = systemPromptRepository,
+    huggingFaceApiClient = huggingFaceApiClient,
+    context = context,
+    downloaders = downloaders,
+    ossModelImportLogger = ossModelImportLogger,
+    asrSettingsRepository =
+      AsrSettingsRepository(
+        dataStoreRepository = dataStoreRepository,
+        scope = CoroutineScope(Dispatchers.Unconfined),
+      ),
+  )
+
+  private constructor(
+    downloadRepository: DownloadRepository,
+    dataStoreRepository: DataStoreRepository,
+    lifecycleProvider: AppLifecycleProvider,
+    customTasks: Set<@JvmSuppressWildcards CustomTask>,
+    systemPromptRepository: SystemPromptRepository,
+    huggingFaceApiClient: HuggingFaceApiClient,
+    context: Context,
+    downloaders: Map<RuntimeType, @JvmSuppressWildcards ModelDownloader>,
+    ossModelImportLogger: OssModelImportLogger = OssModelImportLogger(),
+    asrSettingsRepository: AsrSettingsRepository,
+  ) : this(
+    downloadRepository = downloadRepository,
+    dataStoreRepository = dataStoreRepository,
+    lifecycleProvider = lifecycleProvider,
+    customTasks = customTasks,
+    systemPromptRepository = systemPromptRepository,
+    huggingFaceApiClient = huggingFaceApiClient,
+    context = context,
+    downloaders = downloaders,
+    ossModelImportLogger = ossModelImportLogger,
+    ttsSettingsRepository =
+      TtsSettingsRepository(
+        dataStoreRepository = dataStoreRepository,
+        ttsServiceProviderLazy = Optional.empty(),
+        ioDispatcher = Dispatchers.Unconfined,
+      ),
+    asrSettingsRepository = asrSettingsRepository,
+    asrServiceProvider =
+      AsrServiceProvider(
+        engines = mapOf(AsrEngineType.SYSTEM_DEFAULT to SystemSpeechAsrService(context)),
+        asrSettingsRepository = asrSettingsRepository,
+      ),
+    ioDispatcher = Dispatchers.Unconfined,
+  )
+
+  internal constructor(
+    downloadRepository: DownloadRepository,
+    dataStoreRepository: DataStoreRepository,
+    lifecycleProvider: AppLifecycleProvider,
+    customTasks: Set<@JvmSuppressWildcards CustomTask>,
+    systemPromptRepository: SystemPromptRepository,
+    huggingFaceApiClient: HuggingFaceApiClient,
+    context: Context,
+    downloaders: Map<RuntimeType, @JvmSuppressWildcards ModelDownloader>,
+    ossModelImportLogger: OssModelImportLogger = OssModelImportLogger(),
+    ttsSettingsRepository: TtsSettingsRepository,
+    asrSettingsRepository: AsrSettingsRepository,
+    asrServiceProvider: AsrServiceProvider,
+    ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+  ) : this(
+    downloadRepository = downloadRepository,
+    dataStoreRepository = dataStoreRepository,
+    lifecycleProvider = lifecycleProvider,
+    customTasks = customTasks,
+    systemPromptRepository = systemPromptRepository,
+    huggingFaceApiClient = huggingFaceApiClient,
+    context = context,
+    downloaders = downloaders,
+    ossModelImportLogger = ossModelImportLogger,
+    ttsSettingsRepository = ttsSettingsRepository,
+    asrSettingsRepository = asrSettingsRepository,
+    asrServiceProvider = asrServiceProvider,
+    ioDispatcher = ioDispatcher,
+    supplementarySpeechModelRepository =
+      createDefaultSupplementaryRepository(
+        context = context,
+        asrServiceProvider = asrServiceProvider,
+        ioDispatcher = ioDispatcher,
+      ),
+  )
+
   constructor(
     downloadRepository: DownloadRepository,
     dataStoreRepository: DataStoreRepository,
@@ -299,7 +430,53 @@ constructor(
 
   protected val _uiState: MutableStateFlow<ModelManagerUiState> =
     MutableStateFlow(createEmptyUiState())
+  internal val mutableUiState: MutableStateFlow<ModelManagerUiState>
+    get() = _uiState
+
   open val uiState: StateFlow<ModelManagerUiState> = _uiState.asStateFlow()
+
+  internal val _audioConfigOnboardingDismissedInSession = MutableStateFlow(false)
+  /** Whether the Audio Config onboarding tooltip has been dismissed during this app session. */
+  val audioConfigOnboardingDismissedInSession: StateFlow<Boolean> =
+    _audioConfigOnboardingDismissedInSession.asStateFlow()
+
+  internal val _audioConfigOnboardingPromoViewed = MutableStateFlow<Boolean?>(null)
+  /**
+   * Whether the persistent Audio Config onboarding promo ID has been marked as viewed in
+   * [DataStoreRepository], or `null` while the initial read on [ioDispatcher] is pending.
+   */
+  val audioConfigOnboardingPromoViewed: StateFlow<Boolean?> =
+    _audioConfigOnboardingPromoViewed.asStateFlow()
+
+  internal val _ttsSettingsUiState = MutableStateFlow(TtsSettingsUiState())
+  open val ttsSettingsUiState: StateFlow<TtsSettingsUiState> = _ttsSettingsUiState.asStateFlow()
+
+  internal val voicePreviewController =
+    VoicePreviewController(
+      context = context,
+      scope = viewModelScope,
+      ioDispatcher = ioDispatcher,
+      ttsSettingsRepository = ttsSettingsRepository,
+      speechSelectionUseCase = speechSelectionUseCase,
+      uiStateProvider = { _uiState.value },
+      ttsSettingsUiStateProvider = { ttsSettingsUiState.value },
+      onRefreshTtsSettingsUiState = ::refreshTtsSettingsUiState,
+      onRefreshLanguagePackStatuses = ::refreshLanguagePackStatuses,
+      onRefreshSupplementaryLanguagePack = ::refreshSupplementaryLanguagePack,
+    )
+  open val voicePreviewUiState: StateFlow<VoicePreviewUiState>
+    get() = voicePreviewController.uiState
+
+  @VisibleForTesting
+  internal var voicePreviewPlaybackHeadProvider: (AudioTrack) -> Long
+    get() = voicePreviewController.playbackHeadProvider
+    set(value) {
+      voicePreviewController.playbackHeadProvider = value
+    }
+
+  init {
+    observeTtsSettingsUiState()
+  }
 
   open fun fetchModelDetails(modelId: String, onResult: (HfModelItemProto?) -> Unit) {
     viewModelScope.launch {
@@ -319,6 +496,11 @@ constructor(
     get() = _allowlistModels
 
   protected val _supplementaryModels: MutableList<Model> = CopyOnWriteArrayList()
+  internal val mutableSupplementaryModels: MutableList<Model>
+    get() = _supplementaryModels
+
+  internal val downloaderMap: Map<RuntimeType, @JvmSuppressWildcards ModelDownloader>
+    get() = downloaders
 
   // Tracks the initialized backends for each model by model name.
   private val initializedBackends = ConcurrentHashMap<String, MutableSet<Accelerator>>()
@@ -349,6 +531,7 @@ constructor(
   }
 
   public override fun onCleared() {
+    voicePreviewController.onCleared()
     authService.dispose()
   }
 
@@ -491,6 +674,12 @@ constructor(
       curModel = model,
       status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
     )
+    if (model.isSupplementary) {
+      publishSupplementaryDownloadStatus(
+        model,
+        ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
+      )
+    }
 
     val family = getModelFamily(model)
     val isExtraDataAlreadyDownloaded =
@@ -509,6 +698,9 @@ constructor(
       includeExtraDataFiles = actualIncludeExtraDataFiles,
       onStatusUpdated = { curModel, status ->
         setDownloadStatus(curModel = curModel, status = status)
+        if (curModel.isSupplementary) {
+          publishSupplementaryDownloadStatus(curModel, status)
+        }
       },
     )
   }
@@ -882,6 +1074,7 @@ constructor(
         modelImportingUpdateTrigger = System.currentTimeMillis(),
       )
     }
+    cleanupDeletedSpeechModel(model)
   }
 
   fun initializeModel(
@@ -1036,6 +1229,7 @@ constructor(
       curModelDownloadStatus[curModel.name] = status
       currentState.copy(modelDownloadStatus = curModelDownloadStatus)
     }
+    refreshTtsSettingsUiState()
   }
 
   fun addTextInputHistory(text: String) {
@@ -1108,6 +1302,33 @@ constructor(
     dataStoreRepository.saveFirebaseAnalytics(enabled = enabled)
     firebaseAnalytics?.setAnalyticsCollectionEnabled(enabled)
   }
+
+  internal val _supportedAsrEngines =
+    MutableStateFlow<Set<AsrEngineType>>(AsrEngineType.entries.toSet())
+  /**
+   * Set of [AsrEngineType] backends that can be selected now: the system recognizer and the engines
+   * whose model is ready (see [SpeechSelectionUseCase.selectableAsrEngineTypes]).
+   */
+  val supportedAsrEngines: StateFlow<Set<AsrEngineType>> = _supportedAsrEngines.asStateFlow()
+
+  /** ASR engine currently selected in Settings. */
+  val selectedAsrEngineType: StateFlow<AsrEngineType> = asrSettingsRepository.selectedEngineType
+
+  /** Identifier of the ASR model currently selected in Settings. */
+  val selectedAsrModelId: StateFlow<String> = asrSettingsRepository.selectedModelId
+
+  /**
+   * ASR engine that actually serves the selection in Settings, or `null` before it is resolved.
+   * Differs from [selectedAsrEngineType] when the selected engine can't be used and another engine
+   * is used instead.
+   */
+  val activeAsrEngineType: StateFlow<AsrEngineType?> = asrServiceProvider.activeEngineType
+
+  /** BCP-47 code of the ASR language currently selected in Settings. */
+  val selectedAsrLanguageCode: StateFlow<String> = asrSettingsRepository.selectedLanguageCode
+
+  /** Whether partial recognition hypotheses are emitted during live dictation. */
+  val showInterimResults: StateFlow<Boolean> = asrSettingsRepository.showInterimResults
 
   fun addImportedLlmModel(info: ImportedModel, origin: ImportOrigin? = null) {
     Log.d(TAG, "adding imported llm model: $info")
@@ -1480,6 +1701,7 @@ constructor(
               includeExtraDataFiles = pendingForModel.none { it.isExtraDataOnly },
               onStatusUpdated = { curModel, status ->
                 setDownloadStatus(curModel = curModel, status = status)
+                publishSupplementaryDownloadStatus(curModel, status)
               },
             )
           }
@@ -1530,6 +1752,9 @@ constructor(
         model = model,
         onStatusUpdated = { curModel, status ->
           setDownloadStatus(curModel = curModel, status = status)
+          if (task == null) {
+            publishSupplementaryDownloadStatus(curModel, status)
+          }
         },
       )
     }
@@ -1621,10 +1846,11 @@ constructor(
           val model = allowedModel.toModel() ?: continue
 
           if (model.isSupplementary) {
-            // Skip supplementary models whose runtime has no registered downloader in this build.
-            if (downloaders[model.backendSpec.runtimeType] == null) {
+            if (!shouldIncludeSupplementaryAllowlistModel(model)) {
               continue
             }
+            // Whether the device can use the model is decided by its gate in the supplementary
+            // speech model repository, which hides it or shows why it can't be used.
             _allowlistModels.add(model)
             _supplementaryModels.add(model)
             // Supplementary models are not bound to tasks, so skip the task registration below.
@@ -1645,6 +1871,7 @@ constructor(
             }
           }
         }
+        registerAllowlistSpeechModels(_supplementaryModels)
 
         // Find models from allowlist if a task's `modelNames` field is not empty.
         Log.d(TAG, "loadModelAllowlist: Processing task modelNames")
@@ -1693,44 +1920,6 @@ constructor(
         Log.d(TAG, "loadModelAllowlist: Done")
       } catch (e: Exception) {
         Log.e(TAG, "Failed to load model allowlist", e)
-      }
-    }
-  }
-
-  /** Queries and updates the download/availability status of all loaded supplementary models. */
-  fun refreshSupplementaryStatuses() {
-    viewModelScope.launch {
-      // Query all statuses concurrently, then apply them in allowlist order.
-      val pendingStatuses = _supplementaryModels.mapNotNull { model ->
-        val downloader = downloaders[model.backendSpec.runtimeType] ?: return@mapNotNull null
-        model to
-          async {
-            try {
-              downloader.queryStatus(model)
-            } catch (e: CancellationException) {
-              throw e
-            } catch (e: Exception) {
-              Log.w(TAG, "Failed to query status for supplementary model '${model.name}'", e)
-              ModelDownloadStatus(
-                status = ModelDownloadStatusType.FAILED,
-                errorMessage = e.localizedMessage.orEmpty(),
-              )
-            }
-          }
-      }
-      for ((model, pendingStatus) in pendingStatuses) {
-        val status = pendingStatus.await()
-        // A download in flight reports its own status. The files on disk don't show it, e.g. when
-        // processPendingDownloads has just attached to a download left by an earlier activity.
-        val curStatus = uiState.value.modelDownloadStatus[model.name]?.status
-        if (
-          model.downloadsViaRepository &&
-            (curStatus == ModelDownloadStatusType.IN_PROGRESS ||
-              curStatus == ModelDownloadStatusType.UNZIPPING)
-        ) {
-          continue
-        }
-        setDownloadStatus(curModel = model, status = status)
       }
     }
   }

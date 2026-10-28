@@ -160,6 +160,17 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="gallery_high_priority_push_channel" />
+        <!-- Activity launched onto the glasses' projected display to receive touchpad gestures for
+             XR Language Teacher. -->
+        <activity
+            android:name="com.google.ai.edge.gallery.customtasks.xrlanguageteacher.xr.GlassesTapActivity"
+            android:configChanges="uiMode|orientation|screenSize|screenLayout|smallestScreenSize|density|keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:requiredDisplayCategory="android.hardware.display.category.XR_PROJECTED"
+            android:taskAffinity="com.google.ai.edge.gallery.glasses"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>
         <uses-native-library android:name="libOpenCL.so" android:required="false"/>
         <uses-native-library android:name="libcdsprpc.so" android:required="false" />
@@ -168,4 +179,12 @@
         <uses-native-library android:name="libedgetpu_client.google.so" android:required="false"/>
     </application>
 
+    <!-- Text-to-speech engines and the XR glasses service used by speech and XR Language Teacher. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <package android:name="com.google.android.tts" />
+        <package android:name="com.google.android.glasses.core" />
+    </queries>
 </manifest>

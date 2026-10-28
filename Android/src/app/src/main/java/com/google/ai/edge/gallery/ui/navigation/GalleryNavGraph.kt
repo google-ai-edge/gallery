@@ -78,6 +78,7 @@ import com.google.ai.edge.gallery.ui.benchmark.BenchmarkScreen
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.LocalTestAllowlistDialog
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
+import com.google.ai.edge.gallery.ui.common.OnAppBackgroundedEffect
 import com.google.ai.edge.gallery.ui.common.chat.ModelDownloadStatusInfoPanel
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import com.google.ai.edge.gallery.ui.home.HomeScreen
@@ -88,6 +89,7 @@ import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.SectionedModelSelectionScreen
 import com.google.ai.edge.gallery.ui.modelmanager.asModelSelectionHost
 import com.google.ai.edge.gallery.ui.modelmanager.isSavedModelSelectionComplete
+import com.google.ai.edge.gallery.ui.modelmanager.stopActiveVoicePreview
 import com.google.ai.edge.gallery.ui.notifications.NotificationsScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -185,6 +187,9 @@ fun GalleryNavHost(
 
     onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
   }
+
+  // Don't keep playing a voice preview after the app leaves the foreground.
+  OnAppBackgroundedEffect { modelManagerViewModel.stopActiveVoicePreview() }
 
   NavHost(
     navController = navController,
@@ -470,6 +475,7 @@ fun GalleryNavHost(
         viewModel = modelManagerViewModel,
         tosViewModel = tosViewModel,
         initialImportUrl = importUrl,
+        supplementaryModelsViewModel = hiltViewModel(),
         navigateUp = {
           enableHomeScreenAnimation = false
           navController.navigateUp()

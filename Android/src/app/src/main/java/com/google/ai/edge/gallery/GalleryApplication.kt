@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery
 import android.app.Application
 import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.notifications.NotificationScheduleManager
+import com.google.ai.edge.gallery.services.tts.TtsMemoryTrimCallbacks
 import com.google.ai.edge.gallery.ui.theme.ThemeSettings
 import com.google.firebase.FirebaseApp
 import dagger.hilt.android.HiltAndroidApp
@@ -29,9 +30,11 @@ class GalleryApplication : Application() {
 
   @Inject lateinit var dataStoreRepository: DataStoreRepository
   @Inject lateinit var notificationScheduleManager: NotificationScheduleManager
+  @Inject lateinit var ttsMemoryTrimCallbacks: TtsMemoryTrimCallbacks
 
   override fun onCreate() {
     super.onCreate()
+    registerComponentCallbacks(ttsMemoryTrimCallbacks)
     // Initialize the notification schedule manager to load the scheduled notifications from the
     // disk.
     notificationScheduleManager.initialize()

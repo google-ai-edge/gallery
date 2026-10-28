@@ -43,16 +43,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.common.logButtonClick
 import com.google.ai.edge.gallery.customtasks.agentchat.agentSkillTopK
 import com.google.ai.edge.gallery.customtasks.agentchat.agentSkillTopKAdjusted
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.xrTeacherTopK
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.xrTeacherTopKAdjusted
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
@@ -64,7 +71,16 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.convertValueToTargetType
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import com.google.ai.edge.gallery.ui.modelmanager.buildAudioTabUiState
+import com.google.ai.edge.gallery.ui.modelmanager.createAudioTabActions
+import com.google.ai.edge.gallery.ui.modelmanager.dismissAudioConfigOnboardingForSession
+import com.google.ai.edge.gallery.ui.modelmanager.dismissAudioConfigOnboardingPermanently
+import com.google.ai.edge.gallery.ui.modelmanager.isTaskEligibleForAudioConfigOnboarding
+import com.google.ai.edge.gallery.ui.modelmanager.observeAudioTabUiState
+import com.google.ai.edge.gallery.ui.modelmanager.onAudioConfigOpened
+import com.google.ai.edge.gallery.ui.modelmanager.refreshAudioConfigOnboardingState
 import com.google.ai.edge.litertlm.ModelInfo
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -102,6 +118,30 @@ fun ModelPageAppBar(
   val initStatus by model.initStatusFlow.collectAsStateWithLifecycle()
   val isModelInitializing = initStatus is Model.InitializationStatus.Initializing
   val isModelInitialized = initStatus is Model.InitializationStatus.Initialized
+  val audioConfigOnboardingDismissedInSession by
+    modelManagerViewModel.audioConfigOnboardingDismissedInSession.collectAsStateWithLifecycle()
+  val audioConfigOnboardingPromoViewed by
+    modelManagerViewModel.audioConfigOnboardingPromoViewed.collectAsStateWithLifecycle()
+  LaunchedEffect(modelManagerViewModel, task.id) {
+    val unused = modelManagerViewModel.refreshAudioConfigOnboardingState()
+  }
+  var configButtonBounds by remember { mutableStateOf<IntRect?>(null) }
+  val enableAsrForOnboarding = true
+  val enableTtsForOnboarding = true
+  var showAudioConfigOnboarding by
+    remember(
+      task.id,
+      audioConfigOnboardingDismissedInSession,
+      audioConfigOnboardingPromoViewed,
+      enableAsrForOnboarding,
+      enableTtsForOnboarding,
+    ) {
+      mutableStateOf(
+        !audioConfigOnboardingDismissedInSession &&
+          audioConfigOnboardingPromoViewed == false &&
+          modelManagerViewModel.isTaskEligibleForAudioConfigOnboarding(task)
+      )
+    }
 
   CenterAlignedTopAppBar(
     title = {
@@ -140,7 +180,8 @@ fun ModelPageAppBar(
     modifier = modifier,
     // The back button.
     navigationIcon = {
-      val enableBackButton = !isModelInitializing && !inProgress
+      val enableBackButton =
+        (task.id == BuiltInTaskId.LLM_XR_LANGUAGE_TEACHER || !isModelInitializing) && !inProgress
       IconButton(onClick = onBackClicked, enabled = enableBackButton) {
         Icon(
           imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -151,7 +192,11 @@ fun ModelPageAppBar(
     // The config button for the model (if existed).
     actions = {
       val downloadSucceeded = curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
-      val showConfigButton = model.configs.isNotEmpty() && downloadSucceeded
+      // XR Language Teacher has its own language and teacher settings instead of Model Config.
+      val showConfigButton =
+        model.configs.isNotEmpty() &&
+          downloadSucceeded &&
+          task.id != BuiltInTaskId.LLM_XR_LANGUAGE_TEACHER
       Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
         var configButtonOffset = 0.dp
         if (showConfigButton && shouldShowHistoryButton) {
@@ -162,11 +207,27 @@ fun ModelPageAppBar(
             !isModelInitializing && !inProgress && !actionsDisabled && isModelInitialized
           IconButton(
             onClick = {
+              showAudioConfigOnboarding = false
+              modelManagerViewModel.dismissAudioConfigOnboardingForSession()
               showConfigDialog = true
             },
             enabled = enableConfigButton,
             modifier =
               Modifier.offset(x = configButtonOffset)
+                .onGloballyPositioned { coordinates ->
+                  if (!showAudioConfigOnboarding) {
+                    return@onGloballyPositioned
+                  }
+                  val pos = coordinates.positionInWindow()
+                  val newBounds =
+                    IntRect(
+                      offset = IntOffset(pos.x.roundToInt(), pos.y.roundToInt()),
+                      size = coordinates.size,
+                    )
+                  if (configButtonBounds != newBounds) {
+                    configButtonBounds = newBounds
+                  }
+                }
                 .alpha(if (!enableConfigButton) 0.5f else 1f),
           ) {
             Icon(
@@ -200,6 +261,38 @@ fun ModelPageAppBar(
       }
     },
   )
+
+  val downloadSucceededForOnboarding =
+    curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
+  val configButtonReadyForOnboarding =
+    model.configs.isNotEmpty() &&
+      downloadSucceededForOnboarding &&
+      task.id != BuiltInTaskId.LLM_XR_LANGUAGE_TEACHER &&
+      !isModelInitializing &&
+      !modelPreparing &&
+      !inProgress &&
+      !actionsDisabled &&
+      isModelInitialized &&
+      !showConfigDialog
+  val currentConfigButtonBounds = configButtonBounds
+  if (
+    showAudioConfigOnboarding && configButtonReadyForOnboarding && currentConfigButtonBounds != null
+  ) {
+    AudioConfigOnboardingTooltip(
+      anchorBounds = currentConfigButtonBounds,
+      onGotIt = {
+        logButtonClick("audio_config_onboarding_got_it", capabilityName = task.id)
+        showAudioConfigOnboarding = false
+        modelManagerViewModel.dismissAudioConfigOnboardingPermanently()
+      },
+      onSpotlightClick = {
+        logButtonClick("audio_config_onboarding_spotlight", capabilityName = task.id)
+        showAudioConfigOnboarding = false
+        modelManagerViewModel.dismissAudioConfigOnboardingPermanently()
+        showConfigDialog = true
+      },
+    )
+  }
 
   // Config dialog.
   if (showConfigDialog) {
@@ -236,6 +329,7 @@ fun TaskConfigDialog(
   defaultSystemPrompt: String = task.defaultSystemPrompt,
   onSystemPromptChanged: (String) -> Unit = {},
   isAutoCompactEnabled: Boolean = false,
+  initialTab: ConfigTab = ConfigTab.MODEL_CONFIGS,
 ) {
   val context = LocalContext.current
   var supportsSpeculativeDecoding by
@@ -318,6 +412,14 @@ fun TaskConfigDialog(
         }
       }
     }
+  LaunchedEffect(modelManagerViewModel, task) { modelManagerViewModel.onAudioConfigOpened(task) }
+  val initialAudioUiState =
+    remember(modelManagerViewModel, task) { modelManagerViewModel.buildAudioTabUiState(task) }
+  val audioUiState by
+    remember(modelManagerViewModel, task) { modelManagerViewModel.observeAudioTabUiState(task) }
+      .collectAsStateWithLifecycle(initialValue = initialAudioUiState)
+  val audioActions =
+    remember(modelManagerViewModel, task) { modelManagerViewModel.createAudioTabActions(task) }
   ConfigDialog(
     title = stringResource(R.string.config_dialog_title),
     configs = modelConfigs,
@@ -389,6 +491,10 @@ fun TaskConfigDialog(
           model.agentSkillTopKAdjusted = true
           model.agentSkillTopK = curConfigValues[ConfigKeys.TOPK.label]
         }
+        BuiltInTaskId.LLM_XR_LANGUAGE_TEACHER -> {
+          model.xrTeacherTopKAdjusted = true
+          model.xrTeacherTopK = curConfigValues[ConfigKeys.TOPK.label]
+        }
       }
       modelManagerViewModel.updateConfigValuesUpdateTrigger()
 
@@ -412,8 +518,11 @@ fun TaskConfigDialog(
         onConfigChanged(dialogInitialValues, curConfigValues)
       }
     },
-    showSystemPromptEditorTab = allowEditingSystemPrompt && !model.isAiCore,
+    showSystemPromptEditorTab = allowEditingSystemPrompt,
     defaultSystemPrompt = defaultSystemPrompt,
     curSystemPrompt = curSystemPrompt,
+    audioUiState = audioUiState,
+    audioActions = audioActions,
+    initialTab = initialTab,
   )
 }

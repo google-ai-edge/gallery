@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.ui.common.modelitem
 
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.Info
@@ -45,6 +47,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -53,6 +56,7 @@ import com.google.ai.edge.gallery.data.MODEL_INFO_ICON_SIZE
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
+import com.google.ai.edge.gallery.data.ModelType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.ClickableLink
 import com.google.ai.edge.gallery.ui.common.humanReadableSize
@@ -164,6 +168,41 @@ fun ModelNameAndStatus(
         style = MaterialTheme.typography.titleMedium,
         modifier = Modifier.weight(1f, fill = false),
       )
+      when (model.modelType) {
+        ModelType.ASR -> {
+          Box(
+            modifier =
+              Modifier.background(
+                  color = MaterialTheme.colorScheme.secondaryContainer,
+                  shape = RoundedCornerShape(6.dp),
+                )
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+          ) {
+            Text(
+              text = stringResource(R.string.model_tag_asr),
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+              color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+          }
+        }
+        ModelType.TTS -> {
+          Box(
+            modifier =
+              Modifier.background(
+                  color = MaterialTheme.colorScheme.tertiaryContainer,
+                  shape = RoundedCornerShape(6.dp),
+                )
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+          ) {
+            Text(
+              text = stringResource(R.string.model_tag_tts),
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+              color = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+          }
+        }
+        else -> {}
+      }
     }
 
     // Status icon + size + download progress details, unless the caller provides its own status.

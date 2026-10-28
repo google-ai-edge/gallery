@@ -143,6 +143,9 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.PermissionAccessKind
 import com.google.ai.edge.gallery.ui.common.PermissionAccessTracker
 import com.google.ai.edge.gallery.ui.common.PermissionDeniedDialog
+import com.google.ai.edge.gallery.ui.common.asr.ChatAsrDictationPanel
+import com.google.ai.edge.gallery.ui.common.asr.ChatAsrDictationUiState
+import com.google.ai.edge.gallery.ui.common.asr.rememberChatAsrDictationActions
 import com.google.ai.edge.gallery.ui.common.getTaskIconColor
 import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
 import java.util.concurrent.Executors
@@ -157,6 +160,7 @@ private const val LIVE_METRICS_PROMPT_SCROLL_TIMEOUT_MS = 600L
 private enum class InputMode {
   TEXT,
   AUDIO_RECORDER,
+  ASR_DICTATION,
 }
 
 /**
@@ -210,6 +214,13 @@ fun MessageInputText(
   onPromoteTextInputHistoryItem: (String) -> Unit = {},
   onDeleteTextInputHistoryItem: (String) -> Unit = {},
   onClearTextInputHistory: () -> Unit = {},
+  asrDictationUiState: ChatAsrDictationUiState? = null,
+  onStartAsrDictation:
+    ((onEndedBySession: (transcript: String, failed: Boolean) -> Unit) -> Unit)? =
+    null,
+  onFinishAsrDictation: ((onTranscript: (String) -> Unit) -> Unit)? = null,
+  onCancelAsrDictation: (() -> Unit)? = null,
+  onAsrDictationError: () -> Unit = {},
 ) {
   val context = LocalContext.current
   val lifecycleOwner = LocalLifecycleOwner.current
@@ -315,6 +326,28 @@ fun MessageInputText(
     PermissionDeniedDialog(kind = kind, onDismiss = { deniedPermissionKind = null })
   }
 
+  val asrDictationActions =
+    rememberChatAsrDictationActions(
+      asrDictationUiState = asrDictationUiState,
+      curMessage = curMessage,
+      onValueChanged = onValueChanged,
+      onSendTranscriptMessage = { mergedText ->
+        onSendMessage(
+          createMessagesToSend(
+            pickedImages = pickedImages,
+            audioClips = pickedAudioClips,
+            text = mergedText,
+          )
+        )
+        pickedImages = emptyList()
+        pickedAudioClips = emptyList()
+      },
+      onStartAsrDictation = onStartAsrDictation,
+      onFinishAsrDictation = onFinishAsrDictation,
+      onCancelAsrDictation = onCancelAsrDictation,
+      onAsrDictationError = onAsrDictationError,
+    )
+
   // Registers a photo picker activity launcher in single-select mode.
   val pickMedia =
     rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris ->
@@ -417,6 +450,7 @@ fun MessageInputText(
     val inputMode =
       when {
         showAudioRecorder -> InputMode.AUDIO_RECORDER
+        asrDictationActions.uiState.isDictating -> InputMode.ASR_DICTATION
         else -> InputMode.TEXT
       }
     Box(contentAlignment = Alignment.Center, modifier = Modifier.heightIn(min = 76.dp)) {
@@ -808,6 +842,29 @@ fun MessageInputText(
                   }
                 }
 
+                // Voice input (speech-to-text) button.
+                if (onStartAsrDictation != null && !(inProgress && showStopButtonWhenInProgress)) {
+                  IconButton(
+                    enabled =
+                      !inProgress &&
+                        !isResettingSession &&
+                        !modelInitializing &&
+                        !isContextLimitReached,
+                    onClick = asrDictationActions.onStartDictation,
+                  ) {
+                    Icon(
+                      Icons.Rounded.Mic,
+                      contentDescription = stringResource(R.string.asr_dictation_start_desc),
+                      tint =
+                        if (asrDictationActions.isMicPermissionDenied) {
+                          LocalContentColor.current.copy(alpha = 0.38f)
+                        } else {
+                          LocalContentColor.current
+                        },
+                    )
+                  }
+                }
+
                 // Stop button.
                 if (inProgress && showStopButtonWhenInProgress) {
                   if (!modelInitializing && !modelPreparing) {
@@ -882,6 +939,15 @@ fun MessageInputText(
                 showAudioRecorder = false
                 onSetAudioRecorderVisible(false)
               },
+            )
+
+          // Voice input.
+          InputMode.ASR_DICTATION ->
+            ChatAsrDictationPanel(
+              uiState = asrDictationActions.uiState,
+              onCancel = asrDictationActions.onCancelDictation,
+              onStop = asrDictationActions.onStopDictation,
+              onSend = asrDictationActions.onSendDictation,
             )
         }
       }

@@ -1,0 +1,50 @@
+/*
+ * Copyright 2026 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.google.ai.edge.gallery.data.supplementary
+
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.core.content.pm.PackageInfoCompat
+
+/**
+ * Version requirements for AICore (`com.google.android.aicore`), which serves the on-device model
+ * backing ML Kit GenAI Speech Recognition in Advanced mode (`MODE_ADVANCED`).
+ */
+object AiCoreVersion {
+  /** Package name of AICore. */
+  const val PACKAGE_NAME = "com.google.android.aicore"
+
+  /** Minimum AICore version code required by ML Kit GenAI APIs. */
+  const val MIN_VERSION_CODE = 193_575L
+
+  /** Play Store page where the user can install or update AICore. */
+  const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=$PACKAGE_NAME"
+
+  /** Returns the installed AICore version code, or `-1` if it is not installed. */
+  fun versionCode(context: Context): Long =
+    try {
+      PackageInfoCompat.getLongVersionCode(context.packageManager.getPackageInfo(PACKAGE_NAME, 0))
+    } catch (e: PackageManager.NameNotFoundException) {
+      -1L
+    }
+
+  /** Returns whether [versionCode] meets [MIN_VERSION_CODE]. */
+  fun isUpToDate(versionCode: Long): Boolean = versionCode >= MIN_VERSION_CODE
+
+  /** Returns whether the installed AICore meets [MIN_VERSION_CODE]. */
+  fun isUpToDate(context: Context): Boolean = isUpToDate(versionCode(context))
+}

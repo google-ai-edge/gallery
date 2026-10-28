@@ -29,8 +29,11 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.ui.common.BufferedFadingMarkdownText
 import com.google.ai.edge.gallery.ui.common.MarkdownText
+import com.google.ai.edge.gallery.ui.common.tts.MessageBodyTtsView
+import com.google.ai.edge.gallery.ui.common.tts.TtsPlaybackController
 
 /** Composable function to display the text content of a ChatMessageText. */
 @Composable
@@ -39,6 +42,7 @@ fun MessageBodyText(
   inProgress: Boolean,
   horizontalPadding: Dp = 12.dp,
   onCopyClicked: (String) -> Unit = {},
+  ttsController: TtsPlaybackController? = null,
 ) {
   if (message.side == ChatSide.USER) {
     LongPressCopyContainer(copyText = message.content, onCopyClicked = onCopyClicked) {
@@ -50,6 +54,25 @@ fun MessageBodyText(
       )
     }
   } else if (message.side == ChatSide.AGENT) {
+    val activeMessageId = ttsController?.activeMessageId?.collectAsStateWithLifecycle()?.value
+    val isActiveTtsMessage = ttsController?.isAvailable == true && activeMessageId == message.id
+
+    if (ttsController != null && isActiveTtsMessage) {
+      MessageBodyTtsView(
+        content = message.content,
+        controller = ttsController,
+        modifier =
+          Modifier.padding(vertical = 12.dp)
+            .padding(horizontal = horizontalPadding)
+            .testTag("model_response_text")
+            .semantics(mergeDescendants = true) {
+              // Only announce when message is complete.
+              if (!inProgress) {
+                liveRegion = LiveRegionMode.Polite
+              }
+            },
+      )
+    } else {
       if (message.isMarkdown) {
         BufferedFadingMarkdownText(
           text = message.content,
@@ -84,5 +107,6 @@ fun MessageBodyText(
           )
         }
       }
+    }
   }
 }

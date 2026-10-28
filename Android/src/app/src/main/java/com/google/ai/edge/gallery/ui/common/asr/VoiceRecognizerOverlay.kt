@@ -23,11 +23,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -36,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
@@ -64,15 +69,13 @@ fun VoiceRecognizerOverlay(
     // Audio level animation.
     AudioAnimation(bgColor = Color.Black.copy(alpha = 0.8f), amplitude = curAmplitude)
 
-      // Recognized text.
-      Text(
-        uiState.recognizedText.ifEmpty { stringResource(R.string.listening) },
-        modifier =
-          Modifier.padding(horizontal = 16.dp)
-            .padding(bottom = (48.dp + bottomPadding) / 2)
-            .align(Alignment.Center),
-        color = Color.White,
-      )
+    AutoScrollingRecognizedText(
+      text = uiState.recognizedText.ifEmpty { stringResource(R.string.listening) },
+      modifier =
+        Modifier.padding(horizontal = 16.dp)
+          .padding(bottom = (48.dp + bottomPadding) / 2)
+          .align(Alignment.Center),
+    )
 
     Column(
       modifier =
@@ -112,5 +115,20 @@ fun VoiceRecognizerOverlay(
         Text(stringResource(R.string.listening), color = Color.White)
       }
     }
+  }
+}
+
+/**
+ * Shows [text] centered in a box of limited height that follows the end of the text as speech
+ * streams in. Manual scrolling is disabled.
+ */
+@Composable
+private fun AutoScrollingRecognizedText(text: String, modifier: Modifier = Modifier) {
+  val scrollState = rememberScrollState()
+  LaunchedEffect(text) { scrollState.scrollTo(scrollState.maxValue) }
+  Box(
+    modifier = modifier.heightIn(max = 120.dp).verticalScroll(state = scrollState, enabled = false)
+  ) {
+    Text(text, color = MaterialTheme.colorScheme.inverseOnSurface, textAlign = TextAlign.Center)
   }
 }

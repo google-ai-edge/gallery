@@ -52,10 +52,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -83,7 +85,11 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.common.logButtonClick
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.ImportOrigin
 import com.google.ai.edge.gallery.data.Model
@@ -120,6 +126,7 @@ fun GlobalModelManager(
   modifier: Modifier = Modifier,
   tosViewModel: TosViewModel? = null,
   initialImportUrl: String? = null,
+  supplementaryModelsViewModel: SupplementaryModelsViewModel? = null,
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val builtInModels = remember { mutableStateListOf<Model>() }
@@ -143,6 +150,21 @@ fun GlobalModelManager(
   val context = LocalContext.current
   val snackbarHostState = remember { SnackbarHostState() }
   val modelItemExpandedStates = remember { mutableStateMapOf<String, Boolean>() }
+  var selectedTab by remember { mutableStateOf(ModelManagerTab.MAIN) }
+  val supplementaryUiState =
+    supplementaryModelsViewModel?.uiState?.collectAsStateWithLifecycle()?.value
+  val supplementaryModelCount =
+    supplementaryUiState?.visibleModelCount ?: uiState.supplementaryModels.size
+  val supplementaryActions =
+    rememberSupplementaryModelsActions(
+      supplementaryModelsViewModel = supplementaryModelsViewModel,
+      modelManagerViewModel = viewModel,
+    )
+
+  LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+    viewModel.refreshSupplementaryStatuses()
+    supplementaryModelsViewModel?.refreshOnResume()
+  }
 
   val processModelUri: (Uri, Boolean, ImportOrigin) -> Unit = { uri, isWebImport, origin ->
     validateAndProcessModelUri(
@@ -288,7 +310,8 @@ fun GlobalModelManager(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurface,
               )
-              val totalModelCount = builtInModels.size + importedModels.size
+              val totalModelCount =
+                builtInModels.size + importedModels.size + supplementaryModelCount
               Text(
                 text = stringResource(R.string.model_manager_models_count_title, totalModelCount),
                 color = MaterialTheme.colorScheme.onSurface,
@@ -312,7 +335,7 @@ fun GlobalModelManager(
       )
     },
     floatingActionButton = {
-      val showImportFab = true
+      val showImportFab = selectedTab == ModelManagerTab.MAIN
       if (showImportFab) {
         // A floating action button to show "import model" bottom sheet.
         val cdImportModelFab = stringResource(R.string.cd_import_model_button)
@@ -334,6 +357,55 @@ fun GlobalModelManager(
             .fillMaxWidth()
             .padding(top = innerPadding.calculateTopPadding())
       ) {
+        PrimaryTabRow(
+          selectedTabIndex = selectedTab.ordinal,
+          containerColor = Color.Transparent,
+        ) {
+          val mainCount = builtInModels.size + importedModels.size
+          val suppCount = supplementaryModelCount
+          Tab(
+            selected = selectedTab == ModelManagerTab.MAIN,
+            onClick = {
+              if (selectedTab != ModelManagerTab.MAIN) {
+                Log.d(TAG, "Analytics: button_clicked, event_type=model_manager_tab_main")
+                logButtonClick("model_manager_tab_main")
+              }
+              selectedTab = ModelManagerTab.MAIN
+            },
+            text = {
+              Text(
+                stringResource(R.string.main_models_tab_title, mainCount),
+                color =
+                  if (selectedTab == ModelManagerTab.MAIN) MaterialTheme.colorScheme.primary
+                  else MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            },
+          )
+          Tab(
+            selected = selectedTab == ModelManagerTab.SUPPLEMENTARY,
+            onClick = {
+              if (selectedTab != ModelManagerTab.SUPPLEMENTARY) {
+                Log.d(
+                  TAG,
+                  "Analytics: button_clicked, event_type=model_manager_tab_supplementary",
+                )
+                logButtonClick("model_manager_tab_supplementary")
+              }
+              selectedTab = ModelManagerTab.SUPPLEMENTARY
+            },
+            text = {
+              Text(
+                stringResource(R.string.supplementary_models_tab_title, suppCount),
+                color =
+                  if (selectedTab == ModelManagerTab.SUPPLEMENTARY) {
+                    MaterialTheme.colorScheme.primary
+                  } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                  },
+              )
+            },
+          )
+        }
 
         LazyColumn(
           modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -341,7 +413,16 @@ fun GlobalModelManager(
           contentPadding =
             PaddingValues(top = 16.dp, bottom = innerPadding.calculateBottomPadding() + 80.dp),
         ) {
-          val showSupplementaryTab = false
+          val showSupplementaryTab = selectedTab == ModelManagerTab.SUPPLEMENTARY
+          if (showSupplementaryTab && supplementaryUiState != null) {
+            supplementaryModelItems(
+              uiState = supplementaryUiState,
+              modelItemExpandedStates = modelItemExpandedStates,
+              viewModel = viewModel,
+              tosViewModel = tosViewModel,
+              actions = supplementaryActions,
+            )
+          }
           if (!showSupplementaryTab) {
             items(builtInModels) { model ->
               val expanded = modelItemExpandedStates.getOrDefault(model.name, true)

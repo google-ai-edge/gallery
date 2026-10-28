@@ -414,7 +414,10 @@ fun HomeScreen(
 
               Column(modifier = Modifier.fillMaxWidth()) {
                 var selectedCategoryIndex by remember { mutableIntStateOf(0) }
-                val isSpeechHighlightEnabled = false
+                val isSpeechHighlightEnabled =
+                  modelManagerViewModel.getTaskById(
+                    BuiltInTaskId.LLM_XR_LANGUAGE_TEACHER
+                  ) != null
 
                 // App title and intro text.
                 Column(
@@ -426,12 +429,21 @@ fun HomeScreen(
                 ) {
                   AppTitle(enableAnimation = enableAnimation)
                   IntroText(enableAnimation = enableAnimation)
-                  FeaturedIntroText(
-                    titleRes = R.string.try_egv2_title,
-                    descriptionRes = R.string.try_egv2_description,
-                    iconRes = R.drawable.gemma_logo,
-                    enableAnimation = enableAnimation,
-                  )
+                  if (isSpeechHighlightEnabled) {
+                    FeaturedIntroText(
+                      titleRes = R.string.try_speech_title,
+                      descriptionRes = R.string.try_speech_description,
+                      iconRes = R.drawable.ic_sound_sensing,
+                      enableAnimation = enableAnimation,
+                    )
+                  } else {
+                    FeaturedIntroText(
+                      titleRes = R.string.try_egv2_title,
+                      descriptionRes = R.string.try_egv2_description,
+                      iconRes = R.drawable.gemma_logo,
+                      enableAnimation = enableAnimation,
+                    )
+                  }
                 }
 
                 // Tab header for categories.
@@ -829,7 +841,11 @@ private fun TaskList(
   }
 
   val taskIds =
-  listOf(BuiltInTaskId.SMART_ALBUM, BuiltInTaskId.VIDEO_MOMENT_FINDER)
+    if (isSpeechHighlightEnabled) {
+      listOf(BuiltInTaskId.LLM_XR_LANGUAGE_TEACHER, BuiltInTaskId.LLM_CHAT)
+    } else {
+      listOf(BuiltInTaskId.SMART_ALBUM, BuiltInTaskId.VIDEO_MOMENT_FINDER)
+    }
 
   // The highlighted tiles at the top.
   Column(
@@ -840,7 +856,11 @@ private fun TaskList(
         translationY = (CONTENT_COMPOSABLES_OFFSET_Y.dp * (1 - progress)).toPx()
       },
   ) {
-    val chatDescription = stringResource(R.string.gemma_reskin_try_gemma_4_chat)
+    val chatDescription =
+      stringResource(
+        if (isSpeechHighlightEnabled) R.string.try_speech_chat_description
+        else R.string.gemma_reskin_try_gemma_4_chat
+      )
     val chatToDescription =
       mapOf(
         BuiltInTaskId.LLM_CHAT to chatDescription,

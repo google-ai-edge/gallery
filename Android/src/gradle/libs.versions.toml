@@ -42,10 +42,15 @@ ksp = "2.3.6"
 mlkit-genai-prompt = "1.0.0-beta5"  # Ref: https://developers.google.com/ml-kit/genai/prompt/android/get-started#configure-project
 mcp = "0.8.0"
 ktor = "3.4.3"
-tasksVision = "1.1.1"
-tasksRetrieval = "1.1.1"
+tasksVision = "1.2.0"
+tasksRetrieval = "1.2.0"
 media3 = "1.11.1"
 coil = "2.7.0"
+xrProjected = "1.0.0-alpha14"
+mlkitGenaiCommon = "1.0.0-beta5"
+mlkitGenaiSpeechRecognition = "1.0.0-alpha2"
+mlkitGenaiTextToSpeech = "1.0.0-alpha1"
+tasksAudio = "1.2.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -109,6 +114,11 @@ androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplaye
 androidx-media3-transformer = { group = "androidx.media3", name = "media3-transformer", version.ref = "media3" }
 androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+androidx-xr-projected = { group = "androidx.xr.projected", name = "projected", version.ref = "xrProjected" }
+mlkit-genai-common = { group = "com.google.mlkit", name = "genai-common", version.ref = "mlkitGenaiCommon" }
+mlkit-genai-speech-recognition = { group = "com.google.mlkit", name = "genai-speech-recognition", version.ref = "mlkitGenaiSpeechRecognition" }
+mlkit-genai-text-to-speech = { group = "com.google.mlkit", name = "genai-text-to-speech", version.ref = "mlkitGenaiTextToSpeech" }
+tasks-audio = { group = "com.google.mediapipe", name = "tasks-audio", version.ref = "tasksAudio" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -66,6 +66,36 @@ message LlmConfig {
   bool support_speculative_decoding = 11;
 }
 
+message TtsSettingsProto {
+  string selected_engine_id = 1;
+  string selected_voice_id = 2;
+  bool is_auto_play_enabled = 3;
+  bool is_explicitly_selected = 4;
+  // BCP-47 tag of the language selected for read aloud. Empty means the engine
+  // default.
+  string selected_language_code = 5;
+}
+
+message AsrSettingsProto {
+  reserved 3;
+  // AsrModelIdentifier of the selected engine. Empty means the system default.
+  string selected_model_id = 1;
+  // BCP-47 tag of the recognition language. Empty means the default language.
+  string selected_language_code = 2;
+  // Unset means the default (show interim results).
+  optional bool show_interim_results = 4;
+  bool is_explicitly_selected = 5;
+}
+
+// Modality filter of the Model Manager's Supplementary tab.
+enum SupplementaryModelFilterProto {
+  // Not chosen yet; shown as all models.
+  SUPPLEMENTARY_MODEL_FILTER_UNSPECIFIED = 0;
+  SUPPLEMENTARY_MODEL_FILTER_ALL = 1;
+  SUPPLEMENTARY_MODEL_FILTER_TTS = 2;
+  SUPPLEMENTARY_MODEL_FILTER_ASR = 3;
+}
+
 message Settings {
   Theme theme = 1;
   AccessTokenData access_token_data = 2;  // deprecated
@@ -77,6 +107,9 @@ message Settings {
   bool has_seen_benchmark_comparison_help = 7;
   // Has the Gemma terms of use been accepted.
   bool is_gemma_terms_accepted = 8;
+  AsrSettingsProto asr_settings = 13;
+  TtsSettingsProto tts_settings = 14;
+  SupplementaryModelFilterProto supplementary_model_filter = 17;
 
   repeated string viewed_promo_id = 10;
   bool disable_firebase_analytics = 11;

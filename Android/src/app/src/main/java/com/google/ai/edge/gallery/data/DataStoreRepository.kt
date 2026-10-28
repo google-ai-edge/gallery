@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.data
 
 import androidx.datastore.core.DataStore
 import com.google.ai.edge.gallery.proto.AccessTokenData
+import com.google.ai.edge.gallery.proto.AsrSettingsProto
 import com.google.ai.edge.gallery.proto.BenchmarkResult
 import com.google.ai.edge.gallery.proto.BenchmarkResults
 import com.google.ai.edge.gallery.proto.Cutout
@@ -26,7 +27,9 @@ import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.proto.Settings
 import com.google.ai.edge.gallery.proto.Skill
 import com.google.ai.edge.gallery.proto.Skills
+import com.google.ai.edge.gallery.proto.SupplementaryModelFilterProto
 import com.google.ai.edge.gallery.proto.Theme
+import com.google.ai.edge.gallery.proto.TtsSettingsProto
 import com.google.ai.edge.gallery.proto.UserData
 import com.google.ai.edge.gallery.proto.copy
 import kotlinx.coroutines.flow.first
@@ -107,6 +110,25 @@ interface DataStoreRepository {
   fun getAllBenchmarkResults(): List<BenchmarkResult>
 
   fun deleteBenchmarkResult(index: Int)
+
+  /** Saves TTS settings to persistent DataStore storage. */
+  suspend fun saveTtsSettings(ttsSettings: TtsSettingsProto) {}
+
+  /** Reads persisted TTS settings from DataStore. */
+  fun readTtsSettings(): TtsSettingsProto = TtsSettingsProto.getDefaultInstance()
+
+  /** Saves ASR settings to persistent DataStore storage. */
+  suspend fun saveAsrSettings(asrSettings: AsrSettingsProto) {}
+
+  /** Reads persisted ASR settings from DataStore. */
+  suspend fun readAsrSettings(): AsrSettingsProto = AsrSettingsProto.getDefaultInstance()
+
+  /** Saves the modality filter chosen on the Model Manager's Supplementary tab. */
+  suspend fun saveSupplementaryModelFilter(filter: SupplementaryModelFilterProto) {}
+
+  /** Reads the persisted modality filter of the Model Manager's Supplementary tab. */
+  suspend fun readSupplementaryModelFilter(): SupplementaryModelFilterProto =
+    SupplementaryModelFilterProto.SUPPLEMENTARY_MODEL_FILTER_UNSPECIFIED
 
   fun addSkill(skill: Skill)
 
@@ -397,6 +419,29 @@ class DefaultDataStoreRepository(
       }
     }
   }
+
+  override suspend fun saveTtsSettings(ttsSettings: TtsSettingsProto) {
+    dataStore.updateData { settings -> settings.toBuilder().setTtsSettings(ttsSettings).build() }
+  }
+
+  override fun readTtsSettings(): TtsSettingsProto {
+    return runBlocking { dataStore.data.first().ttsSettings }
+  }
+
+  override suspend fun saveAsrSettings(asrSettings: AsrSettingsProto) {
+    dataStore.updateData { settings -> settings.toBuilder().setAsrSettings(asrSettings).build() }
+  }
+
+  override suspend fun readAsrSettings(): AsrSettingsProto = dataStore.data.first().asrSettings
+
+  override suspend fun saveSupplementaryModelFilter(filter: SupplementaryModelFilterProto) {
+    dataStore.updateData { settings ->
+      settings.toBuilder().setSupplementaryModelFilter(filter).build()
+    }
+  }
+
+  override suspend fun readSupplementaryModelFilter(): SupplementaryModelFilterProto =
+    dataStore.data.first().supplementaryModelFilter
 
   override fun addSkill(skill: Skill) {
     runBlocking {

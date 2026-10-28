@@ -139,6 +139,11 @@ dependencies {
   implementation(libs.androidx.media3.transformer)
   implementation(libs.androidx.media3.ui)
   implementation(libs.coil.compose)
+  implementation(libs.androidx.xr.projected)
+  implementation(libs.mlkit.genai.common)
+  implementation(libs.mlkit.genai.speech.recognition)
+  implementation(libs.mlkit.genai.text.to.speech)
+  implementation(libs.tasks.audio)
 }
 
 configurations.all { resolutionStrategy.force("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.0") }

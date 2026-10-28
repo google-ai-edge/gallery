@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.common
 
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.res.AssetFileDescriptor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -496,6 +497,31 @@ fun convertStringToJsonObject(jsonString: String): JsonObject {
     Log.w(TAG, "Could not parse JSON string; using an empty object", e)
     JsonObject(emptyMap())
   }
+}
+
+/**
+ * Returns whether [context] is hosted by a Hilt component manager.
+ *
+ * Matches interface names, so release builds rely on the `-keepnames` rules for
+ * `dagger.hilt.internal.GeneratedComponentManager*` in the app's `proguard.pgcfg`.
+ */
+fun hasHiltComponentManager(context: Context): Boolean {
+  var current: Context? = context
+  while (current != null) {
+    var clazz: Class<*>? = current.javaClass
+    while (clazz != null) {
+      if (
+        clazz.interfaces.any {
+          it.name.startsWith("dagger.hilt.internal.GeneratedComponentManager")
+        }
+      ) {
+        return true
+      }
+      clazz = clazz.superclass
+    }
+    current = (current as? ContextWrapper)?.baseContext
+  }
+  return false
 }
 
 /**

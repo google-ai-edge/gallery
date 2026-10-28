@@ -26,11 +26,16 @@ import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.ModelSelectionConfig
 import com.google.ai.edge.gallery.data.ModelSelectionSection
 import com.google.ai.edge.gallery.data.ModelSelectionTarget
+import com.google.ai.edge.gallery.data.ModelType
 import com.google.ai.edge.gallery.data.ModelUnavailabilityReason
 import com.google.ai.edge.gallery.data.SpeechEngineError
 import com.google.ai.edge.gallery.data.SpeechEngineErrorCause
 import com.google.ai.edge.gallery.data.SpeechEngineKind
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.services.asr.AsrEngineType
+import com.google.ai.edge.gallery.services.asr.AsrModelRegistry
+import com.google.ai.edge.gallery.services.tts.TtsModelIdentifier
+import com.google.ai.edge.gallery.services.tts.TtsModelRegistry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -111,10 +116,25 @@ private class ModelManagerSelectionHost(private val viewModel: ModelManagerViewM
     viewModel.refreshModelStatus(model)
 
   override fun isSavedSelection(target: ModelSelectionTarget, model: Model): Boolean {
+    if (target == ModelSelectionTarget.ASR_MODEL) {
+      return isSavedAsrModel(model = model, savedModelId = viewModel.selectedAsrModelId.value)
+    }
+    if (target == ModelSelectionTarget.TTS_MODEL) {
+      return isSavedTtsModel(
+        model = model,
+        savedEngineId = viewModel.ttsSettingsUiState.value.selectedModelId,
+      )
+    }
     return false
   }
 
   override fun saveSelection(target: ModelSelectionTarget, model: Model) {
+    if (target == ModelSelectionTarget.ASR_MODEL) {
+      viewModel.saveAsrModel(model)
+    }
+    if (target == ModelSelectionTarget.TTS_MODEL) {
+      viewModel.selectTtsEngine(engineId = ttsEngineIdOf(model), model = model)
+    }
   }
 
   override fun saveMainModel(task: Task, model: Model) {
@@ -125,6 +145,40 @@ private class ModelManagerSelectionHost(private val viewModel: ModelManagerViewM
 }
 
 /**
+ * Whether [model] is the ASR model saved as [savedModelId]. The System recognizer never matches, as
+ * it means that no model is selected.
+ */
+internal fun isSavedAsrModel(model: Model, savedModelId: String): Boolean {
+  if (
+    savedModelId.isEmpty() ||
+      AsrModelRegistry.engineTypeForModelId(savedModelId) == AsrEngineType.SYSTEM_DEFAULT
+  ) {
+    return false
+  }
+  val engineType = AsrModelRegistry.engineTypeForModelId(model.modelId)
+  return if (engineType != null) {
+    savedModelId == AsrModelRegistry.modelId(engineType) ||
+      savedModelId == model.modelId ||
+      savedModelId == model.name
+  } else {
+    savedModelId == model.name || (model.modelId.isNotEmpty() && savedModelId == model.modelId)
+  }
+}
+
+/** The TTS engine id [model] is selected under. */
+internal fun ttsEngineIdOf(model: Model): String =
+  model.ttsProfile?.engineModelId?.ifEmpty { null } ?: model.name
+
+/**
+ * Whether [model] is the TTS model saved as [savedEngineId]. The Android System voice never
+ * matches, as it means that no model is selected.
+ */
+internal fun isSavedTtsModel(model: Model, savedEngineId: String): Boolean =
+  model.modelType == ModelType.TTS &&
+    !TtsModelIdentifier.isSystemEngine(savedEngineId) &&
+    savedEngineId == ttsEngineIdOf(model)
+
+/**
  * Returns the supported BCP-47 language tags for a speech candidate [model] in [target], excluding
  * Android testing pseudo-locales (`-XA`, `-XB`, `-XC` such as `ar-XA`).
  */
@@ -132,6 +186,12 @@ internal fun supportedLanguagesForCandidate(
   target: ModelSelectionTarget,
   model: Model,
 ): List<String> {
+  if (target == ModelSelectionTarget.ASR_MODEL) {
+    return AsrModelRegistry.supportedLanguages(model).filterNot(::isPseudoLocaleTag)
+  }
+  if (target == ModelSelectionTarget.TTS_MODEL) {
+    return TtsModelRegistry.supportedLanguages(model).filterNot(::isPseudoLocaleTag)
+  }
   return emptyList()
 }
 

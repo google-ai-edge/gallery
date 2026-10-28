@@ -21,16 +21,25 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.ai.edge.gallery.services.asr.AsrAmplitudeNormalizer
+import com.google.ai.edge.gallery.services.asr.AsrService
+import com.google.ai.edge.gallery.services.asr.AsrServiceProvider
+import com.google.ai.edge.gallery.services.asr.runDictationSession
+import com.google.ai.edge.gallery.ui.common.tts.TtsPlaybackController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGHTD"
@@ -46,6 +55,8 @@ class HoldToDictateViewModel
 @Inject
 constructor(
   @ApplicationContext private val context: Context,
+  private val asrServiceProvider: AsrServiceProvider,
+  private val ttsPlaybackController: TtsPlaybackController,
 ) : ViewModel(), RecognitionListener {
   protected val _uiState: MutableStateFlow<HoldToDictateUiState> =
     MutableStateFlow(HoldToDictateUiState())
@@ -55,6 +66,10 @@ constructor(
   private val recognizerIntent: Intent
   private var onRecognitionDone: ((String) -> Unit)? = null
   private var onAmplitudeChanged: ((Int) -> Unit)? = null
+
+  private var activeAsrService: AsrService? = null
+  private var asrRecordingJob: Job? = null
+  private var stopRequested: Boolean = false
 
   init {
     // Initialize SpeechRecognizer
@@ -71,6 +86,15 @@ constructor(
         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
       }
+
+    asrServiceProvider.preloadActiveService(viewModelScope)
+    viewModelScope.launch {
+      ttsPlaybackController.playbackStarts.collect {
+        if (_uiState.value.recognizing || asrRecordingJob?.isActive == true) {
+          cancelSpeechRecognition()
+        }
+      }
+    }
   }
 
   override fun onCleared() {
@@ -78,23 +102,30 @@ constructor(
   }
 
   fun startSpeechRecognition(onDone: (String) -> Unit, onAmplitudeChanged: (Int) -> Unit) {
-    onRecognitionDone = onDone
-    this.onAmplitudeChanged = onAmplitudeChanged
-
-    speechRecognizer.startListening(recognizerIntent)
-    setRecognizedText(text = "")
-    setRecognizing(recognizing = true)
+    startAsrRecognition(onDone = onDone, onAmplitudeChanged = onAmplitudeChanged)
   }
 
   fun stopSpeechRecognition() {
     viewModelScope.launch {
       delay(500)
-      speechRecognizer.stopListening()
+      stopRequested = true
+      val service = activeAsrService
+      if (service != null) {
+        service.stopRecording()
+      } else {
+        // Still preparing, so there is no recording to finish.
+        asrRecordingJob?.cancel()
+      }
       setRecognizing(recognizing = false)
     }
   }
 
   fun cancelSpeechRecognition() {
+    // Cancelling the collection of the recording flow also cancels the recording.
+    stopRequested = false
+    asrRecordingJob?.cancel()
+    asrRecordingJob = null
+    activeAsrService = null
     speechRecognizer.cancel()
     setRecognizedText(text = "")
     setRecognizing(recognizing = false)
@@ -106,6 +137,45 @@ constructor(
 
   fun setRecognizedText(text: String) {
     _uiState.update { it.copy(recognizedText = text) }
+  }
+
+  /**
+   * Records with the [AsrService] resolved by [AsrServiceProvider], showing partial results in
+   * [uiState] and passing the final text to [onDone] once the recording ends normally.
+   */
+  private fun startAsrRecognition(onDone: (String) -> Unit, onAmplitudeChanged: (Int) -> Unit) {
+    ttsPlaybackController.stop()
+    stopRequested = false
+    setRecognizedText(text = "")
+
+    asrRecordingJob?.cancel()
+    asrRecordingJob = viewModelScope.launch {
+      try {
+        asrServiceProvider.runDictationSession(
+          shouldAbortAfterPrepare = { stopRequested },
+          onServiceReady = { service ->
+            activeAsrService = service
+            setRecognizing(recognizing = true)
+          },
+          onAmplitudeChanged = { amplitude ->
+            onAmplitudeChanged(AsrAmplitudeNormalizer.toPcmAmplitude(amplitude))
+          },
+          onTranscriptChanged = { text -> setRecognizedText(text = text) },
+          onRecordingCompleted = { onDone(uiState.value.recognizedText) },
+        )
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        // Like the platform recognizer's `onError` above, end the session without a result.
+        Log.w(TAG, "Speech recognition failed", e)
+      } finally {
+        // A cancelled session must not reset the state of the session that replaced it.
+        if (asrRecordingJob === coroutineContext.job) {
+          activeAsrService = null
+          setRecognizing(recognizing = false)
+        }
+      }
+    }
   }
 
   override fun onReadyForSpeech(params: Bundle?) {}

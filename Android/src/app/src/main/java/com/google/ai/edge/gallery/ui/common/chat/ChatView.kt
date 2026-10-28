@@ -91,6 +91,7 @@ import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
 import com.google.ai.edge.gallery.ui.common.copyBitmapToClipboard
 import com.google.ai.edge.gallery.ui.common.saveBitmapToMediaStore
 import com.google.ai.edge.gallery.ui.common.shareBitmap
+import com.google.ai.edge.gallery.ui.common.tts.rememberChatTtsController
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -155,6 +156,8 @@ fun ChatView(
     remember(allHistorySessions, task.id) { allHistorySessions.filter { it.taskId == task.id } }
 
   val context = LocalContext.current
+
+  val ttsController = rememberChatTtsController(context)
 
   val scope = rememberCoroutineScope()
   var navigatingUp by remember { mutableStateOf(false) }
@@ -222,6 +225,8 @@ fun ChatView(
                     },
                   )
 
+                  ttsController?.stop()
+
                   onRestoreSessionClicked(session)
                 }
                 scope.launch { drawerState.close() }
@@ -230,11 +235,13 @@ fun ChatView(
                 val wasActiveSession = (sessionId == viewModel.currentSessionId)
                 viewModel.deleteSession(sessionId)
                 if (wasActiveSession) {
+                  ttsController?.stop()
                   onNewChatClicked()
                 }
               },
               onHistoryItemsDeleteAll = {
                 viewModel.clearAllSessions()
+                ttsController?.stop()
                 onNewChatClicked()
                 scope.launch { drawerState.close() }
               },
@@ -252,6 +259,8 @@ fun ChatView(
                     putString("model_version", selectedModel.downloadInfo.version)
                   },
                 )
+
+                ttsController?.stop()
 
                 onNewChatClicked()
                 scope.launch { drawerState.close() }
@@ -400,6 +409,7 @@ fun ChatView(
                       showAudioPicker = showAudioPicker,
                       emptyStateComposable = emptyStateComposable,
                       onNewChatClicked = onNewChatClicked,
+                      ttsController = ttsController,
                     )
                   // Model download
                   false ->

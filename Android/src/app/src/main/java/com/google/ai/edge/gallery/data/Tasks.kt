@@ -155,6 +155,47 @@ data class Task(
    */
   fun isContextCompactSupported(model: Model): Boolean =
     supportContextCompact && !model.isAiCore && Config.isContextCompactEnabled()
+
+  /** Whether this task supports speech input (ASR) in its audio settings. */
+  val supportsSpeechInput: Boolean
+    get() = id in speechInputTaskIds
+
+  /** Whether this task supports read-aloud (TTS) in its audio settings. */
+  val supportsReadAloud: Boolean
+    get() = id in readAloudTaskIds
+
+  /** Whether the Audio configuration tab is shown for this task. */
+  val supportsAudioConfig: Boolean
+    get() = supportsSpeechInput || supportsReadAloud
+
+  /** Whether the "Show live transcription" toggle is shown in this task's Audio tab. */
+  val supportsLiveTranscriptionToggle: Boolean
+    get() =
+      supportsSpeechInput &&
+        id != BuiltInTaskId.LLM_XR_LANGUAGE_TEACHER
+
+  /** Whether the "Auto-play TTS" toggle is shown in this task's Audio tab. */
+  val supportsAutoPlayTts: Boolean
+    get() =
+      supportsReadAloud &&
+        id != BuiltInTaskId.LLM_XR_LANGUAGE_TEACHER
+
+  /**
+   * Whether the ASR and TTS language selectors are shown in this task's Audio tab.
+   *
+   * XR Language Teacher chooses its native and target languages on its own lesson screen, so its
+   * Audio tab hides the ASR and TTS language dropdowns.
+   */
+  val showsAudioLanguageSelectors: Boolean
+    get() = id != BuiltInTaskId.LLM_XR_LANGUAGE_TEACHER
+
+  /**
+   * Whether the one-time Audio Config onboarding tooltip is shown for this task.
+   *
+   * Shown on AI Chat, Ask Image, Audio Scribe, and Agent Skills.
+   */
+  val supportsAudioConfigOnboarding: Boolean
+    get() = id in audioConfigOnboardingTaskIds
 }
 
 object BuiltInTaskId {
@@ -170,6 +211,7 @@ object BuiltInTaskId {
   const val LLM_AGENT_CHAT = "llm_agent_chat"
   const val SMART_ALBUM = "smart_album"
   const val VIDEO_MOMENT_FINDER = "video_moment_finder"
+  const val LLM_XR_LANGUAGE_TEACHER = "llm_xr_language_teacher"
 }
 
 private val allLegacyTaskIds: Set<String> =
@@ -177,6 +219,35 @@ private val allLegacyTaskIds: Set<String> =
     BuiltInTaskId.LLM_CHAT,
     BuiltInTaskId.LLM_TEST,
     BuiltInTaskId.LLM_PROMPT_LAB,
+    BuiltInTaskId.LLM_ASK_IMAGE,
+    BuiltInTaskId.LLM_ASK_AUDIO,
+    BuiltInTaskId.LLM_AGENT_CHAT,
+  )
+
+private val speechInputTaskIds: Set<String> =
+  setOf(
+    BuiltInTaskId.LLM_CHAT,
+    BuiltInTaskId.LLM_ASK_IMAGE,
+    BuiltInTaskId.LLM_ASK_AUDIO,
+    BuiltInTaskId.LLM_XR_LANGUAGE_TEACHER,
+    BuiltInTaskId.LLM_AGENT_CHAT,
+    BuiltInTaskId.LLM_TEST,
+    BuiltInTaskId.LLM_TINY_GARDEN,
+    BuiltInTaskId.LLM_MOBILE_ACTIONS,
+  )
+
+private val readAloudTaskIds: Set<String> =
+  setOf(
+    BuiltInTaskId.LLM_CHAT,
+    BuiltInTaskId.LLM_ASK_IMAGE,
+    BuiltInTaskId.LLM_ASK_AUDIO,
+    BuiltInTaskId.LLM_XR_LANGUAGE_TEACHER,
+    BuiltInTaskId.LLM_AGENT_CHAT,
+  )
+
+private val audioConfigOnboardingTaskIds: Set<String> =
+  setOf(
+    BuiltInTaskId.LLM_CHAT,
     BuiltInTaskId.LLM_ASK_IMAGE,
     BuiltInTaskId.LLM_ASK_AUDIO,
     BuiltInTaskId.LLM_AGENT_CHAT,

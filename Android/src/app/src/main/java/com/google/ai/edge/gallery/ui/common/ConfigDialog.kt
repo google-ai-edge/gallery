@@ -23,6 +23,7 @@ import android.util.Log
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -54,6 +55,7 @@ import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -103,6 +105,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.Hyphens
@@ -123,10 +126,32 @@ import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DropdownConfig
 import com.google.ai.edge.gallery.data.LabelConfig
+import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.SegmentedButtonConfig
 import com.google.ai.edge.gallery.data.ValueType
+import com.google.ai.edge.gallery.ui.modelmanager.ConfigAsrSectionUiState
+import com.google.ai.edge.gallery.ui.modelmanager.ConfigAudioLanguageDropdownUiState
+import com.google.ai.edge.gallery.ui.modelmanager.ConfigAudioModelDropdownItemUiState
+import com.google.ai.edge.gallery.ui.modelmanager.ConfigAudioModelItemStatus
+import com.google.ai.edge.gallery.ui.modelmanager.ConfigAudioModelSelectionTarget
+import com.google.ai.edge.gallery.ui.modelmanager.ConfigAudioStatusRowUiState
+import com.google.ai.edge.gallery.ui.modelmanager.ConfigAudioStatusTone
+import com.google.ai.edge.gallery.ui.modelmanager.ConfigAudioTabActions
+import com.google.ai.edge.gallery.ui.modelmanager.ConfigAudioTabUiState
+import com.google.ai.edge.gallery.ui.modelmanager.ConfigAudioText
+import com.google.ai.edge.gallery.ui.modelmanager.ConfigTtsSectionUiState
+import com.google.ai.edge.gallery.ui.modelmanager.ConfigTtsVoiceDropdownUiState
+import com.google.ai.edge.gallery.ui.modelmanager.ConfigTtsVoiceItemUiState
+import com.google.ai.edge.gallery.ui.modelmanager.LanguagePackStatusControl
+import com.google.ai.edge.gallery.ui.modelmanager.LanguagePackUiStatus
+import com.google.ai.edge.gallery.ui.modelmanager.LanguagePacksPanel
+import com.google.ai.edge.gallery.ui.modelmanager.VoicePreviewButton
+import com.google.ai.edge.gallery.ui.modelmanager.VoicePreviewStatus
+import com.google.ai.edge.gallery.ui.modelmanager.languagePackStatusText
+import com.google.ai.edge.gallery.ui.modelmanager.toSupportedLanguagesUiState
 import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
+import java.util.Locale
 import kotlin.math.ceil
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -151,6 +176,7 @@ private const val TAG = "AGConfigDialog"
 enum class ConfigTab {
   MODEL_CONFIGS,
   SYSTEM_PROMPT,
+  AUDIO,
 }
 
 /**
@@ -171,6 +197,9 @@ fun ConfigDialog(
   showSystemPromptEditorTab: Boolean = false,
   defaultSystemPrompt: String = "",
   curSystemPrompt: String = "",
+  audioUiState: ConfigAudioTabUiState = ConfigAudioTabUiState(),
+  audioActions: ConfigAudioTabActions = ConfigAudioTabActions(),
+  initialTab: ConfigTab = ConfigTab.MODEL_CONFIGS,
 ) {
   val values: SnapshotStateMap<String, Any> = remember {
     mutableStateMapOf<String, Any>().apply { putAll(initialValues) }
@@ -180,16 +209,31 @@ fun ConfigDialog(
 
   val modelConfigsTabTitle = stringResource(R.string.config_dialog_tab_model_configs)
   val systemPromptTabTitle = stringResource(R.string.config_dialog_tab_system_prompt)
+  val hasAudioTab = audioUiState.isVisible
+  val audioTabTitle = stringResource(R.string.config_dialog_tab_audio)
   val tabs =
-    remember(showSystemPromptEditorTab, modelConfigsTabTitle, systemPromptTabTitle) {
+    remember(
+      hasAudioTab,
+      showSystemPromptEditorTab,
+      modelConfigsTabTitle,
+      systemPromptTabTitle,
+      audioTabTitle,
+    ) {
       buildList {
         add(ConfigTab.MODEL_CONFIGS to modelConfigsTabTitle)
         if (showSystemPromptEditorTab) {
           add(ConfigTab.SYSTEM_PROMPT to systemPromptTabTitle)
         }
+        if (hasAudioTab) {
+          add(ConfigTab.AUDIO to audioTabTitle)
+        }
       }
     }
-  var selectedTabIndex by remember { mutableIntStateOf(0) }
+  var selectedTabIndex by
+    remember(tabs, initialTab) {
+      val initialIndex = tabs.indexOfFirst { it.first == initialTab }
+      mutableIntStateOf(if (initialIndex >= 0) initialIndex else 0)
+    }
   val selectedTab = tabs.getOrElse(selectedTabIndex) { tabs.first() }.first
 
   SideSheetDialog(onDismissed = onDismissed) { requestDismiss ->
@@ -267,6 +311,12 @@ fun ConfigDialog(
                 )
               },
             )
+          ConfigTab.AUDIO ->
+            AudioSettingsPanel(
+              modifier = Modifier.fillMaxSize(),
+              uiState = audioUiState,
+              actions = audioActions,
+            )
         }
       }
 
@@ -286,6 +336,9 @@ fun ConfigDialog(
               }
               ConfigTab.SYSTEM_PROMPT -> {
                 systemPrompt = defaultSystemPrompt
+              }
+              ConfigTab.AUDIO -> {
+                audioActions.onRestoreDefaults()
               }
             }
           },
@@ -713,6 +766,712 @@ fun BottomSheetSelectorRow(
       }
     }
   }
+}
+
+@Composable
+internal fun AudioSettingsPanel(
+  uiState: ConfigAudioTabUiState,
+  actions: ConfigAudioTabActions,
+  modifier: Modifier = Modifier,
+) {
+  Column(
+    modifier = modifier.verticalScroll(rememberScrollState()),
+    verticalArrangement = Arrangement.spacedBy(16.dp),
+  ) {
+    uiState.tts?.let { tts -> TtsAudioSection(uiState = tts, actions = actions) }
+    if (uiState.tts != null && uiState.asr != null) {
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    }
+    uiState.asr?.let { asr -> AsrAudioSection(uiState = asr, actions = actions) }
+  }
+}
+
+@Composable
+private fun AsrAudioSection(uiState: ConfigAsrSectionUiState, actions: ConfigAudioTabActions) {
+  var showAsrModelMenu by remember { mutableStateOf(false) }
+
+  Text(
+    text = stringResource(R.string.asr_config_section_title),
+    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+    color = MaterialTheme.colorScheme.onSurface,
+  )
+
+  // 1. ASR model dropdown + status row.
+  Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Text(
+      stringResource(R.string.asr_config_model_title),
+      style = MaterialTheme.typography.titleSmall,
+      color = MaterialTheme.colorScheme.onSurface,
+    )
+    Text(
+      stringResource(R.string.asr_config_model_description),
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Box(
+      modifier =
+        Modifier.fillMaxWidth()
+          .clip(RoundedCornerShape(12.dp))
+          .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+          .clickable { showAsrModelMenu = !showAsrModelMenu }
+          .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text(
+          resolveAudioText(uiState.selectedModelLabel),
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+        Icon(
+          Icons.Rounded.ArrowDropDown,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+      DropdownMenu(expanded = showAsrModelMenu, onDismissRequest = { showAsrModelMenu = false }) {
+        for (item in uiState.modelItems) {
+          AudioModelDropdownMenuItem(
+            item = item,
+            onSelect = { actions.onSelectModel(item.target) },
+            onDownloadModel = actions.onDownloadModel,
+          )
+        }
+      }
+    }
+    uiState.statusRow?.let { statusRow -> AudioStatusIndicatorRow(statusRow = statusRow) }
+  }
+
+  // 2. ASR language dropdown.
+  uiState.languageDropdown?.let { languageDropdown ->
+    AudioLanguageDropdownSection(
+      dropdown = languageDropdown,
+      onSelectLanguage = actions.onSelectAsrLanguage,
+      onDownloadLanguagePack = actions.onDownloadLanguagePack,
+      onDropdownExpanded = actions.onLanguageDropdownExpanded,
+    )
+  }
+
+  // 3. Show live transcription toggle.
+  if (uiState.showLiveTranscriptionToggle) {
+    AudioToggleRow(
+      titleRes = R.string.asr_config_live_transcription_title,
+      descriptionRes = R.string.asr_config_live_transcription_description,
+      checked = uiState.liveTranscriptionEnabled,
+      onCheckedChange = actions.onLiveTranscriptionChanged,
+    )
+  }
+}
+
+@Composable
+private fun TtsAudioSection(uiState: ConfigTtsSectionUiState, actions: ConfigAudioTabActions) {
+  var showTtsModelMenu by remember { mutableStateOf(false) }
+
+  Text(
+    text = stringResource(R.string.tts_config_section_title),
+    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+    color = MaterialTheme.colorScheme.onSurface,
+  )
+
+  // 1. Auto-play TTS switch.
+  if (uiState.showAutoPlayToggle) {
+    AudioToggleRow(
+      titleRes = R.string.tts_config_autoplay_title,
+      descriptionRes = R.string.tts_config_autoplay_description,
+      checked = uiState.autoPlayEnabled,
+      onCheckedChange = actions.onAutoPlayTtsChanged,
+    )
+  }
+
+  // 2. TTS model dropdown + status row.
+  Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Text(
+      stringResource(R.string.tts_config_model_title),
+      style = MaterialTheme.typography.titleSmall,
+      color = MaterialTheme.colorScheme.onSurface,
+    )
+    Text(
+      stringResource(R.string.tts_config_model_description),
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Box(
+      modifier =
+        Modifier.fillMaxWidth()
+          .clip(RoundedCornerShape(12.dp))
+          .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+          .clickable { showTtsModelMenu = !showTtsModelMenu }
+          .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text(
+          resolveAudioText(uiState.selectedModelLabel),
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+        Icon(
+          Icons.Rounded.ArrowDropDown,
+          contentDescription = stringResource(R.string.tts_config_model_select_cd),
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+      DropdownMenu(expanded = showTtsModelMenu, onDismissRequest = { showTtsModelMenu = false }) {
+        for (item in uiState.modelItems) {
+          AudioModelDropdownMenuItem(
+            item = item,
+            onSelect = { actions.onSelectModel(item.target) },
+            onDownloadModel = actions.onDownloadModel,
+          )
+        }
+      }
+    }
+    uiState.statusRow?.let { statusRow -> AudioStatusIndicatorRow(statusRow = statusRow) }
+  }
+
+  // 3. TTS language dropdown.
+  uiState.languageDropdown?.let { languageDropdown ->
+    AudioLanguageDropdownSection(
+      dropdown = languageDropdown,
+      onSelectLanguage = actions.onSelectTtsLanguage,
+      onDownloadLanguagePack = actions.onDownloadLanguagePack,
+      onDropdownExpanded = actions.onLanguageDropdownExpanded,
+    )
+  }
+
+  // 4. TTS voice dropdown.
+  TtsVoiceDropdownSection(
+    voiceDropdown = uiState.voiceDropdown,
+    onSelectVoice = actions.onSelectTtsVoice,
+    onToggleVoicePreview = actions.onToggleVoicePreview,
+    onStopVoicePreview = actions.onStopVoicePreview,
+  )
+}
+
+@Composable
+internal fun AudioModelDropdownMenuItem(
+  item: ConfigAudioModelDropdownItemUiState,
+  onSelect: () -> Unit,
+  onDownloadModel: (Model) -> Unit,
+) {
+  val labelText = resolveAudioText(item.label)
+  val isSelectable = item.isSelectable
+  val isSelected = item.isSelected && isSelectable
+  val isBuiltIn =
+    item.target is ConfigAudioModelSelectionTarget.SystemAsr ||
+      item.target is ConfigAudioModelSelectionTarget.SystemTts
+  val subtitle = modelItemStatusSubtitle(item.status)
+  // Items that can't be selected yet are greyed out, label and subtitle alike. The row ignores
+  // taps, but its trailing download button stays clickable.
+  val disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+  DropdownMenuItem(
+    modifier =
+      Modifier.background(
+        if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+      ),
+    text = {
+      Column {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Text(
+            text = labelText,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+            color =
+              when {
+                isSelected -> MaterialTheme.colorScheme.onSecondaryContainer
+                isSelectable -> MaterialTheme.colorScheme.onSurface
+                else -> disabledContentColor
+              },
+          )
+        }
+        if (subtitle != null) {
+          Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color =
+              when {
+                isSelected -> MaterialTheme.colorScheme.onSecondaryContainer
+                isSelectable -> MaterialTheme.colorScheme.onSurfaceVariant
+                else -> disabledContentColor
+              },
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+        }
+      }
+    },
+    trailingIcon = {
+      when (val status = item.status) {
+        ConfigAudioModelItemStatus.Ready ->
+          if (!isBuiltIn) {
+            LanguagePackStatusControl(
+              status = LanguagePackUiStatus.Installed,
+              languageDisplayName = labelText,
+              onDownload = {},
+              showInstalledBadge = true,
+            )
+          }
+        is ConfigAudioModelItemStatus.Unavailable -> Unit
+        is ConfigAudioModelItemStatus.Downloadable ->
+          LanguagePackStatusControl(
+            status = LanguagePackUiStatus.Downloadable,
+            languageDisplayName = labelText,
+            onDownload = { onDownloadModel(status.model) },
+          )
+        is ConfigAudioModelItemStatus.Downloading ->
+          LanguagePackStatusControl(
+            status =
+              LanguagePackUiStatus.Downloading(
+                receivedBytes = status.receivedBytes,
+                totalBytes = status.totalBytes,
+              ),
+            languageDisplayName = labelText,
+            onDownload = {},
+          )
+        // A queued download shows the downloading badge, like a language pack that is queued.
+        ConfigAudioModelItemStatus.Queued ->
+          LanguagePackStatusControl(
+            status = LanguagePackUiStatus.Downloading(receivedBytes = 0L, totalBytes = 0L),
+            languageDisplayName = labelText,
+            onDownload = {},
+          )
+        ConfigAudioModelItemStatus.Checking ->
+          LanguagePackStatusControl(
+            status = LanguagePackUiStatus.Checking,
+            languageDisplayName = labelText,
+            onDownload = {},
+          )
+      }
+    },
+    enabled = isSelectable,
+    onClick = onSelect,
+  )
+}
+
+@Composable
+private fun modelItemStatusSubtitle(status: ConfigAudioModelItemStatus): String? =
+  when (status) {
+    ConfigAudioModelItemStatus.Ready -> null
+    is ConfigAudioModelItemStatus.Downloadable ->
+      stringResource(R.string.model_status_not_downloaded)
+    is ConfigAudioModelItemStatus.Downloading -> {
+      val percent =
+        if (status.totalBytes > 0L) {
+          ((status.receivedBytes * 100L) / status.totalBytes).toInt().coerceIn(0, 100)
+        } else {
+          null
+        }
+      when {
+        status.continuesInBackground && percent != null ->
+          stringResource(R.string.supplementary_status_downloading_background_percent, percent)
+        status.continuesInBackground ->
+          stringResource(R.string.supplementary_status_downloading_background)
+        percent != null -> stringResource(R.string.model_status_downloading_percent, percent)
+        else -> stringResource(R.string.tts_downloading)
+      }
+    }
+    ConfigAudioModelItemStatus.Queued -> stringResource(R.string.supplementary_status_queued)
+    ConfigAudioModelItemStatus.Checking -> stringResource(R.string.supplementary_status_checking)
+    is ConfigAudioModelItemStatus.Unavailable -> stringResource(status.reasonRes)
+  }
+
+@Composable
+private fun AudioLanguageDropdownSection(
+  dropdown: ConfigAudioLanguageDropdownUiState,
+  onSelectLanguage: (String) -> Unit,
+  onDownloadLanguagePack: (model: Model, languageCode: String) -> Unit,
+  onDropdownExpanded: (Model) -> Unit,
+) {
+  if (!dropdown.isSelectionEnabled) {
+    val model = dropdown.model
+    LanguagePacksPanel(
+      modelName = model?.name ?: SYSTEM_ASR_LANGUAGES_KEY,
+      languages = dropdown.toSupportedLanguagesUiState(),
+      onExpanded = { model?.let(onDropdownExpanded) },
+      onDownloadLanguage = { code -> model?.let { onDownloadLanguagePack(it, code) } },
+      onRetryLanguage = { model?.let(onDropdownExpanded) },
+      onSelectLanguage = onSelectLanguage,
+      description = dropdown.description?.let { resolveAudioText(it) },
+      showTopDivider = false,
+      // The side sheet itself is surfaceContainer, so the list is one step darker to stay visible.
+      listContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+      selectionRowStyle = true,
+      showRadioButtons = false,
+    )
+    return
+  }
+
+  var expanded by remember { mutableStateOf(false) }
+  val selectedDisplayName =
+    remember(dropdown.selectedLanguageCode) {
+      formatLanguageDisplayName(dropdown.selectedLanguageCode)
+    }
+
+  Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Text(
+      stringResource(R.string.tts_language_packs_title),
+      style = MaterialTheme.typography.titleSmall,
+      color = MaterialTheme.colorScheme.onSurface,
+    )
+    dropdown.description?.let { description ->
+      Text(
+        resolveAudioText(description),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+    Box(
+      modifier =
+        Modifier.fillMaxWidth()
+          .clip(RoundedCornerShape(12.dp))
+          .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+          .clickable {
+            val willExpand = !expanded
+            if (willExpand) {
+              dropdown.model?.let(onDropdownExpanded)
+            }
+            expanded = willExpand
+          }
+          .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text(
+          selectedDisplayName,
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+        Icon(
+          Icons.Rounded.ArrowDropDown,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+      DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = { expanded = false },
+        modifier = Modifier.heightIn(max = 320.dp),
+      ) {
+        val disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+        for (item in dropdown.items) {
+          val languageName =
+            remember(item.languageCode) { formatLanguageDisplayName(item.languageCode) }
+          val isCurrent = item.isSelected
+          val statusLine =
+            if (dropdown.supportsPerLanguageDownload) {
+              languageItemStatusSubtitle(item.packStatus)
+            } else {
+              null
+            }
+          DropdownMenuItem(
+            modifier =
+              Modifier.background(
+                if (isCurrent) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+              ),
+            text = {
+              Column {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                  Text(
+                    text = languageName,
+                    fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
+                    color =
+                      when {
+                        isCurrent -> MaterialTheme.colorScheme.onSecondaryContainer
+                        item.isSelectable -> MaterialTheme.colorScheme.onSurface
+                        else -> disabledContentColor
+                      },
+                  )
+                }
+                if (statusLine != null) {
+                  Text(
+                    text = statusLine,
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                      when {
+                        item.packStatus == LanguagePackUiStatus.Failed ->
+                          MaterialTheme.colorScheme.error
+                        isCurrent -> MaterialTheme.colorScheme.onSecondaryContainer
+                        item.isSelectable -> MaterialTheme.colorScheme.onSurfaceVariant
+                        else -> disabledContentColor
+                      },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                }
+              }
+            },
+            trailingIcon = {
+              LanguagePackStatusControl(
+                status = item.packStatus,
+                languageDisplayName = languageName,
+                onDownload = {
+                  dropdown.model?.let { model -> onDownloadLanguagePack(model, item.languageCode) }
+                },
+                showInstalledBadge = true,
+              )
+            },
+            enabled = item.isSelectable,
+            onClick = {
+              if (item.isSelectable) {
+                onSelectLanguage(item.languageCode)
+              }
+            },
+          )
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun languageItemStatusSubtitle(status: LanguagePackUiStatus): String? =
+  languagePackStatusText(status)
+    ?: when (status) {
+      LanguagePackUiStatus.Downloadable -> stringResource(R.string.model_status_not_downloaded)
+      is LanguagePackUiStatus.Downloading ->
+        stringResource(R.string.supplementary_status_downloading_background)
+      LanguagePackUiStatus.Unavailable ->
+        stringResource(R.string.supplementary_language_not_offered)
+      LanguagePackUiStatus.Checking -> stringResource(R.string.supplementary_status_checking)
+      LanguagePackUiStatus.Failed,
+      LanguagePackUiStatus.Installed -> null
+    }
+
+@Composable
+private fun TtsVoiceDropdownSection(
+  voiceDropdown: ConfigTtsVoiceDropdownUiState,
+  onSelectVoice: (String) -> Unit,
+  onToggleVoicePreview: (String) -> Unit,
+  onStopVoicePreview: () -> Unit = {},
+) {
+  var showVoiceMenu by remember { mutableStateOf(false) }
+  val isVoiceListLoading = voiceDropdown.isLoading
+
+  Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Text(
+      stringResource(R.string.tts_config_voice_title),
+      style = MaterialTheme.typography.titleSmall,
+      color = MaterialTheme.colorScheme.onSurface,
+    )
+    Text(
+      stringResource(R.string.tts_config_voice_description),
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Box(
+      modifier =
+        Modifier.fillMaxWidth()
+          .alpha(if (isVoiceListLoading) 0.38f else 1f)
+          .clip(RoundedCornerShape(12.dp))
+          .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+          .clickable(enabled = !isVoiceListLoading) {
+            if (showVoiceMenu) {
+              onStopVoicePreview()
+              showVoiceMenu = false
+            } else {
+              showVoiceMenu = true
+            }
+          }
+          .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text(
+          if (isVoiceListLoading) stringResource(R.string.model_status_initializing)
+          else resolveVoiceItemLabel(voiceDropdown.selectedItem),
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+        Icon(
+          Icons.Rounded.ArrowDropDown,
+          contentDescription = stringResource(R.string.tts_config_voice_select_cd),
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+      DropdownMenu(
+        expanded = showVoiceMenu && !isVoiceListLoading,
+        onDismissRequest = {
+          onStopVoicePreview()
+          showVoiceMenu = false
+        },
+      ) {
+        for (voice in voiceDropdown.items) {
+          val isSelected = voice.id == voiceDropdown.selectedItem.id
+          val voiceLabel = resolveVoiceItemLabel(voice)
+          val isThisVoiceActive =
+            voiceDropdown.voicePreviewUiState.activeVoiceId == voice.id &&
+              (voiceDropdown.engineId.isEmpty() ||
+                voiceDropdown.voicePreviewUiState.activeEngineId == voiceDropdown.engineId)
+          val rowPreviewStatus =
+            if (isThisVoiceActive) voiceDropdown.voicePreviewUiState.status
+            else VoicePreviewStatus.IDLE
+          DropdownMenuItem(
+            modifier =
+              Modifier.background(
+                if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+              ),
+            text = {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+              ) {
+                Text(
+                  text = voiceLabel,
+                  fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                  color =
+                    if (isSelected) {
+                      MaterialTheme.colorScheme.onSecondaryContainer
+                    } else {
+                      MaterialTheme.colorScheme.onSurface
+                    },
+                )
+              }
+            },
+            trailingIcon = {
+              VoicePreviewButton(
+                voiceDisplayName = voiceLabel,
+                status = rowPreviewStatus,
+                onClick = { onToggleVoicePreview(voice.id) },
+              )
+            },
+            onClick = { onSelectVoice(voice.id) },
+          )
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun AudioToggleRow(
+  @StringRes titleRes: Int,
+  @StringRes descriptionRes: Int,
+  checked: Boolean,
+  onCheckedChange: (Boolean) -> Unit,
+) {
+  Row(
+    modifier = Modifier.fillMaxWidth(),
+    horizontalArrangement = Arrangement.SpaceBetween,
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Column(modifier = Modifier.weight(1f)) {
+      Text(
+        stringResource(titleRes),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+      )
+      Text(
+        stringResource(descriptionRes),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+    Spacer(modifier = Modifier.width(12.dp))
+    Switch(checked = checked, onCheckedChange = onCheckedChange)
+  }
+}
+
+@Composable
+private fun AudioStatusIndicatorRow(statusRow: ConfigAudioStatusRowUiState) {
+  val dotColor =
+    when (statusRow.tone) {
+      ConfigAudioStatusTone.READY -> MaterialTheme.colorScheme.primary
+      ConfigAudioStatusTone.PROGRESS -> MaterialTheme.colorScheme.tertiary
+      ConfigAudioStatusTone.ERROR -> MaterialTheme.colorScheme.error
+      ConfigAudioStatusTone.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+  Row(
+    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    // While something is in progress (initializing, downloading, checking), a tiny spinner takes
+    // the dot's place. Both sit in the same fixed slot so the text doesn't move.
+    Box(modifier = Modifier.size(STATUS_INDICATOR_SLOT_SIZE), contentAlignment = Alignment.Center) {
+      if (statusRow.tone == ConfigAudioStatusTone.PROGRESS) {
+        CircularProgressIndicator(
+          modifier = Modifier.size(STATUS_INDICATOR_SLOT_SIZE),
+          color = dotColor,
+          strokeWidth = STATUS_SPINNER_STROKE_WIDTH,
+        )
+      } else {
+        Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(dotColor))
+      }
+    }
+    Text(
+      text = resolveAudioText(statusRow.text),
+      style = MaterialTheme.typography.labelSmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+  }
+}
+
+/**
+ * Remembers whether the ASR "Supported languages" list is expanded when no model owns the
+ * languages, such as the built-in Android recognizer.
+ */
+private const val SYSTEM_ASR_LANGUAGES_KEY = "system_asr"
+
+/** Size of the slot that holds the status dot or spinner below an audio model dropdown. */
+private val STATUS_INDICATOR_SLOT_SIZE = 10.dp
+
+/** Stroke width of the status spinner below an audio model dropdown. */
+private val STATUS_SPINNER_STROKE_WIDTH = 1.5.dp
+
+@Composable
+private fun resolveAudioText(text: ConfigAudioText): String =
+  when (text) {
+    is ConfigAudioText.Resource -> stringResource(text.resId)
+    is ConfigAudioText.Formatted -> {
+      val resolvedArgs =
+        text.args
+          .map { arg ->
+            when (arg) {
+              is ConfigAudioText -> resolveAudioText(arg)
+              else -> arg
+            }
+          }
+          .toTypedArray()
+      stringResource(text.resId, *resolvedArgs)
+    }
+    is ConfigAudioText.Literal -> text.text
+  }
+
+@Composable
+private fun resolveVoiceItemLabel(item: ConfigTtsVoiceItemUiState): String {
+  if (item.isDefaultForLanguage) {
+    val languageName = remember(item.languageCode) { formatLanguageDisplayName(item.languageCode) }
+    return if (languageName.isNotEmpty()) {
+      stringResource(R.string.tts_default_voice_for_language, languageName)
+    } else {
+      stringResource(R.string.default_voice_label)
+    }
+  }
+  return item.displayName.ifEmpty { item.id }
+}
+
+private fun formatLanguageDisplayName(languageCode: String): String {
+  if (languageCode.isBlank()) return ""
+  val locale = Locale.forLanguageTag(languageCode)
+  return locale.getDisplayName(Locale.getDefault()).ifEmpty { languageCode }
 }
 
 /**

@@ -50,6 +50,39 @@ data class SocModelFile(
   @SerializedName("sizeInBytes") val sizeInBytes: Long?,
 )
 
+/**
+ * Voice option within a TTS model's allowlist entry.
+ *
+ * All properties have defaults so that Gson uses the generated no-arg constructor and keeps the
+ * defaults for fields missing from the JSON.
+ */
+data class AllowedTtsVoice(
+  @SerializedName("id") val id: String = "",
+  @SerializedName("displayName") val displayName: String? = null,
+  @SerializedName("locale") val locale: String? = null,
+)
+
+/**
+ * TTS-specific configuration inside an allowlist model entry.
+ *
+ * All properties have defaults so that Gson uses the generated no-arg constructor and keeps the
+ * defaults for fields missing from the JSON.
+ */
+data class AllowedTtsConfig(
+  @SerializedName("engineModelId") val engineModelId: String = "",
+  @SerializedName("defaultVoice") val defaultVoice: String? = null,
+  @SerializedName("voices") val voices: List<AllowedTtsVoice> = emptyList(),
+  @SerializedName("languages") val languages: List<String> = emptyList(),
+)
+
+/**
+ * ASR-specific configuration inside an allowlist model entry.
+ *
+ * All properties have defaults so that Gson uses the generated no-arg constructor and keeps the
+ * defaults for fields missing from the JSON.
+ */
+data class AllowedAsrConfig(@SerializedName("languages") val languages: List<String> = emptyList())
+
 /** A model in the model allowlist. */
 @Suppress("AvoidNullableCollections")
 data class AllowedModel(
@@ -83,6 +116,8 @@ data class AllowedModel(
   val extraDataFiles: List<ModelDataFile>? = null,
   val metadata: ModelMetadata? = null,
   val modelType: ModelType? = null,
+  val ttsConfig: AllowedTtsConfig? = null,
+  val asrConfig: AllowedAsrConfig? = null,
   val learnMoreUrl: String? = null,
   /**
    * Name of the device-requirement set this model needs, a key of
@@ -103,6 +138,14 @@ data class AllowedModel(
   fun toModel(): Model? {
     val effectiveModelType = modelType ?: ModelType.TASK
     val resolvedRuntime = runtimeType ?: RuntimeType.LITERT_LM
+    if (
+      effectiveModelType == ModelType.TTS &&
+        ttsConfig?.engineModelId.isNullOrBlank() &&
+        (resolvedRuntime != RuntimeType.LITERT_LM || ttsConfig != null || modelId.isBlank())
+    ) {
+      Log.w(TAG, "Ignoring TTS model '$name' with missing ttsConfig.engineModelId")
+      return null
+    }
 
     // Construct HF download url. `modelFile` may be a path relative to the repo root (e.g.
     // "subfolder/model.litertlm"): the full path is used in the download url, while only the base
@@ -245,6 +288,36 @@ data class AllowedModel(
       } else {
         null
       }
+    val ttsProfile =
+      if (effectiveModelType == ModelType.TTS && ttsConfig != null) {
+        TtsProfile(
+          engineModelId = ttsConfig.engineModelId,
+          voices =
+            ttsConfig.voices
+              .filter { it.id.isNotBlank() }
+              .map {
+                TtsVoice(
+                  id = it.id,
+                  displayName = it.displayName ?: it.id,
+                  locale = it.locale.orEmpty(),
+                )
+              },
+          defaultVoiceId = ttsConfig.defaultVoice,
+          languages = ttsConfig.languages,
+        )
+      } else {
+        null
+      }
+    @Suppress("USELESS_ELVIS")
+    val asrProfile =
+      if (effectiveModelType == ModelType.ASR && asrConfig != null) {
+        AsrProfile(
+          languages =
+            (asrConfig.languages ?: emptyList()).filterNotNull().filter { it.isNotBlank() }
+        )
+      } else {
+        null
+      }
     return Model(
       name = name,
       modelId = modelId,
@@ -265,6 +338,8 @@ data class AllowedModel(
         ),
       hierarchy = ModelHierarchy(parentModelName = parentModelName, variantLabel = variantLabel),
       llmProfile = llmProfile,
+      ttsProfile = ttsProfile,
+      asrProfile = asrProfile,
       declaredModelType = effectiveModelType,
       supportImage = llmSupportImage == true,
       supportAudio = llmSupportAudio == true,

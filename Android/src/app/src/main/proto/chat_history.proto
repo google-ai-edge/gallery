@@ -17,6 +17,8 @@ syntax = "proto3";
 
 package com.google.ai.edge.gallery.proto;
 
+import "ar_translator.proto";
+
 option java_package = "com.google.ai.edge.gallery.proto";
 option java_outer_classname = "ChatHistory";
 option java_multiple_files = true;
@@ -55,6 +57,9 @@ message ChatMessageProto {
   // Optional persona identifier (e.g., "buddy", "professor") for persona-based
   // tasks.
   string persona_id = 11;
+  // Optional full vocabulary card for "AR_VOCAB" messages in XR Language
+  // Teacher sessions. `content` still holds "word\nmeaning" for older readers.
+  VocabCardProto vocab_card = 12;
 }
 
 // Represents an audio recording associated with a chat session message.

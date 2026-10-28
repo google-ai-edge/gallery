@@ -56,3 +56,47 @@ interface ModelDownloader {
    */
   suspend fun delete(model: Model)
 }
+
+/**
+ * Optional capability of a [ModelDownloader] whose runtime installs each language as a separate
+ * pack once the model itself is available (see [RuntimeType.installsLanguagePacks]).
+ *
+ * Language packs are identified by BCP-47 tags such as `"ja-JP"`.
+ */
+interface LanguagePackDownloader {
+  /**
+   * Whether [model] installs each language as a separate pack. When `false`, every language the
+   * model supports is bundled with the model itself, so once the model is downloaded all of its
+   * languages are installed and [queryLanguagePackStatus] and [downloadLanguagePack] don't apply.
+   */
+  fun installsLanguagesSeparately(model: Model): Boolean = true
+
+  /** Queries whether the [languageCode] pack for [model] is installed. */
+  suspend fun queryLanguagePackStatus(model: Model, languageCode: String): ModelDownloadStatus
+
+  /**
+   * Starts downloading the [languageCode] pack for [model] and reports progress and completion via
+   * [onStatusUpdated].
+   */
+  fun downloadLanguagePack(
+    model: Model,
+    languageCode: String,
+    onStatusUpdated: (ModelDownloadStatus) -> Unit,
+  )
+}
+
+/**
+ * Optional capability of a [ModelDownloader] whose runtime can serve a [Model] only on some
+ * devices.
+ *
+ * Models the device cannot run are hidden from the model list, unlike models that only need setup
+ * (an app update or a download), which stay visible and report it through
+ * [ModelDownloader.queryStatus].
+ */
+interface DeviceSupportChecker {
+  /**
+   * Whether this device can run [model]. Called off the main thread while the allowlist loads.
+   * Implementations must fail open: return `true` when support cannot be determined.
+   */
+  suspend fun isSupportedOnDevice(model: Model): Boolean
+}

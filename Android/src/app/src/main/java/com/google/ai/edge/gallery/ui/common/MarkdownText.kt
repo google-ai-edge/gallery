@@ -34,6 +34,23 @@ import com.halilibo.richtext.ui.RichTextStyle
 import com.halilibo.richtext.ui.material3.RichText
 import com.halilibo.richtext.ui.string.RichTextStringStyle
 
+/** Shared body [TextStyle] used by [MarkdownText] and TTS paragraph rendering. */
+@Composable
+fun markdownBodyTextStyle(
+  smallFontSize: Boolean = false,
+  textColor: Color = MaterialTheme.colorScheme.onSurface,
+): TextStyle {
+  val fontSize =
+    if (smallFontSize) MaterialTheme.typography.bodyMedium.fontSize
+    else MaterialTheme.typography.bodyLarge.fontSize
+  return TextStyle(
+    fontSize = fontSize,
+    lineHeight = fontSize * if (smallFontSize) 1.4f else 1.5f,
+    color = textColor,
+    letterSpacing = 0.2.sp,
+  )
+}
+
 /** Composable function to display Markdown-formatted text. */
 @Composable
 fun MarkdownText(
@@ -43,18 +60,9 @@ fun MarkdownText(
   textColor: Color = MaterialTheme.colorScheme.onSurface,
   linkColor: Color = MaterialTheme.customColors.linkColor,
 ) {
-  val fontSize =
-    if (smallFontSize) MaterialTheme.typography.bodyMedium.fontSize
-    else MaterialTheme.typography.bodyLarge.fontSize
   CompositionLocalProvider {
     ProvideTextStyle(
-      value =
-        TextStyle(
-          fontSize = fontSize,
-          lineHeight = fontSize * if (smallFontSize) 1.4f else 1.5f,
-          color = textColor,
-          letterSpacing = 0.2.sp,
-        )
+      value = markdownBodyTextStyle(smallFontSize = smallFontSize, textColor = textColor)
     ) {
       RichText(
         modifier = modifier,

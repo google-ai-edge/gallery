@@ -119,7 +119,15 @@ import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.FloatingBanner
 import com.google.ai.edge.gallery.ui.common.RotationalLoader
 import com.google.ai.edge.gallery.ui.common.ScrollToBottomButton
+import com.google.ai.edge.gallery.ui.common.asr.rememberChatAsrDictationViewModel
+import com.google.ai.edge.gallery.ui.common.tts.ChatTtsControlBanner
+import com.google.ai.edge.gallery.ui.common.tts.TtsChatEffects
+import com.google.ai.edge.gallery.ui.common.tts.TtsPlaybackController
+import com.google.ai.edge.gallery.ui.common.tts.TtsSpeakerButton
+import com.google.ai.edge.gallery.ui.common.tts.rememberChatTtsScrollState
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import com.google.ai.edge.gallery.ui.modelmanager.isTaskEligibleForAudioConfigOnboarding
+import com.google.ai.edge.gallery.ui.modelmanager.refreshAudioConfigOnboardingState
 import com.google.ai.edge.gallery.ui.theme.customColors
 import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.delay
@@ -161,6 +169,7 @@ fun ChatPanel(
   showAudioPicker: Boolean = false,
   emptyStateComposable: @Composable (Model) -> Unit = {},
   onNewChatClicked: () -> Unit = {},
+  ttsController: TtsPlaybackController? = null,
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val messages = uiState.messagesByModel[selectedModel.name] ?: listOf()
@@ -191,6 +200,11 @@ fun ChatPanel(
       !uiState.isResettingSession &&
       !uiState.inProgress
 
+  val audioConfigOnboardingDismissedInSession by
+    modelManagerViewModel.audioConfigOnboardingDismissedInSession.collectAsStateWithLifecycle()
+  val audioConfigOnboardingPromoViewed by
+    modelManagerViewModel.audioConfigOnboardingPromoViewed.collectAsStateWithLifecycle()
+
   if (isLiveMetricsFlagEnabled) {
     LaunchedEffect(viewModel, task.id, selectedModel) {
       viewModel.loadLiveMetricsVisibility(task.id)
@@ -199,8 +213,21 @@ fun ChatPanel(
     LaunchedEffect(
       isLiveMetricsToggleEnabled,
       task.id,
+      audioConfigOnboardingDismissedInSession,
+      audioConfigOnboardingPromoViewed,
     ) {
       if (isLiveMetricsToggleEnabled) {
+        if (
+          !audioConfigOnboardingDismissedInSession &&
+            modelManagerViewModel.isTaskEligibleForAudioConfigOnboarding(task)
+        ) {
+          val promoViewed =
+            audioConfigOnboardingPromoViewed
+              ?: modelManagerViewModel.refreshAudioConfigOnboardingState()
+          if (!promoViewed) {
+            return@LaunchedEffect
+          }
+        }
         viewModel.maybeShowLiveMetricsPrompt(task.id)
       }
     }
@@ -278,6 +305,29 @@ fun ChatPanel(
 
   // Stores the height of the viewport in pixels.
   var viewportHeightPx by remember { mutableIntStateOf(0) }
+
+  val lastAgentMessage =
+    (currentMessages.lastOrNull() as? ChatMessageText)?.takeIf { it.side == ChatSide.AGENT }
+  if (ttsController != null) {
+    TtsChatEffects(
+      controller = ttsController,
+      modelManagerViewModel = modelManagerViewModel,
+      selectedModelName = selectedModel.name,
+      isResettingSession = uiState.isResettingSession,
+      isStreaming = uiState.inProgress,
+      lastAgentMessageId = lastAgentMessage?.id,
+      lastAgentMessageContent = lastAgentMessage?.content,
+      capabilityName = task.id,
+    )
+  }
+  val ttsScrollState =
+    rememberChatTtsScrollState(
+      ttsController = ttsController,
+      listState = listState,
+      viewportHeightPx = viewportHeightPx,
+    )
+  val ttsViewportPositionModifier = ttsScrollState.viewportPositionModifier
+  val ttsUserScrollConnection = ttsScrollState.userScrollConnection
 
   // Stores if the list is at the scrollable area's bottom.
   //
@@ -424,6 +474,14 @@ fun ChatPanel(
     Column(
       modifier = modifier.padding(innerPadding).consumeWindowInsets(innerPadding).imePadding()
     ) {
+      ChatTtsControlBanner(ttsController = ttsController)
+      val asrDictationViewModel = rememberChatAsrDictationViewModel(context)
+      val asrDictationUiState =
+        if (asrDictationViewModel != null) {
+          asrDictationViewModel.uiState.collectAsStateWithLifecycle().value
+        } else {
+          null
+        }
 
       Box(
         contentAlignment = Alignment.BottomCenter,
@@ -433,12 +491,14 @@ fun ChatPanel(
               // Update the viewport height when the size of the box changes.
               viewportHeightPx = it.height
             }
+            .then(ttsViewportPositionModifier),
       ) {
         val cdChatPanel = stringResource(R.string.cd_chat_panel)
         Column(
           modifier =
             Modifier.fillMaxSize()
               .nestedScroll(nestedScrollConnection)
+              .nestedScroll(ttsUserScrollConnection)
               .verticalScroll(state = listState)
               .semantics { contentDescription = cdChatPanel },
           verticalArrangement = Arrangement.Top,
@@ -508,11 +568,37 @@ fun ChatPanel(
                 agentName = "$agentName on ${message.accelerator}"
               }
               if (!message.hideSenderLabel) {
+                if (message.side == ChatSide.AGENT && ttsController != null) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                  ) {
+                    MessageSender(
+                      message = message,
+                      agentName = agentName,
+                      imageHistoryCurIndex = imageHistoryCurIndex.intValue,
+                    )
+                    if (
+                      ttsController.isAvailable &&
+                        message is ChatMessageText &&
+                        message.content.isNotBlank()
+                    ) {
+                      TtsSpeakerButton(
+                        messageId = message.id,
+                        messageText = message.content,
+                        controller = ttsController,
+                        capabilityName = task.id,
+                      )
+                    }
+                  }
+                } else {
                   MessageSender(
                     message = message,
                     agentName = agentName,
                     imageHistoryCurIndex = imageHistoryCurIndex.intValue,
                   )
+                }
               }
 
               // Message body.
@@ -586,6 +672,7 @@ fun ChatPanel(
                               12.dp
                             },
                           onCopyClicked = copyToClipboard,
+                          ttsController = ttsController,
                         )
 
                       // Image
@@ -641,6 +728,18 @@ fun ChatPanel(
                             contentDescription = stringResource(R.string.copy),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             modifier = Modifier.size(18.dp),
+                          )
+                        }
+                        if (
+                          ttsController != null &&
+                            ttsController.isAvailable &&
+                            message.content.isNotBlank()
+                        ) {
+                          TtsSpeakerButton(
+                            messageId = message.id,
+                            messageText = message.content,
+                            controller = ttsController,
+                            capabilityName = task.id,
                           )
                         }
                       }
@@ -739,6 +838,11 @@ fun ChatPanel(
             Modifier.align(Alignment.TopCenter).padding(horizontal = 16.dp, vertical = 8.dp),
         )
 
+        DictationBottomFade(
+          visible = asrDictationUiState?.isDictating == true,
+          modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(28.dp),
+        )
+
         // "Scroll to bottom" button, only shown when the list is not at the bottom.
         Column(
           modifier =
@@ -756,6 +860,7 @@ fun ChatPanel(
 
       val modelNotSupportImageMsg = stringResource(R.string.model_not_support_image_message)
       val modelNotSupportAudioMsg = stringResource(R.string.model_not_support_audio_message)
+      val asrUnavailableMsg = stringResource(R.string.asr_error_unavailable)
       val imageLimitIgnoredMsg = stringResource(R.string.image_limit_ignored_message)
       val contextCompactionFailedMsg = stringResource(R.string.context_compaction_failed_message)
 
@@ -845,12 +950,14 @@ fun ChatPanel(
         onValueChanged = { curMessage = it },
         onSendMessage = {
           viewModel.dismissLiveMetricsPrompt()
+          ttsController?.stop()
           onSendMessage(selectedModel, it)
           curMessage = ""
           // Hide software keyboard.
           focusManager.clearFocus()
         },
         onOpenPromptTemplatesClicked = {
+          ttsController?.stop()
           onSendMessage(
             selectedModel,
             listOf(
@@ -902,6 +1009,11 @@ fun ChatPanel(
         onPromoteTextInputHistoryItem = modelManagerViewModel::promoteTextInputHistoryItem,
         onDeleteTextInputHistoryItem = modelManagerViewModel::deleteTextInputHistory,
         onClearTextInputHistory = modelManagerViewModel::clearTextInputHistory,
+        asrDictationUiState = asrDictationUiState,
+        onStartAsrDictation = asrDictationViewModel?.let { vm -> vm::start },
+        onFinishAsrDictation = asrDictationViewModel?.let { vm -> vm::finish },
+        onCancelAsrDictation = asrDictationViewModel?.let { vm -> vm::cancel },
+        onAsrDictationError = { customErrorMessage = asrUnavailableMsg },
       )
     }
   }
@@ -930,6 +1042,18 @@ fun ChatPanel(
       onBenchmarkClicked = { message, warmUpIterations, benchmarkIterations ->
         onBenchmarkClicked(selectedModel, message, warmUpIterations, benchmarkIterations)
       },
+    )
+  }
+}
+
+@Composable
+private fun DictationBottomFade(visible: Boolean, modifier: Modifier = Modifier) {
+  AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut(), modifier = modifier) {
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    Box(
+      modifier =
+        Modifier.fillMaxSize()
+          .background(Brush.verticalGradient(colors = listOf(Color.Transparent, surfaceColor)))
     )
   }
 }
