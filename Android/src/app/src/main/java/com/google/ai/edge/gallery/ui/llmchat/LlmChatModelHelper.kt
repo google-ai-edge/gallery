@@ -38,6 +38,7 @@ import com.google.ai.edge.gallery.data.markInitialized
 import com.google.ai.edge.gallery.data.resetInitialization
 import com.google.ai.edge.gallery.data.supportModelBenchmark
 import com.google.ai.edge.gallery.runtime.CleanUpListener
+import com.google.ai.edge.gallery.runtime.EXTRA_CONTEXT_MAX_OUTPUT_TOKENS
 import com.google.ai.edge.gallery.runtime.LlmConversationInstance
 import com.google.ai.edge.gallery.runtime.LlmModelHelper
 import com.google.ai.edge.gallery.runtime.ResultListener
@@ -91,7 +92,8 @@ data class LlmModelInstance(
 
   override fun getTokenCount(): Int = conversation.getTokenCount()
 
-  override fun sendMessage(prompt: String): Message = conversation.sendMessage(prompt)
+  override fun sendMessage(prompt: String, maxOutputTokens: Int?): Message =
+    conversation.sendMessage(prompt, maxOutputToken = maxOutputTokens)
 }
 
 object LlmChatModelHelper : LlmModelHelper {
@@ -304,7 +306,11 @@ object LlmChatModelHelper : LlmModelHelper {
       if (accelerator == Accelerator.NPU || accelerator == Accelerator.TPU) {
         null
       } else {
-        SamplerConfig(topK = topK, topP = topP.toDouble(), temperature = temperature.toDouble())
+        SamplerConfig(
+          topK = topK,
+          topP = topP.toDouble(),
+          temperature = temperature.toDouble(),
+        )
       }
     ExperimentalFlags.enableConversationConstrainedDecoding = enableConversationConstrainedDecoding
     return try {
@@ -497,6 +503,11 @@ object LlmChatModelHelper : LlmModelHelper {
       // Step 3: Configure extra runtime parameters (such as thinking reasoning mode).
       val enableThinking = extraContext["enable_thinking"] == "true"
       val finalExtraContext: Map<String, Any> = extraContext + ("enable_thinking" to enableThinking)
+      // Caps the reply length when the caller sets EXTRA_CONTEXT_MAX_OUTPUT_TOKENS. Without the
+      // cap, a constrained reply whose schema allows unlimited whitespace can decode until the KV
+      // cache is full.
+      val maxOutputTokens =
+        extraContext[EXTRA_CONTEXT_MAX_OUTPUT_TOKENS]?.toIntOrNull()?.takeIf { it > 0 }
 
       // Step 4: Dispatch asynchronous streaming inference to the native LiteRT-LM engine.
       conversation.sendMessageAsync(
@@ -551,6 +562,7 @@ object LlmChatModelHelper : LlmModelHelper {
           }
         },
         finalExtraContext,
+        maxOutputToken = maxOutputTokens,
       )
     } catch (e: Exception) {
       if (isEphemeral) {
