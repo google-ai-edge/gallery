@@ -261,5 +261,199 @@
       "taskTypes": ["mp_scrapbook"],
       "bestForTaskTypes": ["mp_scrapbook"]
     }
-  ]
+  ],
+  "deviceRequirements": {
+    "mlkit_tts": {
+      "allowedDeviceGroups": [
+        {
+          "groupName": "MlkitTtsPixel8",
+          "description": "Pixel 8, Pixel 8 Pro, Pixel 8a (Tensor G3)",
+          "deviceModels": [
+            "Pixel 8",
+            "Pixel 8 Pro",
+            "Pixel 8a"
+          ]
+        },
+        {
+          "groupName": "MlkitTtsPixel9",
+          "description": "Pixel 9 family, Pixel 9a, Pixel 10a (Tensor G4)",
+          "deviceModels": [
+            "Pixel 9",
+            "Pixel 9 Pro",
+            "Pixel 9 Pro XL",
+            "Pixel 9 Pro Fold",
+            "Pixel 9a",
+            "Pixel 10a"
+          ]
+        },
+        {
+          "groupName": "MlkitTtsPixel10",
+          "description": "Pixel 10 family (Tensor G5)",
+          "deviceModels": [
+            "Pixel 10",
+            "Pixel 10 Pro",
+            "Pixel 10 Pro XL",
+            "Pixel 10 Pro Fold"
+          ]
+        },
+        {
+          "groupName": "MlkitTtsPixel11",
+          "description": "Pixel 11 family (Tensor G6)",
+          "deviceModels": [
+            "Pixel 11",
+            "Pixel 11 Pro",
+            "Pixel 11 Pro XL",
+            "Pixel 11 Pro Fold",
+          ]
+        },
+        {
+          "groupName": "MlkitTtsSamsungS25",
+          "description": "Galaxy S25, Galaxy S25+, Galaxy S25 Ultra",
+          "deviceModels": [
+            "SM-S9310",
+            "SM-S931B",
+            "SM-S931N",
+            "SM-S931Q",
+            "SM-S931U",
+            "SM-S931U1",
+            "SM-S931W",
+            "SM-S931Z",
+            "SC-51F",
+            "SCG31",
+            "SM-S9360",
+            "SM-S936B",
+            "SM-S936N",
+            "SM-S936U",
+            "SM-S936U1",
+            "SM-S936W",
+            "SM-S9380",
+            "SM-S938B",
+            "SM-S938N",
+            "SM-S938Q",
+            "SM-S938U",
+            "SM-S938U1",
+            "SM-S938W",
+            "SM-S938Z",
+            "SC-52F",
+            "SCG32"
+          ]
+        },
+        {
+          "groupName": "MlkitTtsSamsungS26",
+          "description": "Galaxy S26, Galaxy S26+, Galaxy S26 Ultra (QC 8850 and Exynos 2600)",
+          "deviceModels": [
+            "SM-S948U",
+            "SM-S948B",
+            "SM-S948W",
+            "SM-S948U1",
+            "SM-S948N",
+            "SM-S948C",
+            "SM-S948Q",
+            "SM-S948Z",
+            "SC-53G",
+            "SCG37",
+            "SM-S9480",
+            "SM-S947U",
+            "SM-S947W",
+            "SM-S947U1",
+            "SM-S947Q",
+            "SM-S947Z",
+            "SC-52G",
+            "SM-S947C",
+            "SCG38",
+            "SM-S9470",
+            "SM-S947B",
+            "SM-S947N",
+            "SM-S942U",
+            "SM-S942W",
+            "SM-S942U1",
+            "SM-S942Q",
+            "SM-S942Z",
+            "SM-S9420",
+            "SC-51G",
+            "SM-S942C",
+            "SCG36",
+            "SM-S942B",
+            "SM-S942N"
+          ]
+        },
+        {
+          "groupName": "MlkitTtsSamsungZFlip8",
+          "description": "Galaxy Z Flip8",
+          "deviceModels": [
+            "SM-F776U",
+            "SM-F776U1",
+            "SM-F776W",
+            "SM-F776B",
+            "SM-F776N",
+            "SM-F7760",
+            "SC-55G",
+            "SCG40",
+            "SM-F776C",
+            "SM-F776Z",
+            "SM-F776Q"
+          ]
+        },
+        {
+          "groupName": "MlkitTtsSamsungZFold8",
+          "description": "Galaxy Z Fold8",
+          "deviceModels": [
+            "SM-F971U",
+            "SM-F971U1",
+            "SM-F971W",
+            "SM-F971B",
+            "SM-F971N",
+            "SM-F9710",
+            "SC-57G",
+            "SCG41",
+            "SM-F971C",
+            "SM-F971Z",
+            "SM-F971Q"
+          ]
+        },
+        {
+          "groupName": "MlkitTtsSamsungZFold8Ultra",
+          "description": "Galaxy Z Fold8 Ultra",
+          "deviceModels": [
+            "SM-F976U",
+            "SM-F976U1",
+            "SM-F976W",
+            "SM-F976B",
+            "SM-F976N",
+            "SM-F9760",
+            "SM-W9027",
+            "SC-56G",
+            "SCG39",
+            "SM-F976C",
+            "SM-F976Z",
+            "SM-F976Q"
+          ]
+        }
+      ]
+    },
+    "mlkit_asr_advanced": {
+      "allowedDeviceGroups": [
+        {
+          "groupName": "MlkitAsrAdvancedPixel10",
+          "description": "Pixel 10 family (excludes Pixel 10a)",
+          "deviceModels": [
+            "Pixel 10",
+            "Pixel 10 Pro",
+            "Pixel 10 Pro XL",
+            "Pixel 10 Pro Fold"
+          ]
+        },
+        {
+          "groupName": "MlkitAsrAdvancedPixel11",
+          "description": "Pixel 11 family",
+          "deviceModels": [
+            "Pixel 11",
+            "Pixel 11 Pro",
+            "Pixel 11 Pro XL",
+            "Pixel 11 Pro Fold"
+          ]
+        }
+      ]
+    }
+  }
 }
