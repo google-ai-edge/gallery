@@ -27,6 +27,7 @@ enum class ModelType {
   @SerializedName("task") TASK,
   @SerializedName("tts") TTS,
   @SerializedName("asr") ASR,
+  @SerializedName("segmentation") SEGMENTATION,
 }
 
 /**

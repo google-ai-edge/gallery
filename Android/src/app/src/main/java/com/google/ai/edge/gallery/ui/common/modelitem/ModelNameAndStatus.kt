@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.ui.common.modelitem
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -169,38 +170,24 @@ fun ModelNameAndStatus(
         modifier = Modifier.weight(1f, fill = false),
       )
       when (model.modelType) {
-        ModelType.ASR -> {
-          Box(
-            modifier =
-              Modifier.background(
-                  color = MaterialTheme.colorScheme.secondaryContainer,
-                  shape = RoundedCornerShape(6.dp),
-                )
-                .padding(horizontal = 6.dp, vertical = 2.dp)
-          ) {
-            Text(
-              text = stringResource(R.string.model_tag_asr),
-              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-              color = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-          }
-        }
-        ModelType.TTS -> {
-          Box(
-            modifier =
-              Modifier.background(
-                  color = MaterialTheme.colorScheme.tertiaryContainer,
-                  shape = RoundedCornerShape(6.dp),
-                )
-                .padding(horizontal = 6.dp, vertical = 2.dp)
-          ) {
-            Text(
-              text = stringResource(R.string.model_tag_tts),
-              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-              color = MaterialTheme.colorScheme.onTertiaryContainer,
-            )
-          }
-        }
+        ModelType.ASR ->
+          ModelTypeBadge(
+            textResId = R.string.model_tag_asr,
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+          )
+        ModelType.TTS ->
+          ModelTypeBadge(
+            textResId = R.string.model_tag_tts,
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+          )
+        ModelType.SEGMENTATION ->
+          ModelTypeBadge(
+            textResId = R.string.model_tag_segmentation,
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+          )
         else -> {}
       }
     }
@@ -344,5 +331,21 @@ fun ModelStatusDetails(
         }
       }
     }
+  }
+}
+
+/** The small rounded modality badge (e.g. "ASR") shown next to a model's name. */
+@Composable
+private fun ModelTypeBadge(@StringRes textResId: Int, containerColor: Color, contentColor: Color) {
+  Box(
+    modifier =
+      Modifier.background(color = containerColor, shape = RoundedCornerShape(6.dp))
+        .padding(horizontal = 6.dp, vertical = 2.dp)
+  ) {
+    Text(
+      text = stringResource(textResId),
+      style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+      color = contentColor,
+    )
   }
 }

@@ -58,7 +58,8 @@ private const val TAG = "AGSupplementarySpeechModelRepository"
 
 /**
  * Central repository managing availability, gating, and language pack states for supplementary
- * speech models (TTS and ASR).
+ * speech models (TTS and ASR). It also tracks the other supplementary models, such as segmentation
+ * models, which have no gate, voices, or languages, and are ready once their file is downloaded.
  *
  * Runs all probing off the main thread on [ioDispatcher], deduplicates concurrent queries, caches
  * definite answers with a TTL, and emits batched updates to avoid main-thread lag.

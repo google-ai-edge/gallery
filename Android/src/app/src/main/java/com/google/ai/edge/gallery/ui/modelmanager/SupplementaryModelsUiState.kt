@@ -25,6 +25,7 @@ enum class SupplementaryModelFilter {
   ALL,
   TTS,
   ASR,
+  SEGMENTATION,
 }
 
 /**

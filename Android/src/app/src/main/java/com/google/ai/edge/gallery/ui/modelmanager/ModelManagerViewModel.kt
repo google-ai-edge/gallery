@@ -1702,7 +1702,13 @@ constructor(
               model = model,
               // A pending extra data download already writes the extra data files.
               includeExtraDataFiles = pendingForModel.none { it.isExtraDataOnly },
-              onStatusUpdated = this@ModelManagerViewModel::setDownloadStatus,
+              onStatusUpdated = { curModel, status ->
+                setDownloadStatus(curModel = curModel, status = status)
+                // Supplementary models shared with tasks also show the download on their card.
+                if (curModel.isSupplementary) {
+                  publishSupplementaryDownloadStatus(curModel, status)
+                }
+              },
             )
           } else if (
             task == null &&
@@ -1774,7 +1780,7 @@ constructor(
         model = model,
         onStatusUpdated = { curModel, status ->
           setDownloadStatus(curModel = curModel, status = status)
-          if (task == null) {
+          if (task == null || curModel.isSupplementary) {
             publishSupplementaryDownloadStatus(curModel, status)
           }
         },
@@ -1868,15 +1874,21 @@ constructor(
           val model = allowedModel.toModel() ?: continue
 
           if (model.isSupplementary) {
-            if (!shouldIncludeSupplementaryAllowlistModel(model)) {
-              continue
-            }
             // Whether the device can use the model is decided by its gate in the supplementary
             // speech model repository, which hides it or shows why it can't be used.
-            _allowlistModels.add(model)
-            _supplementaryModels.add(model)
-            // Supplementary models are not bound to tasks, so skip the task registration below.
-            continue
+            val includeInSupplementary = shouldIncludeSupplementaryAllowlistModel(model)
+            if (includeInSupplementary) {
+              _supplementaryModels.add(model)
+            }
+            // Speech models are not bound to tasks, so skip the task registration below.
+            // Supplementary models shared with tasks (segmentation models such as Magic touch,
+            // used by Scrapbook) are still registered to their tasks, sharing one download.
+            if (!model.isSharedWithTasks) {
+              if (includeInSupplementary) {
+                _allowlistModels.add(model)
+              }
+              continue
+            }
           }
 
           _allowlistModels.add(model)
@@ -2060,6 +2072,10 @@ constructor(
     }
 
     for (suppModel in _supplementaryModels) {
+      // Supplementary models shared with tasks keep the status checked with their tasks above.
+      if (suppModel.name in checkedModelNames) {
+        continue
+      }
       modelDownloadStatus[suppModel.name] =
         _uiState.value.modelDownloadStatus[suppModel.name]
           ?: if (suppModel.downloadsViaRepository) {

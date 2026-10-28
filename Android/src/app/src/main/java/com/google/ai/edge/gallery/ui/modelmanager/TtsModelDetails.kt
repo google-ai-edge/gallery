@@ -28,6 +28,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -40,6 +41,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
@@ -205,7 +207,10 @@ internal fun LazyListScope.supplementaryModelItems(
   }
 }
 
-/** The All / TTS / ASR filter chips at the top of the Supplementary tab. */
+/**
+ * The All / TTS / ASR / Segmentation filter chips at the top of the Supplementary tab. The row
+ * scrolls horizontally when the chips don't fit, for example with longer translations.
+ */
 @Composable
 internal fun SupplementaryFilterRow(
   selectedFilter: SupplementaryModelFilter,
@@ -213,7 +218,10 @@ internal fun SupplementaryFilterRow(
   modifier: Modifier = Modifier,
 ) {
   Row(
-    modifier = modifier.fillMaxWidth().semantics { isTraversalGroup = true },
+    modifier =
+      modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).semantics {
+        isTraversalGroup = true
+      },
     horizontalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     for (filter in SupplementaryModelFilter.entries) {
@@ -232,6 +240,7 @@ private fun SupplementaryModelFilter.labelRes(): Int =
     SupplementaryModelFilter.ALL -> R.string.all
     SupplementaryModelFilter.TTS -> R.string.model_tag_tts
     SupplementaryModelFilter.ASR -> R.string.model_tag_asr
+    SupplementaryModelFilter.SEGMENTATION -> R.string.supplementary_filter_segmentation
   }
 
 /** One line shown instead of model cards when no supplementary model matches the filter. */

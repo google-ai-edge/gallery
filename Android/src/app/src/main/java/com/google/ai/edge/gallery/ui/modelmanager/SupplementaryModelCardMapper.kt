@@ -373,6 +373,7 @@ internal fun SupplementaryModelFilter.matches(model: Model): Boolean =
     SupplementaryModelFilter.ALL -> true
     SupplementaryModelFilter.TTS -> model.modelType == ModelType.TTS
     SupplementaryModelFilter.ASR -> model.modelType == ModelType.ASR
+    SupplementaryModelFilter.SEGMENTATION -> model.modelType == ModelType.SEGMENTATION
   }
 
 /** The checkbox label that makes a model of this modality the default. */
@@ -387,6 +388,8 @@ internal fun SupplementaryModelFilterProto.toFilter(): SupplementaryModelFilter 
   when (this) {
     SupplementaryModelFilterProto.SUPPLEMENTARY_MODEL_FILTER_TTS -> SupplementaryModelFilter.TTS
     SupplementaryModelFilterProto.SUPPLEMENTARY_MODEL_FILTER_ASR -> SupplementaryModelFilter.ASR
+    SupplementaryModelFilterProto.SUPPLEMENTARY_MODEL_FILTER_SEGMENTATION ->
+      SupplementaryModelFilter.SEGMENTATION
     SupplementaryModelFilterProto.SUPPLEMENTARY_MODEL_FILTER_ALL,
     SupplementaryModelFilterProto.SUPPLEMENTARY_MODEL_FILTER_UNSPECIFIED,
     SupplementaryModelFilterProto.UNRECOGNIZED -> SupplementaryModelFilter.ALL
@@ -398,6 +401,8 @@ internal fun SupplementaryModelFilter.toProto(): SupplementaryModelFilterProto =
     SupplementaryModelFilter.ALL -> SupplementaryModelFilterProto.SUPPLEMENTARY_MODEL_FILTER_ALL
     SupplementaryModelFilter.TTS -> SupplementaryModelFilterProto.SUPPLEMENTARY_MODEL_FILTER_TTS
     SupplementaryModelFilter.ASR -> SupplementaryModelFilterProto.SUPPLEMENTARY_MODEL_FILTER_ASR
+    SupplementaryModelFilter.SEGMENTATION ->
+      SupplementaryModelFilterProto.SUPPLEMENTARY_MODEL_FILTER_SEGMENTATION
   }
 
 /**

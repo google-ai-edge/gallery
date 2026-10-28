@@ -125,26 +125,39 @@ object PermissionAccessTracker {
     }
   }
 
-  fun markPermissionRequested(context: Context, permission: String) {
+  fun markPermissionRequested(context: Context, permission: String): Boolean {
     ensureLoaded(context)
-    var updatedSet: Set<String>? = null
+    var wasAdded = false
     requestedPermissionsFlow.update { current ->
       if (permission in current) {
+        wasAdded = false
         current
       } else {
-        (current + permission).also { updatedSet = it }
+        wasAdded = true
+        current + permission
       }
     }
-    if (updatedSet != null) {
+    if (wasAdded) {
       context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
-        putStringSet(KEY_REQUESTED_PERMISSIONS, updatedSet)
+        putStringSet(KEY_REQUESTED_PERMISSIONS, requestedPermissionsFlow.value)
       }
+      // Only a newly requested permission changes the state. Bumping the version for one that was
+      // already requested would make observers (e.g. [rememberPermissionAccessState], which checks
+      // the permission whenever the version changes) recompose on every frame.
+      stateVersionFlow.update { it + 1 }
     }
-    stateVersionFlow.update { it + 1 }
+    return wasAdded
   }
 
-  fun onPermissionResult(context: Context, permission: String, granted: Boolean) {
-    markPermissionRequested(context, permission)
+  fun onPermissionResult(context: Context, permission: String, granted: Boolean = false) {
+    val wasAdded = markPermissionRequested(context, permission)
+    if (!wasAdded || granted) {
+      // A prompt result can change the granted state even for a permission that was already
+      // requested, so observers re-check it.
+      if (!wasAdded) {
+        stateVersionFlow.update { it + 1 }
+      }
+    }
   }
 
   fun isPermissionGranted(context: Context, kind: PermissionAccessKind): Boolean {
@@ -152,7 +165,7 @@ object PermissionAccessTracker {
       ContextCompat.checkSelfPermission(context, kind.manifestPermission) ==
         PackageManager.PERMISSION_GRANTED
     if (granted) {
-      markPermissionRequested(context, kind.manifestPermission)
+      val unused = markPermissionRequested(context, kind.manifestPermission)
     }
     return granted
   }
@@ -169,7 +182,7 @@ object PermissionAccessTracker {
         ActivityCompat.shouldShowRequestPermissionRationale(it, permission)
       } == true
     if (shouldShowRationale && !hasBeenRequested) {
-      markPermissionRequested(context, permission)
+      val unused = markPermissionRequested(context, permission)
     }
     return hasBeenRequested || shouldShowRationale
   }

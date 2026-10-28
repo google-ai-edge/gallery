@@ -173,8 +173,8 @@ data class Model(
     get() = llmProfile != null
 
   /**
-   * The model category. Models other than [ModelType.TASK] are supplementary models that are not
-   * bound to a task.
+   * The model category. Models other than [ModelType.TASK] are supplementary models, listed on the
+   * Model Manager's Supplementary tab. Only those [isSharedWithTasks] are also bound to tasks.
    */
   val modelType: ModelType
     get() =
@@ -186,6 +186,15 @@ data class Model(
 
   val isSupplementary: Boolean
     get() = modelType != ModelType.TASK
+
+  /**
+   * Whether this supplementary model is also bound to the tasks in its allowlist `taskTypes`, so
+   * that those tasks and the Supplementary tab share one download. Segmentation models (such as
+   * Magic touch) also power tasks like Scrapbook; speech models are only used through the speech
+   * settings and are never bound to a task.
+   */
+  val isSharedWithTasks: Boolean
+    get() = modelType == ModelType.SEGMENTATION
 
   init {
     require(llmProfile == null || ttsProfile == null) {

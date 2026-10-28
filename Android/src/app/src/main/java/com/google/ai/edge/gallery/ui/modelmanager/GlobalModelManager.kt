@@ -317,8 +317,16 @@ fun GlobalModelManager(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurface,
               )
+              // Supplementary models shared with tasks (such as Magic touch) are listed on both
+              // tabs, so they are only counted once.
+              val sharedModelCount =
+                remember(builtInModels.size, uiState.supplementaryModels) {
+                  val supplementaryNames = uiState.supplementaryModels.mapTo(HashSet()) { it.name }
+                  builtInModels.count { it.name in supplementaryNames }
+                }
               val totalModelCount =
-                builtInModels.size + importedModels.size + supplementaryModelCount
+                builtInModels.size + importedModels.size + supplementaryModelCount -
+                  sharedModelCount
               Text(
                 text = stringResource(R.string.model_manager_models_count_title, totalModelCount),
                 color = MaterialTheme.colorScheme.onSurface,
