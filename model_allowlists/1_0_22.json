@@ -260,6 +260,450 @@
       "commitHash": "20260810",
       "taskTypes": ["mp_scrapbook"],
       "bestForTaskTypes": ["mp_scrapbook"]
+    },
+    {
+      "name": "ML Kit TTS",
+      "modelId": "",
+      "modelFile": "system-managed",
+      "commitHash": "",
+      "taskTypes": [],
+      "bestForTaskTypes": ["tts"],
+      "modelType": "tts",
+      "runtimeType": "mlkit_speech",
+      "deviceRequirement": "mlkit_tts",
+      "description": "High-quality expressive on-device text-to-speech powered by ML Kit.",
+      "sizeInBytes": 0,
+      "learnMoreUrl": "https://developers.google.com/ml-kit/genai/text-to-speech/android",
+      "ttsConfig": {
+        "engineModelId": "mlkit_tts",
+        "defaultVoice": "Puck",
+        "languages": [
+          "da-DK",
+          "de-DE",
+          "en-GB",
+          "en-US",
+          "es-ES",
+          "es-US",
+          "fr-CA",
+          "fr-FR",
+          "hi-IN",
+          "id-ID",
+          "it-IT",
+          "ja-JP",
+          "ko-KR",
+          "nb-NO",
+          "nl-NL",
+          "pl-PL",
+          "pt-BR",
+          "ru-RU",
+          "sv-SE",
+          "tr-TR"
+        ]
+      }
+    },
+    {
+      "name": "Kokoro 82M (TTS)",
+      "modelId": "litert-community/Kokoro-82M",
+      "modelFile": "kokoro_int8_gpu_fp16.litertlm",
+      "description": "Kokoro 82M open-weight on-device text-to-speech model.",
+      "sizeInBytes": 294750530,
+      "minDeviceMemoryInGb": 4,
+      "commitHash": "81e43a025bccabcbbd487f08bc3ebd65b5fc7295",
+      "modelType": "tts",
+      "ttsConfig": {
+        "engineModelId": "mediapipe_kokoro_82m",
+        "defaultVoice": "af_heart",
+        "languages": [
+          "en-US",
+          "en-GB",
+          "es-ES",
+          "fr-FR",
+          "hi-IN",
+          "it-IT",
+          "pt-BR",
+          "ja-JP",
+          "zh-CN"
+        ]
+      },
+      "defaultConfig": {
+        "topK": 0,
+        "topP": 0.0,
+        "temperature": 0.0,
+        "maxTokens": 0,
+        "accelerators": "gpu,cpu"
+      },
+      "learnMoreUrl": "https://developers.google.com/edge/mediapipe/solutions/audio/text_to_speech",
+      "taskTypes": []
+    },
+    {
+      "name": "PocketTTS 100M (TTS)",
+      "modelId": "litert-community/pocket-tts",
+      "modelFile": "pocket_tts_int8.litertlm",
+      "description": "PocketTTS 100M multilingual on-device text-to-speech model.",
+      "sizeInBytes": 760061960,
+      "minDeviceMemoryInGb": 4,
+      "commitHash": "bca93d6756489f9403f94d66826cfa65f80023a1",
+      "modelType": "tts",
+      "ttsConfig": {
+        "engineModelId": "mediapipe_pocket_tts_100m",
+        "defaultVoice": "alba",
+        "languages": [
+          "en-US",
+          "fr-FR",
+          "de-DE",
+          "es-ES",
+          "it-IT",
+          "pt-BR",
+          "nl-NL"
+        ]
+      },
+      "defaultConfig": {
+        "topK": 0,
+        "topP": 0.0,
+        "temperature": 0.0,
+        "maxTokens": 0,
+        "accelerators": "cpu"
+      },
+      "learnMoreUrl": "https://developers.google.com/edge/mediapipe/solutions/audio/text_to_speech",
+      "taskTypes": []
+    },
+    {
+      "name": "Phonon 31M (TTS)",
+      "modelId": "litert-community/phonon-31m-en",
+      "modelFile": "phonon_int8.litertlm",
+      "description": "Phonon 31M open-weight on-device text-to-speech model.",
+      "sizeInBytes": 87205888,
+      "minDeviceMemoryInGb": 4,
+      "commitHash": "5831f6fe488a37eae179c2a22bb297f9bc175a5c",
+      "modelType": "tts",
+      "ttsConfig": {
+        "engineModelId": "mediapipe_phonon_31m",
+        "defaultVoice": "freya",
+        "languages": [
+          "en-US"
+        ]
+      },
+      "defaultConfig": {
+        "topK": 0,
+        "topP": 0.0,
+        "temperature": 0.0,
+        "maxTokens": 0,
+        "accelerators": "cpu"
+      },
+      "learnMoreUrl": "https://developers.google.com/edge/mediapipe/solutions/audio/text_to_speech",
+      "taskTypes": []
+    },
+    {
+      "name": "ML Kit ASR (Basic)",
+      "modelId": "mlkit_asr_basic",
+      "modelFile": "system-managed",
+      "commitHash": "",
+      "taskTypes": [],
+      "modelType": "asr",
+      "asrConfig": {
+        "languages": [
+          "en-US",
+          "fr-FR",
+          "it-IT",
+          "de-DE",
+          "es-ES",
+          "hi-IN",
+          "ja-JP",
+          "pt-BR",
+          "tr-TR",
+          "pl-PL",
+          "cmn-Hans-CN",
+          "ko-KR",
+          "cmn-Hant-TW",
+          "ru-RU",
+          "vi-VN"
+        ]
+      },
+      "runtimeType": "mlkit_asr",
+      "description": "Legacy speech recognition API for converting speech to text using ML Kit.",
+      "sizeInBytes": 0,
+      "learnMoreUrl": "https://developers.google.com/ml-kit/genai/speech-recognition/android"
+    },
+    {
+      "name": "ML Kit ASR (Advanced)",
+      "modelId": "mlkit_asr_advanced",
+      "modelFile": "system-managed",
+      "commitHash": "",
+      "taskTypes": [],
+      "bestForTaskTypes": ["asr"],
+      "modelType": "asr",
+      "asrConfig": {
+        "languages": [
+          "en-US",
+          "ko-KR",
+          "es-ES",
+          "fr-FR",
+          "de-DE",
+          "it-IT",
+          "pt-PT",
+          "cmn-Hans-CN",
+          "cmn-Hant-TW",
+          "ja-JP",
+          "th-TH",
+          "ru-RU",
+          "nl-NL",
+          "da-DK",
+          "sv-SE",
+          "pl-PL",
+          "hi-IN",
+          "vi-VN",
+          "id-ID",
+          "ar-SA",
+          "tr-TR"
+        ]
+      },
+      "runtimeType": "mlkit_asr",
+      "deviceRequirement": "mlkit_asr_advanced",
+      "description": "High-quality speech recognition API for converting speech to text using ML Kit.",
+      "sizeInBytes": 0,
+      "learnMoreUrl": "https://developers.google.com/ml-kit/genai/speech-recognition/android"
+    },
+    {
+      "name": "Parakeet TDT 0.6B ASR",
+      "modelId": "litert-community/parakeet-tdt-0.6b-v3",
+      "modelFile": "parakeet_tdt_0.6b_v3_5s_i8_stateful.litertlm",
+      "description": "Open-weight NVIDIA Parakeet TDT 0.6B v3 on-device ASR model.",
+      "sizeInBytes": 614588752,
+      "minDeviceMemoryInGb": 4,
+      "commitHash": "3ce205aa928f443f423214195cfe83ebe4802826",
+      "modelType": "asr",
+      "asrConfig": {
+        "languages": [
+          "bg-BG",
+          "hr-HR",
+          "cs-CZ",
+          "da-DK",
+          "nl-NL",
+          "en-US",
+          "et-EE",
+          "fi-FI",
+          "fr-FR",
+          "de-DE",
+          "el-GR",
+          "hu-HU",
+          "it-IT",
+          "lv-LV",
+          "lt-LT",
+          "mt-MT",
+          "pl-PL",
+          "pt-PT",
+          "ro-RO",
+          "ru-RU",
+          "sk-SK",
+          "sl-SI",
+          "es-ES",
+          "sv-SE",
+          "uk-UA"
+        ]
+      },
+      "defaultConfig": {
+        "topK": 0,
+        "topP": 0.0,
+        "temperature": 0.0,
+        "maxTokens": 0,
+        "accelerators": "gpu,cpu"
+      },
+      "learnMoreUrl": "https://developers.google.com/edge/mediapipe/solutions/audio/audio_transcriber",
+      "taskTypes": []
     }
-  ]
+  ],
+  "deviceRequirements": {
+    "mlkit_tts": {
+      "allowedDeviceGroups": [
+        {
+          "groupName": "MlkitTtsPixel8",
+          "description": "Pixel 8, Pixel 8 Pro, Pixel 8a (Tensor G3)",
+          "deviceModels": [
+            "Pixel 8",
+            "Pixel 8 Pro",
+            "Pixel 8a"
+          ]
+        },
+        {
+          "groupName": "MlkitTtsPixel9",
+          "description": "Pixel 9 family, Pixel 9a, Pixel 10a (Tensor G4)",
+          "deviceModels": [
+            "Pixel 9",
+            "Pixel 9 Pro",
+            "Pixel 9 Pro XL",
+            "Pixel 9 Pro Fold",
+            "Pixel 9a",
+            "Pixel 10a"
+          ]
+        },
+        {
+          "groupName": "MlkitTtsPixel10",
+          "description": "Pixel 10 family (Tensor G5)",
+          "deviceModels": [
+            "Pixel 10",
+            "Pixel 10 Pro",
+            "Pixel 10 Pro XL",
+            "Pixel 10 Pro Fold"
+          ]
+        },
+        {
+          "groupName": "MlkitTtsPixel11",
+          "description": "Pixel 11 family (Tensor G6)",
+          "deviceModels": [
+            "Pixel 11",
+            "Pixel 11 Pro",
+            "Pixel 11 Pro XL",
+            "Pixel 11 Pro Fold",
+          ]
+        },
+        {
+          "groupName": "MlkitTtsSamsungS25",
+          "description": "Galaxy S25, Galaxy S25+, Galaxy S25 Ultra",
+          "deviceModels": [
+            "SM-S9310",
+            "SM-S931B",
+            "SM-S931N",
+            "SM-S931Q",
+            "SM-S931U",
+            "SM-S931U1",
+            "SM-S931W",
+            "SM-S931Z",
+            "SC-51F",
+            "SCG31",
+            "SM-S9360",
+            "SM-S936B",
+            "SM-S936N",
+            "SM-S936U",
+            "SM-S936U1",
+            "SM-S936W",
+            "SM-S9380",
+            "SM-S938B",
+            "SM-S938N",
+            "SM-S938Q",
+            "SM-S938U",
+            "SM-S938U1",
+            "SM-S938W",
+            "SM-S938Z",
+            "SC-52F",
+            "SCG32"
+          ]
+        },
+        {
+          "groupName": "MlkitTtsSamsungS26",
+          "description": "Galaxy S26, Galaxy S26+, Galaxy S26 Ultra (QC 8850 and Exynos 2600)",
+          "deviceModels": [
+            "SM-S948U",
+            "SM-S948B",
+            "SM-S948W",
+            "SM-S948U1",
+            "SM-S948N",
+            "SM-S948C",
+            "SM-S948Q",
+            "SM-S948Z",
+            "SC-53G",
+            "SCG37",
+            "SM-S9480",
+            "SM-S947U",
+            "SM-S947W",
+            "SM-S947U1",
+            "SM-S947Q",
+            "SM-S947Z",
+            "SC-52G",
+            "SM-S947C",
+            "SCG38",
+            "SM-S9470",
+            "SM-S947B",
+            "SM-S947N",
+            "SM-S942U",
+            "SM-S942W",
+            "SM-S942U1",
+            "SM-S942Q",
+            "SM-S942Z",
+            "SM-S9420",
+            "SC-51G",
+            "SM-S942C",
+            "SCG36",
+            "SM-S942B",
+            "SM-S942N"
+          ]
+        },
+        {
+          "groupName": "MlkitTtsSamsungZFlip8",
+          "description": "Galaxy Z Flip8",
+          "deviceModels": [
+            "SM-F776U",
+            "SM-F776U1",
+            "SM-F776W",
+            "SM-F776B",
+            "SM-F776N",
+            "SM-F7760",
+            "SC-55G",
+            "SCG40",
+            "SM-F776C",
+            "SM-F776Z",
+            "SM-F776Q"
+          ]
+        },
+        {
+          "groupName": "MlkitTtsSamsungZFold8",
+          "description": "Galaxy Z Fold8",
+          "deviceModels": [
+            "SM-F971U",
+            "SM-F971U1",
+            "SM-F971W",
+            "SM-F971B",
+            "SM-F971N",
+            "SM-F9710",
+            "SC-57G",
+            "SCG41",
+            "SM-F971C",
+            "SM-F971Z",
+            "SM-F971Q"
+          ]
+        },
+        {
+          "groupName": "MlkitTtsSamsungZFold8Ultra",
+          "description": "Galaxy Z Fold8 Ultra",
+          "deviceModels": [
+            "SM-F976U",
+            "SM-F976U1",
+            "SM-F976W",
+            "SM-F976B",
+            "SM-F976N",
+            "SM-F9760",
+            "SM-W9027",
+            "SC-56G",
+            "SCG39",
+            "SM-F976C",
+            "SM-F976Z",
+            "SM-F976Q"
+          ]
+        }
+      ]
+    },
+    "mlkit_asr_advanced": {
+      "allowedDeviceGroups": [
+        {
+          "groupName": "MlkitAsrAdvancedPixel10",
+          "description": "Pixel 10 family (excludes Pixel 10a)",
+          "deviceModels": [
+            "Pixel 10",
+            "Pixel 10 Pro",
+            "Pixel 10 Pro XL",
+            "Pixel 10 Pro Fold"
+          ]
+        },
+        {
+          "groupName": "MlkitAsrAdvancedPixel11",
+          "description": "Pixel 11 family",
+          "deviceModels": [
+            "Pixel 11",
+            "Pixel 11 Pro",
+            "Pixel 11 Pro XL",
+            "Pixel 11 Pro Fold"
+          ]
+        }
+      ]
+    }
+  }
 }
