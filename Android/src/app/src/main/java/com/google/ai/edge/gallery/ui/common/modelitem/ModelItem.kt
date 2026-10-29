@@ -45,7 +45,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -65,6 +64,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
@@ -118,9 +118,12 @@ fun ModelItem(
   statusContent: (@Composable () -> Unit)? = null,
   extraContent: (@Composable () -> Unit)? = null,
 ) {
-  val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+  val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
+  // Only this model's download status is read, so other models' download progress doesn't
+  // recompose this item. Keyed by the model name because lazy lists may reuse this item for
+  // another model.
   val downloadStatus by
-    remember(usesDownloadStatus) {
+    remember(model.name, usesDownloadStatus) {
       derivedStateOf {
         if (usesDownloadStatus) modelManagerUiState.modelDownloadStatus[model.name] else null
       }

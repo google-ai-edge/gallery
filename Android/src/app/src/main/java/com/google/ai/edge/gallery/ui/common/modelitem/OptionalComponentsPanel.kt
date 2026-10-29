@@ -46,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.formatZeroBytes
@@ -104,6 +106,18 @@ internal fun areOptionalComponentsPresent(
   }
 }
 
+/** The slice of the UI state that [OptionalComponentsPanel] renders. */
+private data class OptionalComponentsPanelState(
+  /** The download status of the model and each of its variants that has one. */
+  val allDownloadStatuses: List<ModelDownloadStatusType>,
+  /** Whether the optional components are downloaded along with the model. */
+  val isCheckboxChecked: Boolean,
+  /** The download status of the optional components of the model and each of its variants. */
+  val allExtraDataStatuses: List<ModelDownloadStatus>,
+  /** The optional components download to show: an ongoing one first, then the model's own. */
+  val extraDataStatus: ModelDownloadStatus?,
+)
+
 /**
  * An expandable section under the model download panel that displays optional components such as
  * extra files that can be downloaded alongside the model or removed/downloaded after download.
@@ -129,13 +143,35 @@ fun OptionalComponentsPanel(
   }
 
   val uiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
-  val allDownloadStatuses = allModels.mapNotNull { m ->
-    if (m.name == model.name && downloadStatus != null) {
-      downloadStatus
-    } else {
-      uiState.modelDownloadStatus[m.name]?.status
+  // Only read this panel's slice of the UI state, so the progress updates of a download, which
+  // replace the UI state several times a second, don't recompose the panel of every model.
+  val panelState by
+    remember(model, allModels, downloadStatus, modelManagerViewModel) {
+      derivedStateOf {
+        val state = uiState
+        val allExtraDataStatuses = allModels.mapNotNull { state.extraDataDownloadStatus[it.name] }
+        OptionalComponentsPanelState(
+          allDownloadStatuses =
+            allModels.mapNotNull { m ->
+              if (m.name == model.name && downloadStatus != null) {
+                downloadStatus
+              } else {
+                state.modelDownloadStatus[m.name]?.status
+              }
+            },
+          isCheckboxChecked =
+            state.downloadOptionalComponents[model.name]
+              ?: modelManagerViewModel.isDownloadOptionalComponentsEnabled(model.name),
+          allExtraDataStatuses = allExtraDataStatuses,
+          extraDataStatus =
+            allExtraDataStatuses.find {
+              it.status == ModelDownloadStatusType.IN_PROGRESS ||
+                it.status == ModelDownloadStatusType.UNZIPPING
+            } ?: state.extraDataDownloadStatus[model.name] ?: allExtraDataStatuses.firstOrNull(),
+        )
+      }
     }
-  }
+  val allDownloadStatuses = panelState.allDownloadStatuses
 
   var hasOptionalComponents by remember(model, modelVariants) { mutableStateOf(false) }
 
@@ -147,9 +183,7 @@ fun OptionalComponentsPanel(
   }
 
   var isExpanded by rememberSaveable { mutableStateOf(false) }
-  val isCheckboxChecked =
-    uiState.downloadOptionalComponents[model.name]
-      ?: modelManagerViewModel.isDownloadOptionalComponentsEnabled(model.name)
+  val isCheckboxChecked = panelState.isCheckboxChecked
 
   val setOptionalComponentsEnabled: (Boolean) -> Unit = { enabled ->
     for (m in allModels) {
@@ -157,12 +191,8 @@ fun OptionalComponentsPanel(
     }
   }
 
-  val allExtraDataStatuses = allModels.mapNotNull { uiState.extraDataDownloadStatus[it.name] }
-  val extraDataStatus =
-    allExtraDataStatuses.find {
-      it.status == ModelDownloadStatusType.IN_PROGRESS ||
-        it.status == ModelDownloadStatusType.UNZIPPING
-    } ?: uiState.extraDataDownloadStatus[model.name] ?: allExtraDataStatuses.firstOrNull()
+  val allExtraDataStatuses = panelState.allExtraDataStatuses
+  val extraDataStatus = panelState.extraDataStatus
   val isExtraDataDownloading =
     extraDataStatus?.status == ModelDownloadStatusType.IN_PROGRESS ||
       extraDataStatus?.status == ModelDownloadStatusType.UNZIPPING

@@ -164,6 +164,18 @@ sealed interface DownloadClickAction {
   data class ResolveAuth(val authError: DownloadAuthError) : DownloadClickAction
 }
 
+/**
+ * Whether replacing a model's [previous] download status with [status] only reports the progress of
+ * an ongoing download. Such updates arrive several times a second on the main thread and change
+ * nothing but the download progress.
+ */
+internal fun isDownloadProgressUpdate(
+  previous: ModelDownloadStatus?,
+  status: ModelDownloadStatus,
+): Boolean =
+  status.status == ModelDownloadStatusType.IN_PROGRESS &&
+    previous?.status == ModelDownloadStatusType.IN_PROGRESS
+
 data class ModelManagerUiState(
   /** A list of tasks available in the application. */
   val tasks: List<Task>,
@@ -1224,12 +1236,22 @@ constructor(
       }
     }
 
+    var isProgressUpdate = false
     _uiState.update { currentState ->
+      isProgressUpdate =
+        isDownloadProgressUpdate(
+          previous = currentState.modelDownloadStatus[curModel.name],
+          status = status,
+        )
       val curModelDownloadStatus = currentState.modelDownloadStatus.toMutableMap()
       curModelDownloadStatus[curModel.name] = status
       currentState.copy(modelDownloadStatus = curModelDownloadStatus)
     }
-    refreshTtsSettingsUiState()
+    // The progress of an ongoing download, reported several times a second on the main thread,
+    // doesn't change the TTS settings.
+    if (!isProgressUpdate) {
+      refreshTtsSettingsUiState()
+    }
   }
 
   fun addTextInputHistory(text: String) {

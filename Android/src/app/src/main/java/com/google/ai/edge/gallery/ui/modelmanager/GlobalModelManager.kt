@@ -62,12 +62,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -128,7 +128,15 @@ fun GlobalModelManager(
   initialImportUrl: String? = null,
   supplementaryModelsViewModel: SupplementaryModelsViewModel? = null,
 ) {
-  val uiState by viewModel.uiState.collectAsState()
+  val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+  // The UI state is replaced several times a second while a model downloads. Only read the fields
+  // this screen needs through derivedStateOf so download progress doesn't recompose the whole
+  // screen. Each ModelItem observes its own download status.
+  val modelImportingUpdateTrigger by remember {
+    derivedStateOf { uiState.modelImportingUpdateTrigger }
+  }
+  val allTasks by remember { derivedStateOf(referentialEqualityPolicy()) { uiState.tasks } }
+  val supplementaryModelsSize by remember { derivedStateOf { uiState.supplementaryModels.size } }
   val builtInModels = remember { mutableStateListOf<Model>() }
   val importedModels = remember { mutableStateListOf<Model>() }
   val taskCandidates = remember { mutableStateListOf<Task>() }
@@ -153,8 +161,7 @@ fun GlobalModelManager(
   var selectedTab by remember { mutableStateOf(ModelManagerTab.MAIN) }
   val supplementaryUiState =
     supplementaryModelsViewModel?.uiState?.collectAsStateWithLifecycle()?.value
-  val supplementaryModelCount =
-    supplementaryUiState?.visibleModelCount ?: uiState.supplementaryModels.size
+  val supplementaryModelCount = supplementaryUiState?.visibleModelCount ?: supplementaryModelsSize
   val supplementaryActions =
     rememberSupplementaryModelsActions(
       supplementaryModelsViewModel = supplementaryModelsViewModel,
@@ -240,7 +247,7 @@ fun GlobalModelManager(
       }
     }
 
-  LaunchedEffect(uiState.modelImportingUpdateTrigger) {
+  LaunchedEffect(modelImportingUpdateTrigger) {
     val allowlistModels = viewModel.allowlistModels
     val allowlistOrderMap = allowlistModels.withIndex().associate { it.value.name to it.index }
 
@@ -267,9 +274,9 @@ fun GlobalModelManager(
 
   // Calculate model variants by grouping models with a parentModelName.
   val modelVariants by
-    remember(uiState.modelImportingUpdateTrigger) {
+    remember(modelImportingUpdateTrigger) {
       derivedStateOf {
-        val allModels = uiState.tasks.flatMap { it.models }.distinct()
+        val allModels = allTasks.flatMap { it.models }.distinct()
         allModels.filter { it.isVariant }.groupBy { it.hierarchy.parentModelName.orEmpty() }
       }
     }

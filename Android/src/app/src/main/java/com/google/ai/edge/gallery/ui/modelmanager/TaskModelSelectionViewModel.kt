@@ -37,6 +37,7 @@ import com.google.ai.edge.gallery.services.asr.AsrModelRegistry
 import com.google.ai.edge.gallery.services.tts.TtsModelIdentifier
 import com.google.ai.edge.gallery.services.tts.TtsModelRegistry
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -101,6 +102,12 @@ fun ModelManagerViewModel.asModelSelectionHost(): ModelSelectionHost =
 
 private class ModelManagerSelectionHost(private val viewModel: ModelManagerViewModel) :
   ModelSelectionHost {
+  // Whether each model's memory requirement exceeds the device's memory, by model name and
+  // requirement, for as long as this host lives (the selection screen). The device's memory doesn't
+  // change, and the check queries the system over IPC, while the selection screen rebuilds its
+  // state on the main thread on every download progress update.
+  private val memoryLowByModel = ConcurrentHashMap<Pair<String, Int?>, Boolean>()
+
   override val uiState: StateFlow<ModelManagerUiState>
     get() = viewModel.uiState
 
@@ -141,7 +148,10 @@ private class ModelManagerSelectionHost(private val viewModel: ModelManagerViewM
     viewModel.saveLastMainModel(task = task, model = model)
   }
 
-  override fun isMemoryLow(model: Model): Boolean = viewModel.isModelMemoryLow(model)
+  override fun isMemoryLow(model: Model): Boolean =
+    memoryLowByModel.getOrPut(model.name to model.minDeviceMemoryInGb) {
+      viewModel.isModelMemoryLow(model)
+    }
 }
 
 /**
@@ -390,6 +400,23 @@ private data class Binding(
   val config: ModelSelectionConfig,
 )
 
+/** Identifies a model offered by a section of the selection screen. */
+private data class CandidateKey(val sectionId: String, val modelName: String)
+
+/**
+ * Whether this section shows the same candidate instances as [other], in the same state, so that
+ * this section can be reused in place of [other]. Candidates are compared by identity, as
+ * `buildUiState` only reuses a candidate for the same Model instance.
+ */
+private fun ModelSelectionSectionUiState.hasSameCandidatesAs(
+  other: ModelSelectionSectionUiState
+): Boolean =
+  section == other.section &&
+    isExpanded == other.isExpanded &&
+    selectedModel === other.selectedModel &&
+    candidates.size == other.candidates.size &&
+    candidates.indices.all { candidates[it] === other.candidates[it] }
+
 /**
  * ViewModel of the sectioned model selection screen shown for tasks with a
  * [com.google.ai.edge.gallery.customtasks.common.CustomTask.modelSelectionConfig].
@@ -411,6 +438,18 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
   private var observeJob: Job? = null
   private var launchJob: Job? = null
   private var nextGateRequestId = 0L
+
+  /**
+   * The candidates of the last built UI state, by section and model. [buildUiState] reuses the ones
+   * that didn't change, so the screen skips their rows. Only accessed on the main thread.
+   */
+  private var lastCandidates: Map<CandidateKey, ModelSelectionCandidateUiState> = emptyMap()
+
+  /**
+   * The sections of the last built UI state, by section id. [buildUiState] reuses the ones that
+   * didn't change, so the screen skips their headers. Only accessed on the main thread.
+   */
+  private var lastSections: Map<String, ModelSelectionSectionUiState> = emptyMap()
 
   val uiState: StateFlow<TaskModelSelectionUiState> =
     binding
@@ -783,30 +822,48 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     selectionState: SelectionState,
   ): TaskModelSelectionUiState {
     val statuses = modelManagerUiState.modelDownloadStatus
+    val previousCandidates = lastCandidates
+    val previousSections = lastSections
+    val builtCandidates = HashMap<CandidateKey, ModelSelectionCandidateUiState>()
     val sections =
       currentBinding.config.sections.map { section ->
         val selectedName = selectionState.selections[section.id]
         val candidates =
           candidatesFor(section, currentBinding.task, modelManagerUiState).map { model ->
+            val key = CandidateKey(sectionId = section.id, modelName = model.name)
             val status = statuses[model.name]
             val memoryLow = currentBinding.host.isMemoryLow(model)
-            ModelSelectionCandidateUiState(
-              model = model,
-              downloadStatus = status,
-              isSelected = model.name == selectedName,
-              isSelectable = isModelSelectable(model, status, isMemoryLow = memoryLow),
-              isExpanded = model.name !in selectionState.collapsedModelNames,
-              isMemoryLow = memoryLow,
-              supportedLanguages = supportedLanguagesForCandidate(section.target, model),
-            )
+            val candidate =
+              ModelSelectionCandidateUiState(
+                model = model,
+                downloadStatus = status,
+                isSelected = model.name == selectedName,
+                isSelectable = isModelSelectable(model, status, isMemoryLow = memoryLow),
+                isExpanded = model.name !in selectionState.collapsedModelNames,
+                isMemoryLow = memoryLow,
+                supportedLanguages = supportedLanguagesForCandidate(section.target, model),
+              )
+            // Reuse the unchanged candidates, so the screen skips their rows when another model's
+            // download progress changes. A candidate is only reused for the same Model instance:
+            // Model equality ignores its runtime state (e.g. its initialized instance), and the
+            // selected Model is the one the task is launched with.
+            val reused =
+              previousCandidates[key]?.takeIf { it.model === model && it == candidate } ?: candidate
+            builtCandidates[key] = reused
+            reused
           }
-        ModelSelectionSectionUiState(
-          section = section,
-          candidates = candidates,
-          selectedModel = candidates.firstOrNull { it.isSelected && it.isSelectable }?.model,
-          isExpanded = section.id in selectionState.expandedSectionIds,
-        )
+        val sectionState =
+          ModelSelectionSectionUiState(
+            section = section,
+            candidates = candidates,
+            selectedModel = candidates.firstOrNull { it.isSelected && it.isSelectable }?.model,
+            isExpanded = section.id in selectionState.expandedSectionIds,
+          )
+        previousSections[section.id]?.takeIf { it.hasSameCandidatesAs(sectionState) }
+          ?: sectionState
       }
+    lastCandidates = builtCandidates
+    lastSections = sections.associateBy { it.section.id }
     val isComplete =
       sections.isNotEmpty() && sections.all { it.selectedCount >= it.section.requiredCount }
     return TaskModelSelectionUiState(

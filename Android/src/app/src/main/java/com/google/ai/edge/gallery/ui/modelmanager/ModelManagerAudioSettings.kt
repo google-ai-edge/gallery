@@ -64,6 +64,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -142,13 +143,16 @@ internal fun createDefaultSpeechSelectionUseCase(
 internal fun ModelManagerViewModel.observeTtsSettingsUiState() {
   viewModelScope.launch {
     combine(
-        mutableUiState,
+        // The TTS settings only read the supplementary models of the UI state, so the progress
+        // updates of a download, which replace the UI state several times a second, don't rebuild
+        // them.
+        mutableUiState.map { it.supplementaryModels }.distinctUntilChanged(),
         ttsSettingsRepository.selectedTtsModelID,
         ttsSettingsRepository.selectedTtsVoice,
         ttsSettingsRepository.selectedLanguageCode,
         ttsSettingsRepository.autoPlayTts,
-      ) { currentUiState, _, _, _, _ ->
-        buildTtsSettingsUiState(currentUiState)
+      ) { supplementaryModels, _, _, _, _ ->
+        buildTtsSettingsUiState(supplementaryModels)
       }
       .collect { _ttsSettingsUiState.value = it }
   }
@@ -567,10 +571,14 @@ internal fun ModelManagerViewModel.refreshTtsSettingsUiState() {
   _ttsSettingsUiState.value = buildTtsSettingsUiState()
 }
 
+/**
+ * Builds the TTS settings from [supplementaryModels], the only part of the UI state they read, so
+ * that `observeTtsSettingsUiState` can skip the UI state updates that don't change them.
+ */
 internal fun ModelManagerViewModel.buildTtsSettingsUiState(
-  currentUiState: ModelManagerUiState = mutableUiState.value
+  supplementaryModels: List<Model> = mutableUiState.value.supplementaryModels
 ): TtsSettingsUiState {
-  val ttsModels = currentUiState.supplementaryModels.filter { it.modelType == ModelType.TTS }
+  val ttsModels = supplementaryModels.filter { it.modelType == ModelType.TTS }
   val selectableTtsModels = speechSelectionUseCase.selectableModels(SpeechModality.TTS)
   // The saved model is never replaced. When it can't be used, the notice names it and the system
   // engine, with its own voices, speaks instead.

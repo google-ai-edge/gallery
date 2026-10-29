@@ -42,6 +42,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -121,8 +122,13 @@ fun DownloadAndTryButton(
   var showGemmaTermsOfUseDialog by remember { mutableStateOf(false) }
   var downloadStarted by remember(model.name) { mutableStateOf(false) }
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
-  // Set when Hugging Face refused the last download of this model (HTTP 401 or 403).
-  val authError = modelManagerUiState.modelDownloadStatus[model.name]?.authError
+  // Set when Hugging Face refused the last download of this model (HTTP 401 or 403). Read through
+  // derivedStateOf so the progress updates of a download, which replace the UI state several times
+  // a second, don't recompose the button of every model in the list.
+  val authError by
+    remember(model.name) {
+      derivedStateOf { modelManagerUiState.modelDownloadStatus[model.name]?.authError }
+    }
 
   // Unavailable models can neither be downloaded nor opened, so render the button disabled.
   val isUnavailable = downloadStatus == ModelDownloadStatusType.UNAVAILABLE
