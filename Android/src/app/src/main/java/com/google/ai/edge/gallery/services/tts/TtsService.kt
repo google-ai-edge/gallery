@@ -171,6 +171,15 @@ interface TtsService : SpeechAvailabilityProbe {
   ): Flow<TtsDownloadProgress> = downloadModel(modelId, expectedTotalBytes)
 
   /**
+   * Whether this engine is currently loaded and ready to serve [modelId] without reloading model
+   * weights.
+   *
+   * Engines that serve multiple models from a single instance (such as [MediaPipeTtsEngine]) return
+   * `true` only when [modelId] is the currently loaded model.
+   */
+  fun isModelLoaded(modelId: String? = null): Boolean = status.value.isEngineLoaded
+
+  /**
    * Acquires the resources needed to synthesize with [config], downloading the backing model if
    * required. Returns once the engine is fully ready to synthesize with [config]; engines that need
    * a cold-start or per-voice warm-up perform it inside [prepare].

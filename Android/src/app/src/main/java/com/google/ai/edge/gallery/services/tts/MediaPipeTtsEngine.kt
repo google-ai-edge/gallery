@@ -292,6 +292,14 @@ internal constructor(
     }
   }
 
+  override fun isModelLoaded(modelId: String?): Boolean {
+    if (!status.value.isEngineLoaded) return false
+    val loaded = synchronized(stateLock) { prepared } ?: return false
+    if (modelId.isNullOrEmpty()) return true
+    val requestedSpec = specsById[modelId] ?: return false
+    return loaded.spec == requestedSpec
+  }
+
   override suspend fun prepare(config: TtsConfig) {
     val callerJob = currentCoroutineContext()[Job]
     callerJob?.let { synchronized(stateLock) { inFlightJobs.add(it) } }
@@ -367,6 +375,17 @@ internal constructor(
         flow {
           throw TtsServiceError.EngineUnavailable(
             "MediaPipeTtsEngine is not prepared; call prepare() before synthesize()."
+          )
+        }
+      )
+    }
+    val requestedModelId = config?.modelId?.takeIf { it.isNotEmpty() }
+    if (requestedModelId != null && specFor(requestedModelId) != loaded.spec) {
+      return TtsOutput.AudioStream(
+        flow {
+          throw TtsServiceError.EngineUnavailable(
+            "MediaPipeTtsEngine is prepared for '${loaded.spec.engineModelId}', not" +
+              " '$requestedModelId'; call prepare() before synthesize()."
           )
         }
       )

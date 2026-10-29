@@ -718,7 +718,7 @@ internal constructor(
    * Whether [service] is ready and was last prepared with [config]'s model, voice, and language.
    */
   private fun isPrepared(service: TtsService, config: TtsConfig): Boolean {
-    return service.status.value.isEngineLoaded &&
+    return service.isModelLoaded(config.modelId) &&
       lastPreparedModelId == config.modelId &&
       lastPreparedVoiceId == config.voiceId &&
       lastPreparedLanguageCode == config.languageCode
