@@ -338,7 +338,7 @@ internal fun XrLanguageTeacherViewModel.presynthesizeFillersIfIdle() {
     return
   }
   val service = ttsServiceProvider.serviceOrNull(forModelId = key.ttsModelId) ?: return
-  if (!preparedTtsKeys.isPrepared(config, service.status.value.isEngineLoaded)) return
+  if (!preparedTtsKeys.isPrepared(config, service.isModelLoaded(config.modelId))) return
   fillerPresynthesisService = service
   fillerPresynthesisJob =
     viewModelScope.launch(ioDispatcher) {

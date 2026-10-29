@@ -273,7 +273,7 @@ internal suspend fun XrLanguageTeacherViewModel.prepareTtsServiceForConfig(
       ?: throw TtsServiceError.ModelNotFound(modelId)
   when {
     forceReprepare -> preparedTtsKeys.invalidateModel(modelId)
-    preparedTtsKeys.isPrepared(config, service.status.value.isEngineLoaded) -> return service
+    preparedTtsKeys.isPrepared(config, service.isModelLoaded(config.modelId)) -> return service
   }
   val prepared = ttsServiceProvider.prepareService(config)
   preparedTtsKeys.markPrepared(config)
@@ -371,7 +371,8 @@ internal suspend fun XrLanguageTeacherViewModel.retrySegmentSynthesis(
 ): TtsOutput? {
   val needsReprepare =
     !retry.isEnginePolicy &&
-      (failure is TtsServiceError.EngineUnavailable || !service.status.value.isEngineLoaded)
+      (failure is TtsServiceError.EngineUnavailable ||
+        !service.isModelLoaded(synthesizeConfig.modelId))
   Log.w(
     TAG,
     "TTS segment failed before playing audio (model=${synthesizeConfig.modelId}," +
