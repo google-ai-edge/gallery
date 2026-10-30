@@ -43,6 +43,7 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguag
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabularyWrites
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.defaultLearnLanguage
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.defaultMainLanguage
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.findUnsegmentedStickerEntries
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.orDefaultLearnLanguage
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.orDefaultMainLanguage
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.PcmAudioStreamPlayer
@@ -669,6 +670,13 @@ constructor(
       segmentStickers = { onProgress ->
         val unused = ensureStickersSegmented(language = null, onProgress = onProgress)
       },
+      countUnsegmentedStickers = { findUnsegmentedStickerEntries(learnLanguage = null).size },
+      isGameDownloadDeclined = {
+        storageRepository.getBooleanPreference(GAME_STICKER_DOWNLOAD_DECLINED_KEY)
+      },
+      setGameDownloadDeclined = { declined ->
+        storageRepository.saveBooleanPreference(GAME_STICKER_DOWNLOAD_DECLINED_KEY, declined)
+      },
     )
   /**
    * What is known about the segmentation model of the allowlist; the cutout edit buttons are hidden
@@ -720,6 +728,47 @@ constructor(
   /** The state of the cutout editor. */
   val cutoutEditorState: StateFlow<CutoutEditorUiState> = cutoutEditor.uiState
 
+  /** Pre-bakes the saved words' sticker sprites before a study game starts. */
+  internal val gameStickerPreparer =
+    XrLanguageTeacherGameStickerPreparer(
+      scope = viewModelScope,
+      prepareGameSprites = { entries -> prewarmGameStickerSprites(entries) },
+    )
+
+  /**
+   * Whether the Study tab offers to convert the saved photos into stickers: shown while the sticker
+   * segmentation model is in the allowlist and not downloaded yet, or while the model is downloaded
+   * and some saved photos were never cut out into stickers (so it is hidden once the model is
+   * downloaded and every saved photo has been segmented).
+   */
+  val canConvertToStickers: StateFlow<Boolean> =
+    combine(stickerModelDownload.availability, dictionaryEntries, _vocabImageRevision) {
+        availability,
+        _,
+        _ ->
+        when (availability) {
+          XrLanguageTeacherStickerModelAvailability.NOT_DOWNLOADED -> true
+          XrLanguageTeacherStickerModelAvailability.DOWNLOADED ->
+            findUnsegmentedStickerEntries(learnLanguage = null).isNotEmpty()
+          XrLanguageTeacherStickerModelAvailability.UNKNOWN,
+          XrLanguageTeacherStickerModelAvailability.MISSING -> false
+        }
+      }
+      .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+  internal val _readyVocabGame = MutableStateFlow<XrLanguageTeacherVocabGameRequest?>(null)
+  /**
+   * The study game whose stickers are ready, which the Study tab starts (and then reports through
+   * [onVocabGameStarted]), or `null`.
+   */
+  val readyVocabGame: StateFlow<XrLanguageTeacherVocabGameRequest?> = _readyVocabGame.asStateFlow()
+
+  /**
+   * Unloads the teacher model while a Study game runs and loads it again when the Camera tab opens.
+   * The screen attaches the host that releases and reloads it.
+   */
+  internal val teacherModelSuspension = XrLanguageTeacherTeacherModelSuspension(viewModelScope)
+
   init {
     observeCapturedFrameForStickers()
   }
@@ -733,6 +782,18 @@ constructor(
       }
     }
     _uiState.update { it.copy(currentScreen = screen) }
+    if (screen == XrLanguageTeacherScreenName.CAMERA.value) {
+      // Lessons run on the Camera tab; reload the teacher model if a game unloaded it.
+      teacherModelSuspension.restoreIfReleased()
+    }
+  }
+
+  /**
+   * Unloads the teacher model when a Study game round starts, so the game runs smoothly. It is
+   * loaded again when the Camera tab opens.
+   */
+  fun releaseTeacherModelForGame() {
+    teacherModelSuspension.releaseForGame()
   }
 
   /**

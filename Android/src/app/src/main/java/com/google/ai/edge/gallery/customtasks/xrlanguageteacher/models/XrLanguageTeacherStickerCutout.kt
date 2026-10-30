@@ -314,9 +314,15 @@ internal fun scaledSizeWithin(width: Int, height: Int, maxSidePx: Int): Pair<Int
  *
  * @property scaledWidth The width the source is drawn at.
  * @property scaledHeight The height the source is drawn at.
- * @property pad The white outline or border width on each side.
+ * @property pad The margin on each side: the white outline or border, plus the drop shadow.
+ * @property shadowBlur The blur radius of the drop shadow under a cutout's outline, or 0 for none.
  */
-data class StickerImageLayout(val scaledWidth: Int, val scaledHeight: Int, val pad: Int) {
+data class StickerImageLayout(
+  val scaledWidth: Int,
+  val scaledHeight: Int,
+  val pad: Int,
+  val shadowBlur: Int = 0,
+) {
   /** The width of the pre-baked sticker. */
   val outputWidth: Int
     get() = scaledWidth + pad * 2
@@ -325,22 +331,39 @@ data class StickerImageLayout(val scaledWidth: Int, val scaledHeight: Int, val p
   val outputHeight: Int
     get() = scaledHeight + pad * 2
 
+  /** The width of the white outline or border on each side. */
+  val outlinePad: Int
+    get() = pad - shadowBlur
+
   companion object {
     /**
      * Returns the layout that downscales a `sourceWidth x sourceHeight` image so its longest side
      * is at most [maxSidePx] and pads it by [outlineFraction] of its longest scaled side (at least
-     * 4px), or `null` for an empty source.
+     * 4px), or `null` for an empty source. With [withShadow], the padding also fits a drop shadow
+     * blurred by 2.5% of the longest scaled side (at least 3px).
      */
     fun compute(
       sourceWidth: Int,
       sourceHeight: Int,
       maxSidePx: Int,
       outlineFraction: Float,
+      withShadow: Boolean = false,
     ): StickerImageLayout? {
       if (sourceWidth <= 0 || sourceHeight <= 0) return null
       val (scaledWidth, scaledHeight) = scaledSizeWithin(sourceWidth, sourceHeight, maxSidePx)
-      val pad = max(4, (max(scaledWidth, scaledHeight) * outlineFraction).roundToInt())
-      return StickerImageLayout(scaledWidth = scaledWidth, scaledHeight = scaledHeight, pad = pad)
+      val longestScaledSide = max(scaledWidth, scaledHeight)
+      val outlinePad = max(4, (longestScaledSide * outlineFraction).roundToInt())
+      val shadowBlur =
+        if (withShadow) max(3, (longestScaledSide * SHADOW_BLUR_FRACTION).roundToInt()) else 0
+      return StickerImageLayout(
+        scaledWidth = scaledWidth,
+        scaledHeight = scaledHeight,
+        pad = outlinePad + shadowBlur,
+        shadowBlur = shadowBlur,
+      )
     }
+
+    /** Drop shadow blur radius, as a fraction of the longest scaled side. */
+    private const val SHADOW_BLUR_FRACTION = 0.025f
   }
 }

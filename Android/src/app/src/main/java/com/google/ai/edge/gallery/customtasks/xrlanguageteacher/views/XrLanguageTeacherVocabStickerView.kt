@@ -19,8 +19,6 @@ package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,9 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -69,10 +65,10 @@ internal fun rememberIsStickerCutout(image: ImageBitmap): Boolean =
  * Renders a vocabulary photo as a tilted die-cut sticker.
  *
  * When [image] has a transparent background (a segmented cutout), draws it with the white
- * contour-following outline that [XrLanguageTeacherStickerImages.prepareStickerImage] bakes (the
- * same one the study games draw), with a soft shadow. When [image] is an opaque rectangular photo
- * fallback, frames it inside a rounded rectangle of [cornerRadius] with a white border
- * [outlineWidth] wide.
+ * contour-following outline and soft drop shadow that
+ * [XrLanguageTeacherStickerImages.prepareStickerImage] bakes (the same ones the study games draw).
+ * When [image] is an opaque rectangular photo fallback, frames it inside a rounded rectangle of
+ * [cornerRadius] with a white border [outlineWidth] wide.
  */
 @Composable
 internal fun XrLanguageTeacherVocabStickerView(
@@ -107,26 +103,12 @@ internal fun XrLanguageTeacherVocabStickerView(
       }
     }
     val sticker = outlinedSticker ?: image
-    Box(
+    Image(
+      bitmap = sticker,
+      contentDescription = null,
+      contentScale = ContentScale.Fit,
       modifier = modifier.then(semanticsModifier).rotate(tiltDegrees),
-      contentAlignment = Alignment.Center,
-    ) {
-      // Soft shadow under the outlined sticker.
-      Image(
-        bitmap = sticker,
-        contentDescription = null,
-        contentScale = ContentScale.Fit,
-        colorFilter = ColorFilter.tint(Color.Black.copy(alpha = 0.18f), BlendMode.SrcIn),
-        modifier = Modifier.matchParentSize().offset(y = 3.dp),
-      )
-      Image(
-        bitmap = sticker,
-        contentDescription = null,
-        contentScale = ContentScale.Fit,
-        // Fills the available space; the shadow layer matches its size.
-        modifier = Modifier.fillMaxSize(),
-      )
-    }
+    )
   } else {
     val shape = RoundedCornerShape(cornerRadius)
     Image(

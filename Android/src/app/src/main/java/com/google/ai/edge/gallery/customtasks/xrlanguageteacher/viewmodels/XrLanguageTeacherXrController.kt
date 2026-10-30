@@ -106,6 +106,12 @@ fun XrLanguageTeacherViewModel.setupXrTapListener(
   onRunningStateChanged: (Boolean) -> Unit = {},
 ) {
   xrGlassesManager.registerGlassesGestureListener { gesture ->
+    if (teacherModelSuspension.isReleasedForGame) {
+      // A Study game unloaded the teacher model (the glasses can be used from any tab); load it
+      // again and let the user tap once it is ready.
+      teacherModelSuspension.restoreIfReleased()
+      return@registerGlassesGestureListener
+    }
     handleGlassesGesture(
       gesture = gesture,
       model = model,

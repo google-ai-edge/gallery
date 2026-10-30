@@ -16,7 +16,9 @@
 
 package com.google.ai.edge.gallery.customtasks.xrlanguageteacher
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -37,16 +39,20 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.datastore.core.DataStore
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskData
@@ -76,21 +82,30 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.unsupport
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.playPersonaPreview
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.playTargetPhrase
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.stopPersonaPreview
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherModelManagerTeacherModelHost
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherStickerModelAvailability
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherStickerModelDownloader
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherViewModel
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherVocabPopperViewModel
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherVocabRunnerViewModel
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.applyCutoutEdit
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.applyTeacherPreferences
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.buildDefaultSystemPrompt
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.buildDisplayLessonSessions
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.cancelCutoutEdit
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.cancelVocabGamePreparation
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.convertToStickers
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.createVocabGameDependencies
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.deleteAllLessonSessions
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.deleteLessonSession
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.findStickerSegmentationModel
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.findVocabGameEntryKeysWithImages
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.getPersonaPromptTemplate
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.loadSessionImageBitmap
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.logChatHistoryAction
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.onVocabGameStarted
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.openCutoutEditor
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.prepareGame
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.saveSystemPromptOverride
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.syncStickerSegmentationModel
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.useOriginalPhotoForCutout
@@ -128,6 +143,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+
+/** The [viewModel] key of the `Vocab Popper` game ViewModel. */
+private const val VOCAB_POPPER_VIEW_MODEL_KEY = "xr_language_teacher_vocab_popper"
+
+/** The [viewModel] key of the `Vocab Runner` game ViewModel. */
+private const val VOCAB_RUNNER_VIEW_MODEL_KEY = "xr_language_teacher_vocab_runner"
 
 class XrLanguageTeacherTask
 constructor(
@@ -264,6 +285,24 @@ constructor(
     val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
     val selectedModel = modelManagerUiState.selectedModel
 
+    // Lets a Study game unload the teacher model and the Camera tab load it again, through the
+    // same model manager path the screen uses on first entry.
+    DisposableEffect(viewModel, modelManagerViewModel) {
+      val suspension = viewModel.teacherModelSuspension
+      val host =
+        XrLanguageTeacherModelManagerTeacherModelHost(
+          viewModel = viewModel,
+          modelManagerViewModel = modelManagerViewModel,
+          // The host outlives configuration changes in the ViewModel's suspension; model loading
+          // only needs the application context.
+          context = context.applicationContext,
+          task = task,
+          model = { modelManagerViewModel.uiState.value.selectedModel },
+        )
+      suspension.host = host
+      onDispose { if (suspension.host === host) suspension.host = null }
+    }
+
     // Sticker cutouts segment with the "Magic touch" model that the allowlist registers to
     // Scrapbook. It is only downloaded when the user agrees to it in the download dialog. Looked up
     // on every recomposition (a few dozen models): the tasks' model lists change in place when the
@@ -307,6 +346,7 @@ constructor(
               // Started outside any task, like from the global model manager: the download's
               // notification leads there, where Magic touch is listed under Scrapbook.
               onPassed = { modelManagerViewModel.downloadModel(task = null, model = model) },
+              // A failed download check closes the dialog; it isn't the user declining the model.
               onAborted = stickerModelDownload::cancel,
             )
           }
@@ -517,6 +557,18 @@ constructor(
                 nativeLanguages = availableNativeLanguages,
                 learnLanguages = ALL_SUPPORTED_LANGUAGES,
               )
+            val (vocabPopperViewModel, vocabRunnerViewModel) =
+              rememberVocabGameViewModels(viewModel)
+            val canConvertToStickers by viewModel.canConvertToStickers.collectAsStateWithLifecycle()
+            val readyVocabGame by viewModel.readyVocabGame.collectAsStateWithLifecycle()
+            // Vocab Runner needs words with images; re-checked whenever images change.
+            // Untested until the first check completes, so Buddy Runner doesn't flash locked.
+            var areVocabImagesChecked by remember { mutableStateOf(false) }
+            val vocabEntryKeysWithImages by
+              produceState(emptySet<String>(), entries, vocabImageRevision) {
+                value = viewModel.findVocabGameEntryKeysWithImages(entries)
+                areVocabImagesChecked = true
+              }
             StudyScreen(
               entries = entries,
               onReviewModeChanged = { isReviewing = it },
@@ -533,6 +585,20 @@ constructor(
               onOpenAsrSettings = {
                 myData.navigateToModelSelection(ModelSelectionTarget.ASR_MODEL)
               },
+              vocabPopperViewModel = vocabPopperViewModel,
+              vocabRunnerViewModel = vocabRunnerViewModel,
+              vocabEntryKeysWithImages = vocabEntryKeysWithImages,
+              areVocabImagesChecked = areVocabImagesChecked,
+              readyGame = readyVocabGame,
+              onPrepareGame = { request -> viewModel.prepareGame(request) },
+              onGameStarted = { viewModel.onVocabGameStarted() },
+              onCancelGamePreparation = { viewModel.cancelVocabGamePreparation() },
+              onConvertToStickers =
+                if (canConvertToStickers) {
+                  { viewModel.convertToStickers() }
+                } else {
+                  null
+                },
             )
           }
         }
@@ -614,6 +680,7 @@ constructor(
       onRetry = stickerModelDownload::retry,
       onCancel = stickerModelDownload::cancel,
       onAbandon = stickerModelDownload::abandon,
+      onPlayWithoutStickers = stickerModelDownload::playWithoutStickers,
     )
     ModelDownloadGatesHost(gates = stickerModelDownloadGates)
 
@@ -673,3 +740,37 @@ private fun rememberIsAsrLanguageSupported(
           LanguagePackUiStatus.Unavailable
     }
   }
+
+/**
+ * Returns the ViewModels of the `Vocab Popper` and `Vocab Runner` Study games, which keep a game's
+ * round across recompositions and use [teacherViewModel] for speech recognition, images, and the
+ * best scores.
+ *
+ * They are keyed by fixed keys in the same ViewModel store as [teacherViewModel] (the task screen's
+ * `hiltViewModel()`), so they are cleared together with it and never hold on to an earlier teacher
+ * ViewModel.
+ */
+@Composable
+private fun rememberVocabGameViewModels(
+  teacherViewModel: XrLanguageTeacherViewModel
+): Pair<XrLanguageTeacherVocabPopperViewModel, XrLanguageTeacherVocabRunnerViewModel> {
+  val appContext = LocalContext.current.applicationContext
+  val dependencies =
+    remember(teacherViewModel, appContext) {
+      teacherViewModel.createVocabGameDependencies(
+        hasMicPermission = {
+          ContextCompat.checkSelfPermission(appContext, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        }
+      )
+    }
+  val popperViewModel: XrLanguageTeacherVocabPopperViewModel =
+    viewModel(key = VOCAB_POPPER_VIEW_MODEL_KEY) {
+      XrLanguageTeacherVocabPopperViewModel(dependencies)
+    }
+  val runnerViewModel: XrLanguageTeacherVocabRunnerViewModel =
+    viewModel(key = VOCAB_RUNNER_VIEW_MODEL_KEY) {
+      XrLanguageTeacherVocabRunnerViewModel(dependencies)
+    }
+  return popperViewModel to runnerViewModel
+}

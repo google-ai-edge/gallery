@@ -59,7 +59,13 @@ internal suspend fun XrLanguageTeacherViewModel.performConversationPrewarm(
   model: Model,
   systemPromptText: String,
 ) {
-  if (uiState.value.isRunningInference || uiState.value.isSessionActive) return
+  if (
+    teacherModelSuspension.isReleasedForGame ||
+      uiState.value.isRunningInference ||
+      uiState.value.isSessionActive
+  ) {
+    return
+  }
   if (model.instance == null) return
   if (
     isConversationInitialized &&
@@ -73,6 +79,7 @@ internal suspend fun XrLanguageTeacherViewModel.performConversationPrewarm(
   }
   // Leaving or resetting cancels the prewarm; never create a conversation for a cancelled one.
   currentCoroutineContext().ensureActive()
+  if (teacherModelSuspension.isReleasedForGame || model.instance == null) return
   model.runtimeHelper.resetConversation(
     model = model,
     supportImage = true,

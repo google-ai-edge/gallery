@@ -17,6 +17,8 @@
 package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models
 
 import android.graphics.Bitmap
+import android.graphics.BlurMaskFilter
+import android.graphics.BlurMaskFilter.Blur
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -42,6 +44,12 @@ private const val TAG = "AGTeacherStickerImages"
 
 /** Number of directions the white sticker outline is stamped in around the cutout. */
 private const val OUTLINE_DIRECTION_COUNT = 16
+
+/** How far the drop shadow under a cutout's outline falls, in pixels. */
+private const val SHADOW_OFFSET_Y_PX = 2f
+
+/** The color of the drop shadow under a cutout's outline: black at 28% opacity. */
+private val SHADOW_COLOR = Color.argb(71, 0, 0, 0)
 
 /**
  * Bitmap adapters around [XrLanguageTeacherStickerCutout]: cuts stickers out of photos, detects
@@ -175,9 +183,9 @@ object XrLanguageTeacherStickerImages {
 
   /**
    * Downscales [source] so its longest side is at most [maxSidePx] and bakes either a
-   * contour-following white silhouette (when [source] has transparent corners) or a white-bordered
-   * rounded rectangle around it, so a sticker is drawn as a single bitmap (one outline algorithm
-   * for vocabulary cards and anything else that shows stickers).
+   * contour-following white silhouette with a soft drop shadow (when [source] has transparent
+   * corners) or a white-bordered rounded rectangle around it, so a sticker is drawn as a single
+   * bitmap (one outline algorithm for vocabulary cards and the game targets and obstacles).
    */
   fun prepareStickerImage(
     source: Bitmap,
@@ -185,12 +193,14 @@ object XrLanguageTeacherStickerImages {
     outlineFraction: Float = 0.055f,
   ): Bitmap {
     if (source.isRecycled) return source
+    val isCutout = hasTransparentEdge(source)
     val layout =
       StickerImageLayout.compute(
         sourceWidth = source.width,
         sourceHeight = source.height,
         maxSidePx = maxSidePx,
         outlineFraction = outlineFraction,
+        withShadow = isCutout,
       ) ?: return source
     val pad = layout.pad.toFloat()
     val output = createBitmap(layout.outputWidth, layout.outputHeight)
@@ -198,17 +208,23 @@ object XrLanguageTeacherStickerImages {
     val imagePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     val imageRect = RectF(pad, pad, pad + layout.scaledWidth, pad + layout.scaledHeight)
 
-    if (hasTransparentEdge(source)) {
+    if (isCutout) {
+      val outline = createBitmap(layout.outputWidth, layout.outputHeight)
+      val outlineCanvas = Canvas(outline)
       val silhouettePaint =
         Paint(imagePaint).apply {
           colorFilter = PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
         }
+      val outlinePad = layout.outlinePad.toFloat()
       for (index in 0 until OUTLINE_DIRECTION_COUNT) {
         val angle = 2.0 * PI * index / OUTLINE_DIRECTION_COUNT
         val offsetRect = RectF(imageRect)
-        offsetRect.offset((cos(angle) * pad).toFloat(), (sin(angle) * pad).toFloat())
-        canvas.drawBitmap(source, null, offsetRect, silhouettePaint)
+        offsetRect.offset((cos(angle) * outlinePad).toFloat(), (sin(angle) * outlinePad).toFloat())
+        outlineCanvas.drawBitmap(source, null, offsetRect, silhouettePaint)
       }
+      drawDropShadow(canvas, outline, layout.shadowBlur)
+      canvas.drawBitmap(outline, 0f, 0f, null)
+      outline.recycle()
       canvas.drawBitmap(source, null, imageRect, imagePaint)
     } else {
       val outerRadius = max(layout.outputWidth, layout.outputHeight) * 0.14f
@@ -225,5 +241,24 @@ object XrLanguageTeacherStickerImages {
       canvas.withClip(innerPath) { drawBitmap(source, null, imageRect, imagePaint) }
     }
     return output
+  }
+
+  /**
+   * Draws a soft black shadow of [silhouette], blurred by [blurRadius] pixels and dropped
+   * [SHADOW_OFFSET_Y_PX] pixels down, onto [canvas].
+   */
+  private fun drawDropShadow(canvas: Canvas, silhouette: Bitmap, blurRadius: Int) {
+    if (blurRadius <= 0) return
+    val offset = IntArray(2)
+    val blurPaint = Paint().apply { maskFilter = BlurMaskFilter(blurRadius.toFloat(), Blur.NORMAL) }
+    val shadow = silhouette.extractAlpha(blurPaint, offset)
+    val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = SHADOW_COLOR }
+    canvas.drawBitmap(
+      shadow,
+      offset[0].toFloat(),
+      offset[1].toFloat() + SHADOW_OFFSET_Y_PX,
+      shadowPaint,
+    )
+    shadow.recycle()
   }
 }

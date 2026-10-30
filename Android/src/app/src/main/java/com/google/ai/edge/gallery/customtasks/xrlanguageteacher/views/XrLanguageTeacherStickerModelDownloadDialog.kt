@@ -19,6 +19,8 @@ package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
@@ -26,7 +28,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
@@ -47,6 +51,11 @@ import com.google.ai.edge.gallery.ui.common.modelitem.calculateDownloadProgress
  * dialog from its Cancel buttons (cancelling the download, or stopping the segmentation, while it
  * runs), and [onAbandon] hides it on the system Back (a running download keeps running). Taps
  * outside the dialog are ignored, so that nothing is decided by accident.
+ *
+ * For a study game, [onPlayWithoutStickers] starts the game with the saved photos: "Play without
+ * stickers" while asking (declining the model), downloading (cancelling the download), or after a
+ * failed download, and "Play now" while segmenting (with the stickers cut out so far). No other
+ * button starts the game.
  */
 @Composable
 fun XrLanguageTeacherStickerModelDownloadDialog(
@@ -56,7 +65,9 @@ fun XrLanguageTeacherStickerModelDownloadDialog(
   onCancel: () -> Unit,
   modifier: Modifier = Modifier,
   onAbandon: () -> Unit = onCancel,
+  onPlayWithoutStickers: () -> Unit = {},
 ) {
+  val isGame = state.isForGame
   when (state) {
     XrLanguageTeacherStickerModelDownloadState.Hidden -> Unit
     is XrLanguageTeacherStickerModelDownloadState.Confirming ->
@@ -69,10 +80,35 @@ fun XrLanguageTeacherStickerModelDownloadDialog(
           Text(stringResource(state.reason.messageResId, state.sizeInBytes.humanReadableSize()))
         },
         confirmButton = {
-          TextButton(onClick = onConfirm) { Text(stringResource(R.string.download)) }
+          StickerModelDialogButtons {
+            CancelButton(onCancel)
+            if (isGame) PlayWithoutStickersButton(onPlayWithoutStickers)
+            TextButton(onClick = onConfirm) { Text(stringResource(R.string.download)) }
+          }
         },
-        dismissButton = {
-          TextButton(onClick = onCancel) { Text(stringResource(R.string.xrteacher_cancel)) }
+      )
+    is XrLanguageTeacherStickerModelDownloadState.ConfirmingSegmentation ->
+      AlertDialog(
+        onDismissRequest = onAbandon,
+        modifier = modifier,
+        properties = DialogProperties(dismissOnClickOutside = false),
+        title = { Text(stringResource(R.string.xrteacher_sticker_segment_confirm_title)) },
+        text = {
+          Text(
+            pluralStringResource(
+              R.plurals.xrteacher_sticker_segment_confirm_message,
+              state.unsegmentedCount,
+              state.unsegmentedCount,
+            )
+          )
+        },
+        confirmButton = {
+          StickerModelDialogButtons {
+            CancelButton(onCancel)
+            TextButton(onClick = onConfirm) {
+              Text(stringResource(R.string.xrteacher_sticker_segment_confirm_action))
+            }
+          }
         },
       )
     is XrLanguageTeacherStickerModelDownloadState.Downloading ->
@@ -83,8 +119,11 @@ fun XrLanguageTeacherStickerModelDownloadDialog(
         title = { Text(stringResource(R.string.xrteacher_sticker_model_downloading_title)) },
         text = { StickerModelDownloadProgress(state) },
         confirmButton = {
-          TextButton(onClick = onCancel) {
-            Text(stringResource(R.string.xrteacher_sticker_model_cancel_download))
+          StickerModelDialogButtons {
+            if (isGame) PlayWithoutStickersButton(onPlayWithoutStickers)
+            TextButton(onClick = onCancel) {
+              Text(stringResource(R.string.xrteacher_sticker_model_cancel_download))
+            }
           }
         },
       )
@@ -96,7 +135,13 @@ fun XrLanguageTeacherStickerModelDownloadDialog(
         title = { Text(stringResource(R.string.xrteacher_sticker_segmenting_title)) },
         text = { StickerSegmentationProgress(state) },
         confirmButton = {
-          TextButton(onClick = onCancel) { Text(stringResource(R.string.xrteacher_cancel)) }
+          if (isGame) {
+            TextButton(onClick = onPlayWithoutStickers) {
+              Text(stringResource(R.string.xrteacher_sticker_segmenting_play_now))
+            }
+          } else {
+            CancelButton(onCancel)
+          }
         },
       )
     is XrLanguageTeacherStickerModelDownloadState.Failed ->
@@ -115,13 +160,53 @@ fun XrLanguageTeacherStickerModelDownloadDialog(
             }
           )
         },
-        confirmButton = { TextButton(onClick = onRetry) { Text(stringResource(R.string.retry)) } },
-        dismissButton = {
-          TextButton(onClick = onCancel) { Text(stringResource(R.string.xrteacher_cancel)) }
+        confirmButton = {
+          StickerModelDialogButtons {
+            CancelButton(onCancel)
+            if (isGame) PlayWithoutStickersButton(onPlayWithoutStickers)
+            TextButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
+          }
         },
       )
   }
 }
+
+/**
+ * Lays the dialog's buttons out in a row aligned to the end, wrapping onto more rows when three of
+ * them don't fit.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun StickerModelDialogButtons(content: @Composable () -> Unit) {
+  FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) { content() }
+}
+
+@Composable
+private fun CancelButton(onCancel: () -> Unit) {
+  TextButton(onClick = onCancel) { Text(stringResource(R.string.xrteacher_cancel)) }
+}
+
+@Composable
+private fun PlayWithoutStickersButton(onPlayWithoutStickers: () -> Unit) {
+  TextButton(onClick = onPlayWithoutStickers) {
+    Text(stringResource(R.string.xrteacher_sticker_model_download_play_without_stickers))
+  }
+}
+
+/** Whether the dialog is shown before a study game. */
+private val XrLanguageTeacherStickerModelDownloadState.isForGame: Boolean
+  get() =
+    when (this) {
+      XrLanguageTeacherStickerModelDownloadState.Hidden,
+      is XrLanguageTeacherStickerModelDownloadState.ConfirmingSegmentation -> false
+      is XrLanguageTeacherStickerModelDownloadState.Confirming -> reason.isGame
+      is XrLanguageTeacherStickerModelDownloadState.Downloading -> reason.isGame
+      is XrLanguageTeacherStickerModelDownloadState.Segmenting -> reason.isGame
+      is XrLanguageTeacherStickerModelDownloadState.Failed -> reason.isGame
+    }
+
+private val XrLanguageTeacherStickerModelDownloadReason.isGame: Boolean
+  get() = this == XrLanguageTeacherStickerModelDownloadReason.GAME
 
 /** The progress bar and the downloaded and total sizes of the running download. */
 @Composable
@@ -176,4 +261,8 @@ private val XrLanguageTeacherStickerModelDownloadReason.messageResId: Int
     when (this) {
       XrLanguageTeacherStickerModelDownloadReason.CUTOUT_EDITOR ->
         R.string.xrteacher_sticker_model_download_cutout_message
+      XrLanguageTeacherStickerModelDownloadReason.GAME ->
+        R.string.xrteacher_sticker_model_download_game_message
+      XrLanguageTeacherStickerModelDownloadReason.CONVERT_STICKERS ->
+        R.string.xrteacher_sticker_model_download_convert_message
     }

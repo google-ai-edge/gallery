@@ -115,8 +115,8 @@ import kotlinx.coroutines.launch
  * @param onBack called by the Back button; the system Back is left to the caller.
  * @param languageSetting the language menu, usually a [VocabGameDropdown]; it gets the first row of
  *   the settings card to itself.
- * @param moreSettings the other setting menus, usually [VocabGameDropdown]s; they share the second
- *   row of the settings card and wrap if they do not fit.
+ * @param moreSettings optional secondary setting menus, usually [VocabGameDropdown]s; when present,
+ *   they share the second row of the settings card and wrap if they do not fit.
  * @param playLabel the label of the button that starts the activity; "Play game" by default.
  * @param playIcon the icon of that button; a game controller by default.
  * @param lockedActionLabel with [onLockedAction], a button under [lockedMessage] that helps fix it,
@@ -140,7 +140,7 @@ fun VocabGameStartScreen(
   onLockedAction: (() -> Unit)? = null,
   changeModelLabel: String? = null,
   onChangeModel: (() -> Unit)? = null,
-  moreSettings: @Composable () -> Unit,
+  moreSettings: (@Composable () -> Unit)? = null,
 ) {
   val background = MaterialTheme.colorScheme.surfaceContainerLowest
   BoxWithConstraints(modifier = modifier.fillMaxSize().background(background)) {
@@ -192,12 +192,14 @@ fun VocabGameStartScreen(
           verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
           languageSetting()
-          FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth(),
-          ) {
-            moreSettings()
+          if (moreSettings != null) {
+            FlowRow(
+              horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
+              verticalArrangement = Arrangement.spacedBy(12.dp),
+              modifier = Modifier.fillMaxWidth(),
+            ) {
+              moreSettings()
+            }
           }
         }
       }

@@ -643,24 +643,26 @@ suspend fun XrLanguageTeacherViewModel.loadSavedVocabImageBitmap(
 ): ImageBitmap? =
   withContext(ioDispatcher) {
     if (learnLanguage == Language.LANGUAGE_UNSPECIFIED) {
-      return@withContext decodeSavedVocabThumbnail(word, learnLanguage)
+      return@withContext decodeSavedVocabImage(word, learnLanguage, VOCAB_THUMBNAIL_MAX_SIDE_PX)
     }
     XrLanguageTeacherVocabImageCache.getOrLoad(
       entryKey = XrLanguageTeacherVocabImageCache.entryKey(word, learnLanguage),
       kind = XrLanguageTeacherVocabImageKind.THUMBNAIL,
       maxSidePx = VOCAB_THUMBNAIL_MAX_SIDE_PX,
     ) {
-      decodeSavedVocabThumbnail(word, learnLanguage)
+      decodeSavedVocabImage(word, learnLanguage, VOCAB_THUMBNAIL_MAX_SIDE_PX)
     }
   }
 
 /**
- * Decodes the thumbnail of [loadSavedVocabImageBitmap] from disk, downsampled for
- * [VOCAB_THUMBNAIL_MAX_SIDE_PX].
+ * Decodes the image of the saved [word] in [learnLanguage] from disk: its sticker cutout when it
+ * has one, or else its original photo, downsampled for [maxSidePx] (see
+ * [XrLanguageTeacherPreferencesStore.decodeSavedVocabPhoto]). Call on [ioDispatcher].
  */
-private suspend fun XrLanguageTeacherViewModel.decodeSavedVocabThumbnail(
+internal suspend fun XrLanguageTeacherViewModel.decodeSavedVocabImage(
   word: String,
   learnLanguage: Language,
+  maxSidePx: Int,
 ): ImageBitmap? {
   val scopedFileName = scopedVocabFileName(word, learnLanguage)
   val safeFileName = XrLanguageTeacherDialogueFormatter.sanitizeWordForFilename(word)
@@ -668,13 +670,13 @@ private suspend fun XrLanguageTeacherViewModel.decodeSavedVocabThumbnail(
     storageRepository.decodeSavedVocabStickerBitmap(
       scopedFileName = scopedFileName,
       safeFileName = safeFileName,
-      maxSidePx = VOCAB_THUMBNAIL_MAX_SIDE_PX,
+      maxSidePx = maxSidePx,
     )
       ?: storageRepository.decodeSavedVocabImageBitmap(
         scopedFileName = scopedFileName,
         safeFileName = safeFileName,
         legacyWord = word,
-        maxSidePx = VOCAB_THUMBNAIL_MAX_SIDE_PX,
+        maxSidePx = maxSidePx,
       )
   }
 }

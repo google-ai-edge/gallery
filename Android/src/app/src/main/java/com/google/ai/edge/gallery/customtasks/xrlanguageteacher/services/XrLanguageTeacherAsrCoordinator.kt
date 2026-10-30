@@ -35,6 +35,7 @@ import com.google.ai.edge.gallery.data.SpeechEngineErrorCause
 import com.google.ai.edge.gallery.data.supplementary.SpeechModality
 import com.google.ai.edge.gallery.data.supplementary.toSpeechEngineErrorCause
 import com.google.ai.edge.gallery.proto.Language
+import com.google.ai.edge.gallery.services.asr.AsrEngineType
 import com.google.ai.edge.gallery.services.asr.AsrModelRegistry
 import com.google.ai.edge.gallery.services.asr.AsrRecordingOptions
 import com.google.ai.edge.gallery.services.asr.AsrService
@@ -126,43 +127,8 @@ internal suspend fun XrLanguageTeacherViewModel.prepareSelectedAsrEngine(
     Log.w(TAG, "No ASR engine for the selected model '${selectedAsrModelID.value}'")
     return AsrPreparation(errorCause = SpeechEngineErrorCause.NOT_SUPPORTED)
   }
-  val installsLanguagePacks = AsrModelRegistry.metadataFor(engineType).installsLanguagePacks
   return try {
-    val model = speechSelectionUseCase.asrModelFor(engineType, selectedAsrModelID.value)
-    val engineCause =
-      when {
-        model != null -> speechSelectionUseCase.resolveState(model).toSpeechEngineErrorCause()
-        !AsrModelRegistry.isSystemEngine(engineType) &&
-          speechSelectionUseCase.hasRegisteredModels(SpeechModality.ASR) ->
-          SpeechEngineErrorCause.NOT_SUPPORTED
-        else -> null
-      }
-    val languageCause =
-      if (engineCause == null && installsLanguagePacks) {
-        if (model != null) {
-          speechSelectionUseCase
-            .resolveLanguageState(model, hostLanguageTag)
-            .toSpeechEngineErrorCause()
-        } else {
-          when (service.checkLanguageStatus(hostLanguageTag)) {
-            AsrServiceStatus.Ready -> null
-            AsrServiceStatus.NotDownloaded -> SpeechEngineErrorCause.LANGUAGE_NOT_INSTALLED
-            AsrServiceStatus.Unavailable ->
-              if (
-                service.unavailabilityReason ==
-                  AsrUnavailabilityReason.SPEECH_SERVICES_OUTDATED_OR_MISSING
-              ) {
-                SpeechEngineErrorCause.SPEECH_SERVICES_OUTDATED
-              } else {
-                SpeechEngineErrorCause.NOT_SUPPORTED
-              }
-            else -> SpeechEngineErrorCause.OTHER
-          }
-        }
-      } else {
-        null
-      }
-    val cause = engineCause ?: languageCause
+    val cause = selectedAsrEngineErrorCause(engineType, service, hostLanguageTag)
     if (cause != null) {
       Log.w(TAG, "The $engineType ASR engine can't start for '$hostLanguageTag': $cause")
       return AsrPreparation(errorCause = cause)
@@ -183,6 +149,54 @@ internal suspend fun XrLanguageTeacherViewModel.prepareSelectedAsrEngine(
     Log.w(TAG, "ASR preparation failed", e)
     AsrPreparation(errorCause = SpeechEngineErrorCause.OTHER)
   }
+}
+
+/**
+ * Returns why the selected ASR engine [engineType], served by [service], can't recognize
+ * [languageTag] now, or `null` when it can: the selected model's `SpeechModelState` (or
+ * [SpeechEngineErrorCause.NOT_SUPPORTED] when the allowlist models are registered and none of them
+ * is the selected model) and, for engines that install a language pack per language, the
+ * `LanguageState` of [languageTag]. The system recognizer has no model check.
+ */
+internal suspend fun XrLanguageTeacherViewModel.selectedAsrEngineErrorCause(
+  engineType: AsrEngineType,
+  service: AsrService,
+  languageTag: String,
+): SpeechEngineErrorCause? {
+  val installsLanguagePacks = AsrModelRegistry.metadataFor(engineType).installsLanguagePacks
+  val model = speechSelectionUseCase.asrModelFor(engineType, selectedAsrModelID.value)
+  val engineCause =
+    when {
+      model != null -> speechSelectionUseCase.resolveState(model).toSpeechEngineErrorCause()
+      !AsrModelRegistry.isSystemEngine(engineType) &&
+        speechSelectionUseCase.hasRegisteredModels(SpeechModality.ASR) ->
+        SpeechEngineErrorCause.NOT_SUPPORTED
+      else -> null
+    }
+  val languageCause =
+    if (engineCause == null && installsLanguagePacks) {
+      if (model != null) {
+        speechSelectionUseCase.resolveLanguageState(model, languageTag).toSpeechEngineErrorCause()
+      } else {
+        when (service.checkLanguageStatus(languageTag)) {
+          AsrServiceStatus.Ready -> null
+          AsrServiceStatus.NotDownloaded -> SpeechEngineErrorCause.LANGUAGE_NOT_INSTALLED
+          AsrServiceStatus.Unavailable ->
+            if (
+              service.unavailabilityReason ==
+                AsrUnavailabilityReason.SPEECH_SERVICES_OUTDATED_OR_MISSING
+            ) {
+              SpeechEngineErrorCause.SPEECH_SERVICES_OUTDATED
+            } else {
+              SpeechEngineErrorCause.NOT_SUPPORTED
+            }
+          else -> SpeechEngineErrorCause.OTHER
+        }
+      }
+    } else {
+      null
+    }
+  return engineCause ?: languageCause
 }
 
 /**

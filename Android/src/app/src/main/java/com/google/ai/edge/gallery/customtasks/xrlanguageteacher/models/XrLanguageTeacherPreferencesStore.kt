@@ -139,6 +139,19 @@ constructor(@ApplicationContext private val context: Context) {
   fun getBooleanPreference(key: String, defaultValue: Boolean = false): Boolean =
     prefs.getBoolean(key, defaultValue)
 
+  /** Reads an integer preference by [key], returning [defaultValue] if unset. */
+  fun getIntPreference(key: String, defaultValue: Int = 0): Int = prefs.getInt(key, defaultValue)
+
+  /** Persists the integer preference [value] under [key]. */
+  fun saveIntPreference(key: String, value: Int) {
+    prefs.edit { putInt(key, value) }
+  }
+
+  /** Persists the boolean preference [value] under [key]. */
+  fun saveBooleanPreference(key: String, value: Boolean) {
+    prefs.edit { putBoolean(key, value) }
+  }
+
   /**
    * Saves [bitmap] as a session snapshot PNG for [sessionId] at [timestampMs] under
    * [sessionImagesDir] and returns its absolute path, or `null` on failure.
