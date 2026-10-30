@@ -301,26 +301,48 @@ class XrLanguageTeacherVocabPopperEngine(
   }
 
   /**
-   * Marks any unconsumed tokens in the current segment as consumed after a speaking pause so stale
-   * unmatched words cannot pop future targets.
-   */
-  fun consumePendingTranscript() {
-    transcriptCursor.consumePending()
-  }
-
-  /**
    * Evaluates the cumulative ASR [transcript] against all currently flying (non-popping) targets
-   * and pops every matched target, consuming the matched transcript tokens so they cannot pop later
-   * targets. Returns `null` when nothing was popped.
+   * and pops every matched target, at most one per spoken word (see
+   * [XrLanguageTeacherSpeechMatcher.selectSpokenTargets]), consuming the transcript tokens up to
+   * the last matched word so they cannot pop later targets. Words the recognizer may still revise
+   * only match exactly. Returns `null` when nothing was popped.
    */
   fun processTranscript(transcript: String): XrLanguageTeacherVocabPopperPopEvent? {
     if (state.phase != XrLanguageTeacherVocabPopperPhase.PLAYING) return null
-    val unconsumedText = transcriptCursor.takeUnconsumedText(transcript)
-    if (unconsumedText.isEmpty()) return null
-    if (state.targets.none { !it.isPopping }) return null
+    return popSpokenTargets(transcriptCursor.takeUnconsumed(transcript))
+  }
 
-    val transcriptForms = XrLanguageTeacherSpeechMatcher.speechMatchForms(unconsumedText)
-    if (transcriptForms.isEmpty()) return null
+  /**
+   * Handles a speaking pause (or the end of a segment): evaluates the latest transcript again, now
+   * that its words are stable, like [processTranscript], then marks its remaining words as consumed
+   * so stale unmatched words can't pop later targets. Returns the pops, or `null` when nothing was
+   * popped.
+   */
+  fun processUtterancePause(): XrLanguageTeacherVocabPopperPopEvent? {
+    val popEvent =
+      if (state.phase == XrLanguageTeacherVocabPopperPhase.PLAYING) {
+        popSpokenTargets(transcriptCursor.takeUnconsumedAtPause())
+      } else {
+        null
+      }
+    transcriptCursor.consumePending()
+    return popEvent
+  }
+
+  private fun popSpokenTargets(
+    speech: XrLanguageTeacherUnconsumedSpeech
+  ): XrLanguageTeacherVocabPopperPopEvent? {
+    if (speech.isEmpty()) return null
+    val flyingIndices = state.targets.indices.filter { !state.targets[it].isPopping }
+    if (flyingIndices.isEmpty()) return null
+    val matches =
+      XrLanguageTeacherSpeechMatcher.selectSpokenTargets(
+        transcript = speech.text,
+        targetFormsList = flyingIndices.map { state.targets[it].item.targetMatchForms },
+        stableLength = speech.stableLength,
+      )
+    if (matches.isEmpty()) return null
+    val matchedIndices = matches.mapTo(HashSet()) { flyingIndices[it.targetIndex] }
 
     var score = state.score
     var highScore = state.highScore
@@ -329,14 +351,8 @@ class XrLanguageTeacherVocabPopperEngine(
     val particles = state.particles.toMutableList()
     val banners = state.popBanners.toMutableList()
     val targets =
-      state.targets.map { target ->
-        if (
-          !target.isPopping &&
-            XrLanguageTeacherSpeechMatcher.findTargetWordSpoken(
-              transcriptForms = transcriptForms,
-              targetForms = target.item.targetMatchForms,
-            )
-        ) {
+      state.targets.mapIndexed { index, target ->
+        if (index in matchedIndices) {
           score += 1
           if (score > highScore) {
             highScore = score
@@ -350,8 +366,8 @@ class XrLanguageTeacherVocabPopperEngine(
         }
       }
 
-    if (poppedDisplayWords.isEmpty()) return null
-    transcriptCursor.consumeSeen()
+    val lastMatch = matches.maxBy { it.end }
+    transcriptCursor.consumeThrough(lastMatch.start, lastMatch.end)
     state =
       state.copy(
         score = score,

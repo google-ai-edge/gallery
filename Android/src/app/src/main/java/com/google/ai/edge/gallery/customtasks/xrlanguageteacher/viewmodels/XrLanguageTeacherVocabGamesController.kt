@@ -23,7 +23,8 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.hasVocabP
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.hasVocabSticker
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.XrLanguageTeacherGameSoundPlayer
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.createGameSpeechRecognizer
-import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.prepareAsrEngine
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.pauseLessonAsrForGame
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.resumeLessonAsrAfterGame
 import com.google.ai.edge.gallery.proto.DictionaryEntry
 import com.google.ai.edge.gallery.proto.Language
 import kotlin.random.Random
@@ -62,9 +63,10 @@ fun XrLanguageTeacherViewModel.createVocabGameDependencies(
       loadSavedVocabImageForGameSprite(word, learnLanguage)?.asAndroidBitmap()
     },
     imageDispatcher = inferenceDispatcher,
-    // The games prepared the shared ASR engine for the learn language; prepare it for the host
-    // language again.
-    onSessionEnded = { prepareAsrEngine() },
+    // The games prepare the shared ASR engine for the learn language; the lesson prepares it for
+    // the host language again once no game uses it.
+    onSessionStarted = { pauseLessonAsrForGame() },
+    onSessionEnded = { resumeLessonAsrAfterGame() },
     // The teacher model would slow the game down; it is loaded again when the Camera tab opens.
     onRoundStarted = { releaseTeacherModelForGame() },
   )

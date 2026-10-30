@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels
 
 import androidx.compose.ui.graphics.ImageBitmap
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabRunnerClearEvent
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabRunnerDeckItem
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabRunnerEngine
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabRunnerPhase
@@ -163,14 +164,26 @@ class XrLanguageTeacherVocabRunnerViewModel(
     if (engine.state.phase != XrLanguageTeacherVocabRunnerPhase.PLAYING) return
     val clearEvent = engine.processTranscript(transcript)
     showHeard(transcript, isUsed = clearEvent != null)
-    if (clearEvent == null) return
+    if (clearEvent != null) showClears(engine, clearEvent)
+  }
+
+  override fun handleUtterancePause() {
+    val engine = engine ?: return
+    engine.processUtterancePause()?.let { showClears(engine, it) }
+  }
+
+  /** Plays and shows the clears of [clearEvent], which [engine] just made. */
+  private fun showClears(
+    engine: XrLanguageTeacherVocabRunnerEngine,
+    clearEvent: XrLanguageTeacherVocabRunnerClearEvent,
+  ) {
     val game = engine.state
     soundEffects.playPop()
     persistHighScoreIfNeeded(game.highScore)
     _arenaState.update { it.copy(game = game, edgeGlowIntensity = 1f, isCollisionGlow = false) }
     _uiState.update { chromeStateFor(game, base = it) }
     nextCelebrationIsMissedWord = false
-    celebrate(clearEvent.matchedWord)
+    celebrate(clearEvent.clearedWords.last())
   }
 
   /** Starts a new 60-second round with the same words. */
@@ -207,10 +220,6 @@ class XrLanguageTeacherVocabRunnerViewModel(
 
   override fun resetTranscript() {
     engine?.resetTranscript()
-  }
-
-  override fun consumePendingTranscript() {
-    engine?.consumePendingTranscript()
   }
 
   override fun dropEngine() {

@@ -21,10 +21,10 @@ package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models
 import android.icu.text.BreakIterator
 import android.icu.text.Transliterator
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import java.text.Normalizer
 import java.util.Locale
 import java.util.MissingResourceException
-import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
@@ -51,14 +51,32 @@ data class XrLanguageTeacherUnconsumedTranscript(
 )
 
 /**
+ * A target found in a transcript by [XrLanguageTeacherSpeechMatcher.selectSpokenTargets].
+ *
+ * @property targetIndex Index of the target in the list passed to `selectSpokenTargets`.
+ * @property score Similarity of the spoken words to the target, in `(0, 1]`; `1` for an exact
+ *   match.
+ * @property start Character offset in the normalized transcript
+ *   ([XrLanguageTeacherSpeechMatcher.normalizeSpeechMatchText]) of the matched words.
+ * @property end Character offset in the normalized transcript right after the matched words.
+ */
+data class XrLanguageTeacherSpokenTarget(
+  val targetIndex: Int,
+  val score: Double,
+  val start: Int,
+  val end: Int,
+)
+
+/**
  * Pure speech normalization and multi-script vocabulary matching for the XR Language Teacher study
  * games (`Vocab Popper` and `Vocab Runner`).
  *
- * Mirrors the iOS `XrLanguageTeacherSpeechMatcher` so both platforms accept the same spoken forms:
- * NFKC + diacritic folding, Katakana-to-Hiragana folding, Japanese romaji/kana transliteration,
- * article-less noun matching, space-free CJK/Thai substring matching, and length-scaled fuzzy
- * (Levenshtein) matching. Character counts and edit distances are measured in extended grapheme
- * clusters to match Swift `String.count` semantics.
+ * Shares the iOS `XrLanguageTeacherSpeechMatcher` normalization: NFKC + diacritic folding,
+ * Katakana-to-Hiragana folding, Japanese romaji/kana transliteration, article-less noun matching,
+ * and space-free CJK/Thai substring matching. Fuzzy matching picks the closest target on screen by
+ * a length-normalized similarity with a margin over the runner-up (see [selectSpokenTargets]),
+ * which is more lenient than iOS for now. Character counts and edit distances are measured in
+ * extended grapheme clusters to match Swift `String.count` semantics.
  */
 object XrLanguageTeacherSpeechMatcher {
   private val parentheticalRegex = Regex("""\s*[(\[（【][^)\]）】]*[)\]）】]""")
@@ -278,91 +296,424 @@ object XrLanguageTeacherSpeechMatcher {
   }
 
   /**
-   * Returns the subset of [activeTargetWords] spoken in [transcript], ordered longest-target-first
-   * so specific phrases match before shorter substrings.
+   * Returns the subset of [activeTargetWords] spoken in [transcript] (see [selectSpokenTargets]),
+   * ordered longest-target-first.
    */
+  @VisibleForTesting
   fun matchSpokenVocabulary(transcript: String, activeTargetWords: List<String>): List<String> {
-    val transcriptForms = speechMatchForms(transcript)
-    if (transcriptForms.isEmpty() || activeTargetWords.isEmpty()) return emptyList()
-
-    return activeTargetWords
+    if (activeTargetWords.isEmpty()) return emptyList()
+    return selectSpokenTargets(transcript, activeTargetWords.map { targetMatchForms(it) })
+      .map { activeTargetWords[it.targetIndex] }
       .sortedByDescending { graphemeCount(extractPrimaryLearnTerm(it)) }
-      .filter { target ->
-        findTargetWordSpoken(
-          transcriptForms = transcriptForms,
-          targetForms = targetMatchForms(target),
-        )
-      }
   }
+
+  /** Returns `true` when [transcript] contains [targetWord] (see [selectSpokenTargets]). */
+  @VisibleForTesting
+  fun findTargetWordSpoken(transcript: String, targetWord: String): Boolean =
+    selectSpokenTargets(transcript, listOf(targetMatchForms(targetWord))).isNotEmpty()
 
   /**
-   * Returns `true` when [transcript] contains [targetWord] (by whole-token, multi-word phrase,
-   * space-free CJK/Japanese/Thai substring, or fuzzy edit-distance match).
+   * Returns the targets spoken in [transcript], best match first, among the on-screen targets whose
+   * [targetMatchForms] are [targetFormsList].
+   *
+   * Each target is compared, space- and hyphen-insensitively, with every window of consecutive
+   * spoken words that is one word shorter to one word longer than the target, so compound words and
+   * phrases match however the recognizer splits or joins them ("apfel saft" for "Apfelsaft",
+   * "hotdog" for "hot dog", "zumo naranja" for "zumo de naranja"). A target that starts with an
+   * article (see [ARTICLES]) also matches without it ("manzana" for "la manzana"). Space-free
+   * scripts (CJK, kana, Thai) match as substrings (every occurrence), or within 1 edit (2 from 6
+   * graphemes) of a part of the transcript from 3 graphemes.
+   *
+   * A window's score is `1 - editDistance / max(length)` over graphemes, `1` for an exact match. An
+   * exact match always counts. A fuzzy match counts only when:
+   * - the target has more than [MAX_EXACT_ONLY_GRAPHEMES] graphemes, not counting a leading article
+   *   (so "el sal" doesn't match "el sol"), and the score is at least [MATCH_THRESHOLD]; in scripts
+   *   whose graphemes are syllables (e.g. Hangul or Devanagari), it is also at most 1 edit from 4
+   *   graphemes and 2 edits from 7 (see [syllabicEditLimit]);
+   * - it is in the transcript as recognized, not in a transliteration of it (e.g. the romaji "nego"
+   *   of "ねご" doesn't match the romaji "neko" of "ねこ");
+   * - it beats every other target scored on the same spoken words by at least [MATCH_MARGIN], so a
+   *   word halfway between two stickers ("dato" with "gato" and "pato") matches neither;
+   * - its words end within the first [stableLength] characters of the normalized transcript: text
+   *   the recognizer may still revise only matches exactly.
+   *
+   * Each spoken word matches at most one target, and each target matches once, the best score
+   * first, then the longer target ("perro caliente" doesn't also match "perro").
    */
-  fun findTargetWordSpoken(transcript: String, targetWord: String): Boolean {
+  fun selectSpokenTargets(
+    transcript: String,
+    targetFormsList: List<Set<String>>,
+    stableLength: Int = Int.MAX_VALUE,
+  ): List<XrLanguageTeacherSpokenTarget> {
     val transcriptForms = speechMatchForms(transcript)
-    if (transcriptForms.isEmpty()) return false
-    return findTargetWordSpoken(
-      transcriptForms = transcriptForms,
-      targetForms = targetMatchForms(targetWord),
-    )
-  }
-
-  /** Returns `true` when precomputed [transcriptForms] match precomputed [targetForms]. */
-  fun findTargetWordSpoken(transcriptForms: Set<String>, targetForms: Set<String>): Boolean {
-    if (transcriptForms.isEmpty() || targetForms.isEmpty()) return false
-
-    for (targetForm in targetForms) {
-      if (targetForm.isEmpty()) continue
-      val targetHasSpaces = ' ' in targetForm
-      val targetIsSpaceFreeScript = containsSpaceFreeScript(targetForm)
-      val targetTokens = splitTokens(targetForm)
-      val strippedTarget = targetTokens.lastOrNull() ?: targetForm
-
-      for (transcriptForm in transcriptForms) {
-        if (transcriptForm.isEmpty()) continue
-        if (transcriptForm == targetForm) return true
-
-        if (targetIsSpaceFreeScript) {
-          val compactTranscript = stripJapaneseFunctionWords(transcriptForm.replace(" ", ""))
-          val compactTarget = targetForm.replace(" ", "")
-          if (compactTarget.isNotEmpty() && compactTarget in compactTranscript) {
-            return true
-          }
-          val compactTargetLength = graphemeCount(compactTarget)
-          if (
-            compactTargetLength >= 3 &&
-              withinEditDistance(
-                text = compactTranscript,
-                target = compactTarget,
-                maxDistance = if (compactTargetLength >= 6) 2 else 1,
+    if (transcriptForms.isEmpty() || targetFormsList.isEmpty()) return emptyList()
+    val primaryForm = transcriptForms.first()
+    val isSpaceFreeTranscript = containsSpaceFreeScript(primaryForm)
+    val candidates = mutableListOf<MatchCandidate>()
+    for ((targetIndex, targetForms) in targetFormsList.withIndex()) {
+      // The kana forms of a word written in another script (e.g. "れちぇ" for "leche") are only
+      // transliterations: they match a kana transcript exactly, but never fuzzily, and never the
+      // kana transliteration of a transcript in another script ("まんざなs" for "manzanas").
+      val isSpaceFreeWord = targetForms.firstOrNull()?.let { containsSpaceFreeScript(it) } == true
+      // "el sol" matches as exactly as "sol", in all its forms (e.g. "elsol").
+      val requiresExactNoun =
+        targetForms.firstOrNull()?.let { isShortNounAfterArticle(splitTokens(it)) } == true
+      for (targetForm in targetForms) {
+        if (targetForm.isEmpty()) continue
+        val isSpaceFreeForm = containsSpaceFreeScript(targetForm)
+        if (isSpaceFreeForm && !isSpaceFreeWord && !isSpaceFreeTranscript) continue
+        for (transcriptForm in transcriptForms) {
+          // Only the transcript as recognized keeps the positions of its words; a match in another
+          // form (e.g. the kana form of a romaji transcript) counts as using all of it.
+          val spanSource = if (transcriptForm == primaryForm) transcriptForm else null
+          if (isSpaceFreeForm) {
+            candidates +=
+              spaceFreeCandidates(
+                targetIndex,
+                targetForm,
+                transcriptForm,
+                spanSource,
+                primaryForm,
+                allowsFuzzy = isSpaceFreeWord && spanSource != null,
               )
-          ) {
-            return true
+          } else {
+            addWordWindowCandidates(
+              candidates,
+              targetIndex,
+              targetForm,
+              transcriptForm,
+              spanSource,
+              primaryForm,
+              requiresExactNoun,
+            )
           }
-        }
-
-        val transcriptTokens = splitTokens(transcriptForm)
-        when {
-          targetHasSpaces -> {
-            if (containsContiguousPhrase(transcriptTokens, targetTokens)) return true
-            // Also allow matching the noun without a leading article (e.g. "manzana" for
-            // "la manzana").
-            if (
-              targetTokens.size == 2 &&
-                graphemeCount(targetTokens.first()) <= 3 &&
-                graphemeCount(strippedTarget) >= 3 &&
-                matchesSingleToken(transcriptTokens, strippedTarget)
-            ) {
-              return true
-            }
-          }
-          matchesSingleToken(transcriptTokens, targetForm) -> return true
         }
       }
     }
-    return false
+    return pickSpokenTargets(candidates, targetFormsList, stableLength)
   }
+
+  /**
+   * A window of the transcript scored against a target: [start] and [end] are character offsets in
+   * the normalized transcript, [isAligned] whether they are the window's own words (rather than the
+   * whole transcript), and [targetLength] the length of the matched target form in graphemes.
+   */
+  private data class MatchCandidate(
+    val targetIndex: Int,
+    val score: Double,
+    val isAcceptable: Boolean,
+    val start: Int,
+    val end: Int,
+    val isAligned: Boolean,
+    val targetLength: Int,
+  ) {
+    fun overlaps(other: MatchCandidate): Boolean = start < other.end && other.start < end
+  }
+
+  /** Applies the margin, stability, and one-target-per-word rules of [selectSpokenTargets]. */
+  private fun pickSpokenTargets(
+    candidates: List<MatchCandidate>,
+    targetFormsList: List<Set<String>>,
+    stableLength: Int,
+  ): List<XrLanguageTeacherSpokenTarget> {
+    fun runnerUpScore(candidate: MatchCandidate): Double =
+      candidates
+        .filter {
+          // The same word on two stickers isn't a rival.
+          targetFormsList[it.targetIndex] != targetFormsList[candidate.targetIndex] &&
+            it.overlaps(candidate)
+        }
+        .maxOfOrNull { it.score } ?: 0.0
+
+    val accepted =
+      candidates
+        .filter { candidate ->
+          candidate.isAcceptable &&
+            (candidate.score >= 1.0 ||
+              (candidate.end <= stableLength &&
+                candidate.score - runnerUpScore(candidate) >= MATCH_MARGIN - SCORE_EPSILON))
+        }
+        .sortedWith(
+          compareByDescending<MatchCandidate> { it.score }
+            .thenByDescending { it.isAligned }
+            .thenByDescending { it.targetLength }
+            .thenBy { it.start }
+            .thenBy { it.targetIndex }
+        )
+    val picked = mutableListOf<MatchCandidate>()
+    for (candidate in accepted) {
+      if (picked.any { it.targetIndex == candidate.targetIndex || it.overlaps(candidate) }) continue
+      picked += candidate
+    }
+    return picked.map { XrLanguageTeacherSpokenTarget(it.targetIndex, it.score, it.start, it.end) }
+  }
+
+  /**
+   * Adds a candidate for each window of [transcriptForm]'s words that scores at least
+   * [MIN_CANDIDATE_SCORE] against [targetForm] (or its article-less form). Windows of [spanSource]
+   * keep their own position and may match fuzzily; others span all of [primaryForm] and only match
+   * exactly.
+   */
+  private fun addWordWindowCandidates(
+    candidates: MutableList<MatchCandidate>,
+    targetIndex: Int,
+    targetForm: String,
+    transcriptForm: String,
+    spanSource: String?,
+    primaryForm: String,
+    requiresExactNoun: Boolean,
+  ) {
+    val words = splitTokens(transcriptForm)
+    if (words.isEmpty()) return
+    val wordStarts = spanSource?.let { wordStartOffsets(it) }
+    val wordGraphemes = words.map { graphemes(it) }
+    for (targetWords in targetVariants(splitTokens(targetForm))) {
+      val target = graphemes(targetWords.joinToString(""))
+      if (target.isEmpty()) continue
+      val minWindow = max(1, targetWords.size - 1)
+      val maxWindow = min(words.size, targetWords.size + 1)
+      for (windowSize in minWindow..maxWindow) {
+        for (first in 0..(words.size - windowSize)) {
+          val last = first + windowSize - 1
+          val window = wordGraphemes.subList(first, last + 1).flatten()
+          val distance = levenshteinDistance(window, target)
+          val score = similarity(distance, window.size, target.size)
+          if (score < MIN_CANDIDATE_SCORE) continue
+          candidates +=
+            MatchCandidate(
+              targetIndex = targetIndex,
+              score = score,
+              isAcceptable =
+                distance == 0 ||
+                  (wordStarts != null &&
+                    !requiresExactNoun &&
+                    isAcceptableWordMatch(target, distance, score)),
+              start = wordStarts?.get(first) ?: 0,
+              end = wordStarts?.let { it[last] + words[last].length } ?: primaryForm.length,
+              isAligned = wordStarts != null,
+              targetLength = target.size,
+            )
+        }
+      }
+    }
+  }
+
+  /**
+   * Whether [targetWords] are an article and a noun of at most [MAX_EXACT_ONLY_GRAPHEMES] graphemes
+   * (e.g. "el sol"), which only match exactly.
+   */
+  private fun isShortNounAfterArticle(targetWords: List<String>): Boolean =
+    targetWords.size >= 2 &&
+      targetWords.first() in ARTICLES &&
+      graphemeCount(targetWords.drop(1).joinToString("")) <= MAX_EXACT_ONLY_GRAPHEMES
+
+  /** Returns [targetWords] and, after a leading article, the words without it. */
+  private fun targetVariants(targetWords: List<String>): List<List<String>> {
+    if (targetWords.size >= 2 && targetWords.first() in ARTICLES) {
+      val withoutArticle = targetWords.drop(1)
+      if (graphemeCount(withoutArticle.joinToString("")) >= MIN_ARTICLE_LESS_GRAPHEMES) {
+        return listOf(targetWords, withoutArticle)
+      }
+    }
+    return listOf(targetWords)
+  }
+
+  /** Whether a spoken window [distance] edits from [target], with [score], may count. */
+  private fun isAcceptableWordMatch(target: List<String>, distance: Int, score: Double): Boolean {
+    if (distance == 0) return true
+    if (target.size <= MAX_EXACT_ONLY_GRAPHEMES || score < MATCH_THRESHOLD - SCORE_EPSILON) {
+      return false
+    }
+    return isAlphabeticScript(target) || distance <= syllabicEditLimit(target.size)
+  }
+
+  /**
+   * Returns the space-free script (CJK, kana, Thai) matches of [targetForm] in [transcriptForm]:
+   * every occurrence as a substring (score `1`), or else, if [allowsFuzzy], the closest part of the
+   * transcript within 1 edit (2 from 6 graphemes) for targets of at least 3 graphemes.
+   */
+  private fun spaceFreeCandidates(
+    targetIndex: Int,
+    targetForm: String,
+    transcriptForm: String,
+    spanSource: String?,
+    primaryForm: String,
+    allowsFuzzy: Boolean,
+  ): List<MatchCandidate> {
+    val target = targetForm.replace(" ", "")
+    // Offsets in transcriptForm of the characters kept without spaces.
+    val sourceOffsets = transcriptForm.indices.filter { transcriptForm[it] != ' ' }
+    val compact = stripJapaneseFunctionWords(transcriptForm.replace(" ", ""))
+    if (target.isEmpty() || compact.isEmpty()) return emptyList()
+    val targetGraphemes = graphemes(target)
+
+    fun candidate(score: Double, compactStart: Int, compactEnd: Int) =
+      MatchCandidate(
+        targetIndex = targetIndex,
+        score = score,
+        isAcceptable = true,
+        start = if (spanSource != null) sourceOffsets[compactStart] else 0,
+        end = if (spanSource != null) sourceOffsets[compactEnd - 1] + 1 else primaryForm.length,
+        isAligned = spanSource != null,
+        targetLength = targetGraphemes.size,
+      )
+
+    val exactMatches = buildList {
+      var exactStart = compact.indexOf(target)
+      while (exactStart >= 0) {
+        add(candidate(1.0, exactStart, exactStart + target.length))
+        exactStart = compact.indexOf(target, exactStart + 1)
+      }
+    }
+    if (exactMatches.isNotEmpty()) return exactMatches
+    if (!allowsFuzzy || targetGraphemes.size < 3) return emptyList()
+
+    val maxDistance = if (targetGraphemes.size >= 6) 2 else 1
+    val textGraphemes = graphemes(compact)
+    val graphemeStarts =
+      textGraphemes.runningFold(0) { offset, grapheme -> offset + grapheme.length }
+    var best: Triple<Int, Int, Int>? = null // (distance, first grapheme, end grapheme)
+    val minLength = max(1, targetGraphemes.size - maxDistance)
+    val maxLength = min(textGraphemes.size, targetGraphemes.size + maxDistance)
+    for (windowLength in minLength..maxLength) {
+      for (first in 0..(textGraphemes.size - windowLength)) {
+        val window = textGraphemes.subList(first, first + windowLength)
+        val distance = levenshteinDistance(window, targetGraphemes)
+        if (distance <= maxDistance && (best == null || distance < best.first)) {
+          best = Triple(distance, first, first + windowLength)
+        }
+      }
+    }
+    val (distance, first, end) = best ?: return emptyList()
+    return listOf(
+      candidate(
+        score = similarity(distance, end - first, targetGraphemes.size),
+        compactStart = graphemeStarts[first],
+        compactEnd = graphemeStarts[end],
+      )
+    )
+  }
+
+  /** Returns `1 - distance / max(lengths)`, the similarity of two grapheme strings. */
+  private fun similarity(distance: Int, length: Int, otherLength: Int): Double =
+    1.0 - distance.toDouble() / max(1, max(length, otherLength))
+
+  /** Returns the character offset in [text] where each of its words starts. */
+  private fun wordStartOffsets(text: String): List<Int> = buildList {
+    var index = 0
+    while (index < text.length) {
+      if (text[index] != ' ') {
+        add(index)
+        while (index < text.length && text[index] != ' ') index++
+      } else {
+        index++
+      }
+    }
+  }
+
+  /**
+   * Returns how many edits a target of [length] graphemes in a script whose graphemes are syllables
+   * (e.g. Hangul or Devanagari) may differ by: 1 from 4 graphemes, and 2 from 7.
+   */
+  private fun syllabicEditLimit(length: Int): Int =
+    when {
+      length >= 7 -> 2
+      length >= 4 -> 1
+      else -> 0
+    }
+
+  private val ALPHABETIC_SCRIPTS =
+    setOf(
+      Character.UnicodeScript.LATIN,
+      Character.UnicodeScript.CYRILLIC,
+      Character.UnicodeScript.GREEK,
+      Character.UnicodeScript.ARMENIAN,
+      Character.UnicodeScript.GEORGIAN,
+    )
+
+  /** Whether every letter of [graphemes] is in an alphabetic script (and there is at least one). */
+  private fun isAlphabeticScript(graphemes: List<String>): Boolean {
+    var hasLetter = false
+    for (grapheme in graphemes) {
+      for (codePoint in grapheme.codePoints().toArray()) {
+        if (!Character.isLetter(codePoint)) continue
+        if (Character.UnicodeScript.of(codePoint) !in ALPHABETIC_SCRIPTS) return false
+        hasLetter = true
+      }
+    }
+    return hasLetter
+  }
+
+  /**
+   * Lowest similarity at which a spoken word counts for a target. With [MATCH_MARGIN], one edit is
+   * allowed from 4 graphemes, two from 7, and three from 10, while 2 edits in a 5-letter word
+   * ("noche" for "leche", similarity 0.6) don't count.
+   */
+  private const val MATCH_THRESHOLD = 0.7
+
+  /** How much a fuzzy match must beat the next-closest target on the same spoken words by. */
+  private const val MATCH_MARGIN = 0.15
+
+  /** Targets of at most this many graphemes (e.g. "col" or "sol") only match exactly. */
+  private const val MAX_EXACT_ONLY_GRAPHEMES = 3
+
+  /**
+   * Lowest score kept as a candidate; lower ones can neither match nor be a runner-up that blocks.
+   */
+  private const val MIN_CANDIDATE_SCORE = MATCH_THRESHOLD - MATCH_MARGIN - 0.05
+
+  /** Shortest article-less part of a target (e.g. "sol" in "el sol") that matches on its own. */
+  private const val MIN_ARTICLE_LESS_GRAPHEMES = 3
+
+  /** Tolerance for comparing scores computed in floating point. */
+  private const val SCORE_EPSILON = 1e-9
+
+  /** Leading articles a spoken word may leave out (e.g. "manzana" for "la manzana"). */
+  private val ARTICLES =
+    setOf(
+      // Spanish.
+      "el",
+      "la",
+      "los",
+      "las",
+      "un",
+      "una",
+      "unos",
+      "unas",
+      // French ("l'" is split off as "l").
+      "le",
+      "les",
+      "l",
+      "une",
+      "des",
+      // Italian.
+      "il",
+      "lo",
+      "i",
+      "gli",
+      "uno",
+      // Portuguese.
+      "o",
+      "a",
+      "os",
+      "as",
+      "um",
+      "uma",
+      // German.
+      "der",
+      "die",
+      "das",
+      "den",
+      "dem",
+      "ein",
+      "eine",
+      "einen",
+      "einem",
+      "einer",
+      // English.
+      "the",
+      "an",
+    )
 
   private fun addNormalizedVariant(forms: MutableSet<String>, variant: String?) {
     if (variant == null) return
@@ -371,80 +722,6 @@ object XrLanguageTeacherSpeechMatcher {
       forms += normalized
       forms += normalized.replace(" ", "")
     }
-  }
-
-  private fun matchesSingleToken(transcriptTokens: List<String>, targetToken: String): Boolean {
-    if (targetToken.isEmpty()) return false
-    val targetGraphemes = graphemes(targetToken)
-    val maxDistance = allowedEditDistance(targetGraphemes.size)
-    for (token in transcriptTokens) {
-      if (token == targetToken) return true
-      if (maxDistance > 0) {
-        val tokenGraphemes = graphemes(token)
-        if (
-          abs(tokenGraphemes.size - targetGraphemes.size) <= maxDistance &&
-            levenshteinDistance(tokenGraphemes, targetGraphemes) <= maxDistance
-        ) {
-          return true
-        }
-      }
-    }
-    return false
-  }
-
-  private fun containsContiguousPhrase(
-    transcriptTokens: List<String>,
-    targetTokens: List<String>,
-  ): Boolean {
-    if (targetTokens.isEmpty() || transcriptTokens.size < targetTokens.size) return false
-    val window = targetTokens.size
-    val joinedTarget = targetTokens.joinToString(" ")
-    val joinedTargetGraphemes = graphemes(joinedTarget)
-    val maxDistance = allowedEditDistance(joinedTargetGraphemes.size)
-    for (start in 0..(transcriptTokens.size - window)) {
-      val slice = transcriptTokens.subList(start, start + window).joinToString(" ")
-      if (slice == joinedTarget) return true
-      if (maxDistance > 0) {
-        val sliceGraphemes = graphemes(slice)
-        if (
-          abs(sliceGraphemes.size - joinedTargetGraphemes.size) <= maxDistance &&
-            levenshteinDistance(sliceGraphemes, joinedTargetGraphemes) <= maxDistance
-        ) {
-          return true
-        }
-      }
-    }
-    return false
-  }
-
-  private fun allowedEditDistance(length: Int): Int =
-    when {
-      length >= 7 -> 2
-      length >= 4 -> 1
-      else -> 0
-    }
-
-  private fun withinEditDistance(text: String, target: String, maxDistance: Int): Boolean {
-    val textChars = graphemes(text)
-    val targetChars = graphemes(target)
-    if (targetChars.isEmpty() || textChars.isEmpty()) return false
-    if (
-      abs(textChars.size - targetChars.size) <= maxDistance &&
-        levenshteinDistance(textChars, targetChars) <= maxDistance
-    ) {
-      return true
-    }
-    val minLength = max(1, targetChars.size - maxDistance)
-    val maxLength = min(textChars.size, targetChars.size + maxDistance)
-    if (minLength > maxLength) return false
-    for (windowLength in minLength..maxLength) {
-      if (windowLength > textChars.size) continue
-      for (start in 0..(textChars.size - windowLength)) {
-        val window = textChars.subList(start, start + windowLength)
-        if (levenshteinDistance(window, targetChars) <= maxDistance) return true
-      }
-    }
-    return false
   }
 
   private fun levenshteinDistance(lhs: List<String>, rhs: List<String>): Int {
@@ -505,7 +782,8 @@ object XrLanguageTeacherSpeechMatcher {
   private fun containsAsciiLetters(text: String): Boolean =
     text.codePoints().anyMatch { it in 0x41..0x5A || it in 0x61..0x7A }
 
-  private fun containsSpaceFreeScript(text: String): Boolean =
+  /** Whether [text] has a script written without spaces between words (CJK, kana, Thai). */
+  internal fun containsSpaceFreeScript(text: String): Boolean =
     text.codePoints().anyMatch {
       // Hiragana, Katakana, CJK Unified Ideographs, Thai.
       it in 0x3040..0x30FF || it in 0x3400..0x9FFF || it in 0x0E00..0x0E7F

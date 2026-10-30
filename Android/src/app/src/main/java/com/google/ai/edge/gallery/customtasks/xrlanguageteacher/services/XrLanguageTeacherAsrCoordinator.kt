@@ -208,8 +208,40 @@ fun XrLanguageTeacherViewModel.prepareSpeechEngines() {
   prepareTtsEngine()
 }
 
-/** Warms up the selected ASR engine and publishes its readiness. */
+/**
+ * Stops the lesson from preparing the shared ASR engine for the host language while a study game
+ * session uses it for the learn language: cancels a preparation that is running (the game prepares
+ * the engine again before every recognition segment), and makes [prepareAsrEngine] do nothing until
+ * every game session called [resumeLessonAsrAfterGame]. Meanwhile the lesson may show its engine as
+ * warming up. Call on the main thread.
+ */
+internal fun XrLanguageTeacherViewModel.pauseLessonAsrForGame() {
+  activeGameAsrSessions++
+  prepareSpeechJob?.cancel()
+}
+
+/**
+ * Ends a game session's [pauseLessonAsrForGame]; once no game session is left, prepares the ASR
+ * engine for the host language again. Call on the main thread, once per pause.
+ */
+internal fun XrLanguageTeacherViewModel.resumeLessonAsrAfterGame() {
+  if (activeGameAsrSessions == 0) return
+  activeGameAsrSessions--
+  if (activeGameAsrSessions == 0) {
+    prepareAsrEngine()
+  }
+}
+
+/**
+ * Warms up the selected ASR engine for the host language and publishes its readiness. Does nothing
+ * while a study game uses the shared engine for its learn language (see [pauseLessonAsrForGame]);
+ * the engine is prepared once the last game session ends.
+ */
 internal fun XrLanguageTeacherViewModel.prepareAsrEngine() {
+  if (activeGameAsrSessions > 0) {
+    Log.i(TAG, "A study game uses the ASR engine; preparing it for the lesson once the game ends")
+    return
+  }
   val initialModelId = selectedAsrModelID.value
   markAsrWarming(engine = SpeechEngine.fromAsrModelId(initialModelId))
   val previousJob = prepareSpeechJob

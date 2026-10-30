@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services
 
 import android.os.SystemClock
 import android.util.Log
+import com.google.ai.edge.gallery.services.asr.AsrEngineType
 import com.google.ai.edge.gallery.services.asr.AsrRecordingOptions
 import com.google.ai.edge.gallery.services.asr.AsrService
 import com.google.ai.edge.gallery.services.asr.AsrServiceError
@@ -78,20 +79,68 @@ interface XrLanguageTeacherGameSpeechRecognizer {
 /** The ASR engine and the preparation that recognize a game's learn language. */
 data class XrLanguageTeacherGameAsrTarget(
   val service: AsrService,
-  /** Prepares [service] for the learn language; called before every recognition loop. */
+  /**
+   * Prepares [service] for the learn language; called before every recognition segment, so the
+   * learn language is applied again if something prepared the shared engine for another language.
+   */
   val prepare: suspend () -> Unit,
 )
 
 /**
+ * When a game's recognition segment rolls over to a fresh one, which keeps transcripts short over a
+ * long round but loses the audio until the engine listens again.
+ *
+ * @property pauseRolloverMinAgeMs Minimum age of a segment before a speaking pause also rolls it
+ *   over, or `null` to never roll over at a pause.
+ * @property maxSegmentDurationMs Age at which a segment rolls over regardless.
+ */
+data class XrLanguageTeacherGameSegmentTiming(
+  val pauseRolloverMinAgeMs: Long?,
+  val maxSegmentDurationMs: Long,
+) {
+  companion object {
+    /**
+     * Returns the timing for [engineType]:
+     * - The system recognizer keeps a session with a cumulative transcript and restarts itself
+     *   across its own segments and silences (up to a limit, after which the session ends and the
+     *   game starts a new one), while cancelling it drops the pending words and the audio until it
+     *   is ready again. So it never rolls over at a pause, and only after
+     *   [XrLanguageTeacherGameSpeechSession.SYSTEM_MAX_SEGMENT_DURATION_MS], longer than any round,
+     *   which normally keeps one session per round.
+     * - ML Kit and the speech processor restart quickly; they roll over at a pause after
+     *   [XrLanguageTeacherGameSpeechSession.SEGMENT_ROLLOVER_MIN_AGE_MS], or after
+     *   [XrLanguageTeacherGameSpeechSession.MAX_SEGMENT_DURATION_MS], which bounds their transcript
+     *   and the engine's work on long audio.
+     */
+    fun forEngine(engineType: AsrEngineType): XrLanguageTeacherGameSegmentTiming =
+      when (engineType) {
+        AsrEngineType.SYSTEM_DEFAULT ->
+          XrLanguageTeacherGameSegmentTiming(
+            pauseRolloverMinAgeMs = null,
+            maxSegmentDurationMs = XrLanguageTeacherGameSpeechSession.SYSTEM_MAX_SEGMENT_DURATION_MS,
+          )
+        AsrEngineType.MLKIT_BASIC,
+        AsrEngineType.MLKIT_ADVANCED,
+        AsrEngineType.SPEECH_PROCESSOR ->
+          XrLanguageTeacherGameSegmentTiming(
+            pauseRolloverMinAgeMs = XrLanguageTeacherGameSpeechSession.SEGMENT_ROLLOVER_MIN_AGE_MS,
+            maxSegmentDurationMs = XrLanguageTeacherGameSpeechSession.MAX_SEGMENT_DURATION_MS,
+          )
+      }
+  }
+}
+
+/**
  * Continuous learn-language speech recognition for the `Vocab Popper` and `Vocab Runner` games.
  *
- * Every loop prepares the [XrLanguageTeacherGameAsrTarget] returned by [resolveTarget], then runs
- * back-to-back recognition segments with interim results, forwarding each new, trimmed transcript
- * to [listener]. A segment ends when the engine finalizes it or reports that no speech was heard,
- * when the player pauses for [UTTERANCE_PAUSE_MS] once the segment is [SEGMENT_ROLLOVER_MIN_AGE_MS]
- * old, or after [MAX_SEGMENT_DURATION_MS], which keeps transcripts short over a long round. Errors
- * restart the loop after [RETRY_BACKOFF_MS]; [MAX_CONSECUTIVE_FAILURES] errors in a row without a
- * transcript mark recognition [XrLanguageTeacherGameMicState.UNAVAILABLE].
+ * Every loop resolves the [XrLanguageTeacherGameAsrTarget] returned by [resolveTarget], then runs
+ * back-to-back recognition segments with interim results, preparing the target before each one, and
+ * forwards each new, trimmed transcript to [listener]. A segment ends when the engine finalizes it
+ * or reports that no speech was heard, or rolls over to a fresh one by the
+ * [XrLanguageTeacherGameSegmentTiming] of the engine: at a pause of [UTTERANCE_PAUSE_MS] once the
+ * segment is old enough, or once it reaches its maximum duration. Errors restart the loop after
+ * [RETRY_BACKOFF_MS]; [MAX_CONSECUTIVE_FAILURES] errors in a row without a transcript mark
+ * recognition [XrLanguageTeacherGameMicState.UNAVAILABLE].
  *
  * Not thread-safe: call [start] and [stop] from the thread of [scope].
  *
@@ -161,12 +210,19 @@ class XrLanguageTeacherGameSpeechSession(
         return
       }
       activeService = target.service
+      val timing = XrLanguageTeacherGameSegmentTiming.forEngine(target.service.engineType)
       try {
-        target.prepare()
-        listener.onMicStateChanged(XrLanguageTeacherGameMicState.LISTENING)
+        var isListening = false
         while (currentCoroutineContext().isActive) {
+          // Applies the learn language again before every segment, in case something prepared the
+          // shared engine for another language meanwhile.
+          target.prepare()
+          if (!isListening) {
+            isListening = true
+            listener.onMicStateChanged(XrLanguageTeacherGameMicState.LISTENING)
+          }
           listener.onNewSegment()
-          val shouldContinueRightAway = runSegment(target.service)
+          val shouldContinueRightAway = runSegment(target.service, timing)
           consecutiveFailures = 0
           if (!shouldContinueRightAway) {
             // Keeps an engine that ends silent segments right away from spinning.
@@ -195,14 +251,20 @@ class XrLanguageTeacherGameSpeechSession(
   }
 
   /**
-   * Runs one recognition segment on [service] until the engine ends it or it rolls over. Returns
-   * whether the next segment should start right away (the segment produced a transcript or rolled
-   * over), and throws engine errors other than [AsrServiceError.NoSpeechDetected].
+   * Runs one recognition segment on [service] until the engine ends it or it rolls over by
+   * [timing]. Returns whether the next segment should start right away (the segment produced a
+   * transcript or rolled over), and throws engine errors other than
+   * [AsrServiceError.NoSpeechDetected].
    */
-  private suspend fun runSegment(service: AsrService): Boolean = coroutineScope {
+  private suspend fun runSegment(
+    service: AsrService,
+    timing: XrLanguageTeacherGameSegmentTiming,
+  ): Boolean = coroutineScope {
     val segmentScope = this
     val segmentStartMs = elapsedRealtimeMillis()
     var lastEmittedTranscript = ""
+    // Whether a transcript arrived after the last utterance pause was reported.
+    var hasPendingPause = false
     var didRollOver = false
     var failure: Exception? = null
     var pauseJob: Job? = null
@@ -214,11 +276,17 @@ class XrLanguageTeacherGameSpeechSession(
           if (trimmed.isEmpty() || trimmed == lastEmittedTranscript) return@collect
           lastEmittedTranscript = trimmed
           listener.onTranscript(trimmed)
+          hasPendingPause = true
           pauseJob?.cancel()
           pauseJob = segmentScope.launch {
             delay(UTTERANCE_PAUSE_MS)
+            hasPendingPause = false
             listener.onUtterancePause()
-            if (elapsedRealtimeMillis() - segmentStartMs >= SEGMENT_ROLLOVER_MIN_AGE_MS) {
+            val rolloverMinAgeMs = timing.pauseRolloverMinAgeMs
+            if (
+              rolloverMinAgeMs != null &&
+                elapsedRealtimeMillis() - segmentStartMs >= rolloverMinAgeMs
+            ) {
               didRollOver = true
               collectJob?.cancel()
             }
@@ -233,15 +301,16 @@ class XrLanguageTeacherGameSpeechSession(
       }
     }
     val maxDurationJob = launch {
-      delay(MAX_SEGMENT_DURATION_MS)
+      delay(timing.maxSegmentDurationMs)
       didRollOver = true
       collectJob.cancel()
     }
     collectJob.join()
-    val hadPendingPause = pauseJob?.isActive == true
     pauseJob?.cancel()
     maxDurationJob.cancel()
-    if (hadPendingPause && !didRollOver && failure == null) {
+    // The segment ended (by the engine or a rollover) before the pause after the last words: they
+    // won't be revised anymore, so report the pause now.
+    if (hasPendingPause && failure == null) {
       listener.onUtterancePause()
     }
     if (didRollOver) {
@@ -267,13 +336,20 @@ class XrLanguageTeacherGameSpeechSession(
     const val UTTERANCE_PAUSE_MS = 950L
 
     /**
-     * Minimum age of a recognition segment before a pause also rolls over to a fresh segment,
-     * bounding transcript growth over a 60-90 s round without restarting on every word.
+     * Minimum age of an ML Kit or speech processor recognition segment before a pause also rolls
+     * over to a fresh segment, bounding transcript growth over a 60-90 s round without restarting
+     * on every word.
      */
     const val SEGMENT_ROLLOVER_MIN_AGE_MS = 15_000L
 
-    /** Maximum duration of a recognition segment before it is rolled over. */
+    /** Maximum duration of an ML Kit or speech processor recognition segment. */
     const val MAX_SEGMENT_DURATION_MS = 24_000L
+
+    /**
+     * Maximum duration of a system recognizer segment: longer than the longest (90 s) round, so the
+     * game normally keeps one session per round, while still bounding a session that keeps running.
+     */
+    const val SYSTEM_MAX_SEGMENT_DURATION_MS = 120_000L
 
     /** Delay before the recognition loop restarts after an error. */
     const val RETRY_BACKOFF_MS = 180L
