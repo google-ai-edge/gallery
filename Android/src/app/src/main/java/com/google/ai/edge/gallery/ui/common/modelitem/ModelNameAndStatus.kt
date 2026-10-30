@@ -82,6 +82,8 @@ fun ModelNameAndStatus(
   modifier: Modifier = Modifier,
   showModelSizeAndDownloadProgressLabel: Boolean = true,
   showBestOverallBadge: Boolean = false,
+  showLearnMore: Boolean = true,
+  collapsedSubtitle: String? = null,
   statusContent: (@Composable () -> Unit)? = null,
 ) {
   var showUpdateDialog by remember { mutableStateOf(false) }
@@ -228,8 +230,8 @@ fun ModelNameAndStatus(
       )
     }
 
-    // Learn more url.
-    if (!model.downloadInfo.imported && model.learnMoreUrl.isNotEmpty()) {
+    // Learn more url or collapsed subtitle.
+    if (showLearnMore && !model.downloadInfo.imported && model.learnMoreUrl.isNotEmpty()) {
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -246,6 +248,13 @@ fun ModelNameAndStatus(
           textAlign = TextAlign.Left,
         )
       }
+    } else if (!showLearnMore && !collapsedSubtitle.isNullOrEmpty()) {
+      Text(
+        text = collapsedSubtitle,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
+      )
     }
   }
 }

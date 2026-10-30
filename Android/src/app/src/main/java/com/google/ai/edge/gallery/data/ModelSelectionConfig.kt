@@ -72,8 +72,23 @@ data class ModelSelectionSection(
  * @property sections The sections, in display order.
  * @property hideSystemSpeechDefaults Whether to hide the System speech recognition and
  *   text-to-speech defaults from the task's settings.
+ * @property speechLanguageOverlap For tasks that need their speech recognition and text-to-speech
+ *   models to share a language: compares the BCP-47 tags each selected speech model supports (an
+ *   empty list means a model doesn't restrict its languages). When set, the screen's summary sheet
+ *   says which languages are shared, and disables Try it with an error when they share none. `null`
+ *   for tasks that don't need this.
  */
 data class ModelSelectionConfig(
   val sections: List<ModelSelectionSection>,
   val hideSystemSpeechDefaults: Boolean = false,
+  val speechLanguageOverlap:
+    ((asrLanguageTags: List<String>, ttsLanguageTags: List<String>) -> SpeechLanguageOverlap)? =
+    null,
 )
+
+/**
+ * How the languages of the selected speech recognition and text-to-speech models overlap.
+ *
+ * @property shared BCP-47 tags of the languages both models support.
+ */
+data class SpeechLanguageOverlap(val shared: List<String>)

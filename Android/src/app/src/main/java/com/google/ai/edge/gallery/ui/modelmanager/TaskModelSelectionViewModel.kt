@@ -31,6 +31,7 @@ import com.google.ai.edge.gallery.data.ModelUnavailabilityReason
 import com.google.ai.edge.gallery.data.SpeechEngineError
 import com.google.ai.edge.gallery.data.SpeechEngineErrorCause
 import com.google.ai.edge.gallery.data.SpeechEngineKind
+import com.google.ai.edge.gallery.data.SpeechLanguageOverlap
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.services.asr.AsrEngineType
 import com.google.ai.edge.gallery.services.asr.AsrModelRegistry
@@ -55,7 +56,7 @@ private const val TAG = "AGTaskModelSelectionVM"
 private const val KEY_INITIALIZED_TASK_ID = "initialized_task_id"
 private const val KEY_SELECTION_PREFIX = "selection_"
 private const val KEY_EXPANDED_SECTIONS = "expanded_sections"
-private const val KEY_COLLAPSED_MODELS = "collapsed_models"
+private const val KEY_EXPANDED_MODELS = "expanded_models"
 private const val KEY_SUMMARY_EXPANDED = "summary_expanded"
 // How long uiState keeps its upstream after the screen stops collecting, so that configuration
 // changes don't restart it.
@@ -362,6 +363,11 @@ data class TaskModelSelectionUiState(
    * Whether Try it can be tapped: every section has its required selection and nothing launches.
    */
   val canTryIt: Boolean = false,
+  /**
+   * How the languages of the selected speech recognition and text-to-speech models overlap, or
+   * `null` when the task doesn't check this or either speech section has no selection yet.
+   */
+  val speechLanguageOverlap: SpeechLanguageOverlap? = null,
   val launchPhase: ModelSelectionLaunchPhase = ModelSelectionLaunchPhase.IDLE,
   /** Overall download progress in [0, 1] while downloading, or `null` when unknown. */
   val downloadProgress: Float? = null,
@@ -378,8 +384,8 @@ private data class SelectionState(
   /** The selected model name of each section, by section id. */
   val selections: Map<String, String> = emptyMap(),
   val expandedSectionIds: Set<String> = emptySet(),
-  /** Names of the model cards the user collapsed. Every other card is expanded. */
-  val collapsedModelNames: Set<String> = emptySet(),
+  /** Names of the model cards the user expanded. Every card starts collapsed. */
+  val expandedModelNames: Set<String> = emptySet(),
   val isSummaryExpanded: Boolean = false,
   val launchPhase: ModelSelectionLaunchPhase = ModelSelectionLaunchPhase.IDLE,
   val gateRequest: ModelSelectionGateRequest? = null,
@@ -570,9 +576,9 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
   fun setModelExpanded(modelName: String, expanded: Boolean) {
     val current = state.value
     val names =
-      if (expanded) current.collapsedModelNames - modelName
-      else current.collapsedModelNames + modelName
-    update(current.copy(collapsedModelNames = names))
+      if (expanded) current.expandedModelNames + modelName
+      else current.expandedModelNames - modelName
+    update(current.copy(expandedModelNames = names))
   }
 
   /** Expands or collapses the summary sheet. */
@@ -634,14 +640,23 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
       Log.d(TAG, "Downloading model '${model.name}'")
       currentBinding.host.downloadModel(task = task, model = model)
     }
-    val downloadingSectionIds =
-      request.modelsToDownload.mapNotNull { sectionByModelName[it.name]?.id }.toSet()
+    val statuses = currentBinding.host.uiState.value.modelDownloadStatus
+    val activeSelectedNames =
+      current.selections.values
+        .filter { name ->
+          val status = statuses[name]?.status
+          status == ModelDownloadStatusType.IN_PROGRESS ||
+            status == ModelDownloadStatusType.UNZIPPING
+        }
+        .toSet()
+    val trackedDownloads = request.modelsToDownload.map { it.name }.toSet() + activeSelectedNames
+    val downloadingSectionIds = trackedDownloads.mapNotNull { sectionByModelName[it]?.id }.toSet()
     update(
-      state.value.copy(
+      current.copy(
         launchPhase = ModelSelectionLaunchPhase.DOWNLOADING,
         gateRequest = null,
-        startedDownloads = request.modelsToDownload.map { it.name }.toSet(),
-        expandedSectionIds = state.value.expandedSectionIds + downloadingSectionIds,
+        startedDownloads = trackedDownloads,
+        expandedSectionIds = current.expandedSectionIds + downloadingSectionIds,
       )
     )
   }
@@ -757,7 +772,7 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     if (hasFailedModel) {
       // A selected model can no longer be used, for example because its download failed.
       update(
-        state.value.copy(
+        selectionState.copy(
           launchPhase = ModelSelectionLaunchPhase.IDLE,
           startedDownloads = emptySet(),
         )
@@ -767,7 +782,7 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     if (selected.any { statuses[it.second?.name]?.status != ModelDownloadStatusType.SUCCEEDED }) {
       return
     }
-    update(state.value.copy(launchPhase = ModelSelectionLaunchPhase.CHECKING))
+    update(selectionState.copy(launchPhase = ModelSelectionLaunchPhase.CHECKING))
     launchJob = viewModelScope.launch {
       for ((section, model) in selected) {
         if (model == null || !isSystemManagedSpeechModel(model)) {
@@ -835,7 +850,7 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
                 downloadStatus = status,
                 isSelected = model.name == selectedName,
                 isSelectable = isModelSelectable(model, status, isMemoryLow = memoryLow),
-                isExpanded = model.name !in selectionState.collapsedModelNames,
+                isExpanded = model.name in selectionState.expandedModelNames,
                 isMemoryLow = memoryLow,
                 supportedLanguages = supportedLanguagesForCandidate(section.target, model),
               )
@@ -860,12 +875,21 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
       }
     lastCandidates = builtCandidates
     lastSections = sections.associateBy { it.section.id }
+    val speechLanguageOverlap =
+      currentBinding.config.speechLanguageOverlap?.let {
+        selectedSpeechLanguageOverlap(sections, it)
+      }
     val isComplete =
       sections.isNotEmpty() && sections.all { it.selectedCount >= it.section.requiredCount }
     return TaskModelSelectionUiState(
       sections = sections,
       isSummaryExpanded = selectionState.isSummaryExpanded,
-      canTryIt = isComplete && selectionState.launchPhase == ModelSelectionLaunchPhase.IDLE,
+      // Selected speech models that share no language can't run the task.
+      canTryIt =
+        isComplete &&
+          selectionState.launchPhase == ModelSelectionLaunchPhase.IDLE &&
+          speechLanguageOverlap?.shared?.isEmpty() != true,
+      speechLanguageOverlap = speechLanguageOverlap,
       launchPhase = selectionState.launchPhase,
       downloadProgress = downloadProgress(selectionState.startedDownloads, statuses),
       gateRequest = selectionState.gateRequest,
@@ -905,10 +929,12 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
           ModelSelectionTarget.ASR_MODEL,
           ModelSelectionTarget.TTS_MODEL ->
             candidates.firstOrNull {
+              val status = modelManagerUiState.modelDownloadStatus[it.name]
               newBinding.host.isSavedSelection(section.target, it) &&
+                status?.status == ModelDownloadStatusType.SUCCEEDED &&
                 isModelSelectable(
                   model = it,
-                  status = modelManagerUiState.modelDownloadStatus[it.name],
+                  status = status,
                   isMemoryLow = newBinding.host.isMemoryLow(it),
                 )
             }
@@ -935,12 +961,12 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
         }
         .toMap()
     val expandedSectionIds: List<String> = savedStateHandle[KEY_EXPANDED_SECTIONS] ?: emptyList()
-    val collapsedModelNames: List<String> = savedStateHandle[KEY_COLLAPSED_MODELS] ?: emptyList()
+    val expandedModelNames: List<String> = savedStateHandle[KEY_EXPANDED_MODELS] ?: emptyList()
     val isSummaryExpanded: Boolean = savedStateHandle[KEY_SUMMARY_EXPANDED] ?: false
     return SelectionState(
       selections = selections,
       expandedSectionIds = expandedSectionIds.toSet(),
-      collapsedModelNames = collapsedModelNames.toSet(),
+      expandedModelNames = expandedModelNames.toSet(),
       isSummaryExpanded = isSummaryExpanded,
     )
   }
@@ -955,7 +981,7 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
       savedStateHandle[KEY_SELECTION_PREFIX + sectionId] = modelName
     }
     savedStateHandle[KEY_EXPANDED_SECTIONS] = ArrayList(selectionState.expandedSectionIds)
-    savedStateHandle[KEY_COLLAPSED_MODELS] = ArrayList(selectionState.collapsedModelNames)
+    savedStateHandle[KEY_EXPANDED_MODELS] = ArrayList(selectionState.expandedModelNames)
     savedStateHandle[KEY_SUMMARY_EXPANDED] = selectionState.isSummaryExpanded
   }
 
@@ -1014,4 +1040,22 @@ private fun downloadProgress(
     total += status.totalBytes
   }
   return if (total > 0) (received.toFloat() / total).coerceIn(0f, 1f) else null
+}
+
+/**
+ * How the languages of the selected speech recognition and text-to-speech models overlap, or `null`
+ * until both are selected.
+ */
+private fun selectedSpeechLanguageOverlap(
+  sections: List<ModelSelectionSectionUiState>,
+  overlapOf: (List<String>, List<String>) -> SpeechLanguageOverlap,
+): SpeechLanguageOverlap? {
+  fun selectedLanguages(target: ModelSelectionTarget): List<String>? {
+    val section = sections.firstOrNull { it.section.target == target } ?: return null
+    val selected = section.selectedModel ?: return null
+    return section.candidates.firstOrNull { it.model.name == selected.name }?.supportedLanguages
+  }
+  val asrLanguages = selectedLanguages(ModelSelectionTarget.ASR_MODEL) ?: return null
+  val ttsLanguages = selectedLanguages(ModelSelectionTarget.TTS_MODEL) ?: return null
+  return overlapOf(asrLanguages, ttsLanguages)
 }

@@ -87,24 +87,27 @@ internal fun buildSupplementaryCard(
       voices,
     )
   }
-  if (card.usesTopLevelDownload) {
-    // The card's regular download button and progress cover everything but these states.
-    return when (state) {
-      is SpeechModelState.Ready -> readyContent()
-      is SpeechModelState.CheckFailed -> card.copy(notice = checkFailedNotice())
-      is SpeechModelState.EngineError -> card.copy(notice = engineErrorNotice(state.recoverable))
-      else -> card
-    }
-  }
   val readOnlyLanguages = {
     languageRows(
       model = model,
       languageStates = languageStates,
       languageCodes = languageCodes,
       installsLanguagesSeparately = installsLanguagesSeparately,
+      isModelReady = false,
       canSelect = false,
       selectedLanguageCode = "",
     )
+  }
+  if (card.usesTopLevelDownload) {
+    // The card's regular download button and progress cover everything but these states.
+    return when (state) {
+      is SpeechModelState.Ready -> readyContent()
+      is SpeechModelState.CheckFailed ->
+        card.copy(notice = checkFailedNotice(), languages = readOnlyLanguages())
+      is SpeechModelState.EngineError ->
+        card.copy(notice = engineErrorNotice(state.recoverable), languages = readOnlyLanguages())
+      else -> card.copy(languages = readOnlyLanguages())
+    }
   }
   return when (state) {
     null,
@@ -159,6 +162,7 @@ internal fun buildSupplementaryCard(
             messageRes = R.string.supplementary_notice_downloadable,
             action = SupplementaryCardAction.Download,
           ),
+        languages = readOnlyLanguages(),
       )
     is SpeechModelState.NeedsLanguagePack ->
       card.copy(
@@ -173,12 +177,12 @@ internal fun buildSupplementaryCard(
             totalBytes = state.progress.totalBytes,
             continuesInBackground = state.continuesInBackground && !state.cancellable,
           ),
-        languages = if (installsLanguagesSeparately) readOnlyLanguages() else null,
+        languages = readOnlyLanguages(),
       )
     is SpeechModelState.Queued ->
       card.copy(
         statusLine = SupplementaryStatusLine.Message(R.string.supplementary_status_queued),
-        languages = if (installsLanguagesSeparately) readOnlyLanguages() else null,
+        languages = readOnlyLanguages(),
       )
     is SpeechModelState.Ready -> readyContent()
     is SpeechModelState.EngineError ->
@@ -266,6 +270,7 @@ private fun readyCard(
         languageStates = languageStates,
         languageCodes = visibleLanguageCodes,
         installsLanguagesSeparately = installsLanguagesSeparately,
+        isModelReady = true,
         canSelect = isDefault && (model.modelType == ModelType.TTS || installsLanguagesSeparately),
         selectedLanguageCode = selectedLanguageCode,
       ),
@@ -282,6 +287,7 @@ private fun languageRows(
   languageStates: Map<String, LanguageState>,
   languageCodes: List<String>,
   installsLanguagesSeparately: Boolean,
+  isModelReady: Boolean,
   canSelect: Boolean,
   selectedLanguageCode: String,
 ): SupplementaryLanguagesUiState? {
@@ -297,10 +303,10 @@ private fun languageRows(
   }
   val rows = visibleCodes.map { code ->
     val status =
-      if (installsLanguagesSeparately) {
-        languageStates[code].toLanguageStatus()
-      } else {
-        SupplementaryLanguageStatus.Installed
+      when {
+        installsLanguagesSeparately -> languageStates[code].toLanguageStatus()
+        isModelReady -> SupplementaryLanguageStatus.Installed
+        else -> SupplementaryLanguageStatus.Bundled
       }
     val isSelectable = canSelect && status == SupplementaryLanguageStatus.Installed
     SupplementaryLanguageRowUiState(

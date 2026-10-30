@@ -141,6 +141,9 @@ sealed interface SupplementaryLanguageStatus {
   /** The language is installed. */
   data object Installed : SupplementaryLanguageStatus
 
+  /** The language comes bundled with a model that hasn't been downloaded yet. */
+  data object Bundled : SupplementaryLanguageStatus
+
   /** The language can be downloaded. */
   data object Downloadable : SupplementaryLanguageStatus
 

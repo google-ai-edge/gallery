@@ -43,6 +43,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Button
@@ -73,6 +75,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -86,6 +91,7 @@ import com.google.ai.edge.gallery.data.AppBarActionType
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelSelectionConfig
 import com.google.ai.edge.gallery.data.ModelSelectionTarget
+import com.google.ai.edge.gallery.data.SpeechLanguageOverlap
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.InfoTooltipIconButton
 import com.google.ai.edge.gallery.ui.common.ModelDownloadGatesHost
@@ -96,6 +102,7 @@ import com.google.ai.edge.gallery.ui.common.getTaskBgGradientColors
 import com.google.ai.edge.gallery.ui.common.modelitem.ModelRadioItem
 import com.google.ai.edge.gallery.ui.common.rememberModelDownloadGates
 import com.google.ai.edge.gallery.ui.common.rememberOpenSpeechServicesStorePage
+import java.util.Locale
 
 private val CONTENT_ANIMATION_OFFSET = 16.dp
 
@@ -204,6 +211,7 @@ fun SectionedModelSelectionScreen(
     onTryIt = viewModel::onTryItClicked,
     onCancelLaunch = viewModel::cancelLaunch,
     onScrolled = viewModel::onScrolled,
+    modelManagerViewModel = modelManagerViewModel,
     modifier = modifier,
   )
 
@@ -240,6 +248,7 @@ fun SectionedModelSelectionContent(
   onCancelLaunch: () -> Unit,
   onScrolled: () -> Unit,
   modifier: Modifier = Modifier,
+  modelManagerViewModel: ModelManagerViewModel? = null,
 ) {
   val headerAnimation = rememberTaskHeaderAnimation(enableAnimation = enableAnimation)
   val listProgress = headerAnimation.modelListProgress
@@ -336,6 +345,7 @@ fun SectionedModelSelectionContent(
                   modifier = itemModifier,
                   isMemoryLow = candidate.isMemoryLow,
                   onMemoryLowClick = { showMemoryNotAvailableDialog = true },
+                  modelManagerViewModel = modelManagerViewModel,
                 )
               }
             }
@@ -515,6 +525,9 @@ private fun ModelSelectionSummarySheet(
           }
         }
       }
+      uiState.speechLanguageOverlap?.let { overlap ->
+        SpeechLanguageOverlapBanner(overlap = overlap, modifier = Modifier.padding(top = 12.dp))
+      }
       Spacer(modifier = Modifier.height(12.dp))
       when (uiState.launchPhase) {
         ModelSelectionLaunchPhase.IDLE,
@@ -603,6 +616,81 @@ private fun SummarySectionRow(sectionState: ModelSelectionSectionUiState) {
       textAlign = TextAlign.End,
       modifier = Modifier.weight(1f).padding(start = 12.dp),
     )
+  }
+}
+
+/**
+ * Banner above Try it about the languages of the selected speech models: an info banner listing the
+ * shared languages when the models share at least one language, or an error banner when they share
+ * no language (Try it is then disabled).
+ */
+@Composable
+private fun SpeechLanguageOverlapBanner(
+  overlap: SpeechLanguageOverlap,
+  modifier: Modifier = Modifier,
+) {
+  val noOverlap = overlap.shared.isEmpty()
+  val text =
+    if (noOverlap) {
+      AnnotatedString(stringResource(R.string.model_selection_no_shared_languages_banner))
+    } else {
+      val languageNames = languageNamesText(overlap.shared)
+      val rawText =
+        pluralStringResource(
+          R.plurals.model_selection_shared_languages_banner,
+          overlap.shared.size,
+          overlap.shared.size,
+          languageNames,
+        )
+      remember(rawText, languageNames) {
+        buildAnnotatedString {
+          append(rawText)
+          val start = rawText.indexOf(languageNames)
+          if (start >= 0 && languageNames.isNotEmpty()) {
+            addStyle(SpanStyle(fontWeight = FontWeight.Bold), start, start + languageNames.length)
+          }
+        }
+      }
+    }
+  Surface(
+    shape = RoundedCornerShape(12.dp),
+    color =
+      if (noOverlap) MaterialTheme.colorScheme.errorContainer
+      else MaterialTheme.colorScheme.primaryContainer,
+    contentColor =
+      if (noOverlap) MaterialTheme.colorScheme.onErrorContainer
+      else MaterialTheme.colorScheme.onPrimaryContainer,
+    modifier = modifier.fillMaxWidth(),
+  ) {
+    Row(
+      verticalAlignment = Alignment.Top,
+      modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+      Icon(
+        if (noOverlap) Icons.Outlined.ErrorOutline else Icons.Outlined.Info,
+        // The banner text says what it's about.
+        contentDescription = null,
+        modifier = Modifier.size(20.dp),
+      )
+      Spacer(modifier = Modifier.width(10.dp))
+      Text(text, style = MaterialTheme.typography.bodySmall)
+    }
+  }
+}
+
+/**
+ * The names of the languages with BCP-47 tags [languageTags], joined with the locale's list
+ * punctuation.
+ */
+@Composable
+private fun languageNamesText(languageTags: List<String>): String {
+  val locale = LocalConfiguration.current.locales.takeUnless { it.isEmpty }?.get(0) ?: Locale.ROOT
+  return remember(languageTags, locale) {
+    val names =
+      languageTags
+        .map { tag -> Locale.forLanguageTag(tag).getDisplayLanguage(locale).ifEmpty { tag } }
+        .distinct()
+    ListFormatter.getInstance(locale).format(names)
   }
 }
 

@@ -22,7 +22,9 @@ import com.google.ai.edge.gallery.data.ModelSelectionConfig
 import com.google.ai.edge.gallery.data.ModelSelectionSection
 import com.google.ai.edge.gallery.data.ModelSelectionTarget
 import com.google.ai.edge.gallery.data.ModelType
+import com.google.ai.edge.gallery.data.SpeechLanguageOverlap
 import com.google.ai.edge.gallery.services.asr.AsrModelIdentifier
+import com.google.ai.edge.gallery.services.asr.AsrModelRegistry
 import com.google.ai.edge.gallery.services.tts.TtsModelIdentifier
 
 /** Id of the XR Language Teacher's main model section. */
@@ -36,10 +38,15 @@ const val XLT_TTS_MODEL_SECTION_ID = "tts"
 
 /**
  * Whether [model] is a speech recognition model XR Language Teacher can use. The System speech
- * recognizer is never offered.
+ * recognizer and single-language models are never offered.
  */
-internal fun isXrLanguageTeacherAsrModel(model: Model): Boolean =
-  model.modelType == ModelType.ASR && !AsrModelIdentifier.isSystemEngine(model.modelId)
+internal fun isXrLanguageTeacherAsrModel(model: Model): Boolean {
+  if (model.modelType != ModelType.ASR || AsrModelIdentifier.isSystemEngine(model.modelId)) {
+    return false
+  }
+  val languages = AsrModelRegistry.supportedLanguages(model)
+  return languages.isEmpty() || languages.size > 1
+}
 
 /**
  * Whether [model] is a text-to-speech model XR Language Teacher can use. The Android System voice
@@ -101,4 +108,18 @@ val XR_LANGUAGE_TEACHER_MODEL_SELECTION_CONFIG =
         ),
       ),
     hideSystemSpeechDefaults = true,
+    speechLanguageOverlap = ::xrLanguageTeacherSpeechLanguageOverlap,
   )
+
+/**
+ * Which of the teacher's languages work as the native language with the speech recognition and
+ * text-to-speech models that support [asrLanguageTags] and [ttsLanguageTags]: those both models
+ * support ([TeacherLanguageOptions.native]). Languages the teacher doesn't offer are left out.
+ */
+internal fun xrLanguageTeacherSpeechLanguageOverlap(
+  asrLanguageTags: List<String>,
+  ttsLanguageTags: List<String>,
+): SpeechLanguageOverlap {
+  val shared = TeacherLanguageOptions.fromLocaleTags(asrLanguageTags, ttsLanguageTags).native
+  return SpeechLanguageOverlap(shared = shared.map { it.toLocale().toLanguageTag() })
+}
