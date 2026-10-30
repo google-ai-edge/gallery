@@ -16,7 +16,10 @@
 
 package com.google.ai.edge.gallery.ui.common.modelitem
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -58,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -70,6 +74,8 @@ import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.MarkdownText
 import com.google.ai.edge.gallery.ui.common.ProvideTrackableUriHandler
+import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
+import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
 import java.util.Locale
 
@@ -78,15 +84,16 @@ import java.util.Locale
  *
  * It reuses the regular model card's anatomy: [ModelNameAndStatus] (the "Best overall" badge, name,
  * status icon and size, download progress and failure message, and "Learn more"), the expand
- * chevron, the model description, and the AICore access or unavailability panels. It has no
- * Download, Try it or Delete buttons: downloads are started by the screen, and models are deleted
- * in the model manager. Selection and expansion are hoisted so the screen can drive them.
+ * chevron, the model description, the AICore access or unavailability panels, and
+ * [DownloadModelPanel] (`canShowTryIt = false`) when [modelManagerViewModel] is provided. Selection
+ * and expansion are hoisted so the screen can drive them.
  *
  * @param task The task the model is offered for, used for the "Best overall" badge. `null` for
  *   supplementary models.
  * @param selectable Whether the model can be picked. Unselectable models always show the panel that
  *   explains why.
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ModelRadioItem(
   model: Model,
@@ -101,12 +108,21 @@ fun ModelRadioItem(
   isMemoryLow: Boolean = false,
   onMemoryLowClick: () -> Unit = {},
   supportedLanguages: List<String> = emptyList(),
+  modelManagerViewModel: ModelManagerViewModel? = null,
+  tosViewModel: TosViewModel? = null,
 ) {
   val unavailability = downloadStatus?.unavailability
   val showUnavailabilityPanel =
     downloadStatus?.status == ModelDownloadStatusType.UNAVAILABLE && unavailability != null
   val showAICoreAccessPanel =
     model.autoDownloadsOnStartup && downloadStatus?.status == ModelDownloadStatusType.FAILED
+  val canShowDownloadPanel =
+    !isMemoryLow &&
+      selectable &&
+      !model.autoDownloadsOnStartup &&
+      model.downloadInfo.localRelativeDirPathOverride.isEmpty() &&
+      (!model.isSupplementary || model.supportsTopLevelDownload) &&
+      (downloadStatus?.status != ModelDownloadStatusType.SUCCEEDED || downloadStatus.isUpdatable)
   val interactionModifier =
     if (isMemoryLow && !selectable) {
       Modifier.clickable(onClick = onMemoryLowClick)
@@ -143,6 +159,17 @@ fun ModelRadioItem(
             downloadStatus = downloadStatus,
             isExpanded = expanded,
             modifier = Modifier.weight(1f),
+            showLearnMore = expanded,
+            collapsedSubtitle =
+              if (!expanded && supportedLanguages.isNotEmpty()) {
+                pluralStringResource(
+                  R.plurals.model_selection_languages_supported_count,
+                  supportedLanguages.size,
+                  supportedLanguages.size,
+                )
+              } else {
+                null
+              },
             statusContent =
               if (isMemoryLow) {
                 {
@@ -182,7 +209,10 @@ fun ModelRadioItem(
         }
       }
 
-      if (downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS) {
+      if (
+        (!canShowDownloadPanel || modelManagerViewModel == null) &&
+          downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
+      ) {
         val progress = calculateDownloadProgress(downloadStatus = downloadStatus)
         if (progress > 0f) {
           LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
@@ -221,6 +251,29 @@ fun ModelRadioItem(
             fallbackGuideUrl = model.learnMoreUrl,
           )
         showPanel && showAICoreAccessPanel -> AICoreAccessPanel()
+      }
+
+      if (canShowDownloadPanel && modelManagerViewModel != null) {
+        SharedTransitionLayout {
+          AnimatedContent(expanded) { targetIsExpanded ->
+            DownloadModelPanel(
+              task = task,
+              model = model,
+              downloadStatus = downloadStatus?.status,
+              downloadProgress = calculateDownloadProgress(downloadStatus = downloadStatus),
+              animatedVisibilityScope = this@AnimatedContent,
+              sharedTransitionScope = this@SharedTransitionLayout,
+              modifier =
+                Modifier.fillMaxWidth().padding(top = if (targetIsExpanded) 4.dp else 0.dp),
+              modelManagerViewModel = modelManagerViewModel,
+              isExpanded = targetIsExpanded,
+              onTryItClicked = {},
+              tosViewModel = tosViewModel,
+              isUpdatable = downloadStatus?.isUpdatable == true,
+              canShowTryIt = false,
+            )
+          }
+        }
       }
     }
   }

@@ -1766,6 +1766,11 @@
     <item quantity="other">%1$d/%2$d models selected</item>
   </plurals>
   <string name="model_selection_summary_none" translatable="true" description="Shown in the expanded summary panel of the model selection screen, in place of a model name, when no model of that kind is selected yet. [CHAR_LIMIT=16]">None</string>
+  <string name="model_selection_no_shared_languages_banner" translatable="true" description="Error banner above the disabled Try it button on the model selection screen when the selected speech recognition (ASR) and text-to-speech (TTS) models don't support any language in common. Keep the abbreviations ASR and TTS. [CHAR_LIMIT=200]">The selected ASR and TTS models don’t share any supported languages. Choose a different ASR or TTS model.</string>
+  <plurals name="model_selection_shared_languages_banner" translatable="true" description="Info banner above Try it on the model selection screen when the selected speech recognition (ASR) and text-to-speech (TTS) models support a restricted subset of languages in common. %1$d is the number of shared languages (for example, 6). %2$s is the locale-formatted list of shared language names (for example, 'English, French, Spanish, German, Italian, and Portuguese'). Keep the abbreviations ASR and TTS. [CHAR_LIMIT=240] applies across all plural variants.">
+    <item quantity="one">The selected ASR and TTS models support %1$d shared language: %2$s.</item>
+    <item quantity="other">The selected ASR and TTS models support %1$d shared languages: %2$s.</item>
+  </plurals>
   <string name="cd_model_selection_section_info" translatable="true" description="Content description of the info button next to a section header on the model selection screen, which shows what that kind of model does. %1$s is the section title, for example 'Main models'. [CHAR_LIMIT=NONE]">About %1$s</string>
   <string name="model_selection_no_main_models" translatable="true" description="Message shown in the main models section of the model selection screen when no main model can run on this device. [CHAR_LIMIT=60]">No main models available on this device</string>
   <string name="model_selection_no_asr_models" translatable="true" description="Message shown in the automatic speech recognition (ASR) section of the model selection screen when no ASR model can run on this device. Keep the abbreviation ASR. [CHAR_LIMIT=60]">No ASR models available on this device</string>
@@ -1792,5 +1797,9 @@
   <string name="open_settings" translatable="true" description="Button label in a permission denied dialog or camera overlay that opens the app's system Settings page so the user can grant permissions. [CHAR_LIMIT=25]">Open Settings</string>
   <string name="model_selection_supported_languages_title" translatable="true" description="Header of the collapsible section inside an expanded speech model card on the model selection screen that lists the languages supported by the model. [CHAR_LIMIT=35]">Supported languages</string>
   <string name="model_selection_section_count_format" translatable="true" tools:ignore="PluralsCandidate" description="Parenthetical item count shown next to the Supported languages header inside an expanded speech model card on the model selection screen, where %1$d is the number of supported languages (for example, (8)). [CHAR_LIMIT=12]">(%1$d)</string>
+  <plurals name="model_selection_languages_supported_count" translatable="true" description="Line under the status on a collapsed speech model card on the model selection screen saying how many languages the model supports, for example '15 languages supported'. %d is the number of languages. [CHAR_LIMIT=35] applies across all plural variants.">
+    <item quantity="one">%d language supported</item>
+    <item quantity="other">%d languages supported</item>
+  </plurals>
 
 </resources>
