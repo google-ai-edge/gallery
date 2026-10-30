@@ -334,7 +334,7 @@ internal constructor(
   /** Warms up [transcriber] during [prepare] so the first recording starts quickly. */
   private fun warmUpTranscriber(transcriber: AudioTranscribing) {
     transcriber.prewarm()
-    val unusedChunk = transcriber.transcribe(FloatArray(CHUNK_SAMPLES), endOfStream = false)
+    val unusedSilence = transcriber.transcribe(FloatArray(CHUNK_SAMPLES), endOfStream = false)
     val unusedFinal = transcriber.finishStream()
     transcriber.prewarm()
   }
@@ -362,49 +362,61 @@ internal constructor(
     }
 
     val inFlight = engineState.get().inFlightPrepare?.deferred
+    val sessionJob: Job
     try {
-      when {
-        inFlight != null -> inFlight.await()
-        engineState.get().audioTranscriber == null || _status.value is AsrServiceStatus.Failed ->
-          prepare(engineState.get().preparedConfig ?: AsrPreparationConfig())
+      try {
+        when {
+          inFlight != null -> inFlight.await()
+          engineState.get().audioTranscriber == null || _status.value is AsrServiceStatus.Failed ->
+            prepare(engineState.get().preparedConfig ?: AsrPreparationConfig())
+        }
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        if (isActiveSession(session)) _status.value = AsrServiceStatus.Failed
+        close(e as? AsrServiceError ?: AsrServiceError.ModelInitializationFailed(e))
+        return@callbackFlow
       }
-    } catch (e: CancellationException) {
-      throw e
-    } catch (e: Exception) {
-      if (isActiveSession(session)) _status.value = AsrServiceStatus.Failed
-      close(e as? AsrServiceError ?: AsrServiceError.ModelInitializationFailed(e))
-      return@callbackFlow
-    }
 
-    if (session.isCancelled || !isActiveSession(session)) {
-      channel.close()
-      return@callbackFlow
-    }
-
-    val transcriber = engineState.get().audioTranscriber
-    if (transcriber == null) {
-      if (isActiveSession(session)) _status.value = AsrServiceStatus.Failed
-      close(AsrServiceError.ModelInitializationFailed())
-      return@callbackFlow
-    }
-
-    resetTranscriptState()
-    _currentAmplitude.value = 0f
-    if (!session.isStopRequested) _status.value = AsrServiceStatus.Recognizing
-
-    // Publish the job before it starts so a concurrent release() always waits for it before closing
-    // the native engine.
-    val sessionJob =
-      serviceScope.launch(start = CoroutineStart.LAZY) {
-        runRecordingSession(
-          session = session,
-          transcriber = transcriber,
-          showInterim = options.showInterimResults,
-          externalAudioSource = options.externalAudioSource,
-        )
+      if (session.isCancelled || !isActiveSession(session)) {
+        channel.close()
+        return@callbackFlow
       }
-    session.job = sessionJob
-    sessionJob.start()
+
+      val transcriber = engineState.get().audioTranscriber
+      if (transcriber == null) {
+        if (isActiveSession(session)) _status.value = AsrServiceStatus.Failed
+        close(AsrServiceError.ModelInitializationFailed())
+        return@callbackFlow
+      }
+
+      resetTranscriptState()
+      _currentAmplitude.value = 0f
+      if (session.isStopRequested) {
+        _status.value = AsrServiceStatus.Processing
+      } else {
+        _status.value = AsrServiceStatus.Recognizing
+      }
+
+      // Publish the job before it starts so a concurrent release() always waits for it before
+      // closing the native engine.
+      sessionJob =
+        serviceScope.launch(start = CoroutineStart.LAZY) {
+          runRecordingSession(
+            session = session,
+            transcriber = transcriber,
+            showInterim = options.showInterimResults,
+            externalAudioSource = options.externalAudioSource,
+          )
+        }
+      sessionJob.invokeOnCompletion { session.completion.complete(Unit) }
+      session.job = sessionJob
+      sessionJob.start()
+    } finally {
+      if (session.job == null) {
+        session.completion.complete(Unit)
+      }
+    }
 
     awaitClose {
       session.isCancelled = true
@@ -491,12 +503,19 @@ internal constructor(
 
   override suspend fun stopRecording() =
     withContext(ioDispatcher) {
-      if (_status.value !is AsrServiceStatus.Recognizing) return@withContext
-      _status.value = AsrServiceStatus.Processing
-      val session = engineState.get().activeSession
-      session?.isStopRequested = true
+      val session = engineState.get().activeSession ?: return@withContext
+      if (session.isCancelled || session.streamFinalized.get()) return@withContext
+      session.isStopRequested = true
+      if (
+        _status.value is AsrServiceStatus.Recognizing ||
+          _status.value is AsrServiceStatus.Initializing ||
+          _status.value is AsrServiceStatus.Ready
+      ) {
+        _status.value = AsrServiceStatus.Processing
+      }
       pcmAudioRecorder.release()
-      session?.job?.join()
+      session.completion.await()
+      session.job?.join()
     }
 
   override suspend fun cancelRecording() =
