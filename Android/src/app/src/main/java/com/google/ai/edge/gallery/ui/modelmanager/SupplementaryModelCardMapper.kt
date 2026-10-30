@@ -36,6 +36,7 @@ import com.google.ai.edge.gallery.services.asr.AsrModelIdentifier
 import com.google.ai.edge.gallery.services.tts.DEFAULT_TTS_LANGUAGE_CODE
 import com.google.ai.edge.gallery.services.tts.TtsModelIdentifier
 import com.google.ai.edge.gallery.services.tts.TtsVoicePreviewPhrases
+import com.google.ai.edge.gallery.services.tts.isPseudoLocale
 import java.util.Locale
 
 /** `bestForTaskTypes` key that marks the best TTS model in the allowlist. */
@@ -209,7 +210,7 @@ private fun readyCard(
   voices: List<TtsVoice>,
 ): SupplementaryModelCardUiState {
   val visibleLanguageCodes = languageCodes.filterNot { code ->
-    isPseudoLocale(code) ||
+    code.isPseudoLocale() ||
       (installsLanguagesSeparately && languageStates[code] is LanguageState.NotOffered)
   }
   val installedCodes =
@@ -285,7 +286,7 @@ private fun languageRows(
   selectedLanguageCode: String,
 ): SupplementaryLanguagesUiState? {
   val visibleCodes = languageCodes.filterNot { code ->
-    isPseudoLocale(code) ||
+    code.isPseudoLocale() ||
       (installsLanguagesSeparately && languageStates[code] is LanguageState.NotOffered)
   }
   if (visibleCodes.isEmpty()) {
@@ -319,11 +320,6 @@ internal fun Model.isMlKitSpeechModel(): Boolean =
     ttsProfile?.engineModelId == TtsModelIdentifier.ML_KIT ||
     modelId == AsrModelIdentifier.MLKIT_BASIC ||
     modelId == AsrModelIdentifier.MLKIT_ADVANCED
-
-private fun isPseudoLocale(languageCode: String): Boolean {
-  val normalized = languageCode.trim().replace('_', '-').uppercase()
-  return normalized.endsWith("-XA") || normalized.endsWith("-XB") || normalized.endsWith("-XC")
-}
 
 /** Maps a language pack's state, or `null` before its first check, to its row status. */
 internal fun LanguageState?.toLanguageStatus(): SupplementaryLanguageStatus =

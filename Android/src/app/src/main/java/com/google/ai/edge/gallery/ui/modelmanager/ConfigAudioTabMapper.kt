@@ -37,6 +37,7 @@ import com.google.ai.edge.gallery.services.tts.DEFAULT_TTS_LANGUAGE_CODE
 import com.google.ai.edge.gallery.services.tts.TtsModelIdentifier
 import com.google.ai.edge.gallery.services.tts.TtsSettingsRepository
 import com.google.ai.edge.gallery.services.tts.TtsSettingsUiState
+import com.google.ai.edge.gallery.services.tts.isPseudoLocale
 
 /**
  * Builds the [ConfigAudioTabUiState] for [task] from the current ASR and TTS settings, model
@@ -482,7 +483,7 @@ private fun buildAsrLanguageDropdown(
         AsrModelRegistry.supportedLanguagesForModelName(selectedAsrModelId).ifEmpty {
           listOf(AsrDefaults.LANGUAGE_CODE)
         }
-    }.filterNot(::isPseudoLocale)
+    }.filterNot(String::isPseudoLocale)
 
   val supportsPerLanguageDownload = metadata.installsLanguagePacks
   val isSelectionEnabled = !isAutoDetectModel
@@ -808,11 +809,12 @@ private fun resolveTtsSupportedLanguages(
     val fromMap =
       ttsSettingsUiState.languagesByModelName[selectedTtsModel.name]
         .orEmpty()
-        .filterNot(::isPseudoLocale)
+        .filterNot(String::isPseudoLocale)
     if (fromMap.isNotEmpty()) {
       return fromMap
     }
-    val fromProfile = selectedTtsModel.ttsProfile?.languages.orEmpty().filterNot(::isPseudoLocale)
+    val fromProfile =
+      selectedTtsModel.ttsProfile?.languages.orEmpty().filterNot(String::isPseudoLocale)
     if (fromProfile.isNotEmpty()) {
       return fromProfile
     }
@@ -822,29 +824,24 @@ private fun resolveTtsSupportedLanguages(
   val voiceLocales =
     ttsSettingsUiState.availableVoices
       .mapNotNull { it.locale.ifEmpty { null } }
-      .filterNot(::isPseudoLocale)
+      .filterNot(String::isPseudoLocale)
       .distinct()
   val baseLanguages =
     if (voiceLocales.isNotEmpty()) {
       (listOf(DEFAULT_TTS_LANGUAGE_CODE) + voiceLocales).distinct()
     } else {
       (listOf(DEFAULT_TTS_LANGUAGE_CODE) +
-          AsrModelRegistry.MLKIT_ADVANCED_SUPPORTED_LOCALES.filterNot(::isPseudoLocale))
+          AsrModelRegistry.MLKIT_ADVANCED_SUPPORTED_LOCALES.filterNot(String::isPseudoLocale))
         .distinct()
     }
   val selectedCode = ttsSettingsUiState.selectedLanguageCode
   return if (
-    selectedCode.isNotEmpty() && !isPseudoLocale(selectedCode) && selectedCode !in baseLanguages
+    selectedCode.isNotEmpty() && !selectedCode.isPseudoLocale() && selectedCode !in baseLanguages
   ) {
     (listOf(selectedCode) + baseLanguages).distinct()
   } else {
     baseLanguages
   }
-}
-
-private fun isPseudoLocale(languageCode: String): Boolean {
-  val normalized = languageCode.trim().replace('_', '-').uppercase()
-  return normalized.endsWith("-XA") || normalized.endsWith("-XB") || normalized.endsWith("-XC")
 }
 
 private fun buildTtsVoiceDropdown(

@@ -16,6 +16,8 @@
 
 package com.google.ai.edge.gallery.services.tts
 
+import java.util.Locale
+
 /**
  * Canonical model identifiers for TTS engines.
  *
@@ -71,3 +73,25 @@ val STAR_VOICE_TO_PERSONA: Map<String, String> =
     "star13" to "Orus",
     "star16" to "Aoede",
   )
+
+private val STAR_VOICE_CODES: List<String> = STAR_VOICE_TO_PERSONA.keys.toList()
+
+/**
+ * Returns whether [voiceName] contains any ML Kit Star voice code (`star02`..`star16`) without
+ * allocating a map-key iterator per call.
+ */
+internal fun containsStarVoiceCode(voiceName: String): Boolean {
+  if (!voiceName.contains("star", ignoreCase = true)) return false
+  for (code in STAR_VOICE_CODES) {
+    if (voiceName.contains(code, ignoreCase = true)) return true
+  }
+  return false
+}
+
+/**
+ * Returns whether this language code is an Android testing pseudo-locale (`-XA`, `-XB`, or `-XC`).
+ */
+fun String.isPseudoLocale(): Boolean {
+  val normalized = trim().replace('_', '-').uppercase(Locale.ROOT)
+  return normalized.endsWith("-XA") || normalized.endsWith("-XB") || normalized.endsWith("-XC")
+}

@@ -33,6 +33,7 @@ import com.google.ai.edge.gallery.services.tts.TtsEngineType
 import com.google.ai.edge.gallery.services.tts.TtsModelIdentifier
 import com.google.ai.edge.gallery.services.tts.TtsService
 import com.google.ai.edge.gallery.services.tts.TtsServiceProvider
+import com.google.ai.edge.gallery.services.tts.isPseudoLocale
 import com.google.errorprone.annotations.CanIgnoreReturnValue
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -612,9 +613,9 @@ internal constructor(
   fun supportedLanguageCodes(model: Model): List<String> =
     when (model.modelType) {
       ModelType.TTS ->
-        model.ttsProfile?.languages?.filterNot(::isPseudoLocaleTag)?.ifEmpty { null }
+        model.ttsProfile?.languages?.filterNot(String::isPseudoLocale)?.ifEmpty { null }
           ?: listOf(DEFAULT_TTS_LANGUAGE_CODE)
-      ModelType.ASR -> AsrModelRegistry.supportedLanguages(model).filterNot(::isPseudoLocaleTag)
+      ModelType.ASR -> AsrModelRegistry.supportedLanguages(model).filterNot(String::isPseudoLocale)
       else -> emptyList()
     }
 
@@ -827,8 +828,3 @@ private fun isStaleDuringDownload(current: LanguageState?, queried: LanguageStat
   current is LanguageState.Downloading &&
     queried !is LanguageState.Installed &&
     (queried !is LanguageState.Downloading || (queried.stalled && !current.stalled))
-
-private fun isPseudoLocaleTag(languageCode: String): Boolean {
-  val normalized = languageCode.trim().replace('_', '-').uppercase()
-  return normalized.endsWith("-XA") || normalized.endsWith("-XB") || normalized.endsWith("-XC")
-}

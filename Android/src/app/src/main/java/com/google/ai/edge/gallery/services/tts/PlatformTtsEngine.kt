@@ -20,7 +20,9 @@ import android.content.Context
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.speech.tts.Voice
 import android.util.Log
+import com.google.ai.edge.gallery.R
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -67,10 +69,16 @@ internal constructor(
 
   override val availableModels: List<TtsModelMetadata>
     get() {
-      val snapshot = cachedCapabilities ?: refreshCachedVoicesAndLanguages()
+      val snapshot =
+        cachedCapabilities
+          ?: run {
+            refreshCachedVoicesAndLanguages()
+            cachedCapabilities
+          }
       val locales = snapshot?.languages.orEmpty()
       val voices =
-        snapshot?.voices?.ifEmpty { listOf("System Default") } ?: listOf("System Default")
+        snapshot?.voices?.ifEmpty { listOf(TtsSettingsRepository.DEFAULT_SYSTEM_VOICE) }
+          ?: listOf(TtsSettingsRepository.DEFAULT_SYSTEM_VOICE)
       return listOf(
         TtsModelMetadata(
           modelId = TtsModelIdentifier.ANDROID_NATIVE,
@@ -78,6 +86,7 @@ internal constructor(
           engineType = TtsEngineType.ANDROID_NATIVE,
           supportedLanguages = locales,
           availableVoices = voices,
+          voiceDescriptions = snapshot?.voiceDescriptions.orEmpty(),
           voiceLocales = snapshot?.voiceLocales.orEmpty(),
         )
       )
@@ -104,31 +113,57 @@ internal constructor(
   private data class CachedCapabilities(
     val languages: List<String>,
     val voices: List<String>,
+    val voiceDescriptions: Map<String, String>,
     val voiceLocales: Map<String, String>,
   )
 
   @Volatile private var tts: TextToSpeech? = null
   @Volatile private var cachedCapabilities: CachedCapabilities? = null
 
-  private fun refreshCachedVoicesAndLanguages(): CachedCapabilities? {
-    val instance = tts ?: return null
-    return try {
-      val languages = instance.availableLanguages?.map { it.toLanguageTag() } ?: emptyList()
-      val voiceList = mutableListOf("System Default")
-      val offlineVoices = instance.voices?.filter { !it.isNetworkConnectionRequired }.orEmpty()
-      voiceList.addAll(offlineVoices.map { it.name })
+  private fun refreshCachedVoicesAndLanguages() {
+    val instance = tts ?: return
+    try {
+      val availableLanguages =
+        instance.availableLanguages
+          ?.mapNotNull { locale ->
+            locale.toLanguageTag().takeIf { tag ->
+              tag.isNotEmpty() &&
+                !tag.equals(UNDETERMINED_LOCALE_TAG, ignoreCase = true) &&
+                !tag.isPseudoLocale()
+            }
+          }
+          .orEmpty()
+      val selectableVoices =
+        instance.voices
+          .orEmpty()
+          .filter(::isSelectableSystemVoice)
+          .distinctBy { it.name }
+          .sortedWith(
+            compareBy(
+              { it.locale?.toLanguageTag().orEmpty().lowercase(Locale.ROOT) },
+              { it.name.lowercase(Locale.ROOT) },
+            )
+          )
+      val voiceList = mutableListOf(TtsSettingsRepository.DEFAULT_SYSTEM_VOICE)
+      voiceList.addAll(selectableVoices.map { it.name })
       val voiceLocales =
-        offlineVoices
+        selectableVoices
           .mapNotNull { voice ->
             val tag = voice.locale?.toLanguageTag().orEmpty()
             if (tag.isNotEmpty()) voice.name to tag else null
           }
           .toMap()
-      CachedCapabilities(languages = languages, voices = voiceList, voiceLocales = voiceLocales)
-        .also { cachedCapabilities = it }
+      val voiceDescriptions = buildSystemVoiceDescriptions(context, selectableVoices)
+      val languages = (availableLanguages + voiceLocales.values).distinct()
+      cachedCapabilities =
+        CachedCapabilities(
+          languages = languages,
+          voices = voiceList,
+          voiceDescriptions = voiceDescriptions,
+          voiceLocales = voiceLocales,
+        )
     } catch (e: Exception) {
       Log.w(TAG, "Failed to cache platform TTS voices/languages", e)
-      null
     }
   }
 
@@ -205,7 +240,7 @@ internal constructor(
             isInitialized = true
             _status.value = TtsServiceStatus.Ready
             initDeferred.complete(true)
-            val unused = refreshCachedVoicesAndLanguages()
+            refreshCachedVoicesAndLanguages()
           } else {
             initDeferred.complete(false)
           }
@@ -304,6 +339,7 @@ internal constructor(
         }
         continuation.invokeOnCancellation { createdTts.shutdown() }
       }
+      refreshCachedVoicesAndLanguages()
       speakMutex.withLock { applyConfig(config) }
       isPrepared = true
       _status.value = TtsServiceStatus.Ready
@@ -329,8 +365,8 @@ internal constructor(
       }
     }
     config.voiceId?.let { voiceName ->
-      if (voiceName != "System Default") {
-        val voice = ttsInstance.voices?.find { it.name == voiceName }
+      if (voiceName != TtsSettingsRepository.DEFAULT_SYSTEM_VOICE) {
+        val voice = ttsInstance.voices?.find { it.name == voiceName && isSelectableSystemVoice(it) }
         if (voice != null) {
           ttsInstance.voice = voice
         }
@@ -481,8 +517,95 @@ internal constructor(
     cancel()
     tts?.shutdown()
     tts = null
+    cachedCapabilities = null
     isInitialized = false
     isPrepared = false
     _status.value = TtsServiceStatus.Downloaded
+  }
+
+  internal companion object {
+    private const val FEATURE_LEGACY_SET_LANGUAGE_VOICE = "legacySetLanguageVoice"
+    private const val LEGACY_LANGUAGE_VOICE_SUFFIX = "-language"
+    private const val UNDETERMINED_LOCALE_TAG = "und"
+
+    /**
+     * Returns whether [voice] is an installed, offline, user-selectable platform system voice
+     * (excluding network voices, uninstalled voice packs, synthetic `<locale>-language` aliases, ML
+     * Kit / VoiceLM Star voices surfaced through Speech Services, and testing pseudo-locales).
+     */
+    internal fun isSelectableSystemVoice(voice: Voice): Boolean {
+      if (voice.isNetworkConnectionRequired) return false
+      val name = voice.name?.trim().orEmpty()
+      if (name.isEmpty()) return false
+      val features = voice.features.orEmpty()
+      if (TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED in features) return false
+      if (FEATURE_LEGACY_SET_LANGUAGE_VOICE in features) return false
+      if (name.endsWith(LEGACY_LANGUAGE_VOICE_SUFFIX, ignoreCase = true)) return false
+      if (isMlKitOrVoiceLmInternalVoice(name)) return false
+      val localeTag = voice.locale?.toLanguageTag().orEmpty()
+      if (
+        localeTag.isEmpty() ||
+          localeTag.equals(UNDETERMINED_LOCALE_TAG, ignoreCase = true) ||
+          localeTag.isPseudoLocale()
+      ) {
+        return false
+      }
+      return true
+    }
+
+    internal fun isMlKitOrVoiceLmInternalVoice(voiceName: String): Boolean =
+      voiceName.contains("-x-star", ignoreCase = true) ||
+        voiceName.contains("-x-gx", ignoreCase = true) ||
+        containsStarVoiceCode(voiceName)
+
+    /**
+     * Extracts the short speaker code from a platform voice identifier such as `en-us-x-hol-local`
+     * or `en-us-x-sfg#male` (`"hol"`, `"sfg"`), or returns `null` when the identifier does not
+     * follow the `-x-<code>` naming scheme.
+     */
+    internal fun extractSystemVoiceSpeakerCode(voiceName: String): String? {
+      val markerIndex = voiceName.indexOf("-x-", ignoreCase = true)
+      if (markerIndex < 0) return null
+      val afterMarker = voiceName.substring(markerIndex + 3)
+      val code =
+        afterMarker
+          .substringBefore('#')
+          .trim()
+          .lowercase(Locale.ROOT)
+          .removeSuffix("-local")
+          .removeSuffix("-network")
+      return code.takeIf { it.isNotEmpty() && '-' !in it }
+    }
+
+    /**
+     * Formats localized display labels (e.g., `"Voice 1 (hol)"`) for [voices], numbering voices
+     * sequentially starting at 1 within each BCP-47 locale in the iteration order of [voices].
+     */
+    internal fun buildSystemVoiceDescriptions(
+      context: Context,
+      voices: List<Voice>,
+    ): Map<String, String> {
+      val descriptions = LinkedHashMap<String, String>(voices.size)
+      val groupedByLocale = voices.groupBy {
+        it.locale?.toLanguageTag().orEmpty().lowercase(Locale.ROOT)
+      }
+      for ((_, localeVoices) in groupedByLocale) {
+        for ((index, voice) in localeVoices.withIndex()) {
+          val voiceNumber = index + 1
+          val speakerCode = extractSystemVoiceSpeakerCode(voice.name)
+          descriptions[voice.name] =
+            if (speakerCode != null) {
+              context.getString(
+                R.string.tts_system_voice_with_code_format,
+                voiceNumber,
+                speakerCode,
+              )
+            } else {
+              context.getString(R.string.tts_system_voice_numbered_format, voiceNumber)
+            }
+        }
+      }
+      return descriptions
+    }
   }
 }

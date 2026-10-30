@@ -36,6 +36,7 @@ import com.google.ai.edge.gallery.services.asr.AsrEngineType
 import com.google.ai.edge.gallery.services.asr.AsrModelRegistry
 import com.google.ai.edge.gallery.services.tts.TtsModelIdentifier
 import com.google.ai.edge.gallery.services.tts.TtsModelRegistry
+import com.google.ai.edge.gallery.services.tts.isPseudoLocale
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -197,17 +198,12 @@ internal fun supportedLanguagesForCandidate(
   model: Model,
 ): List<String> {
   if (target == ModelSelectionTarget.ASR_MODEL) {
-    return AsrModelRegistry.supportedLanguages(model).filterNot(::isPseudoLocaleTag)
+    return AsrModelRegistry.supportedLanguages(model).filterNot(String::isPseudoLocale)
   }
   if (target == ModelSelectionTarget.TTS_MODEL) {
-    return TtsModelRegistry.supportedLanguages(model).filterNot(::isPseudoLocaleTag)
+    return TtsModelRegistry.supportedLanguages(model).filterNot(String::isPseudoLocale)
   }
   return emptyList()
-}
-
-private fun isPseudoLocaleTag(languageCode: String): Boolean {
-  val normalized = languageCode.trim().replace('_', '-').uppercase()
-  return normalized.endsWith("-XA") || normalized.endsWith("-XB") || normalized.endsWith("-XC")
 }
 
 /** Returns the models [section] offers, in display order. */
