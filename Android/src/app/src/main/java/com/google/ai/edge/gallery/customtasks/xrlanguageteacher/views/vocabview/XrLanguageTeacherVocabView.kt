@@ -73,8 +73,8 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.PhrasePla
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.VocabCardData
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.displayLearnLanguage
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.getLanguageName
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.LanguageNoticeBanner
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.SavedBackgroundShapes
-import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.TtsLanguageUnsupportedDialog
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.UnsaveWordConfirmationDialog
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.VocabCard
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.rememberVocabThumbnailBitmap
@@ -100,6 +100,10 @@ private val SavedCardBodyStyle: TextStyle
  * Saved tab: centered "Saved" title and subtitle, word count, "All languages" filter dropdown, and
  * a single-column list of saved vocabulary cards ([DictionaryEntryItem]) over decorative background
  * shapes ([SavedBackgroundShapes]).
+ *
+ * When any visible word's language isn't supported by the current TTS model, a single
+ * [LanguageNoticeBanner] is shown at the top of the list (below [SavedHeader]) with a "Switch TTS
+ * model" action, and the speaker buttons on those cards are disabled.
  */
 @Composable
 fun DictionaryScreen(
@@ -109,13 +113,12 @@ fun DictionaryScreen(
   modifier: Modifier = Modifier,
   loadVocabImageBitmap: suspend (String, Language) -> ImageBitmap? = { _, _ -> null },
   isTtsLanguageSupported: (Language) -> Boolean = { true },
-  onOpenAudioSettings: (() -> Unit)? = null,
   phrasePlaybackState: PhrasePlaybackState = PhrasePlaybackState.Idle,
+  onChangeVoiceModel: (() -> Unit)? = null,
 ) {
   val languages = remember(entries) { entries.map { it.displayLearnLanguage() }.distinct() }
   // Null means "All languages".
   var selectedLanguage by rememberSaveable { mutableStateOf<Language?>(null) }
-  var unsupportedTtsLanguage by remember { mutableStateOf<Language?>(null) }
   val activeLanguage = selectedLanguage?.takeIf { it in languages }
   val visibleEntries =
     if (activeLanguage == null) {
@@ -123,13 +126,13 @@ fun DictionaryScreen(
     } else {
       entries.filter { it.displayLearnLanguage() == activeLanguage }
     }
-  val handlePlayPhrase: (String, Language) -> Unit = { phrase, language ->
-    if (!isTtsLanguageSupported(language)) {
-      unsupportedTtsLanguage = language
-    } else {
-      onPlayPhrase(phrase, language)
+  val unsupportedLanguages =
+    remember(visibleEntries, isTtsLanguageSupported) {
+      visibleEntries
+        .map { it.displayLearnLanguage() }
+        .distinct()
+        .filter { !isTtsLanguageSupported(it) }
     }
-  }
 
   Box(modifier = modifier.fillMaxSize().clipToBounds()) {
     SavedBackgroundShapes()
@@ -161,29 +164,40 @@ fun DictionaryScreen(
           }
         }
       } else {
+        if (unsupportedLanguages.isNotEmpty()) {
+          item(key = "tts_unsupported_banner") {
+            val bannerMessage =
+              if (unsupportedLanguages.size == 1) {
+                stringResource(
+                  R.string.xrteacher_vocab_voice_unsupported,
+                  getLanguageName(unsupportedLanguages.single()),
+                )
+              } else {
+                stringResource(R.string.xrteacher_vocab_voice_unsupported_multiple)
+              }
+            LanguageNoticeBanner(
+              message = bannerMessage,
+              onChangeModels = onChangeVoiceModel,
+              actionLabel = stringResource(R.string.xrteacher_tts_unsupported_open_settings),
+            )
+          }
+        }
         items(
           items = visibleEntries,
           key = { "${it.learnLanguage.name}_${it.word.lowercase()}" },
         ) { entry ->
+          val entryLanguage = entry.displayLearnLanguage()
           DictionaryEntryItem(
             entry = entry,
             onDelete = { onDelete(entry) },
-            onPlayPhrase = handlePlayPhrase,
+            onPlayPhrase = onPlayPhrase,
+            isPlayEnabled = isTtsLanguageSupported(entryLanguage),
             loadVocabImageBitmap = loadVocabImageBitmap,
             phrasePlaybackState = phrasePlaybackState,
           )
         }
       }
     }
-  }
-
-  val currentUnsupportedLanguage = unsupportedTtsLanguage
-  if (currentUnsupportedLanguage != null) {
-    TtsLanguageUnsupportedDialog(
-      language = currentUnsupportedLanguage,
-      onDismiss = { unsupportedTtsLanguage = null },
-      onOpenAudioSettings = onOpenAudioSettings,
-    )
   }
 }
 
@@ -349,6 +363,7 @@ private fun SavedMenuOption(text: String, isSelected: Boolean, onClick: () -> Un
  *   `32.dp` speaker button.
  *
  * Selecting Delete in the ⋮ menu opens [UnsaveWordConfirmationDialog] before calling [onDelete].
+ * When [isPlayEnabled] is `false`, the word and sentence speaker buttons are disabled.
  */
 @Composable
 fun DictionaryEntryItem(
@@ -358,6 +373,7 @@ fun DictionaryEntryItem(
   modifier: Modifier = Modifier,
   loadVocabImageBitmap: suspend (String, Language) -> ImageBitmap? = { _, _ -> null },
   phrasePlaybackState: PhrasePlaybackState = PhrasePlaybackState.Idle,
+  isPlayEnabled: Boolean = true,
 ) {
   val savedImageBitmap =
     rememberVocabThumbnailBitmap(entry.word, entry.learnLanguage, loadVocabImageBitmap)
@@ -378,6 +394,7 @@ fun DictionaryEntryItem(
     onPlayTargetPhrase = { phrase -> onPlayPhrase(phrase, language) },
     modifier = modifier,
     phrasePlaybackState = phrasePlaybackState,
+    isPlayEnabled = isPlayEnabled,
     header = {
       Row(
         modifier = Modifier.fillMaxWidth().height(SAVED_CARD_BUTTON_SIZE),

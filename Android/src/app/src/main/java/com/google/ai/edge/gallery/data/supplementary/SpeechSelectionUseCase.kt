@@ -255,6 +255,13 @@ constructor(
     )
   }
 
+  /**
+   * The registered models of [modality], downloaded or not, in allowlist order. Unlike
+   * [selectableModels], it includes models the user can still download.
+   */
+  fun registeredModels(modality: SpeechModality): List<Model> =
+    repository.models.value.filter { modalityOf(it) == modality }
+
   /** The registered models of [modality] that can be made the default now, in allowlist order. */
   fun selectableModels(modality: SpeechModality): List<Model> =
     repository.models.value.filter { modalityOf(it) == modality && isSelectable(it) }

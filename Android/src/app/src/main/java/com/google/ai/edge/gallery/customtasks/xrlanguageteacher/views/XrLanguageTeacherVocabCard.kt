@@ -88,8 +88,12 @@ internal fun VocabCard(
   phrasePlaybackState: PhrasePlaybackState = PhrasePlaybackState.Idle,
   header: (@Composable () -> Unit)? = null,
   footer: (@Composable () -> Unit)? = null,
+  isPlayEnabled: Boolean = true,
 ) {
   val textMaxLines = if (header != null) Int.MAX_VALUE else 2
+  // Disabled speakers use the standard GM3 disabled colors.
+  val disabledContainer = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+  val disabledContent = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
   // The playback state only names the text, and a word can be its own example sentence, so the
   // card remembers which of its buttons was tapped.
   var tappedSpeaker by remember(vocabCardData) { mutableStateOf<VocabSpeaker?>(null) }
@@ -145,8 +149,9 @@ internal fun VocabCard(
             tappedSpeaker = VocabSpeaker.WORD
             onPlayTargetPhrase(vocabCardData.word)
           },
+          enabled = isPlayEnabled,
           shape = CircleShape,
-          color = MaterialTheme.colorScheme.primary,
+          color = if (isPlayEnabled) MaterialTheme.colorScheme.primary else disabledContainer,
           modifier = Modifier.size(40.dp),
         ) {
           Box(contentAlignment = Alignment.Center) {
@@ -155,7 +160,7 @@ internal fun VocabCard(
                 tappedSpeaker == VocabSpeaker.WORD &&
                   phrasePlaybackState.isLoading(vocabCardData.word),
               contentDescription = stringResource(R.string.xrteacher_pronounce_word),
-              tint = MaterialTheme.colorScheme.onPrimary,
+              tint = if (isPlayEnabled) MaterialTheme.colorScheme.onPrimary else disabledContent,
               size = 20.dp,
             )
           }
@@ -172,6 +177,7 @@ internal fun VocabCard(
             tappedSpeaker = VocabSpeaker.SENTENCE
             onPlayTargetPhrase(vocabCardData.example)
           },
+          isPlayEnabled = isPlayEnabled,
         )
       }
 
@@ -190,6 +196,7 @@ private fun ExampleSentenceBox(
   vocabCardData: VocabCardData,
   isLoading: Boolean,
   onPlaySentence: () -> Unit,
+  isPlayEnabled: Boolean = true,
 ) {
   val highlightColor = MaterialTheme.colorScheme.primary
   val highlightedExample =
@@ -229,15 +236,20 @@ private fun ExampleSentenceBox(
 
       Surface(
         onClick = onPlaySentence,
+        enabled = isPlayEnabled,
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.secondaryContainer,
+        color =
+          if (isPlayEnabled) MaterialTheme.colorScheme.secondaryContainer
+          else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
         modifier = Modifier.size(32.dp),
       ) {
         Box(contentAlignment = Alignment.Center) {
           PhraseSpeakerIcon(
             isLoading = isLoading,
             contentDescription = stringResource(R.string.xrteacher_pronounce_sentence),
-            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            tint =
+              if (isPlayEnabled) MaterialTheme.colorScheme.onSecondaryContainer
+              else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
             size = 16.dp,
           )
         }

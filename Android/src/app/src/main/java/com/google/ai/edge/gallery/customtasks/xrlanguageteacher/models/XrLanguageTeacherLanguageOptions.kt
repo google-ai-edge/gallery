@@ -117,3 +117,31 @@ data class TeacherLanguageAdjustment(val saved: TeacherLanguages, val used: Teac
   val unsupportedLearn: Language?
     get() = saved.learn.takeIf { it != used.learn && it != used.main }
 }
+
+/**
+ * The languages the selected speech recognition model supports
+ * ([SelectedSpeechEngineLocales.asrLocaleTags]) that aren't in [nativeLanguages] because the
+ * selected voice model doesn't support them. The native language dropdown shows them greyed out so
+ * that users know why they can't pick them. Languages that no offered voice model speaks
+ * ([SelectedSpeechEngineLocales.reachableTtsLocaleTags]) are left out, since switching the voice
+ * model can't make them work. Empty when the speech recognition model doesn't restrict its
+ * languages.
+ */
+internal fun unsupportedNativeLanguages(
+  engineLocales: SelectedSpeechEngineLocales,
+  nativeLanguages: List<Language>,
+): List<Language> {
+  if (engineLocales.asrLocaleTags.isEmpty()) return emptyList()
+  val reachableLanguages =
+    engineLocales.reachableTtsLocaleTags?.let { mapEngineLocalesToLanguages(it).toSet() }
+  return mapEngineLocalesToLanguages(engineLocales.asrLocaleTags).filter {
+    it !in nativeLanguages && (reachableLanguages == null || it in reachableLanguages)
+  }
+}
+
+/**
+ * Whether the selected text-to-speech model ([SelectedSpeechEngineLocales.ttsLocaleTags]) supports
+ * [language]. A model that doesn't restrict its languages supports them all.
+ */
+fun SelectedSpeechEngineLocales.voiceSupports(language: Language): Boolean =
+  ttsLocaleTags.isEmpty() || language in mapEngineLocalesToLanguages(ttsLocaleTags)

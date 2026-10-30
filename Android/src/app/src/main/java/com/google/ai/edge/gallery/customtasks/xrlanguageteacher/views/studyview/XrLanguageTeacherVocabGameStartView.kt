@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -58,10 +59,12 @@ import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -75,6 +78,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -84,6 +89,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
@@ -113,6 +119,8 @@ import kotlinx.coroutines.launch
  *   row of the settings card and wrap if they do not fit.
  * @param playLabel the label of the button that starts the activity; "Play game" by default.
  * @param playIcon the icon of that button; a game controller by default.
+ * @param lockedActionLabel with [onLockedAction], a button under [lockedMessage] that helps fix it,
+ *   for example "Change voice model".
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -128,6 +136,10 @@ fun VocabGameStartScreen(
   playLabel: String = stringResource(R.string.xrteacher_game_play),
   playIcon: ImageVector = Icons.Filled.SportsEsports,
   languageSetting: @Composable () -> Unit,
+  lockedActionLabel: String? = null,
+  onLockedAction: (() -> Unit)? = null,
+  changeModelLabel: String? = null,
+  onChangeModel: (() -> Unit)? = null,
   moreSettings: @Composable () -> Unit,
 ) {
   val background = MaterialTheme.colorScheme.surfaceContainerLowest
@@ -197,7 +209,11 @@ fun VocabGameStartScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
           )
-          Spacer(modifier = Modifier.height(12.dp))
+          if (lockedActionLabel != null && onLockedAction != null) {
+            TextButton(onClick = onLockedAction) { Text(lockedActionLabel) }
+          } else {
+            Spacer(modifier = Modifier.height(12.dp))
+          }
         }
         val buttonHeight = ButtonDefaults.MediumContainerHeight
         Button(
@@ -214,6 +230,26 @@ fun VocabGameStartScreen(
           )
           Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
           Text(text = playLabel, style = ButtonDefaults.textStyleFor(buttonHeight))
+        }
+        if (lockedMessage == null && changeModelLabel != null && onChangeModel != null) {
+          Spacer(modifier = Modifier.height(8.dp))
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+              text = stringResource(R.string.xrteacher_missing_language),
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(
+              onClick = onChangeModel,
+              contentPadding = PaddingValues(horizontal = 8.dp),
+              modifier = Modifier.heightIn(min = 40.dp),
+            ) {
+              Text(
+                text = changeModelLabel,
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+              )
+            }
+          }
         }
       }
     }
@@ -422,6 +458,7 @@ fun VocabGameLanguageDropdown(
   selected: Language?,
   onSelect: (Language) -> Unit,
   isLanguageEnabled: (Language) -> Boolean = { true },
+  languageSupportingText: @Composable (Language) -> String? = { null },
 ) {
   VocabGameDropdown(
     label = stringResource(R.string.xrteacher_game_setting_language),
@@ -431,6 +468,7 @@ fun VocabGameLanguageDropdown(
     placeholder = stringResource(R.string.xrteacher_study_select_language),
     onSelect = onSelect,
     isOptionEnabled = isLanguageEnabled,
+    optionSupportingText = languageSupportingText,
     labelTrailingContent = {
       InfoTooltipIconButton(
         tooltipText = stringResource(R.string.xrteacher_game_language_info),
@@ -444,7 +482,8 @@ fun VocabGameLanguageDropdown(
  * A game setting on a start screen: a small [label] above a white pill with the [optionLabel] of
  * the [selected] option, or [placeholder], that opens a menu of [options]. The selected option is
  * filled in the secondary container color and checked. Options where [isOptionEnabled] is `false`
- * are dimmed and not selectable. The pill is disabled while there are no options.
+ * are dimmed and not selectable, with [optionSupportingText] under them when it returns text. The
+ * pill is disabled while there are no options.
  */
 @Composable
 fun <T> VocabGameDropdown(
@@ -456,9 +495,18 @@ fun <T> VocabGameDropdown(
   onSelect: (T) -> Unit,
   isOptionEnabled: (T) -> Boolean = { true },
   labelTrailingContent: (@Composable () -> Unit)? = null,
+  optionSupportingText: @Composable (T) -> String? = { null },
 ) {
   var isExpanded by remember { mutableStateOf(false) }
   val isEnabled = options.isNotEmpty()
+  // The menu can be wider than the pill (e.g. with "Not supported by …" lines), so it's shifted to
+  // open centered under the pill once both widths are known.
+  var pillWidthPx by remember { mutableIntStateOf(0) }
+  var menuWidthPx by remember { mutableIntStateOf(0) }
+  val menuOffsetX =
+    with(LocalDensity.current) {
+      if (menuWidthPx == 0) 0.dp else ((pillWidthPx - menuWidthPx) / 2).toDp()
+    }
   Column(horizontalAlignment = Alignment.CenterHorizontally) {
     Row(verticalAlignment = Alignment.CenterVertically) {
       Text(
@@ -475,6 +523,7 @@ fun <T> VocabGameDropdown(
       Row(
         modifier =
           Modifier.height(48.dp)
+            .onSizeChanged { pillWidthPx = it.width }
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceContainerLowest)
             .clickable(enabled = isEnabled, role = Role.DropdownList) { isExpanded = true }
@@ -499,11 +548,12 @@ fun <T> VocabGameDropdown(
       DropdownMenu(
         expanded = isExpanded,
         onDismissRequest = { isExpanded = false },
+        offset = DpOffset(menuOffsetX, 0.dp),
         shape = RoundedCornerShape(20.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
       ) {
         Column(
-          modifier = Modifier.padding(horizontal = 4.dp),
+          modifier = Modifier.onSizeChanged { menuWidthPx = it.width }.padding(horizontal = 4.dp),
           verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
           for (option in options) {
@@ -512,6 +562,7 @@ fun <T> VocabGameDropdown(
               text = optionLabel(option),
               isSelected = option == selected,
               enabled = optionEnabled,
+              supportingText = optionSupportingText(option),
               onClick = {
                 if (optionEnabled) {
                   isExpanded = false
@@ -526,21 +577,25 @@ fun <T> VocabGameDropdown(
   }
 }
 
-/** One row of a [VocabGameDropdown] menu: a pill that is filled and checked when selected. */
+/**
+ * One row of a [VocabGameDropdown] menu: a pill that is filled and checked when selected, with an
+ * optional [supportingText] line, for example why the option can't be picked.
+ */
 @Composable
 private fun VocabGameMenuItem(
   text: String,
   isSelected: Boolean,
   onClick: () -> Unit,
   enabled: Boolean = true,
+  supportingText: String? = null,
 ) {
   val colors = MaterialTheme.colorScheme
   val contentColor = if (isSelected) colors.onSecondaryContainer else colors.onSurface
   Row(
     modifier =
       Modifier.fillMaxWidth()
-        .height(40.dp)
-        .clip(CircleShape)
+        .heightIn(min = 40.dp)
+        .clip(if (supportingText == null) CircleShape else RoundedCornerShape(20.dp))
         .background(if (isSelected) colors.secondaryContainer else Color.Transparent)
         .selectable(selected = isSelected, enabled = enabled, onClick = onClick)
         .padding(horizontal = 16.dp)
@@ -548,13 +603,23 @@ private fun VocabGameMenuItem(
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.spacedBy(8.dp),
   ) {
-    Text(
-      text = text,
-      style = MaterialTheme.typography.labelLarge,
-      color = contentColor,
-      maxLines = 1,
-      modifier = Modifier.weight(1f),
-    )
+    Column(
+      modifier = Modifier.weight(1f).padding(vertical = if (supportingText == null) 0.dp else 6.dp)
+    ) {
+      Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        color = contentColor,
+        maxLines = 1,
+      )
+      if (supportingText != null) {
+        Text(
+          text = supportingText,
+          style = MaterialTheme.typography.bodySmall,
+          color = contentColor,
+        )
+      }
+    }
     // Every row keeps room for the check, so the menu width does not depend on the selection.
     Box(modifier = Modifier.size(18.dp)) {
       if (isSelected) {

@@ -34,6 +34,11 @@ data class SelectedSpeechEngineLocales(
   val asrLocaleTags: List<String> = emptyList(),
   val ttsModelId: String = "",
   val ttsLocaleTags: List<String> = emptyList(),
+  /**
+   * The languages any text-to-speech model the teacher offers can speak, downloaded or not, or
+   * `null` when one of them doesn't restrict its languages.
+   */
+  val reachableTtsLocaleTags: List<String>? = null,
 )
 
 /** A speech engine that installs each language as a separate pack, such as ML Kit ASR Basic. */

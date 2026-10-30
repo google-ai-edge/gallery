@@ -81,6 +81,12 @@ fun FlashcardsStudyCard(
   modifier: Modifier = Modifier,
   lockedMessage: String? = null,
   onOpenAudioSettings: (() -> Unit)? = null,
+  lockedActionLabel: String? =
+    if (lockedMessage != null && onOpenAudioSettings != null) {
+      stringResource(R.string.xrteacher_tts_unsupported_open_settings)
+    } else {
+      null
+    },
 ) {
   StudyActivityCard(
     title = stringResource(R.string.xrteacher_flashcards_title),
@@ -91,12 +97,7 @@ fun FlashcardsStudyCard(
     onOpen = onOpen,
     modifier = modifier,
     lockedMessage = lockedMessage,
-    lockedActionLabel =
-      if (lockedMessage != null && onOpenAudioSettings != null) {
-        stringResource(R.string.xrteacher_tts_unsupported_open_settings)
-      } else {
-        null
-      },
+    lockedActionLabel = lockedActionLabel,
     onLockedAction = onOpenAudioSettings,
   )
 }
