@@ -24,6 +24,7 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
@@ -49,6 +50,7 @@ internal class RecordingSession(val scope: ProducerScope<String>) {
   @Volatile var isCancelled: Boolean = false
   @Volatile var isStopRequested: Boolean = false
   @Volatile var job: Job? = null
+  val completion = CompletableDeferred<Unit>()
   val streamFinalized = AtomicBoolean(false)
   val isStopped: Boolean
     get() = isCancelled || isStopRequested

@@ -103,11 +103,13 @@ internal class PcmAudioRecorder(
     val customSource = audioChunkSource
     if (customSource != null) {
       try {
-        customSource().collect { samples ->
-          if (isStopped()) return@collect
-          currentCoroutineContext().ensureActive()
-          onAmplitude(samples.calculateNormalizedVolume())
-          val unused = audioChannel.trySend(samples)
+        if (!isStopped()) {
+          customSource().collect { samples ->
+            if (isStopped()) return@collect
+            currentCoroutineContext().ensureActive()
+            onAmplitude(samples.calculateNormalizedVolume())
+            val unused = audioChannel.trySend(samples)
+          }
         }
       } catch (e: CancellationException) {
         throw e
@@ -122,6 +124,7 @@ internal class PcmAudioRecorder(
 
     var record: AudioRecord? = null
     try {
+      if (isStopped()) return
       val (createdRecord, isFloatEncoding) = createInitializedAudioRecord()
       record = createdRecord
       audioRecordRef.getAndSet(createdRecord)?.let { stale -> stopAndRelease(stale) }
