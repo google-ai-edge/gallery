@@ -18,10 +18,15 @@ package com.google.ai.edge.gallery.ui.common
 
 import android.Manifest
 import android.app.Activity
+import android.app.AppOpsManager
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.os.Process
 import android.provider.Settings
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -75,12 +80,14 @@ private const val TAG = "AGPermissionDeniedDialog"
 /** System permission category surfaced by [PermissionDeniedDialog]. */
 enum class PermissionAccessKind(
   val manifestPermission: String,
+  val appOp: String,
   @StringRes val titleResId: Int,
   @StringRes val messageResId: Int,
 ) {
   /** Microphone (`android.permission.RECORD_AUDIO`) access. */
   MICROPHONE(
     manifestPermission = Manifest.permission.RECORD_AUDIO,
+    appOp = AppOpsManager.OPSTR_RECORD_AUDIO,
     titleResId = R.string.microphone_access_denied_title,
     messageResId = R.string.microphone_access_denied_message,
   ),
@@ -88,6 +95,7 @@ enum class PermissionAccessKind(
   /** Camera (`android.permission.CAMERA`) access. */
   CAMERA(
     manifestPermission = Manifest.permission.CAMERA,
+    appOp = AppOpsManager.OPSTR_CAMERA,
     titleResId = R.string.camera_access_denied_title,
     messageResId = R.string.camera_access_denied_message,
   ),
@@ -104,57 +112,146 @@ object PermissionAccessTracker {
 
   private val requestedPermissionsFlow = MutableStateFlow<Set<String>>(emptySet())
   private val stateVersionFlow = MutableStateFlow(0)
+  private var snapshotStateVersion by mutableIntStateOf(0)
   private val isLoaded = AtomicBoolean(false)
+  private val isAppOpsWatchingRegistered = AtomicBoolean(false)
+  private val mainHandler = Handler(Looper.getMainLooper())
+  @Volatile private var watchedAppOpsManager: AppOpsManager? = null
+  @Volatile private var watchedPackageName: String? = null
+
+  private val appOpsChangedListener = AppOpsManager.OnOpChangedListener { op, packageName ->
+    if (
+      (op == AppOpsManager.OPSTR_CAMERA || op == AppOpsManager.OPSTR_RECORD_AUDIO) &&
+        (packageName == null || packageName == watchedPackageName)
+    ) {
+      if (Looper.myLooper() == Looper.getMainLooper()) {
+        bumpStateVersion()
+      } else {
+        mainHandler.post { bumpStateVersion() }
+      }
+    }
+  }
 
   fun observeStateVersion(context: Context): StateFlow<Int> {
     ensureLoaded(context)
     return stateVersionFlow
   }
 
+  /**
+   * Returns the current Compose snapshot state version, updating synchronously whenever a
+   * permission result is recorded so composable observers re-evaluate without waiting for an
+   * asynchronous coroutine emission.
+   */
+  internal fun currentStateVersion(context: Context): Int {
+    ensureLoaded(context)
+    return snapshotStateVersion
+  }
+
+  private fun bumpStateVersion() {
+    stateVersionFlow.update { it + 1 }
+    snapshotStateVersion = stateVersionFlow.value
+  }
+
   fun ensureLoaded(context: Context) {
+    val appContext = context.applicationContext
     if (isLoaded.compareAndSet(false, true)) {
-      val saved =
-        context.applicationContext
-          .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-          .getStringSet(KEY_REQUESTED_PERMISSIONS, emptySet())
-          .orEmpty()
+      val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      val saved = prefs.getStringSet(KEY_REQUESTED_PERMISSIONS, emptySet()).orEmpty().toSet()
+      val currentlyGranted =
+        PermissionAccessKind.entries
+          .filter { isRuntimePermissionGranted(appContext, it) }
+          .map { it.manifestPermission }
           .toSet()
-      if (saved.isNotEmpty()) {
-        requestedPermissionsFlow.update { current -> current + saved }
+      val initialPermissions = saved + currentlyGranted
+      if (initialPermissions.isNotEmpty()) {
+        requestedPermissionsFlow.update { current -> current + initialPermissions }
+        if (currentlyGranted.any { it !in saved }) {
+          prefs.edit { putStringSet(KEY_REQUESTED_PERMISSIONS, requestedPermissionsFlow.value) }
+        }
+      }
+    }
+    ensureAppOpsWatching(appContext)
+  }
+
+  private fun ensureAppOpsWatching(appContext: Context) {
+    if (isAppOpsWatchingRegistered.compareAndSet(false, true)) {
+      try {
+        val appOps = appContext.getSystemService(AppOpsManager::class.java) ?: return
+        watchedAppOpsManager = appOps
+        watchedPackageName = appContext.packageName
+        for (kind in PermissionAccessKind.entries) {
+          appOps.startWatchingMode(kind.appOp, appContext.packageName, appOpsChangedListener)
+        }
+      } catch (e: RuntimeException) {
+        Log.w(TAG, "Failed to register AppOps watcher", e)
       }
     }
   }
 
-  fun markPermissionRequested(context: Context, permission: String) {
+  /**
+   * Records [permission] as having been requested or granted at least once in memory and persistent
+   * storage, without bumping [stateVersionFlow] during composition-time queries.
+   */
+  private fun recordPermissionRequested(context: Context, permission: String): Boolean {
     ensureLoaded(context)
-    var updatedSet: Set<String>? = null
+    var wasAdded = false
     requestedPermissionsFlow.update { current ->
       if (permission in current) {
+        wasAdded = false
         current
       } else {
-        (current + permission).also { updatedSet = it }
+        wasAdded = true
+        current + permission
       }
     }
-    if (updatedSet != null) {
+    if (wasAdded) {
       context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
-        putStringSet(KEY_REQUESTED_PERMISSIONS, updatedSet)
+        putStringSet(KEY_REQUESTED_PERMISSIONS, requestedPermissionsFlow.value)
       }
     }
-    stateVersionFlow.update { it + 1 }
+    return wasAdded
   }
 
-  fun onPermissionResult(context: Context, permission: String, granted: Boolean) {
-    markPermissionRequested(context, permission)
+  fun markPermissionRequested(context: Context, permission: String): Boolean {
+    val wasAdded = recordPermissionRequested(context, permission)
+    if (wasAdded) {
+      // Only a newly requested permission changes the state. Bumping the version for one that was
+      // already requested would make observers (e.g. [rememberPermissionAccessState], which checks
+      // the permission whenever the version changes) recompose on every frame.
+      bumpStateVersion()
+    }
+    return wasAdded
+  }
+
+  fun onPermissionResult(context: Context, permission: String, granted: Boolean = false) {
+    val unused = recordPermissionRequested(context, permission)
+    // A prompt result always invalidates observers once, whether the permission was newly added or
+    // was already recorded from an earlier prompt or grant.
+    bumpStateVersion()
+  }
+
+  internal fun isRuntimePermissionGranted(context: Context, kind: PermissionAccessKind): Boolean =
+    ContextCompat.checkSelfPermission(context, kind.manifestPermission) ==
+      PackageManager.PERMISSION_GRANTED
+
+  internal fun isAppOpAllowed(context: Context, kind: PermissionAccessKind): Boolean {
+    return try {
+      val appOps = context.getSystemService(AppOpsManager::class.java) ?: return true
+      val mode = appOps.unsafeCheckOpNoThrow(kind.appOp, Process.myUid(), context.packageName)
+      mode == AppOpsManager.MODE_ALLOWED || mode == AppOpsManager.MODE_FOREGROUND
+    } catch (e: RuntimeException) {
+      Log.w(TAG, "Failed to check AppOp ${kind.appOp}", e)
+      true
+    }
   }
 
   fun isPermissionGranted(context: Context, kind: PermissionAccessKind): Boolean {
-    val granted =
-      ContextCompat.checkSelfPermission(context, kind.manifestPermission) ==
-        PackageManager.PERMISSION_GRANTED
-    if (granted) {
-      markPermissionRequested(context, kind.manifestPermission)
+    ensureLoaded(context)
+    val runtimeGranted = isRuntimePermissionGranted(context, kind)
+    if (runtimeGranted) {
+      val unused = recordPermissionRequested(context, kind.manifestPermission)
     }
-    return granted
+    return runtimeGranted && isAppOpAllowed(context, kind)
   }
 
   fun isPermissionDenied(context: Context, kind: PermissionAccessKind): Boolean {
@@ -165,17 +262,21 @@ object PermissionAccessTracker {
     val permission = kind.manifestPermission
     val hasBeenRequested = permission in requestedPermissionsFlow.value
     val shouldShowRationale =
-      (context as? Activity)?.let {
+      context.findActivity()?.let {
         ActivityCompat.shouldShowRequestPermissionRationale(it, permission)
       } == true
     if (shouldShowRationale && !hasBeenRequested) {
-      markPermissionRequested(context, permission)
+      val unused = recordPermissionRequested(context, permission)
     }
     return hasBeenRequested || shouldShowRationale
   }
 
   @VisibleForTesting
   fun resetForTesting(context: Context? = null) {
+    runCatching { watchedAppOpsManager?.stopWatchingMode(appOpsChangedListener) }
+    watchedAppOpsManager = null
+    watchedPackageName = null
+    isAppOpsWatchingRegistered.set(false)
     isLoaded.set(false)
     requestedPermissionsFlow.value = emptySet()
     context
@@ -184,9 +285,16 @@ object PermissionAccessTracker {
       ?.edit()
       ?.clear()
       ?.commit()
-    stateVersionFlow.update { it + 1 }
+    bumpStateVersion()
   }
 }
+
+private tailrec fun Context.findActivity(): Activity? =
+  when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+  }
 
 /**
  * Reactive permission state and launcher for [kind], rendering [PermissionDeniedDialog] when access
@@ -222,7 +330,8 @@ class PermissionAccessState(
 @Composable
 fun rememberPermissionAccessState(kind: PermissionAccessKind): PermissionAccessState {
   val context = LocalContext.current
-  val trackerVersion by PermissionAccessTracker.observeStateVersion(context).collectAsState()
+  val flowTrackerVersion by PermissionAccessTracker.observeStateVersion(context).collectAsState()
+  val snapshotTrackerVersion = PermissionAccessTracker.currentStateVersion(context)
   var resumeTick by remember { mutableIntStateOf(0) }
   var isDialogVisible by remember { mutableStateOf(false) }
   var pendingOnGranted by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -230,17 +339,18 @@ fun rememberPermissionAccessState(kind: PermissionAccessKind): PermissionAccessS
   LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { resumeTick++ }
 
   val isGranted =
-    remember(context, kind, trackerVersion, resumeTick) {
+    remember(context, kind, flowTrackerVersion, snapshotTrackerVersion, resumeTick) {
       PermissionAccessTracker.isPermissionGranted(context, kind)
     }
   val isDenied =
-    remember(context, kind, isGranted, trackerVersion, resumeTick) {
+    remember(context, kind, isGranted, flowTrackerVersion, snapshotTrackerVersion, resumeTick) {
       !isGranted && PermissionAccessTracker.isPermissionDenied(context, kind)
     }
 
   val permissionLauncher =
     rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
       PermissionAccessTracker.onPermissionResult(context, kind.manifestPermission, granted)
+      resumeTick++
       val callback = pendingOnGranted
       pendingOnGranted = null
       if (granted) {
@@ -293,7 +403,7 @@ fun PermissionDeniedDialog(
   modifier: Modifier = Modifier,
   onOpenSettings: (() -> Unit)? = null,
 ) {
-  val defaultOpenSettings = rememberOpenAppPermissionSettings()
+  val defaultOpenSettings = rememberOpenAppPermissionSettings(kind)
   val effectiveOpenSettings = onOpenSettings ?: defaultOpenSettings
   AlertDialog(
     onDismissRequest = onDismiss,
@@ -320,7 +430,7 @@ fun PermissionDeniedDialog(
  */
 @Composable
 fun CameraAccessDeniedOverlay(modifier: Modifier = Modifier, onOpenSettings: (() -> Unit)? = null) {
-  val defaultOpenSettings = rememberOpenAppPermissionSettings()
+  val defaultOpenSettings = rememberOpenAppPermissionSettings(PermissionAccessKind.CAMERA)
   val effectiveOpenSettings = onOpenSettings ?: defaultOpenSettings
   Column(
     modifier = modifier.fillMaxSize().padding(horizontal = 32.dp),
@@ -354,14 +464,18 @@ fun CameraAccessDeniedOverlay(modifier: Modifier = Modifier, onOpenSettings: (()
   }
 }
 
-/** Returns a callback that opens the system App Info / permissions page for the current app. */
+/**
+ * Returns a callback that opens the relevant system Settings page for [kind] (Privacy Settings when
+ * the runtime permission is already granted and blocked by the system-wide privacy toggle, or App
+ * Info otherwise).
+ */
 @Composable
-fun rememberOpenAppPermissionSettings(): () -> Unit {
+fun rememberOpenAppPermissionSettings(kind: PermissionAccessKind? = null): () -> Unit {
   val context = LocalContext.current
-  return remember(context) { { AppPermissionSettings.open(context) } }
+  return remember(context, kind) { { AppPermissionSettings.open(context, kind) } }
 }
 
-/** Builds and launches the system App Info intent where the user can toggle app permissions. */
+/** Builds and launches the system Settings intent where the user can re-enable access. */
 internal object AppPermissionSettings {
   fun createIntent(packageName: String): Intent =
     Intent(
@@ -369,14 +483,40 @@ internal object AppPermissionSettings {
       Uri.fromParts("package", packageName, null),
     )
 
-  fun open(context: Context) {
-    val intent =
-      createIntent(context.packageName).apply {
+  fun createIntentForPermission(context: Context, kind: PermissionAccessKind?): Intent {
+    if (
+      kind != null &&
+        PermissionAccessTracker.isRuntimePermissionGranted(context, kind) &&
+        !PermissionAccessTracker.isAppOpAllowed(context, kind)
+    ) {
+      return Intent(Settings.ACTION_PRIVACY_SETTINGS)
+    }
+    return createIntent(context.packageName)
+  }
+
+  fun open(context: Context, kind: PermissionAccessKind? = null) {
+    val primaryIntent =
+      createIntentForPermission(context, kind).apply {
         if (context !is Activity) {
           addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
       }
-    runCatching { context.startActivity(intent) }
-      .onFailure { e -> Log.w(TAG, "Failed to open application details settings", e) }
+    runCatching { context.startActivity(primaryIntent) }
+      .onFailure { e ->
+        if (primaryIntent.action != Settings.ACTION_APPLICATION_DETAILS_SETTINGS) {
+          val fallbackIntent =
+            createIntent(context.packageName).apply {
+              if (context !is Activity) {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+              }
+            }
+          runCatching { context.startActivity(fallbackIntent) }
+            .onFailure { fallbackError ->
+              Log.w(TAG, "Failed to open application details settings", fallbackError)
+            }
+        } else {
+          Log.w(TAG, "Failed to open application details settings", e)
+        }
+      }
   }
 }
