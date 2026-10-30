@@ -50,8 +50,8 @@ import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.PhrasePlaybackState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.displayLearnLanguage
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.getLanguageName
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.StudyBackgroundShapes
-import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.TtsLanguageUnsupportedDialog
 import com.google.ai.edge.gallery.proto.DictionaryEntry
 import com.google.ai.edge.gallery.proto.Language
 import kotlin.random.Random
@@ -82,7 +82,9 @@ fun StudyScreen(
   onPlayPhrase: ((String, Language) -> Unit)? = null,
   loadVocabImageBitmap: suspend (String, Language) -> ImageBitmap? = { _, _ -> null },
   isTtsLanguageSupported: (Language) -> Boolean = { true },
+  isAsrLanguageSupported: (Language) -> Boolean = { true },
   onOpenAudioSettings: (() -> Unit)? = null,
+  onOpenAsrSettings: (() -> Unit)? = null,
   phrasePlaybackState: PhrasePlaybackState = PhrasePlaybackState.Idle,
 ) {
   var reviewLanguage by rememberSaveable { mutableStateOf<Language?>(null) }
@@ -90,7 +92,6 @@ fun StudyScreen(
   var flashcardsLanguage by rememberSaveable { mutableStateOf<Language?>(null) }
   var flashcardsCardCount by rememberSaveable { mutableIntStateOf(FLASHCARDS_DEFAULT_CARD_COUNT) }
   var reviewSessionSeed by rememberSaveable { mutableIntStateOf(0) }
-  var unsupportedTtsLanguage by remember { mutableStateOf<Language?>(null) }
 
   val isAwayFromCards = reviewLanguage != null || isFlashcardsStartOpen
   LaunchedEffect(isAwayFromCards) { onReviewModeChanged(isAwayFromCards) }
@@ -149,16 +150,26 @@ fun StudyScreen(
           stringResource(R.string.xrteacher_flashcards_step_3),
         ),
       isPlayEnabled = deckSize > 0 && language != null && isTtsLanguageSupported(language),
-      lockedMessage = null,
+      // Flash cards can't start in a language the voice model can't speak.
+      lockedMessage =
+        if (language != null && !isTtsLanguageSupported(language)) {
+          stringResource(R.string.xrteacher_flashcards_voice_unsupported, getLanguageName(language))
+        } else {
+          null
+        },
+      lockedActionLabel =
+        onOpenAudioSettings?.let {
+          stringResource(R.string.xrteacher_tts_unsupported_open_settings)
+        },
+      onLockedAction = onOpenAudioSettings,
+      changeModelLabel =
+        onOpenAudioSettings?.let { stringResource(R.string.xrteacher_change_tts_model) },
+      onChangeModel = onOpenAudioSettings,
       onBack = { isFlashcardsStartOpen = false },
       onPlay = {
-        if (language != null && !isTtsLanguageSupported(language)) {
-          unsupportedTtsLanguage = language
-        } else {
-          flashcardsCardCount = cardCount
-          reviewSessionSeed++
-          reviewLanguage = language
-        }
+        flashcardsCardCount = cardCount
+        reviewSessionSeed++
+        reviewLanguage = language
       },
       modifier = modifier,
       playLabel = stringResource(R.string.xrteacher_flashcards_start_review),
@@ -169,6 +180,10 @@ fun StudyScreen(
           selected = language,
           onSelect = { flashcardsLanguage = it },
           isLanguageEnabled = isTtsLanguageSupported,
+          languageSupportingText = { option ->
+            if (isTtsLanguageSupported(option)) null
+            else stringResource(R.string.xrteacher_language_not_supported_by_tts)
+          },
         )
       },
     ) {
@@ -185,14 +200,6 @@ fun StudyScreen(
         },
         placeholder = "",
         onSelect = { flashcardsCardCount = it },
-      )
-    }
-    val currentUnsupportedLanguage = unsupportedTtsLanguage
-    if (currentUnsupportedLanguage != null) {
-      TtsLanguageUnsupportedDialog(
-        language = currentUnsupportedLanguage,
-        onDismiss = { unsupportedTtsLanguage = null },
-        onOpenAudioSettings = onOpenAudioSettings,
       )
     }
     return

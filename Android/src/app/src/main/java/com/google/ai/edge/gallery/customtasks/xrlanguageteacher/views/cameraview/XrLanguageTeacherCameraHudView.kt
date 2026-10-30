@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameravie
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -35,6 +36,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -51,9 +53,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +69,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -70,8 +77,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -85,6 +91,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.CharacterPersona
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.SpeechEngine
@@ -589,9 +596,24 @@ private fun TeacherInitStepRow(step: TeacherInitStep) {
 }
 
 /**
- * Default camera idle centered Mic button (`72.dp` `primaryContainer` circle with ring, soft glow,
- * and a "Tap the mic to ask a question" caption) + Mockup (a) initial ASR recording pill bar using
- * shared [AsrRecordingPill].
+ * Camera HUD bottom input row, a 1-tap action row where every option sends the current camera
+ * frame:
+ * - **Idle voice-first state (`!usesText`)**: a [CameraHudIconButton] camera button on the start
+ *   side that snaps a photo for a vocabulary card without speaking ([onTakePhoto]), a wide GM3
+ *   `"Ask a question"` mic [Button] in the middle, and a keyboard button on the end side to switch
+ *   to typing, with one soft blue glow behind the whole row ([softPillGlow]).
+ * - **Idle text state (`usesText`)**: the camera button stays put, a [CameraTextPromptBox] replaces
+ *   the mic button, and a mic button replaces the keyboard button to switch back to speaking.
+ * - **ASR recording state ([isRecordingAsr])**: live transcript + shared [AsrRecordingPill].
+ *
+ * @param appearDisabled When true while [enabled] is true, renders the whole row in its faded
+ *   disabled colors while keeping it clickable, so tapping it can prompt the user to enable camera
+ *   access in system Settings.
+ * @param micAppearDisabled Like [appearDisabled], for the mic buttons only (for example when only
+ *   microphone access is off).
+ * @param onDisabledClick Called when the user taps the text box while it [appearDisabled].
+ * @param inputRowModifier Modifier for the row of the three buttons, for example to find its bounds
+ *   for the tooltip tour.
  */
 @Composable
 fun CameraBottomAsrControls(
@@ -605,13 +627,22 @@ fun CameraBottomAsrControls(
   onSendRecording: () -> Unit,
   modifier: Modifier = Modifier,
   appearDisabled: Boolean = false,
+  micAppearDisabled: Boolean = appearDisabled,
+  usesText: Boolean = false,
+  onUsesTextChange: (Boolean) -> Unit = {},
+  onSendText: (String) -> Unit = {},
+  onTakePhoto: () -> Unit = {},
+  onDisabledClick: () -> Unit = {},
+  inputRowModifier: Modifier = Modifier,
 ) {
   // These controls sit on camera pixels rather than a themed surface, so they use colors that are
-  // the same in light and dark themes: a light blue mic button and glow from Color.kt, and a white
-  // caption and ring over the black scrim. Theme tokens such as inverseOnSurface flip to dark text
-  // in dark theme, which is unreadable over the camera feed.
+  // the same in light and dark themes: a light blue mic button and glow from Color.kt, dark tonal
+  // side buttons, and white transcript text over the black scrim. Theme tokens such as
+  // inverseOnSurface flip to dark text in dark theme, which is unreadable over the camera feed.
   val scrimColor = MaterialTheme.colorScheme.scrim
   val onScrimColor = MaterialTheme.customColors.onCameraHudGlowColor
+  // Opens the keyboard only when the user just tapped the keyboard button, not on recomposition.
+  var focusTextOnShow by remember { mutableStateOf(false) }
   Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
     // Atmospheric bottom glow when recording in Mockup (a)
     AnimatedVisibility(
@@ -640,22 +671,75 @@ fun CameraBottomAsrControls(
     AnimatedContent(
       targetState = isRecordingAsr,
       transitionSpec = {
-        fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(160))
+        // Not clipped, so the mic button's glow can spread past the row.
+        (fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(160))).using(
+          SizeTransform(clip = false)
+        )
       },
       label = "CameraBottomAsrControlsTransition",
       modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 16.dp, end = 16.dp),
     ) { recording ->
       if (!recording) {
-        CameraHudActionButton(
-          icon = Icons.Default.Mic,
-          contentDescription = stringResource(R.string.xrteacher_ask_about_object_desc),
-          caption = stringResource(R.string.xrteacher_tap_mic_hint),
-          enabled = enabled,
-          onClick = onStartRecording,
-          appearDisabled = appearDisabled,
-          // The input mode switcher sits 8.dp below the caption.
-          modifier = Modifier.padding(bottom = 8.dp),
-        )
+        val showRowGlow = !usesText && enabled && !micAppearDisabled
+        Row(
+          modifier =
+            Modifier.fillMaxWidth()
+              .padding(top = 8.dp, bottom = 16.dp)
+              .then(inputRowModifier)
+              // One soft glow behind all three buttons, drawn before them so it never covers them.
+              .then(if (showRowGlow) Modifier.softPillGlow(inversePrimaryLight) else Modifier),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          CameraHudIconButton(
+            icon = Icons.Filled.PhotoCamera,
+            contentDescription = stringResource(R.string.xrteacher_take_photo_desc),
+            enabled = enabled,
+            appearDisabled = appearDisabled,
+            onClick = onTakePhoto,
+          )
+          if (usesText) {
+            CameraTextPromptBox(
+              enabled = enabled,
+              appearDisabled = appearDisabled,
+              onDisabledClick = onDisabledClick,
+              onSend = { question ->
+                focusTextOnShow = false
+                onSendText(question)
+              },
+              focusOnShow = focusTextOnShow,
+              onFocusConsumed = { focusTextOnShow = false },
+              modifier = Modifier.weight(1f),
+            )
+            CameraHudIconButton(
+              icon = Icons.Default.Mic,
+              contentDescription = stringResource(R.string.xrteacher_speak_question_desc),
+              enabled = enabled,
+              appearDisabled = micAppearDisabled,
+              onClick = {
+                focusTextOnShow = false
+                onUsesTextChange(false)
+              },
+            )
+          } else {
+            CameraHudAskButton(
+              enabled = enabled,
+              appearDisabled = micAppearDisabled,
+              onClick = onStartRecording,
+              modifier = Modifier.weight(1f),
+            )
+            CameraHudIconButton(
+              icon = Icons.Default.Keyboard,
+              contentDescription = stringResource(R.string.xrteacher_type_question_desc),
+              enabled = enabled,
+              appearDisabled = appearDisabled,
+              onClick = {
+                focusTextOnShow = true
+                onUsesTextChange(true)
+              },
+            )
+          }
+        }
       } else {
         val displayTranscript = liveTranscript.ifBlank { confirmedTranscript }.trim()
         Column(
@@ -690,8 +774,9 @@ fun CameraBottomAsrControls(
 }
 
 /**
- * The main round action button of the idle camera (`72.dp` light blue circle with a white ring and
- * a soft glow) above a white [caption]: the mic in Audio mode and the shutter in Image mode.
+ * The wide `"Ask a question"` mic button of the idle camera HUD row: a GM3 filled [Button] styled
+ * like the camera's original round mic button, with a light blue fill and a thin, 50% white ring.
+ * The soft blue glow is drawn behind the whole row ([CameraBottomAsrControls]), not by the button.
  *
  * It sits on camera pixels rather than a themed surface, so it uses colors that are the same in
  * light and dark themes.
@@ -701,75 +786,86 @@ fun CameraBottomAsrControls(
  *   enable permission in system Settings.
  */
 @Composable
-internal fun CameraHudActionButton(
-  icon: ImageVector,
-  contentDescription: String,
-  caption: String,
+internal fun CameraHudAskButton(
   enabled: Boolean,
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
   appearDisabled: Boolean = false,
 ) {
   val visuallyEnabled = enabled && !appearDisabled
-  val glowColor = inversePrimaryLight
-  val scrimColor = MaterialTheme.colorScheme.scrim
   val onScrimColor = MaterialTheme.customColors.onCameraHudGlowColor
-  val containerColor =
-    if (visuallyEnabled) inversePrimaryLight else inversePrimaryLight.copy(alpha = 0.42f)
-  val borderColor = if (visuallyEnabled) onScrimColor else onScrimColor.copy(alpha = 0.38f)
-  val iconTint = if (visuallyEnabled) onPrimaryDark else onPrimaryDark.copy(alpha = 0.5f)
-  val captionColor = if (visuallyEnabled) onScrimColor else onScrimColor.copy(alpha = 0.5f)
-  Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-    // The top padding leaves room for the glow drawn outside the button.
-    Box(
-      modifier =
-        Modifier.padding(top = 16.dp).size(72.dp).drawBehind {
-          if (visuallyEnabled) {
-            val glowRadius = size.minDimension / 2 + 16.dp.toPx()
-            drawCircle(
-              brush =
-                Brush.radialGradient(
-                  0.65f to glowColor.copy(alpha = 0.65f),
-                  1f to Color.Transparent,
-                  center = center,
-                  radius = glowRadius,
-                ),
-              radius = glowRadius,
-            )
-          }
-        }
-    ) {
-      Surface(
-        onClick = onClick,
-        enabled = enabled,
-        shape = CircleShape,
-        color = containerColor,
-        border = BorderStroke(3.dp, borderColor),
-        modifier = Modifier.fillMaxSize(),
-      ) {
-        Box(contentAlignment = Alignment.Center) {
-          Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = iconTint,
-            modifier = Modifier.size(28.dp),
-          )
-        }
-      }
-    }
-    Spacer(modifier = Modifier.height(12.dp))
+  val fadedContainerColor = inversePrimaryLight.copy(alpha = 0.42f)
+  val fadedContentColor = onPrimaryDark.copy(alpha = 0.5f)
+  Button(
+    onClick = onClick,
+    enabled = enabled,
+    shape = CircleShape,
+    colors =
+      ButtonDefaults.buttonColors(
+        containerColor = if (appearDisabled) fadedContainerColor else inversePrimaryLight,
+        contentColor = if (appearDisabled) fadedContentColor else onPrimaryDark,
+        disabledContainerColor = fadedContainerColor,
+        disabledContentColor = fadedContentColor,
+      ),
+    // A soft, semi-transparent white ring, so the button reads over any camera background.
+    border =
+      BorderStroke(
+        1.dp,
+        onScrimColor.copy(alpha = if (visuallyEnabled) ASK_BUTTON_BORDER_ALPHA else 0.2f),
+      ),
+    contentPadding = PaddingValues(horizontal = 16.dp),
+    modifier = modifier.height(CAMERA_INPUT_ROW_HEIGHT),
+  ) {
+    Icon(
+      imageVector = Icons.Default.Mic,
+      contentDescription = null,
+      modifier = Modifier.size(ButtonDefaults.IconSize),
+    )
+    Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
     Text(
-      text = caption,
-      style =
-        MaterialTheme.typography.titleSmall.copy(
-          fontWeight = FontWeight.Medium,
-          shadow = Shadow(color = scrimColor.copy(alpha = 0.5f), blurRadius = 8f),
-        ),
-      color = captionColor,
-      textAlign = TextAlign.Center,
+      text = stringResource(R.string.xrteacher_ask_question),
+      style = MaterialTheme.typography.labelLarge.copy(fontSize = 16.sp),
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
     )
   }
 }
+
+/**
+ * Draws one soft, diffuse glow behind the camera HUD's input row: an elliptical radial gradient
+ * centered on the row, spreading [ROW_GLOW_SPREAD_X] past its sides and [ROW_GLOW_SPREAD_Y] above
+ * and below, fading from a low opacity in the middle to transparent. It is drawn behind the row's
+ * content, so it reads well over any camera background without covering the buttons.
+ */
+private fun Modifier.softPillGlow(glowColor: Color): Modifier = drawBehind {
+  val radiusY = size.height / 2 + ROW_GLOW_SPREAD_Y.toPx()
+  val radiusX = size.width / 2 + ROW_GLOW_SPREAD_X.toPx()
+  // A circle of radius radiusY, stretched horizontally into an ellipse around the row's center.
+  scale(scaleX = radiusX / radiusY, scaleY = 1f, pivot = center) {
+    drawCircle(
+      brush =
+        Brush.radialGradient(
+          0f to glowColor.copy(alpha = 0.34f),
+          0.45f to glowColor.copy(alpha = 0.22f),
+          0.75f to glowColor.copy(alpha = 0.08f),
+          1f to Color.Transparent,
+          center = center,
+          radius = radiusY,
+        ),
+      radius = radiusY,
+      center = center,
+    )
+  }
+}
+
+/** Opacity of the white ring around the "Ask a question" button. */
+private const val ASK_BUTTON_BORDER_ALPHA = 0.5f
+
+/** How far the input row's glow spreads past the row's sides. */
+private val ROW_GLOW_SPREAD_X = 28.dp
+
+/** How far the input row's glow spreads above and below the row. */
+private val ROW_GLOW_SPREAD_Y = 28.dp
 
 /**
  * Shared light-surface [AsrRecordingPillColors] palette used by both the camera HUD recording bar

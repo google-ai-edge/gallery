@@ -32,6 +32,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,6 +54,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -655,48 +658,40 @@ private fun FollowUpLessonControls(
                 onFocusConsumed = { focusTextOnShow = false },
               )
             } else {
-              val micVisuallyEnabled = enabled && !isMicPermissionDenied
-              val followUpContainerColor =
-                if (micVisuallyEnabled) {
-                  MaterialTheme.colorScheme.primary
-                } else {
-                  MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                }
-              val followUpContentColor =
-                if (micVisuallyEnabled) {
-                  MaterialTheme.colorScheme.onPrimary
-                } else {
-                  MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                }
-              Surface(
+              // GM3 filled button, like the camera's "Ask a question" button. It stays clickable
+              // without mic access, so tapping it can prompt the user to enable it in Settings.
+              val fadedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+              val fadedContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+              Button(
                 onClick = onStartRecording,
                 enabled = enabled,
                 shape = CircleShape,
-                color = followUpContainerColor,
+                colors =
+                  ButtonDefaults.buttonColors(
+                    containerColor =
+                      if (isMicPermissionDenied) fadedContainerColor
+                      else MaterialTheme.colorScheme.primary,
+                    contentColor =
+                      if (isMicPermissionDenied) fadedContentColor
+                      else MaterialTheme.colorScheme.onPrimary,
+                    disabledContainerColor = fadedContainerColor,
+                    disabledContentColor = fadedContentColor,
+                  ),
+                contentPadding = PaddingValues(horizontal = 20.dp),
                 modifier = Modifier.weight(1f).height(FOLLOW_UP_BUTTON_HEIGHT),
               ) {
-                Row(
-                  modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
-                  verticalAlignment = Alignment.CenterVertically,
-                  horizontalArrangement = Arrangement.Center,
-                ) {
-                  Icon(
-                    imageVector = Icons.Default.Mic,
-                    contentDescription = null,
-                    tint = followUpContentColor,
-                    modifier = Modifier.size(22.dp),
-                  )
-                  Spacer(modifier = Modifier.width(10.dp))
-                  Text(
-                    text = stringResource(R.string.xrteacher_ask_follow_up),
-                    style =
-                      MaterialTheme.typography.titleMedium.copy(
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Normal,
-                      ),
-                    color = followUpContentColor,
-                  )
-                }
+                Icon(
+                  imageVector = Icons.Default.Mic,
+                  contentDescription = null,
+                  modifier = Modifier.size(ButtonDefaults.IconSize),
+                )
+                Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                Text(
+                  text = stringResource(R.string.xrteacher_ask_follow_up),
+                  style = MaterialTheme.typography.labelLarge.copy(fontSize = 16.sp),
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
               }
             }
             FilledTonalIconButton(

@@ -46,7 +46,7 @@ const val XR_LANGUAGE_TEACHER_ONBOARDING_FEATURE_ID = "xr_language_teacher_intro
  * Feature ID used to record that the user has dismissed the tooltip on the camera screen that
  * points at the language and teacher settings button.
  */
-const val XR_LANGUAGE_TEACHER_SETTINGS_TOOLTIP_FEATURE_ID = "xr_language_teacher_tooltip_tour_v1"
+const val XR_LANGUAGE_TEACHER_SETTINGS_TOOLTIP_FEATURE_ID = "xr_language_teacher_tooltip_tour_v2"
 
 /**
  * The introduction cards of the first-time onboarding, in order. The preferences page follows them.

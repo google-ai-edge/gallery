@@ -25,6 +25,7 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherLa
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherLanguageResolution
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherOverlayState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherPreferencesDraft
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.isXrLanguageTeacherTtsModel
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.toEnglishName
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.cancelAsrRecording
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.cancelFillerPresynthesis
@@ -75,6 +76,7 @@ internal fun XrLanguageTeacherViewModel.createSelectedSpeechEngineLocalesFlow():
           asrLocaleTags = getSupportedLocaleTagsForAsrModel(asrModelId),
           ttsModelId = ttsModelId,
           ttsLocaleTags = getSupportedLocaleTagsForTtsModel(ttsModelId),
+          reachableTtsLocaleTags = getReachableTtsLocaleTags(),
         )
       } catch (e: CancellationException) {
         throw e
@@ -94,8 +96,24 @@ internal fun XrLanguageTeacherViewModel.createSelectedSpeechEngineLocalesFlow():
           asrLocaleTags = getSupportedLocaleTagsForAsrModel(selectedAsrModelID.value),
           ttsModelId = selectedTtsModelID.value,
           ttsLocaleTags = getSupportedLocaleTagsForTtsModel(selectedTtsModelID.value),
+          reachableTtsLocaleTags = getReachableTtsLocaleTags(),
         ),
     )
+
+/**
+ * The languages any text-to-speech model the teacher's model selection offers can speak, whether or
+ * not it's downloaded, or `null` when one of them doesn't restrict its languages.
+ */
+private fun XrLanguageTeacherViewModel.getReachableTtsLocaleTags(): List<String>? {
+  val tags = mutableListOf<String>()
+  for (model in speechSelectionUseCase.registeredModels(SpeechModality.TTS)) {
+    if (!isXrLanguageTeacherTtsModel(model)) continue
+    val languages = speechSelectionUseCase.supportedLanguageCodes(model)
+    if (languages.isEmpty()) return null
+    tags += languages
+  }
+  return tags
+}
 
 internal fun XrLanguageTeacherViewModel.createLanguageOptionsFlow(
   localesFlow: StateFlow<SelectedSpeechEngineLocales>

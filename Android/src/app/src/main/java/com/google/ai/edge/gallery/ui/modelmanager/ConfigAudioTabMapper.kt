@@ -488,10 +488,10 @@ private fun buildAsrLanguageDropdown(
   val supportsPerLanguageDownload = metadata.installsLanguagePacks
   val isSelectionEnabled = !isAutoDetectModel
   val descriptionRes =
-    when {
-      isSystemDefaultAsr || AsrModelIdentifier.isSystemEngine(metadata.modelId) -> null
-      isAutoDetectModel -> R.string.asr_config_language_note_auto_detect
-      else -> R.string.asr_config_language_note_single
+    if (isAutoDetectModel) {
+      R.string.asr_config_language_note_auto_detect
+    } else {
+      R.string.asr_config_language_note_single
     }
 
   val effectiveLanguageCode =

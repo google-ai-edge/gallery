@@ -27,18 +27,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -52,15 +47,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.CharacterPersona
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.SpeechEngineReadiness
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherInitStep
@@ -75,14 +69,10 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.cance
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.captureSessionBitmap
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.runLessonTurn
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.CameraBottomAsrControls
-import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.CameraHudActionButton
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.CameraInitializingOverlay
-import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.CameraTextPromptBox
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.InitialAsrTopGuidanceScrim
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.InitialThinkingBottomQuestionOverlay
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.SwitchToXrPill
-import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.TeacherInputMode
-import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.TeacherInputModeSwitcher
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.TeacherSettingsButton
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.TopTeacherHudBubble
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.cameraview.TopThinkingGlowOverlay
@@ -95,7 +85,6 @@ import kotlin.math.roundToInt
 
 private const val CAMERA_FEED_PREFERRED_SIZE = 640
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun XrLanguageTeacherCameraViewport(
   viewModel: XrLanguageTeacherViewModel,
@@ -115,8 +104,10 @@ internal fun XrLanguageTeacherCameraViewport(
   onShowCameraPermissionDeniedDialog: () -> Unit,
   onOpenPreferencesDialog: () -> Unit,
   onSettingsButtonBoundsChanged: (IntRect) -> Unit,
-  inputMode: TeacherInputMode,
-  onInputModeChanged: (TeacherInputMode) -> Unit,
+  cameraUsesText: Boolean,
+  onCameraUsesTextChanged: (Boolean) -> Unit,
+  onTakePhoto: () -> Unit,
+  onInputRowBoundsChanged: (IntRect) -> Unit,
   latestLiveBitmapRef: AtomicReference<Bitmap?>,
   pendingInitialQuestionRef: AtomicReference<String?>,
   onRunningStateChanged: (Boolean) -> Unit,
@@ -203,7 +194,7 @@ internal fun XrLanguageTeacherCameraViewport(
               .height(220.dp)
               .align(Alignment.BottomCenter)
               .background(
-                // Dark enough at the bottom for the dark input mode switcher to blend in.
+                // Dark enough at the bottom for the action row to read well.
                 brush =
                   Brush.verticalGradient(
                     colors =
@@ -321,13 +312,7 @@ internal fun XrLanguageTeacherCameraViewport(
                 appearDisabled = isCameraPermissionDenied,
                 modifier =
                   Modifier.onGloballyPositioned { coordinates ->
-                    val position = coordinates.positionInWindow()
-                    onSettingsButtonBoundsChanged(
-                      IntRect(
-                        offset = IntOffset(position.x.roundToInt(), position.y.roundToInt()),
-                        size = coordinates.size,
-                      )
-                    )
+                    onSettingsButtonBoundsChanged(coordinates.windowBounds())
                   },
               )
             }
@@ -348,96 +333,60 @@ internal fun XrLanguageTeacherCameraViewport(
         )
       }
 
-      // Idle camera input: the selected mode's input (mic, prompt box or shutter) above the
-      // Pixel Camera style mode switcher. Mockup (a) dark waveform pill bar while recording.
+      // Idle camera input: the 1-tap action row (camera button, wide mic button and keyboard
+      // button, or camera button, prompt box and mic button). Mockup (a) dark waveform pill
+      // bar while recording.
       if (!uiState.isSessionActive && !isInitialThinking) {
         val canAsk = isModelReady && !uiState.isRunningInference
         // imePadding() only adds the part of the keyboard height not already covered by the
         // host's bottom padding, which XrLanguageTeacherTask consumes for its descendants.
-        Column(
-          modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().imePadding(),
-          horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-          when (inputMode) {
-            TeacherInputMode.AUDIO ->
-              CameraBottomAsrControls(
-                isRecordingAsr = uiState.isRecordingAsr,
-                liveTranscript = uiState.liveAsrTranscript,
-                confirmedTranscript = uiState.confirmedTranscript,
-                audioLevel = uiState.audioLevel,
-                enabled = canAsk,
-                appearDisabled = isCameraPermissionDenied || isMicPermissionDenied,
-                onStartRecording = {
-                  if (isCameraPermissionDenied) {
-                    onShowCameraPermissionDeniedDialog()
-                  } else {
-                    onStartMicRecordingWithPermission()
-                  }
-                },
-                onCancelRecording = {
-                  viewModel.cancelAsrRecording()
-                  if (!uiState.isSessionActive) {
-                    viewModel.captureSessionBitmap(null)
-                  }
-                },
-                onSendRecording = {
-                  onStopAndSubmitRecording()
-                },
-              )
-            TeacherInputMode.TEXT ->
-              CameraTextPromptBox(
-                enabled = canAsk,
-                appearDisabled = isCameraPermissionDenied,
-                onDisabledClick = onShowCameraPermissionDeniedDialog,
-                onSend = { question ->
-                  if (isCameraPermissionDenied) {
-                    onShowCameraPermissionDeniedDialog()
-                  } else {
-                    onSubmitSpokenQuestion(question)
-                  }
-                },
-                modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
-              )
-            // A blank question makes the teacher identify the object in the photo.
-            TeacherInputMode.IMAGE ->
-              CameraHudActionButton(
-                icon = Icons.Filled.PhotoCamera,
-                contentDescription = stringResource(R.string.xrteacher_take_photo_desc),
-                caption = stringResource(R.string.xrteacher_take_photo_hint),
-                enabled = canAsk,
-                appearDisabled = isCameraPermissionDenied,
-                onClick = {
-                  if (isCameraPermissionDenied) {
-                    onShowCameraPermissionDeniedDialog()
-                  } else {
-                    onSubmitSpokenQuestion("")
-                  }
-                },
-                modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
-              )
-          }
-          // Hidden while recording so the recording bar stays the only control, and while
-          // the keyboard is open so only the prompt box rises above it.
-          AnimatedVisibility(
-            visible = !uiState.isRecordingAsr && !WindowInsets.isImeVisible,
-            enter = fadeIn(animationSpec = tween(200)),
-            exit = fadeOut(animationSpec = tween(160)),
-          ) {
-            TeacherInputModeSwitcher(
-              selected = inputMode,
-              onSelect = { mode ->
-                if (isCameraPermissionDenied) {
-                  onShowCameraPermissionDeniedDialog()
-                } else {
-                  onInputModeChanged(mode)
-                }
-              },
-              enabled = canAsk,
-              appearDisabled = isCameraPermissionDenied,
-              modifier = Modifier.padding(bottom = 12.dp),
-            )
-          }
-        }
+        CameraBottomAsrControls(
+          isRecordingAsr = uiState.isRecordingAsr,
+          liveTranscript = uiState.liveAsrTranscript,
+          confirmedTranscript = uiState.confirmedTranscript,
+          audioLevel = uiState.audioLevel,
+          enabled = canAsk,
+          appearDisabled = isCameraPermissionDenied,
+          micAppearDisabled = isCameraPermissionDenied || isMicPermissionDenied,
+          onStartRecording = {
+            if (isCameraPermissionDenied) {
+              onShowCameraPermissionDeniedDialog()
+            } else {
+              onStartMicRecordingWithPermission()
+            }
+          },
+          onCancelRecording = {
+            viewModel.cancelAsrRecording()
+            if (!uiState.isSessionActive) {
+              viewModel.captureSessionBitmap(null)
+            }
+          },
+          onSendRecording = {
+            onStopAndSubmitRecording()
+          },
+          usesText = cameraUsesText,
+          onUsesTextChange = { usesText ->
+            if (isCameraPermissionDenied) {
+              onShowCameraPermissionDeniedDialog()
+            } else {
+              onCameraUsesTextChanged(usesText)
+            }
+          },
+          onSendText = { question ->
+            if (isCameraPermissionDenied) {
+              onShowCameraPermissionDeniedDialog()
+            } else {
+              onSubmitSpokenQuestion(question)
+            }
+          },
+          onTakePhoto = onTakePhoto,
+          onDisabledClick = onShowCameraPermissionDeniedDialog,
+          inputRowModifier =
+            Modifier.onGloballyPositioned { coordinates ->
+              onInputRowBoundsChanged(coordinates.windowBounds())
+            },
+          modifier = Modifier.align(Alignment.BottomCenter).imePadding(),
+        )
       }
     }
   }
@@ -519,3 +468,9 @@ internal fun isActiveLessonSheetVisible(uiState: XrLanguageTeacherUiState): Bool
 
 internal fun Bitmap?.frozenCopy(): Bitmap? =
   this?.takeUnless { it.isRecycled }?.copy(config ?: Bitmap.Config.ARGB_8888, false)
+
+/** Returns this layout's bounds in window coordinates. */
+private fun LayoutCoordinates.windowBounds(): IntRect {
+  val position = positionInWindow()
+  return IntRect(offset = IntOffset(position.x.roundToInt(), position.y.roundToInt()), size = size)
+}
