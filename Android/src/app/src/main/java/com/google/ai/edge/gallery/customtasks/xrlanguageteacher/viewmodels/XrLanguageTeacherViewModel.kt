@@ -37,14 +37,17 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherOv
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TtsPlaybackSource
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.VocabCardData
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherDictionary
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherOrderedWriter
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherPreferencesStore
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherScreenName
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabularyWrites
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.defaultLearnLanguage
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.defaultMainLanguage
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.orDefaultLearnLanguage
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.orDefaultMainLanguage
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.PcmAudioStreamPlayer
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.PreparedTtsKeys
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.XrLanguageTeacherStickerMaker
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.cancelAsrRecording
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.isAsrRecordingOrPending
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.prepareAsrEngine
@@ -139,6 +142,17 @@ data class XrLanguageTeacherUiState(
   val lastAsrError: String = "",
   val overlayState: TeacherOverlayState = TeacherOverlayState.NONE,
   val capturedBitmap: Bitmap? = null,
+  /**
+   * The foreground sticker cutout segmented asynchronously from [capturedBitmap], or `null` while
+   * segmentation runs or when [capturedBitmap] has no isolatable foreground object.
+   */
+  val stickerBitmap: Bitmap? = null,
+  /**
+   * Sticker cutouts the user edited in the cutout editor for cards of the current session, keyed by
+   * [stickerKey] of the card word. They replace [stickerBitmap] for those cards; a `null` value
+   * means that the user chose the card's original photo instead of a sticker cutout.
+   */
+  val editedStickerBitmaps: Map<String, Bitmap?> = emptyMap(),
   val vocabCardData: VocabCardData? = null,
   val isExtractingCard: Boolean = false,
   val vocabCards: List<VocabCardData> = emptyList(),
@@ -254,6 +268,10 @@ constructor(
   @IoDispatcher internal val ioDispatcher: CoroutineDispatcher,
   @ApplicationScope
   internal val applicationScope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
+  internal val vocabularyWrites: XrLanguageTeacherVocabularyWrites =
+    XrLanguageTeacherVocabularyWrites(applicationScope),
+  internal val stickerMaker: XrLanguageTeacherStickerMaker =
+    XrLanguageTeacherStickerMaker.UNAVAILABLE,
 ) : ViewModel() {
 
   internal val _uiState = MutableStateFlow(XrLanguageTeacherUiState())
@@ -380,7 +398,21 @@ constructor(
   @Volatile internal var turnStartTeacherDialogue: String = ""
 
   internal val sessionSaveMutex = Mutex()
-  internal val dictionaryFileMutex = Mutex()
+  /**
+   * Guards the saved words' image files and dictionary reads against the writes, which also run one
+   * at a time in [vocabularyWriter]. Shared by every ViewModel (see [vocabularyWrites]).
+   */
+  internal val dictionaryFileMutex: Mutex
+    get() = vocabularyWrites.fileMutex
+
+  /**
+   * Runs the saved-vocabulary writes (saving, unsaving, and the stickers of saved words) in the
+   * order they were requested, on the application scope. Shared by every ViewModel (see
+   * [vocabularyWrites]).
+   */
+  internal val vocabularyWriter: XrLanguageTeacherOrderedWriter
+    get() = vocabularyWrites.writer
+
   internal val deletedSessionIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
   @Volatile internal var currentSessionIdInternal: String = UUID.randomUUID().toString()
   val currentSessionId: String
@@ -611,6 +643,85 @@ constructor(
 
   init {
     observeLanguageAndSpeechInputs()
+  }
+
+  // MARK: - Sticker Cutouts
+
+  /** Background job segmenting the sticker cutout of the current captured frame. */
+  internal var stickerJob: Job? = null
+  /** Incremented whenever the captured frame changes, so stale cutouts are dropped. */
+  internal val stickerEpoch = AtomicLong(0L)
+  /** The segmentation model file the sticker maker was last given. */
+  @Volatile internal var stickerModelPath: String? = null
+  internal val _isStickerModelReady = MutableStateFlow(false)
+  /**
+   * Whether the sticker segmentation model is downloaded and set up, so that stickers are cut out
+   * and can be edited. While it isn't, the cards' pencil buttons are dimmed and offer the download.
+   */
+  val isStickerModelReady: StateFlow<Boolean> = _isStickerModelReady.asStateFlow()
+  /**
+   * Asks the user to download the segmentation model before an action that needs it, then turns the
+   * saved photos of every learn language into stickers.
+   */
+  internal val stickerModelDownload =
+    XrLanguageTeacherStickerModelDownloadController(
+      scope = viewModelScope,
+      segmentStickers = { onProgress ->
+        val unused = ensureStickersSegmented(language = null, onProgress = onProgress)
+      },
+    )
+  /**
+   * What is known about the segmentation model of the allowlist; the cutout edit buttons are hidden
+   * while it has none.
+   */
+  val stickerModelAvailability: StateFlow<XrLanguageTeacherStickerModelAvailability> =
+    stickerModelDownload.availability
+  /** The state of the dialog that downloads the segmentation model. */
+  val stickerModelDownloadState: StateFlow<XrLanguageTeacherStickerModelDownloadState> =
+    stickerModelDownload.state
+  /**
+   * Identifies the current camera capture. It changes when a different photo is captured or the
+   * session ends, but not when the frame is swapped for its prepared copy.
+   */
+  internal val stickerCaptureId = AtomicLong(0L)
+  /** The captured frame the sticker state belongs to, as last observed. */
+  internal var stickerSourceFrame: Bitmap? = null
+  /** The last frame [prepareFrameBitmap] made a prepared copy of. */
+  @Volatile internal var lastPreparedFrameCopy: PreparedFrameCopy? = null
+  /** [stickerKey]s of the words saved from the current capture. */
+  internal val sessionSavedWordKeys: MutableSet<String> = ConcurrentHashMap.newKeySet()
+  /**
+   * [stickerKey]s of the words saved from the current capture before its sticker cutout was ready.
+   * They get the cutout once it finishes.
+   */
+  internal val sessionWordsAwaitingSticker: MutableSet<String> = ConcurrentHashMap.newKeySet()
+  /**
+   * How many times the segmenter threw on the photo of each saved word, by its cache entry key (see
+   * [ensureStickersSegmented]).
+   */
+  internal val stickerSegmentationErrorCounts = ConcurrentHashMap<String, Int>()
+
+  internal val _vocabImageRevision = MutableStateFlow(0)
+  /**
+   * Incremented whenever a saved word's images change on disk (or it is deleted), so that screens
+   * showing saved words reload their images, which mostly come from the vocabulary image cache, and
+   * re-check what depends on any saved image.
+   */
+  val vocabImageRevision: StateFlow<Int> = _vocabImageRevision.asStateFlow()
+
+  /** The cutout editor, which edits a vocabulary card's sticker cutout on its original photo. */
+  internal val cutoutEditor =
+    XrLanguageTeacherCutoutEditorController(
+      scope = viewModelScope,
+      stickerMaker = stickerMaker,
+      imageDispatcher = inferenceDispatcher,
+    )
+
+  /** The state of the cutout editor. */
+  val cutoutEditorState: StateFlow<CutoutEditorUiState> = cutoutEditor.uiState
+
+  init {
+    observeCapturedFrameForStickers()
   }
 
   fun setScreen(screen: String) {

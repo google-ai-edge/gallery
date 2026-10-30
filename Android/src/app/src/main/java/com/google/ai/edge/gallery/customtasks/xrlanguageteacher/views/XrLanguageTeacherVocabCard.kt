@@ -16,7 +16,6 @@
 
 package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,10 +42,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -69,9 +66,11 @@ internal val VOCAB_THUMBNAIL_SIZE = 96.dp
  * Vocab Card drawn flat on a `surfaceContainerLow` card (no shadow) in the camera lesson sheet and
  * the expanded Saved card dialog:
  * - Optional [header] (the expanded Saved card dialog shows the language pill and a close button).
- * - Top row: `96.dp` object [thumbnail], the target word (`22.sp` bold, `onSurface`) above its
- *   muted translation (`15.sp`, `onSurfaceVariant`), and a `40.dp` solid `primary` circular "Play
- *   word" speaker button at the far right.
+ * - Top row: `96.dp` object [thumbnail] (drawn as a tilted die-cut sticker when it is a segmented
+ *   cutout, with a pencil [EditCutoutButton] overlapping its bottom-right corner when
+ *   [onEditThumbnail] is set, greyed out while [isEditThumbnailDimmed]), the target word (`22.sp`
+ *   bold, `onSurface`) above its muted translation (`15.sp`, `onSurfaceVariant`), and a `40.dp`
+ *   solid `primary` circular "Play word" speaker button at the far right.
  * - Full-width `surfaceContainerHigh` example sentence box ([ExampleSentenceBox]).
  * - Optional [footer] (the camera lesson sheet shows its Save to Vocab button there).
  *
@@ -89,6 +88,8 @@ internal fun VocabCard(
   header: (@Composable () -> Unit)? = null,
   footer: (@Composable () -> Unit)? = null,
   isPlayEnabled: Boolean = true,
+  onEditThumbnail: (() -> Unit)? = null,
+  isEditThumbnailDimmed: Boolean = false,
 ) {
   val textMaxLines = if (header != null) Int.MAX_VALUE else 2
   // Disabled speakers use the standard GM3 disabled colors.
@@ -110,13 +111,33 @@ internal fun VocabCard(
 
       Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         if (thumbnail != null) {
-          Image(
-            bitmap = thumbnail,
-            contentDescription = stringResource(R.string.xrteacher_identified_object),
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.size(VOCAB_THUMBNAIL_SIZE).clip(RoundedCornerShape(16.dp)),
-          )
-          Spacer(modifier = Modifier.width(14.dp))
+          // The pencil overhangs the thumbnail's bottom-right corner. The box includes the overhang
+          // so that the button's whole touch target receives taps.
+          val overhang = if (onEditThumbnail != null) EDIT_CUTOUT_BUTTON_OVERHANG else 0.dp
+          Box(modifier = Modifier.size(VOCAB_THUMBNAIL_SIZE + overhang)) {
+            VocabThumbnailImage(
+              image = thumbnail,
+              contentDescription = stringResource(R.string.xrteacher_identified_object),
+              modifier = Modifier.size(VOCAB_THUMBNAIL_SIZE),
+            )
+            if (onEditThumbnail != null) {
+              EditCutoutButton(
+                onClick = onEditThumbnail,
+                contentDescription =
+                  stringResource(
+                    if (isEditThumbnailDimmed) {
+                      R.string.xrteacher_edit_cutout_button_download_desc
+                    } else {
+                      R.string.xrteacher_edit_cutout_button_desc
+                    },
+                    vocabCardData.word,
+                  ),
+                modifier = Modifier.align(Alignment.BottomEnd),
+                isDimmed = isEditThumbnailDimmed,
+              )
+            }
+          }
+          Spacer(modifier = Modifier.width(14.dp - overhang))
         }
 
         Column(modifier = Modifier.weight(1f)) {

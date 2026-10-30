@@ -189,6 +189,7 @@ internal fun XrLanguageTeacherViewModel.performOnCleared() {
   latestKnownModel = null
   activeInferenceModel = null
   cancelFillerPresynthesis()
+  releaseStickerResources()
   stopTtsPlayback()
   releaseTtsAudioAfterStop()
   // XrGlassesManager is an app-wide singleton; only release this session's resources.

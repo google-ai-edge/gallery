@@ -25,10 +25,10 @@ import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.edit
-import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.TAG
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,6 +37,28 @@ internal const val PERSONA_PREFS_NAME = "xr_language_teacher_persona_prefs"
 internal const val PROMPT_KEY_PREFIX = "xr_teacher_persona_prompt_"
 internal const val SYSTEM_PROMPT_OVERRIDE_KEY = "xr_teacher_system_prompt_override"
 private const val SESSION_IMAGES_DIR_NAME = "xr_language_teacher_session_images"
+/** Suffix of the temporary file an image is written to before it is renamed into place. */
+private const val TEMP_FILE_SUFFIX = ".tmp"
+
+/**
+ * Returns the file name of the transparent PNG sticker cutout saved next to the original photo of
+ * the word saved as [safeFileName].
+ */
+internal fun vocabStickerFileName(safeFileName: String): String = "${safeFileName}_sticker.png"
+
+/**
+ * Returns the largest power-of-two `BitmapFactory.Options.inSampleSize` that decodes a [width] x
+ * [height] image with its longest side still at least [maxSidePx], or 1 when the size is unknown.
+ */
+internal fun vocabImageSampleSize(width: Int, height: Int, maxSidePx: Int): Int {
+  val longestSide = maxOf(width, height)
+  if (longestSide <= 0 || maxSidePx <= 0) return 1
+  var sampleSize = 1
+  while (longestSide / (sampleSize * 2) >= maxSidePx) {
+    sampleSize *= 2
+  }
+  return sampleSize
+}
 
 /**
  * Encapsulates Android [Context]-backed storage and string resources for the XR Language Teacher
@@ -157,11 +179,54 @@ constructor(@ApplicationContext private val context: Context) {
     }
   }
 
-  /** Writes JPEG vocabulary thumbnail bytes to disk under [imagesDir]. */
+  /**
+   * Writes JPEG vocabulary thumbnail bytes to disk under [imagesDir], atomically (see
+   * [writeFileAtomically]).
+   */
   fun writeVocabImage(safeFileName: String, imageBytes: ByteArray) {
-    val file = File(imagesDir, safeFileName)
-    file.writeBytes(imageBytes)
+    writeFileAtomically(File(imagesDir, safeFileName), imageBytes)
   }
+
+  /**
+   * Writes the PNG sticker cutout bytes of the word saved as [safeFileName] to disk under
+   * [imagesDir], next to its original photo, atomically (see [writeFileAtomically]).
+   */
+  fun writeVocabStickerImage(safeFileName: String, pngBytes: ByteArray) {
+    writeFileAtomically(File(imagesDir, vocabStickerFileName(safeFileName)), pngBytes)
+  }
+
+  /**
+   * Writes [bytes] to a temporary file next to [file], syncs it to disk, and renames it to [file],
+   * so that a crash, a power loss or a concurrent read never sees a partially written image. Throws
+   * [IOException] if the file can't be written or renamed.
+   */
+  private fun writeFileAtomically(file: File, bytes: ByteArray) {
+    val tempFile = File(file.parentFile, "${file.name}$TEMP_FILE_SUFFIX")
+    try {
+      FileOutputStream(tempFile).use { stream ->
+        stream.write(bytes)
+        stream.fd.sync()
+      }
+      if (!tempFile.renameTo(file)) {
+        throw IOException("Failed to rename ${tempFile.name} to ${file.name}")
+      }
+    } catch (e: IOException) {
+      tempFile.delete()
+      throw e
+    }
+  }
+
+  /** Deletes the sticker cutout of the word saved as [safeFileName], if any. */
+  fun deleteVocabStickerImage(safeFileName: String) {
+    val file = File(imagesDir, vocabStickerFileName(safeFileName))
+    if (file.exists()) {
+      file.delete()
+    }
+  }
+
+  /** Returns whether the word saved as [safeFileName] has a sticker cutout on disk. */
+  fun hasVocabStickerImage(safeFileName: String): Boolean =
+    File(imagesDir, vocabStickerFileName(safeFileName)).isFile
 
   /** Deletes vocabulary image files for [word] and [learnLanguage], including legacy fallback. */
   fun deleteVocabImageFiles(
@@ -173,29 +238,118 @@ constructor(@ApplicationContext private val context: Context) {
     if (scopedFile.exists()) {
       scopedFile.delete()
     }
+    deleteVocabStickerImage(scopedFileName)
     if (unscopedSafeFileName != null) {
       val safeFile = File(imagesDir, unscopedSafeFileName)
       if (safeFile.exists()) {
         safeFile.delete()
       }
+      deleteVocabStickerImage(unscopedSafeFileName)
     }
     if (legacyWord != null) {
       legacyImageFileOrNull(legacyWord)?.delete()
     }
   }
 
-  /** Loads a persisted vocabulary thumbnail image for [word] / [learnLanguage], if present. */
+  /**
+   * Loads a persisted vocabulary thumbnail image for [word] / [learnLanguage], if present,
+   * downsampled for [maxSidePx] when given (see [decodeSavedVocabPhoto]).
+   */
   fun decodeSavedVocabImageBitmap(
     scopedFileName: String?,
     safeFileName: String,
     legacyWord: String,
+    maxSidePx: Int? = null,
+  ): ImageBitmap? =
+    decodeSavedVocabPhoto(
+        scopedFileName = scopedFileName,
+        safeFileName = safeFileName,
+        legacyWord = legacyWord,
+        maxSidePx = maxSidePx,
+      )
+      ?.asImageBitmap()
+
+  /**
+   * Loads the original photo saved for a word, checking the language-scoped filename first and
+   * falling back to legacy word-only filenames, or returns `null` if there is none or it can't be
+   * decoded.
+   *
+   * With [maxSidePx], decodes the photo downsampled by a power of two while its longest side stays
+   * at least [maxSidePx], which is much cheaper than decoding it at full size and scaling it down.
+   * Without it, decodes the photo at full size (e.g. for the segmenter and the cutout editor).
+   */
+  fun decodeSavedVocabPhoto(
+    scopedFileName: String?,
+    safeFileName: String,
+    legacyWord: String,
+    maxSidePx: Int? = null,
+  ): Bitmap? =
+    findVocabPhotoFile(
+        scopedFileName = scopedFileName,
+        safeFileName = safeFileName,
+        legacyWord = legacyWord,
+      )
+      ?.let { file -> decodeImageFile(file, maxSidePx) }
+
+  /** Returns whether an original photo is saved for a word (see [decodeSavedVocabPhoto]). */
+  fun hasSavedVocabPhoto(
+    scopedFileName: String?,
+    safeFileName: String,
+    legacyWord: String,
+  ): Boolean =
+    findVocabPhotoFile(
+      scopedFileName = scopedFileName,
+      safeFileName = safeFileName,
+      legacyWord = legacyWord,
+    ) != null
+
+  /**
+   * Loads the sticker cutout saved for a word, checking the language-scoped filename first, or
+   * returns `null` if there is none or it can't be decoded. With [maxSidePx], decodes it
+   * downsampled like [decodeSavedVocabPhoto].
+   */
+  fun decodeSavedVocabStickerBitmap(
+    scopedFileName: String?,
+    safeFileName: String,
+    maxSidePx: Int? = null,
   ): ImageBitmap? {
+    val file =
+      listOfNotNull(scopedFileName, safeFileName)
+        .map { File(imagesDir, vocabStickerFileName(it)) }
+        .firstOrNull(File::isFile) ?: return null
+    return decodeImageFile(file, maxSidePx)?.asImageBitmap()
+  }
+
+  /**
+   * Decodes the image [file], downsampled by the largest power of two that keeps its longest side
+   * at least [maxSidePx] when given, or returns `null` if it can't be decoded.
+   */
+  private fun decodeImageFile(file: File, maxSidePx: Int?): Bitmap? =
+    runCatching {
+        val options = BitmapFactory.Options()
+        if (maxSidePx != null && maxSidePx > 0) {
+          options.inJustDecodeBounds = true
+          BitmapFactory.decodeFile(file.absolutePath, options)
+          options.inSampleSize =
+            vocabImageSampleSize(
+              width = options.outWidth,
+              height = options.outHeight,
+              maxSidePx = maxSidePx,
+            )
+          options.inJustDecodeBounds = false
+        }
+        BitmapFactory.decodeFile(file.absolutePath, options)
+      }
+      .getOrNull()
+
+  private fun findVocabPhotoFile(
+    scopedFileName: String?,
+    safeFileName: String,
+    legacyWord: String,
+  ): File? {
     val scopedFile = scopedFileName?.let { File(imagesDir, it).takeIf(File::exists) }
     val safeFile = File(imagesDir, safeFileName).takeIf(File::exists)
-    val targetFile = scopedFile ?: safeFile ?: legacyImageFileOrNull(legacyWord)
-    return targetFile?.let { file ->
-      runCatching { BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap() }.getOrNull()
-    }
+    return scopedFile ?: safeFile ?: legacyImageFileOrNull(legacyWord)
   }
 
   private fun legacyImageFileOrNull(word: String): File? {

@@ -99,7 +99,9 @@ private val SavedCardBodyStyle: TextStyle
 /**
  * Saved tab: centered "Saved" title and subtitle, word count, "All languages" filter dropdown, and
  * a single-column list of saved vocabulary cards ([DictionaryEntryItem]) over decorative background
- * shapes ([SavedBackgroundShapes]).
+ * shapes ([SavedBackgroundShapes]). When [onEditCutout] is set, each card with an image shows a
+ * pencil button that edits its sticker cutout, greyed out while the sticker segmentation model
+ * isn't ready ([isStickerModelReady]).
  *
  * When any visible word's language isn't supported by the current TTS model, a single
  * [LanguageNoticeBanner] is shown at the top of the list (below [SavedHeader]) with a "Switch TTS
@@ -115,6 +117,8 @@ fun DictionaryScreen(
   isTtsLanguageSupported: (Language) -> Boolean = { true },
   phrasePlaybackState: PhrasePlaybackState = PhrasePlaybackState.Idle,
   onChangeVoiceModel: (() -> Unit)? = null,
+  onEditCutout: ((DictionaryEntry) -> Unit)? = null,
+  isStickerModelReady: Boolean = true,
 ) {
   val languages = remember(entries) { entries.map { it.displayLearnLanguage() }.distinct() }
   // Null means "All languages".
@@ -194,6 +198,8 @@ fun DictionaryScreen(
             isPlayEnabled = isTtsLanguageSupported(entryLanguage),
             loadVocabImageBitmap = loadVocabImageBitmap,
             phrasePlaybackState = phrasePlaybackState,
+            onEditCutout = onEditCutout?.let { onEdit -> { onEdit(entry) } },
+            isStickerModelReady = isStickerModelReady,
           )
         }
       }
@@ -363,7 +369,9 @@ private fun SavedMenuOption(text: String, isSelected: Boolean, onClick: () -> Un
  *   `32.dp` speaker button.
  *
  * Selecting Delete in the ⋮ menu opens [UnsaveWordConfirmationDialog] before calling [onDelete].
- * When [isPlayEnabled] is `false`, the word and sentence speaker buttons are disabled.
+ * When [isPlayEnabled] is `false`, the word and sentence speaker buttons are disabled. When
+ * [onEditCutout] is set and the card has an image, a pencil button overlapping the image's
+ * bottom-right corner calls it; it is greyed out until [isStickerModelReady].
  */
 @Composable
 fun DictionaryEntryItem(
@@ -374,6 +382,8 @@ fun DictionaryEntryItem(
   loadVocabImageBitmap: suspend (String, Language) -> ImageBitmap? = { _, _ -> null },
   phrasePlaybackState: PhrasePlaybackState = PhrasePlaybackState.Idle,
   isPlayEnabled: Boolean = true,
+  onEditCutout: (() -> Unit)? = null,
+  isStickerModelReady: Boolean = true,
 ) {
   val savedImageBitmap =
     rememberVocabThumbnailBitmap(entry.word, entry.learnLanguage, loadVocabImageBitmap)
@@ -395,6 +405,8 @@ fun DictionaryEntryItem(
     modifier = modifier,
     phrasePlaybackState = phrasePlaybackState,
     isPlayEnabled = isPlayEnabled,
+    onEditThumbnail = onEditCutout?.takeIf { savedImageBitmap != null },
+    isEditThumbnailDimmed = !isStickerModelReady,
     header = {
       Row(
         modifier = Modifier.fillMaxWidth().height(SAVED_CARD_BUTTON_SIZE),

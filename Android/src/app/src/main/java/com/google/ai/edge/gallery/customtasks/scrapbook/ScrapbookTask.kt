@@ -23,6 +23,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskData
+import com.google.ai.edge.gallery.customtasks.common.segmentation.InitializedSegmenter
+import com.google.ai.edge.gallery.customtasks.common.segmentation.SegmenterBackend
+import com.google.ai.edge.gallery.customtasks.common.segmentation.SegmenterFactory
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
@@ -103,7 +106,7 @@ class ScrapbookTask @Inject constructor() : CustomTask {
     model: Model,
   ): InitializedSegmenter {
     val path = model.getPath(context = context)
-    return createBundledSegmenter(context = context, modelPath = path)
+    return SegmenterFactory.createBundledSegmenter(context = context, modelPath = path)
   }
 
   /** Closes [segmenter] and releases the runtime resources kept alive for [model]. */

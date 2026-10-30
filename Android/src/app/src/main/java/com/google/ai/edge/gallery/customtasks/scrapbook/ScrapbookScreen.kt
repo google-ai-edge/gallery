@@ -15,7 +15,6 @@
  */
 package com.google.ai.edge.gallery.customtasks.scrapbook
 
-import android.graphics.Bitmap
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
@@ -58,8 +57,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -76,6 +73,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.customtasks.common.segmentation.SegmenterBackend
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
@@ -332,31 +330,6 @@ fun ModelInitializationPanel(modifier: Modifier = Modifier) {
       modifier = Modifier.semantics { contentDescription = initializingMessage }
     )
   }
-}
-
-fun getFitRect(bitmap: Bitmap, canvasSize: Size, toTop: Boolean = false): Rect {
-  val bitmapWidth = bitmap.width.toFloat()
-  val bitmapHeight = bitmap.height.toFloat()
-  val canvasWidth = canvasSize.width
-  val canvasHeight = canvasSize.height
-
-  // Calculate the scale to FIT the entire image inside the canvas.
-  // The scale is the minimum of the two required scales (width-wise and height-wise).
-  val scaleX = canvasWidth / bitmapWidth
-  val scaleY = canvasHeight / bitmapHeight
-  // Use the MIN scale to ensure the entire image fits.
-  val scale = minOf(scaleX, scaleY)
-
-  // Calculate the size of the scaled image on the canvas.
-  val scaledImageWidth = bitmapWidth * scale
-  val scaledImageHeight = bitmapHeight * scale
-
-  // Calculate the offsets to center the scaled image on the canvas.
-  val offsetX = (canvasWidth - scaledImageWidth) / 2
-  val offsetY = if (toTop) 0f else (canvasHeight - scaledImageHeight) / 2
-
-  // Destination parameters (This defines the centered, scaled area on the canvas)
-  return Rect(offsetX, offsetY, offsetX + scaledImageWidth, offsetY + scaledImageHeight)
 }
 
 @Composable

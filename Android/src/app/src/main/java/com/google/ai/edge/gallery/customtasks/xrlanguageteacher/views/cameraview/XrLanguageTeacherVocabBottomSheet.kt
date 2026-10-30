@@ -87,6 +87,8 @@ import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.PhrasePlaybackState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.VocabCardData
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.sessionStickerForKey
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.stickerKey
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.UnsaveWordConfirmationDialog
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.VOCAB_THUMBNAIL_SIZE
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.VocabCard
@@ -113,7 +115,10 @@ private val SAVE_BUTTON_HEIGHT = ACTION_BUTTON_HEIGHT
  *   `"Vocab found"` when there is a vocabulary card, or a smaller `"Want to learn more about
  *   this?"` otherwise,
  * - [VocabLessonCard] (or a swipeable [HorizontalPager] deck when [vocabCards] contains multiple
- *   vocabulary cards taught during the lesson; omits phonetic text strings), and
+ *   vocabulary cards taught during the lesson; omits phonetic text strings), showing each card's
+ *   sticker cutout ([editedStickerBitmaps], else [stickerBitmap]) or else the [capturedBitmap]
+ *   photo, with a pencil button that calls [onEditCutout] when it is set (greyed out while the
+ *   sticker segmentation model isn't ready, see [isStickerModelReady]), and
  * - [FollowUpLessonControls] sitting directly on the sheet surface below the Vocab Card.
  *
  * The sheet extends to the bottom edge of the screen (the host hides its navigation bar while the
@@ -151,6 +156,10 @@ fun ActiveLessonBottomSheet(
   onStopThinking: () -> Unit = {},
   isMicPermissionDenied: Boolean = false,
   phrasePlaybackState: PhrasePlaybackState = PhrasePlaybackState.Idle,
+  stickerBitmap: Bitmap? = null,
+  editedStickerBitmaps: Map<String, Bitmap?> = emptyMap(),
+  onEditCutout: ((VocabCardData) -> Unit)? = null,
+  isStickerModelReady: Boolean = true,
 ) {
   val effectiveCards =
     remember(vocabCards, vocabCardData) {
@@ -283,11 +292,19 @@ fun ActiveLessonBottomSheet(
                   VocabLessonCard(
                     vocabCardData = card,
                     capturedBitmap = capturedBitmap,
+                    stickerBitmap =
+                      sessionStickerForKey(
+                        stickerKey(card.word),
+                        stickerBitmap,
+                        editedStickerBitmaps,
+                      ),
                     isSaved = isCardSaved(card),
                     onPlayTargetPhrase = onPlayTargetPhrase,
                     phrasePlaybackState = phrasePlaybackState,
                     onSaveToVocab = { onSaveCardToVocab(card) },
                     onUnsaveFromVocab = { onUnsaveCardFromVocab(card) },
+                    onEditCutout = onEditCutout?.let { onEdit -> { onEdit(card) } },
+                    isStickerModelReady = isStickerModelReady,
                   )
                 } else {
                   VocabLessonCardShimmerPlaceholder(capturedBitmap = capturedBitmap)
@@ -334,11 +351,19 @@ fun ActiveLessonBottomSheet(
             VocabLessonCard(
               vocabCardData = singleCard,
               capturedBitmap = capturedBitmap,
+              stickerBitmap =
+                sessionStickerForKey(
+                  stickerKey(singleCard.word),
+                  stickerBitmap,
+                  editedStickerBitmaps,
+                ),
               isSaved = isCardSaved(singleCard),
               onPlayTargetPhrase = onPlayTargetPhrase,
               phrasePlaybackState = phrasePlaybackState,
               onSaveToVocab = { onSaveCardToVocab(singleCard) },
               onUnsaveFromVocab = { onUnsaveCardFromVocab(singleCard) },
+              onEditCutout = onEditCutout?.let { onEdit -> { onEdit(singleCard) } },
+              isStickerModelReady = isStickerModelReady,
             )
           }
           isGeneratingCard -> VocabLessonCardShimmerPlaceholder(capturedBitmap = capturedBitmap)
@@ -462,27 +487,36 @@ private fun VocabLessonCardShimmerPlaceholder(capturedBitmap: Bitmap?) {
 }
 
 /**
- * Vocab Card inside [ActiveLessonBottomSheet]: the shared [VocabCard] with the captured object
- * thumbnail and a full-width tonal [SaveToVocabButton] at the bottom.
+ * Vocab Card inside [ActiveLessonBottomSheet]: the shared [VocabCard] with the object's
+ * [stickerBitmap] cutout (or else the [capturedBitmap] photo) as its thumbnail, a pencil button
+ * that calls [onEditCutout] when it is set and there is a photo to edit the cutout on (greyed out
+ * until [isStickerModelReady]), and a full-width tonal [SaveToVocabButton] at the bottom.
  */
 @Composable
 private fun VocabLessonCard(
   vocabCardData: VocabCardData,
   capturedBitmap: Bitmap?,
+  stickerBitmap: Bitmap?,
   isSaved: Boolean,
   onPlayTargetPhrase: (String) -> Unit,
   phrasePlaybackState: PhrasePlaybackState,
   onSaveToVocab: () -> Unit,
   onUnsaveFromVocab: () -> Unit,
+  onEditCutout: (() -> Unit)?,
+  isStickerModelReady: Boolean,
 ) {
-  val thumbnailImageBitmap =
+  val photoImageBitmap =
     remember(capturedBitmap) { capturedBitmap?.takeIf { !it.isRecycled }?.asImageBitmap() }
+  val stickerImageBitmap =
+    remember(stickerBitmap) { stickerBitmap?.takeIf { !it.isRecycled }?.asImageBitmap() }
 
   VocabCard(
     vocabCardData = vocabCardData,
-    thumbnail = thumbnailImageBitmap,
+    thumbnail = stickerImageBitmap ?: photoImageBitmap,
     onPlayTargetPhrase = onPlayTargetPhrase,
     phrasePlaybackState = phrasePlaybackState,
+    onEditThumbnail = onEditCutout?.takeIf { photoImageBitmap != null },
+    isEditThumbnailDimmed = !isStickerModelReady,
     footer = {
       SaveToVocabButton(
         word = vocabCardData.word,

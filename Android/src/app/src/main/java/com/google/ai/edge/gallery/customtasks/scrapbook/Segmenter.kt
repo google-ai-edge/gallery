@@ -33,7 +33,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -46,16 +45,11 @@ import androidx.compose.material.icons.automirrored.rounded.Redo
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Clear
-import androidx.compose.material.icons.rounded.Gesture
 import androidx.compose.material.icons.rounded.PhotoLibrary
-import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -63,7 +57,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,19 +65,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.FilterQuality
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
@@ -93,21 +77,23 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.customtasks.common.segmentation.SEGMENTATION_MASK_OVERLAY_COLOR
+import com.google.ai.edge.gallery.customtasks.common.segmentation.SegmentationBrushMode
+import com.google.ai.edge.gallery.customtasks.common.segmentation.SegmentationBrushModeButtons
+import com.google.ai.edge.gallery.customtasks.common.segmentation.SegmentationEditorDraw
+import com.google.ai.edge.gallery.customtasks.common.segmentation.SegmenterBackend
+import com.google.ai.edge.gallery.customtasks.common.segmentation.instructionResId
+import com.google.ai.edge.gallery.customtasks.common.segmentation.segmentationStrokeColor
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.ui.common.EmptyState
 import com.google.ai.edge.gallery.ui.common.EmptyStateButtonConfig
 import com.google.ai.edge.gallery.ui.common.SMALL_BUTTON_CONTENT_PADDING
-import com.google.ai.edge.gallery.ui.theme.customColors
 import com.google.mediapipe.tasks.vision.interactivesegmenter.Stroke.BrushMode
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGSegmenter"
-private val FINGER_BRUSH_SIZE = 16.dp
-private val LASSO_BRUSH_SIZE = 4.dp
 private var curId = 0
 
 /** The tab where users brush strokes on a picture to extract and create cutouts. */
@@ -126,9 +112,6 @@ fun Segmenter(
   var showGestureOverlay by remember { mutableStateOf(false) }
   var curCanvasSize by remember { mutableStateOf(Size.Zero) }
   val snackbarHostState = remember { SnackbarHostState() }
-  val positiveStrokeColor = MaterialTheme.customColors.positiveStrokeColor
-  val negativeStrokeColor = MaterialTheme.customColors.negativeStrokeColor
-  val lassoStrokeColor = MaterialTheme.customColors.lassoStrokeColor
   val scope = rememberCoroutineScope()
 
   val hasMask = uiState.segmenterMaskBitmap != null
@@ -154,7 +137,7 @@ fun Segmenter(
       model = model,
       bitmap = bitmap,
       picRect = curPicRect,
-      overlayColor = Color(0x8012B5CB).toArgb(),
+      overlayColor = SEGMENTATION_MASK_OVERLAY_COLOR,
       onResult = { resultId, maskBitmap ->
         if (resultId == curId) {
           viewModel.setSegmenterMaskBitmap(maskBitmap = maskBitmap)
@@ -223,73 +206,17 @@ fun Segmenter(
             // Picture picked.
             else {
               // Top button row.
-              var selectedSegmentMode by remember { mutableIntStateOf(0) }
+              var selectedBrushMode by remember { mutableStateOf(SegmentationBrushMode.ADD) }
               Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
               ) {
                 // Segmented button for selection mode.
-                SingleChoiceSegmentedButtonRow {
-                  // Add selection mode.
-                  SegmentedButton(
-                    selected = selectedSegmentMode == 0,
-                    onClick = { selectedSegmentMode = 0 },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
-                    icon = {},
-                    contentPadding = PaddingValues(horizontal = 4.dp),
-                  ) {
-                    Box(modifier = Modifier.size(24.dp)) {
-                      Icon(
-                        imageVector = Icons.Rounded.Gesture,
-                        contentDescription = "Add selection",
-                        modifier = Modifier.size(20.dp).align(Alignment.BottomStart),
-                      )
-                      Icon(
-                        imageVector = Icons.Rounded.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp).align(Alignment.TopEnd),
-                      )
-                    }
-                  }
-
-                  // Subtract selection mode.
-                  SegmentedButton(
-                    selected = selectedSegmentMode == 1,
-                    onClick = { selectedSegmentMode = 1 },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
-                    icon = {},
-                    contentPadding = PaddingValues(horizontal = 4.dp),
-                  ) {
-                    Box(modifier = Modifier.size(24.dp)) {
-                      Icon(
-                        imageVector = Icons.Rounded.Gesture,
-                        contentDescription = "Subtract selection",
-                        modifier = Modifier.size(20.dp).align(Alignment.BottomStart),
-                      )
-                      Icon(
-                        imageVector = Icons.Rounded.Remove,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp).align(Alignment.TopEnd),
-                      )
-                    }
-                  }
-
-                  // Lasso select mode.
-                  SegmentedButton(
-                    selected = selectedSegmentMode == 2,
-                    onClick = { selectedSegmentMode = 2 },
-                    shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
-                    icon = {},
-                    contentPadding = PaddingValues(horizontal = 4.dp),
-                  ) {
-                    Icon(
-                      imageVector = ImageVector.vectorResource(R.drawable.lasso),
-                      contentDescription = "Lasso select",
-                      modifier = Modifier.size(24.dp),
-                    )
-                  }
-                }
+                SegmentationBrushModeButtons(
+                  selected = selectedBrushMode,
+                  onSelect = { selectedBrushMode = it },
+                )
 
                 // Undo/Redo/Clear
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -361,7 +288,7 @@ fun Segmenter(
                             // Start of the drag:
                             // - Add a new stroke.
                             // - Add point to the path.
-                            viewModel.addNewSegmenterStroke(getBrushMode(selectedSegmentMode))
+                            viewModel.addNewSegmenterStroke(selectedBrushMode.mediaPipeBrushMode)
                             viewModel.addSegmenterStrokePoint(offset)
                             showGestureOverlay = true
                           },
@@ -396,39 +323,24 @@ fun Segmenter(
                             clear(clearPic = false)
                           } else {
                             showGestureOverlay = true
-                            viewModel.addNewSegmenterStroke(getBrushMode(selectedSegmentMode))
+                            viewModel.addNewSegmenterStroke(selectedBrushMode.mediaPipeBrushMode)
                             viewModel.addSegmenterStrokePoint(offset)
                             segment(bitmap = bitmap, onDone = { showGestureOverlay = false })
                           }
                         }
                       }
                 ) {
-                  val fitRect = getFitRect(bitmap = bitmap, canvasSize = size, toTop = false)
-                  curPicRect = fitRect
+                  val pictureRect =
+                    SegmentationEditorDraw.fitRect(bitmap.width, bitmap.height, canvasSize = size)
+                  curPicRect = pictureRect
                   curCanvasSize = size
 
-                  // Define the rounded rectangle shape for the mask.
-                  // We want the mask to apply to the *area where the image will be drawn*.
-                  // So, the mask's bounds should be the same as dstRect.
-                  val roundedRectPath =
-                    Path().apply {
-                      addRoundRect(
-                        RoundRect(
-                          rect = fitRect,
-                          cornerRadius = CornerRadius(16.dp.toPx(), 16.dp.toPx()),
-                        )
-                      )
-                    }
-
-                  // Draw the bitmap
-                  clipPath(path = roundedRectPath) {
-                    drawImage(
-                      image = bitmap.asImageBitmap(),
-                      srcOffset = IntOffset(0, 0),
-                      srcSize = IntSize(bitmap.width, bitmap.height),
-                      dstOffset = IntOffset(fitRect.left.toInt(), fitRect.top.toInt()),
-                      dstSize = IntSize(fitRect.width.toInt(), fitRect.height.toInt()),
-                      filterQuality = FilterQuality.High,
+                  // Draw the bitmap, clipped to rounded corners.
+                  clipPath(path = SegmentationEditorDraw.pictureClipPath(this, pictureRect)) {
+                    SegmentationEditorDraw.drawImageInRect(
+                      this,
+                      bitmap.asImageBitmap(),
+                      pictureRect,
                     )
                   }
                 }
@@ -437,122 +349,44 @@ fun Segmenter(
                 Canvas(modifier = Modifier.fillMaxSize()) {
                   val maskBitmap = uiState.segmenterMaskBitmap
                   if (maskBitmap != null) {
-                    val fitRect = getFitRect(bitmap = maskBitmap, canvasSize = size, toTop = false)
-
-                    val roundedRectPath =
-                      Path().apply {
-                        addRoundRect(
-                          RoundRect(
-                            rect = fitRect,
-                            cornerRadius = CornerRadius(16.dp.toPx(), 16.dp.toPx()),
-                          )
-                        )
-                      }
-                    clipPath(roundedRectPath) {
-                      drawImage(
-                        image = maskBitmap.asImageBitmap(),
-                        srcOffset = IntOffset(0, 0),
-                        srcSize = IntSize(maskBitmap.width, maskBitmap.height),
-                        dstOffset = IntOffset(fitRect.left.toInt(), fitRect.top.toInt()),
-                        dstSize = IntSize(fitRect.width.toInt(), fitRect.height.toInt()),
-                        filterQuality = FilterQuality.High,
+                    val pictureRect =
+                      SegmentationEditorDraw.fitRect(
+                        maskBitmap.width,
+                        maskBitmap.height,
+                        canvasSize = size,
+                      )
+                    clipPath(SegmentationEditorDraw.pictureClipPath(this, pictureRect)) {
+                      SegmentationEditorDraw.drawImageInRect(
+                        this,
+                        maskBitmap.asImageBitmap(),
+                        pictureRect,
                       )
                     }
                   }
                 }
 
                 // User gesture overlay.
+                val lastStroke = uiState.segmenterStrokes.lastOrNull()
+                val strokeBrushMode =
+                  when (lastStroke?.brushMode) {
+                    BrushMode.NEGATIVE -> SegmentationBrushMode.SUBTRACT
+                    BrushMode.LASSO -> SegmentationBrushMode.LASSO
+                    else -> SegmentationBrushMode.ADD
+                  }
+                val strokeColor = segmentationStrokeColor(strokeBrushMode)
                 Canvas(modifier = Modifier.fillMaxSize()) {
-                  val (offsets, strokeMode) =
-                    if (uiState.segmenterStrokes.isNotEmpty()) {
-                      uiState.segmenterStrokes.last()
-                    } else {
-                      SegmenterStroke(listOf(), BrushMode.UNSPECIFIED)
-                    }
-                  val strokeColor =
-                    when (strokeMode) {
-                      BrushMode.POSITIVE -> positiveStrokeColor
-                      BrushMode.NEGATIVE -> negativeStrokeColor
-                      BrushMode.LASSO -> lassoStrokeColor
-                      else -> positiveStrokeColor
-                    }
-                  val actualBrushSize =
-                    if (strokeMode == BrushMode.LASSO) LASSO_BRUSH_SIZE else FINGER_BRUSH_SIZE
-                  val pathEffect =
-                    if (strokeMode == BrushMode.LASSO) {
-                      PathEffect.dashPathEffect(floatArrayOf(15f, 30f), 0f)
-                    } else {
-                      null
-                    }
-                  if (offsets.isNotEmpty() && showGestureOverlay) {
+                  if (lastStroke != null && showGestureOverlay) {
                     // Clip the drawing area to the picture bounds to avoid rendering any strokes
                     // outside it.
-                    val fitRect = getFitRect(bitmap = bitmap, canvasSize = size, toTop = false)
-                    val roundedRectPath =
-                      Path().apply {
-                        addRoundRect(
-                          RoundRect(
-                            rect = fitRect,
-                            cornerRadius = CornerRadius(16.dp.toPx(), 16.dp.toPx()),
-                          )
-                        )
-                      }
-                    clipPath(roundedRectPath) {
-                      // Path.
-                      if (offsets.size > 1) {
-                        // Create a Path object from the list of Offsets
-                        val path =
-                          Path().apply {
-                            // Start the path at the first point
-                            moveTo(offsets.first().x, offsets.first().y)
-
-                            // Draw a line to every subsequent point
-                            for (i in 1 until offsets.size) {
-                              val point = offsets[i]
-                              lineTo(point.x, point.y)
-                            }
-                          }
-
-                        // Draw the Path with the desired style
-                        drawPath(
-                          path = path,
-                          color = Color.White,
-                          alpha = 0.8f,
-                          style =
-                            Stroke(
-                              width = (actualBrushSize + 4.dp).toPx(),
-                              cap = StrokeCap.Round,
-                              pathEffect = pathEffect,
-                            ),
-                        )
-                        drawPath(
-                          path = path,
-                          color = strokeColor,
-                          alpha = 0.5f,
-                          style =
-                            Stroke(
-                              width = actualBrushSize.toPx(),
-                              cap = StrokeCap.Round,
-                              pathEffect = pathEffect,
-                            ),
-                        )
-                      }
-                      // Dot.
-                      else {
-                        val tappedOffset = offsets[0]
-                        drawCircle(
-                          color = Color.White,
-                          alpha = 0.8f,
-                          radius = (actualBrushSize / 2 + 2.dp).toPx(),
-                          center = tappedOffset,
-                        )
-                        drawCircle(
-                          color = strokeColor,
-                          alpha = 0.5f,
-                          radius = (actualBrushSize / 2).toPx(),
-                          center = tappedOffset,
-                        )
-                      }
+                    val pictureRect =
+                      SegmentationEditorDraw.fitRect(bitmap.width, bitmap.height, canvasSize = size)
+                    clipPath(SegmentationEditorDraw.pictureClipPath(this, pictureRect)) {
+                      SegmentationEditorDraw.drawStroke(
+                        this,
+                        lastStroke.points,
+                        strokeBrushMode,
+                        strokeColor,
+                      )
                     }
                   }
                 }
@@ -573,7 +407,7 @@ fun Segmenter(
                     horizontalArrangement = Arrangement.Center,
                   ) {
                     AnimatedContent(
-                      targetState = selectedSegmentMode,
+                      targetState = selectedBrushMode,
                       transitionSpec = {
                         if (targetState > initialState) {
                           slideInVertically { height -> height } + fadeIn() togetherWith
@@ -585,14 +419,8 @@ fun Segmenter(
                       },
                       label = "InstructionTextAnimation",
                     ) { mode ->
-                      val instructionResId =
-                        when (mode) {
-                          0 -> R.string.segmentation_instruction_add
-                          1 -> R.string.segmentation_instruction_subtract
-                          else -> R.string.segmentation_instruction_lasso
-                        }
                       Text(
-                        stringResource(instructionResId),
+                        stringResource(mode.instructionResId),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.fillMaxWidth(),
@@ -700,14 +528,6 @@ fun Segmenter(
         }
       }
     }
-  }
-}
-
-private fun getBrushMode(selectedSegmentMode: Int): BrushMode {
-  return when (selectedSegmentMode) {
-    1 -> BrushMode.NEGATIVE
-    2 -> BrushMode.LASSO
-    else -> BrushMode.POSITIVE
   }
 }
 

@@ -87,10 +87,23 @@ internal suspend fun XrLanguageTeacherViewModel.performConversationPrewarm(
   activeSystemPromptText = systemPromptText
 }
 
+/**
+ * Returns [bitmap] center-cropped to a square and scaled down to [targetSize], or [bitmap] itself
+ * when it already fits. Records a new copy as the prepared copy of [bitmap], so that swapping the
+ * captured frame for it keeps the frame's sticker cutout.
+ */
 internal fun XrLanguageTeacherViewModel.prepareFrameBitmap(
   bitmap: Bitmap,
   targetSize: Int = 512,
 ): Bitmap? {
+  val prepared = scaleFrameBitmap(bitmap, targetSize)
+  if (prepared != null && prepared !== bitmap) {
+    lastPreparedFrameCopy = PreparedFrameCopy(original = bitmap, prepared = prepared)
+  }
+  return prepared
+}
+
+private fun scaleFrameBitmap(bitmap: Bitmap, targetSize: Int): Bitmap? {
   if (bitmap.isRecycled) return null
   return try {
     val minDim = minOf(bitmap.width, bitmap.height)

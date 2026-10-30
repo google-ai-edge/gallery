@@ -80,6 +80,7 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.startAs
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.stopAsrRecording
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.stopPersonaPreview
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.stopTtsPlayback
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherStickerModelAvailability
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherViewModel
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.applyTeacherPreferences
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.cancelActiveLessonTurn
@@ -88,6 +89,7 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.check
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.clearErrorMessage
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.getPersonaPromptTemplate
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.handleGlassesTap
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.openCutoutEditor
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.registerModelForSessionPrewarm
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.resetLessonSession
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.runLessonTurn
@@ -165,6 +167,8 @@ fun XrLanguageTeacherScreen(
   val availableNativeLanguages by viewModel.availableNativeLanguages.collectAsStateWithLifecycle()
   val speechEngineLocales by viewModel.selectedSpeechEngineLocales.collectAsStateWithLifecycle()
   val dictionaryEntries by viewModel.dictionaryEntries.collectAsStateWithLifecycle()
+  val isStickerModelReady by viewModel.isStickerModelReady.collectAsStateWithLifecycle()
+  val stickerModelAvailability by viewModel.stickerModelAvailability.collectAsStateWithLifecycle()
   val glassesCameraBitmap by viewModel.glassesCameraBitmap.collectAsStateWithLifecycle()
 
   val initStatus by model.initStatusFlow.collectAsStateWithLifecycle()
@@ -563,6 +567,16 @@ fun XrLanguageTeacherScreen(
                 }
             },
             onSaveCardToVocab = { card -> viewModel.saveCurrentVocabCard(card) },
+            stickerBitmap = uiState.stickerBitmap,
+            editedStickerBitmaps = uiState.editedStickerBitmaps,
+            // Without a segmentation model in the allowlist, cutouts can't be edited.
+            onEditCutout =
+              if (stickerModelAvailability != XrLanguageTeacherStickerModelAvailability.MISSING) {
+                { card -> viewModel.openCutoutEditor(card) }
+              } else {
+                null
+              },
+            isStickerModelReady = isStickerModelReady,
           )
         },
       ) { _ ->

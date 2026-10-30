@@ -46,6 +46,10 @@ message DictionaryEntry {
   string target_sentence = 5;
   string native_sentence = 6;
   string definition = 7;
+  // Whether foreground sticker segmentation was already attempted for the
+  // word's photo, so that it is not segmented again when it had no foreground
+  // object. The sticker cutout itself is saved as a PNG file next to the photo.
+  bool sticker_segmentation_attempted = 8;
 }
 
 message Dictionary {

@@ -114,6 +114,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.customtasks.common.segmentation.SegmentationEditorDraw
 import com.google.ai.edge.gallery.ui.common.EmptyState
 import com.google.ai.edge.gallery.ui.common.EmptyStateButtonConfig
 import com.google.ai.edge.gallery.ui.common.SMALL_BUTTON_CONTENT_PADDING
@@ -362,8 +363,9 @@ fun CollageEditor(
                     Modifier.fillMaxSize().padding(bottom = 40.dp).onSizeChanged { size ->
                       canvasSize = size
                       curPicRect =
-                        getFitRect(
-                          bitmap = bitmap,
+                        SegmentationEditorDraw.fitRect(
+                          imageWidth = bitmap.width,
+                          imageHeight = bitmap.height,
                           canvasSize = Size(size.width.toFloat(), size.height.toFloat()),
                           toTop = true,
                         )

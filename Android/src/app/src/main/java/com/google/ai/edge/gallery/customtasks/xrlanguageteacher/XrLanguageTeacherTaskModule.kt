@@ -24,6 +24,8 @@ import androidx.datastore.dataStoreFile
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.DictionarySerializer
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherDictionary
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.MediaPipeXrLanguageTeacherStickerMaker
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.XrLanguageTeacherStickerMaker
 import com.google.ai.edge.gallery.proto.Dictionary
 import dagger.Module
 import dagger.Provides
@@ -44,6 +46,15 @@ internal object XrLanguageTeacherTaskModule {
   ): CustomTask {
     return XrLanguageTeacherTask(context, dictionaryDataStore)
   }
+
+  /**
+   * Provides a new MediaPipe sticker maker for each AR Language Teacher ViewModel, which releases
+   * its segmenter when it is cleared.
+   */
+  @Provides
+  fun provideXrLanguageTeacherStickerMaker(
+    stickerMaker: MediaPipeXrLanguageTeacherStickerMaker
+  ): XrLanguageTeacherStickerMaker = stickerMaker
 
   @Provides
   @Singleton

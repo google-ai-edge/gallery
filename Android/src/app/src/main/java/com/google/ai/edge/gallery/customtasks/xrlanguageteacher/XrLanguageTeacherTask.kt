@@ -41,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.datastore.core.DataStore
@@ -75,19 +76,30 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.unsupport
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.playPersonaPreview
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.playTargetPhrase
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.stopPersonaPreview
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherStickerModelAvailability
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherStickerModelDownloader
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherViewModel
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.applyCutoutEdit
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.applyTeacherPreferences
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.buildDefaultSystemPrompt
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.buildDisplayLessonSessions
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.cancelCutoutEdit
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.deleteAllLessonSessions
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.deleteLessonSession
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.findStickerSegmentationModel
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.getPersonaPromptTemplate
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.loadSessionImageBitmap
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.logChatHistoryAction
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.openCutoutEditor
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.saveSystemPromptOverride
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.syncStickerSegmentationModel
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.useOriginalPhotoForCutout
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.CutoutEditorActions
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.SessionHistorySideSheet
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.XrLanguageTeacherCutoutEditorDialog
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.XrLanguageTeacherOnboardingOverlay
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.XrLanguageTeacherScreen
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.XrLanguageTeacherStickerModelDownloadDialog
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.isActiveLessonSheetVisible
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.isPersonaPreviewAvailable
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.isTeacherSubsystemWarming
@@ -104,7 +116,9 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.proto.Dictionary
 import com.google.ai.edge.gallery.proto.Language
 import com.google.ai.edge.gallery.runtime.runtimeHelper
+import com.google.ai.edge.gallery.ui.common.ModelDownloadGatesHost
 import com.google.ai.edge.gallery.ui.common.onboarding.OnboardingViewModel
+import com.google.ai.edge.gallery.ui.common.rememberModelDownloadGates
 import com.google.ai.edge.gallery.ui.modelmanager.LanguagePackUiStatus
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.litertlm.Contents
@@ -249,6 +263,70 @@ constructor(
 
     val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
     val selectedModel = modelManagerUiState.selectedModel
+
+    // Sticker cutouts segment with the "Magic touch" model that the allowlist registers to
+    // Scrapbook. It is only downloaded when the user agrees to it in the download dialog. Looked up
+    // on every recomposition (a few dozen models): the tasks' model lists change in place when the
+    // allowlist (re)loads, so a remembered result could be stale.
+    val stickerSegmentationModel = findStickerSegmentationModel(modelManagerUiState.tasks)
+    val stickerModelDownloadStatus = stickerSegmentationModel?.let {
+      modelManagerUiState.modelDownloadStatus[it.name]
+    }
+    LaunchedEffect(
+      stickerSegmentationModel,
+      stickerModelDownloadStatus,
+      modelManagerUiState.loadingModelAllowlist,
+    ) {
+      if (modelManagerUiState.loadingModelAllowlist) {
+        // The model isn't known yet: keep the current model path, and have requests wait.
+        viewModel.stickerModelDownload.onAllowlistLoading()
+        return@LaunchedEffect
+      }
+      viewModel.syncStickerSegmentationModel(
+        model = stickerSegmentationModel,
+        status = stickerModelDownloadStatus?.status,
+        modelPath = { model -> model.getPath(context = context) },
+      )
+      // After the model path is set, so an action waiting for the download can use the model.
+      viewModel.stickerModelDownload.onModelStatusChanged(
+        stickerSegmentationModel,
+        stickerModelDownloadStatus,
+      )
+    }
+    // Downloads go through the same checks (Hugging Face access, notification permission) as the
+    // model manager's.
+    val stickerModelDownloadGates = rememberModelDownloadGates(modelManagerViewModel)
+    DisposableEffect(viewModel, modelManagerViewModel, stickerModelDownloadGates) {
+      val stickerModelDownload = viewModel.stickerModelDownload
+      stickerModelDownload.downloader =
+        object : XrLanguageTeacherStickerModelDownloader {
+          override fun download(model: Model) {
+            stickerModelDownloadGates.runAll(
+              memoryCheckModel = null,
+              modelsToDownload = listOf(model),
+              // Started outside any task, like from the global model manager: the download's
+              // notification leads there, where Magic touch is listed under Scrapbook.
+              onPassed = { modelManagerViewModel.downloadModel(task = null, model = model) },
+              onAborted = stickerModelDownload::cancel,
+            )
+          }
+
+          override fun cancelDownload(model: Model) {
+            modelManagerViewModel.cancelDownloadModel(model)
+          }
+        }
+      onDispose { stickerModelDownload.downloader = null }
+    }
+
+    // Reloads saved word images whenever a sticker cutout is written.
+    val vocabImageRevision by viewModel.vocabImageRevision.collectAsStateWithLifecycle()
+    val loadVocabImageBitmap: suspend (String, Language) -> ImageBitmap? =
+      remember(viewModel, vocabImageRevision) {
+        { word, language -> viewModel.loadSavedVocabImageBitmap(word, language) }
+      }
+    val cutoutEditorState by viewModel.cutoutEditorState.collectAsStateWithLifecycle()
+    val isStickerModelReady by viewModel.isStickerModelReady.collectAsStateWithLifecycle()
+    val stickerModelAvailability by viewModel.stickerModelAvailability.collectAsStateWithLifecycle()
     val initStatus by selectedModel.initStatusFlow.collectAsStateWithLifecycle()
     val isSubsystemWarming =
       isTeacherSubsystemWarming(
@@ -414,13 +492,21 @@ constructor(
               entries = entries,
               onDelete = { entry -> viewModel.deleteDictionaryEntry(entry) },
               onPlayPhrase = { phrase, lang -> viewModel.playTargetPhrase(phrase, lang) },
-              loadVocabImageBitmap = viewModel::loadSavedVocabImageBitmap,
+              loadVocabImageBitmap = loadVocabImageBitmap,
               isTtsLanguageSupported =
                 rememberIsTtsLanguageSupported(speechEngineLocales, languagePacks.uiState),
               phrasePlaybackState = uiState.phrasePlaybackState,
               onChangeVoiceModel = {
                 myData.navigateToModelSelection(ModelSelectionTarget.TTS_MODEL)
               },
+              // Without a segmentation model in the allowlist, cutouts can't be edited.
+              onEditCutout =
+                if (stickerModelAvailability != XrLanguageTeacherStickerModelAvailability.MISSING) {
+                  { entry -> viewModel.openCutoutEditor(entry) }
+                } else {
+                  null
+                },
+              isStickerModelReady = isStickerModelReady,
             )
           }
           XrLanguageTeacherScreenName.STUDY.value -> {
@@ -436,7 +522,7 @@ constructor(
               onReviewModeChanged = { isReviewing = it },
               onPlayPhrase = { phrase, lang -> viewModel.playTargetPhrase(phrase, lang) },
               phrasePlaybackState = uiState.phrasePlaybackState,
-              loadVocabImageBitmap = viewModel::loadSavedVocabImageBitmap,
+              loadVocabImageBitmap = loadVocabImageBitmap,
               isTtsLanguageSupported =
                 rememberIsTtsLanguageSupported(speechEngineLocales, languagePacks.uiState),
               isAsrLanguageSupported =
@@ -496,6 +582,40 @@ constructor(
           },
       )
     }
+
+    val cutoutEditor = viewModel.cutoutEditor
+    XrLanguageTeacherCutoutEditorDialog(
+      state = cutoutEditorState,
+      actions =
+        remember(viewModel) {
+          CutoutEditorActions(
+            onCancel = viewModel::cancelCutoutEdit,
+            onDone = viewModel::applyCutoutEdit,
+            onResetToAuto = cutoutEditor::resetToAuto,
+            onUseOriginalPhoto = viewModel::useOriginalPhotoForCutout,
+            onBrushModeChange = cutoutEditor::setBrushMode,
+            onStrokeStart = cutoutEditor::startStroke,
+            onStrokePoint = cutoutEditor::addStrokePoint,
+            onStrokeEnd = cutoutEditor::finishStroke,
+            onTap = cutoutEditor::tap,
+            onUndo = cutoutEditor::undo,
+            onRedo = cutoutEditor::redo,
+            onClear = cutoutEditor::clear,
+          )
+        },
+    )
+
+    val stickerModelDownloadState by
+      viewModel.stickerModelDownloadState.collectAsStateWithLifecycle()
+    val stickerModelDownload = viewModel.stickerModelDownload
+    XrLanguageTeacherStickerModelDownloadDialog(
+      state = stickerModelDownloadState,
+      onConfirm = stickerModelDownload::confirm,
+      onRetry = stickerModelDownload::retry,
+      onCancel = stickerModelDownload::cancel,
+      onAbandon = stickerModelDownload::abandon,
+    )
+    ModelDownloadGatesHost(gates = stickerModelDownloadGates)
 
     if (showHistorySheet) {
       SessionHistorySideSheet(

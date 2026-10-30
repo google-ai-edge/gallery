@@ -72,7 +72,9 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.PhrasePlaybackState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.getLanguageName
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.VocabSpeaker
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.XrLanguageTeacherVocabStickerView
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.isLoading
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.rememberIsStickerCutout
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.rememberVocabThumbnailBitmap
 import com.google.ai.edge.gallery.proto.DictionaryEntry
 import com.google.ai.edge.gallery.proto.Language
@@ -201,16 +203,29 @@ fun FlashcardReviewScreen(
                     loadVocabImageBitmap,
                   )
                 if (currentBitmap != null) {
-                  // Show the full photo, uncropped.
-                  Image(
-                    bitmap = currentBitmap,
-                    contentDescription = stringResource(R.string.xrteacher_identified_object),
-                    contentScale = ContentScale.Fit,
-                    modifier =
-                      Modifier.padding(bottom = 12.dp)
-                        .sizeIn(maxWidth = FLASHCARD_IMAGE_SIZE, maxHeight = FLASHCARD_IMAGE_SIZE)
-                        .clip(RoundedCornerShape(16.dp)),
-                  )
+                  if (rememberIsStickerCutout(currentBitmap)) {
+                    XrLanguageTeacherVocabStickerView(
+                      image = currentBitmap,
+                      contentDescription = stringResource(R.string.xrteacher_identified_object),
+                      outlineWidth = 4.5.dp,
+                      tiltDegrees = -6f,
+                      cornerRadius = 16.dp,
+                      modifier =
+                        Modifier.padding(bottom = 12.dp)
+                          .sizeIn(maxWidth = FLASHCARD_IMAGE_SIZE, maxHeight = FLASHCARD_IMAGE_SIZE),
+                    )
+                  } else {
+                    // Show the full photo, uncropped.
+                    Image(
+                      bitmap = currentBitmap,
+                      contentDescription = stringResource(R.string.xrteacher_identified_object),
+                      contentScale = ContentScale.Fit,
+                      modifier =
+                        Modifier.padding(bottom = 12.dp)
+                          .sizeIn(maxWidth = FLASHCARD_IMAGE_SIZE, maxHeight = FLASHCARD_IMAGE_SIZE)
+                          .clip(RoundedCornerShape(16.dp)),
+                    )
+                  }
                 }
                 Row(
                   verticalAlignment = Alignment.CenterVertically,
