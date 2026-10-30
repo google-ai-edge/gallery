@@ -31,10 +31,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
@@ -62,6 +60,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherInitStepStatus
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherLanguageAdjustment
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherOverlayState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherPreferencesDraft
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherDialogueFormatter
@@ -69,6 +68,7 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.saveCurre
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.teacherInitSteps
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.toNameResId
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.unsaveVocabCard
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.unsupportedNativeLanguages
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.cancelAsrRecording
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.clearAsrTranscript
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.isAsrRecordingOrPending
@@ -191,42 +191,42 @@ fun XrLanguageTeacherScreen(
     viewModel.clearErrorMessage()
   }
 
+  val isSubsystemWarming =
+    isTeacherSubsystemWarming(
+      isModelInitializing = isInitializing,
+      asrReadiness = uiState.asrReadiness,
+      ttsReadiness = uiState.ttsReadiness,
+    )
+
+  // When the saved languages don't work with newly selected speech models, Teacher settings opens
+  // with a note explaining why once initialization finishes, so the student picks again before
+  // using the camera and the persona voice preview is ready.
   val languageNotice by viewModel.languageNotice.collectAsStateWithLifecycle()
-  val languageNoticeMessage = languageNotice?.let { notice ->
-    val unsupportedMain = notice.unsupportedMain
-    val unsupportedLearn = notice.unsupportedLearn
-    when {
-      unsupportedMain != null ->
-        stringResource(
-          R.string.xrteacher_language_unavailable_main,
-          stringResource(unsupportedMain.toNameResId()),
-          stringResource(notice.used.main.toNameResId()),
-        )
-      unsupportedLearn != null ->
-        stringResource(
-          R.string.xrteacher_language_unavailable_learn,
-          stringResource(unsupportedLearn.toNameResId()),
-          stringResource(notice.used.learn.toNameResId()),
-        )
-      else -> null
-    }
-  }
-  val changeLanguagesLabel = stringResource(R.string.xrteacher_language_unavailable_action)
-  LaunchedEffect(languageNotice) {
+  var pendingLanguageNotice by remember { mutableStateOf<TeacherLanguageAdjustment?>(null) }
+  LaunchedEffect(languageNotice, canShowSpeechEngineError, isSubsystemWarming) {
     val notice = languageNotice ?: return@LaunchedEffect
-    val message = languageNoticeMessage ?: return@LaunchedEffect
-    val result =
-      snackbarHostState.showSnackbar(
-        message = message,
-        actionLabel = changeLanguagesLabel,
-        duration = SnackbarDuration.Long,
-      )
-    // Acknowledged once shown, so leaving the screen first shows it again next time.
-    viewModel.acknowledgeLanguageNotice(notice)
-    if (result == SnackbarResult.ActionPerformed) {
-      showPreferencesDialog = true
-    }
+    // Not while the first-time introduction, where languages are picked anyway, is shown, or while
+    // the teacher model and speech engines are still initializing.
+    if (!canShowSpeechEngineError || isSubsystemWarming) return@LaunchedEffect
+    pendingLanguageNotice = notice
+    showPreferencesDialog = true
   }
+  val activeLanguageNotice = pendingLanguageNotice ?: languageNotice
+  val hasLanguageNoticeToPresent = canShowSpeechEngineError && activeLanguageNotice != null
+  val nativeLanguageNotice =
+    activeLanguageNotice?.unsupportedMain?.let { language ->
+      stringResource(
+        R.string.xrteacher_rechoose_native_language,
+        stringResource(language.toNameResId()),
+      )
+    }
+  val learnLanguageNotice =
+    activeLanguageNotice?.unsupportedLearn?.let { language ->
+      stringResource(
+        R.string.xrteacher_rechoose_learn_language,
+        stringResource(language.toNameResId()),
+      )
+    }
 
   fun submitSpokenQuestion(rawTranscript: String) {
     // A blank transcript is sent as-is (normalized to "no question" by runLessonTurn) so the first
@@ -351,12 +351,6 @@ fun XrLanguageTeacherScreen(
       (uiState.overlayState == TeacherOverlayState.THINKING ||
         (uiState.isRunningInference && uiState.isWaitingForFirstToken))
 
-  val isSubsystemWarming =
-    isTeacherSubsystemWarming(
-      isModelInitializing = isInitializing,
-      asrReadiness = uiState.asrReadiness,
-      ttsReadiness = uiState.ttsReadiness,
-    )
   val isLiveCameraFeedActive =
     uiState.isLiveCameraFeedActive(
       isModelInitializing = isInitializing,
@@ -378,7 +372,7 @@ fun XrLanguageTeacherScreen(
     )
 
   // Greets the user once when the feature is first opened and Gemma, ASR, TTS, and Camera are
-  // ready.
+  // ready, after any Teacher settings dialog closes.
   viewModel.setCameraAccessDenied(!isCameraPermissionGranted)
   val needsGreeting = uiState.sessionGreeting.isBlank()
   LaunchedEffect(
@@ -387,9 +381,17 @@ fun XrLanguageTeacherScreen(
     needsGreeting,
     canGreet,
     isCameraPermissionGranted,
+    showPreferencesDialog,
+    hasLanguageNoticeToPresent,
   ) {
     if (
-      isModelReady && !isSubsystemWarming && needsGreeting && canGreet && isCameraPermissionGranted
+      isModelReady &&
+        !isSubsystemWarming &&
+        needsGreeting &&
+        canGreet &&
+        isCameraPermissionGranted &&
+        !showPreferencesDialog &&
+        !hasLanguageNoticeToPresent
     ) {
       viewModel.greetNewSessionIfNeeded()
     }
@@ -607,10 +609,12 @@ fun XrLanguageTeacherScreen(
     showSettingsTooltip &&
       settingsAnchorBounds != null &&
       isModelReady &&
+      !isSubsystemWarming &&
       !isCameraPermissionDenied &&
       !uiState.isRecordingAsr &&
       !uiState.isRunningInference &&
       !showPreferencesDialog &&
+      !hasLanguageNoticeToPresent &&
       uiState.speechEngineError == null &&
       !WindowInsets.isImeVisible
   ) {
@@ -641,9 +645,15 @@ fun XrLanguageTeacherScreen(
       onPlayPersonaPreview = viewModel::playPersonaPreview,
       onApply = { preferences ->
         showPreferencesDialog = false
+        activeLanguageNotice?.let(viewModel::acknowledgeLanguageNotice)
+        pendingLanguageNotice = null
         viewModel.applyTeacherPreferences(preferences, model = model)
       },
-      onDismiss = { showPreferencesDialog = false },
+      onDismiss = {
+        showPreferencesDialog = false
+        activeLanguageNotice?.let(viewModel::acknowledgeLanguageNotice)
+        pendingLanguageNotice = null
+      },
       personaPreviewState = uiState.personaPreviewState,
       isPersonaPreviewAvailable =
         isPersonaPreviewAvailable(
@@ -653,6 +663,18 @@ fun XrLanguageTeacherScreen(
       onStopPersonaPreview = viewModel::stopPersonaPreview,
       languagePacks = languagePacks.uiState,
       onDownloadLanguagePack = languagePacks.onDownloadLanguagePack,
+      onChangeModels = {
+        showPreferencesDialog = false
+        activeLanguageNotice?.let(viewModel::acknowledgeLanguageNotice)
+        pendingLanguageNotice = null
+        onChooseAnotherModel(ModelSelectionTarget.ASR_MODEL)
+      },
+      unsupportedNativeLanguages =
+        remember(speechEngineLocales, availableNativeLanguages) {
+          unsupportedNativeLanguages(speechEngineLocales, availableNativeLanguages)
+        },
+      nativeLanguageNotice = nativeLanguageNotice,
+      learnLanguageNotice = learnLanguageNotice,
     )
   }
 

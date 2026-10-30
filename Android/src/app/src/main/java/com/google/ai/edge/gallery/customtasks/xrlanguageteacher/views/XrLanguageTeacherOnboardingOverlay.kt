@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -55,8 +56,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -97,7 +100,8 @@ import kotlinx.coroutines.withContext
  * one page per card of [XLT_ONBOARDING_CARDS] (welcome, point-tap-ask, and reviewing saved words),
  * then a preferences page with [TeacherPreferencesForm]. "Get started" calls [onGetStarted] with
  * the chosen preferences. [languagePacks] and [onDownloadLanguagePack] drive the form's language
- * pack download controls.
+ * pack download controls, and [onChangeModels], when set, opens the model selection screen from the
+ * form's "Change models" button. Onboarding isn't marked done then, so it shows again on return.
  *
  * Tapping outside does not close it. Back goes to the previous page, or calls [onExit] on the first
  * page so that the user can still leave the feature.
@@ -116,15 +120,25 @@ fun XrLanguageTeacherOnboardingOverlay(
   onStopPersonaPreview: () -> Unit = {},
   languagePacks: TeacherLanguagePackUiState = TeacherLanguagePackUiState(),
   onDownloadLanguagePack: (TeacherLanguageRole, Language) -> Unit = { _, _ -> },
+  onChangeModels: (() -> Unit)? = null,
+  unsupportedNativeLanguages: List<Language> = emptyList(),
 ) {
   var draft by rememberTeacherPreferencesDraft(initialPreferences)
+  // The language to learn starts empty, and Get started waits until the user picks one.
+  var isLearnLanguagePicked by rememberSaveable { mutableStateOf(false) }
   val pagerState = rememberPagerState(pageCount = { ONBOARDING_PAGE_COUNT })
   val coroutineScope = rememberCoroutineScope()
   DisposableEffect(Unit) { onDispose { onStopPersonaPreview() } }
 
   Dialog(
     onDismissRequest = { /* Not dismissable: back is handled below. */ },
-    properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+    properties =
+      DialogProperties(
+        dismissOnBackPress = false,
+        dismissOnClickOutside = false,
+        // Same width as the teacher settings dialog.
+        usePlatformDefaultWidth = false,
+      ),
   ) {
     // Registered inside the dialog so that it receives back presses from the dialog window.
     BackHandler {
@@ -136,7 +150,11 @@ fun XrLanguageTeacherOnboardingOverlay(
     }
     Card(
       shape = RoundedCornerShape(28.dp),
-      modifier = Modifier.fillMaxWidth().fillMaxHeight(0.85f),
+      modifier =
+        Modifier.padding(horizontal = DIALOG_HORIZONTAL_MARGIN)
+          .widthIn(max = DIALOG_MAX_WIDTH)
+          .fillMaxWidth()
+          .fillMaxHeight(0.85f),
       colors =
         CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
@@ -171,6 +189,18 @@ fun XrLanguageTeacherOnboardingOverlay(
                 isPersonaPreviewAvailable = isPersonaPreviewAvailable,
                 languagePacks = languagePacks,
                 onDownloadLanguagePack = onDownloadLanguagePack,
+                unsupportedNativeLanguages = unsupportedNativeLanguages,
+                learnLanguagePlaceholder =
+                  if (isLearnLanguagePicked) null
+                  else stringResource(R.string.xrteacher_choose_learn_language),
+                onLearnLanguagePicked = { isLearnLanguagePicked = true },
+                onChangeModels =
+                  onChangeModels?.let { changeModels ->
+                    {
+                      onStopPersonaPreview()
+                      changeModels()
+                    }
+                  },
               )
             }
           }
@@ -202,6 +232,10 @@ fun XrLanguageTeacherOnboardingOverlay(
                 coroutineScope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
               }
             },
+            // The setup needs a native language (impossible while the speech models share none) and
+            // a language to learn.
+            enabled =
+              !isLastPage || (availableNativeLanguages.isNotEmpty() && isLearnLanguagePicked),
             shape = RoundedCornerShape(24.dp),
           ) {
             Icon(

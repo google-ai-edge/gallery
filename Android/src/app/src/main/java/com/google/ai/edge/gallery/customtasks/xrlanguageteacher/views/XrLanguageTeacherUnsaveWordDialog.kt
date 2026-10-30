@@ -24,8 +24,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.getLanguageName
-import com.google.ai.edge.gallery.proto.Language
 
 /**
  * Asks the user to confirm removing or deleting the saved [word] from their vocabulary.
@@ -52,48 +50,5 @@ fun UnsaveWordConfirmationDialog(
     dismissButton = {
       TextButton(onClick = onDismiss) { Text(stringResource(R.string.xrteacher_cancel)) }
     },
-  )
-}
-
-/**
- * Shown when the user tries to play audio or start a study session for a [language] that the
- * selected text-to-speech model does not support, offering to open the audio settings side sheet to
- * switch TTS models.
- */
-@Composable
-fun TtsLanguageUnsupportedDialog(
-  language: Language,
-  onDismiss: () -> Unit,
-  modifier: Modifier = Modifier,
-  onOpenAudioSettings: (() -> Unit)? = null,
-) {
-  val languageName = getLanguageName(language)
-  AlertDialog(
-    onDismissRequest = onDismiss,
-    modifier = modifier,
-    title = {
-      Text(stringResource(R.string.xrteacher_tts_unsupported_language_title, languageName))
-    },
-    text = { Text(stringResource(R.string.xrteacher_tts_unsupported_language_body, languageName)) },
-    confirmButton = {
-      if (onOpenAudioSettings != null) {
-        TextButton(
-          onClick = {
-            onDismiss()
-            onOpenAudioSettings()
-          }
-        ) {
-          Text(stringResource(R.string.xrteacher_tts_unsupported_open_settings))
-        }
-      } else {
-        TextButton(onClick = onDismiss) { Text(stringResource(R.string.ok)) }
-      }
-    },
-    dismissButton =
-      if (onOpenAudioSettings != null) {
-        { TextButton(onClick = onDismiss) { Text(stringResource(R.string.xrteacher_cancel)) } }
-      } else {
-        null
-      },
   )
 }

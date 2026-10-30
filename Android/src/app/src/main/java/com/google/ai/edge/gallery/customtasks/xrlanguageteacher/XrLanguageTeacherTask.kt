@@ -51,6 +51,8 @@ import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskData
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.ALL_SUPPORTED_LANGUAGES
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.CharacterPersona
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.SelectedSpeechEngineLocales
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherLanguagePackUiState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherLanguageRole
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherPreferencesDraft
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XR_LANGUAGE_TEACHER_MODEL_SELECTION_CONFIG
@@ -69,6 +71,7 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.saveVocab
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.setupXrLanguageTeacherTopK
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.toEnglishName
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.unsaveVocabCardForLanguage
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.unsupportedNativeLanguages
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.playPersonaPreview
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.playTargetPhrase
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.stopPersonaPreview
@@ -96,8 +99,10 @@ import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelSelectionConfig
+import com.google.ai.edge.gallery.data.ModelSelectionTarget
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.proto.Dictionary
+import com.google.ai.edge.gallery.proto.Language
 import com.google.ai.edge.gallery.runtime.runtimeHelper
 import com.google.ai.edge.gallery.ui.common.onboarding.OnboardingViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.LanguagePackUiStatus
@@ -410,12 +415,12 @@ constructor(
               onDelete = { entry -> viewModel.deleteDictionaryEntry(entry) },
               onPlayPhrase = { phrase, lang -> viewModel.playTargetPhrase(phrase, lang) },
               loadVocabImageBitmap = viewModel::loadSavedVocabImageBitmap,
-              isTtsLanguageSupported = { language ->
-                isLanguageSupportedByEngineLocales(language, speechEngineLocales.ttsLocaleTags) &&
-                  languagePacks.uiState.statusOf(TeacherLanguageRole.LEARN, language) !=
-                    LanguagePackUiStatus.Unavailable
-              },
+              isTtsLanguageSupported =
+                rememberIsTtsLanguageSupported(speechEngineLocales, languagePacks.uiState),
               phrasePlaybackState = uiState.phrasePlaybackState,
+              onChangeVoiceModel = {
+                myData.navigateToModelSelection(ModelSelectionTarget.TTS_MODEL)
+              },
             )
           }
           XrLanguageTeacherScreenName.STUDY.value -> {
@@ -432,10 +437,15 @@ constructor(
               onPlayPhrase = { phrase, lang -> viewModel.playTargetPhrase(phrase, lang) },
               phrasePlaybackState = uiState.phrasePlaybackState,
               loadVocabImageBitmap = viewModel::loadSavedVocabImageBitmap,
-              isTtsLanguageSupported = { language ->
-                isLanguageSupportedByEngineLocales(language, speechEngineLocales.ttsLocaleTags) &&
-                  languagePacks.uiState.statusOf(TeacherLanguageRole.LEARN, language) !=
-                    LanguagePackUiStatus.Unavailable
+              isTtsLanguageSupported =
+                rememberIsTtsLanguageSupported(speechEngineLocales, languagePacks.uiState),
+              isAsrLanguageSupported =
+                rememberIsAsrLanguageSupported(speechEngineLocales, languagePacks.uiState),
+              onOpenAudioSettings = {
+                myData.navigateToModelSelection(ModelSelectionTarget.TTS_MODEL)
+              },
+              onOpenAsrSettings = {
+                myData.navigateToModelSelection(ModelSelectionTarget.ASR_MODEL)
               },
             )
           }
@@ -479,6 +489,11 @@ constructor(
         onStopPersonaPreview = viewModel::stopPersonaPreview,
         languagePacks = languagePacks.uiState,
         onDownloadLanguagePack = languagePacks.onDownloadLanguagePack,
+        onChangeModels = { myData.navigateToModelSelection(ModelSelectionTarget.ASR_MODEL) },
+        unsupportedNativeLanguages =
+          remember(speechEngineLocales, availableNativeLanguages) {
+            unsupportedNativeLanguages(speechEngineLocales, availableNativeLanguages)
+          },
       )
     }
 
@@ -512,3 +527,29 @@ constructor(
     }
   }
 }
+
+@Composable
+private fun rememberIsTtsLanguageSupported(
+  speechEngineLocales: SelectedSpeechEngineLocales,
+  languagePacksUiState: TeacherLanguagePackUiState,
+): (Language) -> Boolean =
+  remember(speechEngineLocales.ttsLocaleTags, languagePacksUiState) {
+    { language ->
+      isLanguageSupportedByEngineLocales(language, speechEngineLocales.ttsLocaleTags) &&
+        languagePacksUiState.statusOf(TeacherLanguageRole.LEARN, language) !=
+          LanguagePackUiStatus.Unavailable
+    }
+  }
+
+@Composable
+private fun rememberIsAsrLanguageSupported(
+  speechEngineLocales: SelectedSpeechEngineLocales,
+  languagePacksUiState: TeacherLanguagePackUiState,
+): (Language) -> Boolean =
+  remember(speechEngineLocales.asrLocaleTags, languagePacksUiState) {
+    { language ->
+      isLanguageSupportedByEngineLocales(language, speechEngineLocales.asrLocaleTags) &&
+        languagePacksUiState.statusOf(TeacherLanguageRole.NATIVE, language) !=
+          LanguagePackUiStatus.Unavailable
+    }
+  }

@@ -169,8 +169,8 @@ internal fun TeacherInputModeSwitcher(
 
 /**
  * Text mode input on the camera: the dark translucent prompt box from the design prototype, with a
- * text field ("Ask Gemma about an object…") and a round send button that turns blue once there is
- * text. Sending clears the box and hides the keyboard.
+ * text field ("Type a question…") and a round send button that turns blue once there is text.
+ * Sending clears the box and hides the keyboard.
  *
  * It sits on camera pixels rather than a themed surface, so it uses colors that are the same in
  * light and dark themes.

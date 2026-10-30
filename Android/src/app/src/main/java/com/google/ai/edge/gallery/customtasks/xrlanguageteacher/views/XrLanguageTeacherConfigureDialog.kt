@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -40,6 +41,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +50,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.CharacterPersona
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.PersonaPreviewState
@@ -62,7 +66,9 @@ import com.google.ai.edge.gallery.proto.Language
  * passes them to [onApply].
  *
  * [languagePacks] and [onDownloadLanguagePack] drive the language pack download controls of
- * [TeacherPreferencesForm].
+ * [TeacherPreferencesForm]. [onChangeModels], when set, opens the model selection screen from the
+ * form's "Change models" button. [nativeLanguageNotice] and [learnLanguageNotice], when set,
+ * explain under their dropdown why that language has to be chosen again, until the user picks one.
  */
 @Composable
 fun ConfigureTeacherPreferencesDialog(
@@ -78,19 +84,34 @@ fun ConfigureTeacherPreferencesDialog(
   onStopPersonaPreview: () -> Unit = {},
   languagePacks: TeacherLanguagePackUiState = TeacherLanguagePackUiState(),
   onDownloadLanguagePack: (TeacherLanguageRole, Language) -> Unit = { _, _ -> },
+  onChangeModels: (() -> Unit)? = null,
+  unsupportedNativeLanguages: List<Language> = emptyList(),
+  nativeLanguageNotice: String? = null,
+  learnLanguageNotice: String? = null,
 ) {
   var draft by rememberTeacherPreferencesDraft(initialPreferences)
+  // A language that stopped working starts empty, and Apply waits until the user picks another.
+  var isNativeLanguagePicked by
+    remember(nativeLanguageNotice) { mutableStateOf(nativeLanguageNotice == null) }
+  var isLearnLanguagePicked by
+    remember(learnLanguageNotice) { mutableStateOf(learnLanguageNotice == null) }
+  val choosePlaceholder = stringResource(R.string.xrteacher_choose_learn_language)
   DisposableEffect(Unit) { onDispose { onStopPersonaPreview() } }
 
   Dialog(
     onDismissRequest = {
       onStopPersonaPreview()
       onDismiss()
-    }
+    },
+    // Wider than the platform default: 24dp from each screen edge, up to a tablet-friendly width.
+    properties = DialogProperties(usePlatformDefaultWidth = false),
   ) {
     Card(
       shape = RoundedCornerShape(28.dp),
-      modifier = Modifier.fillMaxWidth(),
+      modifier =
+        Modifier.padding(horizontal = DIALOG_HORIZONTAL_MARGIN)
+          .widthIn(max = DIALOG_MAX_WIDTH)
+          .fillMaxWidth(),
       colors =
         CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
@@ -109,6 +130,21 @@ fun ConfigureTeacherPreferencesDialog(
             isPersonaPreviewAvailable = isPersonaPreviewAvailable,
             languagePacks = languagePacks,
             onDownloadLanguagePack = onDownloadLanguagePack,
+            unsupportedNativeLanguages = unsupportedNativeLanguages,
+            // A note goes away once the user picks another language for its dropdown.
+            nativeLanguageNotice = nativeLanguageNotice.takeUnless { isNativeLanguagePicked },
+            learnLanguageNotice = learnLanguageNotice.takeUnless { isLearnLanguagePicked },
+            nativeLanguagePlaceholder = if (isNativeLanguagePicked) null else choosePlaceholder,
+            onNativeLanguagePicked = { isNativeLanguagePicked = true },
+            learnLanguagePlaceholder = if (isLearnLanguagePicked) null else choosePlaceholder,
+            onLearnLanguagePicked = { isLearnLanguagePicked = true },
+            onChangeModels =
+              onChangeModels?.let { changeModels ->
+                {
+                  onStopPersonaPreview()
+                  changeModels()
+                }
+              },
           )
         }
 
@@ -132,6 +168,12 @@ fun ConfigureTeacherPreferencesDialog(
               onStopPersonaPreview()
               onApply(draft)
             },
+            // Needs a native language (impossible while the speech models share none), and a new
+            // pick for any language that stopped working.
+            enabled =
+              availableNativeLanguages.isNotEmpty() &&
+                isNativeLanguagePicked &&
+                isLearnLanguagePicked,
             shape = RoundedCornerShape(24.dp),
           ) {
             Icon(
@@ -147,3 +189,9 @@ fun ConfigureTeacherPreferencesDialog(
     }
   }
 }
+
+/** Space between the teacher settings dialogs and the screen edges. */
+internal val DIALOG_HORIZONTAL_MARGIN = 24.dp
+
+/** Widest the teacher settings dialogs get, so they stay readable on tablets. */
+internal val DIALOG_MAX_WIDTH = 560.dp
