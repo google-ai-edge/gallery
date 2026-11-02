@@ -37,29 +37,65 @@ import kotlinx.coroutines.CoroutineScope
  * pack checks), or else the system speech recognizer, so the games work in every learn language.
  * Returns `null` when no engine is registered.
  *
- * Preparing the engine for [learnLanguage] changes the language of the shared engine, so the game
- * ViewModels have the lesson prepare it for the host language again after the game.
+ * Logs the chosen engine and language tag (and, for the system recognizer, why it was chosen), and
+ * whether the engine detects the spoken language by itself
+ * (`AsrModelMetadata.isLanguageAutoDetected`) and so may not follow the learn language. Transcripts
+ * are never logged.
+ *
+ * Preparing the engine for [learnLanguage] changes the language of the shared engine, so the lesson
+ * pauses preparing it for the host language while a game runs and prepares it again afterwards.
  */
 internal suspend fun XrLanguageTeacherViewModel.resolveGameAsrTarget(
   learnLanguage: Language
 ): XrLanguageTeacherGameAsrTarget? {
   val engineType = selectedAsrEngineType
   val modelId = selectedAsrModelID.value
-  if (engineType != null && !AsrModelRegistry.isSystemEngine(engineType)) {
-    val localeTag =
-      resolveEngineLocaleTagForLanguage(learnLanguage, getSupportedLocaleTagsForAsrModel(modelId))
-    val service = asrServiceProvider.serviceOrNull(engineType)
-    if (localeTag != null && service != null && isLanguageReady(engineType, service, localeTag)) {
-      val config =
-        AsrSessionSettings(modelId = modelId, languageCode = localeTag, showInterimResults = true)
-          .preparationConfig()
-      return gameAsrTarget(engineType, config)
+  val fallbackReason =
+    when {
+      engineType == null -> "no engine is selected"
+      AsrModelRegistry.isSystemEngine(engineType) -> "the system recognizer is selected"
+      else -> {
+        val localeTag =
+          resolveEngineLocaleTagForLanguage(
+            learnLanguage,
+            getSupportedLocaleTagsForAsrModel(modelId),
+          )
+        val service = asrServiceProvider.serviceOrNull(engineType)
+        when {
+          localeTag == null -> "$engineType doesn't support $learnLanguage"
+          service == null -> "$engineType isn't registered"
+          !isLanguageReady(engineType, service, localeTag) ->
+            "$engineType isn't ready for $localeTag"
+          else -> {
+            val languageNote =
+              if (AsrModelRegistry.metadataFor(engineType).isLanguageAutoDetected) {
+                " (detects the spoken language itself)"
+              } else {
+                ""
+              }
+            Log.i(TAG, "Game speech recognition: $engineType for $localeTag$languageNote")
+            val config =
+              AsrSessionSettings(
+                  modelId = modelId,
+                  languageCode = localeTag,
+                  showInterimResults = true,
+                )
+                .preparationConfig()
+            return gameAsrTarget(engineType, config)
+          }
+        }
+      }
     }
-  }
+  val systemLocaleTag = learnLanguage.toLocale().toLanguageTag()
+  Log.i(
+    TAG,
+    "Game speech recognition: ${AsrEngineType.SYSTEM_DEFAULT} for $systemLocaleTag " +
+      "($fallbackReason)",
+  )
   val systemConfig =
     AsrSessionSettings(
         modelId = AsrModelIdentifier.SYSTEM_DEFAULT,
-        languageCode = learnLanguage.toLocale().toLanguageTag(),
+        languageCode = systemLocaleTag,
         showInterimResults = true,
       )
       .preparationConfig()

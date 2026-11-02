@@ -60,8 +60,12 @@ interface XrLanguageTeacherGameHighScoreStore {
  *   for a sprite at most [GAME_STICKER_MAX_SIDE_PX] large, or returns `null` when the word has no
  *   image.
  * @param imageDispatcher dispatcher on which word images are prepared as game sprites.
- * @param onSessionEnded called when a game screen closes, so the lesson can prepare speech
- *   recognition for the host language again.
+ * @param onSessionStarted called when a game session starts, so the lesson stops preparing the
+ *   shared speech recognition engine for the host language while the game uses it for the learn
+ *   language.
+ * @param onSessionEnded called once for each [onSessionStarted], when the game screen closes and
+ *   the game's recognizer is torn down, so the lesson can prepare speech recognition for the host
+ *   language again.
  * @param onRoundStarted called whenever a round starts (also on replay), so the teacher model can
  *   be unloaded while the game runs.
  */
@@ -74,6 +78,7 @@ class XrLanguageTeacherVocabGameDependencies(
   val highScores: XrLanguageTeacherGameHighScoreStore,
   val loadStickerImage: suspend (word: String, learnLanguage: Language) -> Bitmap?,
   val imageDispatcher: CoroutineDispatcher,
+  val onSessionStarted: () -> Unit = {},
   val onSessionEnded: () -> Unit = {},
   val onRoundStarted: () -> Unit = {},
 )

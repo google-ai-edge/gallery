@@ -88,8 +88,11 @@ abstract class XrLanguageTeacherVocabGameViewModel(
   /** Starts over the engine's transcript when the recognizer starts a new utterance segment. */
   protected abstract fun resetTranscript()
 
-  /** Marks the engine's pending transcript words as used after a speaking pause. */
-  protected abstract fun consumePendingTranscript()
+  /**
+   * Handles a speaking pause (or the end of a segment): lets the engine match the now stable
+   * transcript, then marks its pending words as used.
+   */
+  protected abstract fun handleUtterancePause()
 
   /** Drops the engine when the session ends. */
   protected abstract fun dropEngine()
@@ -107,6 +110,7 @@ abstract class XrLanguageTeacherVocabGameViewModel(
     this.learnLanguage = learnLanguage
     val deckEntries = pickGameDeck(entries, Random(randomSeed()))
     isSessionActive = true
+    dependencies.onSessionStarted()
     dependencies.onRoundStarted()
     val cachedStickers = cachedGameStickers(deckEntries)
     if (cachedStickers.isNotEmpty()) {
@@ -172,7 +176,7 @@ abstract class XrLanguageTeacherVocabGameViewModel(
   }
 
   override fun onUtterancePause() {
-    consumePendingTranscript()
+    handleUtterancePause()
     heardWordsTracker.clear()
   }
 

@@ -102,9 +102,10 @@ data class XrLanguageTeacherVocabRunnerStepEvents(
   val didFinishRound: Boolean = false,
 )
 
-/** Result returned when the player speaks the upcoming obstacle's word to clear it. */
+/** Result returned when the player speaks upcoming obstacles' words to clear them. */
 data class XrLanguageTeacherVocabRunnerClearEvent(
-  val matchedWord: String,
+  /** Display words of the cleared obstacles, nearest first. */
+  val clearedWords: List<String>,
   val newScore: Int,
   val isNewHighScore: Boolean,
 )
@@ -152,11 +153,12 @@ private const val BUDDY_FOOT_SWING_DP = 7f
 /**
  * Pure, deterministic 60-second runner physics and obstacle engine for `Vocab Runner`.
  *
- * Sticker obstacles scroll toward Buddy; speaking the nearest obstacle's word pops it out of
- * Buddy's path (`+1`) and speeds the track up. Bumping into an obstacle knocks the whole track back
- * so the player can try the word again; the third bump breaks the obstacle for no points. The round
- * ends after [ROUND_DURATION_MILLISECONDS]. Not thread-safe: drive [step] and [processTranscript]
- * from a single thread (normally the main thread) and publish [state] snapshots to the UI.
+ * Sticker obstacles scroll toward Buddy; speaking the word of the nearest obstacle (or the one
+ * after it) pops it out of Buddy's path (`+1`) and speeds the track up. Bumping into an obstacle
+ * knocks the whole track back so the player can try the word again; the third bump breaks the
+ * obstacle for no points. The round ends after [ROUND_DURATION_MILLISECONDS]. Not thread-safe:
+ * drive [step] and [processTranscript] from a single thread (normally the main thread) and publish
+ * [state] snapshots to the UI.
  *
  * @param deck Vocabulary items to use as obstacles, drawn from a shuffled bag avoiding back-to-back
  *   repeats.
@@ -293,45 +295,74 @@ class XrLanguageTeacherVocabRunnerEngine(
   }
 
   /**
-   * Marks any unconsumed tokens in the current segment as consumed after a speaking pause so stale
-   * unmatched words cannot clear future obstacles.
+   * Marks any unconsumed tokens in the current segment as consumed (after a bump or a speaking
+   * pause) so stale unmatched words cannot clear future obstacles.
    */
-  fun consumePendingTranscript() {
+  private fun consumePendingTranscript() {
     transcriptCursor.consumePending()
   }
 
   /**
-   * Evaluates the cumulative ASR [transcript] against the nearest visible upcoming obstacle still
-   * in Buddy's path (with `BUDDY_X - COLLISION_HALF_WIDTH <= x <= 1.08`): a match awards `+1`,
-   * starts its pop and fade, ramps the scroll speed up, and consumes the matched transcript tokens.
-   * Returns `null` when nothing matched.
+   * Evaluates the cumulative ASR [transcript] against the nearest two visible upcoming obstacles
+   * still in Buddy's path (with `BUDDY_X - COLLISION_HALF_WIDTH <= x <= 1.08`), so a word said a
+   * bit early, or naming the obstacle after the nearest, counts too. Each spoken word clears at
+   * most one obstacle (see [XrLanguageTeacherSpeechMatcher.selectSpokenTargets]), so "gato perro"
+   * said quickly clears both. Every cleared obstacle awards `+1`, starts its pop and fade, and
+   * ramps the scroll speed up; the transcript is consumed only up to the last matched word, so a
+   * word said after it can still clear the next obstacle. Words the recognizer may still revise
+   * only match exactly. Returns `null` when nothing matched.
    */
   fun processTranscript(transcript: String): XrLanguageTeacherVocabRunnerClearEvent? {
     if (state.phase != XrLanguageTeacherVocabRunnerPhase.PLAYING) return null
-    val unconsumedText = transcriptCursor.takeUnconsumedText(transcript)
-    if (unconsumedText.isEmpty()) return null
+    return clearSpokenObstacles(transcriptCursor.takeUnconsumed(transcript))
+  }
 
-    val targetIndex =
-      state.obstacles.indexOfFirst {
-        !it.isClearing && it.x >= BUDDY_X - COLLISION_HALF_WIDTH && it.x <= MAX_MATCHABLE_OBSTACLE_X
+  /**
+   * Handles a speaking pause (or the end of a segment): evaluates the latest transcript again, now
+   * that its words are stable, like [processTranscript], then marks its remaining words as consumed
+   * (see [consumePendingTranscript]). Returns the clears, or `null` when nothing matched.
+   */
+  fun processUtterancePause(): XrLanguageTeacherVocabRunnerClearEvent? {
+    val clearEvent =
+      if (state.phase == XrLanguageTeacherVocabRunnerPhase.PLAYING) {
+        clearSpokenObstacles(transcriptCursor.takeUnconsumedAtPause())
+      } else {
+        null
       }
-    if (targetIndex < 0) return null
+    transcriptCursor.consumePending()
+    return clearEvent
+  }
 
-    val obstacle = state.obstacles[targetIndex]
-    val transcriptForms = XrLanguageTeacherSpeechMatcher.speechMatchForms(unconsumedText)
-    if (
-      !XrLanguageTeacherSpeechMatcher.findTargetWordSpoken(
-        transcriptForms = transcriptForms,
-        targetForms = obstacle.item.targetMatchForms,
+  private fun clearSpokenObstacles(
+    speech: XrLanguageTeacherUnconsumedSpeech
+  ): XrLanguageTeacherVocabRunnerClearEvent? {
+    if (speech.isEmpty()) return null
+    val candidateIndices =
+      state.obstacles.indices
+        .filter { index ->
+          val obstacle = state.obstacles[index]
+          !obstacle.isClearing &&
+            obstacle.x >= BUDDY_X - COLLISION_HALF_WIDTH &&
+            obstacle.x <= MAX_MATCHABLE_OBSTACLE_X
+        }
+        .take(MATCHABLE_OBSTACLE_COUNT)
+    if (candidateIndices.isEmpty()) return null
+    val matches =
+      XrLanguageTeacherSpeechMatcher.selectSpokenTargets(
+        transcript = speech.text,
+        targetFormsList = candidateIndices.map { state.obstacles[it].item.targetMatchForms },
+        stableLength = speech.stableLength,
       )
-    ) {
-      return null
-    }
+    if (matches.isEmpty()) return null
 
-    transcriptCursor.consumeSeen()
+    val lastMatch = matches.maxBy { it.end }
+    transcriptCursor.consumeThrough(lastMatch.start, lastMatch.end)
+    val clearedIndices = matches.map { candidateIndices[it.targetIndex] }.sorted()
     val obstacles = state.obstacles.toMutableList()
-    obstacles[targetIndex] = obstacle.copy(clearProgress = 0f)
-    val score = state.score + 1
+    for (index in clearedIndices) {
+      obstacles[index] = obstacles[index].copy(clearProgress = 0f)
+    }
+    val score = state.score + clearedIndices.size
     val isNewHighScore = state.isNewHighScore || score > state.highScore
     state =
       state.copy(
@@ -343,7 +374,7 @@ class XrLanguageTeacherVocabRunnerEngine(
         obstacles = obstacles,
       )
     return XrLanguageTeacherVocabRunnerClearEvent(
-      matchedWord = obstacle.item.displayWord,
+      clearedWords = clearedIndices.map { obstacles[it].item.displayWord },
       newScore = score,
       isNewHighScore = isNewHighScore,
     )
@@ -434,6 +465,8 @@ class XrLanguageTeacherVocabRunnerEngine(
     private const val STUMBLE_DURATION_SECONDS = 0.45f
     private const val MAX_ACTIVE_OBSTACLES = 8
     private const val MAX_MATCHABLE_OBSTACLE_X = 1.08f
+    /** How many upcoming obstacles (the nearest and the one after it) can be cleared by voice. */
+    private const val MATCHABLE_OBSTACLE_COUNT = 2
     private const val FIRST_OBSTACLE_START_X = 1.05f
     private const val DESPAWN_X = -0.18f
     private const val CLEAR_ANIMATION_SECONDS = 0.22f

@@ -22,6 +22,7 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguag
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabPopperDuration
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabPopperEngine
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabPopperPhase
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabPopperPopEvent
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabPopperState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.XrLanguageTeacherGameMicState
 import com.google.ai.edge.gallery.proto.DictionaryEntry
@@ -161,7 +162,19 @@ class XrLanguageTeacherVocabPopperViewModel(
     if (engine.state.phase != XrLanguageTeacherVocabPopperPhase.PLAYING) return
     val popEvent = engine.processTranscript(transcript)
     showHeard(transcript, isUsed = popEvent != null)
-    if (popEvent == null) return
+    if (popEvent != null) showPops(engine, popEvent)
+  }
+
+  override fun handleUtterancePause() {
+    val engine = engine ?: return
+    engine.processUtterancePause()?.let { showPops(engine, it) }
+  }
+
+  /** Plays and shows the pops of [popEvent], which [engine] just made. */
+  private fun showPops(
+    engine: XrLanguageTeacherVocabPopperEngine,
+    popEvent: XrLanguageTeacherVocabPopperPopEvent,
+  ) {
     val game = engine.state
     soundEffects.playPop()
     persistHighScoreIfNeeded(game.highScore)
@@ -197,10 +210,6 @@ class XrLanguageTeacherVocabPopperViewModel(
 
   override fun resetTranscript() {
     engine?.resetTranscript()
-  }
-
-  override fun consumePendingTranscript() {
-    engine?.consumePendingTranscript()
   }
 
   override fun dropEngine() {

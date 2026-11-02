@@ -423,6 +423,12 @@ constructor(
   @Volatile internal var currentSessionImagePath: String? = null
 
   internal var prepareSpeechJob: Job? = null
+  /**
+   * How many study game sessions use the shared ASR engine for their learn language now (see
+   * `pauseLessonAsrForGame`). The lesson doesn't prepare the engine for the host language while
+   * there are any. Only accessed on the main thread.
+   */
+  internal var activeGameAsrSessions = 0
   internal var prepareTtsJob: Job? = null
   internal var asrRecordingJob: Job? = null
   internal val asrSessionEpoch = AtomicLong(0L)
