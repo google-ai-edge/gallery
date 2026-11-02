@@ -16,24 +16,72 @@
 
 package com.google.ai.edge.gallery
 
+import android.os.Bundle
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import com.google.firebase.Firebase
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.analytics
 
-private var hasLoggedAnalyticsWarning = false
+private const val TAG = "AGAnalyticsFirebase"
 
-val firebaseAnalytics: FirebaseAnalytics?
-  get() =
-    runCatching { Firebase.analytics }
-      .onFailure { exception ->
-        // Firebase.analytics can throw an exception if goolgle-services is not set up, e.g.,
-        // missing google-services.json.
-        if (!hasLoggedAnalyticsWarning) {
-          Log.w("AGAnalyticsFirebase", "Firebase Analytics is not available", exception)
-        }
-      }
-      .getOrNull()
+/**
+ * The [FirebaseAnalytics] instance, or `null` if Firebase Analytics is not available.
+ *
+ * Resolved once on first access.
+ */
+private val firebaseAnalyticsDelegate: FirebaseAnalytics? by lazy {
+  runCatching { Firebase.analytics }
+    .onFailure { exception ->
+      // Firebase.analytics can throw an exception if goolgle-services is not set up, e.g.,
+      // missing google-services.json.
+      Log.w(TAG, "Firebase Analytics is not available", exception)
+    }
+    .getOrNull()
+}
+
+/**
+ * Thin wrapper around [FirebaseAnalytics] exposing the subset of its API used by the app.
+ *
+ * [FirebaseAnalytics] is a final class that is unavailable in Robolectric unit tests, so tests set
+ * [eventHandler] to intercept and verify logged events and their parameters instead.
+ */
+object GalleryAnalytics {
+  /**
+   * Optional handler that intercepts every logged event instead of sending it to Firebase.
+   *
+   * Unit tests set this to verify logged event names and parameters, and must reset it to `null`
+   * when done.
+   */
+  @VisibleForTesting @Volatile var eventHandler: ((name: String, params: Bundle?) -> Unit)? = null
+
+  /**
+   * Logs the [name] event with [params] to Firebase Analytics, or forwards it to [eventHandler]
+   * instead when one is set.
+   */
+  fun logEvent(name: String, params: Bundle? = null) {
+    val handler = eventHandler
+    if (handler != null) {
+      handler(name, params)
+      return
+    }
+    firebaseAnalyticsDelegate?.logEvent(name, params)
+  }
+
+  /** Enables or disables Firebase Analytics collection for this app. */
+  fun setAnalyticsCollectionEnabled(enabled: Boolean) {
+    firebaseAnalyticsDelegate?.setAnalyticsCollectionEnabled(enabled)
+  }
+}
+
+/**
+ * Returns [GalleryAnalytics] if events can be logged, i.e. when [GalleryAnalytics.eventHandler] is
+ * set or Firebase Analytics is available, or `null` otherwise.
+ */
+val firebaseAnalytics: GalleryAnalytics?
+  get() = GalleryAnalytics.takeIf {
+    GalleryAnalytics.eventHandler != null || firebaseAnalyticsDelegate != null
+  }
 
 enum class GalleryEvent(val id: String) {
   CAPABILITY_SELECT(id = "capability_select"),
