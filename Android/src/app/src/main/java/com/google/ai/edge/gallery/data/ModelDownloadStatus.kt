@@ -46,7 +46,10 @@ enum class ModelDownloadFailureReason {
    * nothing for a while, or the system service lists it as downloading while no download runs in
    * the app. The service may still finish it; the user can request it again.
    */
-  STALLED
+  STALLED,
+
+  /** The device doesn't have enough free storage for the downloaded files. */
+  OUT_OF_STORAGE,
 }
 
 data class ModelDownloadStatus(

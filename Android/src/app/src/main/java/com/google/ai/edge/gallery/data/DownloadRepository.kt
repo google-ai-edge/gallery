@@ -229,6 +229,41 @@ internal data class UnsuccessfulDownloadOutcome(
   }
 }
 
+/**
+ * Returns the string resource that explains a failed download to the user, or null to show the
+ * worker's own error message.
+ *
+ * @param errorType The worker's error category (see [KEY_MODEL_DOWNLOAD_ERROR_TYPE]): the class
+ *   name of the exception that failed the download.
+ * @param errorMessage The worker's error message (see [KEY_MODEL_DOWNLOAD_ERROR_MESSAGE]).
+ */
+internal fun downloadFailureMessageRes(errorType: String?, errorMessage: String?): Int? =
+  when {
+    isOutOfStorageFailure(errorMessage, errorType) ->
+      R.string.model_download_error_not_enough_storage
+    errorType in NO_INTERNET_ERROR_TYPES -> R.string.model_download_error_no_internet
+    errorType == "SocketTimeoutException" -> R.string.model_download_error_timed_out
+    errorType in CONNECTION_LOST_ERROR_TYPES -> R.string.model_download_error_connection_lost
+    else -> null
+  }
+
+/**
+ * Whether a download failed because the device ran out of storage, given its error message and
+ * error type.
+ */
+internal fun isOutOfStorageFailure(errorMessage: String?, errorType: String? = null): Boolean =
+  errorType == ERROR_TYPE_OUT_OF_STORAGE ||
+    // Writes to a full disk fail with "write failed: ENOSPC (No space left on device)".
+    errorMessage?.contains("ENOSPC") == true
+
+/** The exceptions that mean the download server couldn't be reached at all. */
+private val NO_INTERNET_ERROR_TYPES =
+  setOf("UnknownHostException", "ConnectException", "NoRouteToHostException")
+
+/** The exceptions that mean the connection broke while the file was being downloaded. */
+private val CONNECTION_LOST_ERROR_TYPES =
+  setOf("SocketException", "ProtocolException", "SSLException", "EOFException")
+
 // The `event_type` values of the `model_download` analytics event.
 private const val EVENT_TYPE_START = "start"
 private const val EVENT_TYPE_SUCCESS = "success"
@@ -771,18 +806,22 @@ class DefaultDownloadRepository(
 
             WorkInfo.State.FAILED,
             WorkInfo.State.CANCELLED -> {
-              val errorMessage =
+              val errorType = workInfo.outputData.getString(KEY_MODEL_DOWNLOAD_ERROR_TYPE)
+              val workerErrorMessage =
                 workInfo.outputData.getString(KEY_MODEL_DOWNLOAD_ERROR_MESSAGE) ?: ""
+              val errorMessage =
+                downloadFailureMessageRes(errorType = errorType, errorMessage = workerErrorMessage)
+                  ?.let { context.getString(it) } ?: workerErrorMessage
               val authError =
                 DownloadAuthError.fromName(
                   workInfo.outputData.getString(KEY_MODEL_DOWNLOAD_AUTH_ERROR)
                 )
-              Log.d(TAG, "worker $workerId ${workInfo.state}: $errorMessage")
+              Log.d(TAG, "worker $workerId ${workInfo.state}: $workerErrorMessage")
               val outcome =
                 UnsuccessfulDownloadOutcome.from(
                   cancellation = DownloadCancellation.of(workInfo.state, download.cancelledByUser),
                   authError = authError,
-                  errorType = workInfo.outputData.getString(KEY_MODEL_DOWNLOAD_ERROR_TYPE),
+                  errorType = errorType,
                 )
               if (outcome.notifyFailure) {
                 val (title, text) =
@@ -806,6 +845,14 @@ class DefaultDownloadRepository(
                   status = outcome.status,
                   errorMessage = errorMessage,
                   authError = authError,
+                  failureReason =
+                    ModelDownloadFailureReason.OUT_OF_STORAGE.takeIf {
+                      outcome.status == ModelDownloadStatusType.FAILED &&
+                        isOutOfStorageFailure(
+                          errorMessage = workerErrorMessage,
+                          errorType = errorType,
+                        )
+                    },
                 )
               endObserving(finalStatus)
               download.report(finalStatus)
@@ -861,26 +908,25 @@ class DefaultDownloadRepository(
       context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     notificationManager.createNotificationChannel(channel)
 
-    val intent: Intent
-    if (taskId.isEmpty()) {
-      // If taskId is empty, it's a failed download. Just open the app's main screen.
-      intent = context.packageManager.getLaunchIntentForPackage(context.packageName)!!
-    }
-    // Download from global model manager. Open the global model manager screen.
-    else if (taskId == DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID) {
-      intent =
-        Intent(Intent.ACTION_VIEW, "com.google.ai.edge.gallery://global_model_manager".toUri())
-          .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
-    } else {
-
-      // Otherwise, create the deep link as before.
-      intent =
-        Intent(
-            Intent.ACTION_VIEW,
-            "com.google.ai.edge.gallery://model/$taskId/${modelName}".toUri(),
-          )
-          .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
-    }
+    val intent: Intent =
+      when {
+        // If taskId is empty, it's a failed download. Just open the app's main screen.
+        taskId.isEmpty() ->
+          checkNotNull(context.packageManager.getLaunchIntentForPackage(context.packageName)) {
+            "The app has no launch intent"
+          }
+        // Download from global model manager. Open the global model manager screen.
+        taskId == DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID ->
+          Intent(Intent.ACTION_VIEW, "com.google.ai.edge.gallery://global_model_manager".toUri())
+            .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+        // Otherwise, create the deep link as before.
+        else ->
+          Intent(
+              Intent.ACTION_VIEW,
+              "com.google.ai.edge.gallery://model/$taskId/${modelName}".toUri(),
+            )
+            .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+      }
 
     // Create a PendingIntent
     val pendingIntent: PendingIntent =

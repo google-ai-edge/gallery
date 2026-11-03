@@ -22,6 +22,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.common.logButtonClick
 import com.google.ai.edge.gallery.data.LanguagePackDownloader
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.ModelDownloadFailureReason
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.ModelType
@@ -409,11 +410,20 @@ fun ModelManagerViewModel.refreshSupplementaryStatuses() {
       val status = pendingStatus.await()
       // A download in flight reports its own status. The files on disk don't show it, e.g. when
       // processPendingDownloads has just attached to a download left by an earlier activity.
-      val curStatus = uiState.value.modelDownloadStatus[model.name]?.status
+      val curDownloadStatus = uiState.value.modelDownloadStatus[model.name]
+      val curStatus = curDownloadStatus?.status
       if (
         model.downloadsViaRepository &&
           (curStatus == ModelDownloadStatusType.IN_PROGRESS ||
             curStatus == ModelDownloadStatusType.UNZIPPING)
+      ) {
+        continue
+      }
+      // Keep telling the user how much storage a partially downloaded model is short of, rather
+      // than showing it as just partially downloaded.
+      if (
+        curDownloadStatus?.failureReason == ModelDownloadFailureReason.OUT_OF_STORAGE &&
+          status.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
       ) {
         continue
       }

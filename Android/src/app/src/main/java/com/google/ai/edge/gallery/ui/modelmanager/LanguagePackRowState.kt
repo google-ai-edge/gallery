@@ -74,6 +74,7 @@ fun ModelDownloadStatus?.toLanguagePackUiStatus(): LanguagePackUiStatus {
             totalBytes = downloadStatus.totalBytes,
             stalled = true,
           )
+        ModelDownloadFailureReason.OUT_OF_STORAGE,
         null -> LanguagePackUiStatus.Failed
       }
     ModelDownloadStatusType.UNAVAILABLE -> LanguagePackUiStatus.Unavailable

@@ -18,8 +18,11 @@ package com.google.ai.edge.gallery.ui.modelmanager
 
 import android.content.Context
 import android.media.AudioTrack
+import android.os.StatFs
+import android.text.format.Formatter
 import android.util.Log
 import androidx.activity.result.ActivityResult
+import androidx.annotation.MainThread
 import androidx.annotation.VisibleForTesting
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
@@ -52,6 +55,7 @@ import com.google.ai.edge.gallery.data.LiteRtLmModelDownloader
 import com.google.ai.edge.gallery.data.LlmProfile
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelAllowlist
+import com.google.ai.edge.gallery.data.ModelDownloadFailureReason
 import com.google.ai.edge.gallery.data.ModelDownloadInfo
 import com.google.ai.edge.gallery.data.ModelDownloadStatus
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
@@ -97,6 +101,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.IOException
+import java.util.Collections
+import java.util.IdentityHashMap
 import java.util.Optional
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -106,11 +112,16 @@ import kotlin.collections.sortedWith
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.openid.appauth.AuthorizationException
@@ -440,6 +451,20 @@ constructor(
   @VisibleForTesting
   internal var deviceProvider: () -> DeviceIdentity = { DeviceIdentity.current() }
 
+  /**
+   * Returns the free storage, in bytes, where models are downloaded, or `null` if it can't be read.
+   * Overridden in tests.
+   */
+  @VisibleForTesting
+  internal var availableStorageBytesProvider: () -> Long? = {
+    try {
+      StatFs(modelsDir.absolutePath).availableBytes
+    } catch (e: IllegalArgumentException) {
+      Log.w(TAG, "Failed to read the free storage of ${modelsDir.absolutePath}", e)
+      null
+    }
+  }
+
   protected val _uiState: MutableStateFlow<ModelManagerUiState> =
     MutableStateFlow(createEmptyUiState())
   internal val mutableUiState: MutableStateFlow<ModelManagerUiState>
@@ -521,6 +546,10 @@ constructor(
   // retries right after a Hugging Face sign-in. Kept here rather than in the button, which can be
   // recomposed or replaced (e.g. by AnimatedContent) while the download runs.
   private val userStartedDownloads = ConcurrentHashMap<String, Boolean>()
+
+  // The downloads that wait for the stale files of their model to be deleted on [ioDispatcher]
+  // before they start, by model name (see [launchFileWork]). Only used on the main thread.
+  private val downloadsAwaitingCleanup = mutableMapOf<String, Job>()
 
   fun isFirstInitialization(model: Model): Boolean {
     val backend = getModelCurrentAccelerator(model)
@@ -666,55 +695,233 @@ constructor(
     return saved ?: emptyMap()
   }
 
+  @MainThread
   open fun downloadModel(
     task: Task?,
     model: Model,
     includeExtraDataFiles: Boolean = isDownloadOptionalComponentsEnabled(model.name),
   ) {
-    if (model.downloadsViaRepository) {
-      // Delete the model files first.
-      deleteModel(
-        model = model,
-        removeImportedFromModelList = false,
-        preserveOptionalComponentsState = true,
-      )
+    // An earlier download of this model may still be deleting its stale files. This download
+    // replaces it, and picks its files once the deletion ended, as that reads the files on disk.
+    if (model.name in downloadsAwaitingCleanup) {
+      val waitingStatus = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS)
+      setDownloadStatus(curModel = model, status = waitingStatus)
+      if (model.isSupplementary) {
+        publishSupplementaryDownloadStatus(model, waitingStatus)
+      }
+      launchFileWork(model.name) {
+        downloadsAwaitingCleanup.remove(model.name)
+        downloadModel(task = task, model = model, includeExtraDataFiles = includeExtraDataFiles)
+      }
+      return
     }
 
-    // Update status. Deleting the model files above resets it to NOT_DOWNLOADED, so update it after
-    // them for the download to show as started until the downloader reports its first progress.
-    setDownloadStatus(
-      curModel = model,
-      status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
-    )
-    if (model.isSupplementary) {
-      publishSupplementaryDownloadStatus(
-        model,
-        ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
-      )
-    }
-
+    // Keep the partial files of an interrupted download of this model so that it resumes rather
+    // than starting over.
     val family = getModelFamily(model)
+    // An extra data download that is still running writes the extra data files itself, so this
+    // download must neither include nor resume them.
+    val isExtraDataDownloading = family.any {
+      val extraDataStatus = uiState.value.extraDataDownloadStatus[it.name]?.status
+      extraDataStatus == ModelDownloadStatusType.IN_PROGRESS ||
+        extraDataStatus == ModelDownloadStatusType.UNZIPPING
+    }
+    val canResumeExtraDataFiles = includeExtraDataFiles && !isExtraDataDownloading
+    val resumesPartialDownload =
+      model.downloadsViaRepository &&
+        hasResumablePartialDownload(
+          model = model,
+          taskId = task?.id,
+          includeExtraDataFiles = canResumeExtraDataFiles,
+        )
+
     val isExtraDataAlreadyDownloaded =
       model.downloadsViaRepository &&
         (family.any {
           uiState.value.extraDataDownloadStatus[it.name]?.status ==
             ModelDownloadStatusType.SUCCEEDED
         } || family.any { isExtraDataPresentOnDisk(it, task?.id) })
-    val actualIncludeExtraDataFiles = includeExtraDataFiles && !isExtraDataAlreadyDownloaded
+    val actualIncludeExtraDataFiles = canResumeExtraDataFiles && !isExtraDataAlreadyDownloaded
 
+    val (totalBytes, requiredBytes) =
+      repositoryDownloadSize(model, task?.id, includeExtraDataFiles = actualIncludeExtraDataFiles)
+    val initialRequiredBytes = if (resumesPartialDownload) requiredBytes() else totalBytes
+
+    // Fail right away, rather than partway through, if the files don't fit on the device.
+    if (model.downloadsViaRepository) {
+      val shortfallStatus =
+        storageShortfallStatus(
+          requiredBytes = initialRequiredBytes,
+          excludedModelNames = setOf(model.name),
+        )
+      if (shortfallStatus != null) {
+        setDownloadStatus(curModel = model, status = shortfallStatus)
+        if (model.isSupplementary) {
+          publishSupplementaryDownloadStatus(model, shortfallStatus)
+        }
+        return
+      }
+    }
+
+    // A download that doesn't resume deletes the stale files of the model's version first.
+    val cleansUpStaleFiles = model.downloadsViaRepository && !resumesPartialDownload
+
+    // Update status. The sizes let the storage check of another download leave room for this one.
+    val inProgressStatus =
+      if (model.downloadsViaRepository) {
+        ModelDownloadStatus(
+          status = ModelDownloadStatusType.IN_PROGRESS,
+          totalBytes = totalBytes,
+          // The files of a download that doesn't resume are deleted before it starts.
+          receivedBytes = if (cleansUpStaleFiles) 0L else totalBytes - requiredBytes(),
+        )
+      } else {
+        ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS)
+      }
+    setDownloadStatus(curModel = model, status = inProgressStatus)
+    if (model.isSupplementary) {
+      publishSupplementaryDownloadStatus(model, inProgressStatus)
+    }
+
+    if (!cleansUpStaleFiles) {
+      startDownload(
+        task = task,
+        model = model,
+        includeExtraDataFiles = actualIncludeExtraDataFiles,
+        requiredBytes = requiredBytes,
+      )
+      return
+    }
+    // Deleting the files of a big model takes a while, so it runs off the main thread. The download
+    // writes the same files, so it starts only once they're deleted, unless it's cancelled before.
+    launchFileWork(model.name) {
+      withContext(ioDispatcher) {
+        cleanupStaleCurrentVersionFiles(
+          model = model,
+          taskId = task?.id,
+          cleanExtraDataFiles = actualIncludeExtraDataFiles,
+        )
+      }
+      startDownload(
+        task = task,
+        model = model,
+        includeExtraDataFiles = actualIncludeExtraDataFiles,
+        requiredBytes = requiredBytes,
+      )
+    }
+  }
+
+  /**
+   * Runs [work] on the main thread, as the download of [modelName] waiting in
+   * [downloadsAwaitingCleanup] until [work] ends or a later call or [cancelDownloadModel] cancels
+   * it.
+   *
+   * The earlier waiting download of [modelName], if any, is cancelled, and [work] only starts once
+   * it ended, so that the two never touch the model's files at the same time: a deletion already
+   * running on [ioDispatcher] can't be stopped halfway. Even when cancelled, the work ends only
+   * once the earlier one ended, so that the work queued after it never overlaps the earlier one
+   * either.
+   */
+  @MainThread
+  private fun launchFileWork(modelName: String, work: suspend CoroutineScope.() -> Unit) {
+    val previous = downloadsAwaitingCleanup.remove(modelName)
+    val job =
+      viewModelScope.launch(start = CoroutineStart.LAZY) {
+        try {
+          if (previous != null) {
+            previous.cancel()
+            withContext(NonCancellable) { previous.join() }
+          }
+          ensureActive()
+          work()
+        } finally {
+          if (downloadsAwaitingCleanup[modelName] === coroutineContext.job) {
+            downloadsAwaitingCleanup.remove(modelName)
+          }
+        }
+      }
+    downloadsAwaitingCleanup[modelName] = job
+    job.start()
+  }
+
+  /**
+   * Starts the download of [model] for [task] with [model]'s downloader, publishing the statuses it
+   * reports.
+   *
+   * @param requiredBytes Returns how many more bytes the download needs to write.
+   */
+  @MainThread
+  private fun startDownload(
+    task: Task?,
+    model: Model,
+    includeExtraDataFiles: Boolean,
+    requiredBytes: () -> Long,
+  ) {
     val downloader =
       downloaders[model.backendSpec.runtimeType] ?: downloaders[RuntimeType.LITERT_LM]
     downloader?.download(
       task = task,
       model = model,
-      includeExtraDataFiles = actualIncludeExtraDataFiles,
-      onStatusUpdated = { curModel, status ->
+      includeExtraDataFiles = includeExtraDataFiles,
+      onStatusUpdated = { curModel, reportedStatus ->
+        val status =
+          withStorageShortfall(
+            reportedStatus,
+            requiredBytes = requiredBytes,
+            excludedModelNames = setOf(model.name),
+          )
         setDownloadStatus(curModel = curModel, status = status)
         if (curModel.isSupplementary) {
           publishSupplementaryDownloadStatus(curModel, status)
         }
       },
     )
+  }
+
+  /**
+   * Deletes stale files of [model]'s target version before starting a fresh download, preserving
+   * any older installed versions (`updatableModelFiles`) and any extra data files that are already
+   * downloaded or currently downloading when [cleanExtraDataFiles] is `false`.
+   */
+  private fun cleanupStaleCurrentVersionFiles(
+    model: Model,
+    taskId: String?,
+    cleanExtraDataFiles: Boolean,
+  ) {
+    if (model.downloadInfo.imported) {
+      deleteFilesFromImportDir(model.downloadInfo.downloadFileName)
+      return
+    }
+    if (model.downloadInfo.localModelFilePathOverride.isNotEmpty()) {
+      File("${model.downloadInfo.localModelFilePathOverride}.$TMP_FILE_EXT").delete()
+    }
+    val versionDir =
+      File(
+        modelsDir,
+        listOf(model.normalizedName, model.downloadInfo.version).joinToString(File.separator),
+      )
+    if (!versionDir.exists()) {
+      return
+    }
+    val downloadFileName = model.downloadInfo.downloadFileName
+    if (downloadFileName.isNotEmpty()) {
+      File(versionDir, downloadFileName).deleteRecursively()
+      File(versionDir, "$downloadFileName.$TMP_FILE_EXT").delete()
+      File(versionDir, "$downloadFileName.$UNPACKED_FILE_EXT").delete()
+    }
+    if (model.downloadInfo.isZip && model.downloadInfo.unzipDir.isNotEmpty()) {
+      File(versionDir, model.downloadInfo.unzipDir).deleteRecursively()
+    }
+    if (cleanExtraDataFiles) {
+      for (extraFile in model.downloadInfo.extraDataFiles(taskId)) {
+        File(versionDir, extraFile.downloadFileName).deleteRecursively()
+        File(versionDir, "${extraFile.downloadFileName}.$TMP_FILE_EXT").delete()
+        File(versionDir, "${extraFile.downloadFileName}.$UNPACKED_FILE_EXT").delete()
+        File(versionDir, extraFile.downloadFileName.substringBeforeLast(".")).deleteRecursively()
+        File(versionDir, extraFile.name).deleteRecursively()
+      }
+    }
+    versionDir.delete()
   }
 
   fun cancelDownloadModel(model: Model) {
@@ -724,6 +931,8 @@ constructor(
     if (downloader?.supportsCancel == false) {
       return
     }
+    // A download still waiting for its stale files to be deleted never starts.
+    downloadsAwaitingCleanup.remove(model.name)?.cancel()
     downloader?.cancel(model)
     // deleteModel below resets the status without setDownloadStatus, so forget the download here.
     // (Not in deleteModel itself: downloadModel calls it when a download starts.)
@@ -760,6 +969,213 @@ constructor(
       }
     setDownloadStatus(curModel = model, status = status)
     return status
+  }
+
+  /**
+   * Returns the total size of [model]'s files that a repository download writes, with its extra
+   * data files for [taskId] if [includeExtraDataFiles], and a function returning how many more
+   * bytes the download needs to write given the files already on disk.
+   */
+  private fun repositoryDownloadSize(
+    model: Model,
+    taskId: String?,
+    includeExtraDataFiles: Boolean,
+  ): Pair<Long, () -> Long> {
+    val extraFiles =
+      if (includeExtraDataFiles) model.downloadInfo.extraDataFiles(taskId) else emptyList()
+    val fileNames =
+      listOf(model.downloadInfo.downloadFileName) + extraFiles.map { it.downloadFileName }
+    val totalBytes = model.downloadInfo.sizeInBytes + extraFiles.sumOf { it.sizeInBytes }
+    return totalBytes to { totalBytes - bytesOnDisk(model, fileNames) }
+  }
+
+  /**
+   * Resumes the download of [model] that an earlier app process left partially downloaded, unless
+   * the rest of its files doesn't fit in the free storage.
+   *
+   * Unlike [downloadModel], it keeps all the model's files: the download continues from them.
+   *
+   * @param reservedBytes The bytes that downloads resumed just before still have to write. They
+   *   don't show as running until they report their progress, so the storage check can't see them.
+   * @return The bytes the resumed download still has to write, or 0 if it wasn't resumed.
+   */
+  private fun resumePartialDownload(
+    task: Task?,
+    model: Model,
+    includeExtraDataFiles: Boolean,
+    reservedBytes: Long,
+  ): Long {
+    val (_, requiredBytes) =
+      repositoryDownloadSize(model, task?.id, includeExtraDataFiles = includeExtraDataFiles)
+    val publishStatus = { status: ModelDownloadStatus ->
+      setDownloadStatus(curModel = model, status = status)
+      if (model.isSupplementary) {
+        publishSupplementaryDownloadStatus(model, status)
+      }
+    }
+    val shortfallStatus =
+      storageShortfallStatus(
+        requiredBytes = requiredBytes(),
+        excludedModelNames = setOf(model.name),
+        additionalReservedBytes = reservedBytes,
+      )
+    if (shortfallStatus != null) {
+      // The partial files stay, so the user can resume the download after freeing up storage.
+      publishStatus(shortfallStatus)
+      return 0L
+    }
+    // The model keeps showing as partially downloaded until the download reports its progress.
+    downloadRepository.downloadModel(
+      task = task,
+      model = model,
+      includeExtraDataFiles = includeExtraDataFiles,
+      onStatusUpdated = { _, status ->
+        publishStatus(
+          withStorageShortfall(
+            status,
+            requiredBytes = requiredBytes,
+            excludedModelNames = setOf(model.name),
+          )
+        )
+      },
+    )
+    return requiredBytes()
+  }
+
+  /**
+   * Whether an earlier download of [model] left a partial `.tmp` file of its model file, or of its
+   * extra data files for [taskId] if [includeExtraDataFiles], which the next download resumes.
+   */
+  private fun hasResumablePartialDownload(
+    model: Model,
+    taskId: String?,
+    includeExtraDataFiles: Boolean,
+  ): Boolean {
+    if (model.downloadInfo.localModelFilePathOverride.isNotEmpty()) {
+      return false
+    }
+    val extraFiles =
+      if (includeExtraDataFiles) model.downloadInfo.extraDataFiles(taskId) else emptyList()
+    val fileNames =
+      listOf(model.downloadInfo.downloadFileName) + extraFiles.map { it.downloadFileName }
+    return fileNames.any { fileName ->
+      fileName.isNotEmpty() &&
+        File(model.getPath(context = context, fileName = "$fileName.$TMP_FILE_EXT")).length() > 0L
+    }
+  }
+
+  /**
+   * Returns how many bytes of [model]'s files named [fileNames] are already on disk: the partial
+   * `.tmp` file of each file, or the file itself if an earlier download finished it.
+   */
+  private fun bytesOnDisk(model: Model, fileNames: List<String>): Long =
+    fileNames.sumOf { fileName ->
+      if (fileName.isEmpty()) return@sumOf 0L
+      val tmpFile = File(model.getPath(context = context, fileName = "$fileName.$TMP_FILE_EXT"))
+      if (tmpFile.exists()) tmpFile.length()
+      else
+        File(model.getPath(context = context, fileName = fileName)).takeIf { it.isFile }?.length()
+          ?: 0L
+    }
+
+  /**
+   * Returns the failed status to show if [requiredBytes] more bytes don't fit in the free storage,
+   * or `null` if they fit or the free storage is unknown.
+   *
+   * The bytes that other running downloads still have to write are kept free for them, so that two
+   * downloads started one after another can't both pass the check and then run out of storage
+   * partway through. Downloads managed by system services count too, since they share the data
+   * partition. The space needed to unzip zipped files isn't counted.
+   *
+   * @param excludedModelNames The models whose own download this check is for.
+   * @param excludedExtraDataModelNames The models whose own extra data download this check is for.
+   * @param additionalReservedBytes More bytes to keep free, for downloads that don't show as
+   *   running yet.
+   */
+  private fun storageShortfallStatus(
+    requiredBytes: Long,
+    excludedModelNames: Set<String> = emptySet(),
+    excludedExtraDataModelNames: Set<String> = emptySet(),
+    additionalReservedBytes: Long = 0L,
+  ): ModelDownloadStatus? {
+    if (requiredBytes <= 0L) {
+      return null
+    }
+    val freeBytes = availableStorageBytesProvider() ?: return null
+    val availableBytes =
+      freeBytes -
+        inFlightRemainingBytes(excludedModelNames, excludedExtraDataModelNames) -
+        additionalReservedBytes
+    if (availableBytes >= requiredBytes) {
+      return null
+    }
+    val shortfall =
+      Formatter.formatShortFileSize(context, requiredBytes - availableBytes.coerceAtLeast(0L))
+    Log.w(TAG, "Not enough storage: $requiredBytes bytes needed, $availableBytes bytes available")
+    return ModelDownloadStatus(
+      status = ModelDownloadStatusType.FAILED,
+      errorMessage = context.getString(R.string.model_download_error_storage_shortfall, shortfall),
+      failureReason = ModelDownloadFailureReason.OUT_OF_STORAGE,
+    )
+  }
+
+  /**
+   * Returns the bytes that the running model downloads, other than those of [excludedModelNames],
+   * and the running extra data downloads, other than those of [excludedExtraDataModelNames], still
+   * have to write.
+   */
+  private fun inFlightRemainingBytes(
+    excludedModelNames: Set<String>,
+    excludedExtraDataModelNames: Set<String>,
+  ): Long {
+    val state = uiState.value
+    fun remainingBytes(status: ModelDownloadStatus): Long =
+      if (status.status == ModelDownloadStatusType.IN_PROGRESS) {
+        (status.totalBytes - status.receivedBytes).coerceAtLeast(0L)
+      } else {
+        0L
+      }
+    val modelBytes =
+      state.modelDownloadStatus
+        .filterKeys { it !in excludedModelNames }
+        .values
+        .sumOf { remainingBytes(it) }
+    // An extra data download reports the same status object to every model of its family, so
+    // count each status object once.
+    val extraDataStatuses: MutableSet<ModelDownloadStatus> =
+      Collections.newSetFromMap(IdentityHashMap())
+    extraDataStatuses.addAll(
+      state.extraDataDownloadStatus.filterKeys { it !in excludedExtraDataModelNames }.values
+    )
+    val extraDataBytes = extraDataStatuses.sumOf { remainingBytes(it) }
+    return modelBytes + extraDataBytes
+  }
+
+  /**
+   * Returns [status], with the storage shortfall in its message if the download failed because the
+   * device ran out of storage.
+   *
+   * @param requiredBytes Returns how many more bytes the download needs to write.
+   */
+  private fun withStorageShortfall(
+    status: ModelDownloadStatus,
+    requiredBytes: () -> Long,
+    excludedModelNames: Set<String> = emptySet(),
+    excludedExtraDataModelNames: Set<String> = emptySet(),
+  ): ModelDownloadStatus {
+    if (
+      status.status != ModelDownloadStatusType.FAILED ||
+        status.failureReason != ModelDownloadFailureReason.OUT_OF_STORAGE
+    ) {
+      return status
+    }
+    val shortfallStatus =
+      storageShortfallStatus(
+        requiredBytes = requiredBytes(),
+        excludedModelNames = excludedModelNames,
+        excludedExtraDataModelNames = excludedExtraDataModelNames,
+      ) ?: return status
+    return status.copy(errorMessage = shortfallStatus.errorMessage)
   }
 
   private fun isExtraDataPresentOnDisk(model: Model, taskId: String? = null): Boolean {
@@ -843,6 +1259,7 @@ constructor(
     }
   }
 
+  @MainThread
   open fun downloadExtraDataFiles(
     task: Task?,
     model: Model,
@@ -859,6 +1276,21 @@ constructor(
     val extraFiles = targetModel.downloadInfo.extraDataFiles(task?.id)
     if (extraFiles.isEmpty()) return
     val totalBytes = extraFiles.sumOf { it.sizeInBytes }
+    val requiredBytes = {
+      totalBytes - bytesOnDisk(targetModel, extraFiles.map { it.downloadFileName })
+    }
+    val familyNames = family.map { it.name }.toSet()
+    val shortfallStatus =
+      storageShortfallStatus(
+        requiredBytes = requiredBytes(),
+        excludedExtraDataModelNames = familyNames,
+      )
+    if (shortfallStatus != null) {
+      for (m in family) {
+        setExtraDataDownloadStatus(curModel = m, status = shortfallStatus)
+      }
+      return
+    }
     val initialStatus =
       ModelDownloadStatus(
         status = ModelDownloadStatusType.IN_PROGRESS,
@@ -868,10 +1300,20 @@ constructor(
     for (m in family) {
       setExtraDataDownloadStatus(curModel = m, status = initialStatus)
     }
+    val updateExtraDataStatus = extraDataStatusUpdater(targetModel = targetModel, family = family)
     downloadRepository.downloadExtraDataFiles(
       task = task,
       model = targetModel,
-      onStatusUpdated = extraDataStatusUpdater(targetModel = targetModel, family = family),
+      onStatusUpdated = { curModel, status ->
+        updateExtraDataStatus(
+          curModel,
+          withStorageShortfall(
+            status,
+            requiredBytes = requiredBytes,
+            excludedExtraDataModelNames = familyNames,
+          ),
+        )
+      },
     )
   }
 
@@ -1646,24 +2088,24 @@ constructor(
       viewModelScope.launch(Dispatchers.Main) {
         val pendingByModelName = pendingDownloads.groupBy { it.modelName }
         val observedWorkerIds = mutableSetOf<UUID>()
-        val checkedModelNames = mutableSetOf<String>()
         val tokenStatusAndData = getTokenStatusAndData()
         val tasks = uiState.value.tasks
         val tasksAndModels =
-          tasks.flatMap { task -> task.models.map { model -> task to model } } +
-            _supplementaryModels.map { model -> null to model }
-        for ((task, model) in tasksAndModels) {
-          if (!checkedModelNames.add(model.name)) {
-            continue
+          (tasks.flatMap { task -> task.models.map { model -> task to model } } +
+              _supplementaryModels.map { model -> null to model })
+            .distinctBy { (_, model) -> model.name }
+        // Downloads of another version of the model are left to be cancelled below: they would
+        // store files where this version of the model isn't looked for.
+        fun pendingForModel(model: Model): List<PendingDownload> =
+          pendingByModelName[model.name].orEmpty().filter {
+            it.version == model.downloadInfo.version
           }
 
-          // Downloads of another version of the model are left to be cancelled below: they would
-          // store files where this version of the model isn't looked for.
-          val pendingForModel =
-            pendingByModelName[model.name].orEmpty().filter {
-              it.version == model.downloadInfo.version
-            }
-          for (pendingDownload in pendingForModel) {
+        // Attach to all the pending downloads first, so that they show as running, with the bytes
+        // they still have to write, before any download below is resumed: the storage check of a
+        // resumed download keeps room for them.
+        for ((task, model) in tasksAndModels) {
+          for (pendingDownload in pendingForModel(model)) {
             Log.d(TAG, "Observing the pending download of '${model.name}'")
             // Prefer the task the download was started from: it decides the extra data files and
             // where the download's notification leads.
@@ -1681,7 +2123,12 @@ constructor(
             )
             observedWorkerIds.add(pendingDownload.workerId)
           }
+        }
 
+        // The bytes that the downloads resumed below still have to write.
+        var resumedDownloadBytes = 0L
+        for ((task, model) in tasksAndModels) {
+          val pendingForModel = pendingForModel(model)
           // Restart downloads of partially downloaded task models that nothing is downloading.
           val downloadStatus = uiState.value.modelDownloadStatus[model.name]?.status
           val isModelDownloadPending = pendingForModel.any { !it.isExtraDataOnly }
@@ -1697,13 +2144,14 @@ constructor(
               model.downloadInfo.accessToken = tokenStatusAndData.data.accessToken
             }
             Log.d(TAG, "Sending a new download request for '${model.name}'")
-            downloadRepository.downloadModel(
-              task = task,
-              model = model,
-              // A pending extra data download already writes the extra data files.
-              includeExtraDataFiles = pendingForModel.none { it.isExtraDataOnly },
-              onStatusUpdated = this@ModelManagerViewModel::setDownloadStatus,
-            )
+            resumedDownloadBytes +=
+              resumePartialDownload(
+                task = task,
+                model = model,
+                // A pending extra data download already writes the extra data files.
+                includeExtraDataFiles = pendingForModel.none { it.isExtraDataOnly },
+                reservedBytes = resumedDownloadBytes,
+              )
           } else if (
             task == null &&
               model.downloadsViaRepository &&
@@ -1717,15 +2165,13 @@ constructor(
               model.downloadInfo.accessToken = tokenStatusAndData.data.accessToken
             }
             Log.d(TAG, "Resuming the download of supplementary model '${model.name}'")
-            downloadRepository.downloadModel(
-              task = null,
-              model = model,
-              includeExtraDataFiles = pendingForModel.none { it.isExtraDataOnly },
-              onStatusUpdated = { curModel, status ->
-                setDownloadStatus(curModel = curModel, status = status)
-                publishSupplementaryDownloadStatus(curModel, status)
-              },
-            )
+            resumedDownloadBytes +=
+              resumePartialDownload(
+                task = null,
+                model = model,
+                includeExtraDataFiles = pendingForModel.none { it.isExtraDataOnly },
+                reservedBytes = resumedDownloadBytes,
+              )
           }
         }
 
