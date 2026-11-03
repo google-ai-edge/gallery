@@ -427,7 +427,9 @@ fun ModelManagerViewModel.refreshSupplementaryStatuses() {
       ) {
         continue
       }
-      setDownloadStatus(curModel = model, status = status)
+      // Keep the reason a paused download stopped, e.g. "Connection lost": the files on disk only
+      // tell that it's paused.
+      setDownloadStatus(curModel = model, status = status.keepingPauseReason(curDownloadStatus))
     }
     // The read-aloud default is only ever picked among ready models.
     speechSelectionUseCase.autoPickDefaultTts { refreshTtsSettingsUiState() }

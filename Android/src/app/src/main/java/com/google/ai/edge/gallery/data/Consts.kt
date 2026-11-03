@@ -27,6 +27,10 @@ const val KEY_MODEL_COMMIT_HASH = "KEY_MODEL_COMMIT_HASH"
 const val KEY_MODEL_DOWNLOAD_MODEL_DIR = "KEY_MODEL_DOWNLOAD_MODEL_DIR"
 const val KEY_MODEL_DOWNLOAD_FILE_NAME = "KEY_MODEL_DOWNLOAD_FILE_NAME"
 const val KEY_MODEL_TOTAL_BYTES = "KEY_MODEL_TOTAL_BYTES"
+/**
+ * The key of the bytes a download has written so far. In the output of a failed download, it is
+ * only set when a partial file is left to resume, and counts every file of the download on disk.
+ */
 const val KEY_MODEL_DOWNLOAD_RECEIVED_BYTES = "KEY_MODEL_DOWNLOAD_RECEIVED_BYTES"
 const val KEY_MODEL_DOWNLOAD_RATE = "KEY_MODEL_DOWNLOAD_RATE"
 const val KEY_MODEL_DOWNLOAD_REMAINING_MS = "KEY_MODEL_DOWNLOAD_REMAINING_SECONDS"
@@ -44,7 +48,7 @@ const val ERROR_TYPE_HTTP_PREFIX = "http_"
 const val ERROR_TYPE_MISSING_URL = "missing_url"
 /** The error type logged for a failure that reported no error type. */
 const val ERROR_TYPE_UNKNOWN = "unknown"
-/** The error type of a download whose files don't fit in the free storage. */
+/** The error type of a download whose files don't fit in the free storage, e.g. once unzipped. */
 const val ERROR_TYPE_OUT_OF_STORAGE = "out_of_storage"
 const val KEY_MODEL_DOWNLOAD_AUTH_ERROR = "KEY_MODEL_DOWNLOAD_AUTH_ERROR"
 const val KEY_MODEL_DOWNLOAD_ACCESS_TOKEN = "KEY_MODEL_DOWNLOAD_ACCESS_TOKEN"
@@ -91,6 +95,9 @@ val MODEL_INFO_ICON_SIZE: Dp = 18.dp
 
 // The extension of the tmp download files.
 const val TMP_FILE_EXT = "gallerytmp"
+
+// The extension of marker files indicating an extra data zip was already unpacked.
+const val UNPACKED_FILE_EXT = "unpacked"
 
 // Current device's SOC in lowercase.
 val SOC: String =

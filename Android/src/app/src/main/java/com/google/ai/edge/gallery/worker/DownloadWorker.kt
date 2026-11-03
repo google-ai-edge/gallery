@@ -36,7 +36,6 @@ import com.google.ai.edge.gallery.data.DownloadAuthError
 import com.google.ai.edge.gallery.data.ERROR_TYPE_HTTP_PREFIX
 import com.google.ai.edge.gallery.data.ERROR_TYPE_MISSING_URL
 import com.google.ai.edge.gallery.data.ERROR_TYPE_OUT_OF_STORAGE
-import com.google.ai.edge.gallery.data.HuggingFaceUrls
 import com.google.ai.edge.gallery.data.KEY_MODEL_COMMIT_HASH
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_ACCESS_TOKEN
 import com.google.ai.edge.gallery.data.KEY_MODEL_DOWNLOAD_AUTH_ERROR
@@ -58,17 +57,16 @@ import com.google.ai.edge.gallery.data.KEY_MODEL_TOTAL_BYTES
 import com.google.ai.edge.gallery.data.KEY_MODEL_UNZIPPED_DIR
 import com.google.ai.edge.gallery.data.KEY_MODEL_URL
 import com.google.ai.edge.gallery.data.TMP_FILE_EXT
-import java.io.BufferedInputStream
+import com.google.ai.edge.gallery.data.UNPACKED_FILE_EXT
+import java.io.EOFException
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
@@ -76,24 +74,11 @@ private const val TAG = "AGDownloadWorker"
 
 data class UrlAndFileName(val url: String, val fileName: String)
 
-/** How a download response is written into the file's partial `.tmp` file. */
-enum class ResumeAction {
-  /** The response carries the rest of the file: append it to the partial file. */
-  APPEND,
-  /** The response carries the whole file: replace the partial file, if any. */
-  OVERWRITE,
-  /** The partial file can't be resumed: delete it and request the whole file again. */
-  RESTART,
-  /** The partial file already holds the whole file: keep it without downloading anything. */
-  COMPLETE,
-}
-
 private const val FOREGROUND_NOTIFICATION_CHANNEL_ID = "model_download_channel_foreground"
 private var channelCreated = false
 
 private const val CONNECT_TIMEOUT_MS = 30_000
 private const val READ_TIMEOUT_MS = 60_000
-private const val HTTP_RANGE_NOT_SATISFIABLE = 416
 
 class DownloadWorker(context: Context, params: WorkerParameters) :
   CoroutineWorker(context, params) {
@@ -121,7 +106,6 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
     }
   }
 
-  @SuppressLint("ZipName")
   override suspend fun doWork(): Result {
     val isExtraDataOnly = inputData.getBoolean(KEY_MODEL_EXTRA_DATA_ONLY, false)
     val fileUrl = inputData.getString(KEY_MODEL_URL)
@@ -145,58 +129,115 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           Data.Builder().putString(KEY_MODEL_DOWNLOAD_ERROR_TYPE, ERROR_TYPE_MISSING_URL).build()
         )
       } else {
+        // Collect data for all files.
+        val allFiles: MutableList<UrlAndFileName> = mutableListOf()
+        if (!isExtraDataOnly && fileUrl != null && fileName != null) {
+          allFiles.add(UrlAndFileName(url = fileUrl, fileName = fileName))
+        }
+        for (index in extraDataFileUrls.indices) {
+          allFiles.add(
+            UrlAndFileName(url = extraDataFileUrls[index], fileName = extraDataFileNames[index])
+          )
+        }
+
+        // The dir the files are downloaded to.
+        val outputDir =
+          if (isModelImported) {
+            File(modelsDir, modelDir)
+          } else {
+            File(modelsDir, listOf(modelDir, version).joinToString(separator = File.separator))
+          }
+        // Returns the partial file that a file is written to until it's fully downloaded.
+        fun tmpFileOf(file: UrlAndFileName): File =
+          File(outputDir, "${file.fileName}.$TMP_FILE_EXT")
+        // Returns the failed result [failure] with the bytes on disk, if a partial file is left to
+        // resume, so that the download shows as paused rather than failed when it stopped for a
+        // transient reason.
+        fun withPartialDownload(failure: Result): Result =
+          withPartialBytes(
+            result = failure,
+            partialBytes =
+              partialDownloadBytes(allFiles.map { File(outputDir, it.fileName) to tmpFileOf(it) }),
+            totalBytes = totalBytes,
+          )
+
         // The partial file being written, deleted if the device runs out of storage.
         var currentTmpFile: File? = null
         return@withContext try {
           // Set the worker as a foreground service immediately.
           setForeground(createForegroundInfo(progress = 0, modelName = modelName))
 
-          // Collect data for all files.
-          val allFiles: MutableList<UrlAndFileName> = mutableListOf()
-          if (!isExtraDataOnly && fileUrl != null && fileName != null) {
-            allFiles.add(UrlAndFileName(url = fileUrl, fileName = fileName))
-          }
-          for (index in extraDataFileUrls.indices) {
-            allFiles.add(
-              UrlAndFileName(url = extraDataFileUrls[index], fileName = extraDataFileNames[index])
-            )
-          }
           Log.d(TAG, "About to download: $allFiles")
+          // Throughputs measured on another network aren't compared to the connections.
+          defaultNetworkMonitor.start(applicationContext) { networkGenerationTracker }
 
           // Download them in sequence.
           // TODO: maybe consider downloading them in parallel.
           var downloadedBytes = 0L
           val bytesReadSizeBuffer: MutableList<Long> = mutableListOf()
           val bytesReadLatencyBuffer: MutableList<Long> = mutableListOf()
+          var lastSetProgressTs: Long = 0
+          var deltaBytes = 0L
+          // Counts the bytes just written and reports the progress every 200 ms.
+          val onBytesWritten: suspend (Int) -> Unit = { bytesRead ->
+            downloadedBytes += bytesRead
+            deltaBytes += bytesRead
+
+            // Report progress every 200 ms.
+            val curTs = System.currentTimeMillis()
+            if (curTs - lastSetProgressTs > 200) {
+              // Calculate download rate.
+              var bytesPerMs = 0f
+              if (lastSetProgressTs != 0L) {
+                if (bytesReadSizeBuffer.size == 5) {
+                  bytesReadSizeBuffer.removeAt(0)
+                }
+                bytesReadSizeBuffer.add(deltaBytes)
+                if (bytesReadLatencyBuffer.size == 5) {
+                  bytesReadLatencyBuffer.removeAt(0)
+                }
+                bytesReadLatencyBuffer.add(curTs - lastSetProgressTs)
+                deltaBytes = 0L
+                bytesPerMs = bytesReadSizeBuffer.sum().toFloat() / bytesReadLatencyBuffer.sum()
+              }
+
+              setProgress(
+                Data.Builder()
+                  .putLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, downloadedBytes)
+                  .putLong(KEY_MODEL_DOWNLOAD_RATE, (bytesPerMs * 1000).toLong())
+                  .putLong(
+                    KEY_MODEL_DOWNLOAD_REMAINING_MS,
+                    remainingMs(
+                      totalBytes = totalBytes,
+                      downloadedBytes = downloadedBytes,
+                      bytesPerMs = bytesPerMs,
+                    ),
+                  )
+                  // Lets an observer that attaches mid-download show the right total.
+                  .putLong(KEY_MODEL_TOTAL_BYTES, totalBytes)
+                  .build()
+              )
+              setForeground(
+                createForegroundInfo(
+                  progress =
+                    progressPercent(downloadedBytes = downloadedBytes, totalBytes = totalBytes),
+                  modelName = modelName,
+                )
+              )
+              Log.d(TAG, "downloadedBytes: $downloadedBytes")
+              lastSetProgressTs = curTs
+            }
+          }
           for (file in allFiles) {
             // Prepare output file's dir.
-            val outputDir =
-              if (isModelImported) {
-                File(modelsDir, modelDir)
-              } else {
-                File(modelsDir, listOf(modelDir, version).joinToString(separator = File.separator))
-              }
             if (!outputDir.exists()) {
               outputDir.mkdirs()
             }
 
             // Read the tmp file and see if it is partially downloaded.
-            val outputTmpFile =
-              if (isModelImported) {
-                File(
-                  modelsDir,
-                  listOf(modelDir, "${file.fileName}.$TMP_FILE_EXT")
-                    .joinToString(separator = File.separator),
-                )
-              } else {
-                File(
-                  modelsDir,
-                  listOf(modelDir, version, "${file.fileName}.$TMP_FILE_EXT")
-                    .joinToString(separator = File.separator),
-                )
-              }
+            val outputTmpFile = tmpFileOf(file)
             currentTmpFile = outputTmpFile
-            val originalFile = File(outputTmpFile.absolutePath.removeSuffix(".$TMP_FILE_EXT"))
+            val originalFile = File(outputDir, file.fileName)
             val shouldUnzip =
               (file.fileName == fileName && isZip) ||
                 file.fileName.endsWith(".zip", ignoreCase = true)
@@ -225,143 +266,119 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             } else {
               val authorization =
                 authorizationHeaderValue(accessToken = accessToken, url = file.url)
-              var partialBytes = outputTmpFile.length()
-              if (partialBytes > 0) {
-                Log.d(
-                  TAG,
-                  "File '${outputTmpFile.name}' partial size: $partialBytes. Trying to resume download",
-                )
-              }
-              var connection =
-                openDownloadConnection(
-                  url = file.url,
-                  authorization = authorization,
-                  rangeStart = partialBytes,
-                )
-              Log.d(TAG, "response code: ${connection.responseCode}")
-              var resumeAction =
-                resumeAction(
-                  responseCode = connection.responseCode,
-                  contentRange = connection.getHeaderField("Content-Range"),
-                  partialBytes = partialBytes,
-                )
-              when (resumeAction) {
-                ResumeAction.COMPLETE -> {
-                  Log.d(TAG, "File '${outputTmpFile.name}' was already fully downloaded")
-                  connection.disconnect()
-                  downloadedBytes += partialBytes
-                }
-                ResumeAction.RESTART -> {
-                  // The partial file can't be resumed (e.g. the server sent a different range, or
-                  // the partial file doesn't match the file's size): download the file again from
-                  // its first byte.
-                  Log.w(
+              // The bytes of the files downloaded before this one.
+              val fileStartBytes = downloadedBytes
+              // A connection that stays too slow is reopened a few times, resuming from the partial
+              // file.
+              var reconnects = 0
+              // So is a connection much slower than others, with a separate budget.
+              val relativeStallState = RelativeStallFileState()
+              while (true) {
+                var partialBytes = outputTmpFile.length()
+                if (partialBytes > 0) {
+                  Log.d(
                     TAG,
-                    "Can't resume '${outputTmpFile.name}' (HTTP ${connection.responseCode}). " +
-                      "Restarting it",
+                    "File '${outputTmpFile.name}' partial size: $partialBytes. " +
+                      "Trying to resume download",
                   )
-                  connection.disconnect()
-                  outputTmpFile.delete()
-                  partialBytes = 0L
-                  connection =
-                    openDownloadConnection(
-                      url = file.url,
-                      authorization = authorization,
-                      rangeStart = 0L,
-                    )
-                  resumeAction = ResumeAction.OVERWRITE
                 }
-                ResumeAction.APPEND,
-                ResumeAction.OVERWRITE -> {}
-              }
+                var connection =
+                  openDownloadConnection(
+                    url = file.url,
+                    authorization = authorization,
+                    rangeStart = partialBytes,
+                  )
+                Log.d(TAG, "response code: ${connection.responseCode}")
+                var resumeAction =
+                  resumeAction(
+                    responseCode = connection.responseCode,
+                    contentRange = connection.getHeaderField("Content-Range"),
+                    partialBytes = partialBytes,
+                  )
+                when (resumeAction) {
+                  ResumeAction.COMPLETE -> {
+                    Log.d(TAG, "File '${outputTmpFile.name}' was already fully downloaded")
+                    connection.disconnect()
+                  }
+                  ResumeAction.RESTART -> {
+                    // The partial file can't be resumed (e.g. the server sent a different range,
+                    // or the partial file doesn't match the file's size): download the file again
+                    // from its first byte.
+                    Log.w(
+                      TAG,
+                      "Can't resume '${outputTmpFile.name}' (HTTP ${connection.responseCode}). " +
+                        "Restarting it",
+                    )
+                    connection.disconnect()
+                    outputTmpFile.delete()
+                    partialBytes = 0L
+                    connection =
+                      openDownloadConnection(
+                        url = file.url,
+                        authorization = authorization,
+                        rangeStart = 0L,
+                      )
+                    resumeAction = ResumeAction.OVERWRITE
+                  }
+                  ResumeAction.APPEND,
+                  ResumeAction.OVERWRITE -> {}
+                }
 
-              if (resumeAction != ResumeAction.COMPLETE) {
-                try {
-                  if (
-                    connection.responseCode != HttpURLConnection.HTTP_OK &&
-                      connection.responseCode != HttpURLConnection.HTTP_PARTIAL
-                  ) {
-                    return@withContext httpErrorResult(
+                if (resumeAction == ResumeAction.COMPLETE) {
+                  downloadedBytes = fileStartBytes + partialBytes
+                  break
+                }
+                if (
+                  connection.responseCode != HttpURLConnection.HTTP_OK &&
+                    connection.responseCode != HttpURLConnection.HTTP_PARTIAL
+                ) {
+                  val result =
+                    httpErrorResult(
                       url = file.url,
                       httpCode = connection.responseCode,
                       sentAccessToken = authorization != null,
                     )
-                  }
-
-                  // A server can ignore the range request and send the whole file with HTTP 200, so
-                  // only append to the partial file when it sent exactly the requested range.
-                  val append = resumeAction == ResumeAction.APPEND
-                  if (append) {
-                    downloadedBytes += partialBytes
-                  } else {
-                    Log.d(TAG, "Download starts from beginning.")
-                  }
-
-                  connection.inputStream.use { inputStream ->
-                    FileOutputStream(outputTmpFile, append).use { outputStream ->
-                      val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                      var bytesRead: Int
-                      var lastSetProgressTs: Long = 0
-                      var deltaBytes = 0L
-                      while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                        coroutineContext.ensureActive()
-                        outputStream.write(buffer, 0, bytesRead)
-                        downloadedBytes += bytesRead
-                        deltaBytes += bytesRead
-
-                        // Report progress every 200 ms.
-                        val curTs = System.currentTimeMillis()
-                        if (curTs - lastSetProgressTs > 200) {
-                          // Calculate download rate.
-                          var bytesPerMs = 0f
-                          if (lastSetProgressTs != 0L) {
-                            if (bytesReadSizeBuffer.size == 5) {
-                              bytesReadSizeBuffer.removeAt(0)
-                            }
-                            bytesReadSizeBuffer.add(deltaBytes)
-                            if (bytesReadLatencyBuffer.size == 5) {
-                              bytesReadLatencyBuffer.removeAt(0)
-                            }
-                            bytesReadLatencyBuffer.add(curTs - lastSetProgressTs)
-                            deltaBytes = 0L
-                            bytesPerMs =
-                              bytesReadSizeBuffer.sum().toFloat() / bytesReadLatencyBuffer.sum()
-                          }
-
-                          setProgress(
-                            Data.Builder()
-                              .putLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, downloadedBytes)
-                              .putLong(KEY_MODEL_DOWNLOAD_RATE, (bytesPerMs * 1000).toLong())
-                              .putLong(
-                                KEY_MODEL_DOWNLOAD_REMAINING_MS,
-                                remainingMs(
-                                  totalBytes = totalBytes,
-                                  downloadedBytes = downloadedBytes,
-                                  bytesPerMs = bytesPerMs,
-                                ),
-                              )
-                              // Lets an observer that attaches mid-download show the right total.
-                              .putLong(KEY_MODEL_TOTAL_BYTES, totalBytes)
-                              .build()
-                          )
-                          setForeground(
-                            createForegroundInfo(
-                              progress =
-                                progressPercent(
-                                  downloadedBytes = downloadedBytes,
-                                  totalBytes = totalBytes,
-                                ),
-                              modelName = modelName,
-                            )
-                          )
-                          Log.d(TAG, "downloadedBytes: $downloadedBytes")
-                          lastSetProgressTs = curTs
-                        }
-                      }
-                    }
-                  }
-                } finally {
                   connection.disconnect()
+                  return@withContext withPartialDownload(result)
+                }
+
+                // A server can ignore the range request and send the whole file with HTTP 200, so
+                // only append to the partial file when it sent exactly the requested range.
+                val append = resumeAction == ResumeAction.APPEND
+                if (!append) {
+                  Log.d(TAG, "Download starts from beginning.")
+                }
+                downloadedBytes = fileStartBytes + if (append) partialBytes else 0L
+                // Only reopen a slow connection when the server resumes downloads, as a server that
+                // ignores the range would send the file again.
+                val resumable =
+                  connection.responseCode == HttpURLConnection.HTTP_PARTIAL ||
+                    connection.getHeaderField("Accept-Ranges").equals("bytes", ignoreCase = true)
+                val maxReconnects = slowConnectionPolicy.maxReconnects
+                when (
+                  writeResponseBody(
+                    connection = connection,
+                    tmpFile = outputTmpFile,
+                    append = append,
+                    // Once the reconnects are used up, the download keeps going on its connection
+                    // however slow: slowness alone never stops a download. A connection that stops
+                    // sending anything fails with the read timeout.
+                    reconnectsWhenTooSlow = resumable && reconnects < maxReconnects,
+                    relativeStallState = relativeStallState.takeIf { resumable },
+                    onBytesWritten = onBytesWritten,
+                  )
+                ) {
+                  ResponseBodyResult.FINISHED -> break
+                  // Reconnects for a relative stall have their own budget.
+                  ResponseBodyResult.RELATIVE_STALL -> continue
+                  ResponseBodyResult.TOO_SLOW -> {
+                    reconnects++
+                    Log.w(
+                      TAG,
+                      "'${file.fileName}' is downloading too slowly. " +
+                        "Reconnecting ($reconnects/$maxReconnects)",
+                    )
+                  }
                 }
               }
 
@@ -379,77 +396,34 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
             // Unzip if the downloaded file is a zip.
             if (shouldUnzip && originalFile.exists()) {
+              // Fail before unzipping, rather than partway through, if the unzipped files don't
+              // fit in the free storage.
+              val unzippedBytes = zipUncompressedBytes(originalFile)
+              val availableBytes = availableBytesProvider(outputDir)
+              if (unzippedBytes > availableBytes) {
+                Log.w(
+                  TAG,
+                  "Not enough storage to unzip '${originalFile.name}': $unzippedBytes bytes " +
+                    "needed, $availableBytes bytes available",
+                )
+                // Give the zip file's space back to the device. Downloading the model again starts
+                // over anyway, as no partial file is left to resume.
+                originalFile.delete()
+                return@withContext unzipOutOfStorageResult(
+                  fileName = originalFile.name,
+                  requiredBytes = unzippedBytes,
+                  availableBytes = availableBytes,
+                )
+              }
+
               setProgress(Data.Builder().putBoolean(KEY_MODEL_START_UNZIPPING, true).build())
-
-              // Prepare target dir.
-              val destDir =
-                when {
-                  file.fileName == fileName && !unzippedDir.isNullOrEmpty() ->
-                    File(outputDir, unzippedDir)
-                  file.fileName != fileName -> {
-                    val folderName = file.fileName.substringBeforeLast(".")
-                    var hasPrefix = false
-                    try {
-                      ZipInputStream(BufferedInputStream(FileInputStream(originalFile))).use {
-                        checkZipIn ->
-                        var checkEntry = checkZipIn.nextEntry
-                        while (checkEntry != null) {
-                          if (checkEntry.name.startsWith("$folderName/")) {
-                            hasPrefix = true
-                            break
-                          }
-                          checkEntry = checkZipIn.nextEntry
-                        }
-                      }
-                    } catch (e: Exception) {
-                      Log.w(TAG, "Failed to inspect zip entries for prefix: ${e.message}")
-                    }
-                    if (hasPrefix) outputDir else File(outputDir, folderName)
-                  }
-                  else -> outputDir
-                }
-              if (!destDir.exists()) {
-                destDir.mkdirs()
-              }
-
-              // Unzip.
-              val unzipBuffer = ByteArray(8192)
-              ZipInputStream(BufferedInputStream(FileInputStream(originalFile))).use { zipIn ->
-                var zipEntry: ZipEntry? = zipIn.nextEntry
-                while (zipEntry != null) {
-                  coroutineContext.ensureActive()
-                  val outFile = File(destDir, zipEntry.name)
-                  // Guard against Zip Slip.
-                  if (
-                    outFile.canonicalPath.startsWith(destDir.canonicalPath + File.separator) ||
-                      outFile.canonicalPath == destDir.canonicalPath
-                  ) {
-                    // Extract files.
-                    if (!zipEntry.isDirectory) {
-                      outFile.parentFile?.mkdirs()
-                      FileOutputStream(outFile).use { fos ->
-                        var len: Int
-                        while (zipIn.read(unzipBuffer).also { len = it } > 0) {
-                          coroutineContext.ensureActive()
-                          fos.write(unzipBuffer, 0, len)
-                        }
-                      }
-                    } else {
-                      outFile.mkdirs()
-                    }
-                  } else {
-                    throw SecurityException(
-                      "Zip entry is outside of the target dir: ${zipEntry.name}"
-                    )
-                  }
-
-                  zipIn.closeEntry()
-                  zipEntry = zipIn.nextEntry
-                }
-              }
-
-              // Delete the original zip file.
-              originalFile.delete()
+              extractDownloadedZip(
+                originalFile = originalFile,
+                outputDir = outputDir,
+                fileName = file.fileName,
+                mainFileName = fileName,
+                unzippedDir = unzippedDir,
+              )
             }
           }
           Result.success()
@@ -461,7 +435,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
             // that can't fit.
             currentTmpFile?.delete()
           }
-          exceptionResult(e)
+          withPartialDownload(exceptionResult(e))
         } catch (e: CancellationException) {
           // The work was stopped. Let WorkManager handle it rather than reporting a failure.
           throw e
@@ -469,86 +443,214 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
           // Any other error fails the download as well (WorkManager would mark the work failed).
           // Catch it only to report its type, e.g. a foreground service that couldn't start.
           Log.e(TAG, e.message, e)
-          exceptionResult(e)
+          withPartialDownload(exceptionResult(e))
         }
       }
     }
   }
 
-  companion object {
-    /** The start of a `Content-Range` header with a byte range, matched ignoring case. */
-    private const val CONTENT_RANGE_BYTES_PREFIX = "bytes "
+  /** Why [writeResponseBody] stopped writing a response body. */
+  private enum class ResponseBodyResult {
+    /** The whole body was written. */
+    FINISHED,
+    /** The connection stayed too slow (see [SlowConnectionDetector]). */
+    TOO_SLOW,
+    /** The connection was much slower than others (see [RelativeStallDetector]). */
+    RELATIVE_STALL,
+  }
 
-    /** The start of the `Content-Range` header of an HTTP 416 response, matched ignoring case. */
-    private const val CONTENT_RANGE_UNSATISFIED_PREFIX = "bytes */"
+  /**
+   * Writes the body of [connection], a successful response, to [tmpFile], appending it to the
+   * partial file if [append], and calls [onBytesWritten] after each write.
+   *
+   * A connection that stays too slow (see [SlowConnectionDetector]) when [reconnectsWhenTooSlow],
+   * or else is much slower than others (see [RelativeStallDetector], which records the connection
+   * in [relativeStallState], unless it's `null`), is closed before the end of the body, which
+   * leaves the bytes written so far in [tmpFile].
+   *
+   * @return Why it stopped writing the body.
+   * @throws EOFException if the connection closed before the end of the body.
+   */
+  private suspend fun writeResponseBody(
+    connection: HttpURLConnection,
+    tmpFile: File,
+    append: Boolean,
+    reconnectsWhenTooSlow: Boolean,
+    relativeStallState: RelativeStallFileState?,
+    onBytesWritten: suspend (Int) -> Unit,
+  ): ResponseBodyResult {
+    val startMs = monotonicTimeMs()
+    val slowConnectionDetector =
+      if (reconnectsWhenTooSlow) {
+        SlowConnectionDetector(policy = slowConnectionPolicy, startMs = startMs)
+      } else {
+        null
+      }
+    val relativeStallDetector = relativeStallState?.let {
+      RelativeStallDetector(
+        policy = relativeStallPolicy,
+        fileState = it,
+        referenceStore = throughputReferenceStore,
+        networkGeneration = { networkGenerationTracker.generation },
+        startMs = startMs,
+      )
+    }
+    var bodyBytes = 0L
+    try {
+      connection.inputStream.use { inputStream ->
+        FileOutputStream(tmpFile, append).use { outputStream ->
+          val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+          var bytesRead: Int
+          while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+            currentCoroutineContext().ensureActive()
+            outputStream.write(buffer, 0, bytesRead)
+            bodyBytes += bytesRead
+            onBytesWritten(bytesRead)
+            val nowMs = monotonicTimeMs()
+            // The relative rule only applies when the absolute rule isn't reconnecting.
+            if (slowConnectionDetector?.onBytesRead(bytesRead.toLong(), nowMs) == true) {
+              connection.disconnect()
+              return ResponseBodyResult.TOO_SLOW
+            }
+            val stall = relativeStallDetector?.onBytesRead(bytesRead.toLong(), nowMs)
+            if (stall != null) {
+              Log.d(
+                TAG,
+                "'${tmpFile.name}' stalled (${stall.reason}): ${stall.windowBytesPerSecond} B/s, " +
+                  "reference ${stall.referenceBytesPerSecond ?: "none"} B/s. Reconnecting " +
+                  "(${stall.reconnects}/${relativeStallPolicy.maxReconnectsPerFile})",
+              )
+              connection.disconnect()
+              return ResponseBodyResult.RELATIVE_STALL
+            }
+          }
+        }
+      }
+      // A connection that closes early can end the body without an error. Writing the partial file
+      // as the whole file would corrupt it.
+      val expectedBytes = connection.contentLengthLong
+      if (expectedBytes >= 0L && bodyBytes != expectedBytes) {
+        throw EOFException("Connection closed after $bodyBytes of $expectedBytes bytes")
+      }
+      return ResponseBodyResult.FINISHED
+    } finally {
+      connection.disconnect()
+    }
+  }
+
+  companion object {
+    /** When a connection counts as too slow. Tests make it short. */
+    @VisibleForTesting @Volatile var slowConnectionPolicy = SlowConnectionPolicy()
+
+    /** When a connection counts as much slower than others. Tests make it short. */
+    @VisibleForTesting @Volatile var relativeStallPolicy = RelativeStallPolicy()
 
     /**
-     * Returns how to write the response to a download request into the file's partial `.tmp` file.
-     *
-     * @param responseCode The HTTP status code of the response.
-     * @param contentRange The response's `Content-Range` header, if any.
-     * @param partialBytes The size of the partial file, which is the first byte that was requested
-     *   (no range is requested when it is 0).
+     * The recent throughputs of the downloads in this app process, which a connection is compared
+     * to. Tests replace it with an empty or seeded store.
+     */
+    @VisibleForTesting @Volatile var throughputReferenceStore = ThroughputReferenceStore()
+
+    /** Counts the changes of the default network. Tests replace it to report fake changes. */
+    @VisibleForTesting @Volatile var networkGenerationTracker = NetworkGenerationTracker()
+
+    /** Reports the changes of the default network to [networkGenerationTracker]. */
+    private val defaultNetworkMonitor = DefaultNetworkMonitor()
+
+    /** Returns the free storage, in bytes, of the dir a file is written to. Overridden in tests. */
+    @SuppressLint("UsableSpace")
+    @VisibleForTesting
+    @Volatile
+    var availableBytesProvider: (File) -> Long = { it.usableSpace }
+
+    /** Returns the total size of the files in [zipFile] once unzipped. */
+    @VisibleForTesting
+    fun zipUncompressedBytes(zipFile: File): Long = computeZipUncompressedBytes(zipFile)
+
+    /**
+     * Returns how many bytes of a download's files are on disk, as (file, partial `.tmp` file)
+     * pairs: the partial file of each file, or the file itself if it's finished. Returns 0 unless a
+     * partial file with bytes or a finished file in a multi-file download is left to resume.
      */
     @VisibleForTesting
-    fun resumeAction(responseCode: Int, contentRange: String?, partialBytes: Long): ResumeAction {
-      if (partialBytes <= 0L) {
-        return ResumeAction.OVERWRITE
+    fun partialDownloadBytes(files: List<Pair<File, File>>): Long {
+      val hasTmpBytes = files.any { (_, tmpFile) -> tmpFile.length() > 0L }
+      val hasPartialMultiFileProgress =
+        files.size > 1 &&
+          files.any { (originalFile, tmpFile) -> isFileAlreadyDownloaded(originalFile, tmpFile) } &&
+          files.any { (originalFile, tmpFile) -> !isFileAlreadyDownloaded(originalFile, tmpFile) }
+      if (!hasTmpBytes && !hasPartialMultiFileProgress) {
+        return 0L
       }
-      return when (responseCode) {
-        HttpURLConnection.HTTP_PARTIAL ->
-          if (contentRangeStart(contentRange) == partialBytes) ResumeAction.APPEND
-          else ResumeAction.RESTART
-        // An earlier run can stop after writing the last byte but before renaming the file.
-        HTTP_RANGE_NOT_SATISFIABLE ->
-          if (contentRangeTotal(contentRange) == partialBytes) ResumeAction.COMPLETE
-          else ResumeAction.RESTART
-        // HTTP 200 carries the whole file, and error responses are reported as failures.
-        else -> ResumeAction.OVERWRITE
-      }
+      return files
+        .sumOf { (originalFile, tmpFile) ->
+          when {
+            tmpFile.exists() -> tmpFile.length()
+            originalFile.isFile -> originalFile.length()
+            else -> 0L
+          }
+        }
+        .coerceAtLeast(1L)
     }
 
     /**
-     * Returns the first byte of a `Content-Range: bytes <start>-<end>/<total>` header, or `null` if
-     * there's no header or it can't be parsed.
+     * Returns the failed [result] with the [partialBytes] on disk and the download's [totalBytes],
+     * which tell the repository that the download can be resumed, or [result] itself if no bytes
+     * are left to resume or it didn't fail.
      */
-    private fun contentRangeStart(contentRange: String?): Long? =
-      contentRange
-        ?.trim()
-        // The range unit is case-insensitive (RFC 9110, section 14.1).
-        ?.takeIf { it.startsWith(CONTENT_RANGE_BYTES_PREFIX, ignoreCase = true) }
-        ?.drop(CONTENT_RANGE_BYTES_PREFIX.length)
-        ?.substringBefore("-")
-        ?.trim()
-        ?.toLongOrNull()
+    @VisibleForTesting
+    fun withPartialBytes(
+      result: ListenableWorker.Result,
+      partialBytes: Long,
+      totalBytes: Long,
+    ): ListenableWorker.Result {
+      if (partialBytes <= 0L || result !is ListenableWorker.Result.Failure) {
+        return result
+      }
+      return ListenableWorker.Result.failure(
+        Data.Builder()
+          .putAll(result.outputData)
+          .putLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, partialBytes)
+          .putLong(KEY_MODEL_TOTAL_BYTES, totalBytes)
+          .build()
+      )
+    }
 
     /**
-     * Returns the total file size in the `Content-Range` header of an HTTP 416 response, which has
-     * no byte range, only an asterisk followed by the total size (e.g. `bytes *` + `/5000`).
-     * Returns `null` if there's no header or it can't be parsed.
+     * Returns the failed result of a download whose zip file [fileName] needs [requiredBytes] to be
+     * unzipped while only [availableBytes] are free.
      */
-    private fun contentRangeTotal(contentRange: String?): Long? =
-      contentRange
-        ?.trim()
-        ?.takeIf { it.startsWith(CONTENT_RANGE_UNSATISFIED_PREFIX, ignoreCase = true) }
-        ?.drop(CONTENT_RANGE_UNSATISFIED_PREFIX.length)
-        ?.trim()
-        ?.toLongOrNull()
+    @VisibleForTesting
+    fun unzipOutOfStorageResult(
+      fileName: String,
+      requiredBytes: Long,
+      availableBytes: Long,
+    ): ListenableWorker.Result =
+      ListenableWorker.Result.failure(
+        Data.Builder()
+          .putString(
+            KEY_MODEL_DOWNLOAD_ERROR_MESSAGE,
+            "Not enough storage to unzip '$fileName': $requiredBytes bytes needed, " +
+              "$availableBytes bytes available",
+          )
+          .putString(KEY_MODEL_DOWNLOAD_ERROR_TYPE, ERROR_TYPE_OUT_OF_STORAGE)
+          .build()
+      )
+
+    /**
+     * Returns how to write the response to a download request into the file's partial `.tmp` file.
+     */
+    @VisibleForTesting
+    fun resumeAction(responseCode: Int, contentRange: String?, partialBytes: Long): ResumeAction =
+      determineResumeAction(responseCode, contentRange, partialBytes)
 
     /**
      * Returns the `Authorization` header value for downloading [url], or `null` if no header should
      * be sent.
-     *
-     * The Hugging Face access token is only sent to Hugging Face URLs, so that it never leaks to
-     * other hosts, e.g. the extra data files of a Hugging Face model that are hosted elsewhere.
      */
     @VisibleForTesting
-    fun authorizationHeaderValue(accessToken: String?, url: String): String? {
-      if (accessToken.isNullOrEmpty() || !HuggingFaceUrls.isHuggingFaceUrl(url)) {
-        return null
-      }
-      return "Bearer $accessToken"
-    }
+    fun authorizationHeaderValue(accessToken: String?, url: String): String? =
+      buildAuthorizationHeaderValue(accessToken, url)
 
     /** Whether [e] means the device ran out of storage while writing a file. */
     @VisibleForTesting
@@ -558,8 +660,8 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
 
     /**
      * Whether an earlier run of the download already finished [originalFile]: no partial [tmpFile]
-     * is left to resume, and the file exists or, for a zip file that is deleted once unzipped, the
-     * [unzippedDir] it was unzipped to isn't empty.
+     * is left to resume, and the file or its unpacked marker exists or, for a zip file that is
+     * deleted once unzipped, the [unzippedDir] it was unzipped to isn't empty.
      */
     @VisibleForTesting
     fun isFileAlreadyDownloaded(
@@ -567,7 +669,10 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
       tmpFile: File,
       unzippedDir: File? = null,
     ): Boolean =
-      !tmpFile.exists() && (originalFile.exists() || unzippedDir?.list()?.isNotEmpty() == true)
+      !tmpFile.exists() &&
+        (originalFile.exists() ||
+          File(originalFile.parentFile, "${originalFile.name}.$UNPACKED_FILE_EXT").exists() ||
+          unzippedDir?.list()?.isNotEmpty() == true)
 
     /**
      * Returns the dir in [outputDir] that the zip file [fileName] is unzipped to, or `null` if it
@@ -634,10 +739,6 @@ class DownloadWorker(context: Context, params: WorkerParameters) :
      * Hugging Face access errors carry a [DownloadAuthError] under [KEY_MODEL_DOWNLOAD_AUTH_ERROR],
      * so the UI can ask the user to sign in or accept the model's license. Other errors are plain
      * failures.
-     *
-     * @param url The requested URL.
-     * @param httpCode The HTTP status code of the response.
-     * @param sentAccessToken Whether the request carried a Hugging Face access token.
      */
     fun httpErrorResult(
       url: String,

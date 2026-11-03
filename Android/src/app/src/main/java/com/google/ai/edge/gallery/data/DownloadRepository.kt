@@ -54,9 +54,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executor
 
 private const val TAG = "AGDownloadRepository"
-private const val MODEL_NAME_TAG = "modelName"
-private const val TASK_ID_TAG = "taskId"
-private const val VERSION_TAG = "version"
 
 interface DownloadRepository {
   fun downloadModel(
@@ -109,177 +106,6 @@ interface DownloadRepository {
 
   fun cancelDownloadExtraDataFiles(model: Model)
 }
-
-/** A model download that WorkManager has queued or is running. */
-data class PendingDownload(
-  /** The WorkManager ID of the download's work request. */
-  val workerId: UUID,
-  /** The name of the model being downloaded. */
-  val modelName: String,
-  /** Whether the work downloads only the model's extra data files. */
-  val isExtraDataOnly: Boolean,
-  /**
-   * The ID of the task the download was started from: empty if it was started outside a task, from
-   * the global model manager, or null if the work has no task tag.
-   */
-  val taskId: String? = null,
-  /** The version (commit hash) of the model being downloaded, or null if the work has no tag. */
-  val version: String? = null,
-) {
-  companion object {
-    /**
-     * Reads a pending download from the tags of its work request.
-     *
-     * @return null if the work isn't a model download.
-     */
-    fun fromTags(workerId: UUID, tags: Set<String>): PendingDownload? {
-      val workName = tags.tagValue(MODEL_NAME_TAG) ?: return null
-      val isExtraDataOnly = workName.endsWith(EXTRA_DATA_SUFFIX)
-      return PendingDownload(
-        workerId = workerId,
-        modelName = workName.removeSuffix(EXTRA_DATA_SUFFIX),
-        isExtraDataOnly = isExtraDataOnly,
-        taskId = tags.tagValue(TASK_ID_TAG),
-        version = tags.tagValue(VERSION_TAG),
-      )
-    }
-
-    /** Returns the value of the `<key>:<value>` tag with [key], or null if there is none. */
-    private fun Set<String>.tagValue(key: String): String? =
-      firstOrNull { it.startsWith("$key:") }?.removePrefix("$key:")
-  }
-}
-
-/** Who cancelled a download. */
-internal enum class DownloadCancellation {
-  /** The user stopped the download. */
-  USER,
-  /** The app cancelled it, e.g. by replacing it with a new download of the same model. */
-  APP;
-
-  companion object {
-    /**
-     * Returns who cancelled a download that ended in [state], or null if it wasn't cancelled.
-     *
-     * @param cancelledByUser Whether the user asked to stop the download.
-     */
-    fun of(state: WorkInfo.State, cancelledByUser: Boolean): DownloadCancellation? =
-      when {
-        state != WorkInfo.State.CANCELLED -> null
-        cancelledByUser -> USER
-        else -> APP
-      }
-  }
-}
-
-/** How a download that ended without succeeding is reported. */
-internal data class UnsuccessfulDownloadOutcome(
-  /** The model's download status afterwards. */
-  val status: ModelDownloadStatusType,
-  /** Whether to notify the user that the download failed. */
-  val notifyFailure: Boolean,
-  /** The `event_type` of the `model_download` analytics event. */
-  val analyticsEventType: String,
-  /** The `error_type` of the `model_download` analytics event, set for failures only. */
-  val analyticsErrorType: String? = null,
-) {
-  companion object {
-    /**
-     * Decides how to report a download that ended without succeeding.
-     *
-     * @param cancellation Who cancelled the download, or null if it failed.
-     * @param authError Set when Hugging Face refused the download. That isn't a failure: the UI
-     *   asks the user to sign in to Hugging Face or accept the model's license, then retries the
-     *   download.
-     * @param errorType The worker's error category (see [KEY_MODEL_DOWNLOAD_ERROR_TYPE]), if any.
-     */
-    fun from(
-      cancellation: DownloadCancellation?,
-      authError: DownloadAuthError?,
-      errorType: String? = null,
-    ): UnsuccessfulDownloadOutcome =
-      when {
-        // Cancellations aren't failures. Logging them separately keeps the failure rate accurate.
-        cancellation == DownloadCancellation.USER ->
-          UnsuccessfulDownloadOutcome(
-            status = ModelDownloadStatusType.NOT_DOWNLOADED,
-            notifyFailure = false,
-            analyticsEventType = EVENT_TYPE_CANCELLED,
-          )
-        cancellation == DownloadCancellation.APP ->
-          UnsuccessfulDownloadOutcome(
-            status = ModelDownloadStatusType.NOT_DOWNLOADED,
-            notifyFailure = false,
-            analyticsEventType = EVENT_TYPE_CANCELLED_BY_APP,
-          )
-        authError != null ->
-          UnsuccessfulDownloadOutcome(
-            status = ModelDownloadStatusType.NOT_DOWNLOADED,
-            notifyFailure = false,
-            analyticsEventType = EVENT_TYPE_AUTH_REQUIRED,
-          )
-        else ->
-          UnsuccessfulDownloadOutcome(
-            status = ModelDownloadStatusType.FAILED,
-            notifyFailure = true,
-            analyticsEventType = EVENT_TYPE_FAILURE,
-            analyticsErrorType = errorType?.ifEmpty { null } ?: ERROR_TYPE_UNKNOWN,
-          )
-      }
-  }
-}
-
-/**
- * Returns the string resource that explains a failed download to the user, or null to show the
- * worker's own error message.
- *
- * @param errorType The worker's error category (see [KEY_MODEL_DOWNLOAD_ERROR_TYPE]): the class
- *   name of the exception that failed the download.
- * @param errorMessage The worker's error message (see [KEY_MODEL_DOWNLOAD_ERROR_MESSAGE]).
- */
-internal fun downloadFailureMessageRes(errorType: String?, errorMessage: String?): Int? =
-  when {
-    isOutOfStorageFailure(errorMessage, errorType) ->
-      R.string.model_download_error_not_enough_storage
-    errorType in NO_INTERNET_ERROR_TYPES -> R.string.model_download_error_no_internet
-    errorType == "SocketTimeoutException" -> R.string.model_download_error_timed_out
-    errorType in CONNECTION_LOST_ERROR_TYPES -> R.string.model_download_error_connection_lost
-    else -> null
-  }
-
-/**
- * Whether a download failed because the device ran out of storage, given its error message and
- * error type.
- */
-internal fun isOutOfStorageFailure(errorMessage: String?, errorType: String? = null): Boolean =
-  errorType == ERROR_TYPE_OUT_OF_STORAGE ||
-    // Writes to a full disk fail with "write failed: ENOSPC (No space left on device)".
-    errorMessage?.contains("ENOSPC") == true
-
-/** The exceptions that mean the download server couldn't be reached at all. */
-private val NO_INTERNET_ERROR_TYPES =
-  setOf("UnknownHostException", "ConnectException", "NoRouteToHostException")
-
-/** The exceptions that mean the connection broke while the file was being downloaded. */
-private val CONNECTION_LOST_ERROR_TYPES =
-  setOf("SocketException", "ProtocolException", "SSLException", "EOFException")
-
-// The `event_type` values of the `model_download` analytics event.
-private const val EVENT_TYPE_START = "start"
-private const val EVENT_TYPE_SUCCESS = "success"
-private const val EVENT_TYPE_FAILURE = "failure"
-private const val EVENT_TYPE_CANCELLED = "cancelled"
-private const val EVENT_TYPE_CANCELLED_BY_APP = "cancelled_by_app"
-private const val EVENT_TYPE_AUTH_REQUIRED = "auth_required"
-
-private const val EXTRA_DATA_SUFFIX = "_extra_data"
-
-/** Returns the unique WorkManager work name of a model's download or extra data download. */
-private fun workName(modelName: String, isExtraDataOnly: Boolean): String =
-  if (isExtraDataOnly) "$modelName$EXTRA_DATA_SUFFIX" else modelName
-
-/** Returns the tag that marks the work requests of [workName]. */
-private fun modelNameTag(workName: String): String = "$MODEL_NAME_TAG:$workName"
 
 private const val DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID = "___"
 
@@ -742,19 +568,10 @@ class DefaultDownloadRepository(
 
               if (!startUnzipping) {
                 if (receivedBytes != 0L) {
-                  val progressTotalBytes = workInfo.progress.getLong(KEY_MODEL_TOTAL_BYTES, 0L)
-                  val totalBytes =
-                    when {
-                      progressTotalBytes > 0L -> progressTotalBytes
-                      expectedTotalBytes > 0L -> expectedTotalBytes
-                      isExtraDataOnly ->
-                        model.downloadInfo.extraDataFiles(task?.id).sumOf { it.sizeInBytes }
-                      else -> model.downloadInfo.totalBytes
-                    }
                   download.report(
                     ModelDownloadStatus(
                       status = ModelDownloadStatusType.IN_PROGRESS,
-                      totalBytes = totalBytes,
+                      totalBytes = totalBytesOf(workInfo.progress),
                       receivedBytes = receivedBytes,
                       bytesPerSecond = downloadRate,
                       remainingMs = remainingMs,
@@ -817,11 +634,14 @@ class DefaultDownloadRepository(
                   workInfo.outputData.getString(KEY_MODEL_DOWNLOAD_AUTH_ERROR)
                 )
               Log.d(TAG, "worker $workerId ${workInfo.state}: $workerErrorMessage")
+              // Set only when the download left a partial file to resume.
+              val partialBytes = workInfo.outputData.getLong(KEY_MODEL_DOWNLOAD_RECEIVED_BYTES, 0L)
               val outcome =
                 UnsuccessfulDownloadOutcome.from(
                   cancellation = DownloadCancellation.of(workInfo.state, download.cancelledByUser),
                   authError = authError,
                   errorType = errorType,
+                  partialBytes = partialBytes,
                 )
               if (outcome.notifyFailure) {
                 val (title, text) =
@@ -840,9 +660,13 @@ class DefaultDownloadRepository(
                   }
                 sendNotification(title = title, text = text, taskId = "", modelName = "")
               }
+              // A paused download shows how much of it is on disk.
+              val isPaused = outcome.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
               val finalStatus =
                 ModelDownloadStatus(
                   status = outcome.status,
+                  totalBytes = if (isPaused) totalBytesOf(workInfo.outputData) else 0L,
+                  receivedBytes = if (isPaused) partialBytes else 0L,
                   errorMessage = errorMessage,
                   authError = authError,
                   failureReason =
@@ -866,6 +690,21 @@ class DefaultDownloadRepository(
             }
 
             else -> {}
+          }
+        }
+
+        /**
+         * Returns the total size of the download: the one the worker reported in [data], its
+         * progress or output, or the expected one.
+         */
+        private fun totalBytesOf(data: Data): Long {
+          val reportedTotalBytes = data.getLong(KEY_MODEL_TOTAL_BYTES, 0L)
+          return when {
+            reportedTotalBytes > 0L -> reportedTotalBytes
+            expectedTotalBytes > 0L -> expectedTotalBytes
+            isExtraDataOnly ->
+              download.model.downloadInfo.extraDataFiles(task?.id).sumOf { it.sizeInBytes }
+            else -> download.model.downloadInfo.totalBytes
           }
         }
 

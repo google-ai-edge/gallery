@@ -29,19 +29,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.DownloadAndTryButton
 import com.google.ai.edge.gallery.ui.common.modelitem.calculateDownloadProgress
+import com.google.ai.edge.gallery.ui.common.modelitem.pausedDownloadStatusLabel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 
 @Composable
@@ -50,7 +51,7 @@ fun ModelDownloadStatusInfoPanel(
   task: Task,
   modelManagerViewModel: ModelManagerViewModel,
 ) {
-  val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
+  val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
 
   // Manages the conditional display of UI elements (download model button and downloading
   // animation) based on the corresponding download status.
@@ -59,9 +60,11 @@ fun ModelDownloadStatusInfoPanel(
   // respective conditions remain true. This prevents UI flickering and provides a smoother
   // user experience.
   val curStatus = modelManagerUiState.modelDownloadStatus[model.name]
+  // A paused download, which the user can resume or discard, isn't downloading.
+  val isPaused = curStatus?.isPaused(model) == true
   val downloading =
     curStatus?.status == ModelDownloadStatusType.IN_PROGRESS ||
-      curStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED ||
+      (curStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED && !isPaused) ||
       curStatus?.status == ModelDownloadStatusType.UNZIPPING
 
   Column(
@@ -80,6 +83,22 @@ fun ModelDownloadStatusInfoPanel(
           model = model,
           task = task,
           modelManagerViewModel = modelManagerViewModel,
+        )
+      }
+      // Why the download failed or paused, e.g. "Connection lost".
+      if (curStatus != null && (isPaused || curStatus.status == ModelDownloadStatusType.FAILED)) {
+        Text(
+          if (isPaused) {
+            pausedDownloadStatusLabel(model = model, downloadStatus = curStatus)
+          } else {
+            curStatus.errorMessage.ifEmpty { stringResource(R.string.model_download_failed_status) }
+          },
+          color =
+            if (isPaused) MaterialTheme.colorScheme.onSurfaceVariant
+            else MaterialTheme.colorScheme.error,
+          style = MaterialTheme.typography.bodyMedium,
+          textAlign = TextAlign.Center,
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp).padding(bottom = 8.dp),
         )
       }
     }

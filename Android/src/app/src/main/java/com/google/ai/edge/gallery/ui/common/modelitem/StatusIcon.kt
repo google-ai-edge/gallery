@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.DownloadForOffline
+import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material3.Icon
@@ -101,6 +102,16 @@ fun StatusIcon(
             contentDescription = stringResource(R.string.cd_downloading_icon),
             modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
           )
+
+        ModelDownloadStatusType.PARTIALLY_DOWNLOADED ->
+          if (downloadStatus.isPaused(model)) {
+            Icon(
+              Icons.Outlined.PauseCircle,
+              tint = MaterialTheme.customColors.modelInfoIconColor,
+              contentDescription = stringResource(R.string.cd_download_paused_icon),
+              modifier = Modifier.size(MODEL_INFO_ICON_SIZE),
+            )
+          }
 
         ModelDownloadStatusType.UNAVAILABLE ->
           Icon(
