@@ -146,6 +146,8 @@ fun FlashcardsStudyCard(
  *
  * @param isOpenEnabled whether the button can be tapped (true once enough words are saved).
  * @param lockedMessage if not null, why the game can't be played yet.
+ * @param lockedActionLabel optional label for an action button shown beneath [lockedMessage].
+ * @param onLockedAction called when the locked action button is tapped.
  */
 @Composable
 fun VocabPopperStudyCard(
@@ -153,6 +155,8 @@ fun VocabPopperStudyCard(
   onOpen: () -> Unit,
   modifier: Modifier = Modifier,
   lockedMessage: String? = null,
+  lockedActionLabel: String? = null,
+  onLockedAction: (() -> Unit)? = null,
 ) {
   StudyActivityCard(
     title = stringResource(R.string.xrteacher_vocab_popper_title),
@@ -163,6 +167,8 @@ fun VocabPopperStudyCard(
     onOpen = onOpen,
     modifier = modifier,
     lockedMessage = lockedMessage,
+    lockedActionLabel = lockedActionLabel,
+    onLockedAction = onLockedAction,
     buttonIcon = Icons.Filled.SportsEsports,
     artwork = { VocabPopperCardShapes(fill = StudyVocabPopperPalette.decorativeFill) },
   )
@@ -176,6 +182,8 @@ fun VocabPopperStudyCard(
  * @param isOpenEnabled whether the button can be tapped (true once enough words with images are
  *   saved).
  * @param lockedMessage if not null, why the game can't be played yet.
+ * @param lockedActionLabel optional label for an action button shown beneath [lockedMessage].
+ * @param onLockedAction called when the locked action button is tapped.
  */
 @Composable
 fun VocabRunnerStudyCard(
@@ -183,6 +191,8 @@ fun VocabRunnerStudyCard(
   onOpen: () -> Unit,
   modifier: Modifier = Modifier,
   lockedMessage: String? = null,
+  lockedActionLabel: String? = null,
+  onLockedAction: (() -> Unit)? = null,
 ) {
   StudyActivityCard(
     title = stringResource(R.string.xrteacher_vocab_runner_title),
@@ -193,6 +203,8 @@ fun VocabRunnerStudyCard(
     onOpen = onOpen,
     modifier = modifier,
     lockedMessage = lockedMessage,
+    lockedActionLabel = lockedActionLabel,
+    onLockedAction = onLockedAction,
     buttonIcon = Icons.AutoMirrored.Filled.DirectionsRun,
     artwork = { VocabRunnerCardShapes(fill = StudyVocabRunnerPalette.decorativeFill) },
   )

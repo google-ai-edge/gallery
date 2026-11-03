@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabGameMode
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.XrLanguageTeacherGameMicState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.XrLanguageTeacherGameSoundEffects
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.XrLanguageTeacherGameSpeechListener
@@ -37,15 +38,19 @@ import kotlinx.coroutines.launch
  * word sticker sprites, the best score, and the session teardown. Subclasses keep their game state
  * and engine, and plug them in through the abstract members.
  *
- * A game screen calls [startListening] once the microphone permission is granted (or
- * [onMicPermissionDenied]), the subclass's frame step on every frame, and [endSession] when it
- * closes. The round clock only runs once the microphone is ready (or known to be unavailable).
+ * In [XrLanguageTeacherVocabGameMode.SPEAK] mode, a game screen calls [startListening] once the
+ * microphone permission is granted (or [onMicPermissionDenied]), the subclass's frame step on every
+ * frame, and [endSession] when it closes; the round clock only runs once the microphone is ready
+ * (or known to be unavailable). In [XrLanguageTeacherVocabGameMode.TAP] mode, no microphone or
+ * speech recognizer is started and the round clock runs immediately.
  *
- * @param highScoreKey the preference key of the game's best score.
+ * @param speakHighScoreKey preference key of the game's best score in Speak mode.
+ * @param tapHighScoreKey preference key of the game's best score in Tap mode.
  */
 abstract class XrLanguageTeacherVocabGameViewModel(
   protected val dependencies: XrLanguageTeacherVocabGameDependencies,
-  private val highScoreKey: String,
+  private val speakHighScoreKey: String,
+  private val tapHighScoreKey: String = speakHighScoreKey,
   protected val randomSeed: () -> Long,
 ) : ViewModel(), XrLanguageTeacherGameSpeechListener {
   private val heardWordsTracker = XrLanguageTeacherGameHeardWords(autoExpireScope = viewModelScope)
@@ -56,7 +61,9 @@ abstract class XrLanguageTeacherVocabGameViewModel(
   protected val soundEffects: XrLanguageTeacherGameSoundEffects = dependencies.createSoundEffects()
   private val frameClock = XrLanguageTeacherGameFrameClock()
   private val sessionTeardown = XrLanguageTeacherGameSessionTeardown(viewModelScope, dependencies)
-  private var learnLanguage: Language = Language.LANGUAGE_UNSPECIFIED
+  protected var learnLanguage: Language = Language.LANGUAGE_UNSPECIFIED
+    private set
+
   private var speechRecognizer: XrLanguageTeacherGameSpeechRecognizer? = null
   private var celebrationJob: Job? = null
   private var stickerJob: Job? = null
@@ -64,6 +71,10 @@ abstract class XrLanguageTeacherVocabGameViewModel(
   /** Whether a round is set up and its game screen hasn't ended the session yet. */
   var isSessionActive: Boolean = false
     private set
+
+  /** Active play mode of the current round; defaults to [XrLanguageTeacherVocabGameMode.SPEAK]. */
+  open val mode: XrLanguageTeacherVocabGameMode
+    get() = XrLanguageTeacherVocabGameMode.SPEAK
 
   /** Whether the current round is being played (not finished or over). */
   protected abstract val isPlaying: Boolean
@@ -97,7 +108,7 @@ abstract class XrLanguageTeacherVocabGameViewModel(
   /**
    * Starts a session in [learnLanguage] and returns up to [GAME_MAX_DECK_SIZE] words of [entries]
    * for the round. Starts preparing their sticker sprites, publishing each as it is ready.
-   * Listening starts with [startListening].
+   * Listening starts with [startListening] in Speak mode.
    */
   protected fun beginSession(
     learnLanguage: Language,
@@ -108,6 +119,9 @@ abstract class XrLanguageTeacherVocabGameViewModel(
     val deckEntries = pickGameDeck(entries, Random(randomSeed()))
     isSessionActive = true
     dependencies.onRoundStarted()
+    if (mode == XrLanguageTeacherVocabGameMode.TAP) {
+      soundEffects.prepare()
+    }
     val cachedStickers = cachedGameStickers(deckEntries)
     if (cachedStickers.isNotEmpty()) {
       updateStickers { cachedStickers }
@@ -131,6 +145,7 @@ abstract class XrLanguageTeacherVocabGameViewModel(
   fun startListening() {
     if (!isSessionActive) return
     soundEffects.prepare()
+    if (mode != XrLanguageTeacherVocabGameMode.SPEAK) return
     val recognizer =
       speechRecognizer
         ?: dependencies.createSpeechRecognizer(viewModelScope, learnLanguage, this).also {
@@ -143,6 +158,7 @@ abstract class XrLanguageTeacherVocabGameViewModel(
 
   /** Stops listening while the app is in the background; [startListening] listens again. */
   fun stopListening() {
+    if (mode != XrLanguageTeacherVocabGameMode.SPEAK) return
     val unused = speechRecognizer?.stop()
     heardWordsTracker.clear()
     onMicStateChanged(XrLanguageTeacherGameMicState.STARTING)
@@ -150,15 +166,20 @@ abstract class XrLanguageTeacherVocabGameViewModel(
 
   /** Shows that the microphone permission is missing, so the game can't hear the words. */
   fun onMicPermissionDenied() {
+    if (mode != XrLanguageTeacherVocabGameMode.SPEAK) return
     onMicStateChanged(XrLanguageTeacherGameMicState.PERMISSION_DENIED)
   }
 
   /**
    * Returns the milliseconds since the previous frame at [frameNanos] (a monotonic frame
-   * timestamp), or 0 while the microphone is still starting, which holds the round clock.
+   * timestamp), or 0 while the microphone is still starting in Speak mode, which holds the round
+   * clock.
    */
   protected fun advanceFrameClock(frameNanos: Long): Long {
-    if (micState == XrLanguageTeacherGameMicState.STARTING) {
+    if (
+      mode == XrLanguageTeacherVocabGameMode.SPEAK &&
+        micState == XrLanguageTeacherGameMicState.STARTING
+    ) {
       // Hold the clock; the first frame after the microphone is ready sets the time base.
       frameClock.reset()
       return 0L
@@ -185,8 +206,8 @@ abstract class XrLanguageTeacherVocabGameViewModel(
     showMicState(state)
   }
 
-  /** Mutes or unmutes the sound effects. */
-  fun toggleMute() {
+  /** Mutes or unmutes the sound effects (and any active prompt speech). */
+  open fun toggleMute() {
     val muted = !soundEffects.isMuted
     soundEffects.isMuted = muted
     showMuted(muted)
@@ -203,12 +224,15 @@ abstract class XrLanguageTeacherVocabGameViewModel(
     heardWordsTracker.clear()
     startEngine()
     showCelebrationWord(null)
-    speechRecognizer?.start()
+    if (mode == XrLanguageTeacherVocabGameMode.SPEAK) {
+      speechRecognizer?.start()
+    }
   }
 
   /** Stops listening and saves [highScore] when the round finishes. */
   protected fun finishRound(highScore: Int) {
     val unused = speechRecognizer?.stop()
+    dependencies.onStopSpeech()
     heardWordsTracker.clear()
     persistHighScoreIfNeeded(highScore)
   }
@@ -223,8 +247,15 @@ abstract class XrLanguageTeacherVocabGameViewModel(
     }
   }
 
-  /** Returns the best score saved for the game. */
-  protected fun readHighScore(): Int = dependencies.highScores.readHighScore(highScoreKey)
+  private val activeHighScoreKey: String
+    get() =
+      when (mode) {
+        XrLanguageTeacherVocabGameMode.TAP -> tapHighScoreKey
+        XrLanguageTeacherVocabGameMode.SPEAK -> speakHighScoreKey
+      }
+
+  /** Returns the best score saved for the game in the current [mode]. */
+  protected fun readHighScore(): Int = dependencies.highScores.readHighScore(activeHighScoreKey)
 
   /** Restarts the round clock, for a new engine. */
   protected fun resetFrameClock() {
@@ -234,7 +265,7 @@ abstract class XrLanguageTeacherVocabGameViewModel(
   /** Saves [highScore] as the game's best score if it is higher. */
   protected fun persistHighScoreIfNeeded(highScore: Int) {
     if (highScore > readHighScore()) {
-      dependencies.highScores.writeHighScore(highScoreKey, highScore)
+      dependencies.highScores.writeHighScore(activeHighScoreKey, highScore)
     }
   }
 
@@ -244,17 +275,21 @@ abstract class XrLanguageTeacherVocabGameViewModel(
    * again.
    */
   fun endSession() {
+    val wasSessionActive = isSessionActive
     celebrationJob?.cancel()
     celebrationJob = null
     stickerJob?.cancel()
     stickerJob = null
     val stopJob = speechRecognizer?.stop()
     speechRecognizer = null
+    if (wasSessionActive) {
+      dependencies.onStopSpeech()
+    }
     soundEffects.close()
     heardWordsTracker.clear()
     dropEngine()
     updateStickers { emptyMap() }
-    if (isSessionActive) {
+    if (wasSessionActive) {
       isSessionActive = false
       sessionTeardown.restoreLessonSpeechAfter(stopJob)
     }

@@ -724,10 +724,12 @@ internal fun XrLanguageTeacherViewModel.resetLessonSessionInternal(
   model: Model? = null,
   onRunningStateChanged: (Boolean) -> Unit = {},
   prewarmSession: Boolean = true,
+  stopTts: Boolean = true,
 ) {
   resetLessonSessionInternalImpl(
     model = model,
     onRunningStateChanged = onRunningStateChanged,
     prewarmSession = prewarmSession,
+    stopTts = stopTts,
   )
 }

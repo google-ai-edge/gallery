@@ -64,6 +64,9 @@ interface XrLanguageTeacherGameHighScoreStore {
  *   recognition for the host language again.
  * @param onRoundStarted called whenever a round starts (also on replay), so the teacher model can
  *   be unloaded while the game runs.
+ * @param onSpeakWord speaks a prompted vocabulary word in the learn language during Tap mode.
+ * @param onStopSpeech stops any active prompt speech playback when a round ends, exits, or is
+ *   muted.
  */
 class XrLanguageTeacherVocabGameDependencies(
   val createSpeechRecognizer:
@@ -76,6 +79,8 @@ class XrLanguageTeacherVocabGameDependencies(
   val imageDispatcher: CoroutineDispatcher,
   val onSessionEnded: () -> Unit = {},
   val onRoundStarted: () -> Unit = {},
+  val onSpeakWord: (word: String, learnLanguage: Language) -> Unit = { _, _ -> },
+  val onStopSpeech: () -> Unit = {},
 )
 
 /** Longest frame step fed to a game engine, so a stalled frame never teleports the sprites. */
