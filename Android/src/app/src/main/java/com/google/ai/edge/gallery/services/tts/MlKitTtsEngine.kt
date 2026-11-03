@@ -133,6 +133,7 @@ class MlKitTtsEngine(
   @Volatile internal var currentLocale: Locale = Locale.US
   @Volatile private var supportedVoices: List<VoiceInfo> = emptyList()
   private val warmMutex = Mutex()
+  private val localeWarmMutexes = ConcurrentHashMap<Locale, Mutex>()
   internal val voiceWarmUpMutex = Mutex()
 
   /** Voice downloads in flight; only the last one to end publishes its outcome as [status]. */
@@ -541,6 +542,14 @@ class MlKitTtsEngine(
     _status.value = TtsServiceStatus.Downloaded
   }
 
+  private data class VoiceSelection(
+    val startGeneration: Int,
+    val synthClient: MlKitSpeechSynthesizer,
+    val voices: List<VoiceInfo>,
+    val selected: VoiceInfo,
+    val statusVal: Int,
+  )
+
   private suspend fun warmClientForLocale(
     locale: Locale,
     requestedVoiceId: String? = null,
@@ -553,7 +562,8 @@ class MlKitTtsEngine(
       return existing
     }
 
-    return warmMutex.withLock {
+    val localeMutex = localeWarmMutexes.computeIfAbsent(normLocale) { Mutex() }
+    return localeMutex.withLock {
       warmedLocales[normLocale]?.let { existing ->
         if (requestedVoiceId != null && existing.voice.name != requestedVoiceId) {
           findVoice(existing.supportedVoices, requestedVoiceId)?.let { existing.voice = it }
@@ -561,61 +571,81 @@ class MlKitTtsEngine(
         return@withLock existing
       }
 
-      val startGeneration = lifecycleGeneration.get()
-      val synthClient = acquireSynthesizer(normLocale)
-      val voices = synthClient.getSupportedVoices(normLocale)
-      if (voices.isEmpty()) {
-        throw TtsServiceError.EngineUnavailable(
-          "No supported ML Kit voices available for locale ${normLocale.toLanguageTag()}"
-        )
-      }
-      if (supportedVoices.isEmpty()) {
-        supportedVoices = voices
-      }
-      var voiceToUse = voices.firstOrNull()
-      if (requestedVoiceId != null) {
-        voiceToUse = findVoice(voices, requestedVoiceId) ?: voiceToUse
-      }
-      val selected =
-        voiceToUse
-          ?: throw TtsServiceError.EngineUnavailable(
-            "No supported ML Kit voices available for locale ${normLocale.toLanguageTag()}"
-          )
+      val selection =
+        warmMutex.withLock {
+          val existing = warmedLocales[normLocale]
+          if (existing != null) {
+            if (requestedVoiceId != null && existing.voice.name != requestedVoiceId) {
+              findVoice(existing.supportedVoices, requestedVoiceId)?.let { existing.voice = it }
+            }
+            return@withLock null
+          }
 
-      val statusVal = synthClient.checkStatus(selected)
-      when (statusVal) {
+          val startGeneration = lifecycleGeneration.get()
+          val synthClient = acquireSynthesizer(normLocale)
+          val voices = synthClient.getSupportedVoices(normLocale)
+          if (voices.isEmpty()) {
+            throw TtsServiceError.EngineUnavailable(
+              "No supported ML Kit voices available for locale ${normLocale.toLanguageTag()}"
+            )
+          }
+          if (supportedVoices.isEmpty()) {
+            supportedVoices = voices
+          }
+          var voiceToUse = voices.firstOrNull()
+          if (requestedVoiceId != null) {
+            voiceToUse = findVoice(voices, requestedVoiceId) ?: voiceToUse
+          }
+          val selected =
+            voiceToUse
+              ?: throw TtsServiceError.EngineUnavailable(
+                "No supported ML Kit voices available for locale ${normLocale.toLanguageTag()}"
+              )
+          VoiceSelection(
+            startGeneration = startGeneration,
+            synthClient = synthClient,
+            voices = voices,
+            selected = selected,
+            statusVal = synthClient.checkStatus(selected),
+          )
+        } ?: return@withLock checkNotNull(warmedLocales[normLocale])
+
+      when (selection.statusVal) {
         FeatureStatus.DOWNLOADABLE,
         FeatureStatus.DOWNLOADING -> {
           _status.value = TtsServiceStatus.Downloading
           try {
-            synthClient.download(selected).toDownloadProgress().collect {}
+            selection.synthClient.download(selection.selected).toDownloadProgress().collect {}
           } catch (e: CancellationException) {
-            _status.value =
-              if (warmedLocales.isNotEmpty()) TtsServiceStatus.Ready
-              else TtsServiceStatus.Downloaded
+            if (activeLanguageDownloads.get() == 0) {
+              _status.value =
+                if (warmedLocales.isNotEmpty()) TtsServiceStatus.Ready
+                else TtsServiceStatus.Downloaded
+            }
             throw e
           } catch (e: Exception) {
-            throw RuntimeException(
-              "Failed to download ML Kit voice model for locale ${normLocale.toLanguageTag()}",
-              e,
-            )
+              throw RuntimeException(
+                "Failed to download ML Kit voice model for locale ${normLocale.toLanguageTag()}",
+                e,
+              )
           }
         }
         FeatureStatus.AVAILABLE -> {}
         else -> {
           throw TtsServiceError.EngineUnavailable(
-            "ML Kit TTS voice '${selected.name}' is unavailable ($statusVal) for locale ${normLocale.toLanguageTag()}"
+            "ML Kit TTS voice '${selection.selected.name}' is unavailable (${selection.statusVal}) for locale ${normLocale.toLanguageTag()}"
           )
         }
       }
 
-      if (lifecycleGeneration.get() != startGeneration) {
+      if (lifecycleGeneration.get() != selection.startGeneration) {
         throw CancellationException("MlKitTtsEngine was destroyed during warmClientForLocale()")
       }
 
-      val warmed = WarmedLocaleVoices(voice = selected, supportedVoices = voices)
+      val warmed =
+        WarmedLocaleVoices(voice = selection.selected, supportedVoices = selection.voices)
       warmedLocales[normLocale] = warmed
-      if (activeCompletions.isEmpty()) {
+      if (activeCompletions.isEmpty() && activeLanguageDownloads.get() == 0) {
         _status.value = TtsServiceStatus.Ready
       }
       warmed
@@ -730,6 +760,7 @@ class MlKitTtsEngine(
 
   private fun closeAllClients() {
     val unusedGen = lifecycleGeneration.incrementAndGet()
+    localeWarmMutexes.clear()
     warmedLocales.clear()
     warmedUpVoices.clear()
     val client = synchronized(this) { synthesizer.also { synthesizer = null } }

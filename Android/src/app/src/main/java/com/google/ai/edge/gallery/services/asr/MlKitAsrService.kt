@@ -420,17 +420,17 @@ class MlKitAsrService(
       _unavailabilityReason = AsrUnavailabilityReason.SPEECH_SERVICES_OUTDATED_OR_MISSING
       return AsrServiceStatus.Unavailable
     }
-    if (engineType != AsrEngineType.MLKIT_BASIC || speechRecognizerOverride != null) {
-      return checkStatus()
-    }
-    return try {
-      withBasicLanguageClient(languageCode) { client ->
-        mapFeatureStatusToAsrStatus(
-          featureStatus = client.checkStatus(),
-          downloadingBytes = modelSizeBytes,
-          clearUnavailabilityReason = false,
-        )
+      if (engineType != AsrEngineType.MLKIT_BASIC || speechRecognizerOverride != null) {
+        return checkStatus()
       }
+      return try {
+        withBasicLanguageClient(languageCode) { client ->
+          mapFeatureStatusToAsrStatus(
+            featureStatus = client.checkStatus(),
+            downloadingBytes = modelSizeBytes,
+            clearUnavailabilityReason = false,
+          )
+        }
     } catch (e: CancellationException) {
       throw e
     } catch (e: Exception) {
@@ -446,17 +446,17 @@ class MlKitAsrService(
     if (!isSpeechServicesUpToDate()) {
       return SpeechAvailability.Unavailable(SpeechUnavailabilityReason.SPEECH_SERVICES_OUTDATED)
     }
-    if (engineType != AsrEngineType.MLKIT_BASIC || speechRecognizerOverride != null) {
-      return checkAvailability(modelId)
-    }
-    return try {
-      withBasicLanguageClient(languageCode) { client ->
-        mapFeatureStatusToAvailability(
-          featureStatus = client.checkStatus(),
-          downloadBytes = BASIC_MODEL_SIZE_BYTES,
-          unavailableReason = SpeechUnavailabilityReason.LOCALE_NOT_OFFERED,
-        )
+      if (engineType != AsrEngineType.MLKIT_BASIC || speechRecognizerOverride != null) {
+        return checkAvailability(modelId)
       }
+      return try {
+        withBasicLanguageClient(languageCode) { client ->
+          mapFeatureStatusToAvailability(
+            featureStatus = client.checkStatus(),
+            downloadBytes = BASIC_MODEL_SIZE_BYTES,
+            unavailableReason = SpeechUnavailabilityReason.LOCALE_NOT_OFFERED,
+          )
+        }
     } catch (e: CancellationException) {
       throw e
     } catch (e: Exception) {

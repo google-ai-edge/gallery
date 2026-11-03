@@ -508,22 +508,23 @@ internal fun MlKitTtsEngine.synthesisAttempt(
  * Failing stops collecting the ML Kit download flow, which only cancels this app's progress stream:
  * Speech Services logs the cancelled call and keeps running the download.
  */
-internal fun Flow<TtsDownloadProgress>.failWhenStalled(locale: Locale): Flow<TtsDownloadProgress> =
-  channelFlow {
-    fun launchStallWatchdog() = launch {
-      delay(MlKitTtsEngine.DOWNLOAD_STALL_TIMEOUT_MS)
-      Log.i(TAG, "The ML Kit voice download for $locale reported nothing; no longer waiting")
-      throw TtsServiceError.DownloadStalled(locale.toLanguageTag())
-    }
+  internal fun Flow<TtsDownloadProgress>.failWhenStalled(locale: Locale):
+  Flow<TtsDownloadProgress> =
+    channelFlow {
+      fun launchStallWatchdog() = launch {
+        delay(MlKitTtsEngine.DOWNLOAD_STALL_TIMEOUT_MS)
+        Log.i(TAG, "The ML Kit voice download for $locale reported nothing; no longer waiting")
+        throw TtsServiceError.DownloadStalled(locale.toLanguageTag())
+      }
 
-    var watchdog = launchStallWatchdog()
-    this@failWhenStalled.collect { progress ->
-      watchdog.cancel()
-      send(progress)
-      watchdog = launchStallWatchdog()
-    }
+  var watchdog = launchStallWatchdog()
+  this@failWhenStalled.collect { progress ->
     watchdog.cancel()
+    send(progress)
+    watchdog = launchStallWatchdog()
   }
+  watchdog.cancel()
+}
 
 private const val PCM_WRITE_CHUNK_BYTES = 4800
 
