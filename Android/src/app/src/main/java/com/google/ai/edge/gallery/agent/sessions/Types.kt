@@ -88,12 +88,23 @@ data class ContextCompactionOutcome(
 private const val DEFAULT_ATTACHED_FILE_NAME = "file"
 
 /**
+ * Sent in place of the content of an attached file that has no text, so that the model can explain
+ * to the user why it cannot read the file. This happens for PDFs whose text could not be extracted.
+ */
+private const val NO_TEXT_ATTACHED_FILE_NOTE =
+  "[No text could be extracted from this file. If it is a PDF, it may contain only images, such " +
+    "as scanned pages, or this device may not support PDF text extraction. Let the user know " +
+    "that you cannot read its content.]"
+
+/**
  * Formats the [content] of an attached text file named [fileName] for the LLM prompt, wrapped in
- * clear begin and end boundaries.
+ * clear begin and end boundaries. A blank [content] is replaced with a note telling the model that
+ * the file's text could not be read.
  */
 fun formatAttachedFilePrompt(fileName: String, content: String): String {
   val name = fileName.ifBlank { DEFAULT_ATTACHED_FILE_NAME }
-  return "--- Attached file: $name ---\n$content\n--- End of $name ---"
+  val body = content.ifBlank { NO_TEXT_ATTACHED_FILE_NOTE }
+  return "--- Attached file: $name ---\n$body\n--- End of $name ---"
 }
 
 /**

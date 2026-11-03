@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Article
+import androidx.compose.material.icons.rounded.PictureAsPdf
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,8 +33,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.google.ai.edge.gallery.R
 
 /**
  * Composable function to display the attached file content of a ChatMessageFile.
@@ -63,7 +67,7 @@ fun MessageBodyFile(
       modifier = modifier.padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
       Icon(
-        Icons.AutoMirrored.Rounded.Article,
+        if (message.isPdf) Icons.Rounded.PictureAsPdf else Icons.AutoMirrored.Rounded.Article,
         contentDescription = null,
         tint = iconColor,
         modifier = Modifier.size(24.dp),
@@ -77,14 +81,41 @@ fun MessageBodyFile(
           overflow = TextOverflow.Ellipsis,
           modifier = Modifier.widthIn(max = 240.dp),
         )
-        if (message.sizeString.isNotEmpty()) {
-          Text(
-            text = message.sizeString,
-            style = MaterialTheme.typography.bodySmall,
-            color = subtitleColor,
-          )
-        }
+        FileSubtitle(
+          sizeString = message.sizeString,
+          hasText = message.content.isNotBlank(),
+          color = subtitleColor,
+        )
       }
     }
+  }
+}
+
+/**
+ * The subtitle of an attached file: its size, or a "No readable text" warning when [hasText] is
+ * false (e.g. a PDF whose text could not be extracted), so the user knows right away that the model
+ * cannot read the file.
+ */
+@Composable
+internal fun FileSubtitle(sizeString: String, hasText: Boolean, color: Color) {
+  if (!hasText) {
+    Row(
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+      Icon(
+        Icons.Rounded.WarningAmber,
+        contentDescription = null,
+        tint = color,
+        modifier = Modifier.size(14.dp),
+      )
+      Text(
+        text = stringResource(R.string.file_attachment_no_text),
+        style = MaterialTheme.typography.bodySmall,
+        color = color,
+      )
+    }
+  } else if (sizeString.isNotEmpty()) {
+    Text(text = sizeString, style = MaterialTheme.typography.bodySmall, color = color)
   }
 }

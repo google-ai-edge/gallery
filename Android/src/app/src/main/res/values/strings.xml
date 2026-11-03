@@ -88,7 +88,7 @@
   <string name="close" translatable="true" description="Common button label to close a screen or dialog. [CHAR_LIMIT=9]">Close</string>
   <string name="collapse_all" translatable="true" description="Button label to collapse all expanded sections. [CHAR_LIMIT=23]">Collapse all</string>
   <string name="discard" translatable="true" description="Button label to discard changes. [CHAR_LIMIT=18]">Discard</string>
-  <string name="discard_changes_dialog_title" translatable="true" description="Title of confirmation dialog for discarding unsaved changes. [CHAR_LIMIT=28]">Discard changes?</string>
+  <string name="skill_editor_discard_changes_dialog_title" translatable="true" description="Title of confirmation dialog for discarding unsaved changes. [CHAR_LIMIT=28]">Discard changes?</string>
   <string name="discard_changes_dialog_content" translatable="true" description="Content of confirmation dialog for discarding unsaved changes. [CHAR_LIMIT=117]">You have unsaved changes. Are you sure you want to discard them?</string>
   <string name="delete_benchmark_result_dialog_title" translatable="true" description="Title of confirmation dialog for deleting benchmark results. [CHAR_LIMIT=38]">Delete benchmark result</string>
   <string name="delete_benchmark_result_dialog_content" translatable="true" description="Content of confirmation dialog for deleting benchmark results. [CHAR_LIMIT=110]">Are you sure you want to delete the benchmark result?</string>
@@ -989,6 +989,14 @@
   <string name="cd_user_image" translatable="true" description="Accessibility description for an image sent by the user, indicating its index. [CHAR_LIMIT=90]">User image %1$d</string>
   <!-- Content description spoken when an user image in a group is focused. -->
   <string name="cd_user_image_in_group" translatable="true" description="Content description for an image in a group of images sent by the user, indicating its position and total count (e.g., 'User image 1 of 3'). [CHAR_LIMIT=90]">User image %1$d of %2$d</string>
+  <!-- Content description spoken when a rendered PDF page in the file viewer is focused. -->
+  <string name="cd_pdf_page" translatable="true" description="Content description for a rendered page of an attached PDF file, indicating its position and total page count (e.g., 'Page 1 of 3'). [CHAR_LIMIT=40]">Page %1$d of %2$d</string>
+  <!-- Content description spoken when the button to switch the file viewer to extracted text is focused. -->
+  <string name="cd_file_viewer_show_text" translatable="true" description="Content description for the button in the attached file viewer that switches from the rendered PDF pages to the text extracted from the PDF. [CHAR_LIMIT=40]">Show extracted text</string>
+  <string name="file_attachment_no_text" translatable="true" description="Short warning shown under the name of an attached PDF file, in the input bar and in the chat, when no text could be extracted from it, so the model cannot read its content. [CHAR_LIMIT=30]">No readable text</string>
+  <string name="file_viewer_no_text" translatable="true" description="Message shown in the attached file viewer when no text could be extracted from an attached PDF file, e.g. because it only contains scanned images or the device does not support PDF text extraction. [CHAR_LIMIT=NONE]">No text could be extracted from this PDF. It may contain only images, such as scanned pages, or this device may not support PDF text extraction.</string>
+  <!-- Content description spoken when the button to switch the file viewer to PDF pages is focused. -->
+  <string name="cd_file_viewer_show_pages" translatable="true" description="Content description for the button in the attached file viewer that switches from the extracted text back to the rendered PDF pages. [CHAR_LIMIT=40]">Show PDF pages</string>
   <!-- Content description spoken when the "add content" icon is focused. -->
   <string name="cd_add_content_icon" translatable="true" description="Content description for the button to add content (like attachments or images) to a message. [CHAR_LIMIT=30]">Add content</string>
   <!-- Content description spoken when the "camera shutter" icon is focused. -->

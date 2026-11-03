@@ -143,6 +143,8 @@ dependencies {
   implementation(libs.mlkit.genai.schema)
   ksp(libs.mlkit.genai.schema.compiler)
   implementation(libs.tasks.audio)
+  implementation(libs.androidx.pdf.core)
+  implementation(libs.androidx.pdf.document.service)
 }
 
 configurations.all { resolutionStrategy.force("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.0") }

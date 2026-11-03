@@ -295,7 +295,14 @@ class ChatMessageAudioClip(
   }
 }
 
-/** Chat message for attached text/markdown files. */
+/**
+ * Whether an attached file with the given display [name] and local copy at [path] is a PDF. The
+ * local copy of a PDF always has a `.pdf` extension, even when its display name does not.
+ */
+internal fun isPdfFile(name: String, path: String?): Boolean =
+  name.endsWith(".pdf", ignoreCase = true) || path?.endsWith(".pdf", ignoreCase = true) == true
+
+/** Chat message for attached text, markdown, or PDF files. */
 class ChatMessageFile(
   val name: String,
   val content: String,
@@ -326,6 +333,10 @@ class ChatMessageFile(
   /** Path to the best available local copy of the file, or null if there is none. */
   val filePath: String?
     get() = persistedPath ?: localPath
+
+  /** Whether the attached file is a PDF document. */
+  val isPdf: Boolean
+    get() = isPdfFile(name = name, path = filePath)
 
   override fun clone(): ChatMessageFile {
     return ChatMessageFile(

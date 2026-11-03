@@ -83,6 +83,7 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Photo
 import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -148,6 +149,7 @@ import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.PermissionAccessKind
 import com.google.ai.edge.gallery.ui.common.PermissionAccessTracker
 import com.google.ai.edge.gallery.ui.common.PermissionDeniedDialog
+import com.google.ai.edge.gallery.ui.common.SandboxedPdf
 import com.google.ai.edge.gallery.ui.common.asr.ChatAsrDictationPanel
 import com.google.ai.edge.gallery.ui.common.asr.ChatAsrDictationUiState
 import com.google.ai.edge.gallery.ui.common.asr.rememberChatAsrDictationActions
@@ -157,6 +159,7 @@ import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -507,7 +510,11 @@ fun MessageInputText(
                   modifier = Modifier.padding(end = 16.dp),
                 ) {
                   Icon(
-                    Icons.AutoMirrored.Rounded.Article,
+                    if (isPdfFile(name = textFile.name, path = textFile.localPath)) {
+                      Icons.Rounded.PictureAsPdf
+                    } else {
+                      Icons.AutoMirrored.Rounded.Article
+                    },
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp),
@@ -520,13 +527,16 @@ fun MessageInputText(
                       overflow = TextOverflow.Ellipsis,
                       modifier = Modifier.widthIn(max = 140.dp),
                     )
-                    if (textFile.sizeString.isNotEmpty()) {
-                      Text(
-                        text = textFile.sizeString,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                      )
-                    }
+                    FileSubtitle(
+                      sizeString = textFile.sizeString,
+                      hasText = textFile.content.isNotBlank(),
+                      color =
+                        if (textFile.content.isNotBlank()) {
+                          MaterialTheme.colorScheme.outline
+                        } else {
+                          MaterialTheme.colorScheme.error
+                        },
+                    )
                   }
                 }
               }
@@ -862,7 +872,7 @@ fun MessageInputText(
                           onClick = {
                             showAddContentMenu = false
 
-                            // Show file picker for text and markdown files.
+                            // Show file picker for text, markdown, and PDF files.
                             val intent =
                               Intent(Intent.ACTION_GET_CONTENT).apply {
                                 addCategory(Intent.CATEGORY_OPENABLE)
@@ -872,6 +882,7 @@ fun MessageInputText(
                                     "text/plain",
                                     "text/markdown",
                                     "text/x-markdown",
+                                    "application/pdf",
                                     "text/*",
                                     "application/octet-stream",
                                   )
@@ -884,7 +895,6 @@ fun MessageInputText(
                           },
                         )
                       }
-
                       // Prompt history.
                       DropdownMenuItem(
                         text = {
@@ -1471,7 +1481,7 @@ private fun createMessagesToSend(
   return messages
 }
 
-private fun handleTextFilesSelected(
+private suspend fun handleTextFilesSelected(
   context: Context,
   uris: List<Uri>,
   onTextFilesSelected: (List<TextFile>) -> Unit,
@@ -1503,33 +1513,56 @@ private fun handleTextFilesSelected(
         displayName = uri.lastPathSegment?.substringAfterLast('/') ?: "file.txt"
       }
 
+      val mimeType = if (uri.scheme == "content") context.contentResolver.getType(uri) else null
+      val isPdf = (mimeType == "application/pdf") || displayName.endsWith(".pdf", ignoreCase = true)
+
       // Keep an app-private copy of the file so it can be reopened later (e.g. from chat history)
       // after the temporary read permission for the picked uri is gone.
       val localFile =
         copyToLocalAttachmentFile(
           context = context,
           uri = uri,
-          extension = displayName.substringAfterLast('.', missingDelimiterValue = ""),
+          extension =
+            if (isPdf) "pdf" else displayName.substringAfterLast('.', missingDelimiterValue = ""),
         )
       if (localFile == null) {
         Log.e(TAG, "Failed to copy picked file from uri $uri")
         continue
       }
 
-      val content = localFile.readText(Charsets.UTF_8)
-      if (fileSize < 0) {
-        fileSize = localFile.length()
-      }
-      val sizeString = fileSize.humanReadableSize(si = false)
-      textFiles.add(
-        TextFile(
-          name = displayName,
-          content = content,
-          sizeString = sizeString,
-          uri = uri,
-          localPath = localFile.absolutePath,
+      // PDFs are attached even when no text can be extracted (e.g. scanned PDFs, or devices that
+      // do not support text extraction), so their pages can still be viewed and the model can tell
+      // the user that it cannot read them. See formatAttachedFilePrompt.
+      val content =
+        if (isPdf) {
+          SandboxedPdf.extractText(context, localFile).orEmpty().also {
+            if (it.isEmpty()) {
+              Log.w(TAG, "No readable text extracted from PDF: $displayName")
+            }
+          }
+        } else {
+          localFile.readText(Charsets.UTF_8)
+        }
+
+      if (isPdf || content.isNotBlank()) {
+        if (fileSize < 0) {
+          fileSize = localFile.length()
+        }
+        val sizeString = fileSize.humanReadableSize(si = false)
+        textFiles.add(
+          TextFile(
+            name = displayName,
+            content = content,
+            sizeString = sizeString,
+            uri = uri,
+            localPath = localFile.absolutePath,
+          )
         )
-      )
+      } else {
+        localFile.delete()
+      }
+    } catch (e: CancellationException) {
+      throw e
     } catch (e: Exception) {
       Log.e(TAG, "Error reading text file from uri $uri", e)
     }

@@ -437,7 +437,7 @@ fun AddOrEditSkillBottomSheet(
   if (showDiscardDialog) {
     AlertDialog(
       onDismissRequest = { showDiscardDialog = false },
-      title = { Text(stringResource(R.string.discard_changes_dialog_title)) },
+      title = { Text(stringResource(R.string.skill_editor_discard_changes_dialog_title)) },
       text = { Text(stringResource(R.string.discard_changes_dialog_content)) },
       confirmButton = {
         Button(
