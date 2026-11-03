@@ -84,7 +84,8 @@ fun XrLanguageTeacherViewModel.playTargetPhrase(
       )
     )
   speakSegments(segments, selectedPersona.value, source = TtsPlaybackSource.VOCAB_PHRASE)
-  // After speakSegments(), which resets the playback state of the previous playback.
+  // After launchTtsPlayback()/speakSegments(), which resets the playback state of the previous
+  // playback.
   updateUiState { it.copy(phrasePlaybackState = PhrasePlaybackState.Loading(phrase)) }
 }
 
@@ -135,7 +136,8 @@ internal fun XrLanguageTeacherViewModel.startStreamingTts(
 ) {
   val channel = Channel<MultilingualTtsSegment>(capacity = 64)
   launchTtsPlayback(persona, channel, source = TtsPlaybackSource.DIALOGUE) {
-    streamPipelinedSegments(channel.receiveAsFlow(), persona)
+    val segments = channel.receiveAsFlow()
+    streamPipelinedSegments(segments, persona)
   }
 }
 

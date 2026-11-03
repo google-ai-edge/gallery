@@ -258,7 +258,7 @@ fun XrLanguageTeacherViewModel.deleteLessonSession(
 ) {
   deletedSessionIds.add(sessionId)
   if (sessionId == currentSessionIdInternal) {
-    resetLessonSession(model = model, onRunningStateChanged = onRunningStateChanged)
+    resetLessonSessionInternal(model = model, onRunningStateChanged = onRunningStateChanged)
   }
   viewModelScope.launch(ioDispatcher) {
     sessionSaveMutex.withLock {
@@ -283,7 +283,7 @@ fun XrLanguageTeacherViewModel.deleteAllLessonSessions(
   // idle session has nothing persisted, and resetting it would replay the greeting.
   if (_uiState.value.isSessionActive) {
     deletedSessionIds.add(currentSessionIdInternal)
-    resetLessonSession(model = model, onRunningStateChanged = onRunningStateChanged)
+    resetLessonSessionInternal(model = model, onRunningStateChanged = onRunningStateChanged)
   }
   // Sessions saved under the (possibly new) current id after this point must survive.
   val keptSessionId = currentSessionIdInternal

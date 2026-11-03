@@ -524,7 +524,7 @@ private fun XrLanguageTeacherViewModel.deleteDictionaryEntry(
  * once its save lands.
  */
 fun XrLanguageTeacherViewModel.unsaveVocabCard(card: VocabCardData) {
-  unsaveVocabCardForLanguage(card, learnLanguage.value)
+  removeSavedVocabCard(card, learnLanguage.value)
 }
 
 /**
@@ -574,16 +574,25 @@ fun XrLanguageTeacherViewModel.saveVocabCardFromHistory(
  * Removes the saved word matching [card] in [learnLanguage] (see [findSavedEntry]) along with its
  * image, and clears `isCurrentCardSaved` when [card] is the active card in that language.
  *
- * Like [unsaveVocabCard], also removes a word whose save hasn't landed yet once it lands.
+ * Like [unsaveVocabCard], also removes a word whose save hasn't landed yet once it lands. Called
+ * when the user unsaves a card of the lesson history.
  */
 fun XrLanguageTeacherViewModel.unsaveVocabCardForLanguage(
+  card: VocabCardData,
+  learnLanguage: Language,
+) {
+  removeSavedVocabCard(card, learnLanguage)
+}
+
+/** Removes the saved word of [card] in [learnLanguage], like [unsaveVocabCardForLanguage]. */
+private fun XrLanguageTeacherViewModel.removeSavedVocabCard(
   card: VocabCardData,
   learnLanguage: Language,
 ) {
   if (card.word.isBlank()) return
   val savedEntry = dictionaryEntries.value.findSavedEntry(card.word, learnLanguage)
   if (savedEntry != null) {
-    deleteDictionaryEntry(savedEntry)
+    deleteDictionaryEntry(savedEntry, matchesSameVocabularyWord = false)
     return
   }
   // The word's save may not have landed yet: remove whatever it saves once the queued writes ran.

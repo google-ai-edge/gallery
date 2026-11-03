@@ -503,7 +503,7 @@ fun ChatPanel(
               .semantics { contentDescription = cdChatPanel },
           verticalArrangement = Arrangement.Top,
         ) {
-          messages.forEachIndexed { index, message ->
+          ChatMessages(messages) { index, message ->
             val imageHistoryCurIndex = remember { mutableIntStateOf(0) }
             var hAlign: Alignment.Horizontal = Alignment.End
             var backgroundColor: Color = MaterialTheme.customColors.userBubbleBgColor
@@ -1044,6 +1044,20 @@ fun ChatPanel(
       },
     )
   }
+}
+
+/**
+ * Calls [content] for each of [messages] with its index, like `forEachIndexed`.
+ *
+ * The message UI is in its own composable lambda so that it compiles to its own method: inlined
+ * into [ChatPanel], it makes that method too large for JaCoCo to instrument for coverage.
+ */
+@Composable
+private fun ChatMessages(
+  messages: List<ChatMessage>,
+  content: @Composable (index: Int, message: ChatMessage) -> Unit,
+) {
+  messages.forEachIndexed { index, message -> content(index, message) }
 }
 
 @Composable
