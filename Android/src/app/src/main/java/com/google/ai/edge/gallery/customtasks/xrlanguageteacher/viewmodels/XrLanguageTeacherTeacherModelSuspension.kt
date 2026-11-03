@@ -163,5 +163,8 @@ class XrLanguageTeacherModelManagerTeacherModelHost(
  * prepared.
  */
 internal fun XrLanguageTeacherViewModel.stopLessonForTeacherModelRelease(model: Model) {
-  resetLessonSessionInternal(model = model, prewarmSession = false)
+  val releaseEpoch = ttsEpochAtGameRelease
+  ttsEpochAtGameRelease = null
+  val stopTts = releaseEpoch == null || ttsPlaybackEpoch.get() <= releaseEpoch
+  resetLessonSessionInternal(model = model, prewarmSession = false, stopTts = stopTts)
 }

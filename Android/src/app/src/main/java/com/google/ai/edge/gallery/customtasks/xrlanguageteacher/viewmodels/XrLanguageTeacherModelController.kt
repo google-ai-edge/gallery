@@ -442,6 +442,7 @@ internal fun XrLanguageTeacherViewModel.resetLessonSessionInternalImpl(
   model: Model? = null,
   onRunningStateChanged: (Boolean) -> Unit = {},
   prewarmSession: Boolean = true,
+  stopTts: Boolean = true,
 ) {
   val targetModel = model ?: activeInferenceModel ?: latestKnownModel
   val unused = cancelTurnJobs(reason = "reset", modelToStop = targetModel)
@@ -459,7 +460,9 @@ internal fun XrLanguageTeacherViewModel.resetLessonSessionInternalImpl(
   currentSessionStartTimestampMs = 0L
   currentSessionImagePath = null
   hudController.onSessionDismissed()
-  stopTtsPlayback()
+  if (stopTts) {
+    stopTtsPlayback()
+  }
   if (isAsrRecordingOrPending) {
     cancelAsrRecording()
   } else {

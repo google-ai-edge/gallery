@@ -36,6 +36,8 @@ private const val TAG = "AGTeacherGameSpeech"
 
 /** Microphone and speech recognition state of the `Vocab Popper` and `Vocab Runner` games. */
 enum class XrLanguageTeacherGameMicState {
+  /** The recognizer is not running (e.g., in non-ASR Tap mode). */
+  STOPPED,
   /** The recognizer is being prepared. */
   STARTING,
   /** The microphone is listening for the target-language words. */

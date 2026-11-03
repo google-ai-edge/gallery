@@ -85,7 +85,7 @@ class XrLanguageTeacherVocabRunnerViewModel(
 ) :
   XrLanguageTeacherVocabGameViewModel(
     dependencies = dependencies,
-    highScoreKey = VOCAB_RUNNER_HIGH_SCORE_KEY,
+    speakHighScoreKey = VOCAB_RUNNER_HIGH_SCORE_KEY,
     randomSeed = randomSeed,
   ) {
   private val _uiState = MutableStateFlow(XrLanguageTeacherVocabRunnerUiState())

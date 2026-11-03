@@ -431,6 +431,12 @@ constructor(
   internal var ttsPlaybackJob: Job? = null
   internal val ttsPlaybackEpoch = AtomicLong(0L)
   /**
+   * Snapshot of [ttsPlaybackEpoch] recorded when [releaseTeacherModelForGame] is requested, so the
+   * asynchronous [stopLessonForTeacherModelRelease] callback stops any pre-game TTS playback
+   * without cancelling a game prompt started after the release request.
+   */
+  @Volatile internal var ttsEpochAtGameRelease: Long? = null
+  /**
    * The engine stop launched by the latest `stopTtsPlayback`. The next playback waits for it, so
    * that a late stop can't cut off the new playback.
    */
@@ -793,6 +799,7 @@ constructor(
    * loaded again when the Camera tab opens.
    */
   fun releaseTeacherModelForGame() {
+    ttsEpochAtGameRelease = ttsPlaybackEpoch.get()
     teacherModelSuspension.releaseForGame()
   }
 

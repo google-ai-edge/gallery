@@ -58,22 +58,26 @@ import kotlinx.coroutines.withContext
 /**
  * Speaks the vocabulary [phrase] (a word or example sentence) in [targetLanguage], and publishes
  * its [PhrasePlaybackState] so that its speaker button shows a spinner until the audio starts.
- * Tapping the same phrase while it loads or plays stops it instead of starting it again.
+ * Tapping the same phrase while it loads or plays stops it instead of starting it again, unless
+ * [restartIfSamePhrase] is `true` (used by Study game prompts and prompt replays).
  */
 fun XrLanguageTeacherViewModel.playTargetPhrase(
   phrase: String,
   targetLanguage: Language = learnLanguage.value,
+  restartIfSamePhrase: Boolean = false,
 ) {
   val cleanPhrase =
     TtsTextNormalizer.stripEmojis(XrLanguageTeacherDialogueFormatter.stripTargetAndHtmlTags(phrase))
   if (cleanPhrase.isBlank()) return
-  val current = uiState.value.phrasePlaybackState
-  if (
-    (current is PhrasePlaybackState.Loading && current.phrase == phrase) ||
-      (current is PhrasePlaybackState.Playing && current.phrase == phrase)
-  ) {
-    stopTtsPlayback()
-    return
+  if (!restartIfSamePhrase) {
+    val current = uiState.value.phrasePlaybackState
+    if (
+      (current is PhrasePlaybackState.Loading && current.phrase == phrase) ||
+        (current is PhrasePlaybackState.Playing && current.phrase == phrase)
+    ) {
+      stopTtsPlayback()
+      return
+    }
   }
   val segments =
     listOf(

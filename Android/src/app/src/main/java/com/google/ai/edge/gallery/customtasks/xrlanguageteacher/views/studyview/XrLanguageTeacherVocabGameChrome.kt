@@ -26,6 +26,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,8 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material3.Button
@@ -71,14 +74,17 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -88,6 +94,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabGameMode
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabPopperEngine
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.XrLanguageTeacherGameMicState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherGameHeardWord
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherVocabGameViewModel
@@ -100,6 +108,7 @@ import com.google.ai.edge.gallery.ui.theme.primaryDark
 import com.google.ai.edge.gallery.ui.theme.primaryLight
 import java.util.Locale
 import kotlin.math.max
+import kotlin.math.min
 
 /**
  * The colors of the `Vocab Popper` and `Vocab Runner` game arenas. The arena is intentionally
@@ -302,6 +311,83 @@ fun VocabGameTimer(remainingSeconds: Int, modifier: Modifier = Modifier) {
 }
 
 /**
+ * Three-heart lives pill paired next to [VocabGameTimer] in touch-mode study games (`Vocab Popper`
+ * and `Buddy Runner`).
+ */
+@Composable
+fun VocabGameLivesIndicator(
+  lives: Int,
+  maxLives: Int = XrLanguageTeacherVocabPopperEngine.INITIAL_LIVES,
+  modifier: Modifier = Modifier,
+) {
+  val safeLives = max(0, lives)
+  val safeMaxLives = max(0, maxLives)
+  val description =
+    stringResource(
+      R.string.xrteacher_game_lives_remaining_accessibility,
+      min(safeLives, safeMaxLives),
+      safeMaxLives,
+    )
+  Row(
+    modifier =
+      modifier
+        .background(VocabGameColors.chromePill, CircleShape)
+        .padding(horizontal = 14.dp, vertical = 12.dp)
+        .clearAndSetSemantics { contentDescription = description },
+    horizontalArrangement = Arrangement.spacedBy(4.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    for (index in 0 until safeMaxLives) {
+      val isFilled = index < safeLives
+      Icon(
+        imageVector = if (isFilled) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+        contentDescription = null,
+        tint =
+          if (isFilled) {
+            VocabGameColors.urgentRed
+          } else {
+            VocabGameColors.chromeTextMuted.copy(alpha = 0.45f)
+          },
+        modifier = Modifier.size(20.dp),
+      )
+    }
+  }
+}
+
+/**
+ * Interactive target-word prompt pill displayed beneath the scoreboard in `Vocab Popper`
+ * [XrLanguageTeacherVocabGameMode.TAP] mode, allowing the player to read the target vocabulary word
+ * and tap to replay its spoken audio.
+ */
+@Composable
+fun VocabPopperPromptBanner(word: String, onReplay: () -> Unit, modifier: Modifier = Modifier) {
+  val description =
+    stringResource(R.string.xrteacher_vocab_popper_replay_prompt_accessibility, word)
+  Row(
+    modifier =
+      modifier
+        .padding(horizontal = 16.dp)
+        .clip(CircleShape)
+        .background(VocabGameColors.chromePill.copy(alpha = 0.95f))
+        .clickable(onClick = onReplay, role = Role.Button)
+        .padding(horizontal = 20.dp, vertical = 10.dp)
+        .semantics(mergeDescendants = true) { contentDescription = description },
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.Center,
+  ) {
+    Text(
+      text = word,
+      fontSize = 28.sp,
+      lineHeight = 32.sp,
+      fontWeight = FontWeight.Bold,
+      color = Color.White,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+    )
+  }
+}
+
+/**
  * The bottom bar of a game screen: the recently heard word chips above a pill with the microphone
  * state, which shows [listeningHint] while listening, [micPermissionMessage] without the microphone
  * permission, and [celebrationText] right after a hit.
@@ -324,6 +410,7 @@ fun VocabGameStatusBar(
       celebrationText
     } else {
       when (micState) {
+        XrLanguageTeacherGameMicState.STOPPED -> listeningHint
         XrLanguageTeacherGameMicState.STARTING ->
           stringResource(R.string.xrteacher_game_starting_mic)
         XrLanguageTeacherGameMicState.LISTENING -> listeningHint
@@ -464,11 +551,13 @@ internal fun VocabGameSessionEffects(
 ) {
   BackHandler(onBack = onExit)
   VocabGameSessionEndEffect(onEndSession = viewModel::endSession)
-  VocabGameListeningEffects(
-    onStartListening = viewModel::startListening,
-    onStopListening = viewModel::stopListening,
-    onMicPermissionDenied = viewModel::onMicPermissionDenied,
-  )
+  if (viewModel.mode == XrLanguageTeacherVocabGameMode.SPEAK) {
+    VocabGameListeningEffects(
+      onStartListening = viewModel::startListening,
+      onStopListening = viewModel::stopListening,
+      onMicPermissionDenied = viewModel::onMicPermissionDenied,
+    )
+  }
   val latestOnFrame by rememberUpdatedState(onFrame)
   LaunchedEffect(viewModel, isPlaying) {
     if (!isPlaying) return@LaunchedEffect

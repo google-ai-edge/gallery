@@ -17,9 +17,11 @@
 package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.studyview
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -38,10 +40,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -55,6 +59,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabGameEndReason
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabGameMode
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabPopperParticle
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabPopperPhase
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabPopperPopBanner
@@ -80,12 +86,14 @@ private val PopBannerTextStyle =
 
 /**
  * The full-screen `Vocab Popper` game of [viewModel]: stickers of saved words fly up, and the
- * player pops them by saying their words. Shows the results once the time is up.
+ * player pops them by tapping the prompted target word or saying their words. Shows the results
+ * once the time is up or all lives are lost.
  *
- * Starts listening once the microphone permission is granted, steps the game on every frame, and
- * ends the session when it leaves the composition (but not on a configuration change, which keeps
- * the round going). [onExit] is called by the close and Exit buttons and the system Back. Only the
- * arena redraws on every frame; the chrome recomposes when the score, timer, or microphone change.
+ * Starts listening once the microphone permission is granted in Speak mode, steps the game on every
+ * frame, and ends the session when it leaves the composition (but not on a configuration change,
+ * which keeps the round going). [onExit] is called by the close and Exit buttons and the system
+ * Back. Only the arena redraws on every frame; the chrome recomposes when the score, timer, lives,
+ * prompt, or microphone change.
  */
 @Composable
 fun VocabPopperScreen(
@@ -112,6 +120,8 @@ fun VocabPopperScreen(
     onToggleMute = viewModel::toggleMute,
     onPlayAgain = viewModel::playAgain,
     onExit = onExit,
+    onArenaTap = viewModel::handleArenaTap,
+    onReplayPromptAudio = viewModel::replayPromptAudio,
     modifier = modifier,
   )
 }
@@ -129,10 +139,18 @@ fun VocabPopperContent(
   onPlayAgain: () -> Unit,
   onExit: () -> Unit,
   modifier: Modifier = Modifier,
+  onArenaTap: (Float, Float, Float) -> Unit = { _, _, _ -> },
+  onReplayPromptAudio: () -> Unit = {},
 ) {
   if (uiState.phase == XrLanguageTeacherVocabPopperPhase.FINISHED) {
+    val headlineRes =
+      if (uiState.endReason == XrLanguageTeacherVocabGameEndReason.OUT_OF_LIVES) {
+        R.string.xrteacher_game_over_headline
+      } else {
+        R.string.xrteacher_game_times_up
+      }
     VocabGameResults(
-      headline = stringResource(R.string.xrteacher_game_times_up),
+      headline = stringResource(headlineRes),
       score = uiState.score,
       bestScore = uiState.highScore,
       isNewHighScore = uiState.isNewHighScore,
@@ -143,11 +161,19 @@ fun VocabPopperContent(
     )
     return
   }
+  val isTapMode = uiState.mode == XrLanguageTeacherVocabGameMode.TAP
   Box(modifier = modifier.fillMaxSize()) {
     VocabGameBackground()
-    VocabPopperArena(arenaState = arenaState, modifier = Modifier.fillMaxSize())
+    VocabPopperArena(
+      arenaState = arenaState,
+      isTapMode = isTapMode,
+      onArenaTap = onArenaTap,
+      modifier = Modifier.fillMaxSize(),
+    )
     VocabGameEdgeGlow(
-      color = { VocabGameColors.popGreen },
+      color = {
+        if (arenaState().isWrongTapGlow) VocabGameColors.urgentRed else VocabGameColors.popGreen
+      },
       intensity = { arenaState().edgeGlowIntensity },
     )
     Column(
@@ -156,21 +182,36 @@ fun VocabPopperContent(
       verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
       VocabGameTopBar(isMuted = uiState.isMuted, onToggleMute = onToggleMute, onExit = onExit) {
-        VocabGameTimer(remainingSeconds = uiState.remainingSeconds)
+        if (isTapMode) {
+          Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            VocabGameTimer(remainingSeconds = uiState.remainingSeconds)
+            VocabGameLivesIndicator(lives = uiState.lives, maxLives = uiState.maxLives)
+          }
+        } else {
+          VocabGameTimer(remainingSeconds = uiState.remainingSeconds)
+        }
       }
       VocabGameScoreboard(score = uiState.score, bestScore = uiState.highScore)
+      if (isTapMode && uiState.targetWord != null) {
+        VocabPopperPromptBanner(word = uiState.targetWord, onReplay = onReplayPromptAudio)
+      }
       Spacer(modifier = Modifier.weight(1f))
-      VocabGameStatusBar(
-        micState = uiState.micState,
-        listeningHint = stringResource(R.string.xrteacher_vocab_popper_listening_hint),
-        micPermissionMessage =
-          stringResource(R.string.xrteacher_vocab_popper_mic_permission_needed),
-        celebrationText =
-          uiState.celebrationWord?.let {
-            stringResource(R.string.xrteacher_vocab_popper_popped, it)
-          },
-        heardWords = heardWords,
-      )
+      if (!isTapMode) {
+        VocabGameStatusBar(
+          micState = uiState.micState,
+          listeningHint = stringResource(R.string.xrteacher_vocab_popper_listening_hint),
+          micPermissionMessage =
+            stringResource(R.string.xrteacher_vocab_popper_mic_permission_needed),
+          celebrationText =
+            uiState.celebrationWord?.let {
+              stringResource(R.string.xrteacher_vocab_popper_popped, it)
+            },
+          heardWords = heardWords,
+        )
+      }
     }
   }
 }
@@ -182,21 +223,44 @@ fun VocabPopperContent(
 @Composable
 private fun VocabPopperArena(
   arenaState: () -> XrLanguageTeacherVocabPopperArenaState,
+  isTapMode: Boolean,
+  onArenaTap: (Float, Float, Float) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val textMeasurer = rememberTextMeasurer()
   val resources = LocalResources.current
   val density = LocalDensity.current
   val pillStroke = remember(density) { Stroke(width = with(density) { 3.dp.toPx() }) }
-  // Each banner's text is formatted once, not on every frame.
+  // Each banner's text and pill layout are measured once, not on every frame.
   val bannerTexts = remember(resources) { HashMap<Long, String>() }
-  Canvas(modifier = modifier.clearAndSetSemantics {}) {
+  val pillLayouts = remember(textMeasurer, isTapMode) { HashMap<String, TextLayoutResult>() }
+  val tapModifier =
+    if (isTapMode) {
+      Modifier.pointerInput(onArenaTap) {
+        detectTapGestures { offset ->
+          val width = max(size.width, 1).toFloat()
+          val height = max(size.height, 1).toFloat()
+          onArenaTap(offset.x / width, offset.y / height, height / width)
+        }
+      }
+    } else {
+      Modifier
+    }
+  Canvas(modifier = modifier.then(tapModifier).clearAndSetSemantics {}) {
     val arena = arenaState()
     for (particle in arena.game.particles) {
       drawParticle(particle)
     }
+    if (arena.game.targets.isEmpty()) pillLayouts.clear()
     for (target in arena.game.targets) {
-      drawTarget(target, arena.stickers[target.item.entryKey], textMeasurer, pillStroke)
+      drawTarget(
+        target = target,
+        sticker = arena.stickers[target.item.entryKey],
+        isTapMode = isTapMode,
+        textMeasurer = textMeasurer,
+        pillLayouts = pillLayouts,
+        pillStroke = pillStroke,
+      )
     }
     if (arena.game.popBanners.isEmpty()) bannerTexts.clear()
     for (banner in arena.game.popBanners) {
@@ -223,12 +287,25 @@ private fun DrawScope.drawParticle(particle: XrLanguageTeacherVocabPopperParticl
 private fun DrawScope.drawTarget(
   target: XrLanguageTeacherVocabPopperTarget,
   sticker: ImageBitmap?,
+  isTapMode: Boolean,
   textMeasurer: TextMeasurer,
+  pillLayouts: MutableMap<String, TextLayoutResult>,
   pillStroke: Stroke,
 ) {
   val popProgress = target.popProgress ?: 0f
-  val scale = if (target.isPopping) 1f + popProgress * 0.45f else 1f
-  val alpha = if (target.isPopping) max(0f, 1f - popProgress) else 1f
+  val dismissProgress = target.dismissProgress ?: 0f
+  val scale =
+    when {
+      target.isPopping -> 1f + popProgress * 0.45f
+      target.isDismissing -> max(0.7f, 1f - dismissProgress * 0.25f)
+      else -> 1f
+    }
+  val alpha =
+    when {
+      target.isPopping -> max(0f, 1f - popProgress)
+      target.isDismissing -> max(0f, 1f - dismissProgress)
+      else -> 1f
+    }
   val center = Offset(target.x * size.width, target.y * size.height)
   translate(left = center.x, top = center.y) {
     rotate(degrees = target.rotationDegrees, pivot = Offset.Zero) {
@@ -236,10 +313,26 @@ private fun DrawScope.drawTarget(
         if (sticker != null) {
           drawStickerSprite(sticker, STICKER_SIZE.toPx(), alpha)
         } else {
+          val pillText =
+            if (isTapMode && target.item.meaning.isNotBlank()) {
+              target.item.meaning
+            } else {
+              target.item.displayWord
+            }
+          val maxWidthPx = (size.width * 0.6f).toInt()
+          val layout =
+            pillLayouts.getOrPut(target.item.entryKey) {
+              textMeasurer.measure(
+                text = pillText,
+                style = WordPillTextStyle,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                constraints = Constraints(maxWidth = maxWidthPx),
+              )
+            }
           drawWordPill(
-            text = target.item.displayWord,
+            layout = layout,
             fill = paletteColor(target.colorIndex),
-            textMeasurer = textMeasurer,
             stroke = pillStroke,
             alpha = alpha,
           )
@@ -262,22 +355,13 @@ internal fun DrawScope.drawStickerSprite(sticker: ImageBitmap, boxSize: Float, a
   )
 }
 
-/** Draws [text] on a white-bordered rounded pill filled with [fill], centered on the origin. */
+/** Draws [layout] on a white-bordered rounded pill filled with [fill], centered on the origin. */
 private fun DrawScope.drawWordPill(
-  text: String,
+  layout: TextLayoutResult,
   fill: Color,
-  textMeasurer: TextMeasurer,
   stroke: Stroke,
   alpha: Float,
 ) {
-  val layout =
-    textMeasurer.measure(
-      text = text,
-      style = WordPillTextStyle,
-      maxLines = 1,
-      overflow = TextOverflow.Ellipsis,
-      constraints = Constraints(maxWidth = (size.width * 0.6f).toInt()),
-    )
   val pillSize = Size(layout.size.width + 36.dp.toPx(), layout.size.height + 24.dp.toPx())
   val topLeft = Offset(-pillSize.width / 2f, -pillSize.height / 2f)
   val cornerRadius = CornerRadius(20.dp.toPx())

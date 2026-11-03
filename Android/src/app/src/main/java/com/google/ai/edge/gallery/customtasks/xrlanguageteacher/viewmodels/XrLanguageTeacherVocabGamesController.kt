@@ -18,12 +18,15 @@ package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels
 
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabGameMode
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.decodeSavedVocabImage
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.hasVocabPhoto
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.hasVocabSticker
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.XrLanguageTeacherGameSoundPlayer
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.createGameSpeechRecognizer
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.playTargetPhrase
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.prepareAsrEngine
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.stopTtsPlayback
 import com.google.ai.edge.gallery.proto.DictionaryEntry
 import com.google.ai.edge.gallery.proto.Language
 import kotlin.random.Random
@@ -67,6 +70,10 @@ fun XrLanguageTeacherViewModel.createVocabGameDependencies(
     onSessionEnded = { prepareAsrEngine() },
     // The teacher model would slow the game down; it is loaded again when the Camera tab opens.
     onRoundStarted = { releaseTeacherModelForGame() },
+    onSpeakWord = { word, learnLanguage ->
+      playTargetPhrase(phrase = word, targetLanguage = learnLanguage, restartIfSamePhrase = true)
+    },
+    onStopSpeech = { stopTtsPlayback() },
   )
 
 /**
@@ -118,6 +125,7 @@ data class XrLanguageTeacherVocabGameRequest(
   val game: XrLanguageTeacherVocabGame,
   val language: Language,
   val entries: List<DictionaryEntry> = emptyList(),
+  val mode: XrLanguageTeacherVocabGameMode = XrLanguageTeacherVocabGameMode.TAP,
 )
 
 /**
