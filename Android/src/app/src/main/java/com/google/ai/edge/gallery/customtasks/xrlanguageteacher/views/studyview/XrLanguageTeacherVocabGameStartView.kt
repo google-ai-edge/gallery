@@ -50,11 +50,13 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -84,6 +86,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.fromHtml
@@ -121,6 +124,8 @@ import kotlinx.coroutines.launch
  * @param playIcon the icon of that button; a game controller by default.
  * @param lockedActionLabel with [onLockedAction], a button under [lockedMessage] that helps fix it,
  *   for example "Change voice model".
+ * @param isPreparing whether the requested game's assets are currently being prepared; disables the
+ *   Play button and shows a progress spinner in place of [playIcon]
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -140,6 +145,7 @@ fun VocabGameStartScreen(
   onLockedAction: (() -> Unit)? = null,
   changeModelLabel: String? = null,
   onChangeModel: (() -> Unit)? = null,
+  isPreparing: Boolean = false,
   moreSettings: (@Composable () -> Unit)? = null,
 ) {
   val background = MaterialTheme.colorScheme.surfaceContainerLowest
@@ -218,18 +224,33 @@ fun VocabGameStartScreen(
           }
         }
         val buttonHeight = ButtonDefaults.MediumContainerHeight
+        val iconSize = ButtonDefaults.iconSizeFor(buttonHeight)
+        val preparingStateDescription = stringResource(R.string.warming_up)
         Button(
           onClick = onPlay,
-          enabled = isPlayEnabled,
+          enabled = isPlayEnabled && !isPreparing,
           shapes = ButtonDefaults.shapes(),
           contentPadding = ButtonDefaults.contentPaddingFor(buttonHeight),
-          modifier = Modifier.heightIn(min = buttonHeight),
+          modifier =
+            Modifier.heightIn(min = buttonHeight).semantics {
+              if (isPreparing) {
+                stateDescription = preparingStateDescription
+              }
+            },
         ) {
-          Icon(
-            imageVector = playIcon,
-            contentDescription = null,
-            modifier = Modifier.size(ButtonDefaults.iconSizeFor(buttonHeight)),
-          )
+          if (isPreparing) {
+            CircularProgressIndicator(
+              modifier = Modifier.size(iconSize),
+              color = LocalContentColor.current,
+              strokeWidth = BUTTON_PROGRESS_INDICATOR_STROKE_WIDTH,
+            )
+          } else {
+            Icon(
+              imageVector = playIcon,
+              contentDescription = null,
+              modifier = Modifier.size(iconSize),
+            )
+          }
           Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
           Text(text = playLabel, style = ButtonDefaults.textStyleFor(buttonHeight))
         }
@@ -272,6 +293,9 @@ fun VocabGameStartScreen(
 
 /** The height of the row with the Back button at the top of a start screen. */
 private val BACK_ROW_HEIGHT = 64.dp
+
+/** Stroke width of the indeterminate progress spinner rendered inside the Play button. */
+private val BUTTON_PROGRESS_INDICATOR_STROKE_WIDTH: Dp = 2.dp
 
 /**
  * The "How to play" block of a start screen: a centered heading, then one numbered line per step.

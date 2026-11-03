@@ -253,7 +253,7 @@ class XrLanguageTeacherVocabPopperViewModel(
       _arenaState.update { it.copy(game = game, edgeGlowIntensity = 1f, isWrongTapGlow = false) }
       _uiState.update { chromeStateFor(game, base = it) }
     } else {
-      soundEffects.playCollision()
+      emitCollisionFeedback()
       _arenaState.update { it.copy(game = game, edgeGlowIntensity = 1f, isWrongTapGlow = true) }
       _uiState.update { chromeStateFor(game, base = it) }
       if (outcome.didFinishRound) {

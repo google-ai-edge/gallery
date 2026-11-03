@@ -96,7 +96,9 @@ internal fun XrLanguageTeacherViewModel.prepareTtsEngine(keepReadyState: Boolean
     // and synthesize the thinking fillers again with the new voice.
     preparedTtsKeys.clear()
     cancelFillerPresynthesis()
+    cancelVocabGamePrewarm()
     presynthesizedFillers.clear()
+    presynthesizedGamePrompts.clear()
     val modelId = selectedTtsModelID.value
     if (shouldShowWarmingState()) {
       updateUiState {

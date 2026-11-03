@@ -16,22 +16,35 @@
 
 package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels
 
+import android.util.Log
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabGameMode
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.decodeSavedVocabImage
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.hasVocabPhoto
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.hasVocabSticker
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.XrLanguageTeacherGameSoundPlayer
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.cancelFillerPresynthesis
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.cancelVocabGamePrewarm
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.createGameSpeechRecognizer
-import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.playTargetPhrase
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.playGamePromptWord
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.prepareAsrEngine
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.presynthesizeGamePromptWords
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.stopTtsPlayback
 import com.google.ai.edge.gallery.proto.DictionaryEntry
 import com.google.ai.edge.gallery.proto.Language
+import com.google.ai.edge.gallery.services.tts.TtsService
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+
+private const val VOCAB_GAMES_TAG = "AGXrltVocabGames"
 
 /**
  * Returns what the `Vocab Popper` and `Vocab Runner` ViewModels need from this ViewModel: the
@@ -70,9 +83,7 @@ fun XrLanguageTeacherViewModel.createVocabGameDependencies(
     onSessionEnded = { prepareAsrEngine() },
     // The teacher model would slow the game down; it is loaded again when the Camera tab opens.
     onRoundStarted = { releaseTeacherModelForGame() },
-    onSpeakWord = { word, learnLanguage ->
-      playTargetPhrase(phrase = word, targetLanguage = learnLanguage, restartIfSamePhrase = true)
-    },
+    onSpeakWord = { word, learnLanguage -> playGamePromptWord(word, learnLanguage) },
     onStopSpeech = { stopTtsPlayback() },
   )
 
@@ -129,6 +140,64 @@ data class XrLanguageTeacherVocabGameRequest(
 )
 
 /**
+ * Pre-warms sticker sprites and (for `Vocab Popper` Tap mode) prompt audio in the background as
+ * soon as the Study game start screen opens, so tapping `Play game` starts immediately once cached.
+ */
+internal fun XrLanguageTeacherViewModel.prewarmVocabGame(
+  request: XrLanguageTeacherVocabGameRequest
+) {
+  if (gameStickerPreparer.isPreparing || stickerModelDownload.hasPendingGameAction.value) return
+  val previousPrewarmJob = vocabGamePrewarmJob
+  cancelVocabGamePrewarm()
+  val entriesToPrewarm = request.entries.take(GAME_MAX_DECK_SIZE)
+  if (entriesToPrewarm.isEmpty()) return
+  if (
+    request.game == XrLanguageTeacherVocabGame.VOCAB_POPPER &&
+      request.mode == XrLanguageTeacherVocabGameMode.TAP
+  ) {
+    // Free the TTS engine from idle Camera-tab filler synthesis right away on the start screen.
+    cancelFillerPresynthesis()
+  }
+  val stopSignal = AtomicBoolean(false)
+  vocabGamePrewarmStopSignal = stopSignal
+  vocabGamePrewarmJob =
+    viewModelScope.launch(ioDispatcher) {
+      try {
+        previousPrewarmJob?.cancelAndJoin()
+        for (entry in entriesToPrewarm) {
+          ensureActive()
+          if (stopSignal.get()) return@launch
+          prewarmGameStickerSprites(listOf(entry))
+        }
+        if (
+          !stopSignal.get() &&
+            request.game == XrLanguageTeacherVocabGame.VOCAB_POPPER &&
+            request.mode == XrLanguageTeacherVocabGameMode.TAP
+        ) {
+          var activeService: TtsService? = null
+          presynthesizeGamePromptWords(
+            entries = entriesToPrewarm,
+            learnLanguage = request.language,
+            shouldStopEarly = { stopSignal.get() },
+            onActiveServiceChanged = { service ->
+              if (service != null) {
+                activeService = service
+                if (!stopSignal.get()) vocabGamePrewarmService = service
+              } else if (vocabGamePrewarmService === activeService) {
+                vocabGamePrewarmService = null
+              }
+            },
+          )
+        }
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.w(VOCAB_GAMES_TAG, "Background pre-warm on Study game start screen failed", e)
+      }
+    }
+}
+
+/**
  * Gets the study game of [request] ready, then publishes it as
  * [XrLanguageTeacherViewModel.readyVocabGame] for the Study tab to start: first offers to download
  * the sticker segmentation model if it isn't downloaded and the user hasn't declined it before (see
@@ -142,10 +211,25 @@ data class XrLanguageTeacherVocabGameRequest(
  */
 fun XrLanguageTeacherViewModel.prepareGame(request: XrLanguageTeacherVocabGameRequest) {
   _readyVocabGame.value = null
+  vocabGamePrewarmStopSignal?.set(true)
+  val inFlightPrewarmJob = vocabGamePrewarmJob
   stickerModelDownload.requireModel(XrLanguageTeacherStickerModelDownloadReason.GAME) {
     val readyRequest =
       request.copy(entries = pickGameDeck(request.entries, Random(System.nanoTime())))
-    gameStickerPreparer.prepareThen(readyRequest.entries) { _readyVocabGame.value = readyRequest }
+    gameStickerPreparer.prepareThen(
+      entries = readyRequest.entries,
+      onAfterSpritesPrepared = {
+        inFlightPrewarmJob?.join()
+        if (
+          readyRequest.game == XrLanguageTeacherVocabGame.VOCAB_POPPER &&
+            readyRequest.mode == XrLanguageTeacherVocabGameMode.TAP
+        ) {
+          presynthesizeGamePromptWords(readyRequest.entries, readyRequest.language)
+        }
+      },
+    ) {
+      _readyVocabGame.value = readyRequest
+    }
   }
 }
 
@@ -160,6 +244,7 @@ fun XrLanguageTeacherViewModel.onVocabGameStarted() {
  * download), sprite pre-baking stops, and a ready game isn't started.
  */
 fun XrLanguageTeacherViewModel.cancelVocabGamePreparation() {
+  cancelVocabGamePrewarm()
   stickerModelDownload.cancelPendingAction(XrLanguageTeacherStickerModelDownloadReason.GAME)
   gameStickerPreparer.cancel()
   _readyVocabGame.value = null

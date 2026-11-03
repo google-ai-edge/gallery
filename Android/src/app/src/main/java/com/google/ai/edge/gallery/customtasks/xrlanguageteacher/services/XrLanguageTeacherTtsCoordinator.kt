@@ -23,20 +23,25 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.DialogueS
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.MultilingualTtsSegment
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.PersonaPreviewState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.PhrasePlaybackState
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.PresynthesizedFiller
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.SpeechEngineReadiness
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TtsPlaybackSource
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherDialogueFormatter
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherSpeechMatcher
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.toLocale
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.TAG
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherViewModel
 import com.google.ai.edge.gallery.data.SpeechEngineErrorCause
+import com.google.ai.edge.gallery.proto.DictionaryEntry
 import com.google.ai.edge.gallery.proto.Language
+import com.google.ai.edge.gallery.services.tts.TtsModelIdentifier
 import com.google.ai.edge.gallery.services.tts.TtsOutput
 import com.google.ai.edge.gallery.services.tts.TtsPlaybackEvent
 import com.google.ai.edge.gallery.services.tts.TtsQueueMode
 import com.google.ai.edge.gallery.services.tts.TtsService
 import com.google.ai.edge.gallery.services.tts.TtsServiceError
 import com.google.ai.edge.gallery.services.tts.TtsTextNormalizer
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -49,35 +54,37 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** Strips `<target>`/HTML tags and emojis from [rawPhrase] before speaking or caching. */
+private fun cleanPhraseForTts(rawPhrase: String): String =
+  TtsTextNormalizer.stripEmojis(
+    XrLanguageTeacherDialogueFormatter.stripTargetAndHtmlTags(rawPhrase)
+  )
+
 /**
  * Speaks the vocabulary [phrase] (a word or example sentence) in [targetLanguage], and publishes
  * its [PhrasePlaybackState] so that its speaker button shows a spinner until the audio starts.
- * Tapping the same phrase while it loads or plays stops it instead of starting it again, unless
- * [restartIfSamePhrase] is `true` (used by Study game prompts and prompt replays).
+ * Tapping the same phrase while it loads or plays stops it instead of starting it again.
  */
 fun XrLanguageTeacherViewModel.playTargetPhrase(
   phrase: String,
   targetLanguage: Language = learnLanguage.value,
-  restartIfSamePhrase: Boolean = false,
 ) {
-  val cleanPhrase =
-    TtsTextNormalizer.stripEmojis(XrLanguageTeacherDialogueFormatter.stripTargetAndHtmlTags(phrase))
+  val cleanPhrase = cleanPhraseForTts(phrase)
   if (cleanPhrase.isBlank()) return
-  if (!restartIfSamePhrase) {
-    val current = uiState.value.phrasePlaybackState
-    if (
-      (current is PhrasePlaybackState.Loading && current.phrase == phrase) ||
-        (current is PhrasePlaybackState.Playing && current.phrase == phrase)
-    ) {
-      stopTtsPlayback()
-      return
-    }
+  val current = uiState.value.phrasePlaybackState
+  if (
+    (current is PhrasePlaybackState.Loading && current.phrase == phrase) ||
+      (current is PhrasePlaybackState.Playing && current.phrase == phrase)
+  ) {
+    stopTtsPlayback()
+    return
   }
   val segments =
     listOf(
@@ -91,6 +98,148 @@ fun XrLanguageTeacherViewModel.playTargetPhrase(
   // After launchTtsPlayback()/speakSegments(), which resets the playback state of the previous
   // playback.
   updateUiState { it.copy(phrasePlaybackState = PhrasePlaybackState.Loading(phrase)) }
+}
+
+/**
+ * Speaks a Study game prompt [word] in [targetLanguage] on [ioDispatcher] without mutating the
+ * parent [XrLanguageTeacherViewModel.uiState] or scheduling thinking-filler synthesis, so 60/120fps
+ * game animations do not trigger parent Compose recompositions or main-thread work.
+ *
+ * When the prompt word's PCM audio was pre-synthesized in [presynthesizeGamePromptWords] (or an
+ * earlier wave), plays the cached PCM directly without running neural TTS synthesis during the
+ * sticker toss; otherwise synthesizes and caches the PCM for subsequent waves.
+ */
+internal fun XrLanguageTeacherViewModel.playGamePromptWord(word: String, targetLanguage: Language) {
+  val persona = selectedPersona.value
+  launchTtsPlayback(persona, source = TtsPlaybackSource.GAME_PROMPT) {
+    val cleanPhrase = cleanPhraseForTts(word)
+    if (cleanPhrase.isBlank()) return@launchTtsPlayback
+    val languageCode = targetLanguage.toLocale().toLanguageTag()
+    val config = resolveSegmentTtsConfig(languageCode, persona, TtsQueueMode.FLUSH)
+    val voiceKey = config.toFillerVoiceKey()
+    val cachedPrompt = presynthesizedGamePrompts.get(voiceKey, cleanPhrase)
+    val segments =
+      listOf(
+        MultilingualTtsSegment(
+          text = cleanPhrase,
+          languageCode = languageCode,
+          isTargetLanguage = true,
+          presynthesizedFiller = cachedPrompt,
+        )
+      )
+    streamPipelinedSegments(segments.asFlow(), persona, source = TtsPlaybackSource.GAME_PROMPT)
+  }
+}
+
+/**
+ * Pre-warms the selected TTS engine for [learnLanguage] and pre-synthesizes the prompt words of
+ * [entries] into [XrLanguageTeacherViewModel.presynthesizedGamePrompts] before a `Vocab Popper` Tap
+ * round starts, so neural TTS engines do not synthesize on the frame a wave of stickers launches.
+ * For direct-playback engines (such as platform TTS or ML Kit), prepares the engine for
+ * [learnLanguage] ahead of Wave 1 and marks [PresynthesizedGamePromptsCache.markUnsupported].
+ */
+internal suspend fun XrLanguageTeacherViewModel.presynthesizeGamePromptWords(
+  entries: List<DictionaryEntry>,
+  learnLanguage: Language,
+  shouldStopEarly: () -> Boolean = { false },
+  onActiveServiceChanged: (TtsService?) -> Unit = {},
+) {
+  if (entries.isEmpty()) return
+  cancelFillerPresynthesis()
+  val priorPlaybackJob = ttsPlaybackJob
+  val priorStopJob = ttsStopJob
+  if (priorPlaybackJob != null) {
+    resetTtsPlaybackState()
+  }
+  withContext(ioDispatcher) {
+    priorPlaybackJob?.cancelAndJoin()
+    priorStopJob?.join()
+    prepareTtsJob?.join()
+    if (shouldStopEarly() || uiState.value.ttsReadiness == SpeechEngineReadiness.ERROR) {
+      return@withContext
+    }
+    val persona = selectedPersona.value
+    val languageCode = learnLanguage.toLocale().toLanguageTag()
+    val config = resolveSegmentTtsConfig(languageCode, persona, TtsQueueMode.FLUSH)
+    val voiceKey = config.toFillerVoiceKey()
+    fun isStillWanted(): Boolean =
+      resolveSegmentTtsConfig(languageCode, selectedPersona.value, TtsQueueMode.FLUSH)
+        .toFillerVoiceKey() == voiceKey
+    val service =
+      try {
+        // Platform TextToSpeech is left configured for the native language after initial warm-up,
+        // so force-reprepare it for the learning language before Wave 1.
+        prepareTtsServiceForConfig(
+          config,
+          forceReprepare = config.modelId == TtsModelIdentifier.ANDROID_NATIVE,
+        )
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.w(TAG, "Failed to prepare TTS engine before Study game", e)
+        return@withContext
+      }
+    if (presynthesizedGamePrompts.isUnsupported(voiceKey)) return@withContext
+    onActiveServiceChanged(service)
+    try {
+      val distinctWords =
+        entries
+          .map { entry ->
+            cleanPhraseForTts(XrLanguageTeacherSpeechMatcher.extractPrimaryLearnTerm(entry.word))
+          }
+          .filter { it.isNotBlank() }
+          .distinct()
+      for (cleanWord in distinctWords) {
+        ensureActive()
+        if (shouldStopEarly() || !isStillWanted()) return@withContext
+        if (presynthesizedGamePrompts.get(voiceKey, cleanWord) != null) continue
+        val cleanSpoken = TtsTextNormalizer.cleanMarkdownForSpeech(cleanWord, stripEmojis = true)
+        if (cleanSpoken.isBlank()) continue
+        val pcm = ByteArrayOutputStream()
+        try {
+          val stream = service.synthesize(cleanSpoken, config) as? TtsOutput.AudioStream
+          if (stream == null) {
+            presynthesizedGamePrompts.markUnsupported(voiceKey)
+            return@withContext
+          }
+          stream.flow.collect { chunk -> pcm.write(chunk) }
+        } catch (e: CancellationException) {
+          try {
+            service.stop()
+          } catch (_: Exception) {}
+          throw e
+        } catch (e: Exception) {
+          Log.w(TAG, "Synthesizing Study game prompt ahead of time failed", e)
+          break
+        }
+        if (pcm.size() > 0 && isStillWanted()) {
+          presynthesizedGamePrompts.putAll(
+            voiceKey,
+            mapOf(cleanWord to PresynthesizedFiller(text = cleanWord, pcm = pcm.toByteArray())),
+          )
+        }
+      }
+    } finally {
+      onActiveServiceChanged(null)
+    }
+  }
+}
+
+/** Cancels any background Study game start-screen pre-warm job immediately. */
+internal fun XrLanguageTeacherViewModel.cancelVocabGamePrewarm() {
+  vocabGamePrewarmStopSignal?.set(true)
+  vocabGamePrewarmStopSignal = null
+  val job = vocabGamePrewarmJob ?: return
+  val service = vocabGamePrewarmService
+  vocabGamePrewarmJob = null
+  vocabGamePrewarmService = null
+  if (!job.isActive) return
+  job.cancel()
+  try {
+    service?.stop()
+  } catch (e: Exception) {
+    Log.w(TAG, "Error stopping Study game start-screen pre-warm synthesis", e)
+  }
 }
 
 /** Marks the loading vocabulary phrase as playing, once its audio starts. */
@@ -191,7 +340,7 @@ internal fun XrLanguageTeacherViewModel.speakSegments(
   source: TtsPlaybackSource = TtsPlaybackSource.DIALOGUE,
 ) {
   launchTtsPlayback(persona, source = source) {
-    streamPipelinedSegments(segments.asFlow(), persona)
+    streamPipelinedSegments(segments.asFlow(), persona, source = source)
   }
 }
 
@@ -201,28 +350,34 @@ internal fun XrLanguageTeacherViewModel.launchTtsPlayback(
   source: TtsPlaybackSource = TtsPlaybackSource.DIALOGUE,
   block: suspend () -> Unit,
 ) {
+  val trackPlaybackUiState = source != TtsPlaybackSource.GAME_PROMPT
   if (isAsrRecordingOrPending) {
     cancelAsrRecording()
   }
   val previousPlaybackJob = ttsPlaybackJob
-  resetTtsPlaybackState()
+  resetTtsPlaybackState(source = source)
   val playbackEpoch = ttsPlaybackEpoch.incrementAndGet()
   val pendingStopJob = ttsStopJob
+  val previousPrewarmJob = vocabGamePrewarmJob
   cancelFillerPresynthesis()
+  cancelVocabGamePrewarm()
   ttsChannel = channel
   ttsPlaybackJob =
     viewModelScope.launch(ioDispatcher) {
       // Tear down the previous turn, and wait for any pending stop, before this one speaks, so an
       // engine stop() cannot land after (and flush) this turn's first queued utterance.
       previousPlaybackJob?.cancelAndJoin()
+      previousPrewarmJob?.cancelAndJoin()
       pendingStopJob?.join()
       stopTtsEnginesAndFlushAudio()
-      updateUiState {
-        it.copy(
-          isSpeakingTts = true,
-          isSpeakingDialogue = source == TtsPlaybackSource.DIALOGUE,
-          isSpeakingVocabPhrase = source == TtsPlaybackSource.VOCAB_PHRASE,
-        )
+      if (trackPlaybackUiState) {
+        updateUiState {
+          it.copy(
+            isSpeakingTts = true,
+            isSpeakingDialogue = source == TtsPlaybackSource.DIALOGUE,
+            isSpeakingVocabPhrase = source == TtsPlaybackSource.VOCAB_PHRASE,
+          )
+        }
       }
       try {
         prepareTtsJob?.join()
@@ -243,21 +398,25 @@ internal fun XrLanguageTeacherViewModel.launchTtsPlayback(
         if (ttsPlaybackEpoch.get() == playbackEpoch) {
           withContext(NonCancellable) {
             pcmAudioStreamPlayer.stopAndFlush()
-            updateUiState {
-              it.copy(
-                isSpeakingTts = false,
-                isSpeakingDialogue = false,
-                isSpeakingVocabPhrase = false,
-                activeSpokenText = "",
-                phrasePlaybackState = PhrasePlaybackState.Idle,
-              )
+            if (trackPlaybackUiState) {
+              updateUiState {
+                it.copy(
+                  isSpeakingTts = false,
+                  isSpeakingDialogue = false,
+                  isSpeakingVocabPhrase = false,
+                  activeSpokenText = "",
+                  phrasePlaybackState = PhrasePlaybackState.Idle,
+                )
+              }
             }
           }
         }
       }
     }
   // Synthesize the thinking fillers once the teacher stops speaking.
-  ttsPlaybackJob?.invokeOnCompletion { schedulePresynthesizeFillers() }
+  if (trackPlaybackUiState) {
+    ttsPlaybackJob?.invokeOnCompletion { schedulePresynthesizeFillers() }
+  }
 }
 
 private sealed interface PreparedTtsSegment {
@@ -315,7 +474,9 @@ internal suspend fun collectDirectPlayback(
 internal suspend fun XrLanguageTeacherViewModel.streamPipelinedSegments(
   segmentsFlow: Flow<MultilingualTtsSegment>,
   persona: CharacterPersona,
+  source: TtsPlaybackSource = TtsPlaybackSource.DIALOGUE,
 ) = coroutineScope {
+  val trackPlaybackUiState = source != TtsPlaybackSource.GAME_PROMPT
   val preparedQueue = Channel<PreparedTtsSegment>(capacity = Channel.UNLIMITED)
   // Whether a reply segment (not the filler) played any audio, and the first reply segment failure.
   // If no reply segment played and one failed, the engine is likely broken, so it is reported.
@@ -356,7 +517,7 @@ internal suspend fun XrLanguageTeacherViewModel.streamPipelinedSegments(
             previousDirectModelId = null
             previousDirectStarted = null
             previousSegmentModelId = config.modelId
-            if (activeEngineJobs.isEmpty()) {
+            if (trackPlaybackUiState && activeEngineJobs.isEmpty()) {
               updateUiState { it.copy(activeSpokenText = segment.text) }
             }
             // Written in small slices, like a live stream, so a stop doesn't wait behind one long
@@ -427,7 +588,7 @@ internal suspend fun XrLanguageTeacherViewModel.streamPipelinedSegments(
               previousDirectStarted?.await()
             }
           }
-          if (activeEngineJobs.isEmpty()) {
+          if (trackPlaybackUiState && activeEngineJobs.isEmpty()) {
             updateUiState { it.copy(activeSpokenText = segment.text) }
           }
           previousSegmentModelId = config.modelId
@@ -472,12 +633,32 @@ internal suspend fun XrLanguageTeacherViewModel.streamPipelinedSegments(
                     while (true) {
                       val stream = output as? TtsOutput.AudioStream ?: break
                       var emittedAudio = false
+                      val gamePromptPcm =
+                        if (source == TtsPlaybackSource.GAME_PROMPT && !segment.isFiller) {
+                          ByteArrayOutputStream()
+                        } else {
+                          null
+                        }
                       try {
                         stream.flow.collect { chunk ->
                           if (chunk.isNotEmpty()) {
                             emittedAudio = true
+                            gamePromptPcm?.write(chunk)
                             val unusedSend = pcmChannel.trySend(chunk)
                           }
+                        }
+                        if (gamePromptPcm != null && gamePromptPcm.size() > 0) {
+                          val voiceKey = config.toFillerVoiceKey()
+                          presynthesizedGamePrompts.putAll(
+                            voiceKey,
+                            mapOf(
+                              segment.text to
+                                PresynthesizedFiller(
+                                  text = segment.text,
+                                  pcm = gamePromptPcm.toByteArray(),
+                                )
+                            ),
+                          )
                         }
                         break
                       } catch (e: CancellationException) {
@@ -533,8 +714,10 @@ internal suspend fun XrLanguageTeacherViewModel.streamPipelinedSegments(
                           onStarted = {
                             playbackStarted = true
                             started.complete(Unit)
-                            updateUiState { it.copy(activeSpokenText = segment.text) }
-                            markPhrasePlaybackStarted()
+                            if (trackPlaybackUiState) {
+                              updateUiState { it.copy(activeSpokenText = segment.text) }
+                              markPhrasePlaybackStarted()
+                            }
                           },
                         )
                         // The engine played the utterance to its end.
@@ -599,14 +782,18 @@ internal suspend fun XrLanguageTeacherViewModel.streamPipelinedSegments(
   for (prepared in preparedQueue) {
     when (prepared) {
       is PreparedTtsSegment.Stream -> {
-        updateUiState { it.copy(activeSpokenText = prepared.rawText) }
-        markPhrasePlaybackStarted()
+        if (trackPlaybackUiState) {
+          updateUiState { it.copy(activeSpokenText = prepared.rawText) }
+          markPhrasePlaybackStarted()
+        }
         try {
           val wroteAudio =
             pcmAudioStreamPlayer.playStream(pcmFlow = prepared.pcmChannel.receiveAsFlow())
           if (wroteAudio) {
             usedStreamingTrack = true
-            publishActiveTtsEngine(prepared.modelId)
+            if (trackPlaybackUiState) {
+              publishActiveTtsEngine(prepared.modelId)
+            }
             if (!prepared.isFiller) {
               replyPlayedAudio.set(true)
             }
@@ -632,7 +819,9 @@ internal suspend fun XrLanguageTeacherViewModel.streamPipelinedSegments(
           usedStreamingTrack = false
         }
         pcmAudioStreamPlayer.stopAndFlush()
-        publishActiveTtsEngine(prepared.modelId)
+        if (trackPlaybackUiState) {
+          publishActiveTtsEngine(prepared.modelId)
+        }
         prepared.completionJob.join()
       }
     }
@@ -685,21 +874,34 @@ internal fun XrLanguageTeacherViewModel.releaseTtsAudioAfterStop() {
   }
 }
 
-internal fun XrLanguageTeacherViewModel.resetTtsPlaybackState() {
+internal fun XrLanguageTeacherViewModel.resetTtsPlaybackState(
+  source: TtsPlaybackSource = TtsPlaybackSource.DIALOGUE
+) {
+  val trackPlaybackUiState = source != TtsPlaybackSource.GAME_PROMPT
   ttsPlaybackEpoch.incrementAndGet()
   ttsChannel?.close()
   ttsChannel = null
   ttsPlaybackJob?.cancel()
   ttsPlaybackJob = null
-  setPersonaPreviewState(PersonaPreviewState.Idle)
-  updateUiState {
-    it.copy(
-      isSpeakingTts = false,
-      isSpeakingDialogue = false,
-      isSpeakingVocabPhrase = false,
-      activeSpokenText = "",
-      phrasePlaybackState = PhrasePlaybackState.Idle,
-    )
+  val state = _uiState.value
+  val hasActivePlaybackState =
+    state.personaPreviewState !is PersonaPreviewState.Idle ||
+      state.isSpeakingTts ||
+      state.isSpeakingDialogue ||
+      state.isSpeakingVocabPhrase ||
+      state.activeSpokenText.isNotEmpty() ||
+      state.phrasePlaybackState !is PhrasePlaybackState.Idle
+  if (trackPlaybackUiState || hasActivePlaybackState) {
+    setPersonaPreviewState(PersonaPreviewState.Idle)
+    updateUiState {
+      it.copy(
+        isSpeakingTts = false,
+        isSpeakingDialogue = false,
+        isSpeakingVocabPhrase = false,
+        activeSpokenText = "",
+        phrasePlaybackState = PhrasePlaybackState.Idle,
+      )
+    }
   }
 }
 

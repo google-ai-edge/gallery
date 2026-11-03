@@ -79,6 +79,7 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.setupXrLa
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.toEnglishName
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.unsaveVocabCardForLanguage
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.unsupportedNativeLanguages
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.cancelVocabGamePrewarm
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.playPersonaPreview
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.playTargetPhrase
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.stopPersonaPreview
@@ -105,6 +106,7 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.loadS
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.onVocabGameStarted
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.openCutoutEditor
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.prepareGame
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.prewarmVocabGame
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.saveSystemPromptOverride
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.syncStickerSegmentationModel
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.useOriginalPhotoForCutout
@@ -562,6 +564,10 @@ constructor(
               rememberVocabGameViewModels(viewModel)
             val canConvertToStickers by viewModel.canConvertToStickers.collectAsStateWithLifecycle()
             val readyVocabGame by viewModel.readyVocabGame.collectAsStateWithLifecycle()
+            val isPreparingGameAssets by
+              viewModel.isPreparingGameAssets.collectAsStateWithLifecycle()
+            val hasPendingGameStickerCheck by
+              viewModel.hasPendingGameStickerCheck.collectAsStateWithLifecycle()
             // Vocab Runner needs words with images; re-checked whenever images change.
             // Untested until the first check completes, so Buddy Runner doesn't flash locked.
             var areVocabImagesChecked by remember { mutableStateOf(false) }
@@ -600,6 +606,9 @@ constructor(
                 } else {
                   null
                 },
+              isPreparingGame = hasPendingGameStickerCheck || isPreparingGameAssets,
+              onPrewarmGame = { request -> viewModel.prewarmVocabGame(request) },
+              onCancelGamePrewarm = { viewModel.cancelVocabGamePrewarm() },
             )
           }
         }

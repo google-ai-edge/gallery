@@ -29,7 +29,10 @@ import com.google.ai.edge.gallery.proto.Language
 import kotlin.random.Random
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -57,6 +60,15 @@ abstract class XrLanguageTeacherVocabGameViewModel(
 
   /** The words heard most recently, shown as chips above the status bar. */
   val heardWords: StateFlow<List<XrLanguageTeacherGameHeardWord>> = heardWordsTracker.words
+
+  private val _collisionHapticCount = MutableStateFlow(0)
+
+  /**
+   * Monotonically increasing count of obstacle collisions and wrong tap selections across the
+   * ViewModel's lifetime, observed by the game screen to trigger collision haptic feedback even
+   * when sound effects are muted.
+   */
+  internal val collisionHapticCount: StateFlow<Int> = _collisionHapticCount.asStateFlow()
 
   protected val soundEffects: XrLanguageTeacherGameSoundEffects = dependencies.createSoundEffects()
   private val frameClock = XrLanguageTeacherGameFrameClock()
@@ -216,6 +228,15 @@ abstract class XrLanguageTeacherVocabGameViewModel(
     val muted = !soundEffects.isMuted
     soundEffects.isMuted = muted
     showMuted(muted)
+  }
+
+  /**
+   * Plays the collision sound effect (when unmuted) and increments [collisionHapticCount] so the
+   * game screen can trigger collision vibrotactile feedback.
+   */
+  protected fun emitCollisionFeedback() {
+    soundEffects.playCollision()
+    _collisionHapticCount.update { it + 1 }
   }
 
   /**
