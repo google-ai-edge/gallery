@@ -286,6 +286,7 @@ fun AgentChatScreen(
     onMcpClicked = { showMcpManagerBottomSheet = true },
     showImagePicker = true,
     showAudioPicker = true,
+    showTextFilePicker = true,
     getActiveSkills = {
       skillManagerViewModel.getSelectedSkills().map { skill ->
         skillManagerViewModel.getSkillShortId(skill)

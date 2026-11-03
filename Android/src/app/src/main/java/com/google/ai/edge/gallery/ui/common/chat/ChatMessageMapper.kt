@@ -81,6 +81,17 @@ object ChatMessageMapper {
             accelerator = protoMsg.accelerator,
             hideSenderLabel = protoMsg.hideSenderLabel,
           )
+        "FILE" ->
+          ChatMessageFile(
+            name = protoMsg.fileName.ifEmpty { "file" },
+            content = protoMsg.content,
+            sizeString = protoMsg.fileSizeString,
+            side = side,
+            latencyMs = protoMsg.latencyMs,
+            accelerator = protoMsg.accelerator,
+            hideSenderLabel = protoMsg.hideSenderLabel,
+            persistedPath = protoMsg.filePath.ifEmpty { null },
+          )
         "THINKING" ->
           ChatMessageThinking(
             content = protoMsg.content,
@@ -207,6 +218,29 @@ object ChatMessageMapper {
             .setInProgress(msg.inProgress)
             .setAccelerator(msg.accelerator)
             .setHideSenderLabel(msg.hideSenderLabel)
+        }
+        is ChatMessageFile -> {
+          builder
+            .setMessageType("FILE")
+            .setContent(msg.content)
+            .setFileName(msg.name)
+            .setFileSizeString(msg.sizeString)
+            .setSide(mapChatSide(msg.side))
+            .setLatencyMs(msg.latencyMs)
+            .setAccelerator(msg.accelerator)
+            .setHideSenderLabel(msg.hideSenderLabel)
+          msg.persistenceMutex.withLock {
+            val cachedPath = msg.persistedPath
+            val localPath = msg.localPath
+            if (cachedPath != null) {
+              builder.setFilePath(cachedPath)
+            } else if (sessionManager != null && localPath != null) {
+              sessionManager.cacheSessionFile(sessionId, localPath)?.let { path ->
+                msg.persistedPath = path
+                builder.setFilePath(path)
+              }
+            }
+          }
         }
         is ChatMessageInfo -> {
           builder.setMessageType("INFO").setContent(msg.content).setSide(mapChatSide(msg.side))

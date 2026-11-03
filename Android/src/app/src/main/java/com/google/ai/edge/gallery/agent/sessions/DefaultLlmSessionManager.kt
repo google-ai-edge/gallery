@@ -34,6 +34,7 @@ import com.google.ai.edge.litertlm.Message
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileOutputStream
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -236,7 +237,9 @@ constructor(
       val files = context.cacheDir.listFiles()
       files?.forEach { file ->
         if (
-          file.name.startsWith("img_${sessionId}_") || file.name.startsWith("audio_${sessionId}_")
+          file.name.startsWith("img_${sessionId}_") ||
+            file.name.startsWith("audio_${sessionId}_") ||
+            file.name.startsWith("attachment_${sessionId}_")
         ) {
           file.delete()
         }
@@ -254,7 +257,11 @@ constructor(
 
       val files = context.cacheDir.listFiles()
       files?.forEach { file ->
-        if (file.name.startsWith("img_") || file.name.startsWith("audio_")) {
+        if (
+          file.name.startsWith("img_") ||
+            file.name.startsWith("audio_") ||
+            file.name.startsWith("attachment_")
+        ) {
           file.delete()
         }
       }
@@ -331,6 +338,26 @@ constructor(
         file.absolutePath
       } catch (e: Exception) {
         Log.e(TAG, "Failed to cache session audio to ${file.absolutePath}: ${e.message}", e)
+        null
+      }
+    }
+
+  override suspend fun cacheSessionFile(sessionId: String, sourcePath: String): String? =
+    withContext(ioDispatcher) {
+      val source = File(sourcePath)
+      val extension = source.extension.ifEmpty { "bin" }
+      val fileName =
+        "attachment_${sessionId}_${System.currentTimeMillis()}_${UUID.randomUUID()}.$extension"
+      val file = File(context.cacheDir, fileName)
+      try {
+        // Move rather than copy so that the pending attachment file is not leaked.
+        if (!source.renameTo(file)) {
+          source.copyTo(file, overwrite = true)
+          source.delete()
+        }
+        file.absolutePath
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to cache session file to ${file.absolutePath}: ${e.message}", e)
         null
       }
     }
@@ -591,7 +618,7 @@ constructor(
       }
     val session = sessions.firstOrNull { it.sessionId == sessionId } ?: return null
     val chatCharCount =
-      session.messagesList.sumOf { if (it.isSeededTextMessage) it.content.length else 0 }
+      session.messagesList.sumOf { if (it.isSeededMessage) it.seededContent.length else 0 }
     if (chatCharCount == 0) {
       return null
     }
@@ -621,13 +648,13 @@ constructor(
     }
 
   private fun protoToLitertMessage(proto: ChatMessageProto): Message? {
-    if (!proto.isSeededTextMessage) {
+    if (!proto.isSeededMessage) {
       return null
     }
     return if (proto.side == ChatSideProto.CHAT_SIDE_USER) {
-      Message.user(proto.content)
+      Message.user(proto.seededContent)
     } else {
-      Message.model(proto.content)
+      Message.model(proto.seededContent)
     }
   }
 }

@@ -1238,6 +1238,7 @@
   <!-- Media Picker (dropdown menu) -->
   <string name="media_picker_record_audio" translatable="true" description="Menu option to record an audio clip as input. [CHAR_LIMIT=24]">Record audio clip</string>
   <string name="media_picker_pick_wav" translatable="true" description="Menu option to pick a local WAV audio file. [CHAR_LIMIT=22]">Pick wav file</string>
+  <string name="media_picker_import_text_file" translatable="true" description="Menu option to import a text or markdown file. [CHAR_LIMIT=24]">Import text file</string>
 
   <!-- Input History -->
   <string name="text_input_history_title" translatable="true" description="Title of the history popup showing previous text inputs. [CHAR_LIMIT=31]">Text input history</string>

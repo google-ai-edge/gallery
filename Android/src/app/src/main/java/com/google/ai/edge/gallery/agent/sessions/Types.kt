@@ -84,14 +84,34 @@ data class ContextCompactionOutcome(
   val sizes: ContextCompactionSizes? = null,
 )
 
+/** Name used in the attached file prompt when the file has no name. */
+private const val DEFAULT_ATTACHED_FILE_NAME = "file"
+
 /**
- * Whether this persisted message is a user or model text message, i.e. a message that is seeded
- * into the conversation history when a session is restored or its context is truncated.
+ * Formats the [content] of an attached text file named [fileName] for the LLM prompt, wrapped in
+ * clear begin and end boundaries.
  */
-internal val ChatMessageProto.isSeededTextMessage: Boolean
+fun formatAttachedFilePrompt(fileName: String, content: String): String {
+  val name = fileName.ifBlank { DEFAULT_ATTACHED_FILE_NAME }
+  return "--- Attached file: $name ---\n$content\n--- End of $name ---"
+}
+
+/**
+ * Whether this persisted message is a user or model text or attached file message, i.e. a message
+ * that is seeded into the conversation history when a session is restored or its context is
+ * truncated.
+ */
+internal val ChatMessageProto.isSeededMessage: Boolean
   get() =
-    messageType == "TEXT" &&
+    (messageType == "TEXT" || messageType == "FILE") &&
       (side == ChatSideProto.CHAT_SIDE_USER || side == ChatSideProto.CHAT_SIDE_MODEL)
+
+/**
+ * The content of this persisted message as it is seeded into the conversation history. Attached
+ * file messages are formatted with [formatAttachedFilePrompt].
+ */
+internal val ChatMessageProto.seededContent: String
+  get() = if (messageType == "FILE") formatAttachedFilePrompt(fileName, content) else content
 
 /**
  * Data class representing session configuration (model, taskId, system prompt, tools).
