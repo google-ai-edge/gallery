@@ -91,6 +91,14 @@ private fun vocabPopperMinimumCount(mode: XrLanguageTeacherVocabGameMode): Int =
       XrLanguageTeacherVocabPopperEngine.MINIMUM_VOCABULARY_COUNT
   }
 
+private fun vocabRunnerMinimumCount(mode: XrLanguageTeacherVocabGameMode): Int =
+  when (mode) {
+    XrLanguageTeacherVocabGameMode.TAP ->
+      XrLanguageTeacherVocabRunnerEngine.MINIMUM_TAP_STICKER_VOCABULARY_COUNT
+    XrLanguageTeacherVocabGameMode.SPEAK ->
+      XrLanguageTeacherVocabRunnerEngine.MINIMUM_STICKER_VOCABULARY_COUNT
+  }
+
 /**
  * The Study tab: a centered header and the activity cards ([FlashcardsStudyCard],
  * [VocabPopperStudyCard], and [VocabRunnerStudyCard]) over decorative background shapes
@@ -156,6 +164,7 @@ fun StudyScreen(
   var popperLanguage by rememberSaveable { mutableStateOf<Language?>(null) }
   var popperMode by rememberSaveable { mutableStateOf(XrLanguageTeacherVocabGameMode.TAP) }
   var runnerLanguage by rememberSaveable { mutableStateOf<Language?>(null) }
+  var runnerMode by rememberSaveable { mutableStateOf(XrLanguageTeacherVocabGameMode.TAP) }
 
   val isAwayFromCards = reviewLanguage != null || openStartActivity != null || activeGame != null
   LaunchedEffect(isAwayFromCards) { onReviewModeChanged(isAwayFromCards) }
@@ -168,12 +177,9 @@ fun StudyScreen(
   val isNonAsrEnabled = isStudyGamesNonAsrEnabled
   val effectivePopperMode =
     if (isNonAsrEnabled) popperMode else XrLanguageTeacherVocabGameMode.SPEAK
-  val popperOverviewMode =
-    if (isNonAsrEnabled) {
-      XrLanguageTeacherVocabGameMode.TAP
-    } else {
-      XrLanguageTeacherVocabGameMode.SPEAK
-    }
+  val effectiveRunnerMode =
+    if (isNonAsrEnabled) runnerMode else XrLanguageTeacherVocabGameMode.SPEAK
+  val popperOverviewMode = effectivePopperMode
   val popperOverviewMinimum = vocabPopperMinimumCount(popperOverviewMode)
   val popperOverviewEligibleLanguages =
     remember(entries, languages, popperOverviewMinimum) {
@@ -196,18 +202,26 @@ fun StudyScreen(
         }
       popperOverviewEligibleLanguages.filter { check(it) }
     }
-  val runnerLanguages =
-    remember(entries, languages, vocabEntryKeysWithImages) {
+  val runnerOverviewMode = effectiveRunnerMode
+  val runnerOverviewMinimum = vocabRunnerMinimumCount(runnerOverviewMode)
+  val runnerOverviewEligibleLanguages =
+    remember(entries, languages, vocabEntryKeysWithImages, runnerOverviewMinimum) {
       languages.filter { language ->
         entries.count {
           it.displayLearnLanguage() == language &&
             it.vocabGameEntryKey() in vocabEntryKeysWithImages
-        } >= XrLanguageTeacherVocabRunnerEngine.MINIMUM_STICKER_VOCABULARY_COUNT
+        } >= runnerOverviewMinimum
       }
     }
-  val runnerSupportedLanguages =
-    remember(runnerLanguages, isAsrLanguageSupported) {
-      runnerLanguages.filter { isAsrLanguageSupported(it) }
+  val runnerOverviewSupportedLanguages =
+    remember(runnerOverviewEligibleLanguages, runnerOverviewMode, isAsrLanguageSupported) {
+      val check: (Language) -> Boolean =
+        if (runnerOverviewMode == XrLanguageTeacherVocabGameMode.TAP) {
+          { true }
+        } else {
+          isAsrLanguageSupported
+        }
+      runnerOverviewEligibleLanguages.filter { check(it) }
     }
 
   val closeActivity = {
@@ -239,7 +253,11 @@ fun StudyScreen(
         }
       XrLanguageTeacherVocabGame.VOCAB_RUNNER ->
         if (runnerViewModel != null) {
-          runnerViewModel.startRun(learnLanguage = language, entries = request.entries)
+          runnerViewModel.startRun(
+            learnLanguage = language,
+            entries = request.entries,
+            mode = request.mode,
+          )
           activeGame = StudyActivity.VOCAB_RUNNER
         }
     }
@@ -541,7 +559,28 @@ fun StudyScreen(
 
   if (openStartActivity == StudyActivity.VOCAB_RUNNER) {
     BackHandler(onBack = closeActivity)
-    val language = resolveStudyLanguage(runnerLanguage, runnerLanguages, runnerSupportedLanguages)
+    val minCount = vocabRunnerMinimumCount(effectiveRunnerMode)
+    val eligibleLanguages =
+      remember(entries, languages, vocabEntryKeysWithImages, minCount) {
+        languages.filter { language ->
+          entries.count {
+            it.displayLearnLanguage() == language &&
+              it.vocabGameEntryKey() in vocabEntryKeysWithImages
+          } >= minCount
+        }
+      }
+    val languageSupportCheck: (Language) -> Boolean =
+      if (effectiveRunnerMode == XrLanguageTeacherVocabGameMode.TAP) {
+        { true }
+      } else {
+        isAsrLanguageSupported
+      }
+    val supportedEligibleLanguages =
+      remember(eligibleLanguages, effectiveRunnerMode, isAsrLanguageSupported) {
+        eligibleLanguages.filter { languageSupportCheck(it) }
+      }
+    val language =
+      resolveStudyLanguage(runnerLanguage, eligibleLanguages, supportedEligibleLanguages)
     val deck =
       if (language != null) {
         entries.filter {
@@ -551,12 +590,23 @@ fun StudyScreen(
       } else {
         emptyList()
       }
-    val hasEnoughWords =
-      deck.size >= XrLanguageTeacherVocabRunnerEngine.MINIMUM_STICKER_VOCABULARY_COUNT
-    val isLanguageSupported = language != null && isAsrLanguageSupported(language)
+    val hasEnoughWords = deck.size >= minCount
+    val isLanguageSupported = language != null && languageSupportCheck(language)
+    val modelSettingsAction =
+      if (effectiveRunnerMode == XrLanguageTeacherVocabGameMode.TAP) null else onOpenAsrSettings
     val lockedMessage =
-      if (language != null && !isLanguageSupported) {
-        stringResource(R.string.xrteacher_game_asr_unsupported, getLanguageName(language))
+      when {
+        !hasEnoughWords ->
+          pluralStringResource(R.plurals.xrteacher_vocab_runner_locked, minCount, minCount)
+        language != null && !isLanguageSupported ->
+          stringResource(R.string.xrteacher_game_asr_unsupported, getLanguageName(language))
+        else -> null
+      }
+    val lockedActionLabel =
+      if (
+        hasEnoughWords && language != null && !isLanguageSupported && modelSettingsAction != null
+      ) {
+        stringResource(R.string.xrteacher_asr_unsupported_open_settings)
       } else {
         null
       }
@@ -565,33 +615,40 @@ fun StudyScreen(
     VocabGameStartScreen(
       title = stringResource(R.string.xrteacher_vocab_runner_title),
       subtitle =
-        pluralStringResource(
-          R.plurals.xrteacher_vocab_runner_subtitle,
-          runnerSeconds,
-          runnerSeconds,
-        ),
-      steps =
-        listOf(
-          stringResource(R.string.xrteacher_vocab_runner_step_1),
-          stringResource(R.string.xrteacher_vocab_runner_step_2),
+        if (effectiveRunnerMode == XrLanguageTeacherVocabGameMode.TAP) {
+          stringResource(R.string.xrteacher_vocab_runner_tap_subtitle)
+        } else {
           pluralStringResource(
-            R.plurals.xrteacher_vocab_runner_step_3,
+            R.plurals.xrteacher_vocab_runner_subtitle,
             runnerSeconds,
             runnerSeconds,
-          ),
-        ),
+          )
+        },
+      steps =
+        if (effectiveRunnerMode == XrLanguageTeacherVocabGameMode.TAP) {
+          listOf(
+            stringResource(R.string.xrteacher_vocab_runner_tap_step_1),
+            stringResource(R.string.xrteacher_vocab_runner_tap_step_2),
+            stringResource(R.string.xrteacher_vocab_runner_tap_step_3),
+          )
+        } else {
+          listOf(
+            stringResource(R.string.xrteacher_vocab_runner_step_1),
+            stringResource(R.string.xrteacher_vocab_runner_step_2),
+            pluralStringResource(
+              R.plurals.xrteacher_vocab_runner_step_3,
+              runnerSeconds,
+              runnerSeconds,
+            ),
+          )
+        },
       isPlayEnabled = hasEnoughWords && isLanguageSupported && runnerViewModel != null,
       lockedMessage = lockedMessage,
-      lockedActionLabel =
-        if (lockedMessage != null && onOpenAsrSettings != null) {
-          stringResource(R.string.xrteacher_asr_unsupported_open_settings)
-        } else {
-          null
-        },
-      onLockedAction = onOpenAsrSettings,
+      lockedActionLabel = lockedActionLabel,
+      onLockedAction = if (lockedActionLabel != null) modelSettingsAction else null,
       changeModelLabel =
-        onOpenAsrSettings?.let { stringResource(R.string.xrteacher_change_asr_model) },
-      onChangeModel = onOpenAsrSettings,
+        modelSettingsAction?.let { stringResource(R.string.xrteacher_change_asr_model) },
+      onChangeModel = modelSettingsAction,
       onBack = closeActivity,
       onPlay = {
         if (language != null && runnerViewModel != null) {
@@ -600,6 +657,7 @@ fun StudyScreen(
               game = XrLanguageTeacherVocabGame.VOCAB_RUNNER,
               language = language,
               entries = deck,
+              mode = effectiveRunnerMode,
             )
           )
         }
@@ -608,16 +666,38 @@ fun StudyScreen(
       modifier = modifier,
       languageSetting = {
         VocabGameLanguageDropdown(
-          languages = runnerLanguages,
+          languages = eligibleLanguages,
           selected = language,
           onSelect = { runnerLanguage = it },
-          isLanguageEnabled = isAsrLanguageSupported,
+          isLanguageEnabled = languageSupportCheck,
           languageSupportingText = { option ->
-            if (isAsrLanguageSupported(option)) null
+            if (languageSupportCheck(option)) null
             else stringResource(R.string.xrteacher_language_not_supported_by_asr)
           },
         )
       },
+      moreSettings =
+        if (isNonAsrEnabled) {
+          {
+            VocabGameDropdown(
+              label = stringResource(R.string.xrteacher_game_setting_mode),
+              options = XrLanguageTeacherVocabGameMode.entries,
+              selected = effectiveRunnerMode,
+              optionLabel = { mode ->
+                stringResource(
+                  when (mode) {
+                    XrLanguageTeacherVocabGameMode.TAP -> R.string.xrteacher_game_mode_tap
+                    XrLanguageTeacherVocabGameMode.SPEAK -> R.string.xrteacher_game_mode_speak
+                  }
+                )
+              },
+              placeholder = "",
+              onSelect = { runnerMode = it },
+            )
+          }
+        } else {
+          null
+        },
     )
     return
   }
@@ -714,23 +794,22 @@ fun StudyScreen(
         onLockedAction = if (allPopperEligibleUnsupported) popperWarningAction else null,
       )
       Spacer(modifier = Modifier.height(16.dp))
-      val runnerMinimum = XrLanguageTeacherVocabRunnerEngine.MINIMUM_STICKER_VOCABULARY_COUNT
       val allRunnerEligibleUnsupported =
-        runnerLanguages.isNotEmpty() && runnerSupportedLanguages.isEmpty()
+        runnerOverviewEligibleLanguages.isNotEmpty() && runnerOverviewSupportedLanguages.isEmpty()
       val runnerLockedMessage =
         when {
-          areVocabImagesChecked && runnerLanguages.isEmpty() ->
+          areVocabImagesChecked && runnerOverviewEligibleLanguages.isEmpty() ->
             pluralStringResource(
               R.plurals.xrteacher_vocab_runner_locked,
-              runnerMinimum,
-              runnerMinimum,
+              runnerOverviewMinimum,
+              runnerOverviewMinimum,
             )
           areVocabImagesChecked && allRunnerEligibleUnsupported ->
             stringResource(R.string.xrteacher_study_asr_unsupported_warning)
           else -> null
         }
       VocabRunnerStudyCard(
-        isOpenEnabled = runnerSupportedLanguages.isNotEmpty(),
+        isOpenEnabled = runnerOverviewSupportedLanguages.isNotEmpty(),
         onOpen = { openStartActivity = StudyActivity.VOCAB_RUNNER },
         lockedMessage = runnerLockedMessage,
         lockedActionLabel =

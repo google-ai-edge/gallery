@@ -73,23 +73,35 @@ enum class XrLanguageTeacherVocabRunnerPhase {
  * Snapshot of the `Vocab Runner` game state.
  *
  * @property remainingMilliseconds Time left in the 60-second round.
+ * @property endReason Why the round ended, once [phase] reaches
+ *   [XrLanguageTeacherVocabRunnerPhase.FINISHED].
+ * @property lives Remaining lives in `Tap` mode.
+ * @property maxLives Maximum lives at the start of a round in `Tap` mode.
+ * @property correctCount Number of obstacles cleared so far in the round.
  * @property trackDistance Total scrolled distance in normalized track units, used to animate the
  *   track dashes and Buddy's stride.
  * @property buddyRecoilOffset Buddy's horizontal recoil (negative, in normalized track units) while
  *   the track knocks back after a bump.
  * @property isStumbled Whether Buddy is briefly stumbling after a collision.
+ * @property choices Four multiple-choice word buttons displayed beneath the track in `Tap` mode.
  */
 data class XrLanguageTeacherVocabRunnerState(
   val phase: XrLanguageTeacherVocabRunnerPhase = XrLanguageTeacherVocabRunnerPhase.PLAYING,
+  val endReason: XrLanguageTeacherVocabGameEndReason =
+    XrLanguageTeacherVocabGameEndReason.TIME_EXPIRED,
   val remainingMilliseconds: Long = XrLanguageTeacherVocabRunnerEngine.ROUND_DURATION_MILLISECONDS,
   val score: Int = 0,
   val highScore: Int = 0,
   val isNewHighScore: Boolean = false,
+  val lives: Int = XrLanguageTeacherVocabRunnerEngine.INITIAL_LIVES,
+  val maxLives: Int = XrLanguageTeacherVocabRunnerEngine.INITIAL_LIVES,
+  val correctCount: Int = 0,
   val scrollSpeed: Float = XrLanguageTeacherVocabRunnerEngine.INITIAL_SCROLL_SPEED,
   val trackDistance: Float = 0f,
   val buddyRecoilOffset: Float = 0f,
   val isStumbled: Boolean = false,
   val obstacles: List<XrLanguageTeacherVocabRunnerObstacle> = emptyList(),
+  val choices: List<XrLanguageTeacherVocabRunnerDeckItem> = emptyList(),
 )
 
 /** Frame events emitted by [XrLanguageTeacherVocabRunnerEngine.step]. */
@@ -107,6 +119,17 @@ data class XrLanguageTeacherVocabRunnerClearEvent(
   val matchedWord: String,
   val newScore: Int,
   val isNewHighScore: Boolean,
+)
+
+/** Result returned when the player taps one of the multiple-choice buttons in `Tap` mode. */
+data class XrLanguageTeacherVocabRunnerChoiceOutcome(
+  val selectedItem: XrLanguageTeacherVocabRunnerDeckItem,
+  val correctItem: XrLanguageTeacherVocabRunnerDeckItem,
+  val isCorrect: Boolean,
+  val newScore: Int,
+  val isNewHighScore: Boolean,
+  val remainingLives: Int,
+  val didFinishRound: Boolean,
 )
 
 /**
@@ -152,20 +175,26 @@ private const val BUDDY_FOOT_SWING_DP = 7f
 /**
  * Pure, deterministic 60-second runner physics and obstacle engine for `Vocab Runner`.
  *
- * Sticker obstacles scroll toward Buddy; speaking the nearest obstacle's word pops it out of
- * Buddy's path (`+1`) and speeds the track up. Bumping into an obstacle knocks the whole track back
- * so the player can try the word again; the third bump breaks the obstacle for no points. The round
- * ends after [ROUND_DURATION_MILLISECONDS]. Not thread-safe: drive [step] and [processTranscript]
- * from a single thread (normally the main thread) and publish [state] snapshots to the UI.
+ * Sticker obstacles scroll toward Buddy; speaking the nearest obstacle's word (`Speak` mode) or
+ * tapping the matching multiple-choice button (`Tap` mode) pops it out of Buddy's path (`+1`) and
+ * speeds the track up. In `Speak` mode, bumping into an obstacle knocks the whole track back so the
+ * player can try the word again, and the third bump breaks the obstacle for no points. In `Tap`
+ * mode, a wrong button tap or an obstacle reaching Buddy deducts 1 life (ending the round early on
+ * the 3rd mistake). The round ends after [ROUND_DURATION_MILLISECONDS] or when lives reach `0`. Not
+ * thread-safe: drive [step], [selectChoice], and [processTranscript] from a single thread (normally
+ * the main thread) and publish [state] snapshots to the UI.
  *
  * @param deck Vocabulary items to use as obstacles, drawn from a shuffled bag avoiding back-to-back
  *   repeats.
+ * @param mode Gameplay input mode ([XrLanguageTeacherVocabGameMode.SPEAK] vs
+ *   [XrLanguageTeacherVocabGameMode.TAP]).
  * @param initialHighScore Persisted best score, used for
  *   [XrLanguageTeacherVocabRunnerState.highScore].
  * @param randomSeed Seed of the xorshift64* generator; `0` selects a fixed non-zero seed.
  */
 class XrLanguageTeacherVocabRunnerEngine(
   val deck: List<XrLanguageTeacherVocabRunnerDeckItem>,
+  val mode: XrLanguageTeacherVocabGameMode = XrLanguageTeacherVocabGameMode.SPEAK,
   initialHighScore: Int = 0,
   randomSeed: Long = System.nanoTime(),
 ) {
@@ -180,15 +209,37 @@ class XrLanguageTeacherVocabRunnerEngine(
   private var nextObstacleId = 1L
   private var stumbleTimerSeconds = 0f
   private var knockbackVelocity = 0f
+  private var choicesObstacleId: Long? = null
   private val transcriptCursor = XrLanguageTeacherTranscriptCursor()
 
   init {
-    state = state.copy(obstacles = withUpcomingObstacles(state.obstacles, score = 0))
+    state = state.copy(obstacles = withUpcomingObstacles(state.obstacles, correctCount = 0))
+    if (mode == XrLanguageTeacherVocabGameMode.TAP) {
+      refreshChoicesIfNeeded()
+    }
   }
 
   /** Returns the nearest upcoming obstacle that is still in Buddy's path, if any. */
   val currentTargetObstacle: XrLanguageTeacherVocabRunnerObstacle?
-    get() = state.obstacles.firstOrNull { !it.isClearing && it.x >= BUDDY_X - COLLISION_HALF_WIDTH }
+    get() = currentTargetObstacleIndex?.let { state.obstacles[it] }
+
+  private val currentTargetObstacleIndex: Int?
+    get() =
+      state.obstacles
+        .indexOfFirst { !it.isClearing && it.x >= BUDDY_X - COLLISION_HALF_WIDTH }
+        .takeIf { it >= 0 }
+
+  private val tapDifficultyProgress: Float
+    get() {
+      val elapsedMs = max(0L, ROUND_DURATION_MILLISECONDS - state.remainingMilliseconds)
+      val elapsedFraction = elapsedMs.toFloat() / ROUND_DURATION_MILLISECONDS.toFloat()
+      val streakFraction = min(1f, state.correctCount.toFloat() / 18f)
+      return min(1f, elapsedFraction * 0.45f + streakFraction * 0.70f)
+    }
+
+  private val currentTapScrollSpeed: Float
+    get() =
+      INITIAL_SCROLL_SPEED + tapDifficultyProgress * (MAX_TAP_SCROLL_SPEED - INITIAL_SCROLL_SPEED)
 
   /** Advances the runner simulation by [deltaMilliseconds] (clamped to 100 ms per call). */
   fun step(deltaMilliseconds: Long): XrLanguageTeacherVocabRunnerStepEvents {
@@ -200,18 +251,15 @@ class XrLanguageTeacherVocabRunnerEngine(
 
     val remainingMilliseconds = max(0L, state.remainingMilliseconds - clampedMs)
     if (remainingMilliseconds <= 0L) {
-      stumbleTimerSeconds = 0f
-      knockbackVelocity = 0f
-      state =
-        state.copy(
-          phase = XrLanguageTeacherVocabRunnerPhase.FINISHED,
-          remainingMilliseconds = 0L,
-          obstacles = emptyList(),
-          isStumbled = false,
-          buddyRecoilOffset = 0f,
-        )
+      finishRound(
+        reason = XrLanguageTeacherVocabGameEndReason.TIME_EXPIRED,
+        remainingMilliseconds = 0L,
+      )
       return XrLanguageTeacherVocabRunnerStepEvents(didFinishRound = true)
     }
+
+    val scrollSpeed =
+      if (mode == XrLanguageTeacherVocabGameMode.TAP) currentTapScrollSpeed else state.scrollSpeed
 
     var isStumbled = state.isStumbled
     if (stumbleTimerSeconds > 0f) {
@@ -224,12 +272,14 @@ class XrLanguageTeacherVocabRunnerEngine(
     var buddyRecoilOffset = -MAX_BUDDY_RECOIL_OFFSET * (knockbackVelocity / INITIAL_KNOCKBACK_SPEED)
 
     // A knockback scrolls the whole track (and every obstacle) back, keeping their spacing.
-    val effectiveSpeed = state.scrollSpeed - knockbackVelocity
+    val effectiveSpeed = scrollSpeed - knockbackVelocity
     val trackDistance = max(0f, state.trackDistance + effectiveSpeed * dt)
 
+    var lives = state.lives
     var didCollide = false
     var missedWord: String? = null
     var didTriggerKnockback = false
+    var didTriggerTapCollision = false
     val remaining = ArrayList<XrLanguageTeacherVocabRunnerObstacle>(state.obstacles.size)
     for (original in state.obstacles) {
       var obstacle = original.copy(x = original.x - effectiveSpeed * dt)
@@ -243,29 +293,81 @@ class XrLanguageTeacherVocabRunnerEngine(
         continue
       }
 
-      if (
-        knockbackVelocity <= 0f &&
-          !didTriggerKnockback &&
-          obstacle.x <= BUDDY_X + COLLISION_HALF_WIDTH
-      ) {
-        val bumpCount = obstacle.bumpCount + 1
-        stumbleTimerSeconds = STUMBLE_DURATION_SECONDS
-        isStumbled = true
-        didCollide = true
-        consumePendingTranscript()
-        obstacle =
-          if (bumpCount >= MAX_BUMPS_PER_OBSTACLE) {
-            missedWord = obstacle.item.displayWord
-            obstacle.copy(bumpCount = bumpCount, didBreakOnMaxBumps = true, clearProgress = 0f)
-          } else {
-            didTriggerKnockback = true
-            obstacle.copy(bumpCount = bumpCount)
+      when (mode) {
+        XrLanguageTeacherVocabGameMode.SPEAK -> {
+          if (
+            knockbackVelocity <= 0f &&
+              !didTriggerKnockback &&
+              obstacle.x <= BUDDY_X + COLLISION_HALF_WIDTH
+          ) {
+            val bumpCount = obstacle.bumpCount + 1
+            stumbleTimerSeconds = STUMBLE_DURATION_SECONDS
+            isStumbled = true
+            didCollide = true
+            consumePendingTranscript()
+            obstacle =
+              if (bumpCount >= MAX_BUMPS_PER_OBSTACLE) {
+                missedWord = obstacle.item.displayWord
+                obstacle.copy(bumpCount = bumpCount, didBreakOnMaxBumps = true, clearProgress = 0f)
+              } else {
+                didTriggerKnockback = true
+                obstacle.copy(bumpCount = bumpCount)
+              }
           }
+        }
+        XrLanguageTeacherVocabGameMode.TAP -> {
+          if (!didTriggerTapCollision && obstacle.x <= BUDDY_X + COLLISION_HALF_WIDTH) {
+            didTriggerTapCollision = true
+            lives = max(0, lives - 1)
+            stumbleTimerSeconds = STUMBLE_DURATION_SECONDS
+            isStumbled = true
+            didCollide = true
+            missedWord = obstacle.item.displayWord
+            obstacle =
+              obstacle.copy(
+                bumpCount = obstacle.bumpCount + 1,
+                didBreakOnMaxBumps = true,
+                clearProgress = 0f,
+              )
+          }
+        }
       }
 
       if (obstacle.x >= DESPAWN_X) {
         remaining += obstacle
       }
+    }
+
+    if (mode == XrLanguageTeacherVocabGameMode.TAP) {
+      state =
+        state.copy(
+          remainingMilliseconds = remainingMilliseconds,
+          lives = lives,
+          scrollSpeed = scrollSpeed,
+          trackDistance = trackDistance,
+          buddyRecoilOffset = buddyRecoilOffset,
+          isStumbled = isStumbled,
+          obstacles = remaining,
+        )
+      if (lives == 0) {
+        finishRound(reason = XrLanguageTeacherVocabGameEndReason.OUT_OF_LIVES)
+        return XrLanguageTeacherVocabRunnerStepEvents(
+          didCollide = didCollide,
+          missedWord = missedWord,
+          didFinishRound = true,
+        )
+      }
+      if (didTriggerTapCollision) {
+        knockbackVelocity = INITIAL_KNOCKBACK_SPEED * 0.45f
+        state = state.copy(buddyRecoilOffset = -MAX_BUDDY_RECOIL_OFFSET * 0.45f)
+        pullInNextTapObstacleIfOffscreen()
+      }
+      state = state.copy(obstacles = withUpcomingObstacles(state.obstacles, state.correctCount))
+      refreshChoicesIfNeeded()
+      return XrLanguageTeacherVocabRunnerStepEvents(
+        didCollide = didCollide,
+        missedWord = missedWord,
+      )
     }
 
     if (didTriggerKnockback) {
@@ -279,9 +381,91 @@ class XrLanguageTeacherVocabRunnerEngine(
         trackDistance = trackDistance,
         buddyRecoilOffset = buddyRecoilOffset,
         isStumbled = isStumbled,
-        obstacles = withUpcomingObstacles(remaining, state.score),
+        obstacles = withUpcomingObstacles(remaining, state.correctCount),
       )
     return XrLanguageTeacherVocabRunnerStepEvents(didCollide = didCollide, missedWord = missedWord)
+  }
+
+  /**
+   * Evaluates a multiple-choice button tap against the nearest active upcoming obstacle in `Tap`
+   * mode, clearing the obstacle and advancing choices on a match or deducting one life and
+   * shattering the obstacle on a wrong choice.
+   */
+  fun selectChoice(entryKey: String): XrLanguageTeacherVocabRunnerChoiceOutcome? {
+    if (
+      mode != XrLanguageTeacherVocabGameMode.TAP ||
+        state.phase != XrLanguageTeacherVocabRunnerPhase.PLAYING
+    ) {
+      return null
+    }
+    val targetIndex = currentTargetObstacleIndex ?: return null
+    val selectedItem = state.choices.firstOrNull { it.entryKey == entryKey } ?: return null
+    val correctItem = state.obstacles[targetIndex].item
+    val isCorrect =
+      selectedItem.entryKey == correctItem.entryKey ||
+        selectedItem.targetMatchForms.intersect(correctItem.targetMatchForms).isNotEmpty()
+
+    if (isCorrect) {
+      val obstacles = state.obstacles.toMutableList()
+      obstacles[targetIndex] = obstacles[targetIndex].copy(clearProgress = 0f)
+      val correctCount = state.correctCount + 1
+      val score = state.score + 1
+      val isNewHighScore = state.isNewHighScore || score > state.highScore
+      state =
+        state.copy(
+          score = score,
+          highScore = max(state.highScore, score),
+          isNewHighScore = isNewHighScore,
+          correctCount = correctCount,
+          obstacles = obstacles,
+        )
+      state = state.copy(scrollSpeed = currentTapScrollSpeed)
+      pullInNextTapObstacleIfOffscreen()
+      state = state.copy(obstacles = withUpcomingObstacles(state.obstacles, state.correctCount))
+      refreshChoicesIfNeeded()
+      return XrLanguageTeacherVocabRunnerChoiceOutcome(
+        selectedItem = selectedItem,
+        correctItem = correctItem,
+        isCorrect = true,
+        newScore = state.score,
+        isNewHighScore = state.isNewHighScore,
+        remainingLives = state.lives,
+        didFinishRound = false,
+      )
+    }
+
+    val lives = max(0, state.lives - 1)
+    stumbleTimerSeconds = STUMBLE_DURATION_SECONDS
+    val obstacles = state.obstacles.toMutableList()
+    obstacles[targetIndex] =
+      obstacles[targetIndex].copy(didBreakOnMaxBumps = true, clearProgress = 0f)
+    state = state.copy(lives = lives, isStumbled = true, obstacles = obstacles)
+
+    if (lives == 0) {
+      finishRound(reason = XrLanguageTeacherVocabGameEndReason.OUT_OF_LIVES)
+      return XrLanguageTeacherVocabRunnerChoiceOutcome(
+        selectedItem = selectedItem,
+        correctItem = correctItem,
+        isCorrect = false,
+        newScore = state.score,
+        isNewHighScore = state.isNewHighScore,
+        remainingLives = 0,
+        didFinishRound = true,
+      )
+    }
+
+    pullInNextTapObstacleIfOffscreen()
+    state = state.copy(obstacles = withUpcomingObstacles(state.obstacles, state.correctCount))
+    refreshChoicesIfNeeded()
+    return XrLanguageTeacherVocabRunnerChoiceOutcome(
+      selectedItem = selectedItem,
+      correctItem = correctItem,
+      isCorrect = false,
+      newScore = state.score,
+      isNewHighScore = state.isNewHighScore,
+      remainingLives = state.lives,
+      didFinishRound = false,
+    )
   }
 
   /**
@@ -307,7 +491,12 @@ class XrLanguageTeacherVocabRunnerEngine(
    * Returns `null` when nothing matched.
    */
   fun processTranscript(transcript: String): XrLanguageTeacherVocabRunnerClearEvent? {
-    if (state.phase != XrLanguageTeacherVocabRunnerPhase.PLAYING) return null
+    if (
+      mode != XrLanguageTeacherVocabGameMode.SPEAK ||
+        state.phase != XrLanguageTeacherVocabRunnerPhase.PLAYING
+    ) {
+      return null
+    }
     val unconsumedText = transcriptCursor.takeUnconsumedText(transcript)
     if (unconsumedText.isEmpty()) return null
 
@@ -331,6 +520,7 @@ class XrLanguageTeacherVocabRunnerEngine(
     transcriptCursor.consumeSeen()
     val obstacles = state.obstacles.toMutableList()
     obstacles[targetIndex] = obstacle.copy(clearProgress = 0f)
+    val correctCount = state.correctCount + 1
     val score = state.score + 1
     val isNewHighScore = state.isNewHighScore || score > state.highScore
     state =
@@ -338,8 +528,9 @@ class XrLanguageTeacherVocabRunnerEngine(
         score = score,
         highScore = max(state.highScore, score),
         isNewHighScore = isNewHighScore,
+        correctCount = correctCount,
         scrollSpeed =
-          min(MAX_SCROLL_SPEED, INITIAL_SCROLL_SPEED + score * SPEED_PER_OBSTACLE_CLEARED),
+          min(MAX_SCROLL_SPEED, INITIAL_SCROLL_SPEED + correctCount * SPEED_PER_OBSTACLE_CLEARED),
         obstacles = obstacles,
       )
     return XrLanguageTeacherVocabRunnerClearEvent(
@@ -349,25 +540,137 @@ class XrLanguageTeacherVocabRunnerEngine(
     )
   }
 
+  private fun finishRound(
+    reason: XrLanguageTeacherVocabGameEndReason,
+    remainingMilliseconds: Long = state.remainingMilliseconds,
+  ) {
+    stumbleTimerSeconds = 0f
+    knockbackVelocity = 0f
+    choicesObstacleId = null
+    state =
+      state.copy(
+        phase = XrLanguageTeacherVocabRunnerPhase.FINISHED,
+        endReason = reason,
+        remainingMilliseconds = remainingMilliseconds,
+        obstacles = emptyList(),
+        choices = emptyList(),
+        isStumbled = false,
+        buddyRecoilOffset = 0f,
+      )
+  }
+
+  /**
+   * If the next active obstacle is still completely off-screen to the right after a fast choice or
+   * break, pulls off-screen non-clearing obstacles smoothly to the right edge so the new target
+   * sticker immediately enters the track without dead air or moving any already-visible obstacle.
+   */
+  private fun pullInNextTapObstacleIfOffscreen() {
+    val nextIndex = currentTargetObstacleIndex ?: return
+    val nextX = state.obstacles[nextIndex].x
+    val maxClearingX = state.obstacles.filter { it.isClearing }.maxOfOrNull { it.x } ?: -1f
+    val targetPullX = max(OFFSCREEN_PULL_IN_TARGET_X, maxClearingX + 0.34f)
+    if (nextX <= max(OFFSCREEN_PULL_IN_THRESHOLD_X, targetPullX)) return
+    val shift = nextX - targetPullX
+    state =
+      state.copy(
+        obstacles =
+          state.obstacles.map { obstacle ->
+            if (!obstacle.isClearing) obstacle.copy(x = obstacle.x - shift) else obstacle
+          }
+      )
+  }
+
+  private fun refreshChoicesIfNeeded() {
+    if (
+      mode != XrLanguageTeacherVocabGameMode.TAP ||
+        state.phase != XrLanguageTeacherVocabRunnerPhase.PLAYING
+    ) {
+      choicesObstacleId = null
+      if (state.choices.isNotEmpty()) {
+        state = state.copy(choices = emptyList())
+      }
+      return
+    }
+    val targetObstacle = currentTargetObstacle
+    if (targetObstacle == null) {
+      choicesObstacleId = null
+      if (state.choices.isNotEmpty()) {
+        state = state.copy(choices = emptyList())
+      }
+      return
+    }
+    if (choicesObstacleId == targetObstacle.id) return
+    choicesObstacleId = targetObstacle.id
+
+    val target = targetObstacle.item
+    val shuffledCandidates = random.shuffled(deck)
+    val distractors = ArrayList<XrLanguageTeacherVocabRunnerDeckItem>(CHOICE_BUTTON_COUNT - 1)
+    val usedForms = target.targetMatchForms.toMutableSet()
+    val usedDisplayWords =
+      mutableSetOf(XrLanguageTeacherSpeechMatcher.normalizeSpeechMatchText(target.displayWord))
+    val neededDistractors = CHOICE_BUTTON_COUNT - 1
+
+    for (candidate in shuffledCandidates) {
+      if (distractors.size >= neededDistractors) break
+      if (candidate.entryKey == target.entryKey) continue
+      val normalizedDisplay =
+        XrLanguageTeacherSpeechMatcher.normalizeSpeechMatchText(candidate.displayWord)
+      if (normalizedDisplay.isNotEmpty() && normalizedDisplay in usedDisplayWords) continue
+      if (candidate.targetMatchForms.intersect(usedForms).isNotEmpty()) continue
+      distractors += candidate
+      usedForms += candidate.targetMatchForms
+      if (normalizedDisplay.isNotEmpty()) usedDisplayWords += normalizedDisplay
+    }
+
+    if (distractors.size < neededDistractors) {
+      for (candidate in shuffledCandidates) {
+        if (distractors.size >= neededDistractors) break
+        if (candidate.entryKey == target.entryKey) continue
+        if (distractors.any { it.entryKey == candidate.entryKey }) continue
+        if (candidate.targetMatchForms.intersect(usedForms).isNotEmpty()) continue
+        distractors += candidate
+        usedForms += candidate.targetMatchForms
+      }
+    }
+
+    val options = random.shuffled(listOf(target) + distractors)
+    state = state.copy(choices = options)
+  }
+
   /**
    * Returns [obstacles] topped up with freshly drawn obstacles up to the off-screen spawn horizon,
-   * spaced more tightly as [score] grows.
+   * spaced more tightly as [correctCount] (or Tap difficulty progress) grows.
    */
   private fun withUpcomingObstacles(
     obstacles: List<XrLanguageTeacherVocabRunnerObstacle>,
-    score: Int,
+    correctCount: Int,
   ): List<XrLanguageTeacherVocabRunnerObstacle> {
     if (deck.isEmpty()) return obstacles
-    val spacingReduction = score * SPACING_REDUCTION_PER_CLEAR
-    val minSpacing = max(FLOOR_MIN_SPACING, INITIAL_MIN_SPACING - spacingReduction)
-    val maxSpacing = max(FLOOR_MAX_SPACING, INITIAL_MAX_SPACING - spacingReduction)
+    val minSpacing: Float
+    val maxSpacing: Float
+    when (mode) {
+      XrLanguageTeacherVocabGameMode.SPEAK -> {
+        val spacingReduction = correctCount * SPACING_REDUCTION_PER_CLEAR
+        minSpacing = max(FLOOR_MIN_SPACING, INITIAL_MIN_SPACING - spacingReduction)
+        maxSpacing = max(FLOOR_MAX_SPACING, INITIAL_MAX_SPACING - spacingReduction)
+      }
+      XrLanguageTeacherVocabGameMode.TAP -> {
+        val progress = tapDifficultyProgress
+        minSpacing =
+          TAP_INITIAL_MIN_SPACING - progress * (TAP_INITIAL_MIN_SPACING - TAP_FLOOR_MIN_SPACING)
+        maxSpacing =
+          TAP_INITIAL_MAX_SPACING - progress * (TAP_INITIAL_MAX_SPACING - TAP_FLOOR_MAX_SPACING)
+      }
+    }
+    val initialStartX =
+      if (mode == XrLanguageTeacherVocabGameMode.TAP) TAP_FIRST_OBSTACLE_START_X
+      else FIRST_OBSTACLE_START_X
     val result = obstacles.toMutableList()
     while (result.size < MAX_ACTIVE_OBSTACLES) {
       val lastX = result.lastOrNull()?.x
       if (lastX != null && lastX >= SPAWN_HORIZON_X) break
       val nextX =
-        if (lastX != null) lastX + random.nextFloat(minSpacing, maxSpacing)
-        else FIRST_OBSTACLE_START_X
+        if (lastX != null) lastX + random.nextFloat(minSpacing, maxSpacing) else initialStartX
       val item = drawNextDeckItem(recentWord = result.lastOrNull()?.item?.word) ?: break
       result += XrLanguageTeacherVocabRunnerObstacle(id = nextObstacleId++, item = item, x = nextX)
     }
@@ -390,6 +693,15 @@ class XrLanguageTeacherVocabRunnerEngine(
     /** Minimum number of saved vocabulary words with sticker images required to play. */
     const val MINIMUM_STICKER_VOCABULARY_COUNT = 3
 
+    /** Minimum number of saved vocabulary words with sticker images required for `Tap` mode. */
+    const val MINIMUM_TAP_STICKER_VOCABULARY_COUNT = 4
+
+    /** Number of lives in `Tap` mode. */
+    const val INITIAL_LIVES = 3
+
+    /** Number of multiple-choice buttons displayed in `Tap` mode. */
+    const val CHOICE_BUTTON_COUNT = 4
+
     /** Length of a round. */
     const val ROUND_DURATION_MILLISECONDS = 60_000L
 
@@ -402,28 +714,43 @@ class XrLanguageTeacherVocabRunnerEngine(
     /** Initial obstacle scroll speed in normalized track units per second. */
     const val INITIAL_SCROLL_SPEED = 0.27f
 
-    /** Maximum obstacle scroll speed in normalized track units per second. */
+    /** Maximum obstacle scroll speed in normalized track units per second (`Speak` mode). */
     const val MAX_SCROLL_SPEED = 0.48f
 
-    /** Scroll speed added per cleared obstacle. */
+    /** Maximum obstacle scroll speed in normalized track units per second (`Tap` mode). */
+    const val MAX_TAP_SCROLL_SPEED = 0.52f
+
+    /** Scroll speed added per cleared obstacle (`Speak` mode). */
     const val SPEED_PER_OBSTACLE_CLEARED = 0.012f
 
     /** Half-width of the horizontal hit window around [BUDDY_X]. */
     const val COLLISION_HALF_WIDTH = 0.055f
 
-    /** Smallest gap between consecutive obstacles at the start of a round. */
+    /** Smallest gap between consecutive obstacles at the start of a round (`Speak` mode). */
     const val INITIAL_MIN_SPACING = 0.64f
 
-    /** Largest gap between consecutive obstacles at the start of a round. */
+    /** Largest gap between consecutive obstacles at the start of a round (`Speak` mode). */
     const val INITIAL_MAX_SPACING = 0.84f
 
-    /** Smallest gap between consecutive obstacles once the spacing stops tightening. */
+    /** Smallest gap between consecutive obstacles once spacing stops tightening (`Speak` mode). */
     const val FLOOR_MIN_SPACING = 0.36f
 
-    /** Largest gap between consecutive obstacles once the spacing stops tightening. */
+    /** Largest gap between consecutive obstacles once spacing stops tightening (`Speak` mode). */
     const val FLOOR_MAX_SPACING = 0.48f
 
-    /** How much both gaps tighten per cleared obstacle. */
+    /** Smallest gap between consecutive obstacles at the start of a round (`Tap` mode). */
+    const val TAP_INITIAL_MIN_SPACING = 0.68f
+
+    /** Largest gap between consecutive obstacles at the start of a round (`Tap` mode). */
+    const val TAP_INITIAL_MAX_SPACING = 0.86f
+
+    /** Smallest gap between consecutive obstacles once spacing stops tightening (`Tap` mode). */
+    const val TAP_FLOOR_MIN_SPACING = 0.34f
+
+    /** Largest gap between consecutive obstacles once spacing stops tightening (`Tap` mode). */
+    const val TAP_FLOOR_MAX_SPACING = 0.46f
+
+    /** How much both gaps tighten per cleared obstacle (`Speak` mode). */
     const val SPACING_REDUCTION_PER_CLEAR = 0.016f
 
     /** New obstacles spawn until the last one is at least this far right, off screen. */
@@ -435,6 +762,9 @@ class XrLanguageTeacherVocabRunnerEngine(
     private const val MAX_ACTIVE_OBSTACLES = 8
     private const val MAX_MATCHABLE_OBSTACLE_X = 1.08f
     private const val FIRST_OBSTACLE_START_X = 1.05f
+    private const val TAP_FIRST_OBSTACLE_START_X = 0.86f
+    private const val OFFSCREEN_PULL_IN_THRESHOLD_X = 1.14f
+    private const val OFFSCREEN_PULL_IN_TARGET_X = 0.98f
     private const val DESPAWN_X = -0.18f
     private const val CLEAR_ANIMATION_SECONDS = 0.22f
     private const val INITIAL_KNOCKBACK_SPEED = 1.95f

@@ -17,6 +17,8 @@
 package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels
 
 import androidx.compose.ui.graphics.ImageBitmap
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabGameEndReason
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabGameMode
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabRunnerDeckItem
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabRunnerEngine
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabRunnerPhase
@@ -29,29 +31,40 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-/** Preference key of the best `Vocab Runner` score. */
+/** Preference key of the best `Vocab Runner` (`Speak` mode) score. */
 internal const val VOCAB_RUNNER_HIGH_SCORE_KEY = "xr_language_teacher_vocab_runner_high_score"
+
+/** Preference key of the best `Vocab Runner` (`Tap` mode) score. */
+internal const val VOCAB_RUNNER_TAP_HIGH_SCORE_KEY =
+  "xr_language_teacher_vocab_runner_tap_high_score"
 
 /**
  * The game chrome state of a `Vocab Runner` round. It only changes on a clear, a countdown second,
- * a microphone change, or a setting, so the chrome doesn't recompose on every frame.
+ * a life or choice change, a microphone change, or a setting, so the chrome doesn't recompose on
+ * every frame.
  */
 data class XrLanguageTeacherVocabRunnerUiState(
+  val mode: XrLanguageTeacherVocabGameMode = XrLanguageTeacherVocabGameMode.TAP,
   val phase: XrLanguageTeacherVocabRunnerPhase = XrLanguageTeacherVocabRunnerPhase.PLAYING,
+  val endReason: XrLanguageTeacherVocabGameEndReason =
+    XrLanguageTeacherVocabGameEndReason.TIME_EXPIRED,
   /** The whole seconds left in the round, rounded up. */
   val remainingSeconds: Int = 0,
   val score: Int = 0,
   val highScore: Int = 0,
   val isNewHighScore: Boolean = false,
+  val lives: Int = XrLanguageTeacherVocabRunnerEngine.INITIAL_LIVES,
+  val maxLives: Int = XrLanguageTeacherVocabRunnerEngine.INITIAL_LIVES,
+  val choices: List<XrLanguageTeacherVocabRunnerDeckItem> = emptyList(),
   val micState: XrLanguageTeacherGameMicState = XrLanguageTeacherGameMicState.STARTING,
   val isMuted: Boolean = false,
   /**
    * The word shown in the status bar for a moment: the word just cleared, or (when
-   * [isCelebrationMissedWord]) the word of an obstacle that broke after its last bump; `null` when
-   * there is none.
+   * [isCelebrationMissedWord]) the word of an obstacle that broke or was missed; `null` when there
+   * is none.
    */
   val celebrationWord: String? = null,
-  /** Whether [celebrationWord] is a missed word, shown as a "Word was" hint. */
+  /** Whether [celebrationWord] is a missed word, shown as a "Word was" error hint. */
   val isCelebrationMissedWord: Boolean = false,
 )
 
@@ -86,6 +99,7 @@ class XrLanguageTeacherVocabRunnerViewModel(
   XrLanguageTeacherVocabGameViewModel(
     dependencies = dependencies,
     speakHighScoreKey = VOCAB_RUNNER_HIGH_SCORE_KEY,
+    tapHighScoreKey = VOCAB_RUNNER_TAP_HIGH_SCORE_KEY,
     randomSeed = randomSeed,
   ) {
   private val _uiState = MutableStateFlow(XrLanguageTeacherVocabRunnerUiState())
@@ -99,6 +113,9 @@ class XrLanguageTeacherVocabRunnerViewModel(
   /** Whether the next celebrated word is a missed word rather than a cleared one. */
   private var nextCelebrationIsMissedWord = false
 
+  override var mode: XrLanguageTeacherVocabGameMode = XrLanguageTeacherVocabGameMode.TAP
+    private set
+
   override val isPlaying: Boolean
     get() = _uiState.value.phase == XrLanguageTeacherVocabRunnerPhase.PLAYING
 
@@ -107,10 +124,17 @@ class XrLanguageTeacherVocabRunnerViewModel(
 
   /**
    * Sets up a round with up to [GAME_MAX_DECK_SIZE] words of [entries] (all saved for
-   * [learnLanguage], with images) and starts preparing their sticker sprites, publishing each as it
-   * is ready. Listening starts with [startListening].
+   * [learnLanguage], with images) in [mode] and starts preparing their sticker sprites, publishing
+   * each as it is ready. In `Speak` mode, listening starts with [startListening]; in `Tap` mode,
+   * the round starts immediately without microphone access.
    */
-  fun startRun(learnLanguage: Language, entries: List<DictionaryEntry>) {
+  fun startRun(
+    learnLanguage: Language,
+    entries: List<DictionaryEntry>,
+    mode: XrLanguageTeacherVocabGameMode = XrLanguageTeacherVocabGameMode.TAP,
+  ) {
+    endSession()
+    this.mode = mode
     deck =
       beginSession(learnLanguage, entries).map { entry ->
         XrLanguageTeacherVocabRunnerDeckItem(
@@ -120,11 +144,93 @@ class XrLanguageTeacherVocabRunnerViewModel(
         )
       }
     val newEngine = createEngine()
+    val initialMicState =
+      if (mode == XrLanguageTeacherVocabGameMode.TAP) {
+        XrLanguageTeacherGameMicState.STOPPED
+      } else {
+        XrLanguageTeacherGameMicState.STARTING
+      }
     _uiState.value =
-      chromeStateFor(newEngine.state, base = XrLanguageTeacherVocabRunnerUiState())
-        .copy(isMuted = soundEffects.isMuted)
+      chromeStateFor(newEngine.state, base = XrLanguageTeacherVocabRunnerUiState(mode = mode))
+        .copy(isMuted = soundEffects.isMuted, micState = initialMicState)
     _arenaState.update {
       it.copy(game = newEngine.state, edgeGlowIntensity = 0f, isCollisionGlow = false)
+    }
+  }
+
+  /** Evaluates a multiple-choice button selection in `Tap` mode. */
+  fun selectChoice(entryKey: String) {
+    val engine = engine ?: return
+    if (
+      mode != XrLanguageTeacherVocabGameMode.TAP ||
+        engine.state.phase != XrLanguageTeacherVocabRunnerPhase.PLAYING
+    ) {
+      return
+    }
+    val outcome = engine.selectChoice(entryKey) ?: return
+    val game = engine.state
+    if (outcome.isCorrect) {
+      soundEffects.playPop()
+      persistHighScoreIfNeeded(game.highScore)
+      _arenaState.update { it.copy(game = game, edgeGlowIntensity = 1f, isCollisionGlow = false) }
+      _uiState.update { chromeStateFor(game, base = it) }
+      nextCelebrationIsMissedWord = false
+      celebrate(outcome.correctItem.displayWord)
+    } else {
+      soundEffects.playCollision()
+      _arenaState.update { it.copy(game = game, edgeGlowIntensity = 1f, isCollisionGlow = true) }
+      _uiState.update { chromeStateFor(game, base = it) }
+      nextCelebrationIsMissedWord = true
+      celebrate(outcome.correctItem.displayWord)
+      if (outcome.didFinishRound) {
+        finishRound(game.highScore)
+      }
+    }
+  }
+
+  /**
+   * Deterministically steps the runner simulation by [deltaMilliseconds] in `<= 100ms` ticks for
+   * unit and Scuba snapshot setup.
+   */
+  fun stepSimulation(deltaMilliseconds: Long) {
+    val engine = engine ?: return
+    if (deltaMilliseconds <= 0L) return
+    var remaining = deltaMilliseconds
+    var glow = _arenaState.value.edgeGlowIntensity
+    var isCollisionGlow = _arenaState.value.isCollisionGlow
+    var didCollideAny = false
+    var missedWordAny: String? = null
+    var didFinishRoundAny = false
+    while (remaining > 0L && engine.state.phase == XrLanguageTeacherVocabRunnerPhase.PLAYING) {
+      val chunk = minOf(remaining, 100L)
+      remaining -= chunk
+      glow = decayEdgeGlow(glow, chunk)
+      if (glow <= 0f) isCollisionGlow = false
+      val stepEvents = engine.step(chunk)
+      if (stepEvents.didCollide) {
+        didCollideAny = true
+        isCollisionGlow = true
+        glow = 1f
+      }
+      if (stepEvents.missedWord != null) {
+        missedWordAny = stepEvents.missedWord
+      }
+      if (stepEvents.didFinishRound) {
+        didFinishRoundAny = true
+      }
+    }
+    val game = engine.state
+    if (didCollideAny) soundEffects.playCollision()
+    _arenaState.update {
+      it.copy(game = game, edgeGlowIntensity = glow, isCollisionGlow = isCollisionGlow)
+    }
+    _uiState.update { chromeStateFor(game, base = it) }
+    missedWordAny?.let { missedWord ->
+      nextCelebrationIsMissedWord = true
+      celebrate(missedWord)
+    }
+    if (didFinishRoundAny) {
+      finishRound(game.highScore)
     }
   }
 
@@ -142,10 +248,11 @@ class XrLanguageTeacherVocabRunnerViewModel(
     if (events.didCollide) soundEffects.playCollision()
     _arenaState.update {
       val glow = if (events.didCollide) 1f else it.edgeGlowIntensity
+      val newGlow = decayEdgeGlow(glow, deltaMilliseconds)
       it.copy(
         game = game,
-        edgeGlowIntensity = decayEdgeGlow(glow, deltaMilliseconds),
-        isCollisionGlow = events.didCollide || it.isCollisionGlow,
+        edgeGlowIntensity = newGlow,
+        isCollisionGlow = if (newGlow <= 0f) false else (events.didCollide || it.isCollisionGlow),
       )
     }
     _uiState.update { chromeStateFor(game, base = it) }
@@ -159,6 +266,7 @@ class XrLanguageTeacherVocabRunnerViewModel(
   }
 
   override fun onTranscript(transcript: String) {
+    if (mode != XrLanguageTeacherVocabGameMode.SPEAK) return
     val engine = engine ?: return
     if (engine.state.phase != XrLanguageTeacherVocabRunnerPhase.PLAYING) return
     val clearEvent = engine.processTranscript(transcript)
@@ -173,7 +281,7 @@ class XrLanguageTeacherVocabRunnerViewModel(
     celebrate(clearEvent.matchedWord)
   }
 
-  /** Starts a new 60-second round with the same words. */
+  /** Starts a new 60-second round with the same words and mode. */
   fun playAgain() {
     restartRound {
       val newEngine = createEngine()
@@ -222,6 +330,7 @@ class XrLanguageTeacherVocabRunnerViewModel(
     resetFrameClock()
     return XrLanguageTeacherVocabRunnerEngine(
         deck = deck,
+        mode = mode,
         initialHighScore = highScore,
         randomSeed = randomSeed(),
       )
@@ -233,10 +342,15 @@ class XrLanguageTeacherVocabRunnerViewModel(
     base: XrLanguageTeacherVocabRunnerUiState,
   ): XrLanguageTeacherVocabRunnerUiState =
     base.copy(
+      mode = mode,
       phase = game.phase,
+      endReason = game.endReason,
       remainingSeconds = remainingSecondsFor(game.remainingMilliseconds),
       score = game.score,
       highScore = game.highScore,
       isNewHighScore = game.isNewHighScore,
+      lives = game.lives,
+      maxLives = game.maxLives,
+      choices = game.choices,
     )
 }

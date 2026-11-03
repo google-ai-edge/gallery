@@ -17,12 +17,29 @@
 package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.studyview
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -43,7 +60,10 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -57,7 +77,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabGameEndReason
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabGameMode
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabRunnerBuddyPose
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabRunnerDeckItem
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabRunnerEngine
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabRunnerObstacle
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabRunnerPhase
@@ -68,8 +91,11 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLan
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherVocabRunnerUiState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherVocabRunnerViewModel
 
-/** The track's height in the arena, as a fraction of the arena height. */
-private const val TRACK_Y_FRACTION = 0.56f
+/** The track's height in the arena, as a fraction of the arena height (`Speak` mode). */
+private const val SPEAK_TRACK_Y_FRACTION = 0.56f
+
+/** The track's height in the arena, as a fraction of the arena height (`Tap` mode). */
+private const val TAP_TRACK_Y_FRACTION = 0.48f
 
 /** How much a cleared obstacle grows as it pops, or a broken one shrinks, over its fade out. */
 private const val OBSTACLE_CLEAR_SCALE_CHANGE = 0.35f
@@ -117,6 +143,7 @@ fun VocabRunnerScreen(
     uiState = uiState,
     arenaState = { arenaState.value },
     heardWords = heardWords,
+    onSelectChoice = viewModel::selectChoice,
     onToggleMute = viewModel::toggleMute,
     onPlayAgain = viewModel::playAgain,
     onExit = onExit,
@@ -137,10 +164,17 @@ fun VocabRunnerContent(
   onPlayAgain: () -> Unit,
   onExit: () -> Unit,
   modifier: Modifier = Modifier,
+  onSelectChoice: (String) -> Unit = {},
 ) {
   if (uiState.phase == XrLanguageTeacherVocabRunnerPhase.FINISHED) {
+    val headlineRes =
+      if (uiState.endReason == XrLanguageTeacherVocabGameEndReason.OUT_OF_LIVES) {
+        R.string.xrteacher_game_over_headline
+      } else {
+        R.string.xrteacher_game_times_up
+      }
     VocabGameResults(
-      headline = stringResource(R.string.xrteacher_game_times_up),
+      headline = stringResource(headlineRes),
       score = uiState.score,
       bestScore = uiState.highScore,
       isNewHighScore = uiState.isNewHighScore,
@@ -151,9 +185,45 @@ fun VocabRunnerContent(
     )
     return
   }
-  Box(modifier = modifier.fillMaxSize()) {
+  val isTapMode = uiState.mode == XrLanguageTeacherVocabGameMode.TAP
+  val trackYFraction = if (isTapMode) TAP_TRACK_Y_FRACTION else SPEAK_TRACK_Y_FRACTION
+  val celebrationText =
+    uiState.celebrationWord?.let {
+      stringResource(
+        if (uiState.isCelebrationMissedWord) {
+          R.string.xrteacher_vocab_runner_missed_hint
+        } else {
+          R.string.xrteacher_vocab_runner_passed
+        },
+        it,
+      )
+    }
+
+  BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+    val trackTopOffset = maxHeight * trackYFraction
     VocabGameBackground()
-    VocabRunnerArena(arenaState = arenaState, modifier = Modifier.fillMaxSize())
+    VocabRunnerArena(
+      arenaState = arenaState,
+      trackYFraction = trackYFraction,
+      modifier = Modifier.fillMaxSize(),
+    )
+    if (isTapMode) {
+      VocabRunnerChoiceGrid(
+        choices = uiState.choices,
+        onSelectChoice = onSelectChoice,
+        modifier =
+          Modifier.fillMaxSize()
+            .windowInsetsPadding(
+              WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
+            )
+            .padding(
+              start = 8.dp,
+              top = (trackTopOffset + 18.dp).coerceAtLeast(0.dp),
+              end = 8.dp,
+              bottom = 8.dp,
+            ),
+      )
+    }
     VocabGameEdgeGlow(
       color = {
         if (arenaState().isCollisionGlow) VocabGameColors.urgentRed else VocabGameColors.popGreen
@@ -166,29 +236,134 @@ fun VocabRunnerContent(
       verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
       VocabGameTopBar(isMuted = uiState.isMuted, onToggleMute = onToggleMute, onExit = onExit) {
-        VocabGameTimer(remainingSeconds = uiState.remainingSeconds)
+        if (isTapMode) {
+          Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            VocabGameTimer(remainingSeconds = uiState.remainingSeconds)
+            VocabGameLivesIndicator(lives = uiState.lives, maxLives = uiState.maxLives)
+          }
+        } else {
+          VocabGameTimer(remainingSeconds = uiState.remainingSeconds)
+        }
       }
       VocabGameScoreboard(score = uiState.score, bestScore = uiState.highScore)
+      if (isTapMode) {
+        VocabRunnerTapStatusBannerSlot(
+          statusText = celebrationText,
+          isError = uiState.isCelebrationMissedWord,
+        )
+      }
       Spacer(modifier = Modifier.weight(1f))
-      VocabGameStatusBar(
-        micState = uiState.micState,
-        listeningHint = stringResource(R.string.xrteacher_vocab_runner_listening_hint),
-        micPermissionMessage =
-          stringResource(R.string.xrteacher_vocab_runner_mic_permission_needed),
-        celebrationText =
-          uiState.celebrationWord?.let {
-            stringResource(
-              if (uiState.isCelebrationMissedWord) {
-                R.string.xrteacher_vocab_runner_missed_hint
-              } else {
-                R.string.xrteacher_vocab_runner_passed
-              },
-              it,
-            )
-          },
-        heardWords = heardWords,
+      if (!isTapMode) {
+        VocabGameStatusBar(
+          micState = uiState.micState,
+          listeningHint = stringResource(R.string.xrteacher_vocab_runner_listening_hint),
+          micPermissionMessage =
+            stringResource(R.string.xrteacher_vocab_runner_mic_permission_needed),
+          celebrationText = celebrationText,
+          heardWords = heardWords,
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun VocabRunnerTapStatusBannerSlot(
+  statusText: String?,
+  isError: Boolean,
+  modifier: Modifier = Modifier,
+) {
+  if (!statusText.isNullOrEmpty()) {
+    Box(
+      modifier =
+        modifier
+          .padding(horizontal = 16.dp)
+          .height(34.dp)
+          .background(VocabGameColors.chromePill.copy(alpha = 0.95f), CircleShape)
+          .padding(horizontal = 18.dp)
+          .semantics { liveRegion = LiveRegionMode.Polite },
+      contentAlignment = Alignment.Center,
+    ) {
+      Text(
+        text = statusText,
+        color = if (isError) VocabGameColors.urgentRed else VocabGameColors.popGreen,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
       )
     }
+  } else {
+    Spacer(modifier = modifier.height(34.dp))
+  }
+}
+
+/**
+ * Full-area two-by-two multiple-choice button grid filling the space directly beneath the runner
+ * track in `Buddy Runner` `Tap` mode.
+ */
+@Composable
+fun VocabRunnerChoiceGrid(
+  choices: List<XrLanguageTeacherVocabRunnerDeckItem>,
+  onSelectChoice: (String) -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  val rowCount = (choices.size + 1) / 2
+  Column(modifier = modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    for (rowIndex in 0 until rowCount) {
+      Row(
+        modifier = Modifier.fillMaxWidth().weight(1f),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+      ) {
+        val firstIndex = rowIndex * 2
+        VocabRunnerChoiceTile(
+          choice = choices[firstIndex],
+          onSelectChoice = onSelectChoice,
+          modifier = Modifier.weight(1f).fillMaxSize(),
+        )
+        if (firstIndex + 1 < choices.size) {
+          VocabRunnerChoiceTile(
+            choice = choices[firstIndex + 1],
+            onSelectChoice = onSelectChoice,
+            modifier = Modifier.weight(1f).fillMaxSize(),
+          )
+        } else {
+          Spacer(modifier = Modifier.weight(1f))
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun VocabRunnerChoiceTile(
+  choice: XrLanguageTeacherVocabRunnerDeckItem,
+  onSelectChoice: (String) -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  FilledTonalButton(
+    onClick = { onSelectChoice(choice.entryKey) },
+    modifier = modifier,
+    shape = RoundedCornerShape(20.dp),
+    colors =
+      ButtonDefaults.filledTonalButtonColors(
+        containerColor = VocabGameColors.chromePill.copy(alpha = 0.95f),
+        contentColor = Color.White,
+      ),
+    contentPadding = PaddingValues(12.dp),
+  ) {
+    Text(
+      text = choice.displayWord,
+      color = Color.White,
+      fontSize = 22.sp,
+      fontWeight = FontWeight.Bold,
+      textAlign = TextAlign.Center,
+      maxLines = 3,
+      overflow = TextOverflow.Ellipsis,
+    )
   }
 }
 
@@ -196,6 +371,7 @@ fun VocabRunnerContent(
 @Composable
 private fun VocabRunnerArena(
   arenaState: () -> XrLanguageTeacherVocabRunnerArenaState,
+  trackYFraction: Float,
   modifier: Modifier = Modifier,
 ) {
   val textMeasurer = rememberTextMeasurer()
@@ -203,7 +379,7 @@ private fun VocabRunnerArena(
   val drawTools = remember(density) { RunnerDrawTools(density) }
   Canvas(modifier = modifier.clearAndSetSemantics {}) {
     val arena = arenaState()
-    val trackY = size.height * TRACK_Y_FRACTION
+    val trackY = size.height * trackYFraction
     drawTrack(trackY = trackY, trackDistance = arena.game.trackDistance)
     for (obstacle in arena.game.obstacles) {
       drawObstacle(
