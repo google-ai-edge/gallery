@@ -158,6 +158,13 @@ interface LlmSessionManager {
   suspend fun cacheSessionAudio(sessionId: String, audioData: ByteArray): String? = null
 
   /**
+   * Moves the attached file at [sourcePath] into local session storage for [sessionId] and returns
+   * the resulting absolute file path, or null if caching fails. The file at [sourcePath] no longer
+   * exists once caching succeeds.
+   */
+  suspend fun cacheSessionFile(sessionId: String, sourcePath: String): String? = null
+
+  /**
    * Runs inference for the given session on the specified [model].
    *
    * Assumes only one session and inference operation can run at a time in the application.

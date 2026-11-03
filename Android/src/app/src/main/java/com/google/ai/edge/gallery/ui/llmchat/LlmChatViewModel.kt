@@ -30,6 +30,7 @@ import com.google.ai.edge.gallery.agent.AiChatExecutor
 import com.google.ai.edge.gallery.agent.Attachment
 import com.google.ai.edge.gallery.agent.sessions.ContextCompactionSource
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
+import com.google.ai.edge.gallery.agent.sessions.formatAttachedFilePrompt
 import com.google.ai.edge.gallery.agent.sessions.generateSessionId
 import com.google.ai.edge.gallery.common.SystemPromptHelper
 import com.google.ai.edge.gallery.common.metrics.InferenceMetrics
@@ -46,6 +47,7 @@ import com.google.ai.edge.gallery.proto.ChatSessionProto
 import com.google.ai.edge.gallery.tools.ToolAction
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageError
+import com.google.ai.edge.gallery.ui.common.chat.ChatMessageFile
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageInfo
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageLoading
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageMapper
@@ -205,6 +207,7 @@ open class LlmChatViewModelBase(
     input: String,
     images: List<Bitmap> = listOf(),
     audioMessages: List<ChatMessageAudioClip> = listOf(),
+    files: List<ChatMessageFile> = listOf(),
     onFirstToken: (Model) -> Unit = {},
     onDone: () -> Unit = {},
     onError: (String) -> Unit,
@@ -218,10 +221,13 @@ open class LlmChatViewModelBase(
 
       if (sessionStoppedByModel[model.name] == true) {
         sessionStoppedByModel[model.name] = false
+        // The messages of the current turn (its attached files followed by its text, if any) have
+        // already been added to the chat, but they are sent with this request rather than seeded.
+        val currentTurnMessageCount = files.size + (if (input.isNotEmpty()) 1 else 0)
         val initialMessages =
           (uiState.value.messagesByModel[model.name] ?: emptyList())
-            .filterIsInstance<ChatMessageText>()
-            .dropLast(1)
+            .filter { it is ChatMessageText || it is ChatMessageFile }
+            .dropLast(currentTurnMessageCount)
             .mapNotNull { convertToLitertMessage(it) }
         val config =
           AgentRuntimeConfig(
@@ -252,6 +258,16 @@ open class LlmChatViewModelBase(
         attachments.add(Attachment.AudioBytes(audioMessage.genByteArrayForWav()))
       }
 
+      val fileAttachmentsContext =
+        files.joinToString("\n\n") { file -> formatAttachedFilePrompt(file.name, file.content) }
+      val finalQuery =
+        when {
+          fileAttachmentsContext.isNotEmpty() && input.isNotBlank() ->
+            "$input\n\n$fileAttachmentsContext"
+          fileAttachmentsContext.isNotEmpty() -> fileAttachmentsContext
+          else -> input
+        }
+
       val enableThinking =
         allowThinking &&
           model.getBooleanConfigValue(key = ConfigKeys.ENABLE_THINKING, defaultValue = false)
@@ -264,7 +280,7 @@ open class LlmChatViewModelBase(
           }
         }
 
-      val request = AgentRequest(query = input, attachments = attachments, metadata = metadata)
+      val request = AgentRequest(query = finalQuery, attachments = attachments, metadata = metadata)
 
       val executionContext = AgentExecutionContext()
 

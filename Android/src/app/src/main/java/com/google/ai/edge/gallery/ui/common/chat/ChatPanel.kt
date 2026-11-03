@@ -164,9 +164,11 @@ fun ChatPanel(
   onSkillClicked: () -> Unit = {},
   onMcpClicked: () -> Unit = {},
   onImageSelected: (bitmaps: List<Bitmap>, selectedBitmapIndex: Int) -> Unit = { _, _ -> },
+  onFileSelected: (ChatMessageFile) -> Unit = {},
   showStopButtonInInputWhenInProgress: Boolean = false,
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
+  showTextFilePicker: Boolean = false,
   emptyStateComposable: @Composable (Model) -> Unit = {},
   onNewChatClicked: () -> Unit = {},
   ttsController: TtsPlaybackController? = null,
@@ -175,6 +177,7 @@ fun ChatPanel(
   val messages = uiState.messagesByModel[selectedModel.name] ?: listOf()
   val modelInitStatus by selectedModel.initStatusFlow.collectAsState()
   val isLiveMetricsFlagEnabled = false
+  val isTextFileInputEnabled = false
   val isLiveMetricsSupported = isLiveMetricsFlagEnabled && !selectedModel.isAiCore
   val hasLiveMetrics by
     remember(viewModel, selectedModel.name, isLiveMetricsSupported) {
@@ -683,6 +686,14 @@ fun ChatPanel(
                       // Audio clip.
                       is ChatMessageAudioClip -> MessageBodyAudioClip(message = message)
 
+                      // File.
+                      is ChatMessageFile ->
+                        MessageBodyFile(
+                          message = message,
+                          onCopyClicked = copyToClipboard,
+                          onFileClicked = onFileSelected,
+                        )
+
                       // Benchmark result.
                       is ChatMessageBenchmarkResult -> MessageBodyBenchmark(message = message)
 
@@ -992,6 +1003,7 @@ fun ChatPanel(
         },
         showImagePicker = showImagePicker,
         showAudioPicker = showAudioPicker,
+        showTextFilePicker = showTextFilePicker && isTextFileInputEnabled,
         showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
         isContextLimitReached = isContextLimitReached,
         onImageLimitExceeded = { showImageLimitBanner = true },

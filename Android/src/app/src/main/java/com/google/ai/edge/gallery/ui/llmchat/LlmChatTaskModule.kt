@@ -149,6 +149,7 @@ abstract class BaseLlmChatTask(
       curSystemPrompt = uiSystemPrompt,
       showImagePicker = true,
       showAudioPicker = true,
+      showTextFilePicker = true,
       onSystemPromptChanged = { newPrompt ->
         val selectedModel = myData.modelManagerViewModel.uiState.value.selectedModel
         viewModel.applySystemPromptChange(

@@ -100,7 +100,7 @@ constructor(private val chatSessionRepository: ChatSessionRepository) : ContextC
     }
 
     currentCoroutineContext().ensureActive()
-    val allTextMessages = loadPersistedTextMessages(sessionId)
+    val allSeededMessages = loadPersistedSeededMessages(sessionId)
 
     val supportImage = sessionConfig?.supportImage ?: false
     val supportAudio = sessionConfig?.supportAudio ?: false
@@ -116,7 +116,9 @@ constructor(private val chatSessionRepository: ChatSessionRepository) : ContextC
 
     if (!isPrefilled && !force) {
       val estimatedTokens =
-        systemTokens + toolTokens + allTextMessages.sumOf { estimateMessageTokens(it.content) }
+        systemTokens +
+          toolTokens +
+          allSeededMessages.sumOf { estimateMessageTokens(it.seededContent) }
       if (!isOverTokenThreshold(estimatedTokens, maxTokens)) {
         return CompactionReport(CompactionResult.NOT_NEEDED)
       }
@@ -130,7 +132,7 @@ constructor(private val chatSessionRepository: ChatSessionRepository) : ContextC
 
     // A trailing user message is a pending turn that the next inference request sends itself, so
     // it is never seeded into the conversation history.
-    val candidateMessages = allTextMessages.dropLastWhile {
+    val candidateMessages = allSeededMessages.dropLastWhile {
       it.side == ChatSideProto.CHAT_SIDE_USER
     }
     val rawTargetBudget = (maxTokens * TRUNCATION_TARGET_RATIO).toInt()
@@ -151,7 +153,7 @@ constructor(private val chatSessionRepository: ChatSessionRepository) : ContextC
     var accumulatedTokens = 0
     for (i in candidateMessages.indices.reversed()) {
       val message = candidateMessages[i]
-      val messageTokens = estimateMessageTokens(message.content)
+      val messageTokens = estimateMessageTokens(message.seededContent)
       if (accumulatedTokens + messageTokens > targetTokenBudget) {
         break
       }
@@ -169,9 +171,9 @@ constructor(private val chatSessionRepository: ChatSessionRepository) : ContextC
 
     val truncatedMessages = keptMessages.map { proto ->
       if (proto.side == ChatSideProto.CHAT_SIDE_USER) {
-        Message.user(Contents.of(proto.content))
+        Message.user(Contents.of(proto.seededContent))
       } else {
-        Message.model(Contents.of(proto.content))
+        Message.model(Contents.of(proto.seededContent))
       }
     }
 
@@ -188,11 +190,11 @@ constructor(private val chatSessionRepository: ChatSessionRepository) : ContextC
       )
       Log.i(
         TAG,
-        "Context truncation and conversation reset complete for session $sessionId (kept ${truncatedMessages.size} of ${allTextMessages.size} messages, targetBudget=$targetTokenBudget tokens).",
+        "Context truncation and conversation reset complete for session $sessionId (kept ${truncatedMessages.size} of ${allSeededMessages.size} messages, targetBudget=$targetTokenBudget tokens).",
       )
       CompactionReport(
         result = CompactionResult.COMPACTED,
-        compactedCharCount = keptMessages.sumOf { it.content.length },
+        compactedCharCount = keptMessages.sumOf { it.seededContent.length },
       )
     } catch (e: CancellationException) {
       throw e
@@ -215,10 +217,10 @@ constructor(private val chatSessionRepository: ChatSessionRepository) : ContextC
   }
 
   /**
-   * Returns the persisted user and model text messages of [sessionId], or an empty list if they
-   * cannot be read.
+   * Returns the persisted user and model text and attached file messages of [sessionId], or an
+   * empty list if they cannot be read.
    */
-  private suspend fun loadPersistedTextMessages(sessionId: String): List<ChatMessageProto> {
+  private suspend fun loadPersistedSeededMessages(sessionId: String): List<ChatMessageProto> {
     val persistedMessages =
       try {
         chatSessionRepository
@@ -236,7 +238,7 @@ constructor(private val chatSessionRepository: ChatSessionRepository) : ContextC
         )
         emptyList()
       }
-    return persistedMessages.filter { it.isSeededTextMessage }
+    return persistedMessages.filter { it.isSeededMessage }
   }
 
   private fun isOverTokenThreshold(currentTokens: Int, maxTokens: Int): Boolean =

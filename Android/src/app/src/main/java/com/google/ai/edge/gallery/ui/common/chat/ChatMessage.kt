@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.ui.common.chat
 
 import android.graphics.Bitmap
+import android.net.Uri
 import android.util.Log
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
+import com.google.ai.edge.gallery.agent.sessions.formatAttachedFilePrompt
 import com.google.ai.edge.gallery.common.Classification
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.PromptTemplate
@@ -41,6 +43,7 @@ enum class ChatMessageType {
   IMAGE,
   IMAGE_WITH_HISTORY,
   AUDIO_CLIP,
+  FILE,
   LOADING,
   CLASSIFICATION,
   CONFIG_VALUES_CHANGE,
@@ -292,6 +295,54 @@ class ChatMessageAudioClip(
   }
 }
 
+/** Chat message for attached text/markdown files. */
+class ChatMessageFile(
+  val name: String,
+  val content: String,
+  val sizeString: String = "",
+  val uri: Uri? = null,
+  override val side: ChatSide = ChatSide.USER,
+  override val latencyMs: Float = 0f,
+  override val accelerator: String = "",
+  override val hideSenderLabel: Boolean = false,
+  /** Absolute path to the app-private copy of the file made when it was picked. */
+  val localPath: String? = null,
+  /**
+   * Caches the session-scoped local absolute file path to bypass redundant disk write I/O during
+   * session saves.
+   */
+  var persistedPath: String? = null,
+) :
+  ChatMessage(
+    type = ChatMessageType.FILE,
+    side = side,
+    latencyMs = latencyMs,
+    accelerator = accelerator,
+    hideSenderLabel = hideSenderLabel,
+  ) {
+  /** Mutex guarding [persistedPath] initialization during concurrent serialization. */
+  internal val persistenceMutex = Mutex()
+
+  /** Path to the best available local copy of the file, or null if there is none. */
+  val filePath: String?
+    get() = persistedPath ?: localPath
+
+  override fun clone(): ChatMessageFile {
+    return ChatMessageFile(
+      name = name,
+      content = content,
+      sizeString = sizeString,
+      uri = uri,
+      side = side,
+      latencyMs = latencyMs,
+      accelerator = accelerator,
+      hideSenderLabel = hideSenderLabel,
+      localPath = localPath,
+      persistedPath = persistedPath,
+    )
+  }
+}
+
 /** Chat message for images with history. */
 class ChatMessageImageWithHistory(
   val bitmaps: List<Bitmap>,
@@ -465,6 +516,12 @@ fun convertToLitertMessage(chatMessage: ChatMessage): Message? {
   if (chatMessage is ChatMessageText) {
     return when (chatMessage.side) {
       ChatSide.USER -> Message.user(chatMessage.content)
+      ChatSide.AGENT -> Message.model(chatMessage.content)
+      ChatSide.SYSTEM -> null
+    }
+  } else if (chatMessage is ChatMessageFile) {
+    return when (chatMessage.side) {
+      ChatSide.USER -> Message.user(formatAttachedFilePrompt(chatMessage.name, chatMessage.content))
       ChatSide.AGENT -> Message.model(chatMessage.content)
       ChatSide.SYSTEM -> null
     }

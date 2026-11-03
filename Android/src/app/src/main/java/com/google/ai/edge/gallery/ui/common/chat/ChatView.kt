@@ -133,6 +133,7 @@ fun ChatView(
   composableBelowMessageList: @Composable (Model) -> Unit = {},
   showImagePicker: Boolean = false,
   showAudioPicker: Boolean = false,
+  showTextFilePicker: Boolean = false,
   emptyStateComposable: @Composable (Model) -> Unit = {},
   allowEditingSystemPrompt: Boolean = false,
   curSystemPrompt: String = "",
@@ -147,6 +148,8 @@ fun ChatView(
   var selectedImageIndex by remember { mutableIntStateOf(-1) }
   var allImageViewerImages by remember { mutableStateOf<List<Bitmap>>(listOf()) }
   var showImageViewer by remember { mutableStateOf(false) }
+  // File viewer related.
+  var viewedFile by remember { mutableStateOf<ChatMessageFile?>(null) }
   val snackbarHostState = remember { SnackbarHostState() }
 
   // Chat history drawer.
@@ -401,12 +404,14 @@ fun ChatView(
                         allImageViewerImages = bitmaps
                         showImageViewer = true
                       },
+                      onFileSelected = { file -> viewedFile = file },
                       onSkillClicked = onSkillClicked,
                       onMcpClicked = onMcpClicked,
                       modifier = Modifier.weight(1f),
                       showStopButtonInInputWhenInProgress = showStopButtonInInputWhenInProgress,
                       showImagePicker = showImagePicker,
                       showAudioPicker = showAudioPicker,
+                      showTextFilePicker = showTextFilePicker,
                       emptyStateComposable = emptyStateComposable,
                       onNewChatClicked = onNewChatClicked,
                       ttsController = ttsController,
@@ -420,6 +425,11 @@ fun ChatView(
                     )
                 }
               }
+            }
+
+            // File viewer.
+            viewedFile?.let { file ->
+              FileViewer(file = file, onDismissRequest = { viewedFile = null })
             }
 
             // Image viewer.

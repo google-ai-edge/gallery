@@ -32,12 +32,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -46,29 +48,41 @@ import com.google.ai.edge.gallery.R
 /**
  * A container that wraps a composable with long-press gesture detection to show a dropdown menu for
  * copying text.
+ *
+ * If [onTap] is provided, a regular tap on the container triggers it.
  */
 @Composable
 fun LongPressCopyContainer(
   copyText: String,
   modifier: Modifier = Modifier,
   onCopyClicked: (String) -> Unit = {},
+  onTap: (() -> Unit)? = null,
   content: @Composable () -> Unit,
 ) {
   var showMenu by remember { mutableStateOf(false) }
   val haptic = LocalHapticFeedback.current
   val moreOptionsLabel = stringResource(R.string.cd_more_options)
+  val currentOnTap by rememberUpdatedState(onTap)
+  val hasOnTap = onTap != null
   Box(
     modifier =
       modifier
-        .pointerInput(Unit) {
+        .pointerInput(hasOnTap) {
           detectTapGestures(
+            onTap = if (hasOnTap) ({ _ -> currentOnTap?.invoke() }) else null,
             onLongPress = {
               haptic.performHapticFeedback(HapticFeedbackType.LongPress)
               showMenu = true
-            }
+            },
           )
         }
         .semantics {
+          if (hasOnTap) {
+            onClick {
+              currentOnTap?.invoke()
+              true
+            }
+          }
           onLongClick(moreOptionsLabel) {
             showMenu = true
             true
