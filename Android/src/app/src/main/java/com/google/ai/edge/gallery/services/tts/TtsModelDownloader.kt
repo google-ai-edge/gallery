@@ -389,10 +389,10 @@ internal constructor(
 
   /** Returns the reason the UI shows for a download that failed with this exception, if any. */
   private fun Exception.toDownloadFailureReason(): ModelDownloadFailureReason? =
-    when (this) {
-      is TtsServiceError.DownloadStalled -> ModelDownloadFailureReason.STALLED
-      else -> null
-    }
+  when (this) {
+    is TtsServiceError.DownloadStalled -> ModelDownloadFailureReason.STALLED
+    else -> null
+  }
 }
 
 /**

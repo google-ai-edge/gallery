@@ -73,11 +73,11 @@ internal fun ModelDownloadStatus.toSupplementaryDownloadEvent(
       }
     ModelDownloadStatusType.SUCCEEDED -> SupplementaryDownloadEvent.Completed
     ModelDownloadStatusType.FAILED ->
-      if (isScheduledDownloadFailure()) {
-        SupplementaryDownloadEvent.Queued(SpeechModelState.Queued(QueueReason.SCHEDULED_BY_SYSTEM))
-      } else {
-        SupplementaryDownloadEvent.Ended
-      }
+    if (isScheduledDownloadFailure()) {
+      SupplementaryDownloadEvent.Queued(SpeechModelState.Queued(QueueReason.SCHEDULED_BY_SYSTEM))
+    } else {
+      SupplementaryDownloadEvent.Ended
+    }
     ModelDownloadStatusType.NOT_DOWNLOADED -> SupplementaryDownloadEvent.Ended
     ModelDownloadStatusType.PARTIALLY_DOWNLOADED,
     ModelDownloadStatusType.UNAVAILABLE -> null
@@ -101,23 +101,27 @@ internal fun ModelDownloadStatus.toLanguageState(languageCode: String): Language
     ModelDownloadStatusType.NOT_DOWNLOADED,
     ModelDownloadStatusType.PARTIALLY_DOWNLOADED -> LanguageState.Downloadable(languageCode)
     ModelDownloadStatusType.FAILED ->
-      when {
-        isScheduledDownloadFailure() ->
-          LanguageState.Queued(languageCode, QueueReason.SCHEDULED_BY_SYSTEM)
-        failureReason == ModelDownloadFailureReason.STALLED ->
-          LanguageState.Downloading(
-            languageCode,
-            DownloadProgress(bytesDownloaded = receivedBytes, totalBytes = totalBytes),
-            stalled = true,
-          )
-        else -> LanguageState.Failed(languageCode, errorMessage)
-      }
+    when {
+      isScheduledDownloadFailure() ->
+        LanguageState.Queued(languageCode, QueueReason.SCHEDULED_BY_SYSTEM)
+      failureReason == ModelDownloadFailureReason.STALLED ->
+        LanguageState.Downloading(
+          languageCode,
+          DownloadProgress(bytesDownloaded = receivedBytes, totalBytes = totalBytes),
+          stalled = true,
+        )
+      else -> LanguageState.Failed(languageCode, errorMessage)
+    }
     ModelDownloadStatusType.UNAVAILABLE -> LanguageState.NotOffered(languageCode)
   }
 
 /** Whether this failed download means the system scheduled the download to finish later. */
 internal fun ModelDownloadStatus.isScheduledDownloadFailure(): Boolean =
   status == ModelDownloadStatusType.FAILED &&
-    SCHEDULED_DOWNLOAD_MESSAGES.any { errorMessage.contains(it, ignoreCase = true) }
+SCHEDULED_DOWNLOAD_MESSAGES.any { errorMessage.contains(it, ignoreCase = true) }
 
-private val SCHEDULED_DOWNLOAD_MESSAGES = listOf("download is scheduled", "retried automatically")
+private val SCHEDULED_DOWNLOAD_MESSAGES =
+  listOf(
+    "download is scheduled",
+    "retried automatically",
+  )

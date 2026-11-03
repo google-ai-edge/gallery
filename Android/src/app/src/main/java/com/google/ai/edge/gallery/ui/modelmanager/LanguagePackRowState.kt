@@ -67,16 +67,16 @@ fun ModelDownloadStatus?.toLanguagePackUiStatus(): LanguagePackUiStatus {
         totalBytes = downloadStatus.totalBytes,
       )
     ModelDownloadStatusType.FAILED ->
-      when (downloadStatus.failureReason) {
-        ModelDownloadFailureReason.STALLED ->
-          LanguagePackUiStatus.Downloading(
-            receivedBytes = downloadStatus.receivedBytes,
-            totalBytes = downloadStatus.totalBytes,
-            stalled = true,
-          )
-        ModelDownloadFailureReason.OUT_OF_STORAGE,
-        null -> LanguagePackUiStatus.Failed
-      }
+    when (downloadStatus.failureReason) {
+      ModelDownloadFailureReason.STALLED ->
+        LanguagePackUiStatus.Downloading(
+          receivedBytes = downloadStatus.receivedBytes,
+          totalBytes = downloadStatus.totalBytes,
+          stalled = true,
+        )
+      ModelDownloadFailureReason.OUT_OF_STORAGE,
+      null -> LanguagePackUiStatus.Failed
+    }
     ModelDownloadStatusType.UNAVAILABLE -> LanguagePackUiStatus.Unavailable
   }
 }
@@ -180,7 +180,7 @@ fun LanguagePackUiStatus.toSupplementaryLanguageStatus(): SupplementaryLanguageS
     LanguagePackUiStatus.Installed -> SupplementaryLanguageStatus.Installed
     LanguagePackUiStatus.Downloadable -> SupplementaryLanguageStatus.Downloadable
     is LanguagePackUiStatus.Downloading ->
-      SupplementaryLanguageStatus.Downloading(receivedBytes, totalBytes, stalled)
+    SupplementaryLanguageStatus.Downloading(receivedBytes, totalBytes, stalled)
     LanguagePackUiStatus.Failed -> SupplementaryLanguageStatus.Failed
     LanguagePackUiStatus.Unavailable -> SupplementaryLanguageStatus.NotOffered
   }

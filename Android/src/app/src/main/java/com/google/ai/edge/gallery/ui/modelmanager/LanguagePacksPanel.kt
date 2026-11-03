@@ -475,15 +475,15 @@ private fun languageStatusText(status: SupplementaryLanguageStatus): String? =
       stringResource(R.string.supplementary_language_not_offered)
     SupplementaryLanguageStatus.Queued -> stringResource(R.string.supplementary_status_queued)
     is SupplementaryLanguageStatus.Downloading ->
-      if (status.totalBytes > 0L) {
-        stringResource(
-          R.string.modelitem_optional_components_progress_format,
-          status.receivedBytes.humanReadableSize(),
-          status.totalBytes.humanReadableSize(),
-        )
-      } else {
-        stringResource(R.string.supplementary_status_downloading_background)
-      }
+    if (status.totalBytes > 0L) {
+      stringResource(
+        R.string.modelitem_optional_components_progress_format,
+        status.receivedBytes.humanReadableSize(),
+        status.totalBytes.humanReadableSize(),
+      )
+    } else {
+      stringResource(R.string.supplementary_status_downloading_background)
+    }
     SupplementaryLanguageStatus.Bundled,
     SupplementaryLanguageStatus.Checking,
     SupplementaryLanguageStatus.Installed,

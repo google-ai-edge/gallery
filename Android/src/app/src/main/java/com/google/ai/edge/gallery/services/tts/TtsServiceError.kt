@@ -61,6 +61,6 @@ sealed class TtsServiceError(message: String, cause: Throwable? = null) :
    * The download of the voice for [languageCode] stopped reporting progress, so the app stopped
    * waiting for it. The speech service may still finish it later.
    */
-  data class DownloadStalled(val languageCode: String) :
+    data class DownloadStalled(val languageCode: String) :
     TtsServiceError("The TTS voice download for $languageCode stopped reporting progress.")
 }
