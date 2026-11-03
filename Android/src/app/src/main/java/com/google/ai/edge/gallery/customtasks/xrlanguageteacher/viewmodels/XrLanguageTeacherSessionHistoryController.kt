@@ -17,12 +17,10 @@
 package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels
 
 import android.graphics.BitmapFactory
-import android.os.Bundle
 import android.util.Log
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.viewModelScope
-import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.LessonHistorySession
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.MESSAGE_TYPE_AR_VOCAB
@@ -33,7 +31,6 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.resolveLe
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.toLessonHistorySession
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
-import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.ChatSessionProto
 import com.google.ai.edge.gallery.proto.ChatSideProto
 import com.google.ai.edge.gallery.proto.chatMessageProto
@@ -263,7 +260,6 @@ fun XrLanguageTeacherViewModel.deleteLessonSession(
   if (sessionId == currentSessionIdInternal) {
     resetLessonSession(model = model, onRunningStateChanged = onRunningStateChanged)
   }
-  logChatHistoryAction(action = "delete_session", model = model)
   viewModelScope.launch(ioDispatcher) {
     sessionSaveMutex.withLock {
       chatSessionRepository.deleteChatSession(sessionId)
@@ -291,7 +287,6 @@ fun XrLanguageTeacherViewModel.deleteAllLessonSessions(
   }
   // Sessions saved under the (possibly new) current id after this point must survive.
   val keptSessionId = currentSessionIdInternal
-  logChatHistoryAction(action = "clear_all_sessions", model = model)
   viewModelScope.launch(ioDispatcher) {
     sessionSaveMutex.withLock {
       val teacherSessionIds =
@@ -307,27 +302,4 @@ fun XrLanguageTeacherViewModel.deleteAllLessonSessions(
       storageRepository.deleteSessionImagesForIds(teacherSessionIds.toSet())
     }
   }
-}
-
-/** Logs a `chat_history` analytics event for XR Language Teacher session history interactions. */
-fun XrLanguageTeacherViewModel.logChatHistoryAction(action: String, model: Model? = null) {
-  val modelId = model?.name ?: activeSessionModelName.orEmpty()
-  val modelVersion = model?.downloadInfo?.version.orEmpty()
-  Log.d(
-    TAG,
-    "Analytics: chat_history, action=$action, capability_name=${BuiltInTaskId.LLM_XR_LANGUAGE_TEACHER}, model_id=$modelId, model_version=$modelVersion",
-  )
-  firebaseAnalytics?.logEvent(
-    GalleryEvent.CHAT_HISTORY.id,
-    Bundle().apply {
-      putString("action", action)
-      putString("capability_name", BuiltInTaskId.LLM_XR_LANGUAGE_TEACHER)
-      if (modelId.isNotEmpty()) {
-        putString("model_id", modelId)
-      }
-      if (modelVersion.isNotEmpty()) {
-        putString("model_version", modelVersion)
-      }
-    },
-  )
 }
