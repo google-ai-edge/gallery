@@ -21,6 +21,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.text.format.Formatter
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
@@ -30,11 +31,13 @@ import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
@@ -50,6 +53,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.DownloadAuthError
 import com.google.ai.edge.gallery.data.Model
@@ -439,6 +443,56 @@ fun ModelDownloadGatesHost(gates: ModelDownloadGates) {
     MemoryWarningAlert(
       onProceeded = { gates.onMemoryWarningProceeded() },
       onDismissed = { gates.onMemoryWarningDismissed() },
+    )
+  }
+}
+
+/**
+ * Asks the user to agree to download [downloadBytes] using mobile data, which can cost money.
+ *
+ * @param onDownload Called when the user agrees.
+ * @param onCancel Called when the user doesn't, which starts nothing.
+ */
+@Composable
+fun MobileDataDownloadDialog(
+  downloadBytes: Long,
+  onDownload: () -> Unit,
+  onCancel: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  AlertDialog(
+    onDismissRequest = onCancel,
+    modifier = modifier,
+    title = { Text(stringResource(R.string.mobile_data_download_dialog_title)) },
+    text = {
+      Text(
+        stringResource(
+          R.string.mobile_data_download_dialog_message,
+          Formatter.formatShortFileSize(LocalContext.current, downloadBytes),
+        )
+      )
+    },
+    confirmButton = {
+      TextButton(onClick = onDownload) { Text(stringResource(R.string.download)) }
+    },
+    dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) } },
+  )
+}
+
+/**
+ * Shows the mobile data dialog of the download waiting for the user's answer in
+ * [ModelManagerViewModel.mobileDataDownloadConfirmation], if any. The app shows it once, above all
+ * its screens.
+ */
+@Composable
+fun MobileDataDownloadConfirmationHost(modelManagerViewModel: ModelManagerViewModel) {
+  val confirmation by
+    modelManagerViewModel.mobileDataDownloadConfirmation.collectAsStateWithLifecycle()
+  confirmation?.let {
+    MobileDataDownloadDialog(
+      downloadBytes = it.downloadBytes,
+      onDownload = modelManagerViewModel::onMobileDataDownloadConfirmed,
+      onCancel = modelManagerViewModel::onMobileDataDownloadCancelled,
     )
   }
 }

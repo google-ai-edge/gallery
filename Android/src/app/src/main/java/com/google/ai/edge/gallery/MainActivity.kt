@@ -52,6 +52,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.google.ai.edge.gallery.common.PermissionsResultListener
 import com.google.ai.edge.gallery.common.VirtualDevicePermissionsHost
+import com.google.ai.edge.gallery.ui.common.MobileDataDownloadConfirmationHost
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import com.google.ai.edge.litertlm.ExperimentalApi
@@ -111,6 +112,8 @@ class MainActivity : ComponentActivity(), VirtualDevicePermissionsHost {
         GalleryTheme {
           Surface(modifier = Modifier.fillMaxSize()) {
             GalleryApp(modelManagerViewModel = modelManagerViewModel)
+            // Asks before downloading over mobile data, whichever screen started the download.
+            MobileDataDownloadConfirmationHost(modelManagerViewModel = modelManagerViewModel)
 
             // Fade out a "mask" that has the same color as the background of the splash screen
             // to reveal the actual app content.

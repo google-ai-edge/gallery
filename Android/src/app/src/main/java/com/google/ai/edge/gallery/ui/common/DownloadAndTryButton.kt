@@ -187,12 +187,22 @@ fun DownloadAndTryButton(
     }
   }
 
-  // Starts the download once the notification permission has been handled.
+  // Starts the download once the notification permission has been handled, and the user agreed to
+  // use mobile data if the device is on it.
   val downloadModel = {
-    modelManagerViewModel.downloadModel(task = task, model = model)
-    // The download's status now shows whether it started, or why it couldn't (e.g. not enough
-    // storage), so it no longer needs to show as started.
-    downloadStarted = false
+    modelManagerViewModel.downloadModelAfterMobileDataCheck(
+      task = task,
+      model = model,
+      onStarted = {
+        // The download's status now shows whether it started, or why it couldn't (e.g. not enough
+        // storage), so it no longer needs to show as started.
+        downloadStarted = false
+      },
+      onCancelled = {
+        downloadStarted = false
+        announceCompletion = false
+      },
+    )
   }
   // startDownload captures gates before it's assigned, so it can't be a val even though kotlinc
   // suggests one (doing so fails with UNINITIALIZED_VARIABLE).

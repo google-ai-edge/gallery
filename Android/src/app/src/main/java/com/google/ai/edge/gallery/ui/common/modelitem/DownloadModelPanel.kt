@@ -148,7 +148,7 @@ fun DownloadModelPanel(
               containerColor = MaterialTheme.colorScheme.secondaryContainer
             ),
           contentPadding = PaddingValues(horizontal = 12.dp),
-          onClick = { modelManagerViewModel.downloadModel(task, model) },
+          onClick = { modelManagerViewModel.downloadModelAfterMobileDataCheck(task, model) },
         ) {
           val textColor = MaterialTheme.colorScheme.onSecondaryContainer
           Row(

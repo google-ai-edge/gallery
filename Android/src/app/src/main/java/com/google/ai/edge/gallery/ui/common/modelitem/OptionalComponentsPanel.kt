@@ -409,7 +409,11 @@ fun OptionalComponentsPanel(
               TextButton(
                 enabled = !isDownloadStarted,
                 onClick = {
-                  modelManagerViewModel.downloadExtraDataFiles(task, model, modelVariants)
+                  modelManagerViewModel.downloadExtraDataFilesAfterMobileDataCheck(
+                    task,
+                    model,
+                    modelVariants,
+                  )
                 },
               ) {
                 Text(

@@ -103,6 +103,25 @@ interface ModelSelectionHost {
    * [ModelManagerViewModel.batchDownloadStorageShortfallMessage].
    */
   fun batchDownloadStorageShortfallMessage(downloads: List<Pair<Task?, Model>>): String? = null
+
+  /**
+   * Returns how many bytes of [downloads], as (task, model) pairs, the user must agree to download
+   * over mobile data first, or `null` if no confirmation is needed. See
+   * [ModelManagerViewModel.mobileDataDownloadBytes].
+   */
+  fun mobileDataDownloadBytes(downloads: List<Pair<Task?, Model>>): Long? = null
+
+  /**
+   * Forgets that the user started downloading [model], whose download didn't start after all. See
+   * [ModelManagerViewModel.forgetUserStartedDownload].
+   */
+  fun forgetUserStartedDownload(model: Model) {}
+
+  /**
+   * Returns the message to show when downloads can't start because the device isn't connected, or
+   * `null` if it is. See [ModelManagerViewModel.noConnectionMessage].
+   */
+  fun noConnectionMessage(): String? = null
 }
 
 /** Adapts this [ModelManagerViewModel] to [ModelSelectionHost]. */
@@ -164,6 +183,15 @@ private class ModelManagerSelectionHost(private val viewModel: ModelManagerViewM
 
   override fun batchDownloadStorageShortfallMessage(downloads: List<Pair<Task?, Model>>): String? =
     viewModel.batchDownloadStorageShortfallMessage(downloads)
+
+  override fun mobileDataDownloadBytes(downloads: List<Pair<Task?, Model>>): Long? =
+    viewModel.mobileDataDownloadBytes(downloads)
+
+  override fun forgetUserStartedDownload(model: Model) {
+    viewModel.forgetUserStartedDownload(model)
+  }
+
+  override fun noConnectionMessage(): String? = viewModel.noConnectionMessage()
 }
 
 /**
@@ -365,6 +393,17 @@ data class ModelSelectionGateRequest(
   val modelsToDownload: List<Model>,
 )
 
+/**
+ * Asks the user to agree to download the models of Try it over mobile data.
+ *
+ * @property request The download checks that passed.
+ * @property downloadBytes The remaining size of all the models to download.
+ */
+data class ModelSelectionMobileDataConfirmation(
+  val request: ModelSelectionGateRequest,
+  val downloadBytes: Long,
+)
+
 /** UI state of the sectioned model selection screen. */
 data class TaskModelSelectionUiState(
   val sections: List<ModelSelectionSectionUiState> = emptyList(),
@@ -389,10 +428,17 @@ data class TaskModelSelectionUiState(
   /** The speech model that wasn't ready when the task was about to launch, if any. */
   val notReady: ModelNotReadyUiState? = null,
   /**
-   * The message to show when Try it didn't start any download because the selected models don't all
-   * fit in the free storage, dismissed with [TaskModelSelectionViewModel.dismissStorageShortfall].
+   * The message to show when Try it didn't start any download because the device isn't connected or
+   * the selected models don't all fit in the free storage, dismissed with
+   * [TaskModelSelectionViewModel.dismissDownloadError].
    */
-  val storageShortfallMessage: String? = null,
+  val downloadErrorMessage: String? = null,
+  /**
+   * The mobile data dialog to show before Try it starts its downloads, answered with
+   * [TaskModelSelectionViewModel.onMobileDataDownloadConfirmed] or
+   * [TaskModelSelectionViewModel.onMobileDataDownloadCancelled].
+   */
+  val mobileDataConfirmation: ModelSelectionMobileDataConfirmation? = null,
 )
 
 private data class SelectionState(
@@ -409,7 +455,8 @@ private data class SelectionState(
   val scrollToSectionId: String? = null,
   val launchModel: Model? = null,
   val notReady: ModelNotReadyUiState? = null,
-  val storageShortfallMessage: String? = null,
+  val downloadErrorMessage: String? = null,
+  val mobileDataConfirmation: ModelSelectionMobileDataConfirmation? = null,
 )
 
 private data class Binding(
@@ -631,7 +678,8 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
         launchPhase = ModelSelectionLaunchPhase.GATING,
         gateRequest = request,
         notReady = null,
-        storageShortfallMessage = null,
+        downloadErrorMessage = null,
+        mobileDataConfirmation = null,
       )
     )
   }
@@ -640,10 +688,14 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
    * Called when the download checks of [request] passed: starts the missing downloads concurrently,
    * expands the sections whose model downloads, and launches once every model is ready.
    *
-   * If the missing models don't all fit in the free storage, nothing starts, and the launch stops
-   * with [TaskModelSelectionUiState.storageShortfallMessage].
+   * If the device isn't connected, or the missing models don't all fit in the free storage, nothing
+   * starts, and the launch stops with [TaskModelSelectionUiState.downloadErrorMessage]. When both
+   * fail, the connection error shows. Otherwise, on mobile data, nothing starts until the user
+   * agrees in the dialog of [TaskModelSelectionUiState.mobileDataConfirmation].
+   *
+   * @param mobileDataConfirmed Whether the user already agreed to download over mobile data.
    */
-  fun onGatesPassed(request: ModelSelectionGateRequest) {
+  fun onGatesPassed(request: ModelSelectionGateRequest, mobileDataConfirmed: Boolean = false) {
     val currentBinding = binding.value ?: return
     val current = state.value
     if (current.gateRequest?.id != request.id) {
@@ -660,6 +712,25 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
           if (section?.target == ModelSelectionTarget.MAIN_MODEL) currentBinding.task else null
         task to model
       }
+    // Like a single download, only the downloads the app runs need a connection to start: system
+    // services queue theirs, and models already downloaded launch offline.
+    val noConnectionMessage =
+      if (downloads.any { (_, model) -> model.downloadsViaRepository }) {
+        currentBinding.host.noConnectionMessage()
+      } else {
+        null
+      }
+    if (noConnectionMessage != null) {
+      Log.w(TAG, "Not starting the downloads of ${downloads.map { it.second.name }}: no connection")
+      update(
+        current.copy(
+          launchPhase = ModelSelectionLaunchPhase.IDLE,
+          gateRequest = null,
+          downloadErrorMessage = noConnectionMessage,
+        )
+      )
+      return
+    }
     val storageShortfallMessage =
       currentBinding.host.batchDownloadStorageShortfallMessage(downloads)
     if (storageShortfallMessage != null) {
@@ -668,7 +739,21 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
         current.copy(
           launchPhase = ModelSelectionLaunchPhase.IDLE,
           gateRequest = null,
-          storageShortfallMessage = storageShortfallMessage,
+          downloadErrorMessage = storageShortfallMessage,
+        )
+      )
+      return
+    }
+    val mobileDataDownloadBytes =
+      if (mobileDataConfirmed) null else currentBinding.host.mobileDataDownloadBytes(downloads)
+    if (mobileDataDownloadBytes != null) {
+      update(
+        current.copy(
+          mobileDataConfirmation =
+            ModelSelectionMobileDataConfirmation(
+              request = request,
+              downloadBytes = mobileDataDownloadBytes,
+            )
         )
       )
       return
@@ -692,8 +777,37 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
       current.copy(
         launchPhase = ModelSelectionLaunchPhase.DOWNLOADING,
         gateRequest = null,
+        mobileDataConfirmation = null,
         startedDownloads = trackedDownloads,
         expandedSectionIds = current.expandedSectionIds + downloadingSectionIds,
+      )
+    )
+  }
+
+  /** Called when the user agrees to download the models of Try it over mobile data. */
+  fun onMobileDataDownloadConfirmed() {
+    val confirmation = state.value.mobileDataConfirmation ?: return
+    update(state.value.copy(mobileDataConfirmation = null))
+    onGatesPassed(confirmation.request, mobileDataConfirmed = true)
+  }
+
+  /**
+   * Called when the user doesn't agree to download over mobile data: nothing starts, the models are
+   * no longer recorded as downloads the user started, and Try it is idle again.
+   */
+  fun onMobileDataDownloadCancelled() {
+    val current = state.value
+    val confirmation = current.mobileDataConfirmation ?: return
+    binding.value?.let { currentBinding ->
+      for (model in confirmation.request.modelsToDownload) {
+        currentBinding.host.forgetUserStartedDownload(model)
+      }
+    }
+    update(
+      current.copy(
+        launchPhase = ModelSelectionLaunchPhase.IDLE,
+        gateRequest = null,
+        mobileDataConfirmation = null,
       )
     )
   }
@@ -729,6 +843,7 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
       current.copy(
         launchPhase = ModelSelectionLaunchPhase.IDLE,
         gateRequest = null,
+        mobileDataConfirmation = null,
         startedDownloads = emptySet(),
       )
     )
@@ -749,9 +864,12 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     update(state.value.copy(notReady = null))
   }
 
-  /** Dismisses the message that the selected models don't fit in the free storage. */
-  fun dismissStorageShortfall() {
-    update(state.value.copy(storageShortfallMessage = null))
+  /**
+   * Dismisses the message that Try it didn't start any download, because the device isn't connected
+   * or the selected models don't fit in the free storage.
+   */
+  fun dismissDownloadError() {
+    update(state.value.copy(downloadErrorMessage = null))
   }
 
   /** Dismisses the error popup of a model that wasn't ready and runs Try it again. */
@@ -940,7 +1058,8 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
       scrollToSectionId = selectionState.scrollToSectionId,
       launchModel = selectionState.launchModel,
       notReady = selectionState.notReady,
-      storageShortfallMessage = selectionState.storageShortfallMessage,
+      downloadErrorMessage = selectionState.downloadErrorMessage,
+      mobileDataConfirmation = selectionState.mobileDataConfirmation,
     )
   }
 

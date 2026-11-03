@@ -852,7 +852,7 @@ fun ModelManagerViewModel.createAudioTabActions(task: Task): ConfigAudioTabActio
         }
       }
     },
-    onDownloadModel = { model -> downloadModel(task = null, model = model) },
+    onDownloadModel = { model -> downloadModelAfterMobileDataCheck(task = null, model = model) },
     onSelectAsrLanguage = ::selectAsrLanguage,
     onSelectTtsLanguage = ::selectTtsLanguage,
     onDownloadLanguagePack = ::downloadLanguagePack,

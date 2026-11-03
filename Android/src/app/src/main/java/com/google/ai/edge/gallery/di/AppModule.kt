@@ -34,9 +34,11 @@ import com.google.ai.edge.gallery.data.DataStoreRepository
 import com.google.ai.edge.gallery.data.DefaultChatSessionRepository
 import com.google.ai.edge.gallery.data.DefaultDataStoreRepository
 import com.google.ai.edge.gallery.data.DefaultDownloadRepository
+import com.google.ai.edge.gallery.data.DefaultNetworkStateProvider
 import com.google.ai.edge.gallery.data.DownloadRepository
 import com.google.ai.edge.gallery.data.LiteRtLmModelDownloader
 import com.google.ai.edge.gallery.data.ModelDownloader
+import com.google.ai.edge.gallery.data.NetworkStateProvider
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.RuntimeTypeKey
 import com.google.ai.edge.gallery.proto.BenchmarkResults
@@ -199,6 +201,12 @@ internal object AppModule {
     lifecycleProvider: AppLifecycleProvider,
   ): DownloadRepository {
     return DefaultDownloadRepository(context, lifecycleProvider)
+  }
+
+  @Provides
+  @Singleton
+  fun provideNetworkStateProvider(@ApplicationContext context: Context): NetworkStateProvider {
+    return DefaultNetworkStateProvider(context)
   }
 
   @Provides

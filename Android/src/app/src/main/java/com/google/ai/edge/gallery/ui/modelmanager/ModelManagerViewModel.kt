@@ -43,6 +43,7 @@ import com.google.ai.edge.gallery.data.Config
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
 import com.google.ai.edge.gallery.data.DataStoreRepository
+import com.google.ai.edge.gallery.data.DefaultNetworkStateProvider
 import com.google.ai.edge.gallery.data.DeviceIdentity
 import com.google.ai.edge.gallery.data.DeviceRequirementRegistry
 import com.google.ai.edge.gallery.data.DownloadAuthError
@@ -63,9 +64,11 @@ import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.ModelDownloader
 import com.google.ai.edge.gallery.data.ModelSelectionTarget
 import com.google.ai.edge.gallery.data.ModelUtils
+import com.google.ai.edge.gallery.data.NetworkStateProvider
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.OssModelImportLogger
 import com.google.ai.edge.gallery.data.PendingDownload
+import com.google.ai.edge.gallery.data.RepositoryDownloadSize
 import com.google.ai.edge.gallery.data.RuntimeType
 import com.google.ai.edge.gallery.data.SOC
 import com.google.ai.edge.gallery.data.SystemPromptRepository
@@ -287,6 +290,19 @@ private val PREDEFINED_LLM_TASK_ORDER =
   )
 
 /**
+ * A download waiting for the user to agree to use mobile data (see
+ * [ModelManagerViewModel.confirmMobileDataDownload]).
+ *
+ * @property downloadBytes The remaining size of everything that will be downloaded.
+ */
+class MobileDataDownloadConfirmation
+internal constructor(
+  val downloadBytes: Long,
+  internal val onConfirmed: () -> Unit,
+  internal val onCancelled: () -> Unit,
+)
+
+/**
  * ViewModel responsible for managing models, their download status, and initialization.
  *
  * This ViewModel handles model-related operations such as downloading, deleting, initializing, and
@@ -323,6 +339,8 @@ constructor(
       asrSettingsRepository,
       asrServiceProvider,
     ),
+  /** Whether the device is connected, and on mobile data, which downloads ask about first. */
+  private val networkStateProvider: NetworkStateProvider = DefaultNetworkStateProvider(context),
 ) :
   ViewModel()
 {
@@ -336,6 +354,7 @@ constructor(
     context: Context,
     downloaders: Map<RuntimeType, @JvmSuppressWildcards ModelDownloader>,
     ossModelImportLogger: OssModelImportLogger = OssModelImportLogger(),
+    networkStateProvider: NetworkStateProvider = DefaultNetworkStateProvider(context),
   ) : this(
     downloadRepository = downloadRepository,
     dataStoreRepository = dataStoreRepository,
@@ -351,6 +370,7 @@ constructor(
         dataStoreRepository = dataStoreRepository,
         scope = CoroutineScope(Dispatchers.Unconfined),
       ),
+    networkStateProvider = networkStateProvider,
   )
 
   private constructor(
@@ -364,6 +384,7 @@ constructor(
     downloaders: Map<RuntimeType, @JvmSuppressWildcards ModelDownloader>,
     ossModelImportLogger: OssModelImportLogger = OssModelImportLogger(),
     asrSettingsRepository: AsrSettingsRepository,
+    networkStateProvider: NetworkStateProvider,
   ) : this(
     downloadRepository = downloadRepository,
     dataStoreRepository = dataStoreRepository,
@@ -387,6 +408,7 @@ constructor(
         asrSettingsRepository = asrSettingsRepository,
       ),
     ioDispatcher = Dispatchers.Unconfined,
+    networkStateProvider = networkStateProvider,
   )
 
   internal constructor(
@@ -403,6 +425,7 @@ constructor(
     asrSettingsRepository: AsrSettingsRepository,
     asrServiceProvider: AsrServiceProvider,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    networkStateProvider: NetworkStateProvider = DefaultNetworkStateProvider(context),
   ) : this(
     downloadRepository = downloadRepository,
     dataStoreRepository = dataStoreRepository,
@@ -423,6 +446,7 @@ constructor(
         asrServiceProvider = asrServiceProvider,
         ioDispatcher = ioDispatcher,
       ),
+    networkStateProvider = networkStateProvider,
   )
 
   constructor(
@@ -434,6 +458,7 @@ constructor(
     huggingFaceApiClient: HuggingFaceApiClient,
     context: Context,
     ossModelImportLogger: OssModelImportLogger = OssModelImportLogger(),
+    networkStateProvider: NetworkStateProvider = DefaultNetworkStateProvider(context),
   ) : this(
     downloadRepository = downloadRepository,
     dataStoreRepository = dataStoreRepository,
@@ -449,6 +474,7 @@ constructor(
         RuntimeType.AICORE to AICoreModelDownloader(context),
       ),
     ossModelImportLogger = ossModelImportLogger,
+    networkStateProvider = networkStateProvider,
   )
 
   private val modelsDir = getModelStorageDir(context)
@@ -473,6 +499,16 @@ constructor(
   @VisibleForTesting
   internal var availableStorageBytesProvider: () -> Long? =
     storageManager::defaultAvailableStorageBytes
+
+  private val _mobileDataDownloadConfirmation =
+    MutableStateFlow<MobileDataDownloadConfirmation?>(null)
+
+  /**
+   * The download waiting for the user to agree to use mobile data, if any, shown by the app's
+   * mobile data dialog. See [confirmMobileDataDownload].
+   */
+  val mobileDataDownloadConfirmation: StateFlow<MobileDataDownloadConfirmation?> =
+    _mobileDataDownloadConfirmation.asStateFlow()
 
   protected val _uiState: MutableStateFlow<ModelManagerUiState> =
     MutableStateFlow(createEmptyUiState())
@@ -735,46 +771,30 @@ constructor(
       return
     }
 
-    // Keep the partial files of an interrupted download of this model so that it resumes rather
-    // than starting over.
-    val family = getModelFamily(model)
-    // An extra data download that is still running writes the extra data files itself, so this
-    // download must neither include nor resume them.
-    val isExtraDataDownloading = family.any {
-      val extraDataStatus = uiState.value.extraDataDownloadStatus[it.name]?.status
-      extraDataStatus == ModelDownloadStatusType.IN_PROGRESS ||
-        extraDataStatus == ModelDownloadStatusType.UNZIPPING
-    }
-    val canResumeExtraDataFiles = includeExtraDataFiles && !isExtraDataDownloading
-    val resumesPartialDownload =
-      model.downloadsViaRepository &&
-        storageManager.hasResumablePartialDownload(
-          model = model,
-          taskId = task?.id,
-          includeExtraDataFiles = canResumeExtraDataFiles,
-        )
-
-    val isExtraDataAlreadyDownloaded =
-      model.downloadsViaRepository &&
-        (family.any {
-          uiState.value.extraDataDownloadStatus[it.name]?.status ==
-            ModelDownloadStatusType.SUCCEEDED
-        } || family.any { storageManager.isExtraDataPresentOnDisk(it, task?.id) })
-    val actualIncludeExtraDataFiles = canResumeExtraDataFiles && !isExtraDataAlreadyDownloaded
-
-    val downloadSize =
-      storageManager.repositoryDownloadSize(
-        model,
-        task?.id,
-        includeExtraDataFiles = actualIncludeExtraDataFiles,
-      )
+    val plan = modelDownloadPlan(task, model, includeExtraDataFiles)
+    val resumesPartialDownload = plan.resumesPartialDownload
+    val actualIncludeExtraDataFiles = plan.includeExtraDataFiles
+    val downloadSize = plan.downloadSize
     val requiredStorageBytes = downloadSize::requiredStorageBytes
-    val initialRequiredBytes =
-      if (resumesPartialDownload) {
-        requiredStorageBytes()
-      } else {
-        downloadSize.totalBytes + downloadSize.unzipBytes
+    val initialRequiredBytes = plan.initialRequiredBytes()
+
+    // Fail right away, rather than queue a download that can't start, without a connection. A
+    // download with bytes on disk stays paused, so the user can resume it once connected. When the
+    // files don't fit either, the connection error shows: it's the one to fix first.
+    if (model.downloadsViaRepository && !networkStateProvider.isConnected()) {
+      Log.w(TAG, "Not downloading '${model.name}': no internet connection")
+      val noConnectionStatus =
+        noConnectionStatus(
+          totalBytes = downloadSize.totalBytes,
+          // Files on disk that the next download wouldn't resume don't count as progress.
+          remainingBytes = plan.remainingBytes(),
+        )
+      setDownloadStatus(curModel = model, status = noConnectionStatus)
+      if (model.isSupplementary) {
+        publishSupplementaryDownloadStatus(model, noConnectionStatus)
       }
+      return
+    }
 
     // Fail right away, rather than partway through, if the files don't fit on the device.
     if (model.downloadsViaRepository) {
@@ -910,6 +930,107 @@ constructor(
           publishSupplementaryDownloadStatus(curModel, status)
         }
       },
+    )
+  }
+
+  /**
+   * Returns the status of a download that didn't start because the device isn't connected: paused
+   * with the bytes on disk if there are some, or failed otherwise.
+   *
+   * @param totalBytes The total size of the download's files.
+   * @param remainingBytes The bytes of the download's files that aren't on disk yet.
+   */
+  private fun noConnectionStatus(totalBytes: Long, remainingBytes: Long): ModelDownloadStatus {
+    val receivedBytes = (totalBytes - remainingBytes).coerceAtLeast(0L)
+    return ModelDownloadStatus(
+      status =
+        if (receivedBytes > 0L) {
+          ModelDownloadStatusType.PARTIALLY_DOWNLOADED
+        } else {
+          ModelDownloadStatusType.FAILED
+        },
+      totalBytes = totalBytes,
+      receivedBytes = receivedBytes,
+      errorMessage = context.getString(R.string.model_download_error_no_internet),
+    )
+  }
+
+  /**
+   * Returns the message to show when downloads can't start because the device isn't connected to
+   * the internet, or `null` if it is.
+   */
+  @MainThread
+  open fun noConnectionMessage(): String? =
+    if (networkStateProvider.isConnected()) {
+      null
+    } else {
+      context.getString(R.string.model_download_error_no_internet)
+    }
+
+  /** How [downloadModel] downloads a model's files. */
+  private class ModelDownloadPlan(
+    /** Whether the download includes the model's extra data files. */
+    val includeExtraDataFiles: Boolean,
+    /** Whether the download resumes from the partial files on disk. */
+    val resumesPartialDownload: Boolean,
+    val downloadSize: RepositoryDownloadSize,
+  ) {
+    /**
+     * Returns the free storage the download needs, before it deletes the files it can't resume: the
+     * bytes it still has to fetch, plus the room to unzip its zip files.
+     */
+    fun initialRequiredBytes(): Long = remainingBytes() + downloadSize.unzipBytes
+
+    /** Returns the bytes the download still has to fetch. */
+    fun remainingBytes(): Long =
+      if (resumesPartialDownload) downloadSize.remainingBytes() else downloadSize.totalBytes
+  }
+
+  /**
+   * Returns how [downloadModel] downloads [model] for [task], with its extra data files if
+   * [includeExtraDataFiles] and they can be.
+   */
+  private fun modelDownloadPlan(
+    task: Task?,
+    model: Model,
+    includeExtraDataFiles: Boolean,
+  ): ModelDownloadPlan {
+    // Keep the partial files of an interrupted download of this model so that it resumes rather
+    // than starting over.
+    val family = getModelFamily(model)
+    // An extra data download that is still running writes the extra data files itself, so this
+    // download must neither include nor resume them.
+    val isExtraDataDownloading = family.any {
+      val extraDataStatus = uiState.value.extraDataDownloadStatus[it.name]?.status
+      extraDataStatus == ModelDownloadStatusType.IN_PROGRESS ||
+        extraDataStatus == ModelDownloadStatusType.UNZIPPING
+    }
+    val canResumeExtraDataFiles = includeExtraDataFiles && !isExtraDataDownloading
+    val resumesPartialDownload =
+      model.downloadsViaRepository &&
+        storageManager.hasResumablePartialDownload(
+          model = model,
+          taskId = task?.id,
+          includeExtraDataFiles = canResumeExtraDataFiles,
+        )
+
+    val isExtraDataAlreadyDownloaded =
+      model.downloadsViaRepository &&
+        (family.any {
+          uiState.value.extraDataDownloadStatus[it.name]?.status ==
+            ModelDownloadStatusType.SUCCEEDED
+        } || family.any { storageManager.isExtraDataPresentOnDisk(it, task?.id) })
+    val actualIncludeExtraDataFiles = canResumeExtraDataFiles && !isExtraDataAlreadyDownloaded
+
+    return ModelDownloadPlan(
+      includeExtraDataFiles = actualIncludeExtraDataFiles,
+      resumesPartialDownload = resumesPartialDownload,
+      downloadSize =
+        storageManager.repositoryDownloadSize(
+          model,
+          task?.id,
+          includeExtraDataFiles = actualIncludeExtraDataFiles,
+        ),
     )
   }
 
@@ -1158,64 +1279,191 @@ constructor(
     if (repositoryDownloads.size < 2) {
       return null
     }
-    val requiredBytes = repositoryDownloads.sumOf { (task, model) ->
-      requiredStorageBytesToDownload(task, model)
-    }
     val shortfallBytes =
-      storageShortfallBytes(
-        requiredBytes = requiredBytes,
-        // These models' own downloads, if running, are replaced by the new ones.
-        excludedModelNames = repositoryDownloads.map { (_, model) -> model.name }.toSet(),
-      ) ?: return null
+      batchStorageShortfallBytes(batchDownloadPlan(repositoryDownloads)) ?: return null
     return context.getString(
       R.string.model_download_error_batch_storage_shortfall,
       Formatter.formatShortFileSize(context, shortfallBytes),
     )
   }
 
+  /** How [downloadModel] would download several models together, as sized for a storage check. */
+  private class BatchDownloadPlan(
+    /** The names of the models. */
+    val modelNames: Set<String>,
+    /** The bytes the downloads still have to fetch. */
+    val remainingBytes: Long,
+    /** The free storage the downloads need, before they delete the files they can't resume. */
+    val requiredBytes: Long,
+  )
+
   /**
-   * Returns how much free storage [downloadModel] would need to download [model] for [task], before
-   * it deletes the files of a download it can't resume.
-   *
-   * It mirrors how [downloadModel] picks the files: the extra data files are included if the user
-   * enabled them, unless an extra data download of the model's family is running or they are
-   * already downloaded, and the files on disk only count when the partial download is resumed.
+   * Returns how [downloadModel] would download [downloads], as (task, model) pairs, each with the
+   * extra data files the user enabled. The bytes on disk are read once.
    */
-  private fun requiredStorageBytesToDownload(task: Task?, model: Model): Long {
-    val family = getModelFamily(model)
-    val isExtraDataDownloading = family.any {
-      val extraDataStatus = uiState.value.extraDataDownloadStatus[it.name]?.status
-      extraDataStatus == ModelDownloadStatusType.IN_PROGRESS ||
-        extraDataStatus == ModelDownloadStatusType.UNZIPPING
+  private fun batchDownloadPlan(downloads: List<Pair<Task?, Model>>): BatchDownloadPlan {
+    val plans = downloads.map { (task, model) ->
+      modelDownloadPlan(task, model, isDownloadOptionalComponentsEnabled(model.name))
     }
-    val canResumeExtraDataFiles =
-      isDownloadOptionalComponentsEnabled(model.name) && !isExtraDataDownloading
-    val resumesPartialDownload =
-      storageManager.hasResumablePartialDownload(
-        model = model,
-        taskId = task?.id,
-        includeExtraDataFiles = canResumeExtraDataFiles,
-      )
-    // Without a partial download to resume, downloadModel deletes the model's own files first.
-    val isExtraDataAlreadyDownloaded =
-      family.any {
-        uiState.value.extraDataDownloadStatus[it.name]?.status == ModelDownloadStatusType.SUCCEEDED
-      } ||
-        family.any {
-          (resumesPartialDownload || it.name != model.name) &&
-            storageManager.isExtraDataPresentOnDisk(it, task?.id)
-        }
-    val downloadSize =
-      storageManager.repositoryDownloadSize(
-        model,
-        task?.id,
-        includeExtraDataFiles = canResumeExtraDataFiles && !isExtraDataAlreadyDownloaded,
-      )
-    return if (resumesPartialDownload) {
-      downloadSize.requiredStorageBytes()
-    } else {
-      downloadSize.totalBytes + downloadSize.unzipBytes
+    val remainingBytes = plans.sumOf { it.remainingBytes() }
+    return BatchDownloadPlan(
+      modelNames = downloads.map { (_, model) -> model.name }.toSet(),
+      remainingBytes = remainingBytes,
+      requiredBytes = remainingBytes + plans.sumOf { it.downloadSize.unzipBytes },
+    )
+  }
+
+  /**
+   * Returns how many bytes of storage are missing to download [batch], or `null` if it fits or the
+   * free storage is unknown.
+   */
+  private fun batchStorageShortfallBytes(batch: BatchDownloadPlan): Long? =
+    storageShortfallBytes(
+      requiredBytes = batch.requiredBytes,
+      // These models' own downloads, if running, are replaced by the new ones.
+      excludedModelNames = batch.modelNames,
+    )
+
+  /**
+   * Returns how many bytes of [downloads], as (task, model) pairs, the user must agree to download
+   * over mobile data first, or `null` if no confirmation is needed: the device isn't on mobile
+   * data, nothing is left to download, or the device isn't connected or the files don't fit in the
+   * free storage, in which case downloading shows that error instead without downloading anything.
+   *
+   * Each model is sized as [downloadModel] downloads it, without the bytes already on disk, and
+   * checked for storage as [downloadModel] checks it, so that a download never starts over mobile
+   * data without asking. Several models are checked together, as
+   * [batchDownloadStorageShortfallMessage] checks them. Only models downloaded by the app count:
+   * system services download the other ones themselves.
+   */
+  @MainThread
+  open fun mobileDataDownloadBytes(downloads: List<Pair<Task?, Model>>): Long? {
+    val repositoryDownloads = downloads.filter { (_, model) -> model.downloadsViaRepository }
+    if (
+      repositoryDownloads.isEmpty() ||
+        !networkStateProvider.isConnected() ||
+        !networkStateProvider.isOnMobileData()
+    ) {
+      return null
     }
+    val batch = batchDownloadPlan(repositoryDownloads)
+    if (batchStorageShortfallBytes(batch) != null) {
+      return null
+    }
+    return batch.remainingBytes.takeIf { it > 0L }
+  }
+
+  /**
+   * Returns how many bytes of the extra data files of [model]'s family the user must agree to
+   * download over mobile data first, or `null` if no confirmation is needed. See
+   * [mobileDataDownloadBytes] and [downloadExtraDataFiles].
+   */
+  private fun extraDataMobileDataDownloadBytes(
+    task: Task?,
+    model: Model,
+    modelVariants: List<Model> = emptyList(),
+  ): Long? {
+    if (!networkStateProvider.isConnected() || !networkStateProvider.isOnMobileData()) {
+      return null
+    }
+    val plan = plannedExtraDataDownload(task, model, modelVariants) ?: return null
+    val shortfallBytes =
+      storageShortfallBytes(
+        requiredBytes = plan.requiredBytes(),
+        excludedExtraDataModelNames = plan.familyNames,
+      )
+    if (shortfallBytes != null) {
+      return null
+    }
+    return plan.remainingBytes().takeIf { it > 0L }
+  }
+
+  /**
+   * Calls [onConfirmed] right away if [downloadBytes] is `null`. Otherwise asks the user to agree
+   * to download [downloadBytes] over mobile data (see [mobileDataDownloadConfirmation]), and calls
+   * [onConfirmed] if they do or [onCancelled] if they don't. A newer request, even one that needs
+   * no confirmation, replaces a pending one, which is cancelled.
+   */
+  @MainThread
+  open fun confirmMobileDataDownload(
+    downloadBytes: Long?,
+    onConfirmed: () -> Unit,
+    onCancelled: () -> Unit = {},
+  ) {
+    val pending = _mobileDataDownloadConfirmation.value
+    if (downloadBytes == null) {
+      _mobileDataDownloadConfirmation.value = null
+      pending?.onCancelled?.invoke()
+      onConfirmed()
+      return
+    }
+    _mobileDataDownloadConfirmation.value =
+      MobileDataDownloadConfirmation(
+        downloadBytes = downloadBytes,
+        onConfirmed = onConfirmed,
+        onCancelled = onCancelled,
+      )
+    pending?.onCancelled?.invoke()
+  }
+
+  /** Called when the user agrees to download over mobile data. */
+  @MainThread
+  fun onMobileDataDownloadConfirmed() {
+    val confirmation = _mobileDataDownloadConfirmation.value ?: return
+    _mobileDataDownloadConfirmation.value = null
+    confirmation.onConfirmed()
+  }
+
+  /** Called when the user doesn't agree to download over mobile data. */
+  @MainThread
+  fun onMobileDataDownloadCancelled() {
+    val confirmation = _mobileDataDownloadConfirmation.value ?: return
+    _mobileDataDownloadConfirmation.value = null
+    confirmation.onCancelled()
+  }
+
+  /**
+   * Downloads [model] for [task] (see [downloadModel]), once the user agrees to use mobile data if
+   * the device is on it, and then calls [onStarted]. If the user doesn't agree, nothing starts, the
+   * download is no longer recorded as started by the user (see [forgetUserStartedDownload]), and
+   * [onCancelled] is called.
+   */
+  @MainThread
+  open fun downloadModelAfterMobileDataCheck(
+    task: Task?,
+    model: Model,
+    onStarted: () -> Unit = {},
+    onCancelled: () -> Unit = {},
+  ) {
+    confirmMobileDataDownload(
+      downloadBytes = mobileDataDownloadBytes(listOf(task to model)),
+      onConfirmed = {
+        downloadModel(task = task, model = model)
+        onStarted()
+      },
+      onCancelled = {
+        forgetUserStartedDownload(model)
+        onCancelled()
+      },
+    )
+  }
+
+  /**
+   * Downloads the extra data files of [model]'s family (see [downloadExtraDataFiles]), once the
+   * user agrees to use mobile data if the device is on it.
+   */
+  @MainThread
+  open fun downloadExtraDataFilesAfterMobileDataCheck(
+    task: Task?,
+    model: Model,
+    modelVariants: List<Model> = emptyList(),
+  ) {
+    confirmMobileDataDownload(
+      downloadBytes = extraDataMobileDataDownloadBytes(task, model, modelVariants),
+      onConfirmed = {
+        downloadExtraDataFiles(task = task, model = model, modelVariants = modelVariants)
+      },
+    )
   }
 
   /**
@@ -1314,25 +1562,25 @@ constructor(
     model: Model,
     modelVariants: List<Model> = emptyList(),
   ) {
-    val family = getModelFamily(model, modelVariants)
-    for (m in family) {
+    for (m in getModelFamily(model, modelVariants)) {
       setDownloadOptionalComponents(m.name, true)
     }
-    val downloadedModels = family.filter {
-      uiState.value.modelDownloadStatus[it.name]?.status == ModelDownloadStatusType.SUCCEEDED
+    val plan = plannedExtraDataDownload(task, model, modelVariants) ?: return
+    val family = plan.family
+    val targetModel = plan.targetModel
+    val totalBytes = plan.totalBytes
+    val requiredBytes = plan.requiredBytes
+    val familyNames = plan.familyNames
+    // Fail right away without a connection, like [downloadModel].
+    if (!networkStateProvider.isConnected()) {
+      Log.w(TAG, "Not downloading the extra data of '${model.name}': no internet connection")
+      val noConnectionStatus =
+        noConnectionStatus(totalBytes = totalBytes, remainingBytes = plan.remainingBytes())
+      for (m in family) {
+        setExtraDataDownloadStatus(curModel = m, status = noConnectionStatus)
+      }
+      return
     }
-    val targetModel = downloadedModels.firstOrNull() ?: model
-    val extraFiles = targetModel.downloadInfo.extraDataFiles(task?.id)
-    if (extraFiles.isEmpty()) return
-    val totalBytes = extraFiles.sumOf { it.sizeInBytes }
-    // Zip files count twice, for the download and the unzipped files (see RepositoryDownloadSize).
-    val unzipBytes =
-      extraFiles.filter { isZipFileName(it.downloadFileName) }.sumOf { it.sizeInBytes }
-    val requiredBytes = {
-      totalBytes - storageManager.bytesOnDisk(targetModel, extraFiles.map { it.downloadFileName }) +
-        unzipBytes
-    }
-    val familyNames = family.map { it.name }.toSet()
     val shortfallStatus =
       storageShortfallStatus(
         requiredBytes = requiredBytes(),
@@ -1367,6 +1615,56 @@ constructor(
           ),
         )
       },
+    )
+  }
+
+  /** How [downloadExtraDataFiles] would download the extra data files of a model family. */
+  private class ExtraDataDownloadPlan(
+    /** The models of the family, which all get the download's status. */
+    val family: List<Model>,
+    /** The model whose dir the extra data files are downloaded to. */
+    val targetModel: Model,
+    /** The total size of the extra data files. */
+    val totalBytes: Long,
+    /** Returns how many bytes of the extra data files are still to download. */
+    val remainingBytes: () -> Long,
+    /** Returns how much free storage the download still needs, unzipping included. */
+    val requiredBytes: () -> Long,
+  ) {
+    val familyNames: Set<String> = family.map { it.name }.toSet()
+  }
+
+  /**
+   * Returns how [downloadExtraDataFiles] would download the extra data files of [model]'s family
+   * for [task], or `null` if the family has none.
+   */
+  private fun plannedExtraDataDownload(
+    task: Task?,
+    model: Model,
+    modelVariants: List<Model>,
+  ): ExtraDataDownloadPlan? {
+    val family = getModelFamily(model, modelVariants)
+    val downloadedModels = family.filter {
+      uiState.value.modelDownloadStatus[it.name]?.status == ModelDownloadStatusType.SUCCEEDED
+    }
+    val targetModel = downloadedModels.firstOrNull() ?: model
+    val extraFiles = targetModel.downloadInfo.extraDataFiles(task?.id)
+    if (extraFiles.isEmpty()) {
+      return null
+    }
+    val totalBytes = extraFiles.sumOf { it.sizeInBytes }
+    // Zip files count twice, for the download and the unzipped files (see RepositoryDownloadSize).
+    val unzipBytes =
+      extraFiles.filter { isZipFileName(it.downloadFileName) }.sumOf { it.sizeInBytes }
+    val remainingBytes = {
+      totalBytes - storageManager.bytesOnDisk(targetModel, extraFiles.map { it.downloadFileName })
+    }
+    return ExtraDataDownloadPlan(
+      family = family,
+      targetModel = targetModel,
+      totalBytes = totalBytes,
+      remainingBytes = remainingBytes,
+      requiredBytes = { remainingBytes() + unzipBytes },
     )
   }
 
@@ -1920,6 +2218,15 @@ constructor(
   }
 
   /**
+   * Forgets that the user started downloading [model] (see [onUserStartedDownload]), when the
+   * download didn't start after all, e.g. because the user declined to use mobile data. Otherwise
+   * an earlier refusal still in the model's status would ask for access later on its own.
+   */
+  fun forgetUserStartedDownload(model: Model) {
+    userStartedDownloads.remove(model.name)
+  }
+
+  /**
    * Returns the access error to ask the user about for [model]'s refused download, or `null` if
    * there's nothing to ask.
    *
@@ -2090,6 +2397,11 @@ constructor(
         val pendingByModelName = pendingDownloads.groupBy { it.modelName }
         val observedWorkerIds = mutableSetOf<UUID>()
         val tokenStatusAndData = getTokenStatusAndData()
+        // Downloads the user didn't start aren't resumed without a connection, nor over mobile
+        // data, which can cost money: they stay paused until the user resumes them, which asks
+        // first on mobile data.
+        val canAutoResume =
+          networkStateProvider.isConnected() && !networkStateProvider.isOnMobileData()
         val tasks = uiState.value.tasks
         val tasksAndModels =
           (tasks.flatMap { task -> task.models.map { model -> task to model } } +
@@ -2136,6 +2448,8 @@ constructor(
               curDownloadStatus.errorMessage.isEmpty()
           val isModelDownloadPending = pendingForModel.any { !it.isExtraDataOnly }
           when {
+            !canAutoResume && shouldAutoResume && !isModelDownloadPending ->
+              Log.d(TAG, "Not resuming '${model.name}' without a connection or on mobile data")
             task != null && shouldAutoResume && !isModelDownloadPending -> {
               if (
                 tokenStatusAndData.status == TokenStatus.NOT_EXPIRED &&

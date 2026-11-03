@@ -344,7 +344,13 @@ constructor(
               modelsToDownload = listOf(model),
               // Started outside any task, like from the global model manager: the download's
               // notification leads there, where Magic touch is listed under Scrapbook.
-              onPassed = { modelManagerViewModel.downloadModel(task = null, model = model) },
+              onPassed = {
+                modelManagerViewModel.downloadModelAfterMobileDataCheck(
+                  task = null,
+                  model = model,
+                  onCancelled = stickerModelDownload::cancel,
+                )
+              },
               // A failed download check closes the dialog; it isn't the user declining the model.
               onAborted = stickerModelDownload::cancel,
             )

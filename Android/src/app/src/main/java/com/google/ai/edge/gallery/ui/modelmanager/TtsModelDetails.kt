@@ -131,7 +131,7 @@ internal fun rememberSupplementaryModelsActions(
       onSelectFilter = { filter -> supplementaryModelsViewModel?.selectFilter(filter) },
       onRetry = { model -> supplementaryModelsViewModel?.retry(model) },
       onDownloadModel = { model ->
-        modelManagerViewModel.downloadModel(task = null, model = model)
+        modelManagerViewModel.downloadModelAfterMobileDataCheck(task = null, model = model)
       },
       onSetDefault = { model, isDefault ->
         modelManagerViewModel.stopVoicePreview()

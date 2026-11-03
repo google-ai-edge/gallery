@@ -95,6 +95,7 @@ import com.google.ai.edge.gallery.data.SpeechLanguageOverlap
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.InfoTooltipIconButton
+import com.google.ai.edge.gallery.ui.common.MobileDataDownloadDialog
 import com.google.ai.edge.gallery.ui.common.ModelDownloadGatesHost
 import com.google.ai.edge.gallery.ui.common.ModelNotAvailableMemoryAlert
 import com.google.ai.edge.gallery.ui.common.SpeechEngineErrorDialog
@@ -218,6 +219,14 @@ fun SectionedModelSelectionScreen(
 
   ModelDownloadGatesHost(gates = gates)
 
+  uiState.mobileDataConfirmation?.let { confirmation ->
+    MobileDataDownloadDialog(
+      downloadBytes = confirmation.downloadBytes,
+      onDownload = viewModel::onMobileDataDownloadConfirmed,
+      onCancel = viewModel::onMobileDataDownloadCancelled,
+    )
+  }
+
   val notReady = uiState.notReady
   if (notReady != null) {
     SpeechEngineErrorDialog(
@@ -232,9 +241,9 @@ fun SectionedModelSelectionScreen(
     )
   }
 
-  val storageShortfallMessage = uiState.storageShortfallMessage
-  if (storageShortfallMessage != null) {
-    ErrorDialog(error = storageShortfallMessage, onDismiss = viewModel::dismissStorageShortfall)
+  val downloadErrorMessage = uiState.downloadErrorMessage
+  if (downloadErrorMessage != null) {
+    ErrorDialog(error = downloadErrorMessage, onDismiss = viewModel::dismissDownloadError)
   }
 }
 
