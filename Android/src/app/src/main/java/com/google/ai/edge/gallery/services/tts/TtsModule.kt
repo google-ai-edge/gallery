@@ -68,8 +68,12 @@ abstract class TtsModule {
     @Singleton
     @IntoMap
     @TtsEngineKey(TtsEngineType.ML_KIT)
-    fun provideMlKitTtsEngine(@ApplicationContext context: Context): TtsService {
-      return MlKitTtsEngine(context)
+    fun provideMlKitTtsEngine(
+      @ApplicationContext context: Context,
+    ): TtsService {
+      return MlKitTtsEngine(
+        context,
+      )
     }
 
     /** Registers the MediaPipe `TextToSpeech` engine for downloadable models such as Kokoro 82M. */

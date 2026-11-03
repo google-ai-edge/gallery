@@ -918,7 +918,7 @@ constructor(
     _uiState.update { it.copy(isSpeechEngineErrorDismissed = false) }
     when (kind) {
       SpeechEngineKind.SPEECH_RECOGNITION -> prepareAsrEngine()
-      SpeechEngineKind.VOICE -> prepareTtsEngine()
+    SpeechEngineKind.VOICE -> prepareTtsEngine()
     }
   }
 

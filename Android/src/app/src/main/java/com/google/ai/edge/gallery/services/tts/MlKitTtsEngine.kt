@@ -18,7 +18,6 @@ package com.google.ai.edge.gallery.services.tts
 
 import android.content.Context
 import android.os.SystemClock
-import android.speech.tts.TextToSpeech
 import android.util.Log
 import com.google.ai.edge.gallery.data.supplementary.SpeechAvailability
 import com.google.ai.edge.gallery.data.supplementary.SpeechServicesVersion
@@ -217,7 +216,7 @@ class MlKitTtsEngine(
     internal const val DOWNLOAD_STALL_TIMEOUT_MS = 10_000L
 
     /**
-     * Wait between retries of an utterance that failed with [TextToSpeech.ERROR_SYNTHESIS] before
+     * Wait between retries of an utterance that failed with `TextToSpeech.ERROR_SYNTHESIS` before
      * playing any audio, and maximum number of retries per utterance.
      */
     internal const val SYNTHESIS_ERROR_RETRY_DELAY_MS = 150L

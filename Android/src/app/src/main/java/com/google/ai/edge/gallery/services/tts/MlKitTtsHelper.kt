@@ -156,12 +156,12 @@ private suspend fun MlKitTtsEngine.speakWarmUpUtterance(
                   else -> null
                 }
               is SpeechSynthesizerResponse.Error ->
-                if (response.errorCode == TextToSpeech.ERROR_NOT_INSTALLED_YET) {
-                  WarmUpResult.VOICE_NOT_LISTED
-                } else {
-                  Log.w(TAG, "Warm-up of voice ${voice.name} failed: ${response.errorCode}")
-                  WarmUpResult.INCOMPLETE
-                }
+              if (response.errorCode == TextToSpeech.ERROR_NOT_INSTALLED_YET) {
+                WarmUpResult.VOICE_NOT_LISTED
+              } else {
+                Log.w(TAG, "Warm-up of voice ${voice.name} failed: ${response.errorCode}")
+                WarmUpResult.INCOMPLETE
+              }
               is SpeechSynthesizerResponse.AudioAvailable -> null
             }
         }
@@ -189,26 +189,25 @@ internal fun Flow<TtsPlaybackEvent>.retrySynthesisErrorBeforeStart(
   var retries = 0
   while (true) {
     var started = false
-    var failure: TtsServiceError? = null
-    try {
-      currentFlow.collect { event ->
-        if (event == TtsPlaybackEvent.PLAYBACK_STARTED) {
-          started = true
+    val failure =
+      try {
+        currentFlow.collect { event ->
+          if (event == TtsPlaybackEvent.PLAYBACK_STARTED) {
+            started = true
+          }
+          emit(event)
         }
-        emit(event)
+        return@flow
+      } catch (e: TtsServiceError.SynthesisFailed) {
+        if (
+          started ||
+            e.errorCode != TextToSpeech.ERROR_SYNTHESIS ||
+            retries >= MlKitTtsEngine.SYNTHESIS_ERROR_MAX_RETRIES
+        ) {
+          throw e
+        }
+        e
       }
-      return@flow
-    } catch (e: TtsServiceError.SynthesisFailed) {
-      if (
-        !started &&
-          e.errorCode == TextToSpeech.ERROR_SYNTHESIS &&
-          retries < MlKitTtsEngine.SYNTHESIS_ERROR_MAX_RETRIES
-      ) {
-        failure = e
-      } else {
-        throw e
-      }
-    }
     val generationBeforeWait = engine.activeFlowGeneration.get()
     retries += 1
     Log.w(

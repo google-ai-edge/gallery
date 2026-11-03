@@ -39,7 +39,10 @@ fun SpeechModelState.toSpeechEngineErrorCause(): SpeechEngineErrorCause? =
         UpdatableComponent.AICORE -> SpeechEngineErrorCause.OTHER
       }
     is SpeechModelState.EngineError ->
-      if (recoverable) SpeechEngineErrorCause.OTHER else SpeechEngineErrorCause.NOT_SUPPORTED
+      when {
+        recoverable -> SpeechEngineErrorCause.OTHER
+        else -> SpeechEngineErrorCause.NOT_SUPPORTED
+      }
     is SpeechModelState.Hidden,
     is SpeechModelState.NeedsOptIn,
     is SpeechModelState.Unavailable -> SpeechEngineErrorCause.NOT_SUPPORTED

@@ -1039,7 +1039,7 @@ private fun toModelItemStatus(
     is SpeechModelState.CheckFailed ->
       ConfigAudioModelItemStatus.Unavailable(R.string.supplementary_status_check_failed)
     is SpeechModelState.EngineError ->
-      ConfigAudioModelItemStatus.Unavailable(R.string.supplementary_status_engine_error)
+    ConfigAudioModelItemStatus.Unavailable(R.string.supplementary_status_engine_error)
     is SpeechModelState.Hidden ->
       ConfigAudioModelItemStatus.Unavailable(R.string.model_unavailable_status)
     is SpeechModelState.Ready ->

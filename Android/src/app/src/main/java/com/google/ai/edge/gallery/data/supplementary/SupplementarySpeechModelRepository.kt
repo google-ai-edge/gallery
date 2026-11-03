@@ -770,8 +770,9 @@ internal constructor(
     }
   }
 
-  fun getModelState(modelName: String): SpeechModelState? =
-    _modelStates.value[modelName] ?: modelCache[modelName]?.state
+  fun getModelState(modelName: String): SpeechModelState? {
+    return _modelStates.value[modelName] ?: modelCache[modelName]?.state
+  }
 
   fun getLanguageState(modelName: String, languageCode: String): LanguageState? =
     _languageStates.value[modelName]?.get(languageCode)

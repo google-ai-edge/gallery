@@ -73,7 +73,7 @@ data class SpeechEngineError(val kind: SpeechEngineKind, val cause: SpeechEngine
     get() =
       when (cause) {
         // Retry lets the user try again after updating, since nothing retries automatically.
-        SpeechEngineErrorCause.SPEECH_SERVICES_OUTDATED ->
+          SpeechEngineErrorCause.SPEECH_SERVICES_OUTDATED ->
           listOf(SpeechEngineErrorAction.UPDATE, SpeechEngineErrorAction.RETRY)
         SpeechEngineErrorCause.LANGUAGE_NOT_INSTALLED ->
           listOf(SpeechEngineErrorAction.CHOOSE_LANGUAGE)
