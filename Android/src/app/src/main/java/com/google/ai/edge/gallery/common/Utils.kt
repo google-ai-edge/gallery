@@ -42,9 +42,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.core.net.toUri
 import androidx.exifinterface.media.ExifInterface
 import com.google.ai.edge.gallery.ButtonClickAction
+import com.google.ai.edge.gallery.GalleryAnalytics.logGalleryEvent
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
-import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.gson.Gson
 import java.io.File
 import java.io.FileInputStream
@@ -156,7 +156,7 @@ fun convertWavToMonoWithMaxSeconds(
 
     // Normalize audio to 16-bit.
     val audioDataBytes = originalBytes.copyOfRange(fromIndex = 44, toIndex = originalBytes.size)
-    var sixteenBitBytes: ByteArray =
+    val sixteenBitBytes: ByteArray =
       if (bitDepth.toInt() == 8) {
         Log.d(TAG, "Converting 8-bit audio to 16-bit.")
         convert8BitTo16Bit(audioDataBytes)
@@ -449,7 +449,7 @@ fun Modifier.clearFocusOnKeyboardDismiss(): Modifier = composed {
 }
 
 fun logErrorToFirebase(event: GalleryEvent, errorType: String, errorMessage: String?) {
-  firebaseAnalytics?.logEvent(
+  logGalleryEvent(
     event.id,
     Bundle().apply {
       putBoolean("success", false)
@@ -477,7 +477,7 @@ fun logButtonClick(
   modelId: String? = null,
   extras: Bundle.() -> Unit = {},
 ) {
-  firebaseAnalytics?.logEvent(
+  logGalleryEvent(
     GalleryEvent.BUTTON_CLICKED.id,
     Bundle().apply {
       extras()

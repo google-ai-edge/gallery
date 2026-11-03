@@ -43,9 +43,10 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkQuery
 import com.google.ai.edge.gallery.AppLifecycleProvider
+import com.google.ai.edge.gallery.GalleryAnalytics.logGalleryEvent
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.analytics.ModelDownloadAnalytics.analyticsModelType
 import com.google.ai.edge.gallery.worker.DownloadWorker
 import java.time.Clock
 import java.util.UUID
@@ -261,9 +262,7 @@ private const val DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID = "___"
 class DefaultDownloadRepository(
   private val context: Context,
   private val lifecycleProvider: AppLifecycleProvider,
-  private val logAnalyticsEvent: (name: String, params: Bundle) -> Unit = { name, params ->
-    firebaseAnalytics?.logEvent(name, params)
-  },
+  private val logAnalyticsEvent: (name: String, params: Bundle) -> Unit = ::logGalleryEvent,
   private val clock: Clock = Clock.systemUTC(),
 ) : DownloadRepository {
   private val workManager = WorkManager.getInstance(context)
@@ -453,10 +452,7 @@ class DefaultDownloadRepository(
     )
     observedDownloads[workerId] = download
     downloadStartTimeSharedPreferences.edit { putLong(workerId.toString(), clock.millis()) }
-    logAnalyticsEvent(
-      GalleryEvent.MODEL_DOWNLOAD.id,
-      downloadEventParams(EVENT_TYPE_START, download.model.name),
-    )
+    logModelDownload(downloadEventParams(EVENT_TYPE_START, download.model.name, download.model))
     observeWorkerProgress(
       workerId = workerId,
       download = download,
@@ -490,21 +486,25 @@ class DefaultDownloadRepository(
       modelName = download.model.name,
       eventType =
         if (download.cancelledByUser) EVENT_TYPE_CANCELLED else EVENT_TYPE_CANCELLED_BY_APP,
+      model = download.model,
     )
   }
 
   /**
    * Logs how a download ended, with its duration if its start time is known, and forgets its start
    * time.
+   *
+   * @param model The downloaded model, for its `model_type`, or null if it isn't known.
    */
   private fun logDownloadOutcome(
     workerId: UUID,
     modelName: String,
     eventType: String,
     errorType: String? = null,
+    model: Model? = null,
   ) {
     val startTimeKey = workerId.toString()
-    val params = downloadEventParams(eventType, modelName)
+    val params = downloadEventParams(eventType, modelName, model)
     if (startTimeKey in downloadStartTimeSharedPreferences) {
       val startTime = downloadStartTimeSharedPreferences.getLong(startTimeKey, 0L)
       // The wall clock can move backward, e.g. when it's synced, so never log a negative duration.
@@ -513,16 +513,29 @@ class DefaultDownloadRepository(
     if (errorType != null) {
       params.putString("error_type", errorType)
     }
-    logAnalyticsEvent(GalleryEvent.MODEL_DOWNLOAD.id, params)
+    logModelDownload(params)
     downloadStartTimeSharedPreferences.edit { remove(startTimeKey) }
   }
 
-  /** Returns the parameters every `model_download` analytics event has. */
-  private fun downloadEventParams(eventType: String, modelName: String): Bundle =
+  /**
+   * Returns the parameters every `model_download` analytics event has. [model] gives the
+   * `model_type`, which is left out when the model isn't known.
+   */
+  private fun downloadEventParams(eventType: String, modelName: String, model: Model?): Bundle =
     Bundle().apply {
       putString("event_type", eventType)
       putString("model_id", modelName)
+      model?.let { putString("model_type", analyticsModelType(it).id) }
     }
+
+  /** Logs a `model_download` event with [params], with a matching `Analytics:` debug log. */
+  private fun logModelDownload(params: Bundle) {
+    @Suppress("DEPRECATION")
+    val paramsText =
+      params.keySet().sorted().joinToString(", ") { key -> "$key=${params.get(key)}" }
+    Log.d(TAG, "Analytics: ${GalleryEvent.MODEL_DOWNLOAD.id}, $paramsText")
+    logAnalyticsEvent(GalleryEvent.MODEL_DOWNLOAD.id, params)
+  }
 
   override fun cancelDownloadExtraDataFiles(model: Model) {
     cancelByUser(workName(model.name, isExtraDataOnly = true))
@@ -752,6 +765,7 @@ class DefaultDownloadRepository(
                 workerId = workerId,
                 modelName = model.name,
                 eventType = EVENT_TYPE_SUCCESS,
+                model = model,
               )
             }
 
@@ -800,6 +814,7 @@ class DefaultDownloadRepository(
                 modelName = model.name,
                 eventType = outcome.analyticsEventType,
                 errorType = outcome.analyticsErrorType,
+                model = model,
               )
             }
 

@@ -44,7 +44,8 @@ private val firebaseAnalyticsDelegate: FirebaseAnalytics? by lazy {
  * Thin wrapper around [FirebaseAnalytics] exposing the subset of its API used by the app.
  *
  * [FirebaseAnalytics] is a final class that is unavailable in Robolectric unit tests, so tests set
- * [eventHandler] to intercept and verify logged events and their parameters instead.
+ * [eventHandler] or [galleryEventSinkForTesting] to intercept and verify logged events and their
+ * parameters instead.
  */
 object GalleryAnalytics {
   /**
@@ -54,6 +55,13 @@ object GalleryAnalytics {
    * when done.
    */
   @VisibleForTesting @Volatile var eventHandler: ((name: String, params: Bundle?) -> Unit)? = null
+
+  /**
+   * When set, receives every event logged through [logGalleryEvent] instead of Firebase Analytics.
+   *
+   * Tests set it to capture the logged events and their params, and reset it to null afterwards.
+   */
+  @VisibleForTesting @Volatile var galleryEventSinkForTesting: ((String, Bundle) -> Unit)? = null
 
   /**
    * Logs the [name] event with [params] to Firebase Analytics, or forwards it to [eventHandler]
@@ -66,6 +74,19 @@ object GalleryAnalytics {
       return
     }
     firebaseAnalyticsDelegate?.logEvent(name, params)
+  }
+
+  /**
+   * Logs the Firebase Analytics event [name] with [params], or hands it to
+   * [galleryEventSinkForTesting] in tests.
+   */
+  fun logGalleryEvent(name: String, params: Bundle) {
+    val sink = galleryEventSinkForTesting
+    if (sink != null) {
+      sink(name, params)
+      return
+    }
+    firebaseAnalytics?.logEvent(name, params)
   }
 
   /** Enables or disables Firebase Analytics collection for this app. */

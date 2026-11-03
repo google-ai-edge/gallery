@@ -21,9 +21,7 @@ import android.util.Log
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.Serializer
-import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
-import com.google.ai.edge.gallery.common.logErrorToFirebase
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherViewModel
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.isVocabCardSaved
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.persistLatestSessionSticker
@@ -230,7 +228,6 @@ private suspend fun XrLanguageTeacherViewModel.writeDictionaryEntry(
         imagesChanged = true
       } catch (e: Exception) {
         Log.e(TAG, "Failed writing vocabulary image file", e)
-        logErrorToFirebase(GalleryEvent.BUTTON_CLICKED, "io_error", e.message)
       }
     }
     val savedSticker =

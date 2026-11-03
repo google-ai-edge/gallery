@@ -102,7 +102,6 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.findS
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.findVocabGameEntryKeysWithImages
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.getPersonaPromptTemplate
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.loadSessionImageBitmap
-import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.logChatHistoryAction
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.onVocabGameStarted
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.openCutoutEditor
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.prepareGame
@@ -386,10 +385,6 @@ constructor(
 
     DisposableEffect(myData, viewModel, modelManagerViewModel) {
       myData.setHistoryClickHandler {
-        viewModel.logChatHistoryAction(
-          action = "open_history",
-          model = modelManagerViewModel.uiState.value.selectedModel,
-        )
         showHistorySheet = true
       }
       onDispose { myData.setHistoryClickHandler(null) }
@@ -691,10 +686,6 @@ constructor(
         savedWords = entries,
         loadSessionImageBitmap = viewModel::loadSessionImageBitmap,
         onExpandSession = {
-          viewModel.logChatHistoryAction(
-            action = "expand_session",
-            model = modelManagerViewModel.uiState.value.selectedModel,
-          )
         },
         onDeleteSession = { sessionId ->
           val currentModel = modelManagerViewModel.uiState.value.selectedModel
