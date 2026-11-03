@@ -96,6 +96,13 @@ interface ModelSelectionHost {
 
   /** Whether the current device's memory is lower than [model]'s minimum required memory. */
   fun isMemoryLow(model: Model): Boolean = false
+
+  /**
+   * Returns the message to show if the models in [downloads], as (task, model) pairs, can't all be
+   * downloaded with the free storage, or `null` if they fit. See
+   * [ModelManagerViewModel.batchDownloadStorageShortfallMessage].
+   */
+  fun batchDownloadStorageShortfallMessage(downloads: List<Pair<Task?, Model>>): String? = null
 }
 
 /** Adapts this [ModelManagerViewModel] to [ModelSelectionHost]. */
@@ -154,6 +161,9 @@ private class ModelManagerSelectionHost(private val viewModel: ModelManagerViewM
     memoryLowByModel.getOrPut(model.name to model.minDeviceMemoryInGb) {
       viewModel.isModelMemoryLow(model)
     }
+
+  override fun batchDownloadStorageShortfallMessage(downloads: List<Pair<Task?, Model>>): String? =
+    viewModel.batchDownloadStorageShortfallMessage(downloads)
 }
 
 /**
@@ -378,6 +388,11 @@ data class TaskModelSelectionUiState(
   val launchModel: Model? = null,
   /** The speech model that wasn't ready when the task was about to launch, if any. */
   val notReady: ModelNotReadyUiState? = null,
+  /**
+   * The message to show when Try it didn't start any download because the selected models don't all
+   * fit in the free storage, dismissed with [TaskModelSelectionViewModel.dismissStorageShortfall].
+   */
+  val storageShortfallMessage: String? = null,
 )
 
 private data class SelectionState(
@@ -394,6 +409,7 @@ private data class SelectionState(
   val scrollToSectionId: String? = null,
   val launchModel: Model? = null,
   val notReady: ModelNotReadyUiState? = null,
+  val storageShortfallMessage: String? = null,
 )
 
 private data class Binding(
@@ -615,6 +631,7 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
         launchPhase = ModelSelectionLaunchPhase.GATING,
         gateRequest = request,
         notReady = null,
+        storageShortfallMessage = null,
       )
     )
   }
@@ -622,6 +639,9 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
   /**
    * Called when the download checks of [request] passed: starts the missing downloads concurrently,
    * expands the sections whose model downloads, and launches once every model is ready.
+   *
+   * If the missing models don't all fit in the free storage, nothing starts, and the launch stops
+   * with [TaskModelSelectionUiState.storageShortfallMessage].
    */
   fun onGatesPassed(request: ModelSelectionGateRequest) {
     val currentBinding = binding.value ?: return
@@ -633,10 +653,27 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
       currentBinding.config.sections
         .mapNotNull { section -> current.selections[section.id]?.let { it to section } }
         .toMap()
-    for (model in request.modelsToDownload) {
-      val section = sectionByModelName[model.name]
-      val task =
-        if (section?.target == ModelSelectionTarget.MAIN_MODEL) currentBinding.task else null
+    val downloads =
+      request.modelsToDownload.map { model ->
+        val section = sectionByModelName[model.name]
+        val task =
+          if (section?.target == ModelSelectionTarget.MAIN_MODEL) currentBinding.task else null
+        task to model
+      }
+    val storageShortfallMessage =
+      currentBinding.host.batchDownloadStorageShortfallMessage(downloads)
+    if (storageShortfallMessage != null) {
+      Log.w(TAG, "Not starting the downloads of ${downloads.map { it.second.name }}: no storage")
+      update(
+        current.copy(
+          launchPhase = ModelSelectionLaunchPhase.IDLE,
+          gateRequest = null,
+          storageShortfallMessage = storageShortfallMessage,
+        )
+      )
+      return
+    }
+    for ((task, model) in downloads) {
       Log.d(TAG, "Downloading model '${model.name}'")
       currentBinding.host.downloadModel(task = task, model = model)
     }
@@ -712,6 +749,11 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     update(state.value.copy(notReady = null))
   }
 
+  /** Dismisses the message that the selected models don't fit in the free storage. */
+  fun dismissStorageShortfall() {
+    update(state.value.copy(storageShortfallMessage = null))
+  }
+
   /** Dismisses the error popup of a model that wasn't ready and runs Try it again. */
   fun retryNotReadyModel() {
     dismissNotReadyModel()
@@ -767,6 +809,8 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
     val hasFailedModel = selected.any { (_, model) ->
       model == null ||
         statuses[model.name]?.status == ModelDownloadStatusType.FAILED ||
+        // The download paused, e.g. because the connection broke. The user resumes it.
+        statuses[model.name]?.isPaused(model) == true ||
         statuses[model.name]?.authError != null
     }
     if (hasFailedModel) {
@@ -896,6 +940,7 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
       scrollToSectionId = selectionState.scrollToSectionId,
       launchModel = selectionState.launchModel,
       notReady = selectionState.notReady,
+      storageShortfallMessage = selectionState.storageShortfallMessage,
     )
   }
 

@@ -93,6 +93,7 @@ import com.google.ai.edge.gallery.data.ModelSelectionConfig
 import com.google.ai.edge.gallery.data.ModelSelectionTarget
 import com.google.ai.edge.gallery.data.SpeechLanguageOverlap
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.InfoTooltipIconButton
 import com.google.ai.edge.gallery.ui.common.ModelDownloadGatesHost
 import com.google.ai.edge.gallery.ui.common.ModelNotAvailableMemoryAlert
@@ -229,6 +230,11 @@ fun SectionedModelSelectionScreen(
       onChooseLanguage = null,
       onChooseAnotherModel = viewModel::chooseAnotherModelForNotReady,
     )
+  }
+
+  val storageShortfallMessage = uiState.storageShortfallMessage
+  if (storageShortfallMessage != null) {
+    ErrorDialog(error = storageShortfallMessage, onDismiss = viewModel::dismissStorageShortfall)
   }
 }
 

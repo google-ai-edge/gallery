@@ -69,4 +69,11 @@ data class ModelDownloadStatus(
   val authError: DownloadAuthError? = null,
   /** Set when the last download failed for a reason the UI treats specially, such as stalling. */
   val failureReason: ModelDownloadFailureReason? = null,
-)
+) {
+  /**
+   * Whether the download of [model] is paused: it stopped with partial files on disk and is managed
+   * by the app's download repository so the user can resume or discard it.
+   */
+  fun isPaused(model: Model): Boolean =
+    status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED && model.downloadsViaRepository
+}

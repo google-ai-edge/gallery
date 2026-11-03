@@ -69,6 +69,7 @@ import com.google.ai.edge.gallery.ui.theme.labelSmallNarrow
  * This function renders the model's name and its current download status, including:
  * - Model name.
  * - Failure message (if download failed).
+ * - Downloaded size, and why it paused, for a paused download.
  * - "Unzipping..." status for unzipping processes.
  * - Model size for successful downloads.
  */
@@ -269,6 +270,8 @@ fun ModelStatusDetails(
 ) {
   val inProgress = downloadStatus?.status == ModelDownloadStatusType.IN_PROGRESS
   val isPartiallyDownloaded = downloadStatus?.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
+  // A paused download that the user can resume or discard.
+  val isPaused = downloadStatus?.isPaused(model) == true
 
   Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
     // Status icon.
@@ -301,36 +304,39 @@ fun ModelStatusDetails(
 
       // Populate the status label.
       if (downloadStatus != null) {
-        // For in-progress model, show {receivedSize} / {totalSize} - {rate} - {remainingTime}
-        if (inProgress || isPartiallyDownloaded) {
-          if (!model.downloadsViaRepository && downloadStatus.totalBytes == 0L) {
-            sizeLabel = stringResource(R.string.cd_downloading_icon)
-          } else {
-            var totalSize = downloadStatus.totalBytes
-            if (totalSize == 0L) {
-              totalSize = model.downloadInfo.totalBytes
-            }
-            sizeLabel =
-              "${downloadStatus.receivedBytes.humanReadableSize(extraDecimalForGbAndAbove = true)} of ${totalSize.humanReadableSize()}"
-            if (downloadStatus.bytesPerSecond > 0) {
-              sizeLabel = "$sizeLabel · ${downloadStatus.bytesPerSecond.humanReadableSize()} / s"
-              // if (downloadStatus.remainingMs >= 0) {
-              //   sizeLabel =
-              //     "$sizeLabel\n${downloadStatus.remainingMs.formatToHourMinSecond()} left"
-              // }
-            }
-            if (isPartiallyDownloaded) {
-              sizeLabel = "$sizeLabel (resuming...)"
+        when {
+          // For a paused model, show {receivedSize} of {totalSize} downloaded · {reason}
+          isPaused -> {
+            sizeLabel = pausedDownloadStatusLabel(model = model, downloadStatus = downloadStatus)
+          }
+          // For in-progress model, show {receivedSize} / {totalSize} - {rate} - {remainingTime}
+          inProgress || isPartiallyDownloaded -> {
+            if (!model.downloadsViaRepository && downloadStatus.totalBytes == 0L) {
+              sizeLabel = stringResource(R.string.cd_downloading_icon)
+            } else {
+              var totalSize = downloadStatus.totalBytes
+              if (totalSize == 0L) {
+                totalSize = model.downloadInfo.totalBytes
+              }
+              sizeLabel =
+                "${downloadStatus.receivedBytes.humanReadableSize(extraDecimalForGbAndAbove = true)} of ${totalSize.humanReadableSize()}"
+              if (downloadStatus.bytesPerSecond > 0) {
+                sizeLabel = "$sizeLabel · ${downloadStatus.bytesPerSecond.humanReadableSize()} / s"
+                // if (downloadStatus.remainingMs >= 0) {
+                //   sizeLabel =
+                //     "$sizeLabel\n${downloadStatus.remainingMs.formatToHourMinSecond()} left"
+                // }
+              }
             }
           }
-        }
-        // Status for unzipping.
-        else if (downloadStatus.status == ModelDownloadStatusType.UNZIPPING) {
-          sizeLabel = "Unzipping..."
-        }
-        // Status for unavailable model.
-        else if (downloadStatus.status == ModelDownloadStatusType.UNAVAILABLE) {
-          sizeLabel = stringResource(R.string.model_unavailable_status)
+          // Status for unzipping.
+          downloadStatus.status == ModelDownloadStatusType.UNZIPPING -> {
+            sizeLabel = "Unzipping..."
+          }
+          // Status for unavailable model.
+          downloadStatus.status == ModelDownloadStatusType.UNAVAILABLE -> {
+            sizeLabel = stringResource(R.string.model_unavailable_status)
+          }
         }
       }
 
@@ -341,17 +347,40 @@ fun ModelStatusDetails(
           Text(
             line,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
+            // The reason a download paused can make its label long.
+            maxLines = if (isPaused) 2 else 1,
             style =
               MaterialTheme.typography.bodyMedium.copy(
                 // This stops numbers from "jumping around" when being updated.
                 fontFeatureSettings = "tnum"
               ),
-            overflow = TextOverflow.Visible,
+            overflow = if (isPaused) TextOverflow.Ellipsis else TextOverflow.Visible,
             modifier = Modifier.offset(y = if (index == 0) 0.dp else (-1).dp),
           )
         }
       }
     }
+  }
+}
+
+/**
+ * Returns the status label of [model]'s paused download: how much of it is downloaded, followed by
+ * why it paused when that's known, e.g. "1.20 GB of 3.66 GB downloaded · Connection lost".
+ */
+@Composable
+fun pausedDownloadStatusLabel(model: Model, downloadStatus: ModelDownloadStatus): String {
+  val totalBytes = downloadStatus.totalBytes.takeIf { it > 0L } ?: model.downloadInfo.totalBytes
+  val receivedSize =
+    downloadStatus.receivedBytes.humanReadableSize(extraDecimalForGbAndAbove = true)
+  val totalSize = totalBytes.humanReadableSize()
+  return if (downloadStatus.errorMessage.isEmpty()) {
+    stringResource(R.string.model_download_paused_status, receivedSize, totalSize)
+  } else {
+    stringResource(
+      R.string.model_download_paused_status_with_reason,
+      receivedSize,
+      totalSize,
+      downloadStatus.errorMessage,
+    )
   }
 }
