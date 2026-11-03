@@ -108,10 +108,10 @@ enum class CharacterPersona(
   ): String {
     val question = spokenQuestion?.trim().orEmpty()
     if (question.isEmpty()) {
-      return "Identify the focal item in $mainLangName and teach it in $learnLangName inside <reply>...</reply>. Start immediately with <reply>."
+      return "Identify the focal item in $mainLangName, then teach the exact focal $learnLangName vocabulary term ${LearnLanguageNounForms.pass1TermForm(learnLangName)} followed by a complete example sentence. All conversational explanations and framing must be strictly in $mainLangName outside <target>. Wrap every single $learnLangName word or complete $learnLangName sentence inside <target>...</target>. Never place two <target> tags back-to-back without $mainLangName words between them, and never split a sentence across tags. Emit everything inside <reply>...</reply>."
     }
     val turnLabel = if (isFollowUp) "Follow-up" else "Student asked"
-    return "$turnLabel: \"$question\". Answer their full question in $mainLangName outside <target> (grounding \"this\"/\"that\" to the camera object) and wrap ONLY $learnLangName words or full $learnLangName sentences inside <target>...</target>. Start immediately with <reply>."
+    return "$turnLabel: \"$question\". Answer in $mainLangName outside <target> (grounding \"this\"/\"that\" to the camera object). State the focal $learnLangName noun ${LearnLanguageNounForms.pass1NounForm(learnLangName)} inside <target>...</target> in your first $mainLangName clause, then introduce one complete $learnLangName sentence inside a single unbroken <target>...</target> in the next clause (or if teaching a greeting/set phrase, wrap the complete $learnLangName phrase in one <target>...</target>). Always separate <target> tags with $mainLangName words (never back-to-back </target><target>), never split a $learnLangName sentence across tags, and never leave any $learnLangName word untagged. Start immediately with <reply>."
   }
 
   private fun buildReplyOnlySchemaSection(mainLangName: String, learnLangName: String): String {
@@ -271,5 +271,67 @@ fun CharacterPersona.subtitleResId(): Int {
     CharacterPersona.NERDY -> R.string.xrteacher_persona_nerdy_subtitle
     CharacterPersona.SECRET_AGENT -> R.string.xrteacher_persona_secret_agent_subtitle
     CharacterPersona.WIZARD -> R.string.xrteacher_persona_wizard_subtitle
+  }
+}
+
+/**
+ * Per-learn-language noun conventions shared by the Pass 1 turn prompts and the Pass 2 card
+ * extraction prompt.
+ *
+ * Languages with grammatical articles are taught as `article + noun` (`la taza`, `der Tisch`).
+ * Languages without articles must be taught as the bare noun: asking the 2B model for an article in
+ * Japanese or Hindi makes it attach a demonstrative instead (`このシャベル`, `यह बोतल`), which the card
+ * then shows as the vocabulary word. Evaluated on en/es/fr/it/pt (articles) and ja/hi (bare).
+ */
+internal object LearnLanguageNounForms {
+  private val ARTICLE_LESS_LANGUAGES =
+    setOf("japanese", "hindi", "korean", "chinese", "mandarin", "thai", "vietnamese", "russian")
+
+  /** Whether [learnLangName] marks nouns with a standalone grammatical article. */
+  fun hasArticles(learnLangName: String): Boolean =
+    learnLangName.lowercase(Locale.ROOT) !in ARTICLE_LESS_LANGUAGES
+
+  /** How the photo-only Pass 1 turn asks for the vocabulary term. */
+  fun pass1TermForm(learnLangName: String): String =
+    if (hasArticles(learnLangName)) {
+      "with its singular grammatical article (e.g. el/la, le/la, der/die/das, il/la, o/a)"
+    } else {
+      "as the bare noun on its own"
+    }
+
+  /** How the question Pass 1 turn asks for the focal noun. */
+  fun pass1NounForm(learnLangName: String): String =
+    if (hasArticles(learnLangName)) {
+      "with its singular article (el/la, le/la, der/die/das, il/la, o/a)"
+    } else {
+      "on its own (the bare noun only)"
+    }
+
+  /** The `word` rule of the Pass 2 card prompt, up to and excluding the carrier-phrase sentence. */
+  fun pass2WordRule(learnLangName: String): String =
+    if (hasArticles(learnLangName)) {
+      "The isolated focal $learnLangName noun taught in the reply, always written with its singular definite article (Spanish el/la, French le/la/l', German der/die/das, Italian il/lo/la/l', Portuguese o/a) whenever $learnLangName has gendered articles (convert indefinite articles like un/una/une/ein/uma to el/la/le/der/o/a)."
+    } else {
+      "The isolated focal $learnLangName noun taught in the reply, written as the bare noun only (e.g. \"シャベル\", not \"このシャベル\"; \"बोतल\", not \"यह बोतल\")."
+    }
+
+  /**
+   * A contrastive `example` illustration for the Pass 2 card prompt: a sentence that contains the
+   * noun versus the pronoun sentence the model tends to copy from the reply. Empty for languages
+   * without a curated illustration.
+   */
+  fun pass2ExampleContrast(learnLangName: String): String {
+    val pair =
+      when (learnLangName.lowercase(Locale.ROOT)) {
+        "english" -> "for \"the key\": \"This is the key.\", not \"What is this?\""
+        "spanish" -> "for \"la llave\": \"Esta es la llave.\", not \"¿Qué es esto?\""
+        "french" -> "for \"le clavier\": \"Le clavier est cassé.\", not \"C'est cassé.\""
+        "italian" -> "for \"la chiave\": \"Questa è la chiave.\", not \"Che cos'è questo?\""
+        "portuguese" -> "for \"a chave\": \"Esta é a chave.\", not \"O que é isso?\""
+        "japanese" -> "for \"ナイフ\": \"これはナイフです。\", not \"これを持っていますか？\""
+        "hindi" -> "for \"चाबी\": \"यह चाबी है।\", not \"यह क्या है?\""
+        else -> return ""
+      }
+    return " (e.g. $pair)"
   }
 }
