@@ -22,6 +22,7 @@ import androidx.core.graphics.scale
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.CharacterPersona
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.GenerableVocabCard
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.LearnLanguageNounForms
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherChatTurn
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherJsonResponse
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.TeacherOverlayState
@@ -608,7 +609,11 @@ internal fun buildPass2CardExtractionPromptImpl(
   val cleanExisting = existingWords.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
   val instruction =
     """
-    Extract only the core focal $learnLangName dictionary term or short set phrase/greeting (noun, verb, greeting, or short set phrase — e.g. isolate "青いマット" from "これは青いマットです。"; allow short set phrases and greetings as valid cards, but never put a full sentence, copula frame, or conversational frame like "To say that, you can say..." in "word") taught in this teacher reply into a JSON flashcard object with keys "word" (core $learnLangName term or short phrase with article if applicable), "meaning" ($mainLangName translation), "example" (complete $learnLangName sentence), and "example_translation" ($mainLangName translation):
+    Extract the key $learnLangName vocabulary item taught in the teacher reply into a JSON flashcard object with keys "word", "meaning", "example", "example_translation":
+    1. "word": ${LearnLanguageNounForms.pass2WordRule(learnLangName)} Strip carrier phrases like "To say that, you can say" and copulas (isolate "青いマット" from "これは青いマットです。"). Do not include demonstratives. A short greeting or set phrase is valid only if that greeting was specifically taught.
+    2. "meaning": Clear definition of "word" written strictly in $mainLangName (never English if $mainLangName is different).
+    3. "example": A complete, natural $learnLangName statement written 100% in $learnLangName (zero $mainLangName words, zero duplicate articles) that uses the base noun from "word". If the reply only used a generic question or a pronoun sentence, compose a short $learnLangName statement that contains the noun from "word"${LearnLanguageNounForms.pass2ExampleContrast(learnLangName)}.
+    4. "example_translation": Complete translation of "example" written strictly in $mainLangName.
     """
       .trimIndent()
   return buildString {
@@ -665,9 +670,9 @@ internal fun buildPass1PromptImpl(
     }
   val focalSection =
     if (!focalSubject.isNullOrBlank() && isFollowUp) {
-      "The active lesson subject is \"$focalSubject\".\n\n"
+      "The active lesson subject is \"$focalSubject\". Speak strictly in $mainLangName outside <target>; separate <target>...</target> spans with $mainLangName words and keep every full $learnLangName sentence inside one unbroken <target>...</target> tag.\n\n"
     } else {
       ""
     }
-  return "$historySection$focalSection$basePrompt"
+  return "${historySection}${focalSection}${basePrompt}\nMandatory: All non-target explanations must be strictly in $mainLangName. Wrap every $learnLangName word and every complete $learnLangName sentence (including its verb/ending) entirely inside <target>...</target>, separated by $mainLangName words. Never emit back-to-back <target> tags, never write < inside <target>, and never leave $learnLangName text untagged."
 }
