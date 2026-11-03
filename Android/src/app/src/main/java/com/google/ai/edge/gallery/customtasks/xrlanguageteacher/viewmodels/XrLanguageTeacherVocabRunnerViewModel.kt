@@ -193,7 +193,7 @@ class XrLanguageTeacherVocabRunnerViewModel(
         isMissedWord = false,
       )
     } else {
-      soundEffects.playCollision()
+      emitCollisionFeedback()
       _arenaState.update { it.copy(game = game, edgeGlowIntensity = 1f, isCollisionGlow = true) }
       _uiState.update { chromeStateFor(game, base = it) }
       celebrate(outcome.correctItem.displayWord, isMissedWord = true)
@@ -235,7 +235,7 @@ class XrLanguageTeacherVocabRunnerViewModel(
       }
     }
     val game = engine.state
-    if (didCollideAny) soundEffects.playCollision()
+    if (didCollideAny) emitCollisionFeedback()
     _arenaState.update {
       it.copy(game = game, edgeGlowIntensity = glow, isCollisionGlow = isCollisionGlow)
     }
@@ -257,7 +257,7 @@ class XrLanguageTeacherVocabRunnerViewModel(
     if (deltaMilliseconds <= 0L) return
     val events = engine.step(deltaMilliseconds)
     val game = engine.state
-    if (events.didCollide) soundEffects.playCollision()
+    if (events.didCollide) emitCollisionFeedback()
     _arenaState.update {
       val glow = if (events.didCollide) 1f else it.edgeGlowIntensity
       val newGlow = decayEdgeGlow(glow, deltaMilliseconds)

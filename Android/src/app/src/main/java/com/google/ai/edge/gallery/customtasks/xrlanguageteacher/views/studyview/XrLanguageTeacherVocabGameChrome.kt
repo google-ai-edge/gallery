@@ -79,6 +79,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -95,6 +97,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabGameMode
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabPopperEngine
@@ -715,7 +719,8 @@ internal fun VocabGameSessionEndEffect(onEndSession: () -> Unit) {
 /**
  * The session effects shared by the game screens of [viewModel]: the system Back calls [onExit],
  * the session ends when the screen leaves the composition ([VocabGameSessionEndEffect]), listening
- * follows the microphone permission and the app lifecycle ([VocabGameListeningEffects]), and
+ * follows the microphone permission and the app lifecycle ([VocabGameListeningEffects]), live
+ * obstacle collisions and wrong taps trigger [HapticFeedbackType.Reject] vibrotactile feedback, and
  * [onFrame] is called with the frame time on every frame while [isPlaying].
  */
 @Composable
@@ -733,6 +738,19 @@ internal fun VocabGameSessionEffects(
       onStopListening = viewModel::stopListening,
       onMicPermissionDenied = viewModel::onMicPermissionDenied,
     )
+  }
+  val latestHaptic by rememberUpdatedState(LocalHapticFeedback.current)
+  val lifecycleOwner = LocalLifecycleOwner.current
+  LaunchedEffect(viewModel, lifecycleOwner) {
+    lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+      var lastHandledCollisionCount = viewModel.collisionHapticCount.value
+      viewModel.collisionHapticCount.collect { count ->
+        if (count > lastHandledCollisionCount) {
+          lastHandledCollisionCount = count
+          latestHaptic.performHapticFeedback(HapticFeedbackType.Reject)
+        }
+      }
+    }
   }
   val latestOnFrame by rememberUpdatedState(onFrame)
   LaunchedEffect(viewModel, isPlaying) {

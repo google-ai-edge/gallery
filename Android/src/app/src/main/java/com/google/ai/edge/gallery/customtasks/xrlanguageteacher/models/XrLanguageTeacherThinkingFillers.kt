@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models
 
 import com.google.ai.edge.gallery.services.tts.TtsAudioStreamFormat
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.random.Random
 
 /** Bytes per millisecond of the PCM that TTS engines stream. */
@@ -120,5 +121,47 @@ internal class PresynthesizedFillerCache {
   /** Drops all fillers, for example when the TTS model, native language or persona changes. */
   fun clear() {
     entry = null
+  }
+}
+
+/**
+ * The prompt words of one Study game round synthesized ahead of time for a single [FillerVoiceKey],
+ * so that neural TTS engines do not synthesize on the frame a wave of stickers launches. It also
+ * remembers when [key]'s engine plays audio directly (`TtsOutput.DirectPlayback`) so it isn't tried
+ * again.
+ */
+internal class PresynthesizedGamePromptsCache {
+  private data class Entry(
+    val key: FillerVoiceKey,
+    val promptsByWord: Map<String, PresynthesizedFiller>,
+    val isUnsupported: Boolean = false,
+  )
+
+  private val entryRef = AtomicReference<Entry?>(null)
+
+  /** Returns the pre-synthesized prompt audio for [word] under [key], or `null` if not cached. */
+  fun get(key: FillerVoiceKey, word: String): PresynthesizedFiller? =
+    entryRef.get()?.takeIf { it.key == key && !it.isUnsupported }?.promptsByWord?.get(word)
+
+  /** Whether [key]'s engine can't synthesize prompt audio ahead of time ([markUnsupported]). */
+  fun isUnsupported(key: FillerVoiceKey): Boolean =
+    entryRef.get()?.let { it.key == key && it.isUnsupported } == true
+
+  /** Stores [promptsByWord] for [key], merging with any words already cached for the same [key]. */
+  fun putAll(key: FillerVoiceKey, promptsByWord: Map<String, PresynthesizedFiller>) {
+    val unused = entryRef.updateAndGet { current ->
+      val existing = current?.takeIf { it.key == key && !it.isUnsupported }?.promptsByWord.orEmpty()
+      Entry(key = key, promptsByWord = existing + promptsByWord)
+    }
+  }
+
+  /** Records that [key]'s engine plays audio directly and can't synthesize ahead of time. */
+  fun markUnsupported(key: FillerVoiceKey) {
+    entryRef.set(Entry(key = key, promptsByWord = emptyMap(), isUnsupported = true))
+  }
+
+  /** Drops all cached game prompts when the TTS model or voice changes. */
+  fun clear() {
+    entryRef.set(null)
   }
 }

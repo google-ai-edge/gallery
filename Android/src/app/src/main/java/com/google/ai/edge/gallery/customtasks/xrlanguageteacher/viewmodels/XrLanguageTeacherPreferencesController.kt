@@ -29,6 +29,7 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.isXrLangu
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.toEnglishName
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.cancelAsrRecording
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.cancelFillerPresynthesis
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.cancelVocabGamePrewarm
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.getSupportedLocaleTagsForAsrModel
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.getSupportedLocaleTagsForTtsModel
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.isAsrRecordingOrPending
@@ -189,6 +190,7 @@ internal fun XrLanguageTeacherViewModel.performOnCleared() {
   latestKnownModel = null
   activeInferenceModel = null
   cancelFillerPresynthesis()
+  cancelVocabGamePrewarm()
   releaseStickerResources()
   stopTtsPlayback()
   releaseTtsAudioAfterStop()

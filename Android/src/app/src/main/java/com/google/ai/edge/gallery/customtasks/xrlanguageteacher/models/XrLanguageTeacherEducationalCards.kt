@@ -423,6 +423,7 @@ enum class XrLanguageTeacherScreenName(val value: String) {
 internal enum class TtsPlaybackSource {
   DIALOGUE,
   VOCAB_PHRASE,
+  GAME_PROMPT,
   OTHER,
 }
 

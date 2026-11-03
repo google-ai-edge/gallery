@@ -184,6 +184,13 @@ class XrLanguageTeacherStickerModelDownloadController(
   val availability: StateFlow<XrLanguageTeacherStickerModelAvailability> =
     _availability.asStateFlow()
 
+  private val _hasPendingGameAction = MutableStateFlow(false)
+  /**
+   * Whether a study game request is currently waiting on the allowlist, the download dialog, or
+   * unsegmented photo cutouts before sprite and prompt preparation begins.
+   */
+  val hasPendingGameAction: StateFlow<Boolean> = _hasPendingGameAction.asStateFlow()
+
   /** Starts and cancels the model's download, or `null` while no screen is shown. */
   var downloader: XrLanguageTeacherStickerModelDownloader? = null
 
@@ -245,6 +252,7 @@ class XrLanguageTeacherStickerModelDownloadController(
       isAllowlistLoading = false
       val request = deferredRequest
       deferredRequest = null
+      updateHasPendingGameAction()
       if (request != null) {
         requireModel(reason = request.first, action = request.second)
         return
@@ -346,6 +354,7 @@ class XrLanguageTeacherStickerModelDownloadController(
     if (segmentationJob?.isActive == true) return
     if (isAllowlistLoading) {
       deferredRequest = reason to action
+      updateHasPendingGameAction()
       return
     }
     val model = model
@@ -486,6 +495,7 @@ class XrLanguageTeacherStickerModelDownloadController(
       pendingAction = null
       pendingReason = null
     }
+    updateHasPendingGameAction()
     val state = _state.value
     if (state.reason != reason) return
     when (state) {
@@ -504,6 +514,7 @@ class XrLanguageTeacherStickerModelDownloadController(
   ) {
     pendingAction = action
     pendingReason = reason
+    updateHasPendingGameAction()
   }
 
   /**
@@ -664,6 +675,13 @@ class XrLanguageTeacherStickerModelDownloadController(
     pendingReason = null
     _state.value = XrLanguageTeacherStickerModelDownloadState.Hidden
     if (runPendingAction) action?.invoke()
+    updateHasPendingGameAction()
+  }
+
+  private fun updateHasPendingGameAction() {
+    _hasPendingGameAction.value =
+      deferredRequest?.first == XrLanguageTeacherStickerModelDownloadReason.GAME ||
+        pendingReason == XrLanguageTeacherStickerModelDownloadReason.GAME
   }
 }
 

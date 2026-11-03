@@ -93,12 +93,15 @@ fun XrLanguageTeacherViewModel.playPersonaPreview(
   setPersonaPreviewState(PersonaPreviewState.Loading(persona))
   val playbackEpoch = ttsPlaybackEpoch.incrementAndGet()
   val pendingStopJob = ttsStopJob
+  val previousPrewarmJob = vocabGamePrewarmJob
   cancelFillerPresynthesis()
+  cancelVocabGamePrewarm()
   ttsPlaybackJob =
     viewModelScope.launch(ioDispatcher) {
       val mlKitEngine = ttsServiceProvider.serviceOrNull(TtsModelIdentifier.ML_KIT)
       stopTtsEnginesAndFlushAudio(exceptEngine = mlKitEngine)
       previousPlaybackJob?.cancelAndJoin()
+      previousPrewarmJob?.cancelAndJoin()
       pendingStopJob?.join()
       pcmAudioStreamPlayer.stopAndFlush()
       updateUiState {
@@ -287,6 +290,9 @@ internal fun XrLanguageTeacherViewModel.isIdleForFillerPresynthesis(): Boolean {
     activePass2Job?.isActive != true &&
     activePrewarmJob?.isActive != true &&
     ttsPlaybackJob?.isActive != true &&
+    vocabGamePrewarmJob?.isActive != true &&
+    !gameStickerPreparer.isPreparing &&
+    !teacherModelSuspension.isReleasedForGame &&
     latestKnownModel?.instance != null
 }
 

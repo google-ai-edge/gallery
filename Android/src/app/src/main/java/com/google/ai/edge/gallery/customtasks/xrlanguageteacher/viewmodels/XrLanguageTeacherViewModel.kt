@@ -25,6 +25,7 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.Multiling
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.PersonaPreviewState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.PhrasePlaybackState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.PresynthesizedFillerCache
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.PresynthesizedGamePromptsCache
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.SelectedSpeechEngineLocales
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.SpeechEngine
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.SpeechEngineReadiness
@@ -83,6 +84,7 @@ import com.google.ai.edge.gallery.services.tts.TtsSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
@@ -447,6 +449,21 @@ constructor(
   internal val preparedTtsKeys = PreparedTtsKeys()
   /** The thinking fillers synthesized ahead of time for the current voice. */
   internal val presynthesizedFillers = PresynthesizedFillerCache()
+  /** The Study game prompt words synthesized ahead of time for the current round's voice. */
+  internal val presynthesizedGamePrompts = PresynthesizedGamePromptsCache()
+  /**
+   * Background job pre-baking sprites and Tap-mode prompt audio while a Study game start screen is
+   * open, before the user taps Play game.
+   */
+  @Volatile internal var vocabGamePrewarmJob: Job? = null
+  /** The TTS engine [vocabGamePrewarmJob] synthesizes with while active. */
+  @Volatile internal var vocabGamePrewarmService: TtsService? = null
+  /**
+   * Per-run stop flag signaling the active [vocabGamePrewarmJob] to finish its in-flight sprite or
+   * prompt word cleanly and exit so `prepareGame` can take over without aborting half-synthesized
+   * audio.
+   */
+  @Volatile internal var vocabGamePrewarmStopSignal: AtomicBoolean? = null
   /** Background job synthesizing the thinking fillers while the teacher is idle. */
   @Volatile internal var fillerPresynthesisJob: Job? = null
   /** The TTS engine [fillerPresynthesisJob] synthesizes with. */
@@ -648,10 +665,6 @@ constructor(
         initialValue = TeacherLanguageOptions.UNRESTRICTED.native,
       )
 
-  init {
-    observeLanguageAndSpeechInputs()
-  }
-
   // MARK: - Sticker Cutouts
 
   /** Background job segmenting the sticker cutout of the current captured frame. */
@@ -741,6 +754,12 @@ constructor(
       prepareGameSprites = { entries -> prewarmGameStickerSprites(entries) },
     )
 
+  /** Whether Study game sprites or Tap-mode prompt audio are currently being prepared. */
+  val isPreparingGameAssets: StateFlow<Boolean> = gameStickerPreparer.isPreparingFlow
+
+  /** Whether a Study game request is waiting on sticker model checks or segmentation. */
+  val hasPendingGameStickerCheck: StateFlow<Boolean> = stickerModelDownload.hasPendingGameAction
+
   /**
    * Whether the Study tab offers to convert the saved photos into stickers: shown while the sticker
    * segmentation model is in the allowlist and not downloaded yet, or while the model is downloaded
@@ -776,6 +795,7 @@ constructor(
   internal val teacherModelSuspension = XrLanguageTeacherTeacherModelSuspension(viewModelScope)
 
   init {
+    observeLanguageAndSpeechInputs()
     observeCapturedFrameForStickers()
   }
 

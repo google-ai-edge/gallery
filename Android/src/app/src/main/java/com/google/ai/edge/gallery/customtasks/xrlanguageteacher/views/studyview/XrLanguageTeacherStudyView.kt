@@ -131,6 +131,12 @@ private fun vocabRunnerMinimumCount(mode: XrLanguageTeacherVocabGameMode): Int =
  * @param onConvertToStickers offers to download the sticker segmentation model or turn unsegmented
  *   saved photos into stickers, or `null` to hide the button (once the model is downloaded and all
  *   saved photos are segmented, or when no segmentation model is available).
+ * @param isPreparingGame whether a requested game's stickers or prompt audio are still preparing,
+ *   shown as a loading state on the `Play game` button
+ * @param onPrewarmGame warms up a game's sprites and Tap-mode prompt audio in the background as
+ *   soon as its start screen opens
+ * @param onCancelGamePrewarm stops any background start-screen pre-warm when the selected settings
+ *   cannot launch a game
  */
 @Composable
 fun StudyScreen(
@@ -153,6 +159,9 @@ fun StudyScreen(
   onGameStarted: () -> Unit = {},
   onCancelGamePreparation: () -> Unit = {},
   onConvertToStickers: (() -> Unit)? = null,
+  isPreparingGame: Boolean = false,
+  onPrewarmGame: ((XrLanguageTeacherVocabGameRequest) -> Unit)? = null,
+  onCancelGamePrewarm: () -> Unit = {},
 ) {
   var reviewLanguage by rememberSaveable { mutableStateOf<Language?>(null) }
   var openStartActivity by rememberSaveable { mutableStateOf<StudyActivity?>(null) }
@@ -171,59 +180,6 @@ fun StudyScreen(
 
   DisposableEffect(Unit) { onDispose { onReviewModeChanged(false) } }
 
-  val languages = remember(entries) { entries.map { it.displayLearnLanguage() }.distinct() }
-  val supportedLanguages =
-    remember(languages, isTtsLanguageSupported) { languages.filter { isTtsLanguageSupported(it) } }
-  val isNonAsrEnabled = isStudyGamesNonAsrEnabled
-  val effectivePopperMode =
-    if (isNonAsrEnabled) popperMode else XrLanguageTeacherVocabGameMode.SPEAK
-  val effectiveRunnerMode =
-    if (isNonAsrEnabled) runnerMode else XrLanguageTeacherVocabGameMode.SPEAK
-  val popperOverviewMode = effectivePopperMode
-  val popperOverviewMinimum = vocabPopperMinimumCount(popperOverviewMode)
-  val popperOverviewEligibleLanguages =
-    remember(entries, languages, popperOverviewMinimum) {
-      languages.filter { language ->
-        entries.count { it.displayLearnLanguage() == language } >= popperOverviewMinimum
-      }
-    }
-  val popperOverviewSupportedLanguages =
-    remember(
-      popperOverviewEligibleLanguages,
-      popperOverviewMode,
-      isTtsLanguageSupported,
-      isAsrLanguageSupported,
-    ) {
-      val check =
-        if (popperOverviewMode == XrLanguageTeacherVocabGameMode.TAP) {
-          isTtsLanguageSupported
-        } else {
-          isAsrLanguageSupported
-        }
-      popperOverviewEligibleLanguages.filter { check(it) }
-    }
-  val runnerOverviewMode = effectiveRunnerMode
-  val runnerOverviewMinimum = vocabRunnerMinimumCount(runnerOverviewMode)
-  val runnerOverviewEligibleLanguages =
-    remember(entries, languages, vocabEntryKeysWithImages, runnerOverviewMinimum) {
-      languages.filter { language ->
-        entries.count {
-          it.displayLearnLanguage() == language &&
-            it.vocabGameEntryKey() in vocabEntryKeysWithImages
-        } >= runnerOverviewMinimum
-      }
-    }
-  val runnerOverviewSupportedLanguages =
-    remember(runnerOverviewEligibleLanguages, runnerOverviewMode, isAsrLanguageSupported) {
-      val check: (Language) -> Boolean =
-        if (runnerOverviewMode == XrLanguageTeacherVocabGameMode.TAP) {
-          { true }
-        } else {
-          isAsrLanguageSupported
-        }
-      runnerOverviewEligibleLanguages.filter { check(it) }
-    }
-
   val closeActivity = {
     onCancelGamePreparation()
     activeGame = null
@@ -232,6 +188,8 @@ fun StudyScreen(
   // A game request still pending when the Study tab goes away must not start a game later. A
   // configuration change (e.g. rotation) keeps it: the start screen comes back and starts it.
   val latestOnCancelGamePreparation by rememberUpdatedState(onCancelGamePreparation)
+  val latestOnCancelGamePrewarm by rememberUpdatedState(onCancelGamePrewarm)
+  val latestActiveGame by rememberUpdatedState(activeGame)
   val activity = LocalActivity.current
   DisposableEffect(activity) {
     onDispose { if (activity?.isChangingConfigurations != true) latestOnCancelGamePreparation() }
@@ -290,6 +248,59 @@ fun StudyScreen(
     VocabRunnerScreen(viewModel = runnerViewModel, onExit = closeActivity, modifier = modifier)
     return
   }
+
+  val languages = remember(entries) { entries.map { it.displayLearnLanguage() }.distinct() }
+  val supportedLanguages =
+    remember(languages, isTtsLanguageSupported) { languages.filter { isTtsLanguageSupported(it) } }
+  val isNonAsrEnabled = isStudyGamesNonAsrEnabled
+  val effectivePopperMode =
+    if (isNonAsrEnabled) popperMode else XrLanguageTeacherVocabGameMode.SPEAK
+  val effectiveRunnerMode =
+    if (isNonAsrEnabled) runnerMode else XrLanguageTeacherVocabGameMode.SPEAK
+  val popperOverviewMode = effectivePopperMode
+  val popperOverviewMinimum = vocabPopperMinimumCount(popperOverviewMode)
+  val popperOverviewEligibleLanguages =
+    remember(entries, languages, popperOverviewMinimum) {
+      languages.filter { language ->
+        entries.count { it.displayLearnLanguage() == language } >= popperOverviewMinimum
+      }
+    }
+  val popperOverviewSupportedLanguages =
+    remember(
+      popperOverviewEligibleLanguages,
+      popperOverviewMode,
+      isTtsLanguageSupported,
+      isAsrLanguageSupported,
+    ) {
+      val check =
+        if (popperOverviewMode == XrLanguageTeacherVocabGameMode.TAP) {
+          isTtsLanguageSupported
+        } else {
+          isAsrLanguageSupported
+        }
+      popperOverviewEligibleLanguages.filter { check(it) }
+    }
+  val runnerOverviewMode = effectiveRunnerMode
+  val runnerOverviewMinimum = vocabRunnerMinimumCount(runnerOverviewMode)
+  val runnerOverviewEligibleLanguages =
+    remember(entries, languages, vocabEntryKeysWithImages, runnerOverviewMinimum) {
+      languages.filter { language ->
+        entries.count {
+          it.displayLearnLanguage() == language &&
+            it.vocabGameEntryKey() in vocabEntryKeysWithImages
+        } >= runnerOverviewMinimum
+      }
+    }
+  val runnerOverviewSupportedLanguages =
+    remember(runnerOverviewEligibleLanguages, runnerOverviewMode, isAsrLanguageSupported) {
+      val check: (Language) -> Boolean =
+        if (runnerOverviewMode == XrLanguageTeacherVocabGameMode.TAP) {
+          { true }
+        } else {
+          isAsrLanguageSupported
+        }
+      runnerOverviewEligibleLanguages.filter { check(it) }
+    }
 
   // Closing the review goes straight back to the Study cards, like leaving a game.
   val activeReviewLanguage = reviewLanguage
@@ -425,6 +436,25 @@ fun StudyScreen(
       else emptyList()
     val hasEnoughWords = deck.size >= minCount
     val isLanguageSupported = language != null && languageSupportCheck(language)
+    DisposableEffect(language, effectivePopperMode, deck, hasEnoughWords, isLanguageSupported) {
+      if (language != null && hasEnoughWords && isLanguageSupported) {
+        onPrewarmGame?.invoke(
+          XrLanguageTeacherVocabGameRequest(
+            game = XrLanguageTeacherVocabGame.VOCAB_POPPER,
+            language = language,
+            entries = deck,
+            mode = effectivePopperMode,
+          )
+        )
+      } else {
+        latestOnCancelGamePrewarm()
+      }
+      onDispose {
+        if (activity?.isChangingConfigurations != true && latestActiveGame == null) {
+          latestOnCancelGamePrewarm()
+        }
+      }
+    }
     val modelSettingsAction =
       if (effectivePopperMode == XrLanguageTeacherVocabGameMode.TAP) {
         onOpenAudioSettings
@@ -513,7 +543,10 @@ fun StudyScreen(
         VocabGameLanguageDropdown(
           languages = eligibleLanguages,
           selected = language,
-          onSelect = { popperLanguage = it },
+          onSelect = {
+            onCancelGamePreparation()
+            popperLanguage = it
+          },
           isLanguageEnabled = languageSupportCheck,
           languageSupportingText = { option ->
             if (languageSupportCheck(option)) {
@@ -546,12 +579,16 @@ fun StudyScreen(
                 )
               },
               placeholder = "",
-              onSelect = { popperMode = it },
+              onSelect = {
+                onCancelGamePreparation()
+                popperMode = it
+              },
             )
           }
         } else {
           null
         },
+      isPreparing = isPreparingGame,
       modifier = modifier,
     )
     return
@@ -592,6 +629,25 @@ fun StudyScreen(
       }
     val hasEnoughWords = deck.size >= minCount
     val isLanguageSupported = language != null && languageSupportCheck(language)
+    DisposableEffect(language, effectiveRunnerMode, deck, hasEnoughWords, isLanguageSupported) {
+      if (language != null && hasEnoughWords && isLanguageSupported) {
+        onPrewarmGame?.invoke(
+          XrLanguageTeacherVocabGameRequest(
+            game = XrLanguageTeacherVocabGame.VOCAB_RUNNER,
+            language = language,
+            entries = deck,
+            mode = effectiveRunnerMode,
+          )
+        )
+      } else {
+        latestOnCancelGamePrewarm()
+      }
+      onDispose {
+        if (activity?.isChangingConfigurations != true && latestActiveGame == null) {
+          latestOnCancelGamePrewarm()
+        }
+      }
+    }
     val modelSettingsAction =
       if (effectiveRunnerMode == XrLanguageTeacherVocabGameMode.TAP) null else onOpenAsrSettings
     val lockedMessage =
@@ -663,12 +719,16 @@ fun StudyScreen(
         }
       },
       playIcon = Icons.AutoMirrored.Filled.DirectionsRun,
+      isPreparing = isPreparingGame,
       modifier = modifier,
       languageSetting = {
         VocabGameLanguageDropdown(
           languages = eligibleLanguages,
           selected = language,
-          onSelect = { runnerLanguage = it },
+          onSelect = {
+            onCancelGamePreparation()
+            runnerLanguage = it
+          },
           isLanguageEnabled = languageSupportCheck,
           languageSupportingText = { option ->
             if (languageSupportCheck(option)) null
@@ -692,7 +752,10 @@ fun StudyScreen(
                 )
               },
               placeholder = "",
-              onSelect = { runnerMode = it },
+              onSelect = {
+                onCancelGamePreparation()
+                runnerMode = it
+              },
             )
           }
         } else {
