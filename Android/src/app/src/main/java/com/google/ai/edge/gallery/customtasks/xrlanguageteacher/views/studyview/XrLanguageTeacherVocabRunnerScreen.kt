@@ -182,21 +182,30 @@ fun VocabRunnerContent(
       onPlayAgain = onPlayAgain,
       onExit = onExit,
       modifier = modifier,
+      correctCount = uiState.correctCount,
+      uniqueWordCount = uiState.uniqueWordCount,
     )
     return
   }
   val isTapMode = uiState.mode == XrLanguageTeacherVocabGameMode.TAP
   val trackYFraction = if (isTapMode) TAP_TRACK_Y_FRACTION else SPEAK_TRACK_Y_FRACTION
   val celebrationText =
-    uiState.celebrationWord?.let {
-      stringResource(
-        if (uiState.isCelebrationMissedWord) {
-          R.string.xrteacher_vocab_runner_missed_hint
-        } else {
-          R.string.xrteacher_vocab_runner_passed
-        },
-        it,
-      )
+    uiState.celebrationWord?.let { word ->
+      val points = uiState.celebrationPoints
+      when {
+        uiState.isCelebrationMissedWord ->
+          stringResource(R.string.xrteacher_vocab_runner_missed_hint, word)
+        points != null && uiState.celebrationMultiplier > 1 ->
+          stringResource(
+            R.string.xrteacher_vocab_runner_multiplied_points_passed,
+            points,
+            uiState.celebrationMultiplier,
+            word,
+          )
+        points != null ->
+          stringResource(R.string.xrteacher_vocab_runner_points_passed, points, word)
+        else -> stringResource(R.string.xrteacher_vocab_runner_passed, word)
+      }
     }
 
   BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -248,7 +257,18 @@ fun VocabRunnerContent(
           VocabGameTimer(remainingSeconds = uiState.remainingSeconds)
         }
       }
-      VocabGameScoreboard(score = uiState.score, bestScore = uiState.highScore)
+      Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        VocabGameScoreboard(
+          score = uiState.score,
+          bestScore = uiState.highScore,
+          uniqueWordCount = uiState.uniqueWordCount,
+          isCompact = true,
+        )
+        VocabGameStreakBadge(streak = uiState.streak, multiplier = uiState.streakMultiplier)
+      }
       if (isTapMode) {
         VocabRunnerTapStatusBannerSlot(
           statusText = celebrationText,

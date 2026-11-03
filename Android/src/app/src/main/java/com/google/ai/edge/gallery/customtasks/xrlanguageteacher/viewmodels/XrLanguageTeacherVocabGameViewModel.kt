@@ -89,7 +89,12 @@ abstract class XrLanguageTeacherVocabGameViewModel(
   protected abstract fun showMuted(muted: Boolean)
 
   /** Celebrates [word] in the status bar, or stops celebrating with `null`. */
-  protected abstract fun showCelebrationWord(word: String?)
+  protected abstract fun showCelebrationWord(
+    word: String?,
+    points: Int? = null,
+    multiplier: Int = 1,
+    isMissedWord: Boolean = false,
+  )
 
   /** Replaces the word sticker sprites, keyed by [vocabGameEntryKey], with [transform]'s result. */
   protected abstract fun updateStickers(
@@ -238,8 +243,18 @@ abstract class XrLanguageTeacherVocabGameViewModel(
   }
 
   /** Celebrates [word] in the status bar for a moment. */
-  protected fun celebrate(word: String) {
-    showCelebrationWord(word)
+  protected fun celebrate(
+    word: String,
+    points: Int? = null,
+    multiplier: Int = 1,
+    isMissedWord: Boolean = false,
+  ) {
+    showCelebrationWord(
+      word = word,
+      points = points,
+      multiplier = multiplier,
+      isMissedWord = isMissedWord,
+    )
     celebrationJob?.cancel()
     celebrationJob = viewModelScope.launch {
       delay(GAME_CELEBRATION_DURATION_MS)

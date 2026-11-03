@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material3.Button
@@ -78,6 +79,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -122,6 +124,7 @@ internal object VocabGameColors {
   val chromeText: Color = Color(0xFFE2E2E9)
   val chromeTextMuted: Color = Color(0xFFC4C6D0)
   val scoreGold: Color = Color(0xFFF5B841)
+  val streakOrange: Color = Color(0xFFFF8A3D)
   val popGreen: Color = Color(0xFF5CE196)
   val urgentRed: Color = Color(0xFFFF6B6B)
   /** The fill of the wavy badge behind the final score on the results screen. */
@@ -220,22 +223,69 @@ fun VocabGameTopBar(
   }
 }
 
-/** The "Score | Best" pill under the top bar of a game screen. */
+/**
+ * The "Score | Unique | Best" (or two-column "Score | Best") pill under the top bar of a game
+ * screen.
+ *
+ * When [uniqueWordCount] is non-null, a middle column displays how many distinct vocabulary words
+ * the player has cleared so far in the round. When [isCompact] is true, narrower columns are used
+ * so [VocabGameScoreboard] and [VocabGameStreakBadge] fit side by side on compact screens.
+ */
 @Composable
-fun VocabGameScoreboard(score: Int, bestScore: Int, modifier: Modifier = Modifier) {
+fun VocabGameScoreboard(
+  score: Int,
+  bestScore: Int,
+  modifier: Modifier = Modifier,
+  uniqueWordCount: Int? = null,
+  isCompact: Boolean = false,
+) {
+  val hasUniqueColumn = uniqueWordCount != null
+  val columnWidth =
+    when {
+      isCompact && hasUniqueColumn -> 66.dp
+      hasUniqueColumn -> 80.dp
+      else -> 92.dp
+    }
+  val scoreFontSize =
+    when {
+      isCompact && hasUniqueColumn -> 22.sp
+      hasUniqueColumn -> 26.sp
+      else -> 28.sp
+    }
+  val secondaryFontSize =
+    when {
+      isCompact && hasUniqueColumn -> 19.sp
+      hasUniqueColumn -> 22.sp
+      else -> 24.sp
+    }
+  val trophyIconSize =
+    when {
+      isCompact && hasUniqueColumn -> 14.dp
+      hasUniqueColumn -> 16.dp
+      else -> 18.dp
+    }
+  val horizontalPadding =
+    when {
+      isCompact && hasUniqueColumn -> 8.dp
+      hasUniqueColumn -> 10.dp
+      else -> 12.dp
+    }
+  val verticalPadding = if (isCompact && hasUniqueColumn) 6.dp else 8.dp
   val scoreContentDescription = stringResource(R.string.xrteacher_vocab_game_score, score)
   val bestContentDescription = stringResource(R.string.xrteacher_vocab_game_best, bestScore)
   Row(
     modifier =
       modifier
         .background(VocabGameColors.chromePill.copy(alpha = 0.92f), RoundedCornerShape(20.dp))
-        .padding(horizontal = 12.dp, vertical = 8.dp),
+        .padding(horizontal = horizontalPadding, vertical = verticalPadding),
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Column(
       horizontalAlignment = Alignment.CenterHorizontally,
       modifier =
-        Modifier.width(92.dp).clearAndSetSemantics { contentDescription = scoreContentDescription },
+        Modifier.width(columnWidth).clearAndSetSemantics {
+          contentDescription = scoreContentDescription
+        },
     ) {
       Text(
         text = stringResource(R.string.xrteacher_game_score_label),
@@ -245,17 +295,47 @@ fun VocabGameScoreboard(score: Int, bestScore: Int, modifier: Modifier = Modifie
       )
       Text(
         text = score.toString(),
-        fontSize = 28.sp,
-        lineHeight = 32.sp,
+        fontSize = scoreFontSize,
+        lineHeight = 30.sp,
         fontWeight = FontWeight.Bold,
         color = Color.White,
+        maxLines = 1,
       )
+    }
+    if (uniqueWordCount != null) {
+      val uniqueContentDescription =
+        stringResource(R.string.xrteacher_game_unique_score, uniqueWordCount)
+      Box(modifier = Modifier.width(1.dp).height(36.dp).background(Color.White.copy(alpha = 0.14f)))
+      Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier =
+          Modifier.width(columnWidth).clearAndSetSemantics {
+            contentDescription = uniqueContentDescription
+          },
+      ) {
+        Text(
+          text = stringResource(R.string.xrteacher_game_unique_label),
+          fontSize = 12.sp,
+          fontWeight = FontWeight.Medium,
+          color = VocabGameColors.chromeTextMuted,
+        )
+        Text(
+          text = uniqueWordCount.toString(),
+          fontSize = secondaryFontSize,
+          lineHeight = 30.sp,
+          fontWeight = FontWeight.Bold,
+          color = VocabGameColors.popGreen,
+          maxLines = 1,
+        )
+      }
     }
     Box(modifier = Modifier.width(1.dp).height(36.dp).background(Color.White.copy(alpha = 0.14f)))
     Column(
       horizontalAlignment = Alignment.CenterHorizontally,
       modifier =
-        Modifier.width(92.dp).clearAndSetSemantics { contentDescription = bestContentDescription },
+        Modifier.width(columnWidth).clearAndSetSemantics {
+          contentDescription = bestContentDescription
+        },
     ) {
       Text(
         text = stringResource(R.string.xrteacher_game_best_label),
@@ -271,16 +351,112 @@ fun VocabGameScoreboard(score: Int, bestScore: Int, modifier: Modifier = Modifie
           imageVector = Icons.Filled.EmojiEvents,
           contentDescription = null,
           tint = VocabGameColors.scoreGold,
-          modifier = Modifier.size(18.dp),
+          modifier = Modifier.size(trophyIconSize),
         )
         Text(
           text = bestScore.toString(),
-          fontSize = 24.sp,
-          lineHeight = 32.sp,
+          fontSize = secondaryFontSize,
+          lineHeight = 30.sp,
           fontWeight = FontWeight.Bold,
           color = VocabGameColors.scoreGold,
+          maxLines = 1,
         )
       }
+    }
+  }
+}
+
+/**
+ * Live consecutive-answer streak and `1×`-`4×` score-multiplier badge paired horizontally next to
+ * [VocabGameScoreboard] in `Vocab Popper` and `Buddy Runner`.
+ */
+@Composable
+fun VocabGameStreakBadge(streak: Int, multiplier: Int, modifier: Modifier = Modifier) {
+  val safeStreak = max(0, streak)
+  val clampedMultiplier = max(1, multiplier)
+  val flameColor =
+    when {
+      clampedMultiplier >= 4 -> VocabGameColors.urgentRed
+      clampedMultiplier == 3 -> VocabGameColors.streakOrange
+      safeStreak > 0 -> VocabGameColors.scoreGold
+      else -> VocabGameColors.chromeTextMuted.copy(alpha = 0.55f)
+    }
+  val multiplierBackgroundColor =
+    when {
+      clampedMultiplier >= 4 -> VocabGameColors.urgentRed
+      clampedMultiplier == 3 -> VocabGameColors.streakOrange
+      clampedMultiplier == 2 -> VocabGameColors.scoreGold
+      else -> Color.White.copy(alpha = 0.10f)
+    }
+  val multiplierForegroundColor =
+    when {
+      clampedMultiplier >= 4 -> Color(0xFF2C0505)
+      clampedMultiplier == 3 -> Color(0xFF2B0E00)
+      clampedMultiplier == 2 -> Color(0xFF261900)
+      else -> VocabGameColors.chromeTextMuted
+    }
+  val badgeBorderColor =
+    when {
+      clampedMultiplier >= 4 -> VocabGameColors.urgentRed.copy(alpha = 0.75f)
+      clampedMultiplier == 3 -> VocabGameColors.streakOrange.copy(alpha = 0.65f)
+      clampedMultiplier == 2 -> VocabGameColors.scoreGold.copy(alpha = 0.55f)
+      else -> Color.Transparent
+    }
+  val countColor = if (safeStreak > 0) Color.White else VocabGameColors.chromeTextMuted
+  val accessibilityDescription =
+    stringResource(R.string.xrteacher_game_streak_accessibility, safeStreak, clampedMultiplier)
+  Column(
+    modifier =
+      modifier
+        .widthIn(min = 96.dp)
+        .let { base ->
+          if (clampedMultiplier >= 2) {
+            base.border(BorderStroke(1.5.dp, badgeBorderColor), RoundedCornerShape(20.dp))
+          } else {
+            base
+          }
+        }
+        .background(VocabGameColors.chromePill.copy(alpha = 0.92f), RoundedCornerShape(20.dp))
+        .padding(horizontal = 11.dp, vertical = 8.dp)
+        .clearAndSetSemantics { contentDescription = accessibilityDescription },
+    horizontalAlignment = Alignment.CenterHorizontally,
+    verticalArrangement = Arrangement.spacedBy(2.dp),
+  ) {
+    Text(
+      text = stringResource(R.string.xrteacher_game_streak_label),
+      fontSize = 12.sp,
+      fontWeight = FontWeight.Medium,
+      color = VocabGameColors.chromeTextMuted,
+      maxLines = 1,
+    )
+    Row(
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+      Icon(
+        imageVector = Icons.Filled.LocalFireDepartment,
+        contentDescription = null,
+        tint = flameColor,
+        modifier = Modifier.size(17.dp),
+      )
+      Text(
+        text = safeStreak.toString(),
+        fontSize = 25.sp,
+        lineHeight = 30.sp,
+        fontWeight = FontWeight.Bold,
+        color = countColor,
+        maxLines = 1,
+      )
+      Text(
+        text = stringResource(R.string.xrteacher_game_streak_multiplier, clampedMultiplier),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Black,
+        color = multiplierForegroundColor,
+        maxLines = 1,
+        modifier =
+          Modifier.background(multiplierBackgroundColor, CircleShape)
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+      )
     }
   }
 }
@@ -568,8 +744,9 @@ internal fun VocabGameSessionEffects(
 }
 
 /**
- * The end-of-round screen of a game: the [headline], the final [score] on a wavy cookie badge, a
- * "New high score!" badge or the [bestScore], and buttons to play again or exit.
+ * The end-of-round screen of a game: the [headline], the final [score] on a wavy cookie badge, an
+ * optional breakdown pill when [correctCount] and [uniqueWordCount] are provided, a "New high
+ * score!" badge or the [bestScore], and buttons to play again or exit.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -582,6 +759,8 @@ fun VocabGameResults(
   onPlayAgain: () -> Unit,
   onExit: () -> Unit,
   modifier: Modifier = Modifier,
+  correctCount: Int? = null,
+  uniqueWordCount: Int? = null,
 ) {
   Box(modifier = modifier.fillMaxSize()) {
     Box(modifier = Modifier.fillMaxSize().background(VocabGameColors.screenBackground)) {
@@ -642,6 +821,26 @@ fun VocabGameResults(
             color = Color.White,
           )
         }
+      }
+      if (correctCount != null && uniqueWordCount != null) {
+        val correctText =
+          stringResource(R.string.xrteacher_game_results_correct_count, correctCount)
+        val uniqueText =
+          pluralStringResource(
+            R.plurals.xrteacher_game_results_unique_words,
+            uniqueWordCount,
+            uniqueWordCount,
+          )
+        Text(
+          text = "$correctText • $uniqueText",
+          fontSize = 14.sp,
+          fontWeight = FontWeight.SemiBold,
+          color = VocabGameColors.chromeText,
+          modifier =
+            Modifier.padding(top = 12.dp)
+              .background(VocabGameColors.chromePill, CircleShape)
+              .padding(horizontal = 16.dp, vertical = 7.dp),
+        )
       }
       if (isNewHighScore) {
         Row(

@@ -135,10 +135,14 @@ data class XrLanguageTeacherVocabPopperParticle(
   val lifeProgress: Float,
 )
 
-/** Floating `+1 <word>` banner spawned at a popped target's position. */
+/** Floating `+<points> <word>` banner spawned at a popped target's position. */
 data class XrLanguageTeacherVocabPopperPopBanner(
   val id: Long,
   val word: String,
+  val pointsAwarded: Int =
+    XrLanguageTeacherVocabGameScoreTracker.POINTS_PER_CORRECT_ANSWER +
+      XrLanguageTeacherVocabGameScoreTracker.UNIQUE_WORD_BONUS_POINTS,
+  val multiplier: Int = 1,
   val x: Float,
   val y: Float,
   val progress: Float,
@@ -163,6 +167,10 @@ data class XrLanguageTeacherVocabPopperState(
   val lives: Int = XrLanguageTeacherVocabPopperEngine.INITIAL_LIVES,
   val maxLives: Int = XrLanguageTeacherVocabPopperEngine.INITIAL_LIVES,
   val correctCount: Int = 0,
+  val uniqueWordCount: Int = 0,
+  val streak: Int = 0,
+  val bestStreak: Int = 0,
+  val streakMultiplier: Int = 1,
   val currentTarget: XrLanguageTeacherVocabPopperDeckItem? = null,
   val targets: List<XrLanguageTeacherVocabPopperTarget> = emptyList(),
   val particles: List<XrLanguageTeacherVocabPopperParticle> = emptyList(),
@@ -180,6 +188,9 @@ data class XrLanguageTeacherVocabPopperStepEvents(
 data class XrLanguageTeacherVocabPopperTapOutcome(
   val isCorrect: Boolean,
   val tappedItem: XrLanguageTeacherVocabPopperDeckItem,
+  val pointsAwarded: Int,
+  val multiplier: Int,
+  val streak: Int,
   val newScore: Int,
   val remainingLives: Int,
   val isNewHighScore: Boolean,
@@ -191,6 +202,11 @@ data class XrLanguageTeacherVocabPopperTapOutcome(
 data class XrLanguageTeacherVocabPopperPopEvent(
   /** Display words of the popped targets, in target order. */
   val poppedWords: List<String>,
+  val pointsAwarded: Int =
+    XrLanguageTeacherVocabGameScoreTracker.POINTS_PER_CORRECT_ANSWER +
+      XrLanguageTeacherVocabGameScoreTracker.UNIQUE_WORD_BONUS_POINTS,
+  val multiplier: Int = 1,
+  val streak: Int = 1,
   val newScore: Int,
   val isNewHighScore: Boolean,
 )
@@ -236,6 +252,10 @@ class XrLanguageTeacherVocabPopperEngine(
       lives = INITIAL_LIVES,
       maxLives = INITIAL_LIVES,
       correctCount = 0,
+      uniqueWordCount = 0,
+      streak = 0,
+      bestStreak = 0,
+      streakMultiplier = 1,
       currentTarget = null,
       timeSinceLastSpawnMs = difficulty.spawnIntervalMilliseconds,
     )
@@ -249,7 +269,7 @@ class XrLanguageTeacherVocabPopperEngine(
   private var lastWaveTargetEntryKey: String? = null
   private var waveCooldownRemainingMs: Long = 0L
   private var isCurrentTapWaveResolved = false
-  private var speedStreak = 0
+  private val scoreTracker = XrLanguageTeacherVocabGameScoreTracker()
 
   init {
     if (mode == XrLanguageTeacherVocabGameMode.TAP && deck.isNotEmpty()) {
@@ -267,7 +287,7 @@ class XrLanguageTeacherVocabPopperEngine(
       val elapsedMs = max(0L, totalDurationMs - state.remainingMilliseconds)
       val elapsedFraction = elapsedMs.toFloat() / totalDurationMs.toFloat()
       val correctComponent = min(1.0f, state.correctCount.toFloat() / 14.0f)
-      val streakComponent = min(1.0f, speedStreak.toFloat() / 8.0f)
+      val streakComponent = min(1.0f, state.streak.toFloat() / 8.0f)
       return (0.50f * elapsedFraction + 0.55f * correctComponent + 0.20f * streakComponent)
         .coerceIn(0f, 1f)
     }
@@ -428,7 +448,8 @@ class XrLanguageTeacherVocabPopperEngine(
     when (mode) {
       XrLanguageTeacherVocabGameMode.SPEAK -> {
         if (didDespawnInteractiveTarget) {
-          speedStreak = 0
+          scoreTracker.resetStreak()
+          state = state.copy(streak = 0, streakMultiplier = 1)
         }
         var timeSinceLastSpawnMs = state.timeSinceLastSpawnMs + clampedMs
         val activeFlyingCount = state.targets.count { it.isInteractive }
@@ -451,7 +472,8 @@ class XrLanguageTeacherVocabPopperEngine(
         val activeInteractiveCount = state.targets.count { it.isInteractive }
         if (activeInteractiveCount == 0) {
           if (!isCurrentTapWaveResolved && state.currentTarget != null) {
-            speedStreak = 0
+            scoreTracker.resetStreak()
+            state = state.copy(streak = 0, streakMultiplier = 1)
             isCurrentTapWaveResolved = true
           }
           if (deck.isNotEmpty()) {
@@ -525,20 +547,33 @@ class XrLanguageTeacherVocabPopperEngine(
             else -> target
           }
         }
-      speedStreak += 1
-      val newCorrectCount = state.correctCount + 1
-      val newScore = state.score + 1
+      val award =
+        scoreTracker.recordCorrectAnswer(
+          displayWord = tappedTarget.item.displayWord,
+          entryKey = tappedTarget.item.entryKey,
+        )
+      val newScore = award.totalScore
       val newHighScore = max(state.highScore, newScore)
       val isNewHighScore = newScore > state.highScore || state.isNewHighScore
       val particles = state.particles.toMutableList()
       val banners = state.popBanners.toMutableList()
-      spawnPopEffects(tappedTarget, banners, particles)
+      spawnPopEffects(
+        target = tappedTarget,
+        pointsAwarded = award.pointsAwarded,
+        multiplier = award.multiplier,
+        banners = banners,
+        particles = particles,
+      )
       state =
         state.copy(
           score = newScore,
           highScore = newHighScore,
           isNewHighScore = isNewHighScore,
-          correctCount = newCorrectCount,
+          correctCount = award.correctCount,
+          uniqueWordCount = award.uniqueWordCount,
+          streak = award.streak,
+          bestStreak = award.bestStreak,
+          streakMultiplier = award.multiplier,
           targets = updatedTargets,
           particles = particles,
           popBanners = banners,
@@ -547,6 +582,9 @@ class XrLanguageTeacherVocabPopperEngine(
       return XrLanguageTeacherVocabPopperTapOutcome(
         isCorrect = true,
         tappedItem = tappedTarget.item,
+        pointsAwarded = award.pointsAwarded,
+        multiplier = award.multiplier,
+        streak = award.streak,
         newScore = state.score,
         remainingLives = state.lives,
         isNewHighScore = state.isNewHighScore,
@@ -554,7 +592,7 @@ class XrLanguageTeacherVocabPopperEngine(
         didFinishRound = false,
       )
     } else {
-      speedStreak = 0
+      scoreTracker.resetStreak()
       val nextLives = max(0, state.lives - 1)
       if (nextLives <= 0) {
         state =
@@ -562,11 +600,16 @@ class XrLanguageTeacherVocabPopperEngine(
             phase = XrLanguageTeacherVocabPopperPhase.FINISHED,
             endReason = XrLanguageTeacherVocabGameEndReason.OUT_OF_LIVES,
             lives = 0,
+            streak = 0,
+            streakMultiplier = 1,
             targets = emptyList(),
           )
         return XrLanguageTeacherVocabPopperTapOutcome(
           isCorrect = false,
           tappedItem = tappedTarget.item,
+          pointsAwarded = 0,
+          multiplier = 1,
+          streak = 0,
           newScore = state.score,
           remainingLives = 0,
           isNewHighScore = state.isNewHighScore,
@@ -578,11 +621,15 @@ class XrLanguageTeacherVocabPopperEngine(
         state.targets.map { target ->
           if (target.isInteractive) target.copy(dismissProgress = 0f) else target
         }
-      state = state.copy(lives = nextLives, targets = updatedTargets)
+      state =
+        state.copy(lives = nextLives, streak = 0, streakMultiplier = 1, targets = updatedTargets)
       waveCooldownRemainingMs = currentInterWaveDelayMilliseconds
       return XrLanguageTeacherVocabPopperTapOutcome(
         isCorrect = false,
         tappedItem = tappedTarget.item,
+        pointsAwarded = 0,
+        multiplier = 1,
+        streak = 0,
         newScore = state.score,
         remainingLives = state.lives,
         isNewHighScore = state.isNewHighScore,
@@ -632,6 +679,11 @@ class XrLanguageTeacherVocabPopperEngine(
     var highScore = state.highScore
     var isNewHighScore = state.isNewHighScore
     var correctCount = state.correctCount
+    var uniqueWordCount = state.uniqueWordCount
+    var streak = state.streak
+    var bestStreak = state.bestStreak
+    var streakMultiplier = state.streakMultiplier
+    var totalPointsAwarded = 0
     val poppedDisplayWords = mutableListOf<String>()
     val particles = state.particles.toMutableList()
     val banners = state.popBanners.toMutableList()
@@ -644,15 +696,30 @@ class XrLanguageTeacherVocabPopperEngine(
               targetForms = target.item.targetMatchForms,
             )
         ) {
-          speedStreak += 1
-          correctCount += 1
-          score += 1
+          val award =
+            scoreTracker.recordCorrectAnswer(
+              displayWord = target.item.displayWord,
+              entryKey = target.item.entryKey,
+            )
+          correctCount = award.correctCount
+          uniqueWordCount = award.uniqueWordCount
+          streak = award.streak
+          bestStreak = award.bestStreak
+          streakMultiplier = award.multiplier
+          score = award.totalScore
+          totalPointsAwarded += award.pointsAwarded
           if (score > highScore) {
             highScore = score
             isNewHighScore = true
           }
           poppedDisplayWords += target.item.displayWord
-          spawnPopEffects(target, banners, particles)
+          spawnPopEffects(
+            target = target,
+            pointsAwarded = award.pointsAwarded,
+            multiplier = award.multiplier,
+            banners = banners,
+            particles = particles,
+          )
           target.copy(popProgress = 0f)
         } else {
           target
@@ -667,12 +734,19 @@ class XrLanguageTeacherVocabPopperEngine(
         highScore = highScore,
         isNewHighScore = isNewHighScore,
         correctCount = correctCount,
+        uniqueWordCount = uniqueWordCount,
+        streak = streak,
+        bestStreak = bestStreak,
+        streakMultiplier = streakMultiplier,
         targets = targets,
         particles = particles,
         popBanners = banners,
       )
     return XrLanguageTeacherVocabPopperPopEvent(
       poppedWords = poppedDisplayWords,
+      pointsAwarded = totalPointsAwarded,
+      multiplier = streakMultiplier,
+      streak = streak,
       newScore = score,
       isNewHighScore = isNewHighScore,
     )
@@ -895,6 +969,8 @@ class XrLanguageTeacherVocabPopperEngine(
 
   private fun spawnPopEffects(
     target: XrLanguageTeacherVocabPopperTarget,
+    pointsAwarded: Int,
+    multiplier: Int,
     banners: MutableList<XrLanguageTeacherVocabPopperPopBanner>,
     particles: MutableList<XrLanguageTeacherVocabPopperParticle>,
   ) {
@@ -902,6 +978,8 @@ class XrLanguageTeacherVocabPopperEngine(
       XrLanguageTeacherVocabPopperPopBanner(
         id = allocateId(),
         word = target.item.displayWord,
+        pointsAwarded = pointsAwarded,
+        multiplier = multiplier,
         x = target.x,
         y = target.y,
         progress = 0f,

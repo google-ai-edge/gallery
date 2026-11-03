@@ -32,11 +32,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /** Preference key of the best `Vocab Runner` (`Speak` mode) score. */
-internal const val VOCAB_RUNNER_HIGH_SCORE_KEY = "xr_language_teacher_vocab_runner_high_score"
+internal const val VOCAB_RUNNER_SPEAK_HIGH_SCORE_KEY =
+  "xr_language_teacher_vocab_runner_speak_high_score_v2"
+
+/** Alias of [VOCAB_RUNNER_SPEAK_HIGH_SCORE_KEY]. */
+internal const val VOCAB_RUNNER_HIGH_SCORE_KEY = VOCAB_RUNNER_SPEAK_HIGH_SCORE_KEY
 
 /** Preference key of the best `Vocab Runner` (`Tap` mode) score. */
 internal const val VOCAB_RUNNER_TAP_HIGH_SCORE_KEY =
-  "xr_language_teacher_vocab_runner_tap_high_score"
+  "xr_language_teacher_vocab_runner_tap_high_score_v2"
 
 /**
  * The game chrome state of a `Vocab Runner` round. It only changes on a clear, a countdown second,
@@ -55,6 +59,10 @@ data class XrLanguageTeacherVocabRunnerUiState(
   val isNewHighScore: Boolean = false,
   val lives: Int = XrLanguageTeacherVocabRunnerEngine.INITIAL_LIVES,
   val maxLives: Int = XrLanguageTeacherVocabRunnerEngine.INITIAL_LIVES,
+  val correctCount: Int = 0,
+  val uniqueWordCount: Int = 0,
+  val streak: Int = 0,
+  val streakMultiplier: Int = 1,
   val choices: List<XrLanguageTeacherVocabRunnerDeckItem> = emptyList(),
   val micState: XrLanguageTeacherGameMicState = XrLanguageTeacherGameMicState.STARTING,
   val isMuted: Boolean = false,
@@ -64,6 +72,12 @@ data class XrLanguageTeacherVocabRunnerUiState(
    * is none.
    */
   val celebrationWord: String? = null,
+  /**
+   * Composite points awarded for [celebrationWord], or `null` when no clear celebration is active.
+   */
+  val celebrationPoints: Int? = null,
+  /** Streak multiplier applied to [celebrationPoints] when a clear celebration is active. */
+  val celebrationMultiplier: Int = 1,
   /** Whether [celebrationWord] is a missed word, shown as a "Word was" error hint. */
   val isCelebrationMissedWord: Boolean = false,
 )
@@ -110,8 +124,6 @@ class XrLanguageTeacherVocabRunnerViewModel(
 
   private var engine: XrLanguageTeacherVocabRunnerEngine? = null
   private var deck: List<XrLanguageTeacherVocabRunnerDeckItem> = emptyList()
-  /** Whether the next celebrated word is a missed word rather than a cleared one. */
-  private var nextCelebrationIsMissedWord = false
 
   override var mode: XrLanguageTeacherVocabGameMode = XrLanguageTeacherVocabGameMode.TAP
     private set
@@ -174,14 +186,17 @@ class XrLanguageTeacherVocabRunnerViewModel(
       persistHighScoreIfNeeded(game.highScore)
       _arenaState.update { it.copy(game = game, edgeGlowIntensity = 1f, isCollisionGlow = false) }
       _uiState.update { chromeStateFor(game, base = it) }
-      nextCelebrationIsMissedWord = false
-      celebrate(outcome.correctItem.displayWord)
+      celebrate(
+        word = outcome.correctItem.displayWord,
+        points = outcome.pointsAwarded,
+        multiplier = outcome.multiplier,
+        isMissedWord = false,
+      )
     } else {
       soundEffects.playCollision()
       _arenaState.update { it.copy(game = game, edgeGlowIntensity = 1f, isCollisionGlow = true) }
       _uiState.update { chromeStateFor(game, base = it) }
-      nextCelebrationIsMissedWord = true
-      celebrate(outcome.correctItem.displayWord)
+      celebrate(outcome.correctItem.displayWord, isMissedWord = true)
       if (outcome.didFinishRound) {
         finishRound(game.highScore)
       }
@@ -225,10 +240,7 @@ class XrLanguageTeacherVocabRunnerViewModel(
       it.copy(game = game, edgeGlowIntensity = glow, isCollisionGlow = isCollisionGlow)
     }
     _uiState.update { chromeStateFor(game, base = it) }
-    missedWordAny?.let { missedWord ->
-      nextCelebrationIsMissedWord = true
-      celebrate(missedWord)
-    }
+    missedWordAny?.let { missedWord -> celebrate(missedWord, isMissedWord = true) }
     if (didFinishRoundAny) {
       finishRound(game.highScore)
     }
@@ -256,10 +268,7 @@ class XrLanguageTeacherVocabRunnerViewModel(
       )
     }
     _uiState.update { chromeStateFor(game, base = it) }
-    events.missedWord?.let { missedWord ->
-      nextCelebrationIsMissedWord = true
-      celebrate(missedWord)
-    }
+    events.missedWord?.let { missedWord -> celebrate(missedWord, isMissedWord = true) }
     if (events.didFinishRound) {
       finishRound(game.highScore)
     }
@@ -277,8 +286,12 @@ class XrLanguageTeacherVocabRunnerViewModel(
     persistHighScoreIfNeeded(game.highScore)
     _arenaState.update { it.copy(game = game, edgeGlowIntensity = 1f, isCollisionGlow = false) }
     _uiState.update { chromeStateFor(game, base = it) }
-    nextCelebrationIsMissedWord = false
-    celebrate(clearEvent.matchedWord)
+    celebrate(
+      word = clearEvent.matchedWord,
+      points = clearEvent.pointsAwarded,
+      multiplier = clearEvent.multiplier,
+      isMissedWord = false,
+    )
   }
 
   /** Starts a new 60-second round with the same words and mode. */
@@ -300,11 +313,18 @@ class XrLanguageTeacherVocabRunnerViewModel(
     _uiState.update { it.copy(isMuted = muted) }
   }
 
-  override fun showCelebrationWord(word: String?) {
+  override fun showCelebrationWord(
+    word: String?,
+    points: Int?,
+    multiplier: Int,
+    isMissedWord: Boolean,
+  ) {
     _uiState.update {
       it.copy(
         celebrationWord = word,
-        isCelebrationMissedWord = word != null && nextCelebrationIsMissedWord,
+        celebrationPoints = if (word != null && !isMissedWord) points else null,
+        celebrationMultiplier = if (word != null && !isMissedWord) multiplier else 1,
+        isCelebrationMissedWord = word != null && isMissedWord,
       )
     }
   }
@@ -351,6 +371,10 @@ class XrLanguageTeacherVocabRunnerViewModel(
       isNewHighScore = game.isNewHighScore,
       lives = game.lives,
       maxLives = game.maxLives,
+      correctCount = game.correctCount,
+      uniqueWordCount = game.uniqueWordCount,
+      streak = game.streak,
+      streakMultiplier = game.streakMultiplier,
       choices = game.choices,
     )
 }

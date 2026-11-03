@@ -35,11 +35,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /** Preference key of the best `Vocab Popper` score in Speak mode. */
-internal const val VOCAB_POPPER_HIGH_SCORE_KEY = "xr_language_teacher_vocab_popper_high_score"
+internal const val VOCAB_POPPER_SPEAK_HIGH_SCORE_KEY =
+  "xr_language_teacher_vocab_popper_speak_high_score_v2"
+
+/** Alias of [VOCAB_POPPER_SPEAK_HIGH_SCORE_KEY]. */
+internal const val VOCAB_POPPER_HIGH_SCORE_KEY = VOCAB_POPPER_SPEAK_HIGH_SCORE_KEY
 
 /** Preference key of the best `Vocab Popper` score in Tap mode. */
 internal const val VOCAB_POPPER_TAP_HIGH_SCORE_KEY =
-  "xr_language_teacher_vocab_popper_tap_high_score"
+  "xr_language_teacher_vocab_popper_tap_high_score_v2"
 
 /**
  * The game chrome state of a `Vocab Popper` round. It only changes on a pop, a wave spawn, a
@@ -58,12 +62,20 @@ data class XrLanguageTeacherVocabPopperUiState(
   val isNewHighScore: Boolean = false,
   val lives: Int = XrLanguageTeacherVocabPopperEngine.INITIAL_LIVES,
   val maxLives: Int = XrLanguageTeacherVocabPopperEngine.INITIAL_LIVES,
+  val correctCount: Int = 0,
+  val uniqueWordCount: Int = 0,
+  val streak: Int = 0,
+  val streakMultiplier: Int = 1,
   /** Display word of the current wave's prompted target in Tap mode, or `null`. */
   val targetWord: String? = null,
   val micState: XrLanguageTeacherGameMicState = XrLanguageTeacherGameMicState.STARTING,
   val isMuted: Boolean = false,
   /** The word just popped, celebrated in the status bar for a moment, or `null`. */
   val celebrationWord: String? = null,
+  /** Composite points awarded for [celebrationWord], or `null` when no celebration is active. */
+  val celebrationPoints: Int? = null,
+  /** Streak multiplier applied to [celebrationPoints] when [celebrationWord] is active. */
+  val celebrationMultiplier: Int = 1,
 )
 
 /** The arena state of a `Vocab Popper` round, published once per frame and read while drawing. */
@@ -240,7 +252,6 @@ class XrLanguageTeacherVocabPopperViewModel(
       persistHighScoreIfNeeded(game.highScore)
       _arenaState.update { it.copy(game = game, edgeGlowIntensity = 1f, isWrongTapGlow = false) }
       _uiState.update { chromeStateFor(game, base = it) }
-      celebrate(outcome.tappedItem.displayWord)
     } else {
       soundEffects.playCollision()
       _arenaState.update { it.copy(game = game, edgeGlowIntensity = 1f, isWrongTapGlow = true) }
@@ -279,7 +290,9 @@ class XrLanguageTeacherVocabPopperViewModel(
     persistHighScoreIfNeeded(game.highScore)
     _arenaState.update { it.copy(game = game, edgeGlowIntensity = 1f, isWrongTapGlow = false) }
     _uiState.update { chromeStateFor(game, base = it) }
-    popEvent.poppedWords.firstOrNull()?.let { celebrate(it) }
+    popEvent.poppedWords.firstOrNull()?.let { word ->
+      celebrate(word = word, points = popEvent.pointsAwarded, multiplier = popEvent.multiplier)
+    }
   }
 
   /** Starts a new round with the same words, mode, length, and difficulty. */
@@ -302,8 +315,19 @@ class XrLanguageTeacherVocabPopperViewModel(
     _uiState.update { it.copy(isMuted = muted) }
   }
 
-  override fun showCelebrationWord(word: String?) {
-    _uiState.update { it.copy(celebrationWord = word) }
+  override fun showCelebrationWord(
+    word: String?,
+    points: Int?,
+    multiplier: Int,
+    isMissedWord: Boolean,
+  ) {
+    _uiState.update {
+      it.copy(
+        celebrationWord = word,
+        celebrationPoints = if (word != null) points else null,
+        celebrationMultiplier = if (word != null) multiplier else 1,
+      )
+    }
   }
 
   override fun updateStickers(transform: (Map<String, ImageBitmap>) -> Map<String, ImageBitmap>) {
@@ -364,6 +388,10 @@ class XrLanguageTeacherVocabPopperViewModel(
       isNewHighScore = game.isNewHighScore,
       lives = game.lives,
       maxLives = game.maxLives,
+      correctCount = game.correctCount,
+      uniqueWordCount = game.uniqueWordCount,
+      streak = game.streak,
+      streakMultiplier = game.streakMultiplier,
       targetWord = game.currentTarget?.displayWord,
     )
 }

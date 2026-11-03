@@ -96,6 +96,10 @@ data class XrLanguageTeacherVocabRunnerState(
   val lives: Int = XrLanguageTeacherVocabRunnerEngine.INITIAL_LIVES,
   val maxLives: Int = XrLanguageTeacherVocabRunnerEngine.INITIAL_LIVES,
   val correctCount: Int = 0,
+  val uniqueWordCount: Int = 0,
+  val streak: Int = 0,
+  val bestStreak: Int = 0,
+  val streakMultiplier: Int = 1,
   val scrollSpeed: Float = XrLanguageTeacherVocabRunnerEngine.INITIAL_SCROLL_SPEED,
   val trackDistance: Float = 0f,
   val buddyRecoilOffset: Float = 0f,
@@ -117,6 +121,11 @@ data class XrLanguageTeacherVocabRunnerStepEvents(
 /** Result returned when the player speaks the upcoming obstacle's word to clear it. */
 data class XrLanguageTeacherVocabRunnerClearEvent(
   val matchedWord: String,
+  val pointsAwarded: Int =
+    XrLanguageTeacherVocabGameScoreTracker.POINTS_PER_CORRECT_ANSWER +
+      XrLanguageTeacherVocabGameScoreTracker.UNIQUE_WORD_BONUS_POINTS,
+  val multiplier: Int = 1,
+  val streak: Int = 1,
   val newScore: Int,
   val isNewHighScore: Boolean,
 )
@@ -126,6 +135,9 @@ data class XrLanguageTeacherVocabRunnerChoiceOutcome(
   val selectedItem: XrLanguageTeacherVocabRunnerDeckItem,
   val correctItem: XrLanguageTeacherVocabRunnerDeckItem,
   val isCorrect: Boolean,
+  val pointsAwarded: Int,
+  val multiplier: Int,
+  val streak: Int,
   val newScore: Int,
   val isNewHighScore: Boolean,
   val remainingLives: Int,
@@ -211,6 +223,7 @@ class XrLanguageTeacherVocabRunnerEngine(
   private var knockbackVelocity = 0f
   private var choicesObstacleId: Long? = null
   private val transcriptCursor = XrLanguageTeacherTranscriptCursor()
+  private val scoreTracker = XrLanguageTeacherVocabGameScoreTracker()
 
   init {
     state = state.copy(obstacles = withUpcomingObstacles(state.obstacles, correctCount = 0))
@@ -339,10 +352,15 @@ class XrLanguageTeacherVocabRunnerEngine(
     }
 
     if (mode == XrLanguageTeacherVocabGameMode.TAP) {
+      if (didTriggerTapCollision) {
+        scoreTracker.resetStreak()
+      }
       state =
         state.copy(
           remainingMilliseconds = remainingMilliseconds,
           lives = lives,
+          streak = if (didTriggerTapCollision) 0 else state.streak,
+          streakMultiplier = if (didTriggerTapCollision) 1 else state.streakMultiplier,
           scrollSpeed = scrollSpeed,
           trackDistance = trackDistance,
           buddyRecoilOffset = buddyRecoilOffset,
@@ -374,10 +392,15 @@ class XrLanguageTeacherVocabRunnerEngine(
       knockbackVelocity = INITIAL_KNOCKBACK_SPEED
       buddyRecoilOffset = -MAX_BUDDY_RECOIL_OFFSET
     }
+    if (didCollide) {
+      scoreTracker.resetStreak()
+    }
 
     state =
       state.copy(
         remainingMilliseconds = remainingMilliseconds,
+        streak = if (didCollide) 0 else state.streak,
+        streakMultiplier = if (didCollide) 1 else state.streakMultiplier,
         trackDistance = trackDistance,
         buddyRecoilOffset = buddyRecoilOffset,
         isStumbled = isStumbled,
@@ -408,15 +431,23 @@ class XrLanguageTeacherVocabRunnerEngine(
     if (isCorrect) {
       val obstacles = state.obstacles.toMutableList()
       obstacles[targetIndex] = obstacles[targetIndex].copy(clearProgress = 0f)
-      val correctCount = state.correctCount + 1
-      val score = state.score + 1
+      val award =
+        scoreTracker.recordCorrectAnswer(
+          displayWord = correctItem.displayWord,
+          entryKey = correctItem.entryKey,
+        )
+      val score = award.totalScore
       val isNewHighScore = state.isNewHighScore || score > state.highScore
       state =
         state.copy(
           score = score,
           highScore = max(state.highScore, score),
           isNewHighScore = isNewHighScore,
-          correctCount = correctCount,
+          correctCount = award.correctCount,
+          uniqueWordCount = award.uniqueWordCount,
+          streak = award.streak,
+          bestStreak = award.bestStreak,
+          streakMultiplier = award.multiplier,
           obstacles = obstacles,
         )
       state = state.copy(scrollSpeed = currentTapScrollSpeed)
@@ -427,6 +458,9 @@ class XrLanguageTeacherVocabRunnerEngine(
         selectedItem = selectedItem,
         correctItem = correctItem,
         isCorrect = true,
+        pointsAwarded = award.pointsAwarded,
+        multiplier = award.multiplier,
+        streak = award.streak,
         newScore = state.score,
         isNewHighScore = state.isNewHighScore,
         remainingLives = state.lives,
@@ -434,12 +468,20 @@ class XrLanguageTeacherVocabRunnerEngine(
       )
     }
 
+    scoreTracker.resetStreak()
     val lives = max(0, state.lives - 1)
     stumbleTimerSeconds = STUMBLE_DURATION_SECONDS
     val obstacles = state.obstacles.toMutableList()
     obstacles[targetIndex] =
       obstacles[targetIndex].copy(didBreakOnMaxBumps = true, clearProgress = 0f)
-    state = state.copy(lives = lives, isStumbled = true, obstacles = obstacles)
+    state =
+      state.copy(
+        lives = lives,
+        streak = 0,
+        streakMultiplier = 1,
+        isStumbled = true,
+        obstacles = obstacles,
+      )
 
     if (lives == 0) {
       finishRound(reason = XrLanguageTeacherVocabGameEndReason.OUT_OF_LIVES)
@@ -447,6 +489,9 @@ class XrLanguageTeacherVocabRunnerEngine(
         selectedItem = selectedItem,
         correctItem = correctItem,
         isCorrect = false,
+        pointsAwarded = 0,
+        multiplier = 1,
+        streak = 0,
         newScore = state.score,
         isNewHighScore = state.isNewHighScore,
         remainingLives = 0,
@@ -461,6 +506,9 @@ class XrLanguageTeacherVocabRunnerEngine(
       selectedItem = selectedItem,
       correctItem = correctItem,
       isCorrect = false,
+      pointsAwarded = 0,
+      multiplier = 1,
+      streak = 0,
       newScore = state.score,
       isNewHighScore = state.isNewHighScore,
       remainingLives = state.lives,
@@ -486,9 +534,10 @@ class XrLanguageTeacherVocabRunnerEngine(
 
   /**
    * Evaluates the cumulative ASR [transcript] against the nearest visible upcoming obstacle still
-   * in Buddy's path (with `BUDDY_X - COLLISION_HALF_WIDTH <= x <= 1.08`): a match awards `+1`,
-   * starts its pop and fade, ramps the scroll speed up, and consumes the matched transcript tokens.
-   * Returns `null` when nothing matched.
+   * in Buddy's path (with `BUDDY_X - COLLISION_HALF_WIDTH <= x <= 1.08`): a match awards composite
+   * points (`+30` first clear, `+10` repeat, multiplied by the active streak tier), starts its pop
+   * and fade, ramps the scroll speed up, and consumes the matched transcript tokens. Returns `null`
+   * when nothing matched.
    */
   fun processTranscript(transcript: String): XrLanguageTeacherVocabRunnerClearEvent? {
     if (
@@ -520,8 +569,13 @@ class XrLanguageTeacherVocabRunnerEngine(
     transcriptCursor.consumeSeen()
     val obstacles = state.obstacles.toMutableList()
     obstacles[targetIndex] = obstacle.copy(clearProgress = 0f)
-    val correctCount = state.correctCount + 1
-    val score = state.score + 1
+    val award =
+      scoreTracker.recordCorrectAnswer(
+        displayWord = obstacle.item.displayWord,
+        entryKey = obstacle.item.entryKey,
+      )
+    val correctCount = award.correctCount
+    val score = award.totalScore
     val isNewHighScore = state.isNewHighScore || score > state.highScore
     state =
       state.copy(
@@ -529,12 +583,19 @@ class XrLanguageTeacherVocabRunnerEngine(
         highScore = max(state.highScore, score),
         isNewHighScore = isNewHighScore,
         correctCount = correctCount,
+        uniqueWordCount = award.uniqueWordCount,
+        streak = award.streak,
+        bestStreak = award.bestStreak,
+        streakMultiplier = award.multiplier,
         scrollSpeed =
           min(MAX_SCROLL_SPEED, INITIAL_SCROLL_SPEED + correctCount * SPEED_PER_OBSTACLE_CLEARED),
         obstacles = obstacles,
       )
     return XrLanguageTeacherVocabRunnerClearEvent(
       matchedWord = obstacle.item.displayWord,
+      pointsAwarded = award.pointsAwarded,
+      multiplier = award.multiplier,
+      streak = award.streak,
       newScore = score,
       isNewHighScore = isNewHighScore,
     )

@@ -158,6 +158,8 @@ fun VocabPopperContent(
       onPlayAgain = onPlayAgain,
       onExit = onExit,
       modifier = modifier,
+      correctCount = uiState.correctCount,
+      uniqueWordCount = uiState.uniqueWordCount,
     )
     return
   }
@@ -194,7 +196,18 @@ fun VocabPopperContent(
           VocabGameTimer(remainingSeconds = uiState.remainingSeconds)
         }
       }
-      VocabGameScoreboard(score = uiState.score, bestScore = uiState.highScore)
+      Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        VocabGameScoreboard(
+          score = uiState.score,
+          bestScore = uiState.highScore,
+          uniqueWordCount = uiState.uniqueWordCount,
+          isCompact = true,
+        )
+        VocabGameStreakBadge(streak = uiState.streak, multiplier = uiState.streakMultiplier)
+      }
       if (isTapMode && uiState.targetWord != null) {
         VocabPopperPromptBanner(word = uiState.targetWord, onReplay = onReplayPromptAudio)
       }
@@ -206,8 +219,20 @@ fun VocabPopperContent(
           micPermissionMessage =
             stringResource(R.string.xrteacher_vocab_popper_mic_permission_needed),
           celebrationText =
-            uiState.celebrationWord?.let {
-              stringResource(R.string.xrteacher_vocab_popper_popped, it)
+            uiState.celebrationWord?.let { word ->
+              val points = uiState.celebrationPoints
+              when {
+                points != null && uiState.celebrationMultiplier > 1 ->
+                  stringResource(
+                    R.string.xrteacher_vocab_popper_multiplied_points_pop_banner,
+                    points,
+                    uiState.celebrationMultiplier,
+                    word,
+                  )
+                points != null ->
+                  stringResource(R.string.xrteacher_vocab_popper_points_pop_banner, points, word)
+                else -> stringResource(R.string.xrteacher_vocab_popper_popped, word)
+              }
             },
           heardWords = heardWords,
         )
@@ -232,7 +257,7 @@ private fun VocabPopperArena(
   val density = LocalDensity.current
   val pillStroke = remember(density) { Stroke(width = with(density) { 3.dp.toPx() }) }
   // Each banner's text and pill layout are measured once, not on every frame.
-  val bannerTexts = remember(resources) { HashMap<Long, String>() }
+  val bannerLayouts = remember(resources, textMeasurer) { HashMap<Long, TextLayoutResult>() }
   val pillLayouts = remember(textMeasurer, isTapMode) { HashMap<String, TextLayoutResult>() }
   val tapModifier =
     if (isTapMode) {
@@ -262,13 +287,28 @@ private fun VocabPopperArena(
         pillStroke = pillStroke,
       )
     }
-    if (arena.game.popBanners.isEmpty()) bannerTexts.clear()
+    if (arena.game.popBanners.isEmpty()) bannerLayouts.clear()
     for (banner in arena.game.popBanners) {
-      val text =
-        bannerTexts.getOrPut(banner.id) {
-          resources.getString(R.string.xrteacher_vocab_popper_pop_banner, 1, banner.word)
+      val layout =
+        bannerLayouts.getOrPut(banner.id) {
+          val text =
+            if (banner.multiplier > 1) {
+              resources.getString(
+                R.string.xrteacher_vocab_popper_multiplied_points_pop_banner,
+                banner.pointsAwarded,
+                banner.multiplier,
+                banner.word,
+              )
+            } else {
+              resources.getString(
+                R.string.xrteacher_vocab_popper_points_pop_banner,
+                banner.pointsAwarded,
+                banner.word,
+              )
+            }
+          textMeasurer.measure(text = text, style = PopBannerTextStyle, maxLines = 1)
         }
-      drawPopBanner(banner = banner, text = text, textMeasurer = textMeasurer)
+      drawPopBanner(banner = banner, layout = layout)
     }
   }
 }
@@ -389,14 +429,15 @@ private fun DrawScope.drawWordPill(
 
 private fun DrawScope.drawPopBanner(
   banner: XrLanguageTeacherVocabPopperPopBanner,
-  text: String,
-  textMeasurer: TextMeasurer,
+  layout: TextLayoutResult,
 ) {
   val alpha = (1f - banner.progress).coerceIn(0f, 1f)
   val scale = 0.9f + min(banner.progress * 2f, 0.25f)
-  val layout = textMeasurer.measure(text = text, style = PopBannerTextStyle, maxLines = 1)
   val pillSize = Size(layout.size.width + 28.dp.toPx(), layout.size.height + 12.dp.toPx())
-  translate(left = banner.x * size.width, top = banner.y * size.height) {
+  val halfPillWidth = (pillSize.width * scale) / 2f + 8.dp.toPx()
+  val clampedX =
+    (banner.x * size.width).coerceIn(halfPillWidth, max(halfPillWidth, size.width - halfPillWidth))
+  translate(left = clampedX, top = banner.y * size.height) {
     scale(scale = scale, pivot = Offset.Zero) {
       drawRoundRect(
         color = Color.Black.copy(alpha = 0.72f),
