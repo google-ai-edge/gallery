@@ -56,6 +56,7 @@ import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
@@ -398,12 +399,53 @@ fun readFileToByteBuffer(file: File): ByteBuffer? {
   }
 }
 
-fun isPixel10(): Boolean {
-  return Build.MODEL != null && Build.MODEL.lowercase().contains("pixel 10")
+private const val FEATURE_PIXEL_EXPERIENCE = "com.google.android.feature.PIXEL_EXPERIENCE"
+private const val FEATURE_PIXEL_2025_EXPERIENCE = "com.google.android.feature.PIXEL_2025_EXPERIENCE"
+private const val FEATURE_PIXEL_2026_MIDYEAR_EXPERIENCE =
+  "com.google.android.feature.PIXEL_2026_MIDYEAR_EXPERIENCE"
+private const val FEATURE_PIXEL_2026_EXPERIENCE = "com.google.android.feature.PIXEL_2026_EXPERIENCE"
+private const val FEATURE_PIXEL_2027_EXPERIENCE = "com.google.android.feature.PIXEL_2027_EXPERIENCE"
+
+private fun hasAnyPixelExperienceFeature(context: Context): Boolean {
+  val pm = context.packageManager
+  return pm.hasSystemFeature(FEATURE_PIXEL_EXPERIENCE) ||
+    pm.hasSystemFeature(FEATURE_PIXEL_2025_EXPERIENCE) ||
+    pm.hasSystemFeature(FEATURE_PIXEL_2026_MIDYEAR_EXPERIENCE) ||
+    pm.hasSystemFeature(FEATURE_PIXEL_2026_EXPERIENCE) ||
+    pm.hasSystemFeature(FEATURE_PIXEL_2027_EXPERIENCE)
 }
 
-fun isPixel11(): Boolean {
-  return Build.MODEL != null && Build.MODEL.lowercase().contains("pixel 11")
+/** Returns true on Pixel 10 flagship devices (Tensor G5), excluding Pixel 10a (Tensor G4). */
+fun isPixel10(context: Context? = null): Boolean {
+  if (context != null && hasAnyPixelExperienceFeature(context)) {
+    val pm = context.packageManager
+    return pm.hasSystemFeature(FEATURE_PIXEL_2025_EXPERIENCE) &&
+      !pm.hasSystemFeature(FEATURE_PIXEL_2026_MIDYEAR_EXPERIENCE) &&
+      !pm.hasSystemFeature(FEATURE_PIXEL_2026_EXPERIENCE)
+  }
+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    if (Build.SOC_MODEL?.equals("Tensor G5", ignoreCase = true) == true) {
+      return true
+    }
+  }
+  val model = Build.MODEL?.lowercase(Locale.ROOT) ?: return false
+  return model.contains("pixel 10") && !model.contains("pixel 10a")
+}
+
+/** Returns true on Pixel 11 devices (Tensor G6). */
+fun isPixel11(context: Context? = null): Boolean {
+  if (context != null && hasAnyPixelExperienceFeature(context)) {
+    val pm = context.packageManager
+    return pm.hasSystemFeature(FEATURE_PIXEL_2026_EXPERIENCE) &&
+      !pm.hasSystemFeature(FEATURE_PIXEL_2027_EXPERIENCE)
+  }
+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    if (Build.SOC_MODEL?.equals("Tensor G6", ignoreCase = true) == true) {
+      return true
+    }
+  }
+  val model = Build.MODEL?.lowercase(Locale.ROOT) ?: return false
+  return model.contains("pixel 11")
 }
 
 /**
@@ -412,7 +454,7 @@ fun isPixel11(): Boolean {
  */
 fun getModelStorageDir(context: Context): File {
   val isCd1aBuild = Build.ID != null && Build.ID.startsWith("CD1A")
-  return if (isPixel11() && isCd1aBuild) {
+  return if (isPixel11(context) && isCd1aBuild) {
     context.filesDir
   } else {
     context.getExternalFilesDir(null) ?: context.filesDir
