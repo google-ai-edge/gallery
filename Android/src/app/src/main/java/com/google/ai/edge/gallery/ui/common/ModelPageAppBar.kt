@@ -161,7 +161,11 @@ fun ModelPageAppBar(
           if (icon != null) {
             Icon(icon, tint = tintColor, modifier = Modifier.size(24.dp), contentDescription = null)
           }
-          Text(task.label, style = MaterialTheme.typography.titleMedium, color = tintColor)
+          Text(
+            task.label,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
         }
 
         // Model chips pager.

@@ -97,10 +97,14 @@ val homePageTitleStyle =
     fontWeight = FontWeight.Medium,
   )
 
-val bodyLargeNarrow = baseline.bodyLarge.copy(letterSpacing = 0.2.sp)
-val bodyMediumMedium = baseline.bodyMedium.copy(fontWeight = FontWeight.Medium)
+val bodyLargeNarrow = baseline.bodyLarge.copy(fontFamily = appFontFamily, letterSpacing = 0.2.sp)
+val bodyMediumMedium =
+  baseline.bodyMedium.copy(fontFamily = appFontFamily, fontWeight = FontWeight.Medium)
 
-val headlineLargeMedium = baseline.headlineLarge.copy(fontWeight = FontWeight.Medium)
+val headlineLargeMedium =
+  baseline.headlineLarge.copy(fontFamily = appFontFamily, fontWeight = FontWeight.Medium)
 
-val emptyStateTitle = baseline.headlineSmall.copy(fontSize = 37.sp, lineHeight = 50.sp)
-val emptyStateContent = baseline.headlineSmall.copy(fontSize = 16.sp, lineHeight = 22.sp)
+val emptyStateTitle =
+  baseline.headlineSmall.copy(fontFamily = appFontFamily, fontSize = 37.sp, lineHeight = 50.sp)
+val emptyStateContent =
+  baseline.headlineSmall.copy(fontFamily = appFontFamily, fontSize = 16.sp, lineHeight = 22.sp)

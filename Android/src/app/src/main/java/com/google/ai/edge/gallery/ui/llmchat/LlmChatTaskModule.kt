@@ -25,7 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Mms
 import androidx.compose.material3.MaterialTheme
@@ -90,7 +90,7 @@ abstract class BaseLlmChatTask(
       id = taskId,
       label = context.getString(labelRes),
       category = Category.LLM,
-      icon = Icons.Outlined.Forum,
+      icon = Icons.Filled.Forum,
       models = mutableListOf(),
       description = context.getString(descriptionRes),
       shortDescription = context.getString(shortDescriptionRes),
