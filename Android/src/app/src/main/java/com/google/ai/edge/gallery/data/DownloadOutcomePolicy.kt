@@ -86,12 +86,22 @@ internal enum class DownloadCancellation {
   }
 }
 
+/** The notification posted when a download ends while the app is in the background. */
+internal enum class DownloadEndNotification {
+  /** No notification: the user stopped the download, or has to act in the app anyway. */
+  NONE,
+  /** The download failed. */
+  FAILED,
+  /** The download paused and can be resumed from the app. */
+  PAUSED,
+}
+
 /** How a download that ended without succeeding is reported. */
 internal data class UnsuccessfulDownloadOutcome(
   /** The model's download status afterwards. */
   val status: ModelDownloadStatusType,
-  /** Whether to notify the user that the download failed. */
-  val notifyFailure: Boolean,
+  /** The notification that tells the user how the download ended. */
+  val notification: DownloadEndNotification,
   /** The `event_type` of the `model_download` analytics event. */
   val analyticsEventType: String,
   /** The `error_type` of the `model_download` analytics event, set for failures only. */
@@ -119,39 +129,114 @@ internal data class UnsuccessfulDownloadOutcome(
         cancellation == DownloadCancellation.USER ->
           UnsuccessfulDownloadOutcome(
             status = ModelDownloadStatusType.NOT_DOWNLOADED,
-            notifyFailure = false,
+            notification = DownloadEndNotification.NONE,
             analyticsEventType = EVENT_TYPE_CANCELLED,
           )
         cancellation == DownloadCancellation.APP ->
           UnsuccessfulDownloadOutcome(
             status = ModelDownloadStatusType.NOT_DOWNLOADED,
-            notifyFailure = false,
+            notification = DownloadEndNotification.NONE,
             analyticsEventType = EVENT_TYPE_CANCELLED_BY_APP,
           )
         authError != null ->
           UnsuccessfulDownloadOutcome(
             status = ModelDownloadStatusType.NOT_DOWNLOADED,
-            notifyFailure = false,
+            notification = DownloadEndNotification.NONE,
             analyticsEventType = EVENT_TYPE_AUTH_REQUIRED,
           )
         // A network problem that left bytes to resume pauses the download: the user can resume it
-        // once the network is back. It's still logged as a failure, to keep the failure rate
-        // comparable.
+        // once the network is back, so the notification says it paused rather than failed. It's
+        // still logged as a failure, to keep the failure rate comparable.
         isTransientDownloadFailure(errorType) && partialBytes > 0L ->
           UnsuccessfulDownloadOutcome(
             status = ModelDownloadStatusType.PARTIALLY_DOWNLOADED,
-            notifyFailure = true,
+            notification = DownloadEndNotification.PAUSED,
             analyticsEventType = EVENT_TYPE_FAILURE,
             analyticsErrorType = errorType,
           )
         else ->
           UnsuccessfulDownloadOutcome(
             status = ModelDownloadStatusType.FAILED,
-            notifyFailure = true,
+            notification = DownloadEndNotification.FAILED,
             analyticsEventType = EVENT_TYPE_FAILURE,
             analyticsErrorType = errorType?.ifEmpty { null } ?: ERROR_TYPE_UNKNOWN,
           )
       }
+  }
+}
+
+/**
+ * The task ID with which a download notification opens the global model manager, for downloads
+ * started outside a task.
+ */
+internal const val DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID = "___"
+
+/** What the notification for a download that ended shows, and what tapping it opens. */
+internal data class DownloadEndNotificationContent(
+  /** The string resource of the notification's title. */
+  val titleResId: Int,
+  /** The string resource of the notification's text, which takes [displayName]. */
+  val textResId: Int,
+  /** The name of what was downloaded: the model, or its extra data files. */
+  val displayName: String,
+  /**
+   * The task whose model page tapping the notification opens:
+   * [DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID] for the global model manager, or empty for the
+   * app's main screen.
+   */
+  val taskId: String,
+  /** The model whose page tapping the notification opens, empty for the app's main screen. */
+  val modelName: String,
+)
+
+/**
+ * Returns what the [notification] for a download that ended shows and opens, or null for
+ * [DownloadEndNotification.NONE].
+ *
+ * A failure notification opens the app's main screen. A pause notification opens the model, as the
+ * notification for a finished download does, so that the user can resume the download there.
+ *
+ * @param modelName The name of the downloaded model.
+ * @param isExtraDataOnly Whether only the model's extra data files were downloaded.
+ * @param extraDataLabel The label of the extra data files, shown instead of [modelName] for an
+ *   extra data download unless it's empty.
+ * @param taskId The ID of the task the download was started from, or null if it was started from
+ *   the global model manager.
+ */
+internal fun downloadEndNotificationContent(
+  notification: DownloadEndNotification,
+  modelName: String,
+  isExtraDataOnly: Boolean,
+  extraDataLabel: String,
+  taskId: String?,
+): DownloadEndNotificationContent? {
+  val displayName = if (isExtraDataOnly) extraDataLabel.ifEmpty { modelName } else modelName
+  return when (notification) {
+    DownloadEndNotification.NONE -> null
+    DownloadEndNotification.FAILED ->
+      DownloadEndNotificationContent(
+        titleResId =
+          if (isExtraDataOnly) R.string.download_extra_data_notification_title_fail
+          else R.string.notification_title_fail,
+        textResId =
+          if (isExtraDataOnly) R.string.download_extra_data_notification_content_fail
+          else R.string.notification_content_fail,
+        displayName = displayName,
+        taskId = "",
+        modelName = "",
+      )
+    DownloadEndNotification.PAUSED ->
+      DownloadEndNotificationContent(
+        titleResId =
+          if (isExtraDataOnly) R.string.download_extra_data_notification_title_paused
+          else R.string.notification_title_paused,
+        textResId =
+          if (isExtraDataOnly) R.string.download_extra_data_notification_content_paused
+          else R.string.notification_content_paused,
+        displayName = displayName,
+        taskId = taskId ?: DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID,
+        modelName = modelName,
+      )
   }
 }
 

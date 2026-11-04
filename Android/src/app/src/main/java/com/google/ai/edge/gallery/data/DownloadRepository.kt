@@ -107,8 +107,6 @@ interface DownloadRepository {
   fun cancelDownloadExtraDataFiles(model: Model)
 }
 
-private const val DOWNLOAD_FROM_GLOBAL_MODEL_MANAGER_TASK_ID = "___"
-
 /**
  * Repository for managing model downloads using WorkManager.
  *
@@ -643,23 +641,7 @@ class DefaultDownloadRepository(
                   errorType = errorType,
                   partialBytes = partialBytes,
                 )
-              if (outcome.notifyFailure) {
-                val (title, text) =
-                  if (isExtraDataOnly) {
-                    context.getString(R.string.download_extra_data_notification_title_fail) to
-                      context
-                        .getString(R.string.download_extra_data_notification_content_fail)
-                        .format(
-                          model.downloadInfo.optionalComponentsLabel(context, task?.id).ifEmpty {
-                            model.name
-                          }
-                        )
-                  } else {
-                    context.getString(R.string.notification_title_fail) to
-                      context.getString(R.string.notification_content_fail).format(model.name)
-                  }
-                sendNotification(title = title, text = text, taskId = "", modelName = "")
-              }
+              sendEndNotification(outcome.notification)
               // A paused download shows how much of it is on disk.
               val isPaused = outcome.status == ModelDownloadStatusType.PARTIALLY_DOWNLOADED
               val finalStatus =
@@ -691,6 +673,30 @@ class DefaultDownloadRepository(
 
             else -> {}
           }
+        }
+
+        /** Posts the [notification] that tells the user how the download ended. */
+        private fun sendEndNotification(notification: DownloadEndNotification) {
+          val model = download.model
+          val content =
+            downloadEndNotificationContent(
+              notification = notification,
+              modelName = model.name,
+              isExtraDataOnly = isExtraDataOnly,
+              extraDataLabel =
+                if (isExtraDataOnly) {
+                  model.downloadInfo.optionalComponentsLabel(context, task?.id)
+                } else {
+                  ""
+                },
+              taskId = task?.id,
+            ) ?: return
+          sendNotification(
+            title = context.getString(content.titleResId),
+            text = context.getString(content.textResId, content.displayName),
+            taskId = content.taskId,
+            modelName = content.modelName,
+          )
         }
 
         /**

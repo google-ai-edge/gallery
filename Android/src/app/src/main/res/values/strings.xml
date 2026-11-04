@@ -191,8 +191,10 @@
   <string name="name" translatable="true" description="General label for a name field (e.g., config setting name or custom skill name). [CHAR_LIMIT=18]">Name</string>
   <string name="no_cutouts_collected" translatable="true" description="Message shown when the user has not yet created or saved any image cutouts in the scrapbook feature. [CHAR_LIMIT=34]">No cutouts collected</string>
   <string name="notification_content_fail" translatable="true" description="Notification body text containing the model name when a model download fails. [CHAR_LIMIT=110]">Failed to download model "%s"</string>
+  <string name="notification_content_paused" translatable="true" description="Body of the system notification shown when a model download pauses while the app is in the background. Tapping it opens the app, where the user can resume the download. %1$s is the model name, e.g. 'Gemma-4-E2B-it'. [CHAR_LIMIT=110]">Open the app to resume downloading %1$s.</string>
   <string name="notification_content_success" translatable="true" description="Notification body text containing the model name when a model download succeeds. [CHAR_LIMIT=110]">Model "%s" has been downloaded</string>
   <string name="notification_title_fail" translatable="true" description="Notification title for a failed model download. [CHAR_LIMIT=35]">Model download failed</string>
+  <string name="notification_title_paused" translatable="true" description="Title of the system notification shown when a model download pauses while the app is in the background, e.g. because the network connection was lost. The download can be resumed from the app. [CHAR_LIMIT=35]">Model download paused</string>
   <string name="notification_title_success" translatable="true" description="Notification title for a successful model download. [CHAR_LIMIT=40]">Model download succeeded</string>
   <string name="ok" translatable="true" description="General confirmation button label. [CHAR_LIMIT=8]">OK</string>
   <string name="paste_from_clipboard" translatable="true" description="Button label or action text to paste content from the device clipboard. [CHAR_LIMIT=30]">Paste from clipboard</string>
@@ -1342,6 +1344,8 @@
   <string name="download_extra_data_notification_title_fail" translatable="true" description="Title of system notification when an extra data file download fails. [CHAR_LIMIT=35]">Extra data file download failed</string>
   <!-- Notification content when an extra data file download fails, where %1$s is the component label. [CHAR_LIMIT=60] -->
   <string name="download_extra_data_notification_content_fail" translatable="true" description="Content of system notification when an extra data file download fails, where %1$s is the component label. [CHAR_LIMIT=60]">Failed to download extra data file \'%1$s\'</string>
+  <string name="download_extra_data_notification_title_paused" translatable="true" description="Title of the system notification shown when the download of a model's extra data file pauses while the app is in the background, e.g. because the network connection was lost. The download can be resumed from the app. [CHAR_LIMIT=45]">Extra data file download paused</string>
+  <string name="download_extra_data_notification_content_paused" translatable="true" description="Body of the system notification shown when the download of a model's extra data file pauses while the app is in the background. Tapping it opens the app, where the user can resume the download. %1$s is the extra data file's label, e.g. 'Magic touch'. [CHAR_LIMIT=100]">Open the app to resume downloading extra data file \'%1$s\'.</string>
   <string name="task_label_smart_album" translatable="false">Instant Media Search</string>
   <!-- Description for the Smart Album task. [CHAR_LIMIT=100] -->
   <string name="task_desc_smart_album" translatable="true" description="Description for the Smart Album task. [CHAR_LIMIT=97]">Organize and search your photos and videos locally with EmbeddingGemma 2</string>
