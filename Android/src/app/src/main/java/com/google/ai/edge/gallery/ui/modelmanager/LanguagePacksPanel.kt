@@ -327,9 +327,9 @@ private fun LanguageSelectionRow(
         LanguagePackStatusControl(
           status =
             LanguagePackUiStatus.Downloading(
-              status.receivedBytes,
-              status.totalBytes,
-              status.stalled,
+              receivedBytes = status.receivedBytes,
+              totalBytes = status.totalBytes,
+              stalled = status.stalled,
             ),
           languageDisplayName = displayName,
           onDownload = onDownload,
@@ -451,9 +451,9 @@ private fun LanguagePackRow(
         LanguagePackStatusControl(
           status =
             LanguagePackUiStatus.Downloading(
-              status.receivedBytes,
-              status.totalBytes,
-              status.stalled,
+              receivedBytes = status.receivedBytes,
+              totalBytes = status.totalBytes,
+              stalled = status.stalled,
             ),
           languageDisplayName = displayName,
           onDownload = onDownload,
