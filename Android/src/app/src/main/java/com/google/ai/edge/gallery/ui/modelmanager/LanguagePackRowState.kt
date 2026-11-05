@@ -180,7 +180,11 @@ fun LanguagePackUiStatus.toSupplementaryLanguageStatus(): SupplementaryLanguageS
     LanguagePackUiStatus.Installed -> SupplementaryLanguageStatus.Installed
     LanguagePackUiStatus.Downloadable -> SupplementaryLanguageStatus.Downloadable
     is LanguagePackUiStatus.Downloading ->
-    SupplementaryLanguageStatus.Downloading(receivedBytes, totalBytes, stalled)
+      SupplementaryLanguageStatus.Downloading(
+        receivedBytes = receivedBytes,
+        totalBytes = totalBytes,
+        stalled = stalled,
+      )
     LanguagePackUiStatus.Failed -> SupplementaryLanguageStatus.Failed
     LanguagePackUiStatus.Unavailable -> SupplementaryLanguageStatus.NotOffered
   }
