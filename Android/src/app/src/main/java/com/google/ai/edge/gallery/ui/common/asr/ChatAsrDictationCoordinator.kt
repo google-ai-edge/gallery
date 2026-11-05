@@ -70,6 +70,7 @@ fun rememberChatAsrDictationActions(
     ((onEndedBySession: (transcript: String, failed: Boolean) -> Unit) -> Unit)? =
     null,
   onFinishAsrDictation: ((onTranscript: (String) -> Unit) -> Unit)? = null,
+  onSendAsrDictation: ((onTranscript: (String) -> Unit) -> Unit)? = onFinishAsrDictation,
   onCancelAsrDictation: (() -> Unit)? = null,
   onAsrDictationError: () -> Unit = {},
 ): ChatAsrDictationActions {
@@ -79,6 +80,7 @@ fun rememberChatAsrDictationActions(
   val latestOnSendTranscriptMessage by rememberUpdatedState(onSendTranscriptMessage)
   val latestOnStart by rememberUpdatedState(onStartAsrDictation)
   val latestOnFinish by rememberUpdatedState(onFinishAsrDictation)
+  val latestOnSend by rememberUpdatedState(onSendAsrDictation)
   val latestOnCancel by rememberUpdatedState(onCancelAsrDictation)
   val latestOnError by rememberUpdatedState(onAsrDictationError)
 
@@ -108,7 +110,7 @@ fun rememberChatAsrDictationActions(
   }
 
   val handleSend: () -> Unit = {
-    latestOnFinish?.invoke { transcript ->
+    latestOnSend?.invoke { transcript ->
       if (transcript.isNotEmpty()) {
         latestOnSendTranscriptMessage(mergeDictationTranscript(latestMessage, transcript))
       }

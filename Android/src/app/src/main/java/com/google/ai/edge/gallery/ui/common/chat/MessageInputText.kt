@@ -231,6 +231,7 @@ fun MessageInputText(
     ((onEndedBySession: (transcript: String, failed: Boolean) -> Unit) -> Unit)? =
     null,
   onFinishAsrDictation: ((onTranscript: (String) -> Unit) -> Unit)? = null,
+  onSendAsrDictation: ((onTranscript: (String) -> Unit) -> Unit)? = onFinishAsrDictation,
   onCancelAsrDictation: (() -> Unit)? = null,
   onAsrDictationError: () -> Unit = {},
 ) {
@@ -363,6 +364,7 @@ fun MessageInputText(
       },
       onStartAsrDictation = onStartAsrDictation,
       onFinishAsrDictation = onFinishAsrDictation,
+      onSendAsrDictation = onSendAsrDictation,
       onCancelAsrDictation = onCancelAsrDictation,
       onAsrDictationError = onAsrDictationError,
     )

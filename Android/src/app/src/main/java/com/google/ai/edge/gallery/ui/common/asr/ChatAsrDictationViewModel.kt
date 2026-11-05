@@ -53,9 +53,10 @@ data class ChatAsrDictationUiState(
 /**
  * Drives voice input (speech-to-text) in the chat input bar using the user's selected ASR engine.
  *
- * A session starts with [start] and ends in one of three ways:
- * - [finish] stops listening and hands the final transcript to the caller (used by both "stop and
- *   edit" and "send").
+ * A session starts with [start] and ends in one of four ways:
+ * - [finish] stops listening for "stop and edit" and hands the final transcript to the caller.
+ * - [finishAndSend] stops listening for immediate "send" and hands the final transcript to the
+ *   caller.
  * - [cancel] stops listening and discards the transcript.
  * - The session ends on its own, for example when the engine fails. The transcript so far is then
  *   handed to the `onEndedBySession` callback passed to [start].
@@ -97,8 +98,9 @@ constructor(
    * (the engine is still preparing), cancels the in-flight start and returns to idle
    * (toggle-to-cancel); if already dictating, does nothing.
    *
-   * @param onEndedBySession Called when the session ends without [finish] or [cancel], with the
-   *   trimmed transcript recognized so far (possibly empty) and whether the session failed.
+   * @param onEndedBySession Called when the session ends without [finish], [finishAndSend], or
+   *   [cancel], with the trimmed transcript recognized so far (possibly empty) and whether the
+   *   session failed.
    */
   fun start(onEndedBySession: (transcript: String, failed: Boolean) -> Unit = { _, _ -> }) {
     if (isDictatingOrPending) {
@@ -152,13 +154,29 @@ constructor(
   }
 
   /**
-   * Stops listening and calls [onTranscript] with the final, trimmed transcript once the engine has
-   * flushed it. [onTranscript] may receive an empty string if nothing was recognized.
+   * Stops listening to edit the transcript in the input field, calling [onTranscript] with the
+   * final, trimmed transcript once the engine has flushed it. [onTranscript] may receive an empty
+   * string if nothing was recognized.
    */
   fun finish(onTranscript: (String) -> Unit) {
     if (!isDictatingOrPending || finishRequested) {
       return
     }
+    requestFinish(onTranscript)
+  }
+
+  /**
+   * Stops listening to immediately send the transcript as a message, calling [onTranscript] with
+   * the final, trimmed transcript once the engine has flushed it.
+   */
+  fun finishAndSend(onTranscript: (String) -> Unit) {
+    if (!isDictatingOrPending || finishRequested) {
+      return
+    }
+    requestFinish(onTranscript)
+  }
+
+  private fun requestFinish(onTranscript: (String) -> Unit) {
     onFinished = onTranscript
     finishRequested = true
     val service = activeService ?: return // The session ends itself once preparation completes.
@@ -182,6 +200,7 @@ constructor(
     val endedBySessionCallback = onEndedBySession
     onFinished = null
     onEndedBySession = null
+    finishRequested = false
     activeService = null
     sessionJob = null
     _uiState.value = ChatAsrDictationUiState()
@@ -200,6 +219,7 @@ constructor(
     sessionId++
     onFinished = null
     onEndedBySession = null
+    finishRequested = false
     activeService = null
     sessionJob?.cancel()
     sessionJob = null
