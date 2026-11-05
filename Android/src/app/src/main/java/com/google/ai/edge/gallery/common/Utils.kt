@@ -415,8 +415,16 @@ private fun hasAnyPixelExperienceFeature(context: Context): Boolean {
     pm.hasSystemFeature(FEATURE_PIXEL_2027_EXPERIENCE)
 }
 
-/** Returns true on Pixel 10 flagship devices (Tensor G5), excluding Pixel 10a (Tensor G4). */
-fun isPixel10(context: Context? = null): Boolean {
+fun isPixel10(): Boolean {
+  return Build.MODEL != null && Build.MODEL.lowercase().contains("pixel 10")
+}
+
+fun isPixel11(): Boolean {
+  return Build.MODEL != null && Build.MODEL.lowercase().contains("pixel 11")
+}
+
+/** Returns true on Tensor G5 devices. */
+fun isTensorG5(context: Context? = null): Boolean {
   if (context != null && hasAnyPixelExperienceFeature(context)) {
     val pm = context.packageManager
     return pm.hasSystemFeature(FEATURE_PIXEL_2025_EXPERIENCE) &&
@@ -432,8 +440,8 @@ fun isPixel10(context: Context? = null): Boolean {
   return model.contains("pixel 10") && !model.contains("pixel 10a")
 }
 
-/** Returns true on Pixel 11 devices (Tensor G6). */
-fun isPixel11(context: Context? = null): Boolean {
+/** Returns true on Tensor G6 devices. */
+fun isTensorG6(context: Context? = null): Boolean {
   if (context != null && hasAnyPixelExperienceFeature(context)) {
     val pm = context.packageManager
     return pm.hasSystemFeature(FEATURE_PIXEL_2026_EXPERIENCE) &&
@@ -454,7 +462,7 @@ fun isPixel11(context: Context? = null): Boolean {
  */
 fun getModelStorageDir(context: Context): File {
   val isCd1aBuild = Build.ID != null && Build.ID.startsWith("CD1A")
-  return if (isPixel11(context) && isCd1aBuild) {
+  return if (isPixel11() && isCd1aBuild) {
     context.filesDir
   } else {
     context.getExternalFilesDir(null) ?: context.filesDir
