@@ -526,7 +526,11 @@ fun NumberSliderRow(config: NumberSliderConfig, values: SnapshotStateMap<String,
             values[config.key.label] = minOf(maxOf(floatValue, config.sliderMin), config.sliderMax)
           }
         },
-        textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
+        textStyle =
+          MaterialTheme.typography.bodyMedium.copy(
+            color = MaterialTheme.colorScheme.onSurface,
+            lineHeight = TextUnit.Unspecified,
+          ),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
       ) { innerTextField ->
         Box(

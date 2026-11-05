@@ -73,11 +73,11 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -189,12 +189,15 @@ fun SettingsDialog(
                     val uiModeManager =
                       context.applicationContext.getSystemService(Context.UI_MODE_SERVICE)
                         as UiModeManager
-                    if (theme == Theme.THEME_AUTO) {
-                      uiModeManager.setApplicationNightMode(UiModeManager.MODE_NIGHT_AUTO)
-                    } else if (theme == Theme.THEME_LIGHT) {
-                      uiModeManager.setApplicationNightMode(UiModeManager.MODE_NIGHT_NO)
-                    } else {
-                      uiModeManager.setApplicationNightMode(UiModeManager.MODE_NIGHT_YES)
+                    when (theme) {
+                      Theme.THEME_LIGHT ->
+                        uiModeManager.setApplicationNightMode(UiModeManager.MODE_NIGHT_NO)
+                      Theme.THEME_DARK ->
+                        uiModeManager.setApplicationNightMode(UiModeManager.MODE_NIGHT_YES)
+                      Theme.THEME_AUTO,
+                      Theme.THEME_UNSPECIFIED,
+                      Theme.UNRECOGNIZED ->
+                        uiModeManager.setApplicationNightMode(UiModeManager.MODE_NIGHT_AUTO)
                     }
                   },
                   checked = theme == selectedTheme,
@@ -343,7 +346,11 @@ fun SettingsDialog(
                     .focusRequester(focusRequester)
                     .onFocusChanged { isFocused = it.isFocused },
                 onValueChange = { customHfToken = it },
-                textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
+                textStyle =
+                  MaterialTheme.typography.bodySmall.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    lineHeight = TextUnit.Unspecified,
+                  ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
               ) { innerTextField ->
                 Box(
