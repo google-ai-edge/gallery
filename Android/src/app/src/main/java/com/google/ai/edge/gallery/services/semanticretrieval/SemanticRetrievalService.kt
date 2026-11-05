@@ -253,7 +253,10 @@ open class SemanticRetrievalService(
         }
       }
 
-    fun decodeMetadataFromStore(metadata: Map<String, String>): Map<String, String> = buildMap {
+    fun decodeMetadataFromStore(
+      metadata: Map<String, String>,
+      parts: List<Part> = emptyList(),
+    ): Map<String, String> = buildMap {
       for ((key, value) in metadata) {
         if (
           !key.startsWith(USER_METADATA_KEY_PREFIX) && "$USER_METADATA_KEY_PREFIX$key" !in metadata
@@ -264,6 +267,17 @@ open class SemanticRetrievalService(
       for ((key, value) in metadata) {
         if (key.startsWith(USER_METADATA_KEY_PREFIX)) {
           put(key.removePrefix(USER_METADATA_KEY_PREFIX), value)
+        }
+      }
+      if (get("text").isNullOrEmpty() && parts.isNotEmpty()) {
+        val textContent =
+          parts
+            .filterIsInstance<TextPart>()
+            .mapNotNull { it.text.takeIf(String::isNotEmpty) }
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString("\n")
+        if (textContent != null) {
+          put("text", textContent)
         }
       }
     }
@@ -429,7 +443,7 @@ open class SemanticRetrievalService(
       SemanticRetrievalResult(
         id = record.id,
         embeddings = record.embeddings,
-        metadata = decodeMetadataFromStore(record.metadata.orEmpty()),
+        metadata = decodeMetadataFromStore(record.metadata.orEmpty(), record.content),
         similarityScore = null,
       )
     }
@@ -628,10 +642,11 @@ open class SemanticRetrievalService(
           val embeddingsMap = vectorStore.get(records.map { it.id() }).associateBy { it.id }
           return@withContext records
             .map { record ->
+              val parts = record.content().ifEmpty { embeddingsMap[record.id()]?.content.orEmpty() }
               SemanticRetrievalResult(
                 id = record.id(),
                 embeddings = embeddingsMap[record.id()]?.embeddings ?: FloatArray(0),
-                metadata = decodeMetadataFromStore(record.metadata().orEmpty()),
+                metadata = decodeMetadataFromStore(record.metadata().orEmpty(), parts),
                 similarityScore = record.score().toFloat(),
               )
             }
@@ -660,7 +675,7 @@ open class SemanticRetrievalService(
           SemanticRetrievalResult(
             id = record.id,
             embeddings = emb,
-            metadata = decodeMetadataFromStore(record.metadata.orEmpty()),
+            metadata = decodeMetadataFromStore(record.metadata.orEmpty(), record.content),
             similarityScore = if (emb.isNotEmpty()) cosineSimilarity(queryVec, emb) else null,
           )
         }
@@ -686,7 +701,7 @@ open class SemanticRetrievalService(
             SemanticRetrievalResult(
               id = record.id,
               embeddings = emb,
-              metadata = decodeMetadataFromStore(record.metadata.orEmpty()),
+              metadata = decodeMetadataFromStore(record.metadata.orEmpty(), record.content),
               similarityScore = score,
             )
           }

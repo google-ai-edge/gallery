@@ -41,8 +41,10 @@ data class ModelDataFile(
    * images").
    */
   fun componentLabel(context: Context? = null): String {
-    if (context != null && name.equals("sample images", ignoreCase = true)) {
-      return context.getString(R.string.sample_images)
+    if (context != null) {
+      if (name.equals("sample images", ignoreCase = true)) {
+        return context.getString(R.string.sample_images)
+      }
     }
     return name.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
   }
