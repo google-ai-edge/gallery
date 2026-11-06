@@ -684,6 +684,17 @@ constructor(
   }
 
   /**
+   * Called after the TTS engine saved as [engineId] was released to reconnect it to its service,
+   * because that service stopped. Forgets the cached answers about its language packs, which may
+   * have been checked while the service was stopping, so they are checked again when next needed.
+   */
+  fun onTtsServiceReconnected(engineId: String?) {
+    val id = engineId?.ifEmpty { null } ?: return
+    val model = ttsModelFor(id) ?: return
+    repository.forgetLanguageStates(model)
+  }
+
+  /**
    * Handles a TTS voice for [languageCode] that is not available: re-checks the voice so a missing
    * voice shows as not installed (and a model left without any installed language needs a language
    * pack), and otherwise reports [EngineErrorReason.NOT_INSTALLED_AT_RUNTIME].

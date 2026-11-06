@@ -558,6 +558,19 @@ internal constructor(
   }
 
   /**
+   * Forgets the cached answers about [model]'s language packs, and cancels its language checks
+   * still running, so the next check of each language probes the engine again. The published
+   * [languageStates] stay until then.
+   */
+  fun forgetLanguageStates(model: Model) {
+    // A check started while the service was stopping would otherwise cache its stale answer.
+    for (key in inFlightLanguageQueries.keys.filter { (modelName, _) -> modelName == model.name }) {
+      inFlightLanguageQueries.remove(key)?.cancel()
+    }
+    languageCache.keys.removeAll { (modelName, _) -> modelName == model.name }
+  }
+
+  /**
    * Re-checks [model] from scratch, ignoring cached answers, after the user taps Retry. The model
    * shows [SpeechModelState.Checking] until the new answer arrives.
    */
