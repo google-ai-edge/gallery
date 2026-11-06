@@ -82,16 +82,16 @@ private enum class WarmUpResult {
 internal suspend fun MlKitTtsEngine.warmUpVoice(locale: Locale, voice: VoiceInfo) {
   val key = MlKitTtsEngine.WarmedVoice(locale, voice.name)
   if (key in warmedUpVoices) return
-  val synthClient = acquireSynthesizer(locale)
-  val startGeneration = lifecycleGeneration.get()
-  fun checkGeneration() {
-    if (lifecycleGeneration.get() != startGeneration) {
-      throw CancellationException("Engine was destroyed during voice warm-up")
-    }
-  }
 
   voiceWarmUpMutex.withLock {
     if (key in warmedUpVoices) return
+    val synthClient = acquireSynthesizer(locale)
+    val startGeneration = lifecycleGeneration.get()
+    fun checkGeneration() {
+      if (lifecycleGeneration.get() != startGeneration) {
+        throw CancellationException("Engine was destroyed during voice warm-up")
+      }
+    }
     var retry = 0
     while (activeCompletions.isEmpty()) {
       when (speakWarmUpUtterance(synthClient, voice)) {
@@ -247,7 +247,6 @@ internal fun MlKitTtsEngine.synthesisAttempt(
         )
       }
 
-  val synthClient = acquireSynthesizer(targetLocale)
   var voice = warmed.voice
 
   if (config?.voiceId != null && warmed.supportedVoices.isNotEmpty()) {
@@ -269,6 +268,7 @@ internal fun MlKitTtsEngine.synthesisAttempt(
     }
 
   val flow = callbackFlow {
+
     val myFlowGeneration = activeFlowGeneration.incrementAndGet()
     if (requestedQueueMode == TtsQueueMode.FLUSH) {
       for ((gen, completion) in activeCompletions) {
@@ -277,6 +277,17 @@ internal fun MlKitTtsEngine.synthesisAttempt(
         }
       }
     }
+    val completion: () -> Unit = { close() }
+    activeCompletions[myFlowGeneration] = completion
+    // Acquired when collected, not when built, so that a queued utterance uses the client that is
+    // current when it starts, for example after the client is recreated.
+    val synthClient =
+      try {
+        acquireSynthesizer(targetLocale)
+      } catch (t: Throwable) {
+        activeCompletions.remove(myFlowGeneration)
+        throw t
+      }
     setEngineStatus(TtsServiceStatus.Synthesizing)
     currentText = text
     isPaused = false
@@ -286,8 +297,6 @@ internal fun MlKitTtsEngine.synthesisAttempt(
     val clausesWithAudio = MutableList(clauses.size) { false }
     var segmentStartTimeMs = 0L
     var playedBytesOffset = 0
-    val completion: () -> Unit = { close() }
-    activeCompletions[myFlowGeneration] = completion
 
     onPauseCallback = {
       if (segmentStartTimeMs > 0L) {
@@ -479,7 +488,9 @@ internal fun MlKitTtsEngine.synthesisAttempt(
       }
     }
 
-    startSynthesizing()
+    if (activeCompletions.containsKey(myFlowGeneration)) {
+      startSynthesizing()
+    }
 
     awaitClose {
       synthJob?.cancel()

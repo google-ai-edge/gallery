@@ -453,10 +453,10 @@ class MlKitTtsEngine(
 
     val startGeneration = lifecycleGeneration.get()
     val existing = warmedLocales[normLocale]
-    val synthClient = acquireSynthesizer(normLocale)
     var outcome: TtsServiceStatus? = null
     activeLanguageDownloads.incrementAndGet()
     try {
+      val synthClient = acquireSynthesizer(normLocale)
       val queriedVoices =
         try {
           synthClient.getSupportedVoices(normLocale)
@@ -550,7 +550,7 @@ class MlKitTtsEngine(
     val statusVal: Int,
   )
 
-  private suspend fun warmClientForLocale(
+  internal suspend fun warmClientForLocale(
     locale: Locale,
     requestedVoiceId: String? = null,
   ): WarmedLocaleVoices {
@@ -661,10 +661,10 @@ class MlKitTtsEngine(
     val locale =
       config.languageCode?.let(::resolveSupportedLocale)
         ?: MlKitTtsModels.normalizeLocale(currentLocale)
-    if (locale !in warmedLocales.keys && activeCompletions.isEmpty()) {
-      _status.value = TtsServiceStatus.Initializing
-    }
     try {
+      if (locale !in warmedLocales.keys && activeCompletions.isEmpty()) {
+        _status.value = TtsServiceStatus.Initializing
+      }
       val warmed = warmClientForLocale(locale, config.voiceId)
       warmUpVoice(locale, warmed.voice)
       currentLocale = locale
