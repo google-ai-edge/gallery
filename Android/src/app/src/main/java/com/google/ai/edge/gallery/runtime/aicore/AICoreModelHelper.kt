@@ -46,8 +46,8 @@ import com.google.mlkit.genai.prompt.GenerativeModel
 import com.google.mlkit.genai.prompt.ImagePart
 import com.google.mlkit.genai.prompt.ModelPreference
 import com.google.mlkit.genai.prompt.ModelReleaseStage
+import com.google.mlkit.genai.prompt.SystemInstruction
 import com.google.mlkit.genai.prompt.TextPart
-import com.google.mlkit.genai.prompt.generateContentRequest
 import com.google.mlkit.genai.prompt.generateTypedContentRequest
 import com.google.mlkit.genai.prompt.generationConfig
 import com.google.mlkit.genai.prompt.modelConfig
@@ -80,9 +80,12 @@ data class AICoreModelInstance(
   val generativeModel: GenerativeModel,
   val chatHistory: MutableList<AICoreChatMessage> = CopyOnWriteArrayList(),
   @Volatile var inferenceJob: Job? = null,
+  // The task's system prompt. It is sent with every non-ephemeral request because the ML Kit API is
+  // stateless, so nothing persists between turns unless the app re-sends it.
   @Volatile var systemInstructionText: String? = null,
   @Volatile var activeSessionImage: Bitmap? = null,
-  // Whether the last runInference call opted in with EXTRA_CONTEXT_MULTI_TURN_VISION_SESSION.
+  // Whether the last runInference call opted in with EXTRA_CONTEXT_MULTI_TURN_VISION_SESSION,
+  // which keeps the latest image attached to follow-up text-only turns.
   @Volatile var multiTurnVisionSession: Boolean = false,
   val fallbackScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + AICoreModelHelper.defaultDispatcher),
@@ -359,29 +362,32 @@ object AICoreModelHelper : LlmModelHelper {
 
   override suspend fun countTokens(model: Model, text: String): Int? {
     val instance = model.instance as? AICoreModelInstance ?: return null
-    return countPromptTokens(instance = instance, prompt = text)
+    return countPromptTokens(instance = instance, prompt = text, systemInstructionText = null)
   }
 
   override suspend fun countInputTokens(model: Model, input: String): Int? {
     val instance = model.instance as? AICoreModelInstance ?: return null
+    // Count exactly what runInference would send: the system prompt plus the formatted history.
     return countPromptTokens(
       instance = instance,
-      prompt =
-        formatChatPrompt(
-          chatHistory = instance.chatHistory.toList(),
-          input = input,
-          systemInstructionText = promptSystemInstruction(instance),
-        ),
+      prompt = formatChatPrompt(chatHistory = instance.chatHistory.toList(), input = input),
+      systemInstructionText = instance.systemInstructionText,
     )
   }
 
-  /** Returns the system instruction to prepend, or null unless the session opted in. */
-  private fun promptSystemInstruction(instance: AICoreModelInstance): String? =
-    if (instance.multiTurnVisionSession) instance.systemInstructionText else null
-
-  private suspend fun countPromptTokens(instance: AICoreModelInstance, prompt: String): Int? =
+  private suspend fun countPromptTokens(
+    instance: AICoreModelInstance,
+    prompt: String,
+    systemInstructionText: String?,
+  ): Int? =
     try {
-      instance.generativeModel.countTokens(generateContentRequest(TextPart(prompt)) {}).totalTokens
+      val request =
+        buildGenerateContentRequest(
+          prompt = prompt,
+          systemInstructionText = systemInstructionText,
+          images = emptyList(),
+        )
+      instance.generativeModel.countTokens(request).totalTokens
     } catch (e: CancellationException) {
       throw e
     } catch (e: Exception) {
@@ -416,16 +422,16 @@ object AICoreModelHelper : LlmModelHelper {
       instance.multiTurnVisionSession =
         extraContext[EXTRA_CONTEXT_MULTI_TURN_VISION_SESSION]?.toBoolean() == true
     }
+    // Ephemeral requests are self-contained side queries (e.g. a one-off classification), so they
+    // are sent verbatim without the conversation history or the task's system prompt. Every
+    // regular chat turn carries both, since the ML Kit API keeps no state between calls.
     val prompt =
       if (isEphemeral) {
         input
       } else {
-        formatChatPrompt(
-          chatHistory = instance.chatHistory.toList(),
-          input = input,
-          systemInstructionText = promptSystemInstruction(instance),
-        )
+        formatChatPrompt(chatHistory = instance.chatHistory.toList(), input = input)
       }
+    val systemInstructionText = if (isEphemeral) null else instance.systemInstructionText
 
     val temperature =
       // Clamp the temperature to the range of [0.0, 1.0] in accordance with the ML Kit API.
@@ -461,6 +467,7 @@ object AICoreModelHelper : LlmModelHelper {
       executeRunInference(
         instance = instance,
         prompt = prompt,
+        systemInstructionText = systemInstructionText,
         temperature = temperature,
         topK = topK,
         maxOutputTokens = maxOutputTokens,
@@ -498,6 +505,7 @@ object AICoreModelHelper : LlmModelHelper {
   private suspend fun executeRunInference(
     instance: AICoreModelInstance,
     prompt: String,
+    systemInstructionText: String?,
     temperature: Float,
     topK: Int,
     maxOutputTokens: Int,
@@ -512,19 +520,14 @@ object AICoreModelHelper : LlmModelHelper {
     var hasDeliveredDone = false
     try {
       val request =
-        if (images.isNotEmpty()) {
-          // ML Kit GenAI API currently only supports a single image input per request.
-          generateContentRequest(ImagePart(images.first()), TextPart(prompt)) {
-            this.temperature = temperature
-            this.topK = topK
-            this.maxOutputTokens = maxOutputTokens
-          }
-        } else {
-          generateContentRequest(TextPart(prompt)) {
-            this.temperature = temperature
-            this.topK = topK
-            this.maxOutputTokens = maxOutputTokens
-          }
+        buildGenerateContentRequest(
+          prompt = prompt,
+          systemInstructionText = systemInstructionText,
+          images = images,
+        ) {
+          this.temperature = temperature
+          this.topK = topK
+          this.maxOutputTokens = maxOutputTokens
         }
 
       if (!generableClassName.isNullOrBlank()) {
@@ -664,18 +667,46 @@ object AICoreModelHelper : LlmModelHelper {
     }
   }
 
-  internal fun formatChatPrompt(
-    chatHistory: List<AICoreChatMessage>,
-    input: String,
-    systemInstructionText: String? = null,
-  ): String = buildString {
+  /**
+   * Builds the ML Kit request for a single call.
+   *
+   * The system prompt travels in the request's dedicated [SystemInstruction] field rather than
+   * being inlined into the prompt text. ML Kit turns that field into a real `SYSTEM` role turn in
+   * the model's chat template, which Gemma follows far more reliably than a "system:" line buried
+   * inside the user message. The ML Kit API is stateless, so the caller must pass the system prompt
+   * on every turn that should honor it.
+   */
+  private fun buildGenerateContentRequest(
+    prompt: String,
+    systemInstructionText: String?,
+    images: List<Bitmap>,
+    configure: GenerateContentRequest.Builder.() -> Unit = {},
+  ): GenerateContentRequest {
+    val builder =
+      if (images.isNotEmpty()) {
+        // ML Kit GenAI API currently only supports a single image input per request.
+        GenerateContentRequest.builder(ImagePart(images.first()), TextPart(prompt))
+      } else {
+        GenerateContentRequest.builder(TextPart(prompt))
+      }
     if (!systemInstructionText.isNullOrBlank()) {
-      append("system: ").append(systemInstructionText).append("\n")
+      builder.systemInstruction = SystemInstruction(systemInstructionText)
     }
-    for (message in chatHistory) {
-      val role = if (message.isUser) "user" else "model"
-      append(role).append(": ").append(message.text).append("\n")
-    }
-    append("user: ").append(input).append("\nmodel: ")
+    builder.configure()
+    return builder.build()
   }
+
+  /**
+   * Flattens the conversation history and the new [input] into a single role-tagged transcript,
+   * ending with an open `model:` turn for the model to complete. The system prompt is deliberately
+   * not part of this text; see [buildGenerateContentRequest].
+   */
+  internal fun formatChatPrompt(chatHistory: List<AICoreChatMessage>, input: String): String =
+    buildString {
+      for (message in chatHistory) {
+        val role = if (message.isUser) "user" else "model"
+        append(role).append(": ").append(message.text).append("\n")
+      }
+      append("user: ").append(input).append("\nmodel: ")
+    }
 }
