@@ -17,7 +17,6 @@
 package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.studyview
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -90,6 +89,7 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLan
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherVocabRunnerArenaState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherVocabRunnerUiState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherVocabRunnerViewModel
+import com.google.ai.edge.gallery.ui.theme.VocabGamePalette
 
 /** The track's height in the arena, as a fraction of the arena height (`Speak` mode). */
 private const val SPEAK_TRACK_Y_FRACTION = 0.56f
@@ -210,6 +210,7 @@ fun VocabRunnerContent(
 
   BoxWithConstraints(modifier = modifier.fillMaxSize()) {
     val trackTopOffset = maxHeight * trackYFraction
+    val palette = vocabGamePalette
     VocabGameBackground()
     VocabRunnerArena(
       arenaState = arenaState,
@@ -235,9 +236,10 @@ fun VocabRunnerContent(
     }
     VocabGameEdgeGlow(
       color = {
-        if (arenaState().isCollisionGlow) VocabGameColors.urgentRed else VocabGameColors.popGreen
+        if (arenaState().isCollisionGlow) palette.urgentEdgeGlow else palette.successEdgeGlow
       },
       intensity = { arenaState().edgeGlowIntensity },
+      maxAlpha = palette.edgeGlowMaxAlpha,
     )
     Column(
       modifier = Modifier.fillMaxSize().safeDrawingPadding(),
@@ -297,19 +299,24 @@ private fun VocabRunnerTapStatusBannerSlot(
   modifier: Modifier = Modifier,
 ) {
   if (!statusText.isNullOrEmpty()) {
+    val palette = vocabGamePalette
     Box(
       modifier =
         modifier
           .padding(horizontal = 16.dp)
           .height(34.dp)
-          .background(VocabGameColors.chromePill.copy(alpha = 0.95f), CircleShape)
+          .vocabGameChromePill(
+            palette = palette,
+            shape = CircleShape,
+            fill = palette.chromePill.copy(alpha = 0.95f),
+          )
           .padding(horizontal = 18.dp)
           .semantics { liveRegion = LiveRegionMode.Polite },
       contentAlignment = Alignment.Center,
     ) {
       Text(
         text = statusText,
-        color = if (isError) VocabGameColors.urgentRed else VocabGameColors.popGreen,
+        color = if (isError) palette.urgentRed else palette.popGreen,
         fontSize = 15.sp,
         fontWeight = FontWeight.Bold,
         maxLines = 1,
@@ -364,20 +371,21 @@ private fun VocabRunnerChoiceTile(
   onSelectChoice: (String) -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val palette = vocabGamePalette
   FilledTonalButton(
     onClick = { onSelectChoice(choice.entryKey) },
     modifier = modifier,
     shape = RoundedCornerShape(20.dp),
     colors =
       ButtonDefaults.filledTonalButtonColors(
-        containerColor = VocabGameColors.chromePill.copy(alpha = 0.95f),
-        contentColor = Color.White,
+        containerColor = palette.interactivePillFill,
+        contentColor = palette.interactivePillText,
       ),
     contentPadding = PaddingValues(12.dp),
   ) {
     Text(
       text = choice.displayWord,
-      color = Color.White,
+      color = palette.interactivePillText,
       fontSize = 22.sp,
       fontWeight = FontWeight.Bold,
       textAlign = TextAlign.Center,
@@ -396,11 +404,17 @@ private fun VocabRunnerArena(
 ) {
   val textMeasurer = rememberTextMeasurer()
   val density = LocalDensity.current
+  val palette = vocabGamePalette
   val drawTools = remember(density) { RunnerDrawTools(density) }
+  val photoFrame = rememberStickerPhotoFrame(palette)
+  val obstacleStyle =
+    remember(palette, photoFrame) {
+      ObstacleStyle(palette, photoFrame, textStyle = obstacleTextStyle(palette))
+    }
   Canvas(modifier = modifier.clearAndSetSemantics {}) {
     val arena = arenaState()
     val trackY = size.height * trackYFraction
-    drawTrack(trackY = trackY, trackDistance = arena.game.trackDistance)
+    drawTrack(trackY = trackY, trackDistance = arena.game.trackDistance, palette = palette)
     for (obstacle in arena.game.obstacles) {
       drawObstacle(
         obstacle = obstacle,
@@ -408,32 +422,41 @@ private fun VocabRunnerArena(
         trackY = trackY,
         textMeasurer = textMeasurer,
         tools = drawTools,
+        style = obstacleStyle,
       )
     }
     drawBuddy(game = arena.game, pose = arena.game.buddyPose(), trackY = trackY, tools = drawTools)
   }
 }
 
-/** The strokes and path the Runner arena reuses on every frame instead of allocating them. */
+/**
+ * The strokes, geometry, and path the Runner arena reuses on every frame instead of recomputing.
+ */
 private class RunnerDrawTools(density: Density) {
   val obstacleBorder = Stroke(width = with(density) { 3.dp.toPx() })
+  /** The thinner border of an obstacle tile that wasn't bumped into or cleared, in light mode. */
+  val obstacleRestingBorderLight = Stroke(width = with(density) { 2.dp.toPx() })
+  val obstacleCornerRadius = CornerRadius(with(density) { 20.dp.toPx() })
+  val obstacleShadowOffset = Offset(0f, with(density) { 2.5.dp.toPx() })
+  val obstacleShadowColor = Color.Black.copy(alpha = 0.10f)
+  val obstacleTextInsetPx = with(density) { 16.dp.toPx() }
   val buddyOutline = Stroke(width = with(density) { 2.5.dp.toPx() })
   val smile = Stroke(width = with(density) { 3.dp.toPx() }, cap = StrokeCap.Round)
   val smilePath = Path()
 }
 
-/** The meaning shown on an obstacle tile without a sticker. */
-private val ObstacleTextStyle =
+/** The meaning shown on an obstacle tile without a sticker, in [palette]. */
+private fun obstacleTextStyle(palette: VocabGamePalette): TextStyle =
   TextStyle(
-    color = Color.White,
+    color = palette.obstacleCardText,
     fontSize = 15.sp,
     fontWeight = FontWeight.Bold,
     textAlign = TextAlign.Center,
   )
 
-private fun DrawScope.drawTrack(trackY: Float, trackDistance: Float) {
+private fun DrawScope.drawTrack(trackY: Float, trackDistance: Float, palette: VocabGamePalette) {
   drawLine(
-    color = Color.White.copy(alpha = 0.28f),
+    color = palette.runnerTrackLine,
     start = Offset(0f, trackY),
     end = Offset(size.width, trackY),
     strokeWidth = 3.dp.toPx(),
@@ -444,7 +467,7 @@ private fun DrawScope.drawTrack(trackY: Float, trackDistance: Float) {
   var x = -((trackDistance * size.width) % dashSpacing)
   while (x < size.width + dashSpacing) {
     drawRoundRect(
-      color = Color.White.copy(alpha = 0.16f),
+      color = palette.runnerTrackDash,
       topLeft = Offset(x, dashY),
       size = dashSize,
       cornerRadius = CornerRadius(1.5.dp.toPx()),
@@ -453,12 +476,23 @@ private fun DrawScope.drawTrack(trackY: Float, trackDistance: Float) {
   }
 }
 
+/**
+ * How obstacles are drawn in the current color scheme: the [palette], the light mode [photoFrame]
+ * around unsegmented photo stickers (`null` in dark mode), and the [textStyle] of a tile's meaning.
+ */
+private class ObstacleStyle(
+  val palette: VocabGamePalette,
+  val photoFrame: StickerPhotoFrame?,
+  val textStyle: TextStyle,
+)
+
 private fun DrawScope.drawObstacle(
   obstacle: XrLanguageTeacherVocabRunnerObstacle,
   sticker: ImageBitmap?,
   trackY: Float,
   textMeasurer: TextMeasurer,
   tools: RunnerDrawTools,
+  style: ObstacleStyle,
 ) {
   val obstacleSize = OBSTACLE_SIZE.toPx()
   // A cleared obstacle pops (grows) and fades out; a broken one shrinks, drops, and fades out.
@@ -474,7 +508,7 @@ private fun DrawScope.drawObstacle(
   val drop = if (obstacle.didBreakOnMaxBumps) progress * OBSTACLE_BREAK_DROP.toPx() else 0f
   translate(left = obstacle.x * size.width, top = trackY - obstacleSize * 0.48f + drop) {
     scale(scale = scale, pivot = Offset.Zero) {
-      drawObstacleContent(obstacle, sticker, obstacleSize, alpha, textMeasurer, tools)
+      drawObstacleContent(obstacle, sticker, obstacleSize, alpha, textMeasurer, tools, style)
     }
   }
 }
@@ -487,42 +521,61 @@ private fun DrawScope.drawObstacleContent(
   alpha: Float,
   textMeasurer: TextMeasurer,
   tools: RunnerDrawTools,
+  style: ObstacleStyle,
 ) {
   if (sticker != null) {
-    drawStickerSprite(sticker, obstacleSize, alpha)
+    drawStickerSprite(sticker, obstacleSize, alpha, style.photoFrame)
     return
   }
+  val palette = style.palette
+  val isBumped = obstacle.didBreakOnMaxBumps || obstacle.bumpCount > 0
   val borderColor =
     when {
-      obstacle.didBreakOnMaxBumps || obstacle.bumpCount > 0 -> VocabGameColors.urgentRed
-      obstacle.isClearing -> VocabGameColors.popGreen
-      else -> Color.White
+      isBumped -> palette.urgentRed
+      obstacle.isClearing -> palette.popGreen
+      else -> palette.obstacleCardDefaultBorder
+    }
+  // In light mode a resting tile gets a thinner outline-variant border and a soft drop shadow.
+  val hasHighlightBorder = isBumped || obstacle.isClearing
+  val border =
+    if (palette.isDark || hasHighlightBorder) {
+      tools.obstacleBorder
+    } else {
+      tools.obstacleRestingBorderLight
     }
   val topLeft = Offset(-obstacleSize / 2f, -obstacleSize / 2f)
   val tileSize = Size(obstacleSize, obstacleSize)
-  val cornerRadius = CornerRadius(20.dp.toPx())
+  if (!palette.isDark) {
+    drawRoundRect(
+      tools.obstacleShadowColor,
+      topLeft + tools.obstacleShadowOffset,
+      tileSize,
+      tools.obstacleCornerRadius,
+      alpha = alpha,
+    )
+  }
   drawRoundRect(
-    VocabGameColors.obstacleFallbackFill,
+    palette.obstacleCardFill,
     topLeft,
     tileSize,
-    cornerRadius,
+    tools.obstacleCornerRadius,
     alpha = alpha,
   )
   drawRoundRect(
     borderColor,
     topLeft,
     tileSize,
-    cornerRadius,
-    style = tools.obstacleBorder,
+    tools.obstacleCornerRadius,
+    style = border,
     alpha = alpha,
   )
   val layout =
     textMeasurer.measure(
       text = obstacle.item.meaning,
-      style = ObstacleTextStyle,
+      style = style.textStyle,
       maxLines = 2,
       overflow = TextOverflow.Ellipsis,
-      constraints = Constraints.fixedWidth((obstacleSize - 16.dp.toPx()).toInt()),
+      constraints = Constraints.fixedWidth((obstacleSize - tools.obstacleTextInsetPx).toInt()),
     )
   drawText(
     textLayoutResult = layout,

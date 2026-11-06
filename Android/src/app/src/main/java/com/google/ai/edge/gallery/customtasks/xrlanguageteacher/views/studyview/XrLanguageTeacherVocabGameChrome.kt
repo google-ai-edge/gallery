@@ -59,12 +59,14 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialShapes
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -79,6 +81,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
@@ -88,7 +91,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -109,36 +111,41 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.views.StudyBackg
 import com.google.ai.edge.gallery.ui.common.OnAppBackgroundedEffect
 import com.google.ai.edge.gallery.ui.common.PermissionAccessKind
 import com.google.ai.edge.gallery.ui.common.rememberPermissionAccessState
+import com.google.ai.edge.gallery.ui.theme.VocabGamePalette
+import com.google.ai.edge.gallery.ui.theme.customColors
 import com.google.ai.edge.gallery.ui.theme.onPrimaryDark
-import com.google.ai.edge.gallery.ui.theme.primaryDark
 import com.google.ai.edge.gallery.ui.theme.primaryLight
 import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
 
 /**
- * The colors of the `Vocab Popper` and `Vocab Runner` game arenas. The arena is intentionally
- * always dark, mirroring iOS: it uses this fixed arcade palette in light and dark mode alike and
- * doesn't follow dynamic color, so the stickers and glows pop. Colors that match an app theme token
- * use it.
+ * The [VocabGamePalette] of the current app theme: the colors of the `Vocab Popper` and `Buddy
+ * Runner` game screens, which follow the app's light or dark theme (see `ui/theme`).
+ */
+internal val vocabGamePalette: VocabGamePalette
+  @Composable @ReadOnlyComposable get() = MaterialTheme.customColors.vocabGamePalette
+
+/**
+ * Fills a game chrome element with [fill] in [shape], outlined by [stroke] in light mode so it
+ * stands apart from the light surface.
+ */
+internal fun Modifier.vocabGameChromePill(
+  palette: VocabGamePalette,
+  shape: Shape,
+  fill: Color = palette.chromePill,
+  stroke: Color = palette.chromePillStroke,
+): Modifier {
+  val filled = background(fill, shape)
+  return if (palette.isDark) filled else filled.border(1.dp, stroke, shape)
+}
+
+/**
+ * The colors of the `Vocab Popper` and `Buddy Runner` arenas that stay the same in light and dark
+ * mode: the vivid flying sticker fallbacks and pop particles, Buddy, and the streak multiplier
+ * pills (dark text on a vivid fill).
  */
 internal object VocabGameColors {
-  val screenBackground: Color = Color(0xFF111318)
-  val chromePill: Color = Color(0xFF33353A)
-  val chromeText: Color = Color(0xFFE2E2E9)
-  val chromeTextMuted: Color = Color(0xFFC4C6D0)
-  val scoreGold: Color = Color(0xFFF5B841)
-  val streakOrange: Color = Color(0xFFFF8A3D)
-  val popGreen: Color = Color(0xFF5CE196)
-  val urgentRed: Color = Color(0xFFFF6B6B)
-  /** The fill of the wavy badge behind the final score on the results screen. */
-  val resultsScoreBadgeFill: Color = Color(0xFF3A3D45)
-  val newHighScoreBadgeFill: Color = Color(0xFF3F2E00)
-  val newHighScoreBadgeText: Color = Color(0xFFFFD97D)
-  val primaryCtaFill: Color = primaryDark
-  val primaryCtaText: Color = onPrimaryDark
-  val secondaryCtaStroke: Color = Color(0xFF8E9099)
-
   /** The colors of the flying sticker fallbacks and pop particles, indexed by color index. */
   val palette: List<Color> =
     listOf(
@@ -158,18 +165,25 @@ internal object VocabGameColors {
   val buddyBody: List<Color> = listOf(Color(0xFF7CACF8), Color(0xFF1A73E8))
   /** Buddy's body gradient right after bumping into an obstacle. */
   val buddyStumbledBody: List<Color> = listOf(Color(0xFFFF8A80), Color(0xFFE53935))
-  /** The tile drawn for an obstacle whose sticker isn't ready. */
-  val obstacleFallbackFill: Color = Color(0xFF2B2E36)
+  /** The fill of the `2×` streak multiplier pill. */
+  val multiplierTwoFill: Color = Color(0xFFF5B841)
+  /** The fill of the `3×` streak multiplier pill. */
+  val multiplierThreeFill: Color = Color(0xFFFF8A3D)
+  /** The fill of the `4×` streak multiplier pill. */
+  val multiplierFourFill: Color = Color(0xFFFF6B6B)
 }
 
 /** Seconds left at which the countdown turns red. */
 private const val URGENT_SECONDS = 10
 
-/** The dark background and soft background shapes behind a game screen. */
+/** The background and soft background shapes behind a game screen, following light or dark mode. */
 @Composable
 fun VocabGameBackground(modifier: Modifier = Modifier) {
-  Box(modifier = modifier.fillMaxSize().background(VocabGameColors.screenBackground)) {
-    Box(modifier = Modifier.fillMaxSize().alpha(0.62f)) { StudyBackgroundShapes() }
+  val palette = vocabGamePalette
+  Box(modifier = modifier.fillMaxSize().background(palette.screenBackground)) {
+    Box(modifier = Modifier.fillMaxSize().alpha(palette.gameplayBackgroundShapesAlpha)) {
+      StudyBackgroundShapes()
+    }
   }
 }
 
@@ -186,10 +200,11 @@ fun VocabGameTopBar(
   modifier: Modifier = Modifier,
   centerContent: @Composable () -> Unit = {},
 ) {
+  val palette = vocabGamePalette
   val buttonColors =
     IconButtonDefaults.filledTonalIconButtonColors(
-      containerColor = VocabGameColors.chromePill,
-      contentColor = VocabGameColors.chromeText,
+      containerColor = palette.chromePill,
+      contentColor = palette.chromeText,
     )
   Row(
     modifier = modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
@@ -275,12 +290,17 @@ fun VocabGameScoreboard(
       else -> 12.dp
     }
   val verticalPadding = if (isCompact && hasUniqueColumn) 6.dp else 8.dp
+  val palette = vocabGamePalette
   val scoreContentDescription = stringResource(R.string.xrteacher_vocab_game_score, score)
   val bestContentDescription = stringResource(R.string.xrteacher_vocab_game_best, bestScore)
   Row(
     modifier =
       modifier
-        .background(VocabGameColors.chromePill.copy(alpha = 0.92f), RoundedCornerShape(20.dp))
+        .vocabGameChromePill(
+          palette = palette,
+          shape = RoundedCornerShape(20.dp),
+          fill = palette.chromePill.copy(alpha = 0.92f),
+        )
         .padding(horizontal = horizontalPadding, vertical = verticalPadding),
     verticalAlignment = Alignment.CenterVertically,
   ) {
@@ -295,21 +315,21 @@ fun VocabGameScoreboard(
         text = stringResource(R.string.xrteacher_game_score_label),
         fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
-        color = VocabGameColors.chromeTextMuted,
+        color = palette.chromeTextMuted,
       )
       Text(
         text = score.toString(),
         fontSize = scoreFontSize,
         lineHeight = 30.sp,
         fontWeight = FontWeight.Bold,
-        color = Color.White,
+        color = palette.chromePrimaryValueText,
         maxLines = 1,
       )
     }
     if (uniqueWordCount != null) {
       val uniqueContentDescription =
         stringResource(R.string.xrteacher_game_unique_score, uniqueWordCount)
-      Box(modifier = Modifier.width(1.dp).height(36.dp).background(Color.White.copy(alpha = 0.14f)))
+      Box(modifier = Modifier.width(1.dp).height(36.dp).background(palette.chromeDivider))
       Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier =
@@ -321,19 +341,19 @@ fun VocabGameScoreboard(
           text = stringResource(R.string.xrteacher_game_unique_label),
           fontSize = 12.sp,
           fontWeight = FontWeight.Medium,
-          color = VocabGameColors.chromeTextMuted,
+          color = palette.chromeTextMuted,
         )
         Text(
           text = uniqueWordCount.toString(),
           fontSize = secondaryFontSize,
           lineHeight = 30.sp,
           fontWeight = FontWeight.Bold,
-          color = VocabGameColors.popGreen,
+          color = palette.popGreen,
           maxLines = 1,
         )
       }
     }
-    Box(modifier = Modifier.width(1.dp).height(36.dp).background(Color.White.copy(alpha = 0.14f)))
+    Box(modifier = Modifier.width(1.dp).height(36.dp).background(palette.chromeDivider))
     Column(
       horizontalAlignment = Alignment.CenterHorizontally,
       modifier =
@@ -345,7 +365,7 @@ fun VocabGameScoreboard(
         text = stringResource(R.string.xrteacher_game_best_label),
         fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
-        color = VocabGameColors.chromeTextMuted,
+        color = palette.chromeTextMuted,
       )
       Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -354,7 +374,7 @@ fun VocabGameScoreboard(
         Icon(
           imageVector = Icons.Filled.EmojiEvents,
           contentDescription = null,
-          tint = VocabGameColors.scoreGold,
+          tint = palette.scoreGold,
           modifier = Modifier.size(trophyIconSize),
         )
         Text(
@@ -362,7 +382,7 @@ fun VocabGameScoreboard(
           fontSize = secondaryFontSize,
           lineHeight = 30.sp,
           fontWeight = FontWeight.Bold,
-          color = VocabGameColors.scoreGold,
+          color = palette.scoreGold,
           maxLines = 1,
         )
       }
@@ -378,49 +398,47 @@ fun VocabGameScoreboard(
 fun VocabGameStreakBadge(streak: Int, multiplier: Int, modifier: Modifier = Modifier) {
   val safeStreak = max(0, streak)
   val clampedMultiplier = max(1, multiplier)
+  val palette = vocabGamePalette
   val flameColor =
     when {
-      clampedMultiplier >= 4 -> VocabGameColors.urgentRed
-      clampedMultiplier == 3 -> VocabGameColors.streakOrange
-      safeStreak > 0 -> VocabGameColors.scoreGold
-      else -> VocabGameColors.chromeTextMuted.copy(alpha = 0.55f)
+      clampedMultiplier >= 4 -> palette.urgentRed
+      clampedMultiplier == 3 -> palette.streakOrange
+      safeStreak > 0 -> palette.scoreGold
+      else -> palette.chromeTextMuted.copy(alpha = 0.55f)
     }
   val multiplierBackgroundColor =
     when {
-      clampedMultiplier >= 4 -> VocabGameColors.urgentRed
-      clampedMultiplier == 3 -> VocabGameColors.streakOrange
-      clampedMultiplier == 2 -> VocabGameColors.scoreGold
-      else -> Color.White.copy(alpha = 0.10f)
+      clampedMultiplier >= 4 -> VocabGameColors.multiplierFourFill
+      clampedMultiplier == 3 -> VocabGameColors.multiplierThreeFill
+      clampedMultiplier == 2 -> VocabGameColors.multiplierTwoFill
+      else -> palette.neutralMultiplierPillFill
     }
   val multiplierForegroundColor =
     when {
       clampedMultiplier >= 4 -> Color(0xFF2C0505)
       clampedMultiplier == 3 -> Color(0xFF2B0E00)
       clampedMultiplier == 2 -> Color(0xFF261900)
-      else -> VocabGameColors.chromeTextMuted
+      else -> palette.chromeTextMuted
     }
-  val badgeBorderColor =
+  // A tier border from `2×`; below that, the light mode hairline of every HUD pill.
+  val badgeBorder =
     when {
-      clampedMultiplier >= 4 -> VocabGameColors.urgentRed.copy(alpha = 0.75f)
-      clampedMultiplier == 3 -> VocabGameColors.streakOrange.copy(alpha = 0.65f)
-      clampedMultiplier == 2 -> VocabGameColors.scoreGold.copy(alpha = 0.55f)
-      else -> Color.Transparent
+      clampedMultiplier >= 4 -> BorderStroke(1.5.dp, palette.urgentRed.copy(alpha = 0.75f))
+      clampedMultiplier == 3 -> BorderStroke(1.5.dp, palette.streakOrange.copy(alpha = 0.65f))
+      clampedMultiplier == 2 -> BorderStroke(1.5.dp, palette.scoreGold.copy(alpha = 0.55f))
+      !palette.isDark -> BorderStroke(1.dp, palette.chromePillStroke)
+      else -> null
     }
-  val countColor = if (safeStreak > 0) Color.White else VocabGameColors.chromeTextMuted
+  val countColor = if (safeStreak > 0) palette.chromePrimaryValueText else palette.chromeTextMuted
   val accessibilityDescription =
     stringResource(R.string.xrteacher_game_streak_accessibility, safeStreak, clampedMultiplier)
+  val badgeShape = RoundedCornerShape(20.dp)
   Column(
     modifier =
       modifier
         .widthIn(min = 96.dp)
-        .let { base ->
-          if (clampedMultiplier >= 2) {
-            base.border(BorderStroke(1.5.dp, badgeBorderColor), RoundedCornerShape(20.dp))
-          } else {
-            base
-          }
-        }
-        .background(VocabGameColors.chromePill.copy(alpha = 0.92f), RoundedCornerShape(20.dp))
+        .background(palette.chromePill.copy(alpha = 0.92f), badgeShape)
+        .then(if (badgeBorder != null) Modifier.border(badgeBorder, badgeShape) else Modifier)
         .padding(horizontal = 11.dp, vertical = 8.dp)
         .clearAndSetSemantics { contentDescription = accessibilityDescription },
     horizontalAlignment = Alignment.CenterHorizontally,
@@ -430,7 +448,7 @@ fun VocabGameStreakBadge(streak: Int, multiplier: Int, modifier: Modifier = Modi
       text = stringResource(R.string.xrteacher_game_streak_label),
       fontSize = 12.sp,
       fontWeight = FontWeight.Medium,
-      color = VocabGameColors.chromeTextMuted,
+      color = palette.chromeTextMuted,
       maxLines = 1,
     )
     Row(
@@ -477,14 +495,15 @@ fun VocabGameTimer(remainingSeconds: Int, modifier: Modifier = Modifier) {
   val formattedTime = formatGameTime(remainingSeconds)
   val isUrgent = remainingSeconds in 1..URGENT_SECONDS
   val description = stringResource(R.string.xrteacher_vocab_popper_time_left, formattedTime)
+  val palette = vocabGamePalette
   Text(
     text = formattedTime,
     fontSize = 20.sp,
     fontWeight = FontWeight.Bold,
-    color = if (isUrgent) VocabGameColors.urgentRed else VocabGameColors.chromeText,
+    color = if (isUrgent) palette.urgentRed else palette.chromeText,
     modifier =
       modifier
-        .background(VocabGameColors.chromePill, CircleShape)
+        .vocabGameChromePill(palette = palette, shape = CircleShape)
         .padding(horizontal = 20.dp, vertical = 10.dp)
         .clearAndSetSemantics { contentDescription = description },
   )
@@ -497,8 +516,8 @@ fun VocabGameTimer(remainingSeconds: Int, modifier: Modifier = Modifier) {
 @Composable
 fun VocabGameLivesIndicator(
   lives: Int,
-  maxLives: Int = XrLanguageTeacherVocabPopperEngine.INITIAL_LIVES,
   modifier: Modifier = Modifier,
+  maxLives: Int = XrLanguageTeacherVocabPopperEngine.INITIAL_LIVES,
 ) {
   val safeLives = max(0, lives)
   val safeMaxLives = max(0, maxLives)
@@ -508,10 +527,11 @@ fun VocabGameLivesIndicator(
       min(safeLives, safeMaxLives),
       safeMaxLives,
     )
+  val palette = vocabGamePalette
   Row(
     modifier =
       modifier
-        .background(VocabGameColors.chromePill, CircleShape)
+        .vocabGameChromePill(palette = palette, shape = CircleShape)
         .padding(horizontal = 14.dp, vertical = 12.dp)
         .clearAndSetSemantics { contentDescription = description },
     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -524,9 +544,9 @@ fun VocabGameLivesIndicator(
         contentDescription = null,
         tint =
           if (isFilled) {
-            VocabGameColors.urgentRed
+            palette.urgentRed
           } else {
-            VocabGameColors.chromeTextMuted.copy(alpha = 0.45f)
+            palette.chromeTextMuted.copy(alpha = 0.45f)
           },
         modifier = Modifier.size(20.dp),
       )
@@ -543,12 +563,13 @@ fun VocabGameLivesIndicator(
 fun VocabPopperPromptBanner(word: String, onReplay: () -> Unit, modifier: Modifier = Modifier) {
   val description =
     stringResource(R.string.xrteacher_vocab_popper_replay_prompt_accessibility, word)
+  val palette = vocabGamePalette
   Row(
     modifier =
       modifier
         .padding(horizontal = 16.dp)
         .clip(CircleShape)
-        .background(VocabGameColors.chromePill.copy(alpha = 0.95f))
+        .background(palette.interactivePillFill)
         .clickable(onClick = onReplay, role = Role.Button)
         .padding(horizontal = 20.dp, vertical = 10.dp)
         .semantics(mergeDescendants = true) { contentDescription = description },
@@ -560,7 +581,7 @@ fun VocabPopperPromptBanner(word: String, onReplay: () -> Unit, modifier: Modifi
       fontSize = 28.sp,
       lineHeight = 32.sp,
       fontWeight = FontWeight.Bold,
-      color = Color.White,
+      color = palette.interactivePillText,
       maxLines = 1,
       overflow = TextOverflow.Ellipsis,
     )
@@ -599,11 +620,12 @@ fun VocabGameStatusBar(
           stringResource(R.string.xrteacher_game_asr_unavailable)
       }
     }
+  val palette = vocabGamePalette
   val accentColor =
     when {
-      isCelebrating -> VocabGameColors.popGreen
-      isError -> VocabGameColors.urgentRed
-      else -> VocabGameColors.chromeText
+      isCelebrating -> palette.popGreen
+      isError -> palette.urgentRed
+      else -> palette.chromeText
     }
   Column(
     modifier = modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
@@ -617,13 +639,13 @@ fun VocabGameStatusBar(
             text = chip.text,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = VocabGameColors.chromeText,
+            color = palette.chromeText,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier =
               Modifier.widthIn(max = 140.dp)
-                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)), CircleShape)
-                .background(VocabGameColors.chromePill.copy(alpha = 0.92f), CircleShape)
+                .border(BorderStroke(1.dp, palette.chromeDivider), CircleShape)
+                .background(palette.chromePill.copy(alpha = 0.92f), CircleShape)
                 .padding(horizontal = 14.dp, vertical = 6.dp),
           )
         }
@@ -631,7 +653,11 @@ fun VocabGameStatusBar(
     }
     Row(
       modifier =
-        Modifier.background(VocabGameColors.chromePill.copy(alpha = 0.95f), CircleShape)
+        Modifier.vocabGameChromePill(
+            palette = palette,
+            shape = CircleShape,
+            fill = palette.chromePill.copy(alpha = 0.95f),
+          )
           .padding(start = 8.dp, end = 18.dp, top = 8.dp, bottom = 8.dp)
           .semantics { liveRegion = LiveRegionMode.Polite },
       verticalAlignment = Alignment.CenterVertically,
@@ -668,16 +694,22 @@ fun VocabGameStatusBar(
 
 /**
  * The glow flashed from the top and bottom screen edges when a word is popped or cleared
- * ([VocabGameColors.popGreen]), or when Buddy bumps into an obstacle ([VocabGameColors.urgentRed]).
- * [color] and [intensity] are read while drawing, so a fading glow only redraws.
+ * ([VocabGamePalette.successEdgeGlow]), or on a wrong tap or when Buddy bumps into an obstacle
+ * ([VocabGamePalette.urgentEdgeGlow]), at up to [maxAlpha] opacity. [color] and [intensity] are
+ * read while drawing, so a fading glow only redraws.
  */
 @Composable
-fun VocabGameEdgeGlow(color: () -> Color, intensity: () -> Float, modifier: Modifier = Modifier) {
+fun VocabGameEdgeGlow(
+  color: () -> Color,
+  intensity: () -> Float,
+  maxAlpha: Float,
+  modifier: Modifier = Modifier,
+) {
   Canvas(modifier = modifier.fillMaxSize()) {
     val glowIntensity = intensity()
     if (glowIntensity <= 0.01f) return@Canvas
     val radius = max(size.width, size.height) * 0.55f
-    val glow = color().copy(alpha = (0.55f * glowIntensity).coerceIn(0f, 1f))
+    val glow = color().copy(alpha = (maxAlpha * glowIntensity).coerceIn(0f, 1f))
     val transparent = glow.copy(alpha = 0f)
     drawRect(
       brush =
@@ -780,9 +812,12 @@ fun VocabGameResults(
   correctCount: Int? = null,
   uniqueWordCount: Int? = null,
 ) {
+  val palette = vocabGamePalette
   Box(modifier = modifier.fillMaxSize()) {
-    Box(modifier = Modifier.fillMaxSize().background(VocabGameColors.screenBackground)) {
-      Box(modifier = Modifier.fillMaxSize().alpha(0.6f)) { StudyBackgroundShapes() }
+    Box(modifier = Modifier.fillMaxSize().background(palette.screenBackground)) {
+      Box(modifier = Modifier.fillMaxSize().alpha(palette.resultsBackgroundShapesAlpha)) {
+        StudyBackgroundShapes()
+      }
     }
     Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
       Row(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp)) {
@@ -790,8 +825,8 @@ fun VocabGameResults(
           onClick = onExit,
           colors =
             IconButtonDefaults.filledTonalIconButtonColors(
-              containerColor = VocabGameColors.chromePill,
-              contentColor = VocabGameColors.chromeText,
+              containerColor = palette.chromePill,
+              contentColor = palette.chromeText,
             ),
           shapes = IconButtonDefaults.shapes(),
           modifier = Modifier.size(48.dp),
@@ -809,18 +844,21 @@ fun VocabGameResults(
         fontSize = 36.sp,
         lineHeight = 42.sp,
         fontWeight = FontWeight.Bold,
-        color = Color.White,
+        color = palette.chromePrimaryValueText,
         textAlign = TextAlign.Center,
         modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 20.dp),
       )
       val finalScoreDescription = stringResource(R.string.xrteacher_game_final_score, score)
+      val scoreBadgeShape = MaterialShapes.Cookie9Sided.toShape()
       Box(
         contentAlignment = Alignment.Center,
         modifier =
           Modifier.size(240.dp)
-            .background(
-              VocabGameColors.resultsScoreBadgeFill,
-              MaterialShapes.Cookie9Sided.toShape(),
+            .vocabGameChromePill(
+              palette = palette,
+              shape = scoreBadgeShape,
+              fill = palette.resultsScoreBadgeFill,
+              stroke = palette.resultsScoreBadgeStroke,
             )
             .clearAndSetSemantics { contentDescription = finalScoreDescription },
       ) {
@@ -829,14 +867,14 @@ fun VocabGameResults(
             text = stringResource(R.string.xrteacher_game_your_score_label),
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
-            color = VocabGameColors.chromeTextMuted,
+            color = palette.chromeTextMuted,
           )
           Text(
             text = score.toString(),
             fontSize = 72.sp,
             lineHeight = 80.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = palette.chromePrimaryValueText,
           )
         }
       }
@@ -853,10 +891,10 @@ fun VocabGameResults(
           text = "$correctText • $uniqueText",
           fontSize = 14.sp,
           fontWeight = FontWeight.SemiBold,
-          color = VocabGameColors.chromeText,
+          color = palette.chromeText,
           modifier =
             Modifier.padding(top = 12.dp)
-              .background(VocabGameColors.chromePill, CircleShape)
+              .vocabGameChromePill(palette = palette, shape = CircleShape)
               .padding(horizontal = 16.dp, vertical = 7.dp),
         )
       }
@@ -864,7 +902,7 @@ fun VocabGameResults(
         Row(
           modifier =
             Modifier.padding(top = 16.dp)
-              .background(VocabGameColors.newHighScoreBadgeFill, CircleShape)
+              .background(palette.newHighScoreBadgeFill, CircleShape)
               .padding(horizontal = 16.dp, vertical = 8.dp),
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -872,14 +910,14 @@ fun VocabGameResults(
           Icon(
             imageVector = Icons.Filled.EmojiEvents,
             contentDescription = null,
-            tint = VocabGameColors.scoreGold,
+            tint = palette.scoreGold,
             modifier = Modifier.size(18.dp),
           )
           Text(
             text = stringResource(R.string.xrteacher_game_new_high_score),
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = VocabGameColors.newHighScoreBadgeText,
+            color = palette.newHighScoreBadgeText,
           )
         }
       } else {
@@ -892,19 +930,19 @@ fun VocabGameResults(
             text = stringResource(R.string.xrteacher_game_best_label),
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
-            color = VocabGameColors.chromeTextMuted,
+            color = palette.chromeTextMuted,
           )
           Icon(
             imageVector = Icons.Filled.EmojiEvents,
             contentDescription = null,
-            tint = VocabGameColors.scoreGold,
+            tint = palette.scoreGold,
             modifier = Modifier.size(18.dp),
           )
           Text(
             text = bestScore.toString(),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = VocabGameColors.scoreGold,
+            color = palette.scoreGold,
           )
         }
       }
@@ -917,8 +955,8 @@ fun VocabGameResults(
           onClick = onPlayAgain,
           colors =
             ButtonDefaults.buttonColors(
-              containerColor = VocabGameColors.primaryCtaFill,
-              contentColor = VocabGameColors.primaryCtaText,
+              containerColor = palette.primaryCtaFill,
+              contentColor = palette.primaryCtaText,
             ),
           modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
         ) {
@@ -926,8 +964,8 @@ fun VocabGameResults(
         }
         OutlinedButton(
           onClick = onExit,
-          colors = ButtonDefaults.outlinedButtonColors(contentColor = VocabGameColors.chromeText),
-          border = BorderStroke(1.dp, VocabGameColors.secondaryCtaStroke),
+          colors = ButtonDefaults.outlinedButtonColors(contentColor = palette.secondaryCtaText),
+          border = BorderStroke(1.dp, palette.secondaryCtaStroke),
           modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
         ) {
           Text(

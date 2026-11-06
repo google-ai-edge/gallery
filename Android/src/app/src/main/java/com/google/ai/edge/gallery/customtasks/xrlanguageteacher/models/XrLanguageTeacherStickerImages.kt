@@ -57,6 +57,12 @@ private val SHADOW_COLOR = Color.argb(71, 0, 0, 0)
  */
 object XrLanguageTeacherStickerImages {
   /**
+   * The corner radius of an unsegmented photo's white frame, as a fraction of the longest side of
+   * the sticker pre-baked by [prepareStickerImage].
+   */
+  const val PHOTO_FRAME_CORNER_FRACTION = 0.14f
+
+  /**
    * Returns the pre-baked outlined sticker [ImageBitmap] cached for [source] (at its full size) in
    * [XrLanguageTeacherVocabImageCache], or `null` if it has not been prepared yet (or was evicted).
    */
@@ -154,6 +160,27 @@ object XrLanguageTeacherStickerImages {
   fun hasTransparentEdge(image: ImageBitmap): Boolean = hasTransparentEdge(image.asAndroidBitmap())
 
   /**
+   * Returns `true` when [sticker], pre-baked by [prepareStickerImage], is an unsegmented photo in a
+   * white-bordered rounded rectangle rather than a cutout. The border reaches the middle of the
+   * sticker's top edge, which stays transparent (or only under a faint drop shadow) around a
+   * cutout's outline.
+   */
+  fun isFramedPhotoSticker(sticker: ImageBitmap): Boolean {
+    val bitmap = sticker.asAndroidBitmap()
+    if (bitmap.isRecycled || bitmap.width <= 0 || bitmap.height <= 0) return false
+    return try {
+      Color.alpha(bitmap[bitmap.width / 2, 0]) >=
+        XrLanguageTeacherStickerCutout.TRANSPARENT_ALPHA_THRESHOLD
+    } catch (e: IllegalStateException) {
+      Log.w(TAG, "Sticker was recycled while checking for a photo frame", e)
+      false
+    } catch (e: IllegalArgumentException) {
+      Log.w(TAG, "Invalid sticker dimensions while checking for a photo frame", e)
+      false
+    }
+  }
+
+  /**
    * Returns the cutout editor's mask overlay for [mask]: transparent over the selection and
    * [overlayColor] (ARGB) everywhere else.
    */
@@ -227,7 +254,7 @@ object XrLanguageTeacherStickerImages {
       outline.recycle()
       canvas.drawBitmap(source, null, imageRect, imagePaint)
     } else {
-      val outerRadius = max(layout.outputWidth, layout.outputHeight) * 0.14f
+      val outerRadius = max(layout.outputWidth, layout.outputHeight) * PHOTO_FRAME_CORNER_FRACTION
       val whitePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
       canvas.drawRoundRect(
         RectF(0f, 0f, layout.outputWidth.toFloat(), layout.outputHeight.toFloat()),

@@ -105,8 +105,8 @@ object XrLanguageTeacherStickerCutout {
   /** Half the side of the square center patch sampled to determine polarity (5x5). */
   private const val CENTER_PATCH_RADIUS = 2
 
-  /** Alpha below which a corner pixel counts as transparent. */
-  private const val TRANSPARENT_ALPHA_THRESHOLD = 128
+  /** Alpha below which a pixel counts as transparent (and from which it counts as opaque). */
+  const val TRANSPARENT_ALPHA_THRESHOLD = 128
 
   /**
    * Returns whether foreground pixels have high confidence values, from the mean of the 5x5 patch

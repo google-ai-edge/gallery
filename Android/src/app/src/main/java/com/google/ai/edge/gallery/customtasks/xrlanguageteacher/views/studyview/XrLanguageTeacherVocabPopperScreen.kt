@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherStickerImages
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabGameEndReason
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabGameMode
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherVocabPopperParticle
@@ -69,6 +70,8 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLan
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherVocabPopperArenaState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherVocabPopperUiState
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.viewmodels.XrLanguageTeacherVocabPopperViewModel
+import com.google.ai.edge.gallery.ui.theme.VocabGamePalette
+import java.util.WeakHashMap
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -80,9 +83,12 @@ private val STICKER_SIZE = 118.dp
 private val WordPillTextStyle =
   TextStyle(color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
 
-/** The text of a "+1 word" banner. */
-private val PopBannerTextStyle =
-  TextStyle(color = VocabGameColors.popGreen, fontSize = 20.sp, fontWeight = FontWeight.Black)
+/** Returns the text style of a "+1 word" banner in [palette]. */
+private fun popBannerTextStyle(palette: VocabGamePalette): TextStyle =
+  TextStyle(color = palette.popGreen, fontSize = 20.sp, fontWeight = FontWeight.Black)
+
+/** The soft drop shadow lifting word pills and framed photo stickers off the light surface. */
+private val LightModeLiftShadow = Color.Black.copy(alpha = 0.14f)
 
 /**
  * The full-screen `Vocab Popper` game of [viewModel]: stickers of saved words fly up, and the
@@ -164,6 +170,7 @@ fun VocabPopperContent(
     return
   }
   val isTapMode = uiState.mode == XrLanguageTeacherVocabGameMode.TAP
+  val palette = vocabGamePalette
   Box(modifier = modifier.fillMaxSize()) {
     VocabGameBackground()
     VocabPopperArena(
@@ -174,9 +181,10 @@ fun VocabPopperContent(
     )
     VocabGameEdgeGlow(
       color = {
-        if (arenaState().isWrongTapGlow) VocabGameColors.urgentRed else VocabGameColors.popGreen
+        if (arenaState().isWrongTapGlow) palette.urgentEdgeGlow else palette.successEdgeGlow
       },
       intensity = { arenaState().edgeGlowIntensity },
+      maxAlpha = palette.edgeGlowMaxAlpha,
     )
     Column(
       modifier = Modifier.fillMaxSize().safeDrawingPadding(),
@@ -255,9 +263,13 @@ private fun VocabPopperArena(
   val textMeasurer = rememberTextMeasurer()
   val resources = LocalResources.current
   val density = LocalDensity.current
+  val palette = vocabGamePalette
   val pillStroke = remember(density) { Stroke(width = with(density) { 3.dp.toPx() }) }
+  val bannerStroke = remember(density) { Stroke(width = with(density) { 1.5.dp.toPx() }) }
+  val photoFrame = rememberStickerPhotoFrame(palette)
   // Each banner's text and pill layout are measured once, not on every frame.
-  val bannerLayouts = remember(resources, textMeasurer) { HashMap<Long, TextLayoutResult>() }
+  val bannerLayouts =
+    remember(resources, textMeasurer, palette) { HashMap<Long, TextLayoutResult>() }
   val pillLayouts = remember(textMeasurer, isTapMode) { HashMap<String, TextLayoutResult>() }
   val tapModifier =
     if (isTapMode) {
@@ -285,6 +297,8 @@ private fun VocabPopperArena(
         textMeasurer = textMeasurer,
         pillLayouts = pillLayouts,
         pillStroke = pillStroke,
+        palette = palette,
+        photoFrame = photoFrame,
       )
     }
     if (arena.game.popBanners.isEmpty()) bannerLayouts.clear()
@@ -306,9 +320,9 @@ private fun VocabPopperArena(
                 banner.word,
               )
             }
-          textMeasurer.measure(text = text, style = PopBannerTextStyle, maxLines = 1)
+          textMeasurer.measure(text = text, style = popBannerTextStyle(palette), maxLines = 1)
         }
-      drawPopBanner(banner = banner, layout = layout)
+      drawPopBanner(banner = banner, layout = layout, palette = palette, stroke = bannerStroke)
     }
   }
 }
@@ -331,6 +345,8 @@ private fun DrawScope.drawTarget(
   textMeasurer: TextMeasurer,
   pillLayouts: MutableMap<String, TextLayoutResult>,
   pillStroke: Stroke,
+  palette: VocabGamePalette,
+  photoFrame: StickerPhotoFrame?,
 ) {
   val popProgress = target.popProgress ?: 0f
   val dismissProgress = target.dismissProgress ?: 0f
@@ -351,7 +367,7 @@ private fun DrawScope.drawTarget(
     rotate(degrees = target.rotationDegrees, pivot = Offset.Zero) {
       scale(scale = scale, pivot = Offset.Zero) {
         if (sticker != null) {
-          drawStickerSprite(sticker, STICKER_SIZE.toPx(), alpha)
+          drawStickerSprite(sticker, STICKER_SIZE.toPx(), alpha, photoFrame)
         } else {
           val pillText =
             if (isTapMode && target.item.meaning.isNotBlank()) {
@@ -375,6 +391,7 @@ private fun DrawScope.drawTarget(
             fill = paletteColor(target.colorIndex),
             stroke = pillStroke,
             alpha = alpha,
+            palette = palette,
           )
         }
       }
@@ -382,29 +399,113 @@ private fun DrawScope.drawTarget(
   }
 }
 
-/** Draws [sticker] fitted into a [boxSize] square centered on the origin. */
-internal fun DrawScope.drawStickerSprite(sticker: ImageBitmap, boxSize: Float, alpha: Float = 1f) {
+/**
+ * The soft shadow and hairline outline drawn around an unsegmented photo sticker's white frame in
+ * light mode, where the white frame alone blends into the light surface. Segmented cutouts keep
+ * only their baked-in drop shadow.
+ */
+internal class StickerPhotoFrame(
+  val outlineColor: Color,
+  val outlineStroke: Stroke,
+  val shadowOffsetPx: Float,
+) {
+  // Whether each sticker is a framed photo never changes, so it is read once, not on every frame.
+  private val isFramedPhotoBySticker = WeakHashMap<ImageBitmap, Boolean>()
+
+  /**
+   * Returns whether [sticker] is drawn in this frame (see
+   * [XrLanguageTeacherStickerImages.isFramedPhotoSticker]).
+   */
+  fun isFramedPhoto(sticker: ImageBitmap): Boolean =
+    isFramedPhotoBySticker.getOrPut(sticker) {
+      XrLanguageTeacherStickerImages.isFramedPhotoSticker(sticker)
+    }
+}
+
+/** Returns the [StickerPhotoFrame] of [palette], or `null` in dark mode, which needs none. */
+@Composable
+internal fun rememberStickerPhotoFrame(palette: VocabGamePalette): StickerPhotoFrame? {
+  val density = LocalDensity.current
+  return remember(palette, density) {
+    if (palette.isDark) {
+      null
+    } else {
+      with(density) {
+        StickerPhotoFrame(
+          outlineColor = palette.stickerFrameOutline,
+          outlineStroke = Stroke(width = 1.dp.toPx()),
+          shadowOffsetPx = 2.5.dp.toPx(),
+        )
+      }
+    }
+  }
+}
+
+/**
+ * Draws [sticker] fitted into a [boxSize] square centered on the origin, inside [photoFrame] when
+ * it is given and [sticker] is an unsegmented photo (see [StickerPhotoFrame.isFramedPhoto]).
+ */
+internal fun DrawScope.drawStickerSprite(
+  sticker: ImageBitmap,
+  boxSize: Float,
+  alpha: Float = 1f,
+  photoFrame: StickerPhotoFrame? = null,
+) {
   val fit = min(boxSize / sticker.width, boxSize / sticker.height)
   val width = (sticker.width * fit).roundToInt()
   val height = (sticker.height * fit).roundToInt()
-  drawImage(
-    image = sticker,
-    dstOffset = IntOffset(-width / 2, -height / 2),
-    dstSize = IntSize(width, height),
-    alpha = alpha,
-  )
+  val dstOffset = IntOffset(-width / 2, -height / 2)
+  val frame = photoFrame?.takeIf { it.isFramedPhoto(sticker) }
+  val frameTopLeft = Offset(dstOffset.x.toFloat(), dstOffset.y.toFloat())
+  val frameSize = Size(width.toFloat(), height.toFloat())
+  val frameCornerRadius =
+    CornerRadius(max(width, height) * XrLanguageTeacherStickerImages.PHOTO_FRAME_CORNER_FRACTION)
+  if (frame != null) {
+    drawRoundRect(
+      color = LightModeLiftShadow,
+      topLeft = frameTopLeft + Offset(0f, frame.shadowOffsetPx),
+      size = frameSize,
+      cornerRadius = frameCornerRadius,
+      // Fades faster than the photo so it doesn't show through while the sticker fades out.
+      alpha = alpha * alpha,
+    )
+  }
+  drawImage(image = sticker, dstOffset = dstOffset, dstSize = IntSize(width, height), alpha = alpha)
+  if (frame != null) {
+    drawRoundRect(
+      color = frame.outlineColor,
+      topLeft = frameTopLeft,
+      size = frameSize,
+      cornerRadius = frameCornerRadius,
+      style = frame.outlineStroke,
+      alpha = alpha,
+    )
+  }
 }
 
-/** Draws [layout] on a white-bordered rounded pill filled with [fill], centered on the origin. */
+/**
+ * Draws [layout] on a white-bordered rounded pill filled with [fill], centered on the origin, over
+ * a soft drop shadow in light mode.
+ */
 private fun DrawScope.drawWordPill(
   layout: TextLayoutResult,
   fill: Color,
   stroke: Stroke,
   alpha: Float,
+  palette: VocabGamePalette,
 ) {
   val pillSize = Size(layout.size.width + 36.dp.toPx(), layout.size.height + 24.dp.toPx())
   val topLeft = Offset(-pillSize.width / 2f, -pillSize.height / 2f)
   val cornerRadius = CornerRadius(20.dp.toPx())
+  if (!palette.isDark) {
+    drawRoundRect(
+      color = LightModeLiftShadow,
+      topLeft = topLeft + Offset(0f, 2.dp.toPx()),
+      size = pillSize,
+      cornerRadius = cornerRadius,
+      alpha = alpha,
+    )
+  }
   drawRoundRect(
     color = fill,
     topLeft = topLeft,
@@ -430,6 +531,8 @@ private fun DrawScope.drawWordPill(
 private fun DrawScope.drawPopBanner(
   banner: XrLanguageTeacherVocabPopperPopBanner,
   layout: TextLayoutResult,
+  palette: VocabGamePalette,
+  stroke: Stroke,
 ) {
   val alpha = (1f - banner.progress).coerceIn(0f, 1f)
   val scale = 0.9f + min(banner.progress * 2f, 0.25f)
@@ -439,13 +542,25 @@ private fun DrawScope.drawPopBanner(
     (banner.x * size.width).coerceIn(halfPillWidth, max(halfPillWidth, size.width - halfPillWidth))
   translate(left = clampedX, top = banner.y * size.height) {
     scale(scale = scale, pivot = Offset.Zero) {
+      val pillTopLeft = Offset(-pillSize.width / 2f, -pillSize.height / 2f)
+      val pillCornerRadius = CornerRadius(pillSize.height / 2f)
       drawRoundRect(
-        color = Color.Black.copy(alpha = 0.72f),
-        topLeft = Offset(-pillSize.width / 2f, -pillSize.height / 2f),
+        color = palette.popBannerFill,
+        topLeft = pillTopLeft,
         size = pillSize,
-        cornerRadius = CornerRadius(pillSize.height / 2f),
+        cornerRadius = pillCornerRadius,
         alpha = alpha,
       )
+      if (!palette.isDark) {
+        drawRoundRect(
+          color = palette.popBannerStroke,
+          topLeft = pillTopLeft,
+          size = pillSize,
+          cornerRadius = pillCornerRadius,
+          style = stroke,
+          alpha = alpha,
+        )
+      }
       drawText(
         textLayoutResult = layout,
         topLeft = Offset(-layout.size.width / 2f, -layout.size.height / 2f),

@@ -17,7 +17,6 @@
 package com.google.ai.edge.gallery.ui.theme
 
 import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -26,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -151,9 +151,13 @@ data class CustomColors(
   val cameraHudGlowColor: Color = Color.Transparent,
   /** Text and icon color drawn on [cameraHudGlowColor]. */
   val onCameraHudGlowColor: Color = Color.Transparent,
+  /** The colors of the XR Language Teacher `Vocab Popper` and `Buddy Runner` game screens. */
+  val vocabGamePalette: VocabGamePalette = lightVocabGamePalette,
 )
 
-val LocalCustomColors = staticCompositionLocalOf { CustomColors() }
+val LocalCustomColors: ProvidableCompositionLocal<CustomColors> = staticCompositionLocalOf {
+  CustomColors()
+}
 
 val lightCustomColors =
   CustomColors(
@@ -236,6 +240,7 @@ val lightCustomColors =
       ),
     cameraHudGlowColor = primaryLight,
     onCameraHudGlowColor = onPrimaryLight,
+    vocabGamePalette = lightVocabGamePalette,
   )
 
 val darkCustomColors =
@@ -314,6 +319,7 @@ val darkCustomColors =
       ),
     cameraHudGlowColor = primaryLight,
     onCameraHudGlowColor = onPrimaryLight,
+    vocabGamePalette = darkVocabGamePalette,
   )
 
 val MaterialTheme.customColors: CustomColors
@@ -362,9 +368,6 @@ fun GalleryTheme(content: @Composable () -> Unit) {
   // Make sure the navigation bar stays transparent on manual theme changes.
   LaunchedEffect(darkTheme) {
     val window = (view.context as Activity).window
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      window.isNavigationBarContrastEnforced = false
-    }
+    window.isNavigationBarContrastEnforced = false
   }
 }
