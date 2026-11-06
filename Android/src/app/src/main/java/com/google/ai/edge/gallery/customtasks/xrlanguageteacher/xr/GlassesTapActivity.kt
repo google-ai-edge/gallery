@@ -27,6 +27,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import androidx.activity.ComponentActivity
+import androidx.annotation.VisibleForTesting
 import androidx.core.app.PendingIntentCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.xr.projected.ProjectedActivityCompat
@@ -145,9 +146,7 @@ class GlassesTapActivity : ComponentActivity() {
           return
         }
         projectedActivityCompat = compat
-        val intent =
-          Intent(this@GlassesTapActivity, GlassesTapActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+        val intent = createInputReceiverIntent()
         val pendingIntent =
           PendingIntentCompat.getActivity(
             this@GlassesTapActivity,
@@ -164,6 +163,17 @@ class GlassesTapActivity : ComponentActivity() {
         Log.w(TAG, "Failed to register as the projected input receiver", e)
       }
     }
+  }
+
+  /**
+   * Builds the [Intent] wrapped in the [PendingIntent] registered as the glasses input receiver.
+   */
+  @VisibleForTesting
+  internal fun createInputReceiverIntent(): Intent {
+    val intent =
+      Intent(this, GlassesTapActivity::class.java)
+        .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+    return intent
   }
 
   override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {

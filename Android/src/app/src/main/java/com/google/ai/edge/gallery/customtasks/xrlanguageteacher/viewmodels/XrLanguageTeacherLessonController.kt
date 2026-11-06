@@ -37,6 +37,7 @@ import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.finishS
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.schedulePresynthesizeFillers
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.startStreamingTts
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.stopTtsPlayback
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.xr.XrEarconType
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.proto.DictionaryEntry
 import com.google.ai.edge.gallery.proto.Language
@@ -254,7 +255,11 @@ fun XrLanguageTeacherViewModel.runLessonTurn(
   startStreamingTts(persona)
 
   // Speaks a short native-language filler right away, in XR and phone mode, while the model reads
-  // the question and image. It always plays to the end, and the reply queues behind it.
+  // the question and image. It always plays to the end, and the reply queues behind it. In XR
+  // mode, play the loading earcon concurrently so the user hears immediate processing feedback.
+  if (stateSnapshot.isXrMode) {
+    xrGlassesManager.playEarcon(XrEarconType.BUSY)
+  }
   buildThinkingFillerSegment(nativeLanguage = mainLang, persona = persona)?.let { filler ->
     val unused = ttsChannel?.trySend(filler)
   }

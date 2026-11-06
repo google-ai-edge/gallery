@@ -142,7 +142,7 @@ constructor(
   @VisibleForTesting
   fun setGlassesConnectedForTesting(connected: Boolean) {
     connectedOverrideForTesting = connected
-    _isGlassesConnected.value = connected
+    applyGlassesConnectedState(connected)
   }
 
   /** Injects a synthetic glasses camera frame in unit tests. */
@@ -151,10 +151,8 @@ constructor(
     cameraStream.setFrameForTesting(bitmap)
   }
 
-  /** Most recent earcon requested via [playEarcon], exposed for unit test assertions. */
-  @VisibleForTesting
-  var lastPlayedEarcon: XrEarconType? = null
-    private set
+  /** Called with each earcon [playEarcon] plays, so tests can record them. Set only by tests. */
+  @VisibleForTesting @Volatile var onEarconPlayedForTesting: ((XrEarconType) -> Unit)? = null
 
   /** Most recently active host phone activity, used as the launch context for projected intents. */
   @Volatile private var currentHostActivity: WeakReference<Activity>? = null
@@ -216,7 +214,7 @@ constructor(
           try {
             ProjectedContext.isProjectedDeviceConnected(hostContext, ioDispatcher).collect {
               connected ->
-              _isGlassesConnected.value = connectedOverrideForTesting ?: connected
+              applyGlassesConnectedState(connectedOverrideForTesting ?: connected)
             }
           } catch (e: CancellationException) {
             throw e
@@ -302,7 +300,24 @@ constructor(
 
   /** Refreshes [isGlassesConnected] by probing whether a projected device context is available. */
   fun updateGlassesConnectionState() {
-    _isGlassesConnected.value = connectedOverrideForTesting ?: (getGlassesContext() != null)
+    applyGlassesConnectedState(connectedOverrideForTesting ?: (getGlassesContext() != null))
+  }
+
+  /**
+   * Publishes [connected] and starts or cancels the capability probe on the main thread, because
+   * the connection flow can report from a background thread.
+   */
+  private fun applyGlassesConnectedState(connected: Boolean) {
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+      applyGlassesConnectedStateOnMain(connected)
+    } else {
+      mainHandler.post { applyGlassesConnectedStateOnMain(connected) }
+    }
+  }
+
+  @MainThread
+  private fun applyGlassesConnectedStateOnMain(connected: Boolean) {
+    _isGlassesConnected.value = connected
   }
 
   /** Returns a context for the connected glasses (projected) device, or null if none. */
@@ -418,13 +433,7 @@ constructor(
       val launchContext = currentHostActivity?.get() ?: hostContext
       val glassesCtx = getGlassesContext()
       val options = ProjectedContext.createProjectedActivityOptions(glassesCtx ?: launchContext)
-      val intent =
-        Intent(launchContext, GlassesTapActivity::class.java).apply {
-          addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-          if (launchContext !is Activity) {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-          }
-        }
+      val intent = createTapActivityLaunchIntent(launchContext)
       launchContext.startActivity(intent, options.toBundle())
       Log.i(
         TAG,
@@ -436,13 +445,23 @@ constructor(
     }
   }
 
+  /** Builds the [Intent] used to launch [GlassesTapActivity] on the projected display. */
+  @VisibleForTesting
+  internal fun createTapActivityLaunchIntent(launchContext: Context): Intent =
+    Intent(launchContext, GlassesTapActivity::class.java).apply {
+      addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+      if (launchContext !is Activity) {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      }
+    }
+
   // -----------------------------------------------------------------------------------------------
   // Audio
   // -----------------------------------------------------------------------------------------------
 
   /** Plays the standardized glasses earcon [type] on the glasses audio output. */
   fun playEarcon(type: XrEarconType) {
-    lastPlayedEarcon = type
+    onEarconPlayedForTesting?.invoke(type)
     val glassesCtx = getGlassesContext()
     applicationScope.launch(earconDispatcher) { earcons.play(type, glassesCtx) }
   }

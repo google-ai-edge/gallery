@@ -40,6 +40,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.outlined.ScreenLockPortrait
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -50,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -61,6 +63,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.ui.common.RotationalLoader
+import com.google.ai.edge.gallery.ui.theme.errorLight
+import com.google.ai.edge.gallery.ui.theme.inversePrimaryLight
+import com.google.ai.edge.gallery.ui.theme.onErrorLight
+import com.google.ai.edge.gallery.ui.theme.onSurfaceDark
+import com.google.ai.edge.gallery.ui.theme.primaryContainerDark
+import com.google.ai.edge.gallery.ui.theme.surfaceContainerDark
+import com.google.ai.edge.gallery.ui.theme.tertiaryDark
 
 /** The one-line XR pipeline status shown under the XR pill. */
 enum class XrPipelineStatus(@StringRes val labelRes: Int) {
@@ -101,7 +110,7 @@ internal fun xrPipelineStatus(
  *
  * Displays active state indicators (Listening, Thinking, Speaking, Idle), live speech transcript
  * when the user is dictating, active teacher dialogue when speaking, and a "Switch to phone"
- * button.
+ * button. While the glasses camera streams, a hint at the bottom says the phone screen can be off.
  */
 @Composable
 fun XrGlassesModeScreen(
@@ -110,6 +119,7 @@ fun XrGlassesModeScreen(
   onTapScreen: () -> Unit = {},
   glassesCameraBitmap: Bitmap? = null,
   isRecording: Boolean = false,
+  isFollowUp: Boolean = false,
   liveTranscript: String = "",
   isRunningInference: Boolean = false,
   isSpeakingTts: Boolean = false,
@@ -117,10 +127,14 @@ fun XrGlassesModeScreen(
   userQuestion: String = "",
   status: XrPipelineStatus = XrPipelineStatus.READY,
 ) {
-  val scrimColor = MaterialTheme.colorScheme.inverseSurface
-  val onScrimColor = MaterialTheme.colorScheme.inverseOnSurface
-  val cardContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-  val accentColor = MaterialTheme.colorScheme.inversePrimary
+  // This HUD sits on the glasses camera feed (or a black screen before it streams) rather than a
+  // themed surface, so it uses the same colors in light and dark themes, like the phone camera HUD:
+  // a black scrim, white text, dark cards with light text, and light blue accents.
+  val scrimColor = MaterialTheme.colorScheme.scrim
+  val onScrimColor = Color.White
+  val cardContainerColor = surfaceContainerDark
+  val onCardColor = onSurfaceDark
+  val accentColor = inversePrimaryLight
   val imageBitmap =
     remember(glassesCameraBitmap) {
       glassesCameraBitmap?.takeUnless { it.isRecycled }?.asImageBitmap()
@@ -182,7 +196,7 @@ fun XrGlassesModeScreen(
                   stringResource(R.string.xrteacher_xr_connected)
                 },
               style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-              color = MaterialTheme.colorScheme.onSurface,
+              color = onCardColor,
             )
           }
         }
@@ -191,7 +205,7 @@ fun XrGlassesModeScreen(
           Text(
             text = stringResource(status.labelRes),
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-            color = MaterialTheme.colorScheme.tertiary,
+            color = tertiaryDark,
             textAlign = TextAlign.Center,
             maxLines = 3,
             modifier = Modifier.padding(horizontal = 24.dp),
@@ -212,20 +226,19 @@ fun XrGlassesModeScreen(
             modifier =
               Modifier.size(88.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f))
-                .border(2.dp, MaterialTheme.colorScheme.error, CircleShape)
+                .background(errorLight.copy(alpha = 0.35f))
+                .border(2.dp, errorLight, CircleShape)
                 .padding(4.dp),
             contentAlignment = Alignment.Center,
           ) {
             Box(
-              modifier =
-                Modifier.size(68.dp).clip(CircleShape).background(MaterialTheme.colorScheme.error),
+              modifier = Modifier.size(68.dp).clip(CircleShape).background(errorLight),
               contentAlignment = Alignment.Center,
             ) {
               Icon(
                 imageVector = Icons.Default.Mic,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onError,
+                tint = onErrorLight,
                 modifier = Modifier.size(36.dp),
               )
             }
@@ -241,7 +254,7 @@ fun XrGlassesModeScreen(
             modifier =
               Modifier.size(88.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
+                .background(primaryContainerDark.copy(alpha = 0.35f))
                 .border(2.dp, accentColor, CircleShape),
             contentAlignment = Alignment.Center,
           ) {
@@ -277,6 +290,8 @@ fun XrGlassesModeScreen(
       // Status title
       val title =
         when {
+          isRecording && isFollowUp ->
+            stringResource(R.string.xrteacher_xr_follow_up_listening_title)
           isRecording -> stringResource(R.string.xrteacher_xr_listening_title)
           isRunningInference -> stringResource(R.string.xrteacher_thinking_header)
           isSpeakingTts -> stringResource(R.string.xrteacher_xr_speaking_title)
@@ -322,7 +337,7 @@ fun XrGlassesModeScreen(
             Text(
               text = stringResource(R.string.xrteacher_quoted_text, liveTranscript),
               style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
-              color = MaterialTheme.colorScheme.onSurface,
+              color = onCardColor,
               textAlign = TextAlign.Center,
             )
           }
@@ -341,7 +356,7 @@ fun XrGlassesModeScreen(
             Text(
               text = teacherDialogue,
               style = MaterialTheme.typography.bodyMedium,
-              color = MaterialTheme.colorScheme.onSurface,
+              color = onCardColor,
               textAlign = TextAlign.Center,
               maxLines = 4,
               overflow = TextOverflow.Ellipsis,
@@ -362,7 +377,7 @@ fun XrGlassesModeScreen(
             Text(
               text = stringResource(R.string.xrteacher_quoted_text, userQuestion),
               style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
-              color = MaterialTheme.colorScheme.onSurface,
+              color = onCardColor,
               textAlign = TextAlign.Center,
               maxLines = 4,
               overflow = TextOverflow.Ellipsis,
@@ -398,6 +413,37 @@ fun XrGlassesModeScreen(
             text = stringResource(R.string.xrteacher_switch_to_phone),
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
             color = accentColor,
+          )
+        }
+      }
+    }
+
+    // While the glasses camera streams, the lesson runs from the glasses alone, so tell the user
+    // they can turn the phone screen off (see `XrLanguageTeacherViewModel.onAppBackgrounded`).
+    if (glassesCameraBitmap != null) {
+      // Same pill as the streaming badge at the top, so it stays legible over any camera frame.
+      Surface(
+        shape = CircleShape,
+        color = cardContainerColor.copy(alpha = 0.85f),
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.4f)),
+        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp),
+      ) {
+        Row(
+          modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Icon(
+            imageVector = Icons.Outlined.ScreenLockPortrait,
+            contentDescription = null,
+            tint = accentColor,
+            modifier = Modifier.size(16.dp),
+          )
+          Spacer(modifier = Modifier.width(6.dp))
+          Text(
+            text = stringResource(R.string.xrteacher_xr_screen_off_hint),
+            style = MaterialTheme.typography.labelMedium,
+            color = onCardColor,
+            textAlign = TextAlign.Center,
           )
         }
       }

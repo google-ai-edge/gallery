@@ -480,6 +480,7 @@ fun XrLanguageTeacherScreen(
         onTapScreen = { viewModel.handleGlassesTap(model, onRunningStateChanged) },
         glassesCameraBitmap = glassesCameraBitmap,
         isRecording = uiState.isRecordingAsr,
+        isFollowUp = uiState.isSessionActive,
         liveTranscript = uiState.liveAsrTranscript,
         isRunningInference = uiState.isRunningInference,
         isSpeakingTts = uiState.isSpeakingTts,
