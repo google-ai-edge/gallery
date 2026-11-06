@@ -86,6 +86,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -447,6 +448,12 @@ constructor(
    * The TTS (model, language, voice) combinations prepared so far, to skip preparing them again.
    */
   internal val preparedTtsKeys = PreparedTtsKeys()
+  /**
+   * The TTS model whose engine failed because it lost its connection to the service that speaks for
+   * it, while the engine is reported as failed, or `null`. The next `prepareTtsEngine` reconnects
+   * that engine first.
+   */
+  internal val ttsServiceConnectionLostModelId = AtomicReference<String?>(null)
   /** The thinking fillers synthesized ahead of time for the current voice. */
   internal val presynthesizedFillers = PresynthesizedFillerCache()
   /** The Study game prompt words synthesized ahead of time for the current round's voice. */

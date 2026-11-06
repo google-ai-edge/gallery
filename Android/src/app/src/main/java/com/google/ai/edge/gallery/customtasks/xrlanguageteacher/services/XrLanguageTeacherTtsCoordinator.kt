@@ -392,7 +392,10 @@ internal fun XrLanguageTeacherViewModel.launchTtsPlayback(
       } catch (e: Exception) {
         Log.w(TAG, "TTS playback failed for ${persona.displayName}", e)
         if (ttsPlaybackEpoch.get() == playbackEpoch) {
-          reportTtsEngineFailure(SpeechEngineErrorCause.OTHER)
+          reportTtsEngineFailure(
+            SpeechEngineErrorCause.OTHER,
+            isServiceConnectionLost = e.isTtsServiceConnectionFailure(),
+          )
         }
       } finally {
         if (ttsPlaybackEpoch.get() == playbackEpoch) {
@@ -482,6 +485,8 @@ internal suspend fun XrLanguageTeacherViewModel.streamPipelinedSegments(
   // If no reply segment played and one failed, the engine is likely broken, so it is reported.
   val replyPlayedAudio = AtomicBoolean(false)
   val firstReplyFailure = AtomicReference<Exception?>(null)
+  // Reconnects of the engine after its service stopped, shared by the turn's segments.
+  val reconnects = TtsServiceReconnects()
   val producerJob =
     launch(start = CoroutineStart.UNDISPATCHED) {
       try {
@@ -602,7 +607,15 @@ internal suspend fun XrLanguageTeacherViewModel.streamPipelinedSegments(
               val retry = retries.takeRetryOfFirstAttempt(service, e)
               val retried =
                 if (retry != null) {
-                  retrySegmentSynthesis(service, baseConfig, config, cleanSpoken, e, retry)
+                  retrySegmentSynthesis(
+                    service,
+                    baseConfig,
+                    config,
+                    cleanSpoken,
+                    e,
+                    retry,
+                    reconnects,
+                  )
                 } else {
                   null
                 }
@@ -678,7 +691,15 @@ internal suspend fun XrLanguageTeacherViewModel.streamPipelinedSegments(
                           break
                         }
                         val retried =
-                          retrySegmentSynthesis(service, baseConfig, config, cleanSpoken, e, retry)
+                          retrySegmentSynthesis(
+                            service,
+                            baseConfig,
+                            config,
+                            cleanSpoken,
+                            e,
+                            retry,
+                            reconnects,
+                          )
                         if (retried == null) {
                           recordFailure(e)
                           break
@@ -747,7 +768,15 @@ internal suspend fun XrLanguageTeacherViewModel.streamPipelinedSegments(
                           break
                         }
                         val retried =
-                          retrySegmentSynthesis(service, baseConfig, config, cleanSpoken, e, retry)
+                          retrySegmentSynthesis(
+                            service,
+                            baseConfig,
+                            config,
+                            cleanSpoken,
+                            e,
+                            retry,
+                            reconnects,
+                          )
                         if (retried == null) {
                           recordFailure(e)
                           break

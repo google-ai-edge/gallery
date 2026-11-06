@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services
 
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.CharacterPersona
@@ -40,6 +41,7 @@ import com.google.ai.edge.gallery.services.tts.TtsQueueMode
 import com.google.ai.edge.gallery.services.tts.TtsService
 import com.google.ai.edge.gallery.services.tts.TtsServiceError
 import com.google.ai.edge.gallery.services.tts.TtsServiceStatus
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
@@ -110,6 +112,7 @@ internal fun XrLanguageTeacherViewModel.prepareTtsEngine(keepReadyState: Boolean
       }
     }
     try {
+      reconnectTtsEngineIfServiceConnectionLost()
       val errorCause = prepareSelectedTtsEngine()
       if (errorCause == null) {
         updateUiState { it.copy(ttsReadiness = SpeechEngineReadiness.READY, ttsErrorCause = null) }
@@ -132,9 +135,21 @@ internal fun XrLanguageTeacherViewModel.prepareTtsEngine(keepReadyState: Boolean
 /**
  * Re-warms the selected neural TTS engine when it was evicted in the background by memory trim (or
  * when initial warm-up was interrupted by background eviction) and the screen resumes.
+ *
+ * Also prepares the selected engine again, reconnecting it first, when it failed because it lost
+ * its connection to the service that speaks for it
+ * ([XrLanguageTeacherViewModel.ttsServiceConnectionLostModelId]): that service usually restarts on
+ * its own, so the engine can work again without the user tapping Retry.
  */
 internal fun XrLanguageTeacherViewModel.prepareTtsEngineIfEvicted() {
   val ttsModelId = selectedTtsModelID.value
+  if (
+    uiState.value.ttsReadiness == SpeechEngineReadiness.ERROR &&
+      ttsServiceConnectionLostModelId.get() == ttsModelId
+  ) {
+    prepareTtsEngine()
+    return
+  }
   if (TtsModelIdentifier.isSystemEngine(ttsModelId)) return
   val service = ttsServiceProvider.serviceOrNull(forModelId = ttsModelId) ?: return
   val serviceStatus = service.status.value
@@ -229,10 +244,23 @@ internal suspend fun XrLanguageTeacherViewModel.prepareSelectedTtsEngine():
 
 /**
  * Marks the selected TTS engine as failed because of [cause] and pauses the lesson. The screen then
- * shows the speech engine error popup. Nothing retries automatically.
+ * shows the speech engine error popup.
+ *
+ * Nothing retries automatically, except when [isServiceConnectionLost]: the engine failed because
+ * its service stopped, so the next [prepareTtsEngine] (Retry) reconnects it first, and resuming the
+ * screen prepares it again ([prepareTtsEngineIfEvicted]).
  */
-internal fun XrLanguageTeacherViewModel.reportTtsEngineFailure(cause: SpeechEngineErrorCause) {
-  Log.w(TAG, "The selected TTS engine failed: $cause")
+internal fun XrLanguageTeacherViewModel.reportTtsEngineFailure(
+  cause: SpeechEngineErrorCause,
+  isServiceConnectionLost: Boolean = false,
+) {
+  Log.w(
+    TAG,
+    "The selected TTS engine failed: $cause (serviceConnectionLost=$isServiceConnectionLost)",
+  )
+  ttsServiceConnectionLostModelId.set(
+    if (isServiceConnectionLost) selectedTtsModelID.value else null
+  )
   updateUiState {
     it.copy(
       ttsReadiness = SpeechEngineReadiness.ERROR,
@@ -355,10 +383,81 @@ internal class SegmentRetries {
 }
 
 /**
+ * Whether this failure means that the TTS engine lost its connection to the service that speaks for
+ * it, so the engine must be released and prepared again to get a working connection.
+ */
+internal fun Exception.isTtsServiceConnectionFailure(): Boolean =
+  this is TtsServiceError.ServiceDisconnected ||
+    (this is TtsServiceError.SynthesisFailed && errorCode == TextToSpeech.ERROR_SERVICE)
+
+/**
+ * Counts the reconnects of the TTS engine during one turn: at most one after the service
+ * disconnected ([TtsServiceError.ServiceDisconnected]) and one after a service error
+ * ([TextToSpeech.ERROR_SERVICE]), like the shared read-aloud controller. A service that keeps
+ * failing then ends in the turn's usual failure handling instead of reconnecting again and again.
+ *
+ * Safe to use from the turn's concurrent segments.
+ */
+internal class TtsServiceReconnects {
+  private val hasReconnectedAfterDisconnect = AtomicBoolean(false)
+  private val hasReconnectedAfterServiceError = AtomicBoolean(false)
+
+  /**
+   * Takes the turn's reconnect for [failure]. Returns `false` when [failure] doesn't need one or
+   * the turn already reconnected for its kind of failure.
+   */
+  fun take(failure: Exception): Boolean =
+    when {
+      failure is TtsServiceError.ServiceDisconnected ->
+        hasReconnectedAfterDisconnect.compareAndSet(false, true)
+      failure is TtsServiceError.SynthesisFailed &&
+        failure.errorCode == TextToSpeech.ERROR_SERVICE ->
+        hasReconnectedAfterServiceError.compareAndSet(false, true)
+      else -> false
+    }
+}
+
+/**
+ * Releases [service], the engine of the TTS model [modelId], so that the next prepare connects it
+ * to its service again, and forgets what was prepared and checked with the old connection.
+ */
+internal suspend fun XrLanguageTeacherViewModel.reconnectTtsEngine(
+  service: TtsService,
+  modelId: String?,
+) {
+  modelId?.let(preparedTtsKeys::invalidateModel)
+  try {
+    withContext(ioDispatcher) { service.destroy() }
+  } catch (e: CancellationException) {
+    throw e
+  } catch (e: Exception) {
+    Log.w(TAG, "Failed to release the TTS engine '$modelId' before reconnecting", e)
+  }
+  // Language checks that ran while the service was stopping may have failed as "not offered".
+  speechSelectionUseCase.onTtsServiceReconnected(modelId)
+}
+
+/**
+ * Reconnects the TTS engine whose failure was caused by a lost service connection
+ * ([XrLanguageTeacherViewModel.ttsServiceConnectionLostModelId]), if any, before it is prepared
+ * again.
+ */
+private suspend fun XrLanguageTeacherViewModel.reconnectTtsEngineIfServiceConnectionLost() {
+  val modelId = ttsServiceConnectionLostModelId.getAndSet(null) ?: return
+  val service = ttsServiceProvider.serviceOrNull(forModelId = modelId) ?: return
+  Log.i(TAG, "Reconnecting the TTS engine '$modelId', whose service stopped")
+  reconnectTtsEngine(service, modelId)
+}
+
+/**
  * Starts synthesizing [text] again, after [retry]'s delay, because the previous attempt failed with
  * [failure] before playing any audio. Prepares the engine again first when it reports that it isn't
  * prepared, unless the engine's own retry policy asked for this retry: then the retry only
- * synthesizes again. Returns `null` when the retry can't start.
+ * synthesizes again.
+ *
+ * When [failure] means that the engine lost its connection to its service, the engine is released
+ * and prepared again first, once per kind of failure per turn ([reconnects]); a later failure of
+ * the same kind in the turn only retries. Returns `null` when the retry can't start.
  *
  * Later segments queue behind the retry, so the order is kept. Cancelling the turn during the wait
  * cancels the retry.
@@ -370,20 +469,26 @@ internal suspend fun XrLanguageTeacherViewModel.retrySegmentSynthesis(
   text: String,
   failure: Exception,
   retry: SegmentRetry,
+  reconnects: TtsServiceReconnects,
 ): TtsOutput? {
+  val reconnect = !retry.isEnginePolicy && reconnects.take(failure)
   val needsReprepare =
-    !retry.isEnginePolicy &&
-      (failure is TtsServiceError.EngineUnavailable ||
-        !service.isModelLoaded(synthesizeConfig.modelId))
+    reconnect ||
+      (!retry.isEnginePolicy &&
+        (failure is TtsServiceError.EngineUnavailable ||
+          !service.isModelLoaded(synthesizeConfig.modelId)))
   Log.w(
     TAG,
     "TTS segment failed before playing audio (model=${synthesizeConfig.modelId}," +
       " lang=${synthesizeConfig.languageCode}); retrying in ${retry.delayMs} ms" +
-      " (reprepare=$needsReprepare)",
+      " (reprepare=$needsReprepare, reconnect=$reconnect)",
     failure,
   )
   return try {
     delay(retry.delayMs)
+    if (reconnect) {
+      reconnectTtsEngine(service, synthesizeConfig.modelId)
+    }
     val retryService =
       if (needsReprepare) {
         prepareTtsServiceForConfig(prepareConfig, forceReprepare = true)
