@@ -75,8 +75,10 @@ const val THOUGHT_CHANNEL = "thought"
 // Max number of images allowed in a "ask image" session.
 const val MAX_IMAGE_COUNT = 10
 
-// Max number of images allowed in a "ask image" session for AI Core.
-const val MAX_IMAGE_COUNT_AI_CORE = 1
+// Max number of images allowed in a "ask image" session for AI Core. Kept separate from
+// MAX_IMAGE_COUNT so the two backends can diverge; the ML Kit Prompt API accepts up to 10 images
+// per request.
+const val MAX_IMAGE_COUNT_AI_CORE = 10
 
 // Max number of skills recommended in a "agent skills" session.
 const val MAX_RECOMMENDED_SKILL_COUNT = 15
