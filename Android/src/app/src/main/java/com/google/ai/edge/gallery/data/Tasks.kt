@@ -95,7 +95,7 @@ data class Task(
   val modelNames: List<String> = listOf(),
 
   /**
-   * Whether to handel model config changes in task's screen itself. The default behavior is to
+   * Whether to handle model config changes in task's screen itself. The default behavior is to
    * automatically re-initialize the model.
    */
   val handleModelConfigChangesInTask: Boolean = false,
