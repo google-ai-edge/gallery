@@ -25,6 +25,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -91,6 +92,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -451,10 +453,47 @@ fun ChatPanel(
       Modifier
     }
 
+  val isShowingEmptyState =
+    messages.isEmpty() && pickedImagesCount == 0 && pickedAudioClipsCount == 0
+  val isDarkTheme = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+  val emptyStateGradientProgress by
+    animateFloatAsState(
+      targetValue = if (isShowingEmptyState && !showAudioRecorder) 1f else 0f,
+      animationSpec = tween(durationMillis = 300),
+      label = "emptyStateGradientProgress",
+    )
   Box(
     modifier = Modifier.fillMaxSize().then(dismissPromptModifier),
     contentAlignment = Alignment.BottomCenter,
   ) {
+    if (emptyStateGradientProgress > 0f) {
+      val colorStops =
+        if (isDarkTheme) {
+          arrayOf(
+            0.5f to Color.Transparent,
+            0.75f to
+              MaterialTheme.colorScheme.primary.copy(alpha = 0.25f * emptyStateGradientProgress),
+            1.0f to
+              MaterialTheme.colorScheme.inversePrimary.copy(
+                alpha = 0.55f * emptyStateGradientProgress
+              ),
+          )
+        } else {
+          arrayOf(
+            0.5f to Color.Transparent,
+            1.0f to
+              MaterialTheme.colorScheme.inversePrimary.copy(
+                alpha = 0.50f * emptyStateGradientProgress
+              ),
+          )
+        }
+      Box(
+        modifier =
+          Modifier.fillMaxSize()
+            .imePadding()
+            .background(Brush.verticalGradient(colorStops = colorStops))
+      )
+    }
     // Audio record animation.
     AnimatedVisibility(
       showAudioRecorder,
@@ -785,14 +824,21 @@ fun ChatPanel(
 
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier.padding(vertical = 4.dp))
 
-        // Show empty state.
-        if (messages.isEmpty() && pickedImagesCount == 0 && pickedAudioClipsCount == 0) {
-          emptyStateComposable(selectedModel)
-        }
         // Loading screen when model is initialized for that first time.
         val isFirstInitializing =
           modelInitStatus is Model.InitializationStatus.Initializing &&
             modelManagerViewModel.isFirstInitialization(selectedModel)
+
+        // Show empty state.
+        if (
+          messages.isEmpty() &&
+            pickedImagesCount == 0 &&
+            pickedAudioClipsCount == 0 &&
+            !isFirstInitializing
+        ) {
+          emptyStateComposable(selectedModel)
+        }
+
         Column(
           horizontalAlignment = Alignment.CenterHorizontally,
           verticalArrangement = Arrangement.Center,
@@ -802,7 +848,7 @@ fun ChatPanel(
             enter = fadeIn() + scaleIn(initialScale = 0.9f),
             exit = fadeOut() + scaleOut(targetScale = 0.9f),
           ) {
-            Box(modifier = Modifier.background(MaterialTheme.colorScheme.surface).fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize()) {
               Column(
                 modifier = Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally,
