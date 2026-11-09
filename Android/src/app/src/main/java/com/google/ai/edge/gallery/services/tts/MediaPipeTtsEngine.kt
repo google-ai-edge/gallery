@@ -156,7 +156,7 @@ internal constructor(
               BaseOptions.builder().setModelAssetPath(modelPath).setDelegate(delegate).build(),
             defaultVoiceId = null,
             defaultLocale = DEFAULT_TTS_LANGUAGE_CODE,
-            cacheDirectory = File(context.cacheDir, CACHE_DIRECTORY_NAME).absolutePath,
+            cacheDir = File(context.cacheDir, CACHE_DIRECTORY_NAME).absolutePath,
           )
         )
       )
