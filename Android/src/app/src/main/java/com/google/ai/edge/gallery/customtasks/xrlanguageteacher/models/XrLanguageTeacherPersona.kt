@@ -278,22 +278,36 @@ fun CharacterPersona.subtitleResId(): Int {
  * Per-learn-language noun conventions shared by the Pass 1 turn prompts and the Pass 2 card
  * extraction prompt.
  *
- * Languages with grammatical articles are taught as `article + noun` (`la taza`, `der Tisch`).
+ * Languages with gendered articles are taught as `article + noun` (`la taza`, `der Tisch`).
  * Languages without articles must be taught as the bare noun: asking the 2B model for an article in
  * Japanese or Hindi makes it attach a demonstrative instead (`このシャベル`, `यह बोतल`), which the card
- * then shows as the vocabulary word. Evaluated on en/es/fr/it/pt (articles) and ja/hi (bare).
+ * then shows as the vocabulary word. Evaluated on es/fr/it/pt (articles) and ja/hi (bare).
+ *
+ * English is taught as the bare noun too (`cup`, not `the cup`): its articles aren't gendered, so
+ * they teach nothing, and the gendered-article guidance (el/la, le/la, ...) made the model put the
+ * student's Spanish noun (`la taza`) in an English card's `word`.
  */
 internal object LearnLanguageNounForms {
-  private val ARTICLE_LESS_LANGUAGES =
-    setOf("japanese", "hindi", "korean", "chinese", "mandarin", "thai", "vietnamese", "russian")
+  private val BARE_NOUN_LANGUAGES =
+    setOf(
+      "english",
+      "japanese",
+      "hindi",
+      "korean",
+      "chinese",
+      "mandarin",
+      "thai",
+      "vietnamese",
+      "russian",
+    )
 
-  /** Whether [learnLangName] marks nouns with a standalone grammatical article. */
-  fun hasArticles(learnLangName: String): Boolean =
-    learnLangName.lowercase(Locale.ROOT) !in ARTICLE_LESS_LANGUAGES
+  /** Whether [learnLangName] nouns are taught with their grammatical article. */
+  fun teachesArticle(learnLangName: String): Boolean =
+    learnLangName.lowercase(Locale.ROOT) !in BARE_NOUN_LANGUAGES
 
   /** How the photo-only Pass 1 turn asks for the vocabulary term. */
   fun pass1TermForm(learnLangName: String): String =
-    if (hasArticles(learnLangName)) {
+    if (teachesArticle(learnLangName)) {
       "with its singular grammatical article (e.g. el/la, le/la, der/die/das, il/la, o/a)"
     } else {
       "as the bare noun on its own"
@@ -301,7 +315,7 @@ internal object LearnLanguageNounForms {
 
   /** How the question Pass 1 turn asks for the focal noun. */
   fun pass1NounForm(learnLangName: String): String =
-    if (hasArticles(learnLangName)) {
+    if (teachesArticle(learnLangName)) {
       "with its singular article (el/la, le/la, der/die/das, il/la, o/a)"
     } else {
       "on its own (the bare noun only)"
@@ -309,7 +323,7 @@ internal object LearnLanguageNounForms {
 
   /** The `word` rule of the Pass 2 card prompt, up to and excluding the carrier-phrase sentence. */
   fun pass2WordRule(learnLangName: String): String =
-    if (hasArticles(learnLangName)) {
+    if (teachesArticle(learnLangName)) {
       "The isolated focal $learnLangName noun taught in the reply, always written with its singular definite article (Spanish el/la, French le/la/l', German der/die/das, Italian il/lo/la/l', Portuguese o/a) whenever $learnLangName has gendered articles (convert indefinite articles like un/una/une/ein/uma to el/la/le/der/o/a)."
     } else {
       "The isolated focal $learnLangName noun taught in the reply, written as the bare noun only (e.g. \"シャベル\", not \"このシャベル\"; \"बोतल\", not \"यह बोतल\")."
@@ -323,7 +337,7 @@ internal object LearnLanguageNounForms {
   fun pass2ExampleContrast(learnLangName: String): String {
     val pair =
       when (learnLangName.lowercase(Locale.ROOT)) {
-        "english" -> "for \"the key\": \"This is the key.\", not \"What is this?\""
+        "english" -> "for \"key\": \"This is the key.\", not \"What is this?\""
         "spanish" -> "for \"la llave\": \"Esta es la llave.\", not \"¿Qué es esto?\""
         "french" -> "for \"le clavier\": \"Le clavier est cassé.\", not \"C'est cassé.\""
         "italian" -> "for \"la chiave\": \"Questa è la chiave.\", not \"Che cos'è questo?\""
