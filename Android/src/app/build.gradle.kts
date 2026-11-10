@@ -36,8 +36,8 @@ android {
     applicationId = "com.google.aiedge.gallery"
     minSdk = 31
     targetSdk = 37
-    versionCode = 52
-    versionName = "1.0.23"
+    versionCode = 53
+    versionName = "1.0.24"
 
     // Needed for HuggingFace auth workflows.
     // Use the scheme of the "Redirect URLs" in HuggingFace app.
