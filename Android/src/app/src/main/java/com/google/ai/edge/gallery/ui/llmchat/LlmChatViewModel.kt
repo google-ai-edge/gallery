@@ -238,7 +238,17 @@ open class LlmChatViewModelBase(
             systemInstruction = _uiSystemPrompt.value.ifEmpty { null },
             initialMessages = initialMessages,
           )
-        runtimeExecutor.resetSession(config = config)
+        try {
+          runtimeExecutor.resetSession(config = config)
+        } catch (e: CancellationException) {
+          throw e
+        } catch (e: Exception) {
+          Log.e(TAG, "Failed to reset session after stop: ${e.message}", e)
+          setInProgress(false)
+          setPreparing(false)
+          onError(e.message ?: "Failed to reset the conversation.")
+          return@launch
+        }
         if (initialMessages.isNotEmpty()) {
           // The stopped turn was never persisted, so persist the in-memory history first. Runs
           // before the loading message is added so that a compaction divider does not follow it.

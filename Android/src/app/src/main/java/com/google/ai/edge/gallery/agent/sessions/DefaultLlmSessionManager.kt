@@ -120,7 +120,7 @@ constructor(
         ensureModelInitialized(config.model, "createSession")
 
         try {
-          config.model.runtimeHelper.resetConversation(
+          config.model.runtimeHelper.resetConversationOrThrow(
             model = config.model,
             supportImage = config.supportImage,
             supportAudio = config.supportAudio,
@@ -155,7 +155,7 @@ constructor(
         ensureModelInitialized(config.model, "loadSession")
 
         try {
-          config.model.runtimeHelper.resetConversation(
+          config.model.runtimeHelper.resetConversationOrThrow(
             model = config.model,
             supportImage = config.supportImage,
             supportAudio = config.supportAudio,
@@ -189,7 +189,7 @@ constructor(
         ensureModelInitialized(config.model, "resetSession")
 
         try {
-          config.model.runtimeHelper.resetConversation(
+          config.model.runtimeHelper.resetConversationOrThrow(
             model = config.model,
             supportImage = config.supportImage,
             supportAudio = config.supportAudio,
@@ -207,11 +207,6 @@ constructor(
           config.copy(enableConversationConstrainedDecoding = enableConversationConstrainedDecoding)
       }
     }
-
-  override fun setSessionConfig(sessionId: String, config: SessionConfig) {
-    activeSessionIdRef.set(sessionId)
-    sessionConfigs[sessionId] = config
-  }
 
   override suspend fun listSessions(taskId: String?): List<ChatSessionProto> =
     withContext(ioDispatcher) {

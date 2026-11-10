@@ -21,7 +21,6 @@ import android.util.Log
 import com.google.ai.edge.gallery.agent.sessions.LlmSessionManager
 import com.google.ai.edge.gallery.agent.sessions.SessionConfig
 import com.google.ai.edge.gallery.agent.sessions.generateSessionId
-import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.runtime.runtimeHelper
 import com.google.ai.edge.gallery.skills.SkillsProvider
 import com.google.ai.edge.gallery.tools.ToolDispatcher
@@ -29,6 +28,7 @@ import com.google.ai.edge.gallery.tools.ToolExecutionContext
 import com.google.ai.edge.gallery.tools.ToolsProvider
 import com.google.ai.edge.litertlm.Contents
 import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.onFailure
@@ -103,38 +103,38 @@ open class DefaultAgentRuntimeExecutor(
       context = executionContext,
     )
 
-    val wasModelInitialized =
-      config.model.initStatusFlow.value is Model.InitializationStatus.Initialized
+    // Load the runtime without a conversation, then create the conversation exactly once through
+    // the session manager so that it owns the session config from the start.
+    val loadError =
+      config.model.runtimeHelper.loadModel(
+        context = context,
+        model = config.model,
+        taskId = config.taskId,
+        supportImage = config.supportImage,
+        supportAudio = config.supportAudio,
+        onProgress = onDone,
+      )
+    if (loadError != null) {
+      Log.e(TAG, "Failed to load model '${config.model.name}': $loadError")
+      onDone(loadError)
+      return
+    }
 
-    config.model.runtimeHelper.initialize(
-      context = context,
-      model = config.model,
-      taskId = config.taskId,
-      supportImage = config.supportImage,
-      supportAudio = config.supportAudio,
-      onDone = { error ->
-        if (
-          !wasModelInitialized &&
-            config.model.initStatusFlow.value is Model.InitializationStatus.Initialized
-        ) {
-          llmSessionManager.setSessionConfig(sessionId = effectiveSessionId, config = sessionConfig)
-        }
-        onDone(error)
-      },
-      systemInstruction = effectiveSystemInstruction,
-      tools = toolsProvider.getLiteRtToolProviders(),
-      enableConversationConstrainedDecoding = config.enableConversationConstrainedDecoding,
-      initialMessages = config.initialMessages,
-    )
-
-    if (wasModelInitialized) {
+    try {
       llmSessionManager.resetSession(
         sessionId = effectiveSessionId,
         config = sessionConfig,
         initialMessages = config.initialMessages,
         enableConversationConstrainedDecoding = config.enableConversationConstrainedDecoding,
       )
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to create the conversation for session $effectiveSessionId", e)
+      onDone(e.message ?: "Failed to create the conversation.")
+      return
     }
+    onDone("")
   }
 
   private fun ProducerScope<AgentEvent>.emitEvent(event: AgentEvent) {
