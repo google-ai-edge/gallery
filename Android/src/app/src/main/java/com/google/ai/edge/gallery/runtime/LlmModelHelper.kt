@@ -99,7 +99,40 @@ interface LlmModelHelper {
   )
 
   /**
-   * Resets the conversation context for the specified model.
+   * Loads the model's runtime (e.g. its inference engine) without creating a conversation.
+   *
+   * Unlike [initialize], this does not create a conversation, so callers that configure the
+   * conversation separately (e.g. through a session manager) create it exactly once by calling
+   * [resetConversationOrThrow] after a successful load. Callers must do so before running
+   * inference; whether inference works without it is runtime-specific and not part of this
+   * contract.
+   *
+   * Suspends until loading finishes. If the model is already loaded, reuses the loaded runtime and
+   * returns null immediately.
+   *
+   * @param context the application context.
+   * @param model the model to be loaded.
+   * @param taskId the task id where the model is being used.
+   * @param supportImage whether the runtime should be loaded with image input support.
+   * @param supportAudio whether the runtime should be loaded with audio input support.
+   * @param onProgress invoked with human-readable progress updates (e.g. download progress) while
+   *   the model is loading. Not invoked for the final result.
+   * @return null if the model loaded successfully, or an error message otherwise.
+   * @throws kotlinx.coroutines.CancellationException if loading is cancelled, either by the caller
+   *   or by [cleanUp].
+   */
+  suspend fun loadModel(
+    context: Context,
+    model: Model,
+    taskId: String,
+    supportImage: Boolean,
+    supportAudio: Boolean,
+    onProgress: (String) -> Unit = {},
+  ): String?
+
+  /**
+   * Resets the conversation context for the specified model, or creates it if the model was loaded
+   * with [loadModel] and has no conversation yet.
    *
    * @param model the model whose conversation context needs to be reset.
    * @param supportImage whether to preserve support for image input.
@@ -114,6 +147,27 @@ interface LlmModelHelper {
    *   it.
    */
   fun resetConversation(
+    model: Model,
+    supportImage: Boolean = false,
+    supportAudio: Boolean = false,
+    systemInstruction: Contents? = null,
+    tools: List<ToolProvider> = listOf(),
+    enableConversationConstrainedDecoding: Boolean = false,
+    initialMessages: List<Message> = listOf(),
+    enableResponseFormat: Boolean = false,
+  )
+
+  /**
+   * Like [resetConversation], but throws if the conversation cannot be created instead of leaving
+   * the model without a usable conversation.
+   *
+   * Use this when the caller must know whether the conversation exists, e.g. when creating the
+   * first conversation after [loadModel]. Takes the same parameters as [resetConversation].
+   *
+   * @throws IllegalStateException if [model] is not loaded.
+   * @throws Exception any error raised while creating the conversation.
+   */
+  fun resetConversationOrThrow(
     model: Model,
     supportImage: Boolean = false,
     supportAudio: Boolean = false,

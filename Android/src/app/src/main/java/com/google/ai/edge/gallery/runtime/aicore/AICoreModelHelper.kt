@@ -29,6 +29,9 @@ import com.google.ai.edge.gallery.data.DEFAULT_MAX_OUTPUT_TOKEN
 import com.google.ai.edge.gallery.data.DEFAULT_TEMPERATURE
 import com.google.ai.edge.gallery.data.DEFAULT_TOPK
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.markInitializationFailed
+import com.google.ai.edge.gallery.data.markInitializationStarted
+import com.google.ai.edge.gallery.data.markInitialized
 import com.google.ai.edge.gallery.runtime.CleanUpListener
 import com.google.ai.edge.gallery.runtime.EXTRA_CONTEXT_MAX_OUTPUT_TOKENS
 import com.google.ai.edge.gallery.runtime.EXTRA_CONTEXT_MULTI_TURN_VISION_SESSION
@@ -61,7 +64,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 private const val TAG = "AICoreModelHelper"
@@ -111,83 +118,168 @@ object AICoreModelHelper : LlmModelHelper {
     coroutineScope: CoroutineScope?,
     enableResponseFormat: Boolean,
   ) {
-    val generativeModel = generativeModelProvider(model)
     val scope = coroutineScope ?: CoroutineScope(defaultDispatcher + SupervisorJob())
-    val sysText = systemInstruction?.toString()?.takeIf { it.isNotBlank() }
-
+    val systemInstructionText = systemInstruction?.toString()?.takeIf { it.isNotBlank() }
     initJobs.remove(model.name)?.cancel()
-    val closed = AtomicBoolean(false)
-    val assignedToModelInstance = AtomicBoolean(false)
+    model.markInitializationStarted()
     val job = scope.launch {
+      try {
+        val result =
+          initializeModelInstance(
+            context = context,
+            model = model,
+            initialMessages = initialMessages,
+            systemInstructionText = systemInstructionText,
+            onProgress = onDone,
+          )
+        when (result) {
+          is InitResult.Success -> onDone(result.message)
+          is InitResult.Failure -> onDone(result.error)
+        }
+      } catch (e: CancellationException) {
+        Log.i(TAG, "Initialization was cancelled for model '${model.name}'.")
+        throw e
+      }
+    }
+    trackInitJob(model, job)
+  }
+
+  override suspend fun loadModel(
+    context: Context,
+    model: Model,
+    taskId: String,
+    supportImage: Boolean,
+    supportAudio: Boolean,
+    onProgress: (String) -> Unit,
+  ): String? {
+    if (model.instance is AICoreModelInstance) {
+      Log.d(TAG, "Model '${model.name}' already loaded in AICoreModelHelper. Skipping.")
+      model.markInitialized()
+      return null
+    }
+    initJobs.remove(model.name)?.cancel()
+    model.markInitializationStarted()
+    // Run as a tracked child so that cleanUp() can cancel an in-flight load. Cancellation then
+    // propagates to the caller as a CancellationException.
+    val result = coroutineScope {
+      val job =
+        async(defaultDispatcher) {
+          initializeModelInstance(
+            context = context,
+            model = model,
+            initialMessages = emptyList(),
+            systemInstructionText = null,
+            onProgress = onProgress,
+          )
+        }
+      trackInitJob(model, job)
+      job.await()
+    }
+    return when (result) {
+      is InitResult.Success -> null
+      is InitResult.Failure -> result.error
+    }
+  }
+
+  /** Final result of [initializeModelInstance]. */
+  private sealed interface InitResult {
+    /** [Model.instance] was set. [message] describes how it became available. */
+    data class Success(val message: String) : InitResult
+
+    data class Failure(val error: String) : InitResult
+  }
+
+  /** Registers [job] as the in-flight initialization of [model] so that [cleanUp] can cancel it. */
+  private fun trackInitJob(model: Model, job: Job) {
+    initJobs[model.name] = job
+    job.invokeOnCompletion { initJobs.remove(model.name, job) }
+  }
+
+  /**
+   * Checks AICore availability for [model], downloading it if needed, and sets [Model.instance] on
+   * success. The generative model is closed unless it ends up owned by [Model.instance], including
+   * when cancelled.
+   *
+   * @param onProgress invoked with download progress updates.
+   * @throws CancellationException if cancelled.
+   */
+  private suspend fun initializeModelInstance(
+    context: Context,
+    model: Model,
+    initialMessages: List<Message>,
+    systemInstructionText: String?,
+    onProgress: (String) -> Unit,
+  ): InitResult {
+    val generativeModel = generativeModelProvider(model)
+    var assignedToModelInstance = false
+    suspend fun assignModelInstance() {
+      generativeModel.warmup()
+      updateTokenLimit(model, generativeModel)
+      assignedToModelInstance = true
+      model.markInitialized(
+        createModelInstance(
+          generativeModel = generativeModel,
+          initialMessages = initialMessages,
+          systemInstructionText = systemInstructionText,
+        )
+      )
+    }
+
+    val result =
       try {
         val status = generativeModel.checkStatus()
         when (status) {
           FeatureStatus.AVAILABLE -> {
-            generativeModel.warmup()
-            updateTokenLimit(model, generativeModel)
-            assignedToModelInstance.set(true)
-            model.instance =
-              createModelInstance(
-                generativeModel = generativeModel,
-                initialMessages = initialMessages,
-                systemInstructionText = sysText,
-              )
-            onDone("Feature is available")
+            assignModelInstance()
+            InitResult.Success("Feature is available")
           }
           FeatureStatus.DOWNLOADABLE,
           FeatureStatus.DOWNLOADING -> {
-            generativeModel.download().collect { downloadStatus ->
-              when (downloadStatus) {
-                is DownloadStatus.DownloadStarted -> {
-                  onDone("Downloading (${downloadStatus.bytesToDownload} bytes)")
+            val finalStatus =
+              generativeModel
+                .download()
+                .onEach { downloadStatus ->
+                  when (downloadStatus) {
+                    is DownloadStatus.DownloadStarted ->
+                      onProgress("Downloading (${downloadStatus.bytesToDownload} bytes)")
+                    is DownloadStatus.DownloadProgress ->
+                      onProgress("Downloading (${downloadStatus.totalBytesDownloaded} bytes)")
+                    else -> {}
+                  }
                 }
-                is DownloadStatus.DownloadProgress -> {
-                  onDone("Downloading (${downloadStatus.totalBytesDownloaded} bytes)")
+                .firstOrNull {
+                  it is DownloadStatus.DownloadFailed || it is DownloadStatus.DownloadCompleted
                 }
-                is DownloadStatus.DownloadFailed -> {
-                  onDone("Download failed: ${downloadStatus.e.message}")
-                }
-                is DownloadStatus.DownloadCompleted -> {
-                  generativeModel.warmup()
-                  updateTokenLimit(model, generativeModel)
-                  assignedToModelInstance.set(true)
-                  model.instance =
-                    createModelInstance(
-                      generativeModel = generativeModel,
-                      initialMessages = initialMessages,
-                      systemInstructionText = sysText,
-                    )
-                  onDone("Download completed")
-                }
+            when (finalStatus) {
+              is DownloadStatus.DownloadCompleted -> {
+                assignModelInstance()
+                InitResult.Success("Download completed")
               }
+              is DownloadStatus.DownloadFailed ->
+                InitResult.Failure("Download failed: ${finalStatus.e.message}")
+              else -> InitResult.Failure("Download of '${model.name}' ended without completing.")
             }
           }
           FeatureStatus.UNAVAILABLE -> {
             logAICoreAccessDetails(context)
-            onDone("Feature is unavailable on this device.")
+            InitResult.Failure("Feature is unavailable on this device.")
           }
-          else -> {
-            onDone("Unknown feature status: $status")
-          }
+          else -> InitResult.Failure("Unknown feature status: $status")
         }
       } catch (e: CancellationException) {
-        Log.i(TAG, "Initialization was cancelled for model '${model.name}'.")
+        throw e
       } catch (e: Exception) {
         Log.e(TAG, "Initialization failed", e)
-        onDone(cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error"))
+        InitResult.Failure(cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error"))
       } finally {
-        if (!assignedToModelInstance.get() && closed.compareAndSet(false, true)) {
+        if (!assignedToModelInstance) {
           generativeModel.close()
         }
       }
+    if (result is InitResult.Failure) {
+      model.markInitializationFailed(result.error)
     }
-    initJobs[model.name] = job
-    job.invokeOnCompletion {
-      initJobs.remove(model.name, job)
-      if (!assignedToModelInstance.get() && closed.compareAndSet(false, true)) {
-        generativeModel.close()
-      }
-    }
+    return result
   }
 
   private fun createModelInstance(
@@ -299,8 +391,41 @@ object AICoreModelHelper : LlmModelHelper {
     // AICore does not support response formats, so this is ignored.
     enableResponseFormat: Boolean,
   ) {
+    if (model.instance !is AICoreModelInstance) {
+      return
+    }
+    try {
+      resetConversationOrThrow(
+        model = model,
+        supportImage = supportImage,
+        supportAudio = supportAudio,
+        systemInstruction = systemInstruction,
+        tools = tools,
+        enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+        initialMessages = initialMessages,
+        enableResponseFormat = enableResponseFormat,
+      )
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to reset conversation", e)
+    }
+  }
+
+  override fun resetConversationOrThrow(
+    model: Model,
+    supportImage: Boolean,
+    supportAudio: Boolean,
+    systemInstruction: Contents?,
+    tools: List<ToolProvider>,
+    enableConversationConstrainedDecoding: Boolean,
+    initialMessages: List<Message>,
+    // AICore does not support response formats, so this is ignored.
+    enableResponseFormat: Boolean,
+  ) {
     Log.d(TAG, "Resetting conversation for model '${model.name}'")
-    val instance = model.instance as? AICoreModelInstance ?: return
+    val instance =
+      checkNotNull(model.instance as? AICoreModelInstance) {
+        "Model '${model.name}' is not loaded."
+      }
     instance.inferenceJob?.cancel()
     instance.inferenceJob = null
     instance.activeSessionImage?.let { bitmap ->

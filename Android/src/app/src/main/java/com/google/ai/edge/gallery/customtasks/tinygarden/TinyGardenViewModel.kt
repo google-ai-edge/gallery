@@ -36,6 +36,7 @@ import com.google.ai.edge.litertlm.ToolProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -101,23 +102,28 @@ constructor(
       Log.d(TAG, "Start processing user instruction: '$instructionText'")
       setProcessing(processing = true)
 
-      // Wait until the conversation is NOT resetting.
-      Log.d(TAG, "Waiting for any ongoing conversation reset to be done...")
-      isResettingConversation.first { !it }
-      Log.d(TAG, "Done waiting. Start inference.")
-
-      val instance = model.instance as LlmModelInstance
-      val conversation = instance.conversation
-      val contents = mutableListOf<Content>()
-      if (instructionText.trim().isNotEmpty()) {
-        contents.add(Content.Text(instructionText))
-      }
-
       try {
+        // Wait until the conversation is NOT resetting.
+        Log.d(TAG, "Waiting for any ongoing conversation reset to be done...")
+        isResettingConversation.first { !it }
+        Log.d(TAG, "Done waiting. Start inference.")
+
+        val instance =
+          checkNotNull(model.instance as? LlmModelInstance) {
+            "Model '${model.name}' is not initialized."
+          }
+        val conversation = instance.requireConversation()
+        val contents = mutableListOf<Content>()
+        if (instructionText.trim().isNotEmpty()) {
+          contents.add(Content.Text(instructionText))
+        }
+
         val responseMessage = conversation.sendMessage(Contents.of(contents))
         val response = responseMessage.toString()
         Log.d(TAG, "Done processing user instruction. Response: $response")
         onDone(response)
+      } catch (e: CancellationException) {
+        throw e
       } catch (e: Exception) {
         Log.e(TAG, "Failed to run inference", e)
         onError(e.message ?: context.getString(R.string.unknown_error))

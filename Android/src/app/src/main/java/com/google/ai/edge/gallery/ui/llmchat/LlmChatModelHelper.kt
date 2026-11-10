@@ -66,6 +66,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.DisposableHandle
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val TAG = "AGLlmChatModelHelper"
 private const val EXTRA_CONTEXT_EPHEMERAL_INFERENCE = "aicore_ephemeral_inference"
@@ -75,7 +76,8 @@ private const val EXTRA_CONTEXT_EPHEMERAL_INFERENCE = "aicore_ephemeral_inferenc
  *
  * @param engine The underlying LiteRT-LM [Engine] managing model weights and hardware acceleration.
  * @param conversation The active [Conversation] session handling prompt history and token
- *   generation.
+ *   generation, or null when the engine is loaded but no conversation has been created yet (after
+ *   [LlmChatModelHelper.loadModel], or after a failed [LlmChatModelHelper.resetConversation]).
  * @param metricsTracker Optional [MetricsTracker] collecting per-turn latency, throughput, memory,
  *   and battery telemetry. Null when the instance is handed in from an external cache (e.g. a
  *   shared agent conversation manager), because the engine initialization for that path runs
@@ -84,16 +86,24 @@ private const val EXTRA_CONTEXT_EPHEMERAL_INFERENCE = "aicore_ephemeral_inferenc
  */
 data class LlmModelInstance(
   val engine: Engine,
-  var conversation: Conversation,
+  var conversation: Conversation?,
   val metricsTracker: MetricsTracker? = null,
 ) : LlmConversationInstance {
   val activeEphemeralConversations: MutableSet<Conversation> =
     Collections.synchronizedSet(mutableSetOf())
 
-  override fun getTokenCount(): Int = conversation.getTokenCount()
+  /**
+   * Returns the active [conversation].
+   *
+   * @throws IllegalStateException if no conversation has been created yet.
+   */
+  fun requireConversation(): Conversation =
+    checkNotNull(conversation) { "No active conversation. Call resetConversation() first." }
+
+  override fun getTokenCount(): Int = conversation?.getTokenCount() ?: 0
 
   override fun sendMessage(prompt: String, maxOutputTokens: Int?): Message =
-    conversation.sendMessage(prompt, maxOutputToken = maxOutputTokens)
+    requireConversation().sendMessage(prompt, maxOutputToken = maxOutputTokens)
 }
 
 object LlmChatModelHelper : LlmModelHelper {
@@ -103,7 +113,6 @@ object LlmChatModelHelper : LlmModelHelper {
   @Suppress("GlobalCoroutineDispatchers", "AndroidLintDispatcherUsage")
   internal var ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 
-  @OptIn(ExperimentalApi::class) // opt-in experimental flags
   override fun initialize(
     context: Context,
     model: Model,
@@ -124,6 +133,68 @@ object LlmChatModelHelper : LlmModelHelper {
       onDone("")
       return
     }
+    val error =
+      loadEngine(
+        context = context,
+        model = model,
+        taskId = taskId,
+        supportImage = supportImage,
+        supportAudio = supportAudio,
+      ) { engine ->
+        createConversation(
+          engine = engine,
+          model = model,
+          systemInstruction = systemInstruction,
+          tools = tools,
+          enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+          initialMessages = initialMessages,
+          enableResponseFormat = enableResponseFormat,
+        )
+      }
+    onDone(error ?: "")
+  }
+
+  override suspend fun loadModel(
+    context: Context,
+    model: Model,
+    taskId: String,
+    supportImage: Boolean,
+    supportAudio: Boolean,
+    onProgress: (String) -> Unit,
+  ): String? =
+    withContext(ioDispatcher) {
+      if (model.instance != null) {
+        Log.d(TAG, "Model '${model.name}' already loaded in LlmChatModelHelper. Skipping.")
+        model.markInitialized()
+        return@withContext null
+      }
+      loadEngine(
+        context = context,
+        model = model,
+        taskId = taskId,
+        supportImage = supportImage,
+        supportAudio = supportAudio,
+        createInitialConversation = null,
+      )
+    }
+
+  /**
+   * Creates and initializes the LiteRT-LM engine for [model], then marks the model initialized with
+   * a new [LlmModelInstance].
+   *
+   * @param createInitialConversation creates the conversation stored on the new instance, or null
+   *   to load the engine without a conversation.
+   * @return null if the engine loaded successfully, or an error message otherwise.
+   */
+  @OptIn(ExperimentalApi::class) // opt-in experimental flags
+  private fun loadEngine(
+    context: Context,
+    model: Model,
+    taskId: String,
+    supportImage: Boolean,
+    supportAudio: Boolean,
+    createInitialConversation: ((Engine) -> Conversation)?,
+  ): String? {
     model.markInitializationStarted()
     // Prepare options.
     val maxTokens =
@@ -208,15 +279,7 @@ object LlmChatModelHelper : LlmModelHelper {
 
       val conversation =
         try {
-          createConversation(
-            engine = engine,
-            model = model,
-            systemInstruction = systemInstruction,
-            tools = tools,
-            enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
-            initialMessages = initialMessages,
-            enableResponseFormat = enableResponseFormat,
-          )
+          createInitialConversation?.invoke(engine)
         } catch (e: Exception) {
           try {
             engine.close()
@@ -234,11 +297,10 @@ object LlmChatModelHelper : LlmModelHelper {
       val errorMsg = cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error")
       model.markInitializationFailed(errorMsg)
       metricsTracker.onModelInitialized()
-      onDone(errorMsg)
-      return
+      return errorMsg
     }
     metricsTracker.onModelInitialized()
-    onDone("")
+    return null
   }
 
   override fun resetConversation(
@@ -251,40 +313,64 @@ object LlmChatModelHelper : LlmModelHelper {
     initialMessages: List<Message>,
     enableResponseFormat: Boolean,
   ) {
-    try {
-      Log.d(TAG, "Resetting conversation for model '${model.name}'")
-
-      val instance = model.instance as LlmModelInstance? ?: return
-      try {
-        instance.conversation.close()
-      } catch (e: Exception) {
-        Log.w(TAG, "Failed to close previous conversation: ${e.message}", e)
-      }
-      val shouldEnableImage = supportImage
-      val shouldEnableAudio = supportAudio
-      Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
-      Log.d(TAG, "Enable response format: $enableResponseFormat")
-
-      val newConversation =
-        createConversation(
-          engine = instance.engine,
-          model = model,
-          systemInstruction = systemInstruction,
-          tools = tools,
-          enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
-          initialMessages = initialMessages,
-          enableResponseFormat = enableResponseFormat,
-        )
-      instance.conversation = newConversation
-      // The replacement conversation starts on an empty KV cache, so per-session token accounting
-      // and sensor histories are rewound to match. This also clears a turn left active by closing
-      // the old conversation mid-flight.
-      instance.metricsTracker?.resetSession()
-
-      Log.d(TAG, "Resetting done")
-    } catch (e: Exception) {
-      Log.d(TAG, "Failed to reset conversation", e)
+    if (model.instance == null) {
+      return
     }
+    try {
+      resetConversationOrThrow(
+        model = model,
+        supportImage = supportImage,
+        supportAudio = supportAudio,
+        systemInstruction = systemInstruction,
+        tools = tools,
+        enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+        initialMessages = initialMessages,
+        enableResponseFormat = enableResponseFormat,
+      )
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to reset conversation", e)
+    }
+  }
+
+  override fun resetConversationOrThrow(
+    model: Model,
+    supportImage: Boolean,
+    supportAudio: Boolean,
+    systemInstruction: Contents?,
+    tools: List<ToolProvider>,
+    enableConversationConstrainedDecoding: Boolean,
+    initialMessages: List<Message>,
+    enableResponseFormat: Boolean,
+  ) {
+    Log.d(TAG, "Resetting conversation for model '${model.name}'")
+    val instance =
+      checkNotNull(model.instance as? LlmModelInstance) { "Model '${model.name}' is not loaded." }
+    try {
+      instance.conversation?.close()
+    } catch (e: Exception) {
+      Log.w(TAG, "Failed to close previous conversation: ${e.message}", e)
+    }
+    // Drop the closed conversation so that a failure below leaves no conversation rather than a
+    // closed one.
+    instance.conversation = null
+    Log.d(TAG, "Enable image: $supportImage, enable audio: $supportAudio")
+    Log.d(TAG, "Enable response format: $enableResponseFormat")
+
+    instance.conversation =
+      createConversation(
+        engine = instance.engine,
+        model = model,
+        systemInstruction = systemInstruction,
+        tools = tools,
+        enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+        initialMessages = initialMessages,
+        enableResponseFormat = enableResponseFormat,
+      )
+    // The replacement conversation starts on an empty KV cache, so per-session token accounting
+    // and sensor histories are rewound to match. This also clears a turn left active by closing
+    // the old conversation mid-flight.
+    instance.metricsTracker?.resetSession()
+    Log.d(TAG, "Resetting done")
   }
 
   @OptIn(ExperimentalApi::class) // opt-in experimental flags
@@ -351,7 +437,7 @@ object LlmChatModelHelper : LlmModelHelper {
     }
 
     try {
-      instance.conversation.close()
+      instance.conversation?.close()
     } catch (e: Exception) {
       Log.e(TAG, "Failed to close the conversation: ${e.message}")
     }
@@ -382,7 +468,7 @@ object LlmChatModelHelper : LlmModelHelper {
       // `TimeDecodeTurnEnd()` in `BenchmarkInfo` and then invoke
       // `MessageCallback.onError(CancellationException)`, which calls `metricsTracker.cancelTurn()`
       // at the exact point when engine benchmark and KV-cache token counts are ready.
-      instance.conversation.cancelProcess()
+      instance.conversation?.cancelProcess()
     } catch (e: Exception) {
       Log.w(TAG, "Failed to cancel conversation process", e)
       val unused = instance.metricsTracker?.cancelTurn()
@@ -447,6 +533,10 @@ object LlmChatModelHelper : LlmModelHelper {
         )
       } else {
         instance.conversation
+          ?: run {
+            onError("No active conversation. Reset the conversation before running inference.")
+            return
+          }
       }
 
     val ephemeralClosed = AtomicBoolean(false)

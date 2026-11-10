@@ -46,6 +46,8 @@ import java.nio.charset.StandardCharsets
 import java.time.LocalDateTime
 import java.time.ZoneId
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -70,9 +72,15 @@ data class MobileActionsUiState(
 )
 
 @HiltViewModel
-class MobileActionsViewModel
-@Inject
-constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
+class MobileActionsViewModel(
+  private val appContext: Context,
+  private val defaultDispatcher: CoroutineDispatcher,
+) : ViewModel() {
+  @Inject
+  constructor(
+    @ApplicationContext appContext: Context
+  ) : this(appContext = appContext, defaultDispatcher = Dispatchers.Default)
+
   protected val _uiState = MutableStateFlow(MobileActionsUiState())
   val uiState = _uiState.asStateFlow()
 
@@ -149,7 +157,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
       return
     }
 
-    viewModelScope.launch(Dispatchers.Default) {
+    viewModelScope.launch(defaultDispatcher) {
       Log.d(TAG, "Start processing user prompt: $userPrompt")
       setProcessing(processing = true)
       setShowWelcomeMessage(showWelcomeMessage = false)
@@ -163,24 +171,38 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
       // Set user prompt.
       setUserPrompt(prompt = userPrompt)
 
-      // Wait until the conversation is NOT resetting.
-      Log.d(TAG, "Waiting for any ongoing conversation reset to be done...")
-      isResettingConversation.first { !it }
-      Log.d(TAG, "Done waiting. Start inference.")
+      val responseFlow =
+        try {
+          // Wait until the conversation is NOT resetting.
+          Log.d(TAG, "Waiting for any ongoing conversation reset to be done...")
+          isResettingConversation.first { !it }
+          Log.d(TAG, "Done waiting. Start inference.")
+
+          val instance =
+            checkNotNull(model.instance as? LlmModelInstance) {
+              "Model '${model.name}' is not initialized."
+            }
+          val conversation = instance.requireConversation()
+          val contents = mutableListOf<Content>()
+          if (userPrompt.trim().isNotEmpty()) {
+            contents.add(Content.Text(userPrompt))
+          }
+          conversation.sendMessageAsync(Contents.of(contents))
+        } catch (e: CancellationException) {
+          setProcessing(processing = false)
+          throw e
+        } catch (e: Exception) {
+          Log.e(TAG, "Failed to run inference", e)
+          setProcessing(processing = false)
+          onError(e.message ?: appContext.getString(R.string.unknown_error))
+          return@launch
+        }
 
       // Run inference.
-      val instance = model.instance as LlmModelInstance
-      val conversation = instance.conversation
-      val contents = mutableListOf<Content>()
-      if (userPrompt.trim().isNotEmpty()) {
-        contents.add(Content.Text(userPrompt))
-      }
-
-      conversation
-        .sendMessageAsync(Contents.of(contents))
+      responseFlow
         .catch {
           Log.e(TAG, "Failed to run inference", it)
-          onError(it.message ?: "Unknown error")
+          onError(it.message ?: appContext.getString(R.string.unknown_error))
         }
         .onCompletion {
           setProcessing(processing = false)
@@ -215,7 +237,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
   ) {
     reset()
 
-    viewModelScope.launch(Dispatchers.Default) {
+    viewModelScope.launch(defaultDispatcher) {
       model.resetInitialization()
       LlmChatModelHelper.cleanUp(
         model = model,
