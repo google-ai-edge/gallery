@@ -165,7 +165,7 @@ data class Model(
   //
   var normalizedName: String = "",
   // TODO(jingjin): use a "queue" system to manage model init and cleanup.
-  var cleanUpAfterInit: Boolean = false,
+  @Volatile var cleanUpAfterInit: Boolean = false,
   var configValues: Map<String, Any> = mapOf(),
   var prevConfigValues: Map<String, Any> = mapOf(),
 ) {
