@@ -190,7 +190,7 @@ data class AllowedModel(
     var acceleratorsStr = defaultConfig?.accelerators
 
     if (isPixelDevice()) {
-      finalDescription = description.replace(Regex("\\bNPU\\b"), "TPU")
+      finalDescription = finalDescription.replace(Regex("\\bNPU\\b"), "TPU")
       acceleratorsStr = acceleratorsStr?.replace(Regex("\\bnpu\\b"), "tpu")
     }
 
@@ -318,6 +318,7 @@ data class AllowedModel(
       } else {
         null
       }
+    val resolvedBestForTaskIds = bestForTaskTypes ?: emptyList()
     return Model(
       name = name,
       modelId = modelId,
@@ -345,7 +346,7 @@ data class AllowedModel(
       supportAudio = llmSupportAudio == true,
       capabilities = capabilities ?: emptyList(),
       capabilityToTaskTypes = capabilityToTaskTypes ?: emptyMap(),
-      bestForTaskIds = bestForTaskTypes ?: listOf(),
+      bestForTaskIds = resolvedBestForTaskIds,
       metadata = metadata ?: ModelMetadata(),
     )
   }

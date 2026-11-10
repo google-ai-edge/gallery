@@ -413,8 +413,11 @@ fun TaskConfigDialog(
       }
     }
   val dialogInitialValues =
-    remember(currentConfigValues, task, model, isAutoCompactEnabled) {
+    remember(currentConfigValues, modelConfigs, task, model, isAutoCompactEnabled) {
       currentConfigValues.toMutableMap().apply {
+        for (config in modelConfigs) {
+          putIfAbsent(config.key.label, config.defaultValue)
+        }
         if (task.isContextCompactSupported(model)) {
           put(ConfigKeys.ENABLE_AUTO_CONTEXT_COMPACT.label, isAutoCompactEnabled)
         }
@@ -446,12 +449,12 @@ fun TaskConfigDialog(
         val key = config.key.label
         val oldValue =
           convertValueToTargetType(
-            value = dialogInitialValues.getValue(key),
+            value = dialogInitialValues[key] ?: config.defaultValue,
             valueType = config.valueType,
           )
         val newValue =
           convertValueToTargetType(
-            value = curConfigValues.getValue(key),
+            value = curConfigValues[key] ?: config.defaultValue,
             valueType = config.valueType,
           )
         if (oldValue != newValue) {

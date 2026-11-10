@@ -1512,11 +1512,10 @@ constructor(
           initializedBackends.getOrPut(model.name) { ConcurrentHashMap.newKeySet() }.add(backend)
 
           if (model.cleanUpAfterInit) {
-            model.markInitializationFailed(
-              IllegalStateException("Model cleaned up after initialization")
-            )
             Log.d(TAG, "Model '${model.name}' needs cleaning up after init.")
             cleanupModel(context = context, task = task, model = model)
+            model.cleanUpAfterInit = false
+            model.resetInitialization()
           } else {
             model.markInitialized()
           }
