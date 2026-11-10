@@ -24,8 +24,14 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -64,7 +70,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -116,6 +122,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
@@ -145,6 +152,8 @@ import com.google.ai.edge.gallery.proto.VideoClip
 import com.google.ai.edge.gallery.proto.VideoMomentProject
 import com.google.ai.edge.gallery.proto.copy
 import com.google.ai.edge.gallery.ui.common.SMALL_BUTTON_CONTENT_PADDING
+import com.google.ai.edge.gallery.ui.theme.inversePrimaryLight
+import com.google.ai.edge.gallery.ui.theme.primaryContainerLight
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -154,8 +163,13 @@ import kotlinx.coroutines.withContext
 /** How often the progress scrubber is refreshed while the video is actually playing. */
 private const val PROGRESS_POLL_INTERVAL_MS = 50L
 
-private val PORTRAIT_PREVIEW_DEFAULT_HEIGHT = 150.dp
-private val LANDSCAPE_PREVIEW_DEFAULT_HEIGHT = 90.dp
+// ~10% smaller than the original 150dp / 90dp so more results fit on screen.
+private val PORTRAIT_PREVIEW_DEFAULT_HEIGHT = 135.dp
+private val LANDSCAPE_PREVIEW_DEFAULT_HEIGHT = 81.dp
+private val RESULT_THUMBNAIL_SHAPE = RoundedCornerShape(12.dp)
+
+/** Black overlay strength while a video is analyzed, leaving the video at ~70% brightness. */
+private const val ANALYZING_VIDEO_DIM_ALPHA = 0.3f
 
 /**
  * The floating panel shown above the video.
@@ -477,8 +491,15 @@ fun ProjectDetailsScreen(
         }
       }
 
-      // Space below the top bar containing the video player and overlays
-      Box(modifier = Modifier.fillMaxWidth().weight(1f).background(Color.Black)) {
+      // Space below the top bar containing the video player and overlays. A tap that no control
+      // handles (on the video or empty overlay space) clears the selected result: clickable
+      // children consume their taps, so this only sees taps outside them.
+      Box(
+        modifier =
+          Modifier.fillMaxWidth().weight(1f).background(Color.Black).pointerInput(Unit) {
+            detectTapGestures { viewModel.clearSelectedResult() }
+          }
+      ) {
         // Full screen video container filling the space below the top bar
         AndroidView(
           factory = { ctx ->
@@ -488,6 +509,20 @@ fun ProjectDetailsScreen(
             }
           },
           modifier = Modifier.fillMaxSize(),
+        )
+
+        // Dims the video to ~70% while it is analyzed, so the Analyzing card stands out. Only the
+        // overlay's alpha animates, which just redraws this box.
+        val analyzingDimAlpha by
+          animateFloatAsState(
+            targetValue = if (panel == ProjectPanel.PROCESSING) ANALYZING_VIDEO_DIM_ALPHA else 0f,
+            label = "analyzing video dim",
+          )
+        Box(
+          modifier =
+            Modifier.fillMaxSize().drawBehind {
+              drawRect(Color.Black.copy(alpha = analyzingDimAlpha))
+            }
         )
 
         // Top floating panel that switches between the processing progress indicator
@@ -585,24 +620,70 @@ fun ProjectDetailsScreen(
   }
 }
 
-/** Floating card shown while the project is being indexed. */
+/** Floating card shown while the project is being indexed, with a soft pulsing blue glow. */
 @Composable
 private fun ProcessingPanel(progress: Float) {
-  PanelCard(borderColor = MaterialTheme.colorScheme.primary) {
-    Text(
-      text = stringResource(R.string.videomomentfinder_analyzing_video),
-      style = MaterialTheme.typography.labelLarge,
-      color = MaterialTheme.colorScheme.onSurface,
+  // The glow's strength is read only inside drawBehind, so each pulse frame just redraws this
+  // box: no recomposition or relayout.
+  val pulse = rememberInfiniteTransition(label = "analyzing glow")
+  val glowAlpha =
+    pulse.animateFloat(
+      initialValue = 0.25f,
+      targetValue = 0.6f,
+      animationSpec =
+        infiniteRepeatable(
+          animation = tween(durationMillis = 1600),
+          repeatMode = RepeatMode.Reverse,
+        ),
+      label = "analyzing glow alpha",
     )
+  Box(
+    modifier =
+      Modifier.padding(bottom = 16.dp).drawBehind {
+        // A radial gradient squashed to the box's shape, centered on the card. The card covers
+        // the middle, so only the soft halo around its edges shows.
+        val radius = size.width / 2f
+        scale(scaleX = 1f, scaleY = size.height / size.width, pivot = center) {
+          drawCircle(
+            brush =
+              Brush.radialGradient(
+                0f to inversePrimaryLight.copy(alpha = glowAlpha.value),
+                0.8f to inversePrimaryLight.copy(alpha = glowAlpha.value),
+                1f to Color.Transparent,
+                center = center,
+                radius = radius,
+              ),
+            radius = radius,
+            center = center,
+          )
+        }
+      }
+  ) {
+    PanelCard(borderColor = MaterialTheme.colorScheme.primary) {
+      Text(
+        text = stringResource(R.string.videomomentfinder_analyzing_video),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurface,
+      )
 
-    Text(
-      text = stringResource(R.string.videomomentfinder_analyzing_description),
-      style = MaterialTheme.typography.bodySmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-      textAlign = TextAlign.Center,
-    )
+      Text(
+        text = stringResource(R.string.videomomentfinder_analyzing_description_v2),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+      )
 
-    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+      LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+
+      // Analysis runs in the view model, not in a background service, so it stops if the app is
+      // closed and starts over the next time the video is opened.
+      Text(
+        text = stringResource(R.string.videomomentfinder_analyzing_keep_open),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+      )
+    }
   }
 }
 
@@ -644,13 +725,13 @@ private fun AnalysisFailedPanel(onRetryClick: () -> Unit) {
 @Composable
 private fun PanelCard(borderColor: Color, content: @Composable ColumnScope.() -> Unit) {
   Surface(
-    shape = RoundedCornerShape(8.dp),
+    shape = RoundedCornerShape(16.dp),
     color = MaterialTheme.colorScheme.surface,
     border = BorderStroke(2.dp, borderColor),
     modifier = Modifier.padding(top = 16.dp).padding(horizontal = 16.dp).fillMaxWidth(),
   ) {
     Column(
-      modifier = Modifier.padding(horizontal = 8.dp, vertical = 16.dp),
+      modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.spacedBy(8.dp),
       content = content,
@@ -670,18 +751,20 @@ private fun MomentSearchPanel(
   onSaveOrEditClipClick: () -> Unit,
 ) {
   val focusManager = LocalFocusManager.current
+  val showResultsScrim = uiState.searchResults.isNotEmpty() || uiState.hasPerformedSearch
   Box(
     modifier =
       Modifier.fillMaxWidth()
         .then(
-          if (
-            uiState.searchResults.isNotEmpty() ||
-              (uiState.hasPerformedSearch && !uiState.isSearching)
-          ) {
+          if (showResultsScrim) {
+            // Holds a steady dark tone behind the chips, helper text and thumbnails, then fades
+            // out in the extra space below them, so text stays legible over bright video.
             Modifier.background(
               brush =
                 Brush.verticalGradient(
-                  colors = listOf(Color.Black.copy(alpha = 0.9f), Color.Transparent)
+                  0f to Color.Black.copy(alpha = 0.85f),
+                  0.75f to Color.Black.copy(alpha = 0.7f),
+                  1f to Color.Transparent,
                 )
             )
           } else {
@@ -736,6 +819,7 @@ private fun MomentSearchPanel(
     }
 
     if (showTopKSheet) {
+      // Ranking mode lives only in the chip above the results, so this sheet keeps to top-K.
       TopKBottomSheet(
         initialTopK = project.topK.takeIf { it > 0 } ?: DEFAULT_TOP_K,
         onDismiss = { showTopKSheet = false },
@@ -756,7 +840,12 @@ private fun MomentSearchPanel(
       )
     }
 
-    Column(modifier = Modifier.padding(top = 16.dp).fillMaxWidth()) {
+    // When the scrim shows, extra space below the results gives the gradient room to fade out
+    // past the thumbnails instead of ending right at them.
+    Column(
+      modifier =
+        Modifier.padding(top = 16.dp, bottom = if (showResultsScrim) 48.dp else 0.dp).fillMaxWidth()
+    ) {
       // A search view consisting of an outlined text field for users to submit text queries
       // and a config button to tune processing parameters.
       val primaryContainerColor = MaterialTheme.colorScheme.primaryContainer
@@ -862,37 +951,31 @@ private fun MomentSearchPanel(
         }
       }
 
-      if (uiState.searchResults.isNotEmpty()) {
-        // The whole label is the tap target rather than just the number: keeping it as one
-        // translatable sentence lets other languages reorder it freely.
-        AssistChip(
-          onClick = {
-            logButtonClick("videomomentfinder_open_top_k_sheet")
-            showTopKSheet = true
-          },
-          label = {
-            val topK = project.topK.takeIf { it > 0 } ?: DEFAULT_TOP_K
-            Text(
-              text =
-                pluralStringResource(R.plurals.videomomentfinder_showing_top_results, topK, topK)
-            )
-          },
-          trailingIcon = {
-            Icon(
-              imageVector = Icons.Rounded.Tune,
-              contentDescription = null,
-              modifier = Modifier.size(AssistChipDefaults.IconSize),
-            )
-          },
-          colors =
-            AssistChipDefaults.assistChipColors(
-              labelColor = Color.White,
-              trailingIconContentColor = Color.White,
-            ),
-          border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)),
-          modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 12.dp),
-        )
+      // Kept visible while a re-rank is in flight so the ranking chip does not jump away
+      // mid-switch.
+      val showChipRow =
+        uiState.searchResults.isNotEmpty() || (uiState.isSearching && uiState.hasPerformedSearch)
+      if (showChipRow) {
+        val topK = project.topK.takeIf { it > 0 } ?: DEFAULT_TOP_K
+        // Chips carry an invisible 8dp touch margin above and below, so 8dp of padding reads as
+        // ~16dp of visual space to the search bar and to the thumbnails.
+        Row(
+          modifier =
+            Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          TopKChip(
+            label = pluralStringResource(R.plurals.videomomentfinder_top_results_short, topK, topK),
+            onClick = {
+              logButtonClick("videomomentfinder_open_top_k_sheet")
+              showTopKSheet = true
+            },
+          )
+        }
+      }
 
+      if (uiState.searchResults.isNotEmpty()) {
         // Renders the horizontal scrollable thumbnail list of moments found by the search
         // model.
         // Thumbnails size dynamically to maintain intrinsic aspect ratio for a fixed height.
@@ -935,7 +1018,7 @@ private fun MomentSearchPanel(
           contentPadding = PaddingValues(horizontal = 12.dp),
           horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-          items(uiState.searchResults, key = { it.id }) { result ->
+          itemsIndexed(uiState.searchResults, key = { _, result -> result.id }) { _, result ->
             val animatable = itemScales[result.id]
 
             // Cached so that recompositions (e.g. when the selection border changes) do not
@@ -956,15 +1039,14 @@ private fun MomentSearchPanel(
                     scaleY = scale
                     alpha = scale.coerceIn(0f, 1f)
                   }
-                  .clip(RoundedCornerShape(8.dp))
+                  .clip(RESULT_THUMBNAIL_SHAPE)
                   .border(
                     if (uiState.selectedResultId == result.id) 4.dp else 2.dp,
-                    if (uiState.selectedResultId == result.id) {
-                      MaterialTheme.colorScheme.primary
-                    } else {
-                      Color.White
-                    },
-                    RoundedCornerShape(8.dp),
+                    // Fixed light-palette blue rather than a theme role: the thumbnails always sit
+                    // over dark video, so the highlight must read as light blue in both themes.
+                    if (uiState.selectedResultId == result.id) primaryContainerLight
+                    else Color.White,
+                    RESULT_THUMBNAIL_SHAPE,
                   )
                   .clickable {
                     logButtonClick("videomomentfinder_select_search_result")
@@ -993,15 +1075,20 @@ private fun MomentSearchPanel(
                       .padding(top = 4.dp, bottom = 16.dp),
                   contentAlignment = Alignment.Center,
                 ) {
-                  Text(
-                    text =
-                      stringResource(
-                        R.string.videomomentfinder_similarity_score_format,
-                        result.similarityScore,
-                      ),
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = Color.White,
-                  )
+                  Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                  ) {
+                    Text(
+                      text =
+                        stringResource(
+                          R.string.videomomentfinder_similarity_score_format,
+                          result.similarityScore,
+                        ),
+                      style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                      color = Color.White,
+                    )
+                  }
                 }
               }
 
@@ -1075,6 +1162,28 @@ private fun MomentSearchPanel(
       }
     }
   }
+}
+
+/** Outlined "Top N ⚙" chip that opens the results-count sheet. */
+@Composable
+private fun TopKChip(label: String, onClick: () -> Unit) {
+  AssistChip(
+    onClick = onClick,
+    label = { Text(text = label) },
+    trailingIcon = {
+      Icon(
+        imageVector = Icons.Rounded.Tune,
+        contentDescription = null,
+        modifier = Modifier.size(AssistChipDefaults.IconSize),
+      )
+    },
+    colors =
+      AssistChipDefaults.assistChipColors(
+        labelColor = Color.White,
+        trailingIconContentColor = Color.White,
+      ),
+    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)),
+  )
 }
 
 @Composable

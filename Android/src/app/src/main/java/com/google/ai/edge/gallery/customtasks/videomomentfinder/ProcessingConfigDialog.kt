@@ -16,15 +16,24 @@
 
 package com.google.ai.edge.gallery.customtasks.videomomentfinder
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
@@ -39,7 +48,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.common.logButtonClick
 import com.google.ai.edge.gallery.ui.common.SMALL_BUTTON_CONTENT_PADDING
@@ -62,6 +73,7 @@ private const val MIN_OVERLAP_DURATION_SEC = 0
  */
 private enum class ProcessingPreset(
   val labelResId: Int,
+  val helperResId: Int,
   val windowDurationSec: Int,
   val framesPerWindow: Int,
   val overlapDurationSec: Int,
@@ -69,6 +81,7 @@ private enum class ProcessingPreset(
 ) {
   OBJECT(
     labelResId = R.string.videomomentfinder_config_preset_object,
+    helperResId = R.string.videomomentfinder_config_preset_object_helper,
     windowDurationSec = 2,
     framesPerWindow = 2,
     overlapDurationSec = 0,
@@ -76,6 +89,7 @@ private enum class ProcessingPreset(
   ),
   ACTION(
     labelResId = R.string.videomomentfinder_config_preset_action,
+    helperResId = R.string.videomomentfinder_config_preset_action_helper,
     windowDurationSec = 4,
     framesPerWindow = 4,
     overlapDurationSec = 0,
@@ -83,11 +97,21 @@ private enum class ProcessingPreset(
   ),
   SPEECH(
     labelResId = R.string.videomomentfinder_config_preset_speech,
+    helperResId = R.string.videomomentfinder_config_preset_speech_helper,
     windowDurationSec = 6,
     framesPerWindow = 6,
     overlapDurationSec = 0,
     includeAudio = true,
-  ),
+  );
+
+  /**
+   * Whether the sliders currently hold this preset's values. The sound track is left out because it
+   * has its own checkbox right below, and the default turns it on for every preset.
+   */
+  fun matches(windowDurationSec: Int, framesPerWindow: Int, overlapDurationSec: Int): Boolean =
+    windowDurationSec == this.windowDurationSec &&
+      framesPerWindow == this.framesPerWindow &&
+      overlapDurationSec == this.overlapDurationSec
 }
 
 /**
@@ -107,6 +131,7 @@ fun ProcessingConfigDialog(
   initialOverlapDurationSec: Int = DEFAULT_OVERLAP_DURATION_SEC,
   initialIncludeAudio: Boolean = DEFAULT_INCLUDE_AUDIO,
   supportsAudio: Boolean = false,
+  showIntro: Boolean = true,
   confirmLabelResId: Int = R.string.videomomentfinder_config_apply,
   confirmEnabledWhenUnchanged: Boolean = false,
   onDismiss: () -> Unit,
@@ -115,6 +140,10 @@ fun ProcessingConfigDialog(
       framesPerWindow: Int, windowDurationSec: Int, overlapDurationSec: Int, includeAudio: Boolean,
     ) -> Unit,
 ) {
+  // The intro paragraph is only for first-timers: once the user has confirmed this dialog, it is
+  // hidden for good. Read once per opening so it does not vanish while the dialog is showing.
+  val showIntroOnOpen = remember { showIntro }
+
   // Resolve initial values with fallbacks to defaults if unconfigured, clamped to the same ranges
   // the sliders below enforce.
   val effectiveInitialWindowDuration =
@@ -159,44 +188,83 @@ fun ProcessingConfigDialog(
 
   AlertDialog(
     onDismissRequest = onDismiss,
-    title = { Text(stringResource(R.string.videomomentfinder_config_adjust_title)) },
+    // Sized by hand so the dialog keeps 24dp from the screen edges on phones.
+    properties = DialogProperties(usePlatformDefaultWidth = false),
+    modifier = Modifier.padding(horizontal = 24.dp),
+    title = {
+      Text(
+        stringResource(
+          if (confirmEnabledWhenUnchanged) {
+            R.string.videomomentfinder_config_setup_title
+          } else {
+            R.string.videomomentfinder_config_adjust_title
+          }
+        )
+      )
+    },
     text = {
       Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
       ) {
-        Text(
-          text = stringResource(R.string.videomomentfinder_config_adjust_description),
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (showIntroOnOpen) {
+          Text(
+            text = stringResource(R.string.videomomentfinder_config_adjust_description_v2),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
 
-        // Preset buttons. These only seed the sliders below, so none of them stays selected.
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          for (preset in ProcessingPreset.entries) {
-            OutlinedButton(
-              onClick = {
-                logButtonClick(
-                  "videomomentfinder_config_preset",
-                  buttonId = preset.name.lowercase(),
-                )
-                windowDuration = preset.windowDurationSec
-                framesPerWindow = preset.framesPerWindow
-                overlapDuration = preset.overlapDurationSec
-                includeAudio = preset.includeAudio && supportsAudio
-              },
-              contentPadding = SMALL_BUTTON_CONTENT_PADDING,
-            ) {
-              Text(
-                text = stringResource(preset.labelResId),
-                style = MaterialTheme.typography.labelMedium,
+        // Presets seed the sliders below. A preset shows as selected while the sliders hold its
+        // values, so moving a slider away from them deselects it and the helper reads "Custom".
+        val selectedPreset =
+          ProcessingPreset.entries.firstOrNull {
+            it.matches(windowDuration, framesPerWindow, overlapDuration)
+          }
+        Column {
+          InputTitle(R.string.videomomentfinder_config_preset_title)
+          Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            for (preset in ProcessingPreset.entries) {
+              val selected = preset == selectedPreset
+              FilterChip(
+                selected = selected,
+                onClick = {
+                  logButtonClick(
+                    "videomomentfinder_config_preset",
+                    buttonId = preset.name.lowercase(),
+                  )
+                  windowDuration = preset.windowDurationSec
+                  framesPerWindow = preset.framesPerWindow
+                  overlapDuration = preset.overlapDurationSec
+                  includeAudio = preset.includeAudio && supportsAudio
+                },
+                label = { Text(stringResource(preset.labelResId)) },
+                leadingIcon =
+                  if (selected) {
+                    {
+                      Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(FilterChipDefaults.IconSize),
+                      )
+                    }
+                  } else {
+                    null
+                  },
               )
             }
           }
+          HelperText(
+            selectedPreset?.helperResId ?: R.string.videomomentfinder_config_preset_custom_helper
+          )
         }
 
         ConfigSlider(
           labelResId = R.string.videomomentfinder_config_segment_duration,
+          helperResId = R.string.videomomentfinder_config_segment_duration_helper,
           valueLabel =
             stringResource(R.string.videomomentfinder_config_seconds_value, windowDuration),
           value = windowDuration,
@@ -214,6 +282,7 @@ fun ProcessingConfigDialog(
 
         ConfigSlider(
           labelResId = R.string.videomomentfinder_config_frames_per_segment,
+          helperResId = R.string.videomomentfinder_config_frames_per_segment_helper,
           valueLabel =
             stringResource(R.string.videomomentfinder_config_number_value, framesPerWindow),
           value = framesPerWindow,
@@ -224,6 +293,7 @@ fun ProcessingConfigDialog(
 
         ConfigSlider(
           labelResId = R.string.videomomentfinder_config_segment_overlap_duration,
+          helperResId = R.string.videomomentfinder_config_segment_overlap_helper,
           valueLabel =
             stringResource(R.string.videomomentfinder_config_seconds_value, overlapDuration),
           value = overlapDuration,
@@ -233,29 +303,40 @@ fun ProcessingConfigDialog(
         )
 
         // Shown even when the model cannot embed audio, so the capability is discoverable rather
-        // than the row silently disappearing; it is disabled and unchecked in that case.
-        Row(
-          modifier =
-            Modifier.fillMaxWidth()
-              .toggleable(
-                value = includeAudio,
-                enabled = supportsAudio,
-                role = Role.Checkbox,
-                onValueChange = { includeAudio = it },
-              ),
-          verticalAlignment = Alignment.CenterVertically,
-        ) {
-          Checkbox(checked = includeAudio, onCheckedChange = null, enabled = supportsAudio)
-          Text(
-            text = stringResource(R.string.videomomentfinder_config_process_sound_track),
-            style = MaterialTheme.typography.bodyMedium,
-            color =
-              if (supportsAudio) {
-                MaterialTheme.colorScheme.onSurface
-              } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-              },
-            modifier = Modifier.padding(start = 8.dp),
+        // than the row silently disappearing; it is disabled and unchecked in that case, with the
+        // reason in its helper text.
+        Column {
+          Row(
+            modifier =
+              Modifier.fillMaxWidth()
+                .toggleable(
+                  value = includeAudio,
+                  enabled = supportsAudio,
+                  role = Role.Checkbox,
+                  onValueChange = { includeAudio = it },
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Checkbox(checked = includeAudio, onCheckedChange = null, enabled = supportsAudio)
+            Text(
+              text = stringResource(R.string.videomomentfinder_config_process_sound_track),
+              style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+              color =
+                if (supportsAudio) {
+                  MaterialTheme.colorScheme.onSurface
+                } else {
+                  MaterialTheme.colorScheme.onSurfaceVariant
+                },
+              modifier = Modifier.padding(start = 8.dp),
+            )
+          }
+          HelperText(
+            if (supportsAudio) {
+              R.string.videomomentfinder_config_sound_track_helper
+            } else {
+              R.string.videomomentfinder_config_sound_track_unsupported_helper
+            },
+            modifier = Modifier.padding(start = 32.dp),
           )
         }
       }
@@ -291,11 +372,33 @@ fun ProcessingConfigDialog(
   )
 }
 
+/** An input title in bodyLarge Medium, per the Gallery's form pattern. */
+@Composable
+private fun InputTitle(labelResId: Int) {
+  Text(
+    text = stringResource(labelResId),
+    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+    color = MaterialTheme.colorScheme.onSurface,
+  )
+}
+
+/** Tight helper text that sits directly under an input. */
+@Composable
+private fun HelperText(textResId: Int, modifier: Modifier = Modifier) {
+  Text(
+    text = stringResource(textResId),
+    style = MaterialTheme.typography.bodySmall,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    modifier = modifier,
+  )
+}
+
 /**
  * A labelled integer slider with its current value shown at the end of the label row.
  *
  * [valueRange] is inclusive on both ends and the slider snaps to whole steps, so the value the user
- * sees is always the value the indexing pass receives.
+ * sees is always the value the indexing pass receives. [helperResId], when set, adds tight helper
+ * text under the label.
  */
 @Composable
 internal fun ConfigSlider(
@@ -305,6 +408,7 @@ internal fun ConfigSlider(
   valueRange: IntRange,
   onValueChange: (Int) -> Unit,
   enabled: Boolean = true,
+  helperResId: Int? = null,
 ) {
   Column {
     Row(
@@ -312,12 +416,18 @@ internal fun ConfigSlider(
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      Text(text = stringResource(labelResId), style = MaterialTheme.typography.bodyMedium)
+      Text(
+        text = stringResource(labelResId),
+        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+      )
       Text(
         text = valueLabel,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
+    }
+    if (helperResId != null) {
+      HelperText(helperResId)
     }
     Slider(
       value = value.toFloat().coerceIn(valueRange.first.toFloat(), valueRange.last.toFloat()),

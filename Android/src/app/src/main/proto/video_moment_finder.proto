@@ -25,6 +25,10 @@ option java_package = "com.google.ai.edge.gallery.proto";
 message VideoMomentFinderData {
   // All video moment finder projects created by the user.
   repeated VideoMomentProject projects = 1;
+
+  // Whether the user has confirmed the video processing configuration dialog at
+  // least once, after which its introductory paragraph is hidden.
+  bool has_seen_config_intro = 3;
 }
 
 // Represents a video project containing extracted embeddings and saved moments.

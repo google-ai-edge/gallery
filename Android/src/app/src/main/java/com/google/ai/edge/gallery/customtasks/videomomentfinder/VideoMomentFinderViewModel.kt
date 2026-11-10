@@ -49,7 +49,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
 import javax.inject.Inject
-import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +58,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -161,6 +161,8 @@ data class VideoMomentFinderUiState(
   val isSearching: Boolean = false,
   val hasPerformedSearch: Boolean = false,
   val selectedResultId: String? = null,
+  /** Whether the user has confirmed the video processing configuration dialog at least once. */
+  val hasSeenConfigIntro: Boolean = false,
 )
 
 @HiltViewModel
@@ -172,7 +174,7 @@ constructor(
   @IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
   private val _uiState = MutableStateFlow(VideoMomentFinderUiState())
-  val uiState = _uiState.asStateFlow()
+  val uiState: StateFlow<VideoMomentFinderUiState> = _uiState.asStateFlow()
 
   @Volatile private var semanticRetrievalService: SemanticRetrievalService? = null
   private var processJob: Job? = null
@@ -186,8 +188,23 @@ constructor(
             state.selectedProject?.let { selected ->
               data.projectsList.find { it.id == selected.id }
             }
-          state.copy(projects = data.projectsList, selectedProject = updatedSelected)
+          state.copy(
+            projects = data.projectsList,
+            selectedProject = updatedSelected,
+            hasSeenConfigIntro = state.hasSeenConfigIntro || data.hasSeenConfigIntro,
+          )
         }
+      }
+    }
+  }
+
+  /** Records that the user confirmed the video processing configuration dialog at least once. */
+  fun markConfigIntroSeen() {
+    if (_uiState.value.hasSeenConfigIntro) return
+    _uiState.update { it.copy(hasSeenConfigIntro = true) }
+    viewModelScope.launch {
+      withContext(ioDispatcher) {
+        dataStore.updateData { data -> data.copy { hasSeenConfigIntro = true } }
       }
     }
   }
@@ -750,7 +767,7 @@ constructor(
             return@withContext
           }
 
-          // Step 4: Query the vector store for the top K windows belonging to this project.
+          // Step 4: Query the vector store for candidate windows belonging to this project.
           val currentProject =
             _uiState.value.selectedProject?.takeIf { it.id == project.id } ?: project
           val topK = if (currentProject.topK > 0) currentProject.topK else DEFAULT_TOP_K
@@ -774,21 +791,23 @@ constructor(
               return@withContext
             }
 
-          // Step 5: Map retrieved records back to their time windows.
-          val topFrames = results.mapNotNull { result ->
-            val startTimeMs = result.metadata[METADATA_KEY_START_TIME_MS]?.toLongOrNull()
-            val endTimeMs = result.metadata[METADATA_KEY_END_TIME_MS]?.toLongOrNull()
-            if (startTimeMs == null || endTimeMs == null) {
-              Log.w(TAG, "Skipping record ${result.id} with missing time window metadata")
-              null
-            } else {
-              ScoredFrame(
-                startTimeMs = startTimeMs,
-                endTimeMs = endTimeMs,
-                score = result.similarityScore ?: 0f,
-              )
+          // Step 5: Map retrieved records to time windows and select top-K matches.
+          val scoredFrames =
+            results.mapNotNull { result ->
+              val startTimeMs = result.metadata[METADATA_KEY_START_TIME_MS]?.toLongOrNull()
+              val endTimeMs = result.metadata[METADATA_KEY_END_TIME_MS]?.toLongOrNull()
+              if (startTimeMs == null || endTimeMs == null) {
+                Log.w(TAG, "Skipping record ${result.id} with missing time window metadata")
+                null
+              } else {
+                ScoredFrame(
+                  startTimeMs = startTimeMs,
+                  endTimeMs = endTimeMs,
+                  score = result.similarityScore ?: 0f,
+                )
+              }
             }
-          }
+          val topFrames = selectTopScoredFrames(scoredFrames, topK)
 
           Log.d(TAG, "Retrieved ${topFrames.size} windows for '$query' (topK requested: $topK)")
           for (frame in topFrames) {
@@ -882,7 +901,10 @@ constructor(
           // Step 8: Publish search results (sorted by similarity score descending) and merged
           // intervals.
           _uiState.update { state ->
-            state.copy(searchResults = searchResults, mergedIntervals = mergedIntervals)
+            state.copy(
+              searchResults = searchResults,
+              mergedIntervals = mergedIntervals,
+            )
           }
         }
       } finally {
@@ -906,6 +928,11 @@ constructor(
   /** Selects a specific search result by its [id]. */
   fun selectResult(id: String) {
     _uiState.update { state -> state.copy(selectedResultId = id) }
+  }
+
+  /** Deselects the currently selected search result, if any. */
+  fun clearSelectedResult() {
+    _uiState.update { state -> state.copy(selectedResultId = null) }
   }
 
   /**

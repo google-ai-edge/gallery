@@ -23,6 +23,7 @@ import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import androidx.core.net.toUri
+import com.google.ai.edge.gallery.data.Accelerator
 import com.google.mediapipe.tasks.components.containers.AudioData
 import com.google.mediapipe.tasks.core.AudioPart
 import com.google.mediapipe.tasks.core.EmbeddingProvider
@@ -742,6 +743,21 @@ open class SemanticRetrievalService(
       "On-device embedder failed to generate text embedding"
     }
   }
+
+  /**
+   * Local file path of the `.litertlm` embedding model when backed by [UniversalOnDeviceEmbedder],
+   * or `null` when unavailable (e.g. in-memory test services).
+   */
+  open val modelPath: String?
+    get() = (onDeviceEmbedder as? UniversalOnDeviceEmbedder)?.takeIf { it.isAvailable() }?.modelPath
+
+  /**
+   * Hardware accelerator configured on the underlying [UniversalOnDeviceEmbedder], or `null` when
+   * unavailable.
+   */
+  open val accelerator: Accelerator?
+    get() =
+      (onDeviceEmbedder as? UniversalOnDeviceEmbedder)?.takeIf { it.isAvailable() }?.accelerator
 
   override fun close() {
     if (isClosed) return

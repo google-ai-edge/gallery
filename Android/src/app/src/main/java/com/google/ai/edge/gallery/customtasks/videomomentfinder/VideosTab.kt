@@ -174,6 +174,7 @@ fun VideosTab(viewModel: VideoMomentFinderViewModel) {
   if (videoToConfigure != null) {
     ProcessingConfigDialog(
       supportsAudio = uiState.supportsAudio,
+      showIntro = !uiState.hasSeenConfigIntro,
       confirmLabelResId = R.string.videomomentfinder_config_start,
       // Starting with the defaults untouched is a normal choice for a new video, so the button
       // must not depend on the user having changed something first.
@@ -181,6 +182,7 @@ fun VideosTab(viewModel: VideoMomentFinderViewModel) {
       onDismiss = { pendingVideoUri = null },
       onApply = { frames, windowDuration, overlap, includeAudio ->
         pendingVideoUri = null
+        viewModel.markConfigIntroSeen()
         viewModel.importVideo(
           uri = videoToConfigure,
           framesPerWindow = frames,
