@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.ui.llmchat
 
 import android.content.Context
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -159,59 +161,86 @@ abstract class BaseLlmChatTask(
           systemPromptUpdatedMessage = systemPromptUpdatedMessage,
         )
       },
-      emptyStateComposable = { model ->
-        Box(modifier = Modifier.fillMaxSize()) {
-          Column(
-            modifier =
-              Modifier.align(Alignment.Center)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 48.dp, vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-          ) {
-            Text(
-              stringResource(emptyStateTitleRes),
-              style = emptyStateTitle,
-              modifier = Modifier.semantics { heading() },
-            )
-            Text(
-              stringResource(emptyStateContentRes),
-              style = emptyStateContent,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-              textAlign = TextAlign.Center,
-            )
-            val multimodalRes =
-              when {
-                model.supportImage && model.supportAudio -> {
-                  if (model.isAiCore) {
-                    R.string.aichat_emptystate_support_image_aicore_audio
-                  } else {
-                    R.string.aichat_emptystate_support_image_audio
-                  }
-                }
-                model.supportImage -> {
-                  if (model.isAiCore) {
-                    R.string.aichat_emptystate_support_image_aicore
-                  } else {
-                    R.string.aichat_emptystate_support_image
-                  }
-                }
-                model.supportAudio -> R.string.aichat_emptystate_support_audio
-                else -> null
-              }
-
-            if (multimodalRes != null) {
-              Text(
-                stringResource(multimodalRes),
-                style = emptyStateContent,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-              )
-            }
-          }
-        }
-      },
+      emptyStateComposable = emptyStateComposable,
     )
+  }
+
+  /**
+   * The empty state shown before the first message of this task's chat. Kept as a property (rather
+   * than a lambda inside [MainScreen], which needs a Hilt view model) so tests can render it
+   * directly.
+   */
+  internal val emptyStateComposable: @Composable (Model) -> Unit = { model ->
+    BaseLlmChatEmptyState(
+      model = model,
+      emptyStateTitleRes = emptyStateTitleRes,
+      emptyStateContentRes = emptyStateContentRes,
+    )
+  }
+}
+
+/**
+ * Empty state shown before the first message of a [BaseLlmChatTask] chat: the task title, its
+ * description and, for multimodal models, a hint spelling out the attachment limits.
+ *
+ * Top-level (rather than inlined into [BaseLlmChatTask.MainScreen]) so the hint selection can be
+ * unit tested without a Hilt-provided view model.
+ */
+@Composable
+internal fun BaseLlmChatEmptyState(
+  model: Model,
+  @StringRes emptyStateTitleRes: Int,
+  @StringRes emptyStateContentRes: Int,
+) {
+  Box(modifier = Modifier.fillMaxSize()) {
+    Column(
+      modifier =
+        Modifier.align(Alignment.Center)
+          .verticalScroll(rememberScrollState())
+          .padding(horizontal = 48.dp, vertical = 12.dp),
+      horizontalAlignment = Alignment.CenterHorizontally,
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      Text(
+        stringResource(emptyStateTitleRes),
+        style = emptyStateTitle,
+        modifier = Modifier.semantics { heading() },
+      )
+      Text(
+        stringResource(emptyStateContentRes),
+        style = emptyStateContent,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+      )
+      // The image limit is per model (see Model.maxImageCount), so the hint is a plural that
+      // spells out the selected model's own cap.
+      val multimodalText =
+        when {
+          model.supportImage && model.supportAudio ->
+            pluralStringResource(
+              R.plurals.aichat_emptystate_support_image_audio,
+              model.maxImageCount,
+              model.maxImageCount,
+            )
+          model.supportImage ->
+            pluralStringResource(
+              R.plurals.aichat_emptystate_support_image,
+              model.maxImageCount,
+              model.maxImageCount,
+            )
+          model.supportAudio -> stringResource(R.string.aichat_emptystate_support_audio)
+          else -> null
+        }
+
+      if (multimodalText != null) {
+        Text(
+          multimodalText,
+          style = emptyStateContent,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          textAlign = TextAlign.Center,
+        )
+      }
+    }
   }
 }
 

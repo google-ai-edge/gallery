@@ -173,6 +173,13 @@ data class Model(
     get() = llmProfile != null
 
   /**
+   * The maximum number of images the user may attach over one chat with this model. Comes from the
+   * model's [LlmProfile]; models without one fall back to the app-wide [MAX_IMAGE_COUNT].
+   */
+  val maxImageCount: Int
+    get() = llmProfile?.maxImageCount ?: MAX_IMAGE_COUNT
+
+  /**
    * The model category. Models other than [ModelType.TASK] are supplementary models that are not
    * bound to a task.
    */

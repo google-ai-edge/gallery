@@ -103,6 +103,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -876,7 +877,12 @@ fun ChatPanel(
 
         FloatingBanner(
           visible = showImageLimitBanner,
-          text = stringResource(R.string.aicore_image_limit_message),
+          text =
+            pluralStringResource(
+              R.plurals.model_image_limit_message,
+              selectedModel.maxImageCount,
+              selectedModel.maxImageCount,
+            ),
           modifier =
             Modifier.align(Alignment.TopCenter).padding(horizontal = 16.dp, vertical = 8.dp),
         )

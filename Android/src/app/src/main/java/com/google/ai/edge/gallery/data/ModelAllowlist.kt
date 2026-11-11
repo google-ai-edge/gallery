@@ -96,6 +96,18 @@ data class AllowedModel(
   val taskTypes: List<String>? = null,
   val disabled: Boolean? = null,
   val llmSupportImage: Boolean? = null,
+  /**
+   * Maximum number of images the user may attach over the course of one chat with this model, in
+   * `1..MAX_IMAGE_COUNT`. Optional so allowlists can be rolled out independently of the app:
+   * - Missing: AICore (Gemini Nano) entries default to a single image, because the Gemma 4 E2B
+   *   variant does not reliably tell several images apart; every other LLM entry defaults to the
+   *   app-wide [MAX_IMAGE_COUNT].
+   * - Out of range: clamped into `1..MAX_IMAGE_COUNT` rather than rejected, so a typo in a remote
+   *   allowlist cannot take the model down.
+   *
+   * App builds that predate this field ignore it.
+   */
+  val llmMaxImageCount: Int? = null,
   val llmSupportAudio: Boolean? = null,
   val llmSupportTinyGarden: Boolean? = null,
   val llmSupportMobileActions: Boolean? = null,
@@ -280,10 +292,13 @@ data class AllowedModel(
       )
     val llmProfile =
       if (isLlmModel) {
+        val defaultMaxImageCount = if (resolvedRuntime == RuntimeType.AICORE) 1 else MAX_IMAGE_COUNT
         LlmProfile(
           supportTinyGarden = llmSupportTinyGarden == true,
           supportMobileActions = llmSupportMobileActions == true,
           maxTokens = llmMaxToken,
+          // Clamp rather than reject: a typo in a remote allowlist must not take the model down.
+          maxImageCount = (llmMaxImageCount ?: defaultMaxImageCount).coerceIn(1, MAX_IMAGE_COUNT),
         )
       } else {
         null

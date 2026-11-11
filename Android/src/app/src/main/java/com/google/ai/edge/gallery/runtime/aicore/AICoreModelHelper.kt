@@ -46,11 +46,10 @@ import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.prompt.GenerateContentRequest
 import com.google.mlkit.genai.prompt.Generation
 import com.google.mlkit.genai.prompt.GenerativeModel
-import com.google.mlkit.genai.prompt.ImagePart
 import com.google.mlkit.genai.prompt.ModelPreference
 import com.google.mlkit.genai.prompt.ModelReleaseStage
 import com.google.mlkit.genai.prompt.SystemInstruction
-import com.google.mlkit.genai.prompt.TextPart
+import com.google.mlkit.genai.prompt.content
 import com.google.mlkit.genai.prompt.generateTypedContentRequest
 import com.google.mlkit.genai.prompt.generationConfig
 import com.google.mlkit.genai.prompt.modelConfig
@@ -90,9 +89,11 @@ data class AICoreModelInstance(
   // The task's system prompt. It is sent with every non-ephemeral request because the ML Kit API is
   // stateless, so nothing persists between turns unless the app re-sends it.
   @Volatile var systemInstructionText: String? = null,
-  @Volatile var activeSessionImage: Bitmap? = null,
+  // Private copies of the images attached to the latest image-bearing turn of a multi-turn vision
+  // session. Re-sent with later text-only turns because the ML Kit API is stateless.
+  @Volatile var activeSessionImages: List<Bitmap> = emptyList(),
   // Whether the last runInference call opted in with EXTRA_CONTEXT_MULTI_TURN_VISION_SESSION,
-  // which keeps the latest image attached to follow-up text-only turns.
+  // which keeps the latest images attached to follow-up text-only turns.
   @Volatile var multiTurnVisionSession: Boolean = false,
   val fallbackScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + AICoreModelHelper.defaultDispatcher),
@@ -429,14 +430,12 @@ object AICoreModelHelper : LlmModelHelper {
       checkNotNull(model.instance as? AICoreModelInstance) {
         "Model '${model.name}' is not loaded."
       }
-    instance.inferenceJob?.cancel()
+    // Cancellation is cooperative, so the session images are recycled only once the cancelled job
+    // has actually finished with them.
+    val previousJob = instance.inferenceJob
+    previousJob?.cancel()
     instance.inferenceJob = null
-    instance.activeSessionImage?.let { bitmap ->
-      if (!bitmap.isRecycled) {
-        bitmap.recycle()
-      }
-    }
-    instance.activeSessionImage = null
+    retireActiveSessionImages(instance, afterJob = previousJob)
     instance.systemInstructionText = systemInstruction?.toString()?.takeIf { it.isNotBlank() }
     val initialChatMessages = initialMessages.map { msg ->
       AICoreChatMessage(isUser = (msg.role == Role.USER), text = msg.contents.toString())
@@ -453,15 +452,11 @@ object AICoreModelHelper : LlmModelHelper {
     val instance = model.instance as? AICoreModelInstance
     if (instance != null) {
       try {
-        instance.inferenceJob?.cancel()
+        val previousJob = instance.inferenceJob
+        previousJob?.cancel()
         instance.inferenceJob = null
         instance.fallbackScope.cancel()
-        instance.activeSessionImage?.let { bitmap ->
-          if (!bitmap.isRecycled) {
-            bitmap.recycle()
-          }
-        }
-        instance.activeSessionImage = null
+        retireActiveSessionImages(instance, afterJob = previousJob)
         instance.generativeModel.close()
       } catch (e: Exception) {
         Log.e(TAG, "Failed to close the engine: ${e.message}")
@@ -508,7 +503,8 @@ object AICoreModelHelper : LlmModelHelper {
     try {
       val request =
         buildGenerateContentRequest(
-          prompt = prompt,
+          historyText = "",
+          currentTurnText = prompt,
           systemInstructionText = systemInstructionText,
           images = emptyList(),
         )
@@ -549,13 +545,12 @@ object AICoreModelHelper : LlmModelHelper {
     }
     // Ephemeral requests are self-contained side queries (e.g. a one-off classification), so they
     // are sent verbatim without the conversation history or the task's system prompt. Every
-    // regular chat turn carries both, since the ML Kit API keeps no state between calls.
-    val prompt =
-      if (isEphemeral) {
-        input
-      } else {
-        formatChatPrompt(chatHistory = instance.chatHistory.toList(), input = input)
-      }
+    // regular chat turn carries both, since the ML Kit API keeps no state between calls. The
+    // history and the current turn are kept as separate parts so the images can be placed between
+    // them (see buildGenerateContentRequest).
+    val historyText =
+      if (isEphemeral) "" else formatChatHistory(chatHistory = instance.chatHistory.toList())
+    val currentTurnText = if (isEphemeral) input else formatCurrentTurn(input)
     val systemInstructionText = if (isEphemeral) null else instance.systemInstructionText
 
     val temperature =
@@ -583,15 +578,23 @@ object AICoreModelHelper : LlmModelHelper {
         rawMaxOutputTokens
       }
 
+    // The previous turn may still be building or streaming its request when the next one arrives
+    // (e.g. stop, then re-send immediately). cancel() only signals it, so any bitmaps it still
+    // references are released only once that job has actually completed; see sessionImages().
+    val previousJob = instance.inferenceJob
     val requestImages =
-      if (isEphemeral || !instance.multiTurnVisionSession) images
-      else sessionImages(instance, images)
+      if (isEphemeral || !instance.multiTurnVisionSession) {
+        images
+      } else {
+        sessionImages(instance, images, previousJob)
+      }
 
-    instance.inferenceJob?.cancel()
+    previousJob?.cancel()
     instance.inferenceJob = scope.launch {
       executeRunInference(
         instance = instance,
-        prompt = prompt,
+        historyText = historyText,
+        currentTurnText = currentTurnText,
         systemInstructionText = systemInstructionText,
         temperature = temperature,
         topK = topK,
@@ -608,28 +611,62 @@ object AICoreModelHelper : LlmModelHelper {
   }
 
   /**
-   * Returns the images to send in a multi-turn vision session. The latest image stays attached to
-   * later text-only turns so follow-up questions keep the visual context (the ML Kit API is
-   * stateless). A private copy is kept so the caller may recycle its bitmap.
+   * Returns the images to send in a multi-turn vision session. The images of the latest
+   * image-bearing turn stay attached to later text-only turns so follow-up questions keep the
+   * visual context (the ML Kit API is stateless). Private copies are kept so the caller may recycle
+   * its bitmaps.
+   *
+   * When a new image-bearing turn replaces the previous session images, their copies are detached
+   * from [instance] right away but recycled only after [previousJob] (the inference that may still
+   * be using them) has completed.
    */
-  private fun sessionImages(instance: AICoreModelInstance, images: List<Bitmap>): List<Bitmap> {
-    val newImage = images.firstOrNull()
-    if (newImage != null) {
-      val copy: Bitmap? =
-        if (!newImage.isRecycled) newImage.copy(Bitmap.Config.ARGB_8888, false) else null
-      val previous = instance.activeSessionImage
-      instance.activeSessionImage = copy
-      if (previous != null && previous !== copy && previous !== newImage && !previous.isRecycled) {
-        previous.recycle()
-      }
-      return listOfNotNull(copy ?: newImage.takeIf { !it.isRecycled })
+  private fun sessionImages(
+    instance: AICoreModelInstance,
+    images: List<Bitmap>,
+    previousJob: Job?,
+  ): List<Bitmap> {
+    val newImages = images.filter { !it.isRecycled }
+    if (newImages.isEmpty()) {
+      return instance.activeSessionImages.filter { !it.isRecycled }
     }
-    return listOfNotNull(instance.activeSessionImage?.takeIf { !it.isRecycled })
+    retireActiveSessionImages(instance, afterJob = previousJob)
+    val copies = newImages.mapNotNull { it.copy(Bitmap.Config.ARGB_8888, false) }
+    instance.activeSessionImages = copies
+    return copies
+  }
+
+  /**
+   * Detaches the private session image copies from [instance] and recycles them once [afterJob] has
+   * completed (immediately when there is no such job or it is already done). Cancelling a job is
+   * cooperative and does not wait for it, so an in-flight request could otherwise still read
+   * bitmaps that have just been recycled.
+   */
+  private fun retireActiveSessionImages(instance: AICoreModelInstance, afterJob: Job?) {
+    val retired = instance.activeSessionImages
+    instance.activeSessionImages = emptyList()
+    if (retired.isEmpty()) {
+      return
+    }
+    if (afterJob == null) {
+      recycleBitmaps(retired)
+    } else {
+      // invokeOnCompletion runs the handler right away if the job has already completed.
+      afterJob.invokeOnCompletion { recycleBitmaps(retired) }
+    }
+  }
+
+  private fun recycleBitmaps(bitmaps: List<Bitmap>) {
+    for (bitmap in bitmaps) {
+      if (!bitmap.isRecycled) {
+        bitmap.recycle()
+      }
+    }
   }
 
   private suspend fun executeRunInference(
     instance: AICoreModelInstance,
-    prompt: String,
+    historyText: String,
+    currentTurnText: String,
     systemInstructionText: String?,
     temperature: Float,
     topK: Int,
@@ -646,7 +683,8 @@ object AICoreModelHelper : LlmModelHelper {
     try {
       val request =
         buildGenerateContentRequest(
-          prompt = prompt,
+          historyText = historyText,
+          currentTurnText = currentTurnText,
           systemInstructionText = systemInstructionText,
           images = images,
         ) {
@@ -802,18 +840,30 @@ object AICoreModelHelper : LlmModelHelper {
    * on every turn that should honor it.
    */
   private fun buildGenerateContentRequest(
-    prompt: String,
+    historyText: String,
+    currentTurnText: String,
     systemInstructionText: String?,
     images: List<Bitmap>,
     configure: GenerateContentRequest.Builder.() -> Unit = {},
   ): GenerateContentRequest {
+    // Part order matters because the model reads them sequentially: the replayed history comes
+    // first, then the images, then the current turn. Putting the images directly before the
+    // current turn ties them to the question being asked; placed ahead of the whole transcript
+    // the model attributes them to the first (already answered) turn and replies that no image
+    // was provided. The ML Kit Prompt API accepts up to 10 images per request; the chat UI
+    // enforces each model's cap (Model.maxImageCount).
     val builder =
-      if (images.isNotEmpty()) {
-        // ML Kit GenAI API currently only supports a single image input per request.
-        GenerateContentRequest.builder(ImagePart(images.first()), TextPart(prompt))
-      } else {
-        GenerateContentRequest.builder(TextPart(prompt))
-      }
+      GenerateContentRequest.builder(
+        content {
+          if (historyText.isNotEmpty()) {
+            text(historyText)
+          }
+          for (image in images) {
+            image(image)
+          }
+          text(currentTurnText)
+        }
+      )
     if (!systemInstructionText.isNullOrBlank()) {
       builder.systemInstruction = SystemInstruction(systemInstructionText)
     }
@@ -822,16 +872,21 @@ object AICoreModelHelper : LlmModelHelper {
   }
 
   /**
-   * Flattens the conversation history and the new [input] into a single role-tagged transcript,
-   * ending with an open `model:` turn for the model to complete. The system prompt is deliberately
-   * not part of this text; see [buildGenerateContentRequest].
+   * Formats the replayed conversation so far (prior turns) as a single role-tagged text block.
+   * Empty when the conversation has no history. The system prompt is deliberately not part of this
+   * text; see [buildGenerateContentRequest].
    */
-  internal fun formatChatPrompt(chatHistory: List<AICoreChatMessage>, input: String): String =
-    buildString {
-      for (message in chatHistory) {
-        val role = if (message.isUser) "user" else "model"
-        append(role).append(": ").append(message.text).append("\n")
-      }
-      append("user: ").append(input).append("\nmodel: ")
+  internal fun formatChatHistory(chatHistory: List<AICoreChatMessage>): String = buildString {
+    for (message in chatHistory) {
+      val role = if (message.isUser) "user" else "model"
+      append(role).append(": ").append(message.text).append("\n")
     }
+  }
+
+  /** Formats the current user turn, ending with an open `model:` turn for the model to complete. */
+  internal fun formatCurrentTurn(input: String): String = "user: $input\nmodel: "
+
+  /** The complete chat prompt: [formatChatHistory] followed by [formatCurrentTurn]. */
+  internal fun formatChatPrompt(chatHistory: List<AICoreChatMessage>, input: String): String =
+    formatChatHistory(chatHistory) + formatCurrentTurn(input)
 }

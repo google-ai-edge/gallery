@@ -142,7 +142,6 @@ import com.google.ai.edge.gallery.common.openSafeInputStream
 import com.google.ai.edge.gallery.common.rotateBitmap
 import com.google.ai.edge.gallery.data.MAX_AUDIO_CLIP_COUNT
 import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT
-import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT_AI_CORE
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.data.Task
@@ -255,11 +254,11 @@ fun MessageInputText(
   }
 
   val updatePickedImages: (List<Bitmap>) -> Unit = { bitmaps ->
-    val isAiCore = selectedModel.isAiCore
-    var limit = MAX_IMAGE_COUNT
-    if (isAiCore) {
-      limit = MAX_IMAGE_COUNT_AI_CORE
-    }
+    // Each model declares how many images one chat may carry (see Model.maxImageCount). A model
+    // capped below the app-wide maximum gets the explanatory banner when the user exceeds it;
+    // otherwise the generic "some images ignored" notice is enough.
+    val limit = selectedModel.maxImageCount
+    val hasModelSpecificLimit = limit < MAX_IMAGE_COUNT
     val maxAllowedForThisMessage = (limit - imageCount).coerceAtLeast(0)
 
     val combinedSize = pickedImages.size + bitmaps.size
@@ -269,7 +268,7 @@ fun MessageInputText(
       if (withinLimit) {
         pickedImages + bitmaps
       } else {
-        if (isAiCore) {
+        if (hasModelSpecificLimit) {
           scope.launch(Dispatchers.Main) { onImageLimitExceeded() }
         } else {
           scope.launch(Dispatchers.Main) { onImagesIgnored() }
@@ -668,11 +667,14 @@ fun MessageInputText(
                       onDismissRequest = { showAddContentMenu = false },
                     ) {
                       if (showImagePicker) {
-                        val isImageLimitExceededForAiCore =
-                          selectedModel.isAiCore &&
-                            (imageCount + pickedImages.size) >= MAX_IMAGE_COUNT_AI_CORE
-                        val enableAddImageMenuItems =
-                          (imageCount + pickedImages.size) < MAX_IMAGE_COUNT
+                        // Models capped below the app-wide maximum keep the menu items enabled at
+                        // their limit so that tapping one explains the limit (banner) instead of
+                        // silently greying out; at the app-wide maximum the items are disabled.
+                        val attachedImageCount = imageCount + pickedImages.size
+                        val isImageLimitExceededForModel =
+                          selectedModel.maxImageCount < MAX_IMAGE_COUNT &&
+                            attachedImageCount >= selectedModel.maxImageCount
+                        val enableAddImageMenuItems = attachedImageCount < MAX_IMAGE_COUNT
                         val isImageSupported = selectedModel.supportImage
                         val imageItemColors =
                           MenuDefaults.itemColors(
@@ -702,7 +704,7 @@ fun MessageInputText(
                               showAddContentMenu = false
                               return@DropdownMenuItem
                             }
-                            if (isImageLimitExceededForAiCore) {
+                            if (isImageLimitExceededForModel) {
                               onImageLimitExceeded()
                               showAddContentMenu = false
                               return@DropdownMenuItem
@@ -749,7 +751,7 @@ fun MessageInputText(
                               showAddContentMenu = false
                               return@DropdownMenuItem
                             }
-                            if (isImageLimitExceededForAiCore) {
+                            if (isImageLimitExceededForModel) {
                               onImageLimitExceeded()
                               showAddContentMenu = false
                               return@DropdownMenuItem

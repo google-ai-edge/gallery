@@ -48,7 +48,10 @@
   <string name="mobile_data_download_dialog_message" translatable="true" description="Message of the dialog that asks the user to confirm downloading AI models over mobile (cellular or metered) data. %1$s is the size that will be downloaded, e.g. '2.6 GB'. Carrier charges are fees the mobile phone operator may bill. [CHAR_LIMIT=110]">%1$s will be downloaded using mobile data. Carrier charges may apply.</string>
   <string name="model_download_error_batch_storage_shortfall" translatable="true" description="Error message shown when the models selected for a task can't all be downloaded because the device doesn't have enough free storage. Nothing is downloaded. %1$s is how much more storage is needed, e.g. '1.1 GB'. [CHAR_LIMIT=100]">Not enough storage to download these models (%1$s short).</string>
   <string name="cd_download_paused_icon" translatable="true" description="Accessibility description of the icon shown next to a model whose download is paused. [CHAR_LIMIT=30]">Download paused</string>
-  <string name="aicore_image_limit_message" translatable="true" description="Warning message shown when the user tries to add more than 1 image to a chat session. [CHAR_LIMIT=173]">The current model can only support 1 image per chat. To ask about another image, create a new chat.</string>
+  <plurals name="model_image_limit_message" translatable="true" description="Warning banner shown when the user tries to attach more images to a chat than the selected model supports. %d is the maximum number of images per chat for that model. [CHAR_LIMIT=180]">
+    <item quantity="one">The current model can only support %d image per chat. To ask about another image, create a new chat.</item>
+    <item quantity="other">The current model can only support %d images per chat. To ask about more images, create a new chat.</item>
+  </plurals>
   <string name="model_not_support_image_message" translatable="true" description="Error message shown when the user tries to input an image to a model that doesn't support it. [CHAR_LIMIT=90]">The current model does not support image input.</string>
   <string name="model_not_support_audio_message" translatable="true" description="Error message shown when the user tries to input audio to a model that doesn't support it. [CHAR_LIMIT=90]">The current model does not support audio input.</string>
   <string name="image_limit_ignored_message" translatable="true" description="Toast message indicating some images were ignored due to limit. [CHAR_LIMIT=110]">Some images have been ignored due to limit.</string>
@@ -59,8 +62,10 @@
   <string name="app_name_first_part" translatable="false">Google AI</string>
   <string name="app_name_second_part" translatable="false">Edge Gallery</string>
   <string name="askimage_emptystate_title" translatable="false">Ask Image</string>
-  <string name="askimage_emptystate_content" translatable="true" description="Instructions shown when starting a chat with image input, explaining how to add images (up to 10). [CHAR_LIMIT=203]">To get started, tap the + below to add an image (max 10 images per chat) and type a prompt to ask a question about it!</string>
-  <string name="askimage_emptystate_content_aicore" translatable="true" description="Instructions shown when starting a chat with image input for AICore models, explaining how to add a single image. [CHAR_LIMIT=200]">To get started, tap the + below to add an image (max 1 image per chat) and type a prompt to ask a question about it!</string>
+  <plurals name="askimage_emptystate_content" translatable="true" description="Instructions shown when starting a chat with image input, explaining how to add images. %d is the maximum number of images per chat for the selected model. [CHAR_LIMIT=203]">
+    <item quantity="one">To get started, tap the + below to add an image (max %d image per chat) and type a prompt to ask a question about it!</item>
+    <item quantity="other">To get started, tap the + below to add an image (max %d images per chat) and type a prompt to ask a question about it!</item>
+  </plurals>
   <string name="askaudio_emptystate_title" translatable="false">Audio Scribe</string>
   <string name="askaudio_emptystate_content" translatable="true" description="Instructions shown when starting a chat with audio input, explaining how to add a clip. [CHAR_LIMIT=234]">To get started, tap the + below to add a audio clip (limited to 1 clip up to 30 seconds) and type a prompt to transcribe or translate it!</string>
   <string name="gallery_news_notification_title" translatable="true" description="Default title for push notifications about gallery news; Gallery is the Google AI Edge Gallery product name and News is a generic term, not Google News. [CHAR_LIMIT=26]">Gallery News</string>
@@ -743,10 +748,14 @@
   <!-- Strings for skills -->
   <string name="aichat_emptystate_title" translatable="false">AI Chat</string>
   <string name="aichat_emptystate_content" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining what it does. [CHAR_LIMIT=110]">Chat with on-device large language models.</string>
-  <string name="aichat_emptystate_support_image_audio" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining the multimodal limits. [CHAR_LIMIT=112]">Support up to 10 images per chat and 1 audio clip up to 30 seconds.</string>
-  <string name="aichat_emptystate_support_image_aicore_audio" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining the multimodal limits. [CHAR_LIMIT=100]">Support 1 image per chat and 1 audio clip up to 30 seconds.</string>
-  <string name="aichat_emptystate_support_image" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining the multimodal limits. [CHAR_LIMIT=90]">Support up to 10 images per chat.</string>
-  <string name="aichat_emptystate_support_image_aicore" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining the multimodal limits. [CHAR_LIMIT=90]">Support 1 image per chat.</string>
+  <plurals name="aichat_emptystate_support_image_audio" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining the multimodal limits. %d is the maximum number of images per chat for the selected model. [CHAR_LIMIT=112]">
+    <item quantity="one">Support %d image per chat and 1 audio clip up to 30 seconds.</item>
+    <item quantity="other">Support up to %d images per chat and 1 audio clip up to 30 seconds.</item>
+  </plurals>
+  <plurals name="aichat_emptystate_support_image" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining the image limit. %d is the maximum number of images per chat for the selected model. [CHAR_LIMIT=90]">
+    <item quantity="one">Support %d image per chat.</item>
+    <item quantity="other">Support up to %d images per chat.</item>
+  </plurals>
   <string name="aichat_emptystate_support_audio" translatable="true" description="Description text shown on the empty state screen of the AI Chat feature, explaining the multimodal limits. [CHAR_LIMIT=90]">Support 1 audio clip up to 30 seconds.</string>
   <string name="add_script" translatable="true" description="Title of the dialog for adding a new script to a skill. [CHAR_LIMIT=26]">Add script</string>
   <string name="add_default_script" translatable="true" description="Button label to add a template or default script when no scripts exist yet. [CHAR_LIMIT=30]">Add default script</string>

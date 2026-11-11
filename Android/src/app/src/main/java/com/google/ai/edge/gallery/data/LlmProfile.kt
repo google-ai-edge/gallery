@@ -24,16 +24,23 @@ package com.google.ai.edge.gallery.data
  * @property promptTemplates Ready-made prompts offered to the user when a chat session is empty.
  * @property maxTokens The upper bound the user can configure for the model's context length. Always
  *   positive; a zero or negative context length is not a meaningful model configuration.
+ * @property maxImageCount The maximum number of images the user may attach over the course of one
+ *   chat with this model, in `1..MAX_IMAGE_COUNT`. Smaller models that cannot reliably tell several
+ *   images apart are capped lower by the allowlist (`llmMaxImageCount`).
  * @property supportTinyGarden Whether the model supports Tiny Garden.
  * @property supportMobileActions Whether the model supports mobile actions.
  */
 data class LlmProfile(
   val promptTemplates: List<PromptTemplate> = emptyList(),
   val maxTokens: Int = DEFAULT_MAX_TOKEN,
+  val maxImageCount: Int = MAX_IMAGE_COUNT,
   val supportTinyGarden: Boolean = false,
   val supportMobileActions: Boolean = false,
 ) {
   init {
     require(maxTokens > 0) { "maxTokens must be positive, but was $maxTokens." }
+    require(maxImageCount in 1..MAX_IMAGE_COUNT) {
+      "maxImageCount must be in 1..$MAX_IMAGE_COUNT, but was $maxImageCount."
+    }
   }
 }

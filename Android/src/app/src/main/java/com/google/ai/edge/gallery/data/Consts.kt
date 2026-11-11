@@ -72,11 +72,12 @@ val DEFAULT_VISION_ACCELERATOR: Accelerator = Accelerator.GPU
 // LiteRT LM Engine constants.
 const val THOUGHT_CHANNEL = "thought"
 
-// Max number of images allowed in a "ask image" session.
+// Max number of images allowed in a chat session. This is the app-wide upper bound: the chat UI
+// never lets the user attach more than this, and allowlist values above it are clamped. Individual
+// models may be capped lower through the allowlist's `llmMaxImageCount` (see
+// AllowedModel.llmMaxImageCount for the per-runtime defaults when the field is absent and
+// LlmProfile.maxImageCount / Model.maxImageCount for how the limit reaches the UI).
 const val MAX_IMAGE_COUNT = 10
-
-// Max number of images allowed in a "ask image" session for AI Core.
-const val MAX_IMAGE_COUNT_AI_CORE = 1
 
 // Max number of skills recommended in a "agent skills" session.
 const val MAX_RECOMMENDED_SKILL_COUNT = 15

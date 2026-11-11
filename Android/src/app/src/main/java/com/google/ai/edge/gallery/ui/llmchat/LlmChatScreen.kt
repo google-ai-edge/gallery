@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -159,14 +160,12 @@ fun LlmAskImageScreen(
             style = emptyStateTitle,
             modifier = Modifier.semantics { heading() },
           )
-          val contentRes =
-            if (model.isAiCore) {
-              R.string.askimage_emptystate_content_aicore
-            } else {
-              R.string.askimage_emptystate_content
-            }
           Text(
-            stringResource(contentRes),
+            pluralStringResource(
+              R.plurals.askimage_emptystate_content,
+              model.maxImageCount,
+              model.maxImageCount,
+            ),
             style = emptyStateContent,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
