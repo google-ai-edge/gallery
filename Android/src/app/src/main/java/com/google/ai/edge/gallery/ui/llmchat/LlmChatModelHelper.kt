@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery.ui.llmchat
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import com.google.ai.edge.gallery.common.ImageUtils
 import com.google.ai.edge.gallery.common.cleanUpMediapipeTaskErrorMessage
 import com.google.ai.edge.gallery.common.metrics.InferenceStatus
 import com.google.ai.edge.gallery.common.metrics.MetricsTracker
@@ -56,7 +57,6 @@ import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.ModelInfo
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
-import java.io.ByteArrayOutputStream
 import java.util.Collections
 import java.util.concurrent.CancellationException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -580,7 +580,7 @@ object LlmChatModelHelper : LlmModelHelper {
       // Step 2: Assemble multimodal prompt attachments (images, audio clips, and text).
       val contents = mutableListOf<Content>()
       for (image in images) {
-        contents.add(Content.ImageBytes(image.toPngByteArray()))
+        contents.add(Content.ImageBytes(ImageUtils.encodeTga(image)))
       }
       for (audioClip in audioClips) {
         contents.add(Content.AudioBytes(audioClip))
@@ -667,11 +667,5 @@ object LlmChatModelHelper : LlmModelHelper {
       }
       throw e
     }
-  }
-
-  private fun Bitmap.toPngByteArray(): ByteArray {
-    val stream = ByteArrayOutputStream()
-    this.compress(Bitmap.CompressFormat.PNG, 100, stream)
-    return stream.toByteArray()
   }
 }
