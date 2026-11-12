@@ -20,6 +20,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.Serializer
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.dataStoreFile
 import com.google.ai.edge.gallery.AppLifecycleProvider
 import com.google.ai.edge.gallery.BenchmarkResultsSerializer
@@ -130,6 +131,7 @@ internal object AppModule {
   ): DataStore<UserData> {
     return DataStoreFactory.create(
       serializer = userDataSerializer,
+      corruptionHandler = ReplaceFileCorruptionHandler { UserData.getDefaultInstance() },
       produceFile = { context.dataStoreFile("user_data.pb") },
     )
   }

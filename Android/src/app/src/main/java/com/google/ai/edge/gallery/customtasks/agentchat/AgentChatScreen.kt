@@ -21,6 +21,7 @@ import android.os.Bundle
 import android.util.Log
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -75,6 +76,7 @@ import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.R
@@ -94,6 +96,7 @@ import com.google.ai.edge.gallery.tools.RequestPermissionToolAction
 import com.google.ai.edge.gallery.tools.SkillProgressToolAction
 import com.google.ai.edge.gallery.ui.common.BaseGalleryWebViewClient
 import com.google.ai.edge.gallery.ui.common.GalleryWebView
+import com.google.ai.edge.gallery.ui.common.WebViewUrlPolicy
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageCollapsableProgressPanel
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageImage
@@ -109,16 +112,19 @@ import com.google.ai.edge.gallery.ui.llmchat.LlmChatScreen
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import java.lang.Exception
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 
 private const val TAG = "AGAgentChatScreen"
-private val chatViewJavascriptInterface = ChatWebViewJavascriptInterface()
+private const val JS_BRIDGE_NAME = "AiEdgeGallery"
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -152,6 +158,9 @@ fun AgentChatScreen(
   var askInfoInputValue by remember { mutableStateOf("") }
   var webViewRef: WebView? by remember { mutableStateOf(null) }
   val chatWebViewClient = remember { ChatWebViewClient(context = context) }
+  val chatViewJavascriptInterface: ChatWebViewJavascriptInterface = remember {
+    ChatWebViewJavascriptInterface()
+  }
   var curSystemPrompt by remember { mutableStateOf(task.defaultSystemPrompt) }
   val systemPromptUpdatedMessage = stringResource(R.string.system_prompt_updated)
   var sendMessageTrigger by remember { mutableStateOf<SendMessageTrigger?>(null) }
@@ -315,7 +324,7 @@ fun AgentChatScreen(
             }
             is CallJsToolAction -> {
               val skillName =
-                if (action.url.contains("/skills/")) {
+                if ("/skills/" in action.url) {
                   action.url.substringAfter("/skills/").substringBefore("/")
                 } else if (action.url.startsWith(LOCAL_URL_BASE + "/")) {
                   action.url.substringAfter(LOCAL_URL_BASE + "/").substringBefore("/")
@@ -324,52 +333,121 @@ fun AgentChatScreen(
                 }
               val skill = skillManagerViewModel.getSkill(name = skillName)
               val skillId = skill?.let { skillManagerViewModel.getSkillShortId(it) } ?: "xxxx"
+              val skillOrigin = WebViewUrlPolicy.extractHttpsOrigin(action.url)
+              if (skillOrigin == null) {
+                Log.w(
+                  TAG,
+                  "Blocked skill execution with invalid or non-HTTPS URL, scheme: ${action.url.toUri().scheme}",
+                )
+                action.result.complete("{\"error\": \"Skill URL must be a valid HTTPS URL.\"}")
+                continue
+              }
+              val activeWebView = webViewRef
+              if (activeWebView == null) {
+                action.result.complete("{\"error\": \"Skill WebView is not initialized.\"}")
+                continue
+              }
               try {
-                // Set up a safety net timeout so we NEVER hang the chat or tool execution
-                launch {
-                  delay(60000L) // 60 seconds max
-                  if (!action.result.isCompleted) {
-                    Log.e(TAG, "JS Execution timed out, completing with error.")
-                    Log.d(
-                      TAG,
-                      "Analytics: skill_execution, capability_name=${task.id}, skill_name=$skillName, success=false, error_type=timeout",
-                    )
-                    firebaseAnalytics?.logEvent(
-                      GalleryEvent.SKILL_EXECUTION.id,
-                      Bundle().apply {
-                        putString("capability_name", task.id)
-                        putString("skill_name", skillName)
-                        putString("skill_id", skillId)
-                        putBoolean("success", false)
-                        putString("error_type", "timeout")
-                      },
-                    )
-                    action.result.complete(
-                      "{\"error\": \"Skill execution timed out. Please check network connection.\"}"
-                    )
-                  }
-                }
+                // Lock navigation to the skill's HTTPS origin and attach bridge for this
+                // invocation.
+                chatWebViewClient.allowedOrigin = skillOrigin
+                attachJsBridge(activeWebView, chatViewJavascriptInterface)
 
-                // Load url.
-                suspendCancellableCoroutine<Unit> { continuation ->
-                  chatWebViewClient.setPageLoadListener {
-                    chatWebViewClient.setPageLoadListener(null)
-                    continuation.resume(Unit)
-                  }
-                  Log.d(TAG, "Loading url: ${action.url}")
-                  webViewRef?.loadUrl(action.url)
-                }
+                val completedInTime =
+                  withTimeoutOrNull(60_000L) {
+                    // Load url.
+                    suspendCancellableCoroutine<Unit> { continuation ->
+                      continuation.invokeOnCancellation {
+                        chatWebViewClient.setPageLoadListener(null)
+                      }
+                      chatWebViewClient.setPageLoadListener {
+                        chatWebViewClient.setPageLoadListener(null)
+                        if (continuation.isActive) {
+                          continuation.resume(Unit)
+                        }
+                      }
+                      Log.d(TAG, "Loading url: ${action.url}")
+                      activeWebView.loadUrl(action.url)
+                    }
 
-                // Execute JS.
-                Log.d(TAG, "Start to run js")
-                chatViewJavascriptInterface.onResultListener = { result ->
-                  Log.d(TAG, "Got result:\n$result")
-                  action.result.complete(result)
-                  val isSuccess = !result.contains("\"error\":")
-                  val errorType = if (isSuccess) "" else "js_error"
+                    val loadedOrigin = WebViewUrlPolicy.extractHttpsOrigin(activeWebView.url)
+                    if (loadedOrigin != skillOrigin) {
+                      Log.w(
+                        TAG,
+                        "Aborting JS execution: loaded origin $loadedOrigin does not match $skillOrigin",
+                      )
+                      action.result.complete(
+                        "{\"error\": \"Skill WebView navigated away from expected origin.\"}"
+                      )
+                    } else {
+                      // Execute JS with a one-shot invocation token gated on the active skill
+                      // origin.
+                      Log.d(TAG, "Start to run js")
+                      val invocationToken = UUID.randomUUID().toString()
+                      chatViewJavascriptInterface.bindInvocation(invocationToken) { result ->
+                        Log.d(TAG, "Got result:\n$result")
+                        if (!action.result.complete(result)) {
+                          return@bindInvocation
+                        }
+                        val isSuccess = "\"error\":" !in result
+                        val errorType = if (isSuccess) "" else "js_error"
+                        Log.d(
+                          TAG,
+                          "Analytics: skill_execution, capability_name=${task.id}, skill_name=$skillName, success=$isSuccess, error_type=$errorType",
+                        )
+                        firebaseAnalytics?.logEvent(
+                          GalleryEvent.SKILL_EXECUTION.id,
+                          Bundle().apply {
+                            putString("capability_name", task.id)
+                            putString("skill_name", skillName)
+                            putString("skill_id", skillId)
+                            putBoolean("success", isSuccess)
+                            putString("error_type", errorType)
+                          },
+                        )
+                      }
+
+                      val safeToken = JSONObject.quote(invocationToken)
+                      val safeData = JSONObject.quote(action.data)
+                      val safeSecret = JSONObject.quote(action.secret)
+                      val script =
+                        """
+                        (async function() {
+                            var startTs = Date.now();
+                            while(true) {
+                              if (typeof ai_edge_gallery_get_result === 'function') {
+                                break;
+                              }
+                              await new Promise(resolve=>{
+                                setTimeout(resolve, 100)
+                              });
+                              if (Date.now() - startTs > 10000) {
+                                break;
+                              }
+                            }
+                            try {
+                              var result = await ai_edge_gallery_get_result($safeData, $safeSecret);
+                              AiEdgeGallery.onResultReady($safeToken, String(result ?? ""));
+                            } catch (e) {
+                              AiEdgeGallery.onResultReady(
+                                $safeToken,
+                                JSON.stringify({error: String(e && e.message ? e.message : e)})
+                              );
+                            }
+                        })()
+                        """
+                          .trimIndent()
+                      activeWebView.evaluateJavascript(script, null)
+                      action.result.join()
+                    }
+                    true
+                  }
+
+                if (completedInTime == null && !action.result.isCompleted) {
+                  Log.e(TAG, "JS Execution timed out, completing with error.")
                   Log.d(
                     TAG,
-                    "Analytics: skill_execution, capability_name=${task.id}, skill_name=$skillName, success=$isSuccess, error_type=$errorType",
+                    "Analytics: skill_execution, capability_name=${task.id}, skill_name=$skillName, success=false, error_type=timeout",
                   )
                   firebaseAnalytics?.logEvent(
                     GalleryEvent.SKILL_EXECUTION.id,
@@ -377,35 +455,17 @@ fun AgentChatScreen(
                       putString("capability_name", task.id)
                       putString("skill_name", skillName)
                       putString("skill_id", skillId)
-                      putBoolean("success", isSuccess)
-                      putString("error_type", errorType)
+                      putBoolean("success", false)
+                      putString("error_type", "timeout")
                     },
                   )
+                  action.result.complete(
+                    "{\"error\": \"Skill execution timed out. Please check network connection.\"}"
+                  )
                 }
-
-                val safeData = JSONObject.quote(action.data)
-                val safeSecret = JSONObject.quote(action.secret)
-                val script =
-                  """
-                  (async function() {
-                      var startTs = Date.now();
-                      while(true) {
-                        if (typeof ai_edge_gallery_get_result === 'function') {
-                          break;
-                        }
-                        await new Promise(resolve=>{
-                          setTimeout(resolve, 100)
-                        });
-                        if (Date.now() - startTs > 10000) {
-                          break;
-                        }
-                      }
-                      var result = await ai_edge_gallery_get_result($safeData, $safeSecret);
-                      AiEdgeGallery.onResultReady(result);
-                  })()
-                  """
-                    .trimIndent()
-                webViewRef?.evaluateJavascript(script, null)
+              } catch (e: CancellationException) {
+                action.result.cancel(e)
+                throw e
               } catch (e: Exception) {
                 Log.d(
                   TAG,
@@ -422,6 +482,12 @@ fun AgentChatScreen(
                   },
                 )
                 action.result.completeExceptionally(e)
+              } finally {
+                chatWebViewClient.setPageLoadListener(null)
+                chatViewJavascriptInterface.clearInvocation()
+                chatWebViewClient.allowedOrigin = null
+                activeWebView.removeJavascriptInterface(JS_BRIDGE_NAME)
+                activeWebView.loadUrl("about:blank")
               }
             }
             is AskInfoToolAction -> {
@@ -442,10 +508,7 @@ fun AgentChatScreen(
 
       GalleryWebView(
         modifier = Modifier.size(300.dp),
-        onWebViewCreated = { webView ->
-          webViewRef = webView
-          webView.addJavascriptInterface(chatViewJavascriptInterface, "AiEdgeGallery")
-        },
+        onWebViewCreated = { webView -> webViewRef = webView },
         customWebViewClient = chatWebViewClient,
         onConsoleMessage = { consoleMessage ->
           consoleMessage?.let { curConsoleMessage ->
@@ -797,24 +860,78 @@ private fun resetSessionWithCurrentSkillsAndMcps(
   )
 }
 
-class ChatWebViewJavascriptInterface {
-  var onResultListener: ((String) -> Unit)? = null
+private fun attachJsBridge(webView: WebView, jsInterface: ChatWebViewJavascriptInterface) {
+  webView.addJavascriptInterface(jsInterface, JS_BRIDGE_NAME)
+}
+
+internal class ChatWebViewJavascriptInterface {
+  private data class PendingInvocation(val token: String, val listener: (String) -> Unit)
+
+  private val pendingInvocation = AtomicReference<PendingInvocation?>(null)
+
+  fun bindInvocation(token: String, listener: (String) -> Unit) {
+    pendingInvocation.set(PendingInvocation(token = token, listener = listener))
+  }
+
+  fun clearInvocation() {
+    pendingInvocation.set(null)
+  }
 
   @JavascriptInterface
-  fun onResultReady(result: String) {
-    onResultListener?.invoke(result)
+  fun onResultReady(token: String, result: String) {
+    val current = pendingInvocation.get()
+    if (token.isNotEmpty() && current != null && current.token == token) {
+      if (pendingInvocation.compareAndSet(current, null)) {
+        current.listener.invoke(result)
+      }
+    } else {
+      Log.w(TAG, "Rejected JS bridge callback with mismatched invocation token.")
+    }
   }
 }
 
-class ChatWebViewClient(val context: Context) : BaseGalleryWebViewClient(context = context) {
-  private var onPageLoaded: (() -> Unit)? = null
+internal class ChatWebViewClient(context: Context) : BaseGalleryWebViewClient(context = context) {
+  @Volatile private var onPageLoaded: (() -> Unit)? = null
+  @Volatile var allowedOrigin: String? = null
 
   fun setPageLoadListener(listener: (() -> Unit)?) {
     onPageLoaded = listener
   }
 
+  override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+    if (super.shouldOverrideUrlLoading(view, request)) {
+      return true
+    }
+    return isCrossOriginNavigationBlocked(request?.url?.toString())
+  }
+
+  @Deprecated("Deprecated in Java")
+  override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+    @Suppress("DEPRECATION")
+    if (super.shouldOverrideUrlLoading(view, url)) {
+      return true
+    }
+    return isCrossOriginNavigationBlocked(url)
+  }
+
+  private fun isCrossOriginNavigationBlocked(targetUrl: String?): Boolean {
+    val expectedOrigin = allowedOrigin
+    val targetOrigin = WebViewUrlPolicy.extractHttpsOrigin(targetUrl)
+    if (expectedOrigin == null || targetOrigin != expectedOrigin) {
+      Log.w(
+        TAG,
+        "Blocked skill WebView navigation from expected origin $expectedOrigin to $targetOrigin",
+      )
+      return true
+    }
+    return false
+  }
+
   override fun onPageFinished(view: WebView?, url: String?) {
     super.onPageFinished(view, url)
+    if (url == "about:blank") {
+      return
+    }
     Log.d(TAG, "page loaded")
     onPageLoaded?.invoke()
   }
