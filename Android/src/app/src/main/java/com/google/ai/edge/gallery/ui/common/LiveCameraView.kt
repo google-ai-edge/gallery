@@ -28,7 +28,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraInfoUnavailableException
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -60,15 +63,53 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.ai.edge.gallery.R
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.asExecutor
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 
+private const val TAG = "AGLiveCameraView"
+
+/**
+ * Displays a live camera feed and delivers frames to [onBitmap], with optional support for taking
+ * high-resolution still photos on demand.
+ *
+ * @param onBitmap Called for each frame from the continuous camera stream. The caller must call
+ *   `imageProxy.close()` when done processing the frame.
+ * @param modifier [Modifier] applied to the preview container when [renderPreview] is `true`.
+ * @param preferredSize Target resolution (in pixels) for the continuous camera stream delivered to
+ *   [onBitmap] (e.g., `1080` for 1080p).
+ * @param photoCapturePreferredSize Optional target resolution (in pixels) for still photo captures
+ *   (e.g., `3840` for 4K). Useful for capturing high-res photos while keeping the continuous camera
+ *   stream ([onBitmap]) at a lower resolution. When `null`, still photo capture is disabled.
+ * @param onPhotoCaptureProviderChanged Provides a suspend function that can be called to capture a
+ *   single high-res photo at [photoCapturePreferredSize], or `null` when photo capture is disabled
+ *   or the camera is not active.
+ * @param outputImageFormat Pixel format of the raw [ImageProxy] passed to [onBitmap] (the [Bitmap]
+ *   passed to [onBitmap] and returned by the photo capture function is always `ARGB_8888`).
+ * @param renderPreview Whether to draw the camera preview on screen. Set to `false` if you render
+ *   the preview yourself (for example, on a custom OpenGL surface).
+ * @param cameraSelector Which camera to use (e.g., front or back camera).
+ * @param isPaused When `true`, freezes the on-screen preview (and skips frame decoding if
+ *   [skipFramesWhilePaused] is also `true`).
+ * @param onError Optional callback invoked if the camera fails to start.
+ * @param fallBackToAvailableCamera When `true`, falls back to another available camera if
+ *   [cameraSelector] is not available on the device.
+ * @param skipFramesWhilePaused When `true` and [isPaused] is `true`, drops incoming camera frames
+ *   immediately without decoding them into bitmaps.
+ */
 @Composable
 fun LiveCameraView(
   onBitmap: (Bitmap, ImageProxy) -> Unit,
   modifier: Modifier = Modifier,
   preferredSize: Int = 500,
+  photoCapturePreferredSize: Int? = null,
+  onPhotoCaptureProviderChanged: ((suspend () -> Bitmap?)?) -> Unit = {},
   @ImageAnalysis.OutputImageFormat
   outputImageFormat: Int = ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888,
   renderPreview: Boolean = true,
@@ -90,14 +131,24 @@ fun LiveCameraView(
   var isPermissionDenied by remember {
     mutableStateOf(PermissionAccessTracker.isPermissionDenied(context, PermissionAccessKind.CAMERA))
   }
+  val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+  // The photo capture function of the currently bound camera, or null if there is none.
+  var photoCaptureProvider by remember { mutableStateOf<(suspend () -> Bitmap?)?>(null) }
 
   val currentOnBitmap by rememberUpdatedState(onBitmap)
+  val currentOnPhotoCaptureProviderChanged by rememberUpdatedState(onPhotoCaptureProviderChanged)
   val currentIsPaused by rememberUpdatedState(isPaused)
   val currentSkipFramesWhilePaused by rememberUpdatedState(skipFramesWhilePaused)
   val currentOnError by rememberUpdatedState(onError)
   val currentOnPermissionDeniedChanged by rememberUpdatedState(onPermissionDeniedChanged)
 
   LaunchedEffect(isPermissionDenied) { currentOnPermissionDeniedChanged(isPermissionDenied) }
+
+  // Reports the provider whenever it changes, and also to a new callback instance passed in by a
+  // recomposition, which would otherwise never learn about an already bound camera.
+  LaunchedEffect(photoCaptureProvider, onPhotoCaptureProviderChanged) {
+    onPhotoCaptureProviderChanged(photoCaptureProvider)
+  }
 
   val onBitmapFn: (Bitmap, ImageProxy) -> Unit = { bitmap, imageProxy ->
     if (!currentIsPaused) {
@@ -106,32 +157,42 @@ fun LiveCameraView(
     currentOnBitmap(bitmap, imageProxy)
   }
 
+  suspend fun bindCamera() {
+    cameraProvider =
+      startCamera(
+        context = context,
+        lifecycleOwner = lifecycleOwner,
+        cameraExecutor = cameraExecutor,
+        onBitmap = onBitmapFn,
+        preferredSize = preferredSize,
+        photoCapturePreferredSize = photoCapturePreferredSize,
+        onPhotoCaptureProviderChanged = { photoCaptureProvider = it },
+        outputImageFormat = outputImageFormat,
+        cameraSelector = cameraSelector,
+        fallBackToAvailableCamera = fallBackToAvailableCamera,
+        shouldSkipFrame = { currentSkipFramesWhilePaused && currentIsPaused },
+        onError = currentOnError,
+      )
+  }
+
+  fun unbindCameraForDeniedPermission() {
+    photoCaptureProvider = null
+    cameraProvider?.unbindAll()
+    cameraProvider = null
+    imageBitmap = null
+    isPermissionDenied = true
+  }
+
   fun syncCameraPermissionState() {
     when {
       PermissionAccessTracker.isPermissionGranted(context, PermissionAccessKind.CAMERA) -> {
         if (isPermissionDenied) {
           isPermissionDenied = false
-          scope.launch {
-            cameraProvider =
-              startCamera(
-                context = context,
-                lifecycleOwner = lifecycleOwner,
-                onBitmap = onBitmapFn,
-                preferredSize = preferredSize,
-                outputImageFormat = outputImageFormat,
-                cameraSelector = cameraSelector,
-                fallBackToAvailableCamera = fallBackToAvailableCamera,
-                shouldSkipFrame = { currentSkipFramesWhilePaused && currentIsPaused },
-                onError = currentOnError,
-              )
-          }
+          scope.launch { bindCamera() }
         }
       }
       PermissionAccessTracker.isPermissionDenied(context, PermissionAccessKind.CAMERA) -> {
-        cameraProvider?.unbindAll()
-        cameraProvider = null
-        imageBitmap = null
-        isPermissionDenied = true
+        unbindCameraForDeniedPermission()
       }
     }
   }
@@ -149,45 +210,24 @@ fun LiveCameraView(
           PermissionAccessTracker.isPermissionGranted(context, PermissionAccessKind.CAMERA)
       isPermissionDenied = !effectiveGranted
       if (effectiveGranted) {
-        scope.launch {
-          cameraProvider =
-            startCamera(
-              context = context,
-              lifecycleOwner = lifecycleOwner,
-              onBitmap = onBitmapFn,
-              preferredSize = preferredSize,
-              outputImageFormat = outputImageFormat,
-              cameraSelector = cameraSelector,
-              fallBackToAvailableCamera = fallBackToAvailableCamera,
-              shouldSkipFrame = { currentSkipFramesWhilePaused && currentIsPaused },
-              onError = currentOnError,
-            )
-        }
+        scope.launch { bindCamera() }
       }
     }
 
-  LaunchedEffect(cameraSelector) {
+  LaunchedEffect(
+    cameraSelector,
+    preferredSize,
+    photoCapturePreferredSize,
+    outputImageFormat,
+    fallBackToAvailableCamera,
+  ) {
     when {
       PermissionAccessTracker.isPermissionGranted(context, PermissionAccessKind.CAMERA) -> {
         isPermissionDenied = false
-        cameraProvider =
-          startCamera(
-            context = context,
-            lifecycleOwner = lifecycleOwner,
-            onBitmap = onBitmapFn,
-            preferredSize = preferredSize,
-            outputImageFormat = outputImageFormat,
-            cameraSelector = cameraSelector,
-            fallBackToAvailableCamera = fallBackToAvailableCamera,
-            shouldSkipFrame = { currentSkipFramesWhilePaused && currentIsPaused },
-            onError = currentOnError,
-          )
+        bindCamera()
       }
       PermissionAccessTracker.isPermissionDenied(context, PermissionAccessKind.CAMERA) -> {
-        cameraProvider?.unbindAll()
-        cameraProvider = null
-        imageBitmap = null
-        isPermissionDenied = true
+        unbindCameraForDeniedPermission()
       }
       else -> {
         liveCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
@@ -199,7 +239,14 @@ fun LiveCameraView(
 
   LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { syncCameraPermissionState() }
 
-  DisposableEffect(Unit) { onDispose { cameraProvider?.unbindAll() } }
+  DisposableEffect(Unit) {
+    onDispose {
+      // Effects no longer run after disposal, so the callback is told directly.
+      currentOnPhotoCaptureProviderChanged(null)
+      cameraProvider?.unbindAll()
+      cameraExecutor.shutdown()
+    }
+  }
 
   // Camera live view.
   if (renderPreview) {
@@ -247,12 +294,18 @@ fun LiveCameraView(
   }
 }
 
-/** Asynchronously initializes and starts the camera for image capture and analysis. */
+/**
+ * Asynchronously initializes and binds the camera's [ImageAnalysis] stream and optional
+ * high-resolution [ImageCapture] use case to [lifecycleOwner].
+ */
 private suspend fun startCamera(
   context: Context,
   lifecycleOwner: LifecycleOwner,
+  cameraExecutor: Executor,
   onBitmap: (Bitmap, ImageProxy) -> Unit,
   preferredSize: Int,
+  photoCapturePreferredSize: Int?,
+  onPhotoCaptureProviderChanged: ((suspend () -> Bitmap?)?) -> Unit,
   @ImageAnalysis.OutputImageFormat outputImageFormat: Int,
   cameraSelector: CameraSelector,
   fallBackToAvailableCamera: Boolean,
@@ -268,61 +321,183 @@ private suspend fun startCamera(
       cameraSelector
     }
 
-  val resolutionSelector =
-    ResolutionSelector.Builder()
-      .setResolutionStrategy(
-        ResolutionStrategy(
-          Size(preferredSize, preferredSize),
-          ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER,
-        )
-      )
-      .build()
   val imageAnalysis =
     ImageAnalysis.Builder()
-      .setResolutionSelector(resolutionSelector)
+      .setResolutionSelector(buildResolutionSelector(preferredSize))
       .setOutputImageFormat(outputImageFormat)
       .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
       .build()
       .also {
-        it.setAnalyzer(Dispatchers.Default.asExecutor()) { imageProxy ->
+        it.setAnalyzer(cameraExecutor) { imageProxy ->
           // When paused (e.g. during LLM inference), avoid any bitmap decoding or CPU overhead.
           if (shouldSkipFrame()) {
             imageProxy.close()
             return@setAnalyzer
           }
 
-          var bitmap = imageProxy.toBitmap()
-          val rotation = imageProxy.imageInfo.rotationDegrees
-          val matrix = Matrix()
-          if (rotation != 0) {
-            matrix.postRotate(rotation.toFloat())
+          val bitmap = imageProxyToUprightBitmapOrNull(imageProxy, effectiveCameraSelector)
+          if (bitmap == null) {
+            // An unclosed ImageProxy would stall the camera stream.
+            imageProxy.close()
+            return@setAnalyzer
           }
-          if (effectiveCameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA) {
-            matrix.postScale(-1f, 1f)
-          }
-          if (!matrix.isIdentity) {
-            val transformed =
-              Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-            if (transformed != bitmap) {
-              bitmap.recycle()
-              bitmap = transformed
-            }
-          }
-          //  The caller is responsible of calling `.close` on imageProxy to mark that the
-          //  processing of the current frame is done.
+          // The caller is responsible for calling `.close()` on imageProxy when done processing.
           onBitmap(bitmap, imageProxy)
         }
       }
 
+  val imageCapture = photoCapturePreferredSize?.let { size ->
+    ImageCapture.Builder()
+      .setResolutionSelector(buildResolutionSelector(size))
+      .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+      .build()
+  }
+
   try {
     cameraProvider.unbindAll()
-    cameraProvider.bindToLifecycle(lifecycleOwner, effectiveCameraSelector, imageAnalysis)
+    val useCases = listOfNotNull(imageAnalysis, imageCapture).toTypedArray()
+    cameraProvider.bindToLifecycle(lifecycleOwner, effectiveCameraSelector, *useCases)
+    onPhotoCaptureProviderChanged(
+      imageCapture?.let { capture ->
+        { capturePhoto(capture, cameraExecutor, effectiveCameraSelector) }
+      }
+    )
   } catch (exc: Exception) {
-    Log.e("LiveCameraView", "Failed to start camera", exc)
+    // unbindAll() above may already have unbound a previously provided photo capture.
+    onPhotoCaptureProviderChanged(null)
+    Log.e(TAG, "Failed to start camera", exc)
     Toast.makeText(context, R.string.camera_init_failed, Toast.LENGTH_LONG).show()
     onError?.invoke()
   }
   return cameraProvider
+}
+
+/**
+ * Builds a [ResolutionSelector] targeting a square bounding box of `preferredSize x preferredSize`,
+ * preferring the closest supported camera resolution at or below that bound before falling back to
+ * higher resolutions.
+ *
+ * The aspect ratio is pinned to 4:3 (where the camera supports it) so that [ImageAnalysis] and
+ * [ImageCapture] cover the same field of view even though they use different resolutions. Without
+ * it, each use case could settle on a different aspect ratio for its size bound.
+ */
+private fun buildResolutionSelector(preferredSize: Int): ResolutionSelector =
+  ResolutionSelector.Builder()
+    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+    .setResolutionStrategy(
+      ResolutionStrategy(
+        Size(preferredSize, preferredSize),
+        ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER,
+      )
+    )
+    .build()
+
+/**
+ * Takes a single in-memory picture using [imageCapture] and decodes it into an upright [Bitmap],
+ * returning `null` if capture or decoding fails.
+ */
+private suspend fun capturePhoto(
+  imageCapture: ImageCapture,
+  cameraExecutor: Executor,
+  effectiveCameraSelector: CameraSelector,
+): Bitmap? {
+  val image = awaitCapturedImage(imageCapture, cameraExecutor) ?: return null
+  return try {
+    // Decoding a high-res photo is slow, so it must not run on cameraExecutor, where it would
+    // hold up the frames of the continuous camera stream.
+    withContext(Dispatchers.Default) {
+      ensureActive()
+      val bitmap = imageProxyToUprightBitmapOrNull(image, effectiveCameraSelector)
+      // Nobody receives the bitmap if the caller was cancelled in the meantime.
+      if (!isActive) bitmap?.recycle()
+      bitmap
+    }
+  } finally {
+    image.close()
+  }
+}
+
+/**
+ * Takes a single in-memory picture using [imageCapture], returning `null` if the capture fails. The
+ * caller must close the returned [ImageProxy].
+ */
+private suspend fun awaitCapturedImage(
+  imageCapture: ImageCapture,
+  cameraExecutor: Executor,
+): ImageProxy? = suspendCancellableCoroutine { continuation ->
+  fun onCaptureNotStarted(e: RuntimeException) {
+    Log.w(TAG, "High-res image capture could not be started", e)
+    continuation.resume(null) { _, _, _ -> }
+  }
+  try {
+    imageCapture.takePicture(
+      cameraExecutor,
+      object : ImageCapture.OnImageCapturedCallback() {
+        override fun onCaptureSuccess(image: ImageProxy) {
+          // Closes the image if the caller was cancelled and so never receives it.
+          continuation.resume(image) { _, undelivered, _ -> undelivered?.close() }
+        }
+
+        override fun onError(exception: ImageCaptureException) {
+          Log.w(TAG, "High-res image capture failed", exception)
+          continuation.resume(null) { _, _, _ -> }
+        }
+      },
+    )
+  } catch (e: IllegalStateException) {
+    // The use case is no longer bound to a camera.
+    onCaptureNotStarted(e)
+  } catch (e: RejectedExecutionException) {
+    // cameraExecutor has already been shut down.
+    onCaptureNotStarted(e)
+  }
+}
+
+/**
+ * Converts [imageProxy] to an upright [Bitmap] like [imageProxyToUprightBitmap], returning `null`
+ * if the image cannot be converted.
+ */
+private fun imageProxyToUprightBitmapOrNull(
+  imageProxy: ImageProxy,
+  effectiveCameraSelector: CameraSelector,
+): Bitmap? =
+  try {
+    imageProxyToUprightBitmap(imageProxy, effectiveCameraSelector)
+  } catch (e: IllegalArgumentException) {
+    // ImageProxy.toBitmap() does not support the image format.
+    Log.e(TAG, "Failed to convert camera image to a bitmap", e)
+    null
+  } catch (e: UnsupportedOperationException) {
+    // ImageProxy.toBitmap() failed to convert the image.
+    Log.e(TAG, "Failed to convert camera image to a bitmap", e)
+    null
+  }
+
+/**
+ * Converts [imageProxy] to a [Bitmap], applying [ImageProxy.getImageInfo] rotation degrees so the
+ * returned image is upright and mirroring horizontally when using the front camera.
+ */
+private fun imageProxyToUprightBitmap(
+  imageProxy: ImageProxy,
+  effectiveCameraSelector: CameraSelector,
+): Bitmap {
+  var bitmap = imageProxy.toBitmap()
+  val rotation = imageProxy.imageInfo.rotationDegrees
+  val matrix = Matrix()
+  if (rotation != 0) {
+    matrix.postRotate(rotation.toFloat())
+  }
+  if (effectiveCameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA) {
+    matrix.postScale(-1f, 1f)
+  }
+  if (!matrix.isIdentity) {
+    val transformed = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    if (transformed != bitmap) {
+      bitmap.recycle()
+      bitmap = transformed
+    }
+  }
+  return bitmap
 }
 
 /**
