@@ -163,6 +163,8 @@ private suspend fun MlKitTtsEngine.speakWarmUpUtterance(
                 WarmUpResult.INCOMPLETE
               }
               is SpeechSynthesizerResponse.AudioAvailable -> null
+              // Other events (e.g. word ranges) don't affect the warm-up result.
+              else -> null
             }
         }
         result ?: WarmUpResult.INCOMPLETE
@@ -425,6 +427,8 @@ internal fun MlKitTtsEngine.synthesisAttempt(
                         clausesWithAudio[clauseIndex] = true
                         pcmBuffer.write(response.audio)
                       }
+                      // Other events (e.g. word ranges) aren't used for playback.
+                      else -> {}
                     }
                   }
                 }
