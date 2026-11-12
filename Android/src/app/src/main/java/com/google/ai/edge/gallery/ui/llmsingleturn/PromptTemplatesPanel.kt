@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -39,7 +38,6 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.ExpandLess
@@ -94,6 +92,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.ui.common.SendButton
 import com.google.ai.edge.gallery.ui.common.chat.MessageBubbleShape
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
@@ -146,6 +145,7 @@ fun PromptTemplatesPanel(
   }
 
   var showExamplePromptBottomSheet by remember { mutableStateOf(false) }
+  @Suppress("DEPRECATION")
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   val bubbleBorderRadius = dimensionResource(R.dimen.chat_bubble_corner_radius)
 
@@ -233,6 +233,7 @@ fun PromptTemplatesPanel(
             )
           } else {
             val cdContentInput = stringResource(R.string.cd_content_input_field)
+            @Suppress("DEPRECATION")
             TextField(
               value = curTextInputContent,
               onValueChange = { curTextInputContent = it },
@@ -380,29 +381,15 @@ fun PromptTemplatesPanel(
             }
           } else {
             // Send button
-            OutlinedIconButton(
+            SendButton(
               enabled = !inProgress && curTextInputContent.isNotEmpty(),
               onClick = {
                 focusManager.clearFocus()
                 onSend(fullPrompt.text)
               },
-              colors =
-                IconButtonDefaults.iconButtonColors(
-                  containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                  disabledContainerColor =
-                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
-                  contentColor = MaterialTheme.colorScheme.onSurface,
-                  disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-                ),
-              border = BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.surface),
+              iconSize = 20.dp,
               modifier = Modifier.size(ICON_BUTTON_SIZE),
-            ) {
-              Icon(
-                Icons.AutoMirrored.Rounded.Send,
-                contentDescription = stringResource(R.string.cd_send_prompt_icon),
-                modifier = Modifier.size(20.dp).offset(x = 2.dp),
-              )
-            }
+            )
           }
         }
       }
@@ -458,7 +445,7 @@ fun PromptTemplatesPanel(
               )
             }
 
-            if (hasOverflow && !isExpanded) {
+            if (hasOverflow || isExpanded) {
               Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
                 horizontalArrangement = Arrangement.End,
@@ -468,32 +455,16 @@ fun PromptTemplatesPanel(
                     Modifier.padding(end = 16.dp)
                       .clip(CircleShape)
                       .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                      .clickable { expandedStates[prompt] = true }
+                      .clickable { expandedStates[prompt] = !isExpanded }
                       .padding(vertical = 1.dp, horizontal = 6.dp)
                 ) {
                   Icon(
-                    Icons.Outlined.ExpandMore,
-                    contentDescription = stringResource(R.string.cd_expand_icon),
-                    modifier = Modifier.size(12.dp),
-                  )
-                }
-              }
-            } else if (isExpanded) {
-              Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                horizontalArrangement = Arrangement.End,
-              ) {
-                Box(
-                  modifier =
-                    Modifier.padding(end = 16.dp)
-                      .clip(CircleShape)
-                      .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                      .clickable { expandedStates[prompt] = false }
-                      .padding(vertical = 1.dp, horizontal = 6.dp)
-                ) {
-                  Icon(
-                    Icons.Outlined.ExpandLess,
-                    contentDescription = stringResource(R.string.cd_collapse_icon),
+                    imageVector =
+                      if (isExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription =
+                      stringResource(
+                        if (isExpanded) R.string.cd_collapse_icon else R.string.cd_expand_icon
+                      ),
                     modifier = Modifier.size(12.dp),
                   )
                 }

@@ -73,7 +73,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Article
-import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.InsertChart
 import androidx.compose.material.icons.rounded.AudioFile
@@ -96,7 +95,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -118,7 +116,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -149,10 +146,10 @@ import com.google.ai.edge.gallery.ui.common.PermissionAccessKind
 import com.google.ai.edge.gallery.ui.common.PermissionAccessTracker
 import com.google.ai.edge.gallery.ui.common.PermissionDeniedDialog
 import com.google.ai.edge.gallery.ui.common.SandboxedPdf
+import com.google.ai.edge.gallery.ui.common.SendButton
 import com.google.ai.edge.gallery.ui.common.asr.ChatAsrDictationPanel
 import com.google.ai.edge.gallery.ui.common.asr.ChatAsrDictationUiState
 import com.google.ai.edge.gallery.ui.common.asr.rememberChatAsrDictationActions
-import com.google.ai.edge.gallery.ui.common.getTaskIconColor
 import com.google.ai.edge.gallery.ui.common.humanReadableSize
 import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
 import java.io.File
@@ -240,8 +237,10 @@ fun MessageInputText(
   var showAddContentMenu by remember { mutableStateOf(false) }
   var showTextInputHistorySheet by remember { mutableStateOf(false) }
   var showCameraCaptureBottomSheet by remember { mutableStateOf(false) }
+  @Suppress("DEPRECATION")
   val cameraCaptureSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   var showAudioRecorder by remember { mutableStateOf(false) }
+  @Suppress("DEPRECATION")
   val audioRecorderSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   var pickedImages by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
   var pickedAudioClips by remember { mutableStateOf<List<AudioClip>>(emptyList()) }
@@ -572,8 +571,10 @@ fun MessageInputText(
               modifier =
                 Modifier.padding(horizontal = 12.dp)
                   .padding(vertical = 8.dp)
-                  .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
-                  .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+                  .background(
+                    MaterialTheme.colorScheme.surfaceContainerLow,
+                    RoundedCornerShape(16.dp),
+                  )
             ) {
               // First row: text field for input.
               Row(
@@ -582,6 +583,7 @@ fun MessageInputText(
               ) {
                 // Text field.
                 val cdPromptInput = stringResource(R.string.cd_prompt_input_text_field)
+                @Suppress("DEPRECATION")
                 TextField(
                   value = curMessage,
                   minLines = 1,
@@ -636,24 +638,15 @@ fun MessageInputText(
                   // A plus button to show a popup menu to add stuff to the chat.
                   Box() {
                     val enableAddButton = !inProgress && !isResettingSession && !modelInitializing
-                    OutlinedIconButton(
+                    IconButton(
                       enabled = enableAddButton,
                       onClick = { showAddContentMenu = true },
                       colors =
                         IconButtonDefaults.iconButtonColors(
+                          contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                           disabledContentColor =
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
                         ),
-                      border =
-                        IconButtonDefaults.outlinedIconButtonBorder(true)
-                          .copy(
-                            brush =
-                              SolidColor(
-                                MaterialTheme.colorScheme.outlineVariant.copy(
-                                  alpha = if (enableAddButton) 1f else 0.1f
-                                )
-                              )
-                          ),
                     ) {
                       Icon(
                         Icons.Outlined.Add,
@@ -1036,7 +1029,7 @@ fun MessageInputText(
                 }
                 // Send button.
                 else {
-                  IconButton(
+                  SendButton(
                     enabled =
                       !inProgress &&
                         !isResettingSession &&
@@ -1058,19 +1051,7 @@ fun MessageInputText(
                       pickedAudioClips = emptyList()
                       pickedTextFiles = emptyList()
                     },
-                    colors =
-                      IconButtonDefaults.iconButtonColors(
-                        containerColor = getTaskIconColor(task = task),
-                        disabledContainerColor = getTaskIconColor(task = task).copy(alpha = 0.3f),
-                      ),
-                  ) {
-                    Icon(
-                      Icons.AutoMirrored.Rounded.Send,
-                      contentDescription = stringResource(R.string.cd_send_prompt_icon),
-                      modifier = Modifier.offset(x = 2.dp),
-                      tint = Color.White,
-                    )
-                  }
+                  )
                 }
               }
             }

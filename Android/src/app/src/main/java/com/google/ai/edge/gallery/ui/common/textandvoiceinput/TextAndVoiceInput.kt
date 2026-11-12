@@ -24,14 +24,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.outlined.KeyboardAlt
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.Icon
@@ -46,7 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
@@ -55,9 +52,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.ui.common.SendButton
 import com.google.ai.edge.gallery.ui.common.asr.HoldToDictate
 import com.google.ai.edge.gallery.ui.common.asr.HoldToDictateViewModel
-import com.google.ai.edge.gallery.ui.common.getTaskIconColor
 import com.google.ai.edge.gallery.ui.theme.bodyLargeNarrow
 
 @Composable
@@ -132,6 +129,7 @@ fun TextAndVoiceInput(
               .heightIn(min = 48.dp),
           verticalAlignment = Alignment.CenterVertically,
         ) {
+          @Suppress("DEPRECATION")
           BasicTextField(
             value = curTextInput,
             enabled = !processing,
@@ -160,28 +158,11 @@ fun TextAndVoiceInput(
                 }
 
                 // Send button.
-                Box(
-                  modifier =
-                    Modifier.clip(CircleShape)
-                      .then(
-                        if (!processing) {
-                          Modifier.clickable { onDone(curTextInput) }
-                        } else {
-                          Modifier
-                        }
-                      )
-                      .graphicsLayer { alpha = if (!processing) 1f else 0.5f }
-                      .background(getTaskIconColor(task = task))
-                      .size(36.dp),
-                  contentAlignment = Alignment.Center,
-                ) {
-                  Icon(
-                    Icons.AutoMirrored.Rounded.Send,
-                    contentDescription = stringResource(R.string.cd_send_prompt_icon),
-                    modifier = Modifier.offset(x = 2.dp),
-                    tint = Color.White,
-                  )
-                }
+                SendButton(
+                  enabled = !processing,
+                  onClick = { onDone(curTextInput) },
+                  modifier = Modifier.size(36.dp),
+                )
               }
             },
           )
