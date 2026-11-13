@@ -1192,9 +1192,8 @@ constructor(
     onCancelled: () -> Unit = {},
     includeExtraDataFiles: Boolean = isDownloadOptionalComponentsEnabled(model.name),
   ) {
-    val downloads = mutableListOf<Pair<Task?, Model>>(task to model)
     confirmMobileDataDownload(
-      downloadBytes = mobileDataDownloadBytes(downloads),
+      downloadBytes = mobileDataDownloadBytes(listOf(task to model)),
       onConfirmed = {
         downloadModel(task = task, model = model, includeExtraDataFiles = includeExtraDataFiles)
         onStarted()
@@ -2273,7 +2272,9 @@ constructor(
         // Update UI state.
         Log.d(TAG, "loadModelAllowlist: Updating UI state")
         _uiState.update {
-          createUiState(savedLastMainModels = savedLastMainModels)
+          createUiState(
+              savedLastMainModels = savedLastMainModels,
+            )
             .copy(
               loadingModelAllowlist = false,
               tasks = curTasks,
@@ -2366,7 +2367,7 @@ constructor(
    *   merged with the ones already in the UI state.
    */
   private fun createUiState(
-    savedLastMainModels: Map<String, String> = emptyMap()
+    savedLastMainModels: Map<String, String> = emptyMap(),
   ): ModelManagerUiState {
     val modelDownloadStatus: MutableMap<String, ModelDownloadStatus> = mutableMapOf()
     val extraDataDownloadStatus = _uiState.value.extraDataDownloadStatus.toMutableMap()

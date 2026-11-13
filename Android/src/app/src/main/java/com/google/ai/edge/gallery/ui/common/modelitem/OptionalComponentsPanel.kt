@@ -55,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -121,6 +122,8 @@ private data class OptionalComponentsPanelState(
 /**
  * An expandable section under the model download panel that displays optional components such as
  * extra files that can be downloaded alongside the model or removed/downloaded after download.
+ *
+ * @param cardColor Background of the nested card that lists the components when expanded.
  */
 @Composable
 fun OptionalComponentsPanel(
@@ -133,6 +136,7 @@ fun OptionalComponentsPanel(
   downloadLabel: String? = null,
   componentLabel: String? = null,
   showProgressIndicator: Boolean = true,
+  cardColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
 ) {
   val context = LocalContext.current
 
@@ -272,7 +276,7 @@ fun OptionalComponentsPanel(
           Modifier.fillMaxWidth()
             .padding(top = 8.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .background(cardColor)
             .padding(horizontal = 12.dp, vertical = 8.dp)
       ) {
         if (!isModelDownloaded) {

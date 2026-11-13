@@ -709,7 +709,10 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
       request.modelsToDownload.map { model ->
         val section = sectionByModelName[model.name]
         val task =
-          if (section?.target == ModelSelectionTarget.MAIN_MODEL) currentBinding.task else null
+          when (section?.target) {
+            ModelSelectionTarget.MAIN_MODEL -> currentBinding.task
+            else -> null
+          }
         task to model
       }
     // Like a single download, only the downloads the app runs need a connection to start: system
@@ -972,11 +975,13 @@ constructor(private val savedStateHandle: SavedStateHandle) : ViewModel() {
       var mainModel: Model? = null
       for ((section, model) in selected) {
         if (model == null) continue
-        if (section.target == ModelSelectionTarget.MAIN_MODEL) {
-          mainModel = model
-          currentBinding.host.saveMainModel(currentBinding.task, model)
-        } else {
-          currentBinding.host.saveSelection(section.target, model)
+        when (section.target) {
+          ModelSelectionTarget.MAIN_MODEL -> {
+            mainModel = model
+            currentBinding.host.saveMainModel(currentBinding.task, model)
+          }
+          ModelSelectionTarget.ASR_MODEL,
+          ModelSelectionTarget.TTS_MODEL -> currentBinding.host.saveSelection(section.target, model)
         }
       }
       update(

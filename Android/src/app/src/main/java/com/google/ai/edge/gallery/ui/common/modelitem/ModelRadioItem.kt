@@ -85,11 +85,12 @@ import java.util.Locale
  * It reuses the regular model card's anatomy: [ModelNameAndStatus] (the "Best overall" badge, name,
  * status icon and size, download progress and failure message, and "Learn more"), the expand
  * chevron, the model description, the AICore access or unavailability panels, and
- * [DownloadModelPanel] (`canShowTryIt = false`) when [modelManagerViewModel] is provided. Selection
- * and expansion are hoisted so the screen can drive them.
+ * [DownloadModelPanel] (`canShowTryIt = false`) when [modelManagerViewModel] is provided. When
+ * expanded, it also shows the model's optional components targeted at [task]
+ * ([OptionalComponentsPanel]). Selection and expansion are hoisted so the screen can drive them.
  *
- * @param task The task the model is offered for, used for the "Best overall" badge. `null` for
- *   supplementary models.
+ * @param task The task the model is offered for, used for the "Best overall" badge and to pick the
+ *   optional components to show. `null` for supplementary models.
  * @param selectable Whether the model can be picked. Unselectable models always show the panel that
  *   explains why.
  */
@@ -274,6 +275,25 @@ fun ModelRadioItem(
             )
           }
         }
+      }
+
+      // The model's optional components for this task (for example a task's reference documents),
+      // like on the regular model card. Only components targeted at [task] show, so a shared model
+      // doesn't show another task's files. Supplementary models get their own section on the
+      // selection screen, so the supplementary models panel isn't repeated here.
+      if (
+        expanded &&
+          task != null &&
+          modelManagerViewModel != null &&
+          model.downloadInfo.hasOptionalComponents(task.id)
+      ) {
+        OptionalComponentsPanel(
+          model = model,
+          task = task,
+          modelManagerViewModel = modelManagerViewModel,
+          downloadStatus = downloadStatus?.status,
+          cardColor = MaterialTheme.colorScheme.surfaceContainer,
+        )
       }
     }
   }

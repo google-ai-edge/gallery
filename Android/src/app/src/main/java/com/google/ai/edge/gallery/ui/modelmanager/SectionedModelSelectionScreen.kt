@@ -346,10 +346,15 @@ fun SectionedModelSelectionContent(
               ) { candidate ->
                 ModelRadioItem(
                   model = candidate.model,
-                  // Only main models can carry the task's "Best overall" badge.
+                  // Main models are offered for the task: they can carry its "Best overall" badge
+                  // and show only the optional components targeted at it. Supplementary (speech)
+                  // models aren't tied to a task.
                   task =
-                    if (sectionState.section.target == ModelSelectionTarget.MAIN_MODEL) task
-                    else null,
+                    when (sectionState.section.target) {
+                      ModelSelectionTarget.MAIN_MODEL -> task
+                      ModelSelectionTarget.ASR_MODEL,
+                      ModelSelectionTarget.TTS_MODEL -> null
+                    },
                   downloadStatus = candidate.downloadStatus,
                   selected = candidate.isSelected,
                   selectable = candidate.isSelectable,
