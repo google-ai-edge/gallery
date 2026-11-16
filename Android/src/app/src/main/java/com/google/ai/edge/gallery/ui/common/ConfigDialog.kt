@@ -21,6 +21,7 @@ package com.google.ai.edge.gallery.ui.common
 // import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import android.util.Log
 import androidx.annotation.StringRes
+import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
@@ -99,12 +100,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -116,6 +117,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.ai.edge.gallery.R
@@ -168,8 +170,11 @@ private val TAB_LABEL_VERTICAL_PADDING = 8.dp
 /** Floor font size for config dialog tab titles before allowing two-line wrapping. */
 private val TAB_TITLE_MIN_FONT_SIZE = 12.sp
 
-/** Step size when auto-sizing config dialog tab titles down from [TextStyle.fontSize]. */
+/** Step size when auto-sizing config dialog tab titles down from the text style's font size. */
 private const val TAB_TITLE_FONT_STEP_SP = 0.5f
+
+/** Gap between footer actions, horizontally within a row and vertically between stacked rows. */
+private val FOOTER_ACTION_SPACING = 8.dp
 
 private const val TAG = "AGConfigDialog"
 
@@ -320,51 +325,113 @@ fun ConfigDialog(
         }
       }
 
-      // Footer action bar: Restore default on the left, Cancel and OK on the right.
-      Row(
+      ConfigDialogFooter(
+        onRestoreDefault = {
+          when (selectedTab) {
+            ConfigTab.MODEL_CONFIGS -> {
+              for (config in configs) {
+                values[config.key.label] = config.defaultValue
+              }
+            }
+            ConfigTab.SYSTEM_PROMPT -> {
+              systemPrompt = defaultSystemPrompt
+            }
+            ConfigTab.AUDIO -> {
+              audioActions.onRestoreDefaults()
+            }
+          }
+        },
+        onCancel = requestDismiss,
+        onOk = {
+          Log.d(TAG, "Values from dialog: $values")
+          onOk(values.toMap(), savedSystemPrompt, systemPrompt)
+        },
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        OutlinedButton(
-          onClick = {
-            when (selectedTab) {
-              ConfigTab.MODEL_CONFIGS -> {
-                for (config in configs) {
-                  values[config.key.label] = config.defaultValue
-                }
-              }
-              ConfigTab.SYSTEM_PROMPT -> {
-                systemPrompt = defaultSystemPrompt
-              }
-              ConfigTab.AUDIO -> {
-                audioActions.onRestoreDefaults()
-              }
-            }
-          },
-          contentPadding = SMALL_BUTTON_CONTENT_PADDING,
-        ) {
-          Text(stringResource(R.string.restore_default))
-        }
+        okBtnLabel = okBtnLabel,
+        showCancel = showCancel,
+      )
+    }
+  }
+}
 
-        Row(
-          horizontalArrangement = Arrangement.End,
-          verticalAlignment = Alignment.CenterVertically,
-        ) {
-          if (showCancel) {
-            TextButton(onClick = requestDismiss) { Text(stringResource(R.string.cancel)) }
-            Spacer(modifier = Modifier.width(8.dp))
+/**
+ * The config dialog's footer: Restore default on the start side, and Cancel and OK on the end side.
+ * Restore default moves onto its own row when the buttons don't all fit on one row, so long
+ * translations and large font scales never squeeze Cancel or OK.
+ */
+@VisibleForTesting
+@Composable
+internal fun ConfigDialogFooter(
+  onRestoreDefault: () -> Unit,
+  onCancel: () -> Unit,
+  onOk: () -> Unit,
+  modifier: Modifier = Modifier,
+  okBtnLabel: String = stringResource(R.string.ok),
+  showCancel: Boolean = true,
+) {
+  FooterActionBar(
+    modifier = modifier,
+    leadingAction = {
+      OutlinedButton(onClick = onRestoreDefault, contentPadding = SMALL_BUTTON_CONTENT_PADDING) {
+        Text(stringResource(R.string.restore_default), textAlign = TextAlign.Center)
+      }
+    },
+    trailingActions = {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        if (showCancel) {
+          // Weighted so OK is measured first and Cancel takes the remaining width.
+          TextButton(onClick = onCancel, modifier = Modifier.weight(1f, fill = false)) {
+            Text(stringResource(R.string.cancel), textAlign = TextAlign.Center)
           }
-
-          Button(
-            onClick = {
-              Log.d(TAG, "Values from dialog: $values")
-              onOk(values.toMap(), savedSystemPrompt, systemPrompt)
-            }
-          ) {
-            Text(okBtnLabel)
-          }
+          Spacer(modifier = Modifier.width(FOOTER_ACTION_SPACING))
         }
+        Button(onClick = onOk) { Text(okBtnLabel) }
+      }
+    },
+  )
+}
+
+/**
+ * Lays out a dialog footer with [leadingAction] on the start side and [trailingActions] on the end
+ * side of one row. When both don't fit on one row at their single-line width (long translations or
+ * large font scales), [leadingAction] moves onto its own start-aligned row above end-aligned
+ * [trailingActions].
+ *
+ * [trailingActions] is always measured first with the full width, so the primary actions are never
+ * squeezed by [leadingAction]. Each slot must emit exactly one layout node.
+ */
+@Composable
+private fun FooterActionBar(
+  leadingAction: @Composable () -> Unit,
+  trailingActions: @Composable () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  Layout(contents = listOf(leadingAction, trailingActions), modifier = modifier) {
+    (leadingMeasurables, trailingMeasurables),
+    constraints ->
+    val leadingMeasurable = leadingMeasurables.single()
+    val spacingPx = FOOTER_ACTION_SPACING.roundToPx()
+    val looseConstraints = constraints.copy(minWidth = 0, minHeight = 0)
+    val trailing = trailingMeasurables.single().measure(looseConstraints)
+    val leadingWidth = leadingMeasurable.maxIntrinsicWidth(constraints.maxHeight)
+    val rowWidth = leadingWidth + spacingPx + trailing.width
+    val leading = leadingMeasurable.measure(looseConstraints)
+
+    if (!constraints.hasBoundedWidth || rowWidth <= constraints.maxWidth) {
+      val width = if (constraints.hasBoundedWidth) constraints.maxWidth else rowWidth
+      val height = constraints.constrainHeight(maxOf(leading.height, trailing.height))
+      layout(width, height) {
+        leading.placeRelative(x = 0, y = (height - leading.height) / 2)
+        trailing.placeRelative(x = width - trailing.width, y = (height - trailing.height) / 2)
+      }
+    } else {
+      val height = constraints.constrainHeight(leading.height + spacingPx + trailing.height)
+      layout(constraints.maxWidth, height) {
+        leading.placeRelative(x = 0, y = 0)
+        trailing.placeRelative(
+          x = constraints.maxWidth - trailing.width,
+          y = leading.height + spacingPx,
+        )
       }
     }
   }
