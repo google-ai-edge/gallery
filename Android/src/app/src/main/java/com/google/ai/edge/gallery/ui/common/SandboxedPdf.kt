@@ -21,6 +21,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
@@ -43,6 +44,12 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "AGSandboxedPdf"
+
+/**
+ * A rectangle to highlight on a rendered PDF page, in fractions of the page size from its top-left
+ * corner (`0f` is the left or top edge of the page, `1f` the right or bottom edge).
+ */
+data class PdfHighlightRect(val left: Float, val top: Float, val right: Float, val bottom: Float)
 
 /**
  * Canonical entry point for reading PDF files in the app.
@@ -204,23 +211,23 @@ class SandboxedPdfPageRenderer(
     file: File,
     pageIndex: Int,
     widthPx: Int,
-    highlight: ClosedFloatingPointRange<Float>? = null,
-  ): Bitmap? = pageCache.get(cacheKey(file, pageIndex, widthPx, highlight))
+    highlights: List<PdfHighlightRect> = emptyList(),
+  ): Bitmap? = pageCache.get(cacheKey(file, pageIndex, widthPx, highlights))
 
   /**
    * Renders the page at [pageIndex] of the PDF [file] scaled to [widthPx] pixels wide. If
-   * [highlight] is set, the page is drawn on a white background with a yellow band over the
-   * vertical fraction range [highlight] (`0f` is the top of the page, `1f` the bottom). Returns
-   * null if the file can't be opened or the page can't be rendered.
+   * [highlights] isn't empty, the page is drawn on a white background with the area covered by the
+   * [highlights] rectangles tinted yellow. Returns null if the file can't be opened or the page
+   * can't be rendered.
    */
   suspend fun renderPage(
     context: Context,
     file: File,
     pageIndex: Int,
     widthPx: Int,
-    highlight: ClosedFloatingPointRange<Float>? = null,
+    highlights: List<PdfHighlightRect> = emptyList(),
   ): Bitmap? {
-    val key = cacheKey(file, pageIndex, widthPx, highlight)
+    val key = cacheKey(file, pageIndex, widthPx, highlights)
     pageCache.get(key)?.let {
       return it
     }
@@ -230,7 +237,7 @@ class SandboxedPdfPageRenderer(
       documentsMutex.withLock {
         val document = getOrOpenDocumentLocked(context, file) ?: return@withLock null
         val page = SandboxedPdf.renderPage(document, pageIndex, widthPx) ?: return@withLock null
-        val rendered = if (highlight != null) drawHighlight(page, highlight) else page
+        val rendered = if (highlights.isNotEmpty()) drawHighlights(page, highlights) else page
         pageCache.put(key, rendered)
         rendered
       }
@@ -273,12 +280,16 @@ class SandboxedPdfPageRenderer(
     file: File,
     pageIndex: Int,
     widthPx: Int,
-    highlight: ClosedFloatingPointRange<Float>?,
+    highlights: List<PdfHighlightRect>,
   ): String =
-    "${file.absolutePath}:$pageIndex:$widthPx:${highlight?.start}:${highlight?.endInclusive}"
+    "${file.absolutePath}:$pageIndex:$widthPx:" +
+      highlights.joinToString(separator = ";") { "${it.left},${it.top},${it.right},${it.bottom}" }
 
-  /** Returns a copy of [page] on a white background with a yellow band over [highlight]. */
-  private fun drawHighlight(page: Bitmap, highlight: ClosedFloatingPointRange<Float>): Bitmap {
+  /**
+   * Returns a copy of [page] on a white background with the area covered by [highlights] tinted
+   * yellow.
+   */
+  private fun drawHighlights(page: Bitmap, highlights: List<PdfHighlightRect>): Bitmap {
     val width = page.width
     val height = page.height
     // Draw onto a new bitmap: the sandbox may return an immutable or transparent bitmap.
@@ -291,14 +302,22 @@ class SandboxedPdfPageRenderer(
         color = HIGHLIGHT_COLOR
         xfermode = PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
       }
-    val start = highlight.start.coerceIn(0f, 1f)
-    val end = highlight.endInclusive.coerceIn(start, 1f)
-    canvas.drawRoundRect(
-      RectF(width * 0.06f, height * start, width * 0.94f, height * end),
-      HIGHLIGHT_CORNER_RADIUS_PX,
-      HIGHLIGHT_CORNER_RADIUS_PX,
-      highlightPaint,
-    )
+    // One path, so that where the rectangles of adjacent lines overlap the page is tinted once
+    // rather than darkened by multiplying twice.
+    val highlightPath = Path()
+    for (highlight in highlights) {
+      val left = highlight.left.coerceIn(0f, 1f)
+      val top = highlight.top.coerceIn(0f, 1f)
+      val right = highlight.right.coerceIn(left, 1f)
+      val bottom = highlight.bottom.coerceIn(top, 1f)
+      highlightPath.addRoundRect(
+        RectF(width * left, height * top, width * right, height * bottom),
+        HIGHLIGHT_CORNER_RADIUS_PX,
+        HIGHLIGHT_CORNER_RADIUS_PX,
+        Path.Direction.CW,
+      )
+    }
+    canvas.drawPath(highlightPath, highlightPaint)
     return bitmap
   }
 
@@ -307,6 +326,6 @@ class SandboxedPdfPageRenderer(
     const val DEFAULT_CACHE_MAX_BYTES = 32 * 1024 * 1024
 
     private val HIGHLIGHT_COLOR = Color.rgb(255, 242, 140)
-    private const val HIGHLIGHT_CORNER_RADIUS_PX = 12f
+    private const val HIGHLIGHT_CORNER_RADIUS_PX = 8f
   }
 }
