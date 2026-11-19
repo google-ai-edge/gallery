@@ -368,7 +368,6 @@ class MobileActionsViewModel(
   private fun sendEmail(context: Context, to: String, subject: String, body: String): String {
     val intent =
       Intent(Intent.ACTION_SEND).apply {
-        data = "mailto:".toUri()
         type = "text/plain"
         putExtra(Intent.EXTRA_EMAIL, arrayOf(to))
         putExtra(Intent.EXTRA_SUBJECT, subject)

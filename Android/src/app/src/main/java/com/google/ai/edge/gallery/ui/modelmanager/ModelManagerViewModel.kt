@@ -105,7 +105,9 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
 import kotlin.collections.sortedWith
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -120,6 +122,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationRequest
 import net.openid.appauth.AuthorizationResponse
@@ -131,6 +134,13 @@ private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
 private const val MODEL_ALLOWLIST_FILENAME = "model_allowlist.json"
 private const val ALLOWLIST_BASE_URL =
   "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlists"
+
+/**
+ * Longest time [ModelManagerViewModel.initializeModel] waits for an in-flight cleanup of the same
+ * model before proceeding anyway, so a cleanup that never reports completion can't block
+ * initialization forever.
+ */
+@VisibleForTesting internal val PENDING_CLEANUP_TIMEOUT = 10.seconds
 
 /**
  * Location of an optional local model allowlist used for testing.
@@ -635,6 +645,35 @@ constructor(
 
   // Tracks the initialized backends for each model by model name.
   private val initializedBackends = ConcurrentHashMap<String, MutableSet<Accelerator>>()
+
+  /**
+   * In-flight cleanups by model name.
+   *
+   * Screens clean up their model in the background when the user leaves them, and the model stays
+   * initialized until that cleanup finishes. Re-entering a screen with the same model during that
+   * window would otherwise skip initialization ("already initialized") and then be left with an
+   * uninitialized model once the cleanup completes. [cleanupModel] registers an entry when it
+   * starts tearing down a loaded model and completes and removes it once the model is reset, and
+   * [initializeModel] waits for it (see [awaitPendingCleanup]).
+   *
+   * A newer cleanup of the same model replaces the entry of an older one that is still running, and
+   * chains onto it: the newer entry is completed and removed, and its `onDone` called, only once
+   * the older cleanup has completed too, or after [PENDING_CLEANUP_TIMEOUT] if it never does. So
+   * the latest entry covers every cleanup of the model still in flight.
+   *
+   * Keyed by name rather than by [Model] instance so that a re-created model with the same name
+   * (e.g. after an allowlist reload) also waits for the old engine to be released before loading.
+   */
+  private val pendingCleanups = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
+
+  /**
+   * Number of cleanups [cleanupModel] has registered in [pendingCleanups], by model name.
+   *
+   * If it changes while [initializeModel] waits for a cleanup, the model was torn down again (e.g.
+   * the user left the screen again), so the initialization is dropped instead of loading an engine
+   * nobody uses.
+   */
+  private val cleanupCounts = ConcurrentHashMap<String, Int>()
 
   // Models whose download the user started from a download button, mapped to whether that download
   // retries right after a Hugging Face sign-in. Kept here rather than in the button, which can be
@@ -1533,6 +1572,13 @@ constructor(
     onError: (String) -> Unit = {},
   ) {
     viewModelScope.launch {
+      // Neither onDone nor onError is called: the model wasn't loaded, but nothing failed either,
+      // and whoever asked for it has gone (as when skipping an initialization already in progress).
+      if (!awaitPendingCleanup(model)) {
+        Log.d(TAG, "Model '${model.name}' was cleaned up again while waiting. Skipping.")
+        return@launch
+      }
+
       // Skip if initialized already.
       if (!force && model.initStatusFlow.value is Model.InitializationStatus.Initialized) {
         Log.d(TAG, "Model '${model.name}' has been initialized. Skipping.")
@@ -1580,7 +1626,7 @@ constructor(
 
       // Call the model initialization function.
       val systemPrompt = SystemPromptHelper.getEffectiveSystemPrompt(systemPromptRepository, task)
-      withContext(Dispatchers.IO) {
+      withContext(ioDispatcher) {
         getCustomTaskByTaskId(id = task.id)
           ?.initializeModelFn(
             context = context,
@@ -1608,19 +1654,59 @@ constructor(
 
     if (model.instance != null) {
       model.cleanUpAfterInit = false
+      val customTask = getCustomTaskByTaskId(id = task.id)
+      if (customTask == null) {
+        onDone()
+        return
+      }
       Log.d(TAG, "Cleaning up model '${model.name}'...")
-      val onDoneFn: () -> Unit = {
-        model.resetInitialization()
+      // Counted before the entry is published: a waiter reads the count only after finding the
+      // entry, so its baseline already includes this cleanup and only later cleanups change it.
+      // A newer cleanup of the same model replaces an older pending one; a waiter still on the
+      // older one sees the count change and drops its initialization.
+      cleanupCounts.merge(model.name, 1, Int::plus)
+      val pendingCleanup = CompletableDeferred<Unit>()
+      // The replaced cleanup may still be closing its engine. This one is only done once that one
+      // is too, so a waiter on this entry never loads a second engine next to it, and the older
+      // cleanup's reset can't undo an initialization started after this entry completes.
+      val previousCleanup = pendingCleanups.put(model.name, pendingCleanup)
+      val finishCleanup = {
+        // Remove before completing: a waiter can resume inside complete() (e.g. on Main.immediate)
+        // and must not find this already-completed entry again. Only removes this cleanup's own
+        // entry, never a newer one.
+        pendingCleanups.remove(model.name, pendingCleanup)
+        pendingCleanup.complete(Unit)
         Log.d(TAG, "Clean up model '${model.name}' done")
         onDone()
       }
-      getCustomTaskByTaskId(id = task.id)
-        ?.cleanUpModelFn(
-          context = context,
-          coroutineScope = viewModelScope,
-          model = model,
-          onDone = onDoneFn,
-        )
+      val onDoneFn: () -> Unit = {
+        model.resetInitialization()
+        if (previousCleanup == null || previousCleanup.isCompleted) {
+          finishCleanup()
+        } else {
+          // Bounded, as the older cleanup may never call its onDone (e.g. a cleanup that returns
+          // early because this one already reset the model). Undispatched, so that even in an
+          // already cancelled scope it runs up to the wait and then finishes in `finally`.
+          // The older cleanup completes its entry before calling its own onDone, so this
+          // cleanup's onDone can run first. An exception from it is thrown in this coroutine
+          // rather than out of the older cleanup's complete().
+          viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+              if (withTimeoutOrNull(PENDING_CLEANUP_TIMEOUT) { previousCleanup.await() } == null) {
+                Log.w(TAG, "Timed out waiting for earlier clean up of model '${model.name}'.")
+              }
+            } finally {
+              finishCleanup()
+            }
+          }
+        }
+      }
+      customTask.cleanUpModelFn(
+        context = context,
+        coroutineScope = viewModelScope,
+        model = model,
+        onDone = onDoneFn,
+      )
     } else {
       // When model is being initialized and we are trying to clean it up at same time, we mark it
       // to clean up and it will be cleaned up after initialization is done.
@@ -1633,6 +1719,32 @@ constructor(
       }
       onDone()
     }
+  }
+
+  /**
+   * Suspends until the in-flight cleanup of [model] (see [pendingCleanups]) finishes, or until
+   * [PENDING_CLEANUP_TIMEOUT] elapses.
+   *
+   * Returns false if [model] was cleaned up again during the wait (see [cleanupCounts]), in which
+   * case the initialization should be dropped, and true otherwise, including when there was no
+   * cleanup to wait for. Cleanups that start during the wait aren't awaited, as they only lead to
+   * dropping the initialization.
+   *
+   * On timeout the cleanup is treated as stale (its `onDone` was never called): its entry is
+   * dropped so it can't delay later initializations, a warning is logged, and this returns anyway.
+   */
+  private suspend fun awaitPendingCleanup(model: Model): Boolean {
+    val pendingCleanup = pendingCleanups[model.name] ?: return true
+    // Read after finding the entry (cleanupModel counts a cleanup before publishing it), so a
+    // cleanup registered just before the lookup isn't mistaken for one started during the wait.
+    val cleanupCountBeforeWait = cleanupCounts.getOrDefault(model.name, 0)
+    Log.d(TAG, "Waiting for clean up of model '${model.name}' before initializing it")
+    if (withTimeoutOrNull(PENDING_CLEANUP_TIMEOUT) { pendingCleanup.await() } == null) {
+      // Conditional, so a cleanup that started after the stale one keeps its entry.
+      pendingCleanups.remove(model.name, pendingCleanup)
+      Log.w(TAG, "Timed out waiting for clean up of model '${model.name}'. Proceeding.")
+    }
+    return cleanupCounts.getOrDefault(model.name, 0) == cleanupCountBeforeWait
   }
 
   fun setDownloadStatus(curModel: Model, status: ModelDownloadStatus) {

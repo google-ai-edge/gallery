@@ -99,10 +99,15 @@ interface CustomTask {
   /**
    * Called to clean up resources associated with a model.
    *
+   * Implementations must invoke `onDone` exactly once when cleanup is finished, including when
+   * there is nothing to clean up. Before re-initializing the same model, `ModelManagerViewModel`'s
+   * `initializeModel` waits for this callback, up to a timeout, so failing to invoke it delays
+   * re-entering the task's screen.
+   *
    * @param context The application context.
    * @param coroutineScope The coroutine scope for asynchronous operations.
    * @param model The `Model` object to be cleaned up.
-   * @param onDone A callback function to be invoked when cleanup is complete.
+   * @param onDone A callback function to be invoked exactly once when cleanup is complete.
    */
   fun cleanUpModelFn(
     context: Context,

@@ -125,8 +125,8 @@ class ScrapbookTask @Inject constructor() : CustomTask {
       closeSegmenter(model = model, segmenter = instance as InteractiveSegmenter)
       backends.update { it - model.name }
       model.instance = null
-      onDone()
     }
+    onDone()
   }
 
   @Composable
