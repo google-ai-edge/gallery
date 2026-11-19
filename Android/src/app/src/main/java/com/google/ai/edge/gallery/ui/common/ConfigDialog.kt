@@ -50,6 +50,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
@@ -79,6 +82,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -86,6 +90,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -107,6 +112,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.Hyphens
@@ -131,6 +137,7 @@ import com.google.ai.edge.gallery.data.LabelConfig
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.NumberSliderConfig
 import com.google.ai.edge.gallery.data.SegmentedButtonConfig
+import com.google.ai.edge.gallery.data.TextInputConfig
 import com.google.ai.edge.gallery.data.ValueType
 import com.google.ai.edge.gallery.ui.modelmanager.ConfigAsrSectionUiState
 import com.google.ai.edge.gallery.ui.modelmanager.ConfigAudioLanguageDropdownUiState
@@ -447,6 +454,11 @@ fun ConfigEditorsPanel(configs: List<Config>, values: SnapshotStateMap<String, A
         LabelRow(config = config, values = values)
       }
 
+      // Single-line text input.
+      is TextInputConfig -> {
+        TextInputRow(config = config, values = values)
+      }
+
       // Number slider.
       is NumberSliderConfig -> {
         NumberSliderRow(config = config, values = values)
@@ -490,6 +502,84 @@ fun LabelRow(config: LabelConfig, values: SnapshotStateMap<String, Any>) {
         ""
       }
     Text(label, style = MaterialTheme.typography.bodyMedium)
+  }
+}
+
+private class LastDispatchedTextValue(
+  var map: SnapshotStateMap<String, Any>? = null,
+  var text: String? = null,
+)
+
+/**
+ * Single-line text editor row backed by [TextInputConfig], updating [values] keyed by
+ * `config.key.label` as the user types while stripping embedded newlines.
+ */
+@Composable
+fun TextInputRow(config: TextInputConfig, values: SnapshotStateMap<String, Any>) {
+  val focusManager = LocalFocusManager.current
+  var isFocused by remember { mutableStateOf(false) }
+  val key = config.key.label
+  val currentValue = ((values[key] as? String) ?: config.defaultValue).replace("\n", "")
+  val textFieldState = remember(key) { TextFieldState(initialText = currentValue) }
+  val lastDispatched = remember(key) { LastDispatchedTextValue(map = values, text = currentValue) }
+
+  LaunchedEffect(values, key, currentValue) {
+    val isEchoFromTextField = lastDispatched.map === values && lastDispatched.text == currentValue
+    if (!isEchoFromTextField) {
+      lastDispatched.map = values
+      lastDispatched.text = currentValue
+      if (textFieldState.text.toString() != currentValue) {
+        textFieldState.setTextAndPlaceCursorAtEnd(currentValue)
+      }
+    }
+  }
+
+  LaunchedEffect(textFieldState, key, values) {
+    snapshotFlow { textFieldState.text.toString() }
+      .collect { rawText ->
+        val sanitized = rawText.replace("\n", "")
+        if (sanitized != rawText) {
+          textFieldState.setTextAndPlaceCursorAtEnd(sanitized)
+        }
+        lastDispatched.map = values
+        lastDispatched.text = sanitized
+        if (values[key] != sanitized) {
+          values[key] = sanitized
+        }
+      }
+  }
+
+  Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Text(stringResource(config.key.labelRes), style = MaterialTheme.typography.titleSmall)
+    BasicTextField(
+      state = textFieldState,
+      lineLimits = TextFieldLineLimits.SingleLine,
+      keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+      onKeyboardAction = { focusManager.clearFocus() },
+      textStyle =
+        MaterialTheme.typography.bodyMedium.copy(
+          color = MaterialTheme.colorScheme.onSurface,
+          lineHeight = TextUnit.Unspecified,
+        ),
+      cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
+      modifier = Modifier.fillMaxWidth().onFocusChanged { isFocused = it.isFocused },
+      decorator = { innerTextField ->
+        Box(
+          modifier =
+            Modifier.fillMaxWidth()
+              .border(
+                width = if (isFocused) 2.dp else 1.dp,
+                color =
+                  if (isFocused) MaterialTheme.colorScheme.primary
+                  else MaterialTheme.colorScheme.outline,
+                shape = RoundedCornerShape(4.dp),
+              )
+              .padding(horizontal = 10.dp, vertical = 8.dp)
+        ) {
+          innerTextField()
+        }
+      },
+    )
   }
 }
 

@@ -38,6 +38,7 @@ private const val MAX_TEMPERATURE_AI_CORE = 1.0f
  */
 enum class ConfigEditorType {
   LABEL,
+  TEXT_INPUT,
   NUMBER_SLIDER,
   BOOLEAN_SWITCH,
   SEGMENTED_BUTTON,
@@ -199,7 +200,7 @@ open class Config(
       isForTestOnly: Boolean = false,
     ): List<Config> {
       return buildList {
-        add(LabelConfig(key = ConfigKeys.NAME))
+        add(TextInputConfig(key = ConfigKeys.NAME))
         add(LabelConfig(key = ConfigKeys.MODEL_TYPE))
         add(createMaxTokensSliderConfig(key = ConfigKeys.DEFAULT_MAX_TOKENS))
         add(createTopKSliderConfig(key = ConfigKeys.DEFAULT_TOPK))
@@ -235,6 +236,16 @@ class LabelConfig(override val key: ConfigKey, override val defaultValue: String
     key = key,
     defaultValue = defaultValue,
     valueType = ValueType.STRING,
+  )
+
+/** Configuration setting for a single-line editable text field. */
+class TextInputConfig(override val key: ConfigKey, override val defaultValue: String = "") :
+  Config(
+    type = ConfigEditorType.TEXT_INPUT,
+    key = key,
+    defaultValue = defaultValue,
+    valueType = ValueType.STRING,
+    needReinitialization = false,
   )
 
 /**

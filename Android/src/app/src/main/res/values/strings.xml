@@ -1995,4 +1995,5 @@
     <item quantity="other">%d languages supported</item>
   </plurals>
 
+  <string name="model_import_default_display_name" translatable="true" description="Default display name pre-filled in the editable model name field of the import dialog when a model filename cannot be determined from the selected file or URL. [CHAR_LIMIT=40]">Imported model</string>
 </resources>

@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -72,6 +73,7 @@ import com.google.ai.edge.gallery.data.ConfigKey
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.IMPORTS_DIR
 import com.google.ai.edge.gallery.data.ModelUtils
+import com.google.ai.edge.gallery.huggingface.HfUrlInfo
 import com.google.ai.edge.gallery.huggingface.HuggingFaceApiClient
 import com.google.ai.edge.gallery.huggingface.extractHfUrlInfo
 import com.google.ai.edge.gallery.proto.ImportedModel
@@ -112,12 +114,60 @@ fun ModelImportDialog(
   onDone: (ImportedModel) -> Unit,
   defaultValues: Map<ConfigKey, Any> = emptyMap(),
   accessToken: String? = null,
+  accessTokenProvider: suspend () -> String? = { accessToken },
+  existingModelNames: Set<String> = emptySet(),
+  existingDisplayNames: Set<String> = emptySet(),
+  existingImportedModels: List<ImportedModel> = emptyList(),
   ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
   val context = LocalContext.current
-  val info = remember { getFileSizeAndDisplayNameFromUri(context = context, uri = uri) }
-  var fileSize by remember { mutableLongStateOf(info.first) }
-  val fileName by remember { mutableStateOf(ensureValidFileName(info.second)) }
+  val defaultFallbackDisplayName = stringResource(R.string.model_import_default_display_name)
+  val info = remember(uri) { getFileSizeAndDisplayNameFromUri(context = context, uri = uri) }
+  var fileSize by remember(uri) { mutableLongStateOf(info.first) }
+  val rawFileName = remember(info) { ensureValidFileName(info.second) }
+  val downloadUrl = remember(uri) { getDownloadUrl(uri) }
+  val existingMatch =
+    remember(uri, downloadUrl, rawFileName, existingImportedModels) {
+      if (isHttpOrHttps(uri)) {
+        val canonical = HfUrlInfo.canonicalizeModelUrl(downloadUrl)
+        if (canonical.isNotEmpty()) {
+          existingImportedModels.firstOrNull { HfUrlInfo.canonicalizeModelUrl(it.url) == canonical }
+        } else {
+          null
+        }
+      } else if (rawFileName.isNotEmpty()) {
+        existingImportedModels.firstOrNull {
+          it.url.isEmpty() && it.fileName.equals(rawFileName, ignoreCase = true)
+        }
+      } else {
+        null
+      }
+    }
+  val fileName =
+    remember(uri, rawFileName, existingModelNames, existingMatch) {
+      existingMatch?.fileName
+        ?: ModelUtils.deriveUniqueImportedFileName(
+          rawUriOrUrl = if (isHttpOrHttps(uri)) downloadUrl else "",
+          fallbackFileName = rawFileName,
+          existingNames = existingModelNames,
+        )
+    }
+  val defaultDisplayName =
+    remember(uri, rawFileName, existingDisplayNames, existingMatch, defaultFallbackDisplayName) {
+      existingMatch?.displayName?.takeIf { it.isNotBlank() }
+        ?: ModelUtils.deriveDefaultImportedDisplayName(
+          rawUriOrUrl = if (isHttpOrHttps(uri)) downloadUrl else "",
+          fallbackFileName = info.second.ifEmpty { rawFileName },
+          existingDisplayNames =
+            if (existingMatch != null) {
+              existingDisplayNames -
+                setOf(existingMatch.displayName.ifEmpty { existingMatch.fileName })
+            } else {
+              existingDisplayNames
+            },
+          defaultFallbackName = defaultFallbackDisplayName,
+        )
+    }
   val importConfigs =
     remember(uri) {
       Config.createLlmImportConfigs(
@@ -134,12 +184,12 @@ fun ModelImportDialog(
     if (isHttpOrHttps(uri)) {
       isFetchingSize = true
       try {
-        val downloadUrl = getDownloadUrl(uri)
+        val resolvedToken = accessToken ?: withContext(ioDispatcher) { accessTokenProvider() }
         val size =
           fetchFileSize(
             urlStr = downloadUrl,
             hfApiClient = huggingFaceApiClient,
-            huggingFaceAccessToken = accessToken,
+            huggingFaceAccessToken = resolvedToken,
             ioDispatcher = ioDispatcher,
           )
         if (size > 0L) {
@@ -154,35 +204,43 @@ fun ModelImportDialog(
     }
   }
 
-  val initialValues: Map<String, Any> = remember {
-    mutableMapOf<String, Any>().apply {
-      for (config in importConfigs) {
-        put(config.key.label, config.defaultValue)
-      }
-      put(ConfigKeys.NAME.label, fileName)
-      // TODO: support other types.
-      put(ConfigKeys.MODEL_TYPE.label, "LLM")
+  val initialValues: Map<String, Any> =
+    remember(uri, defaultDisplayName) {
+      mutableMapOf<String, Any>().apply {
+        for (config in importConfigs) {
+          put(config.key.label, config.defaultValue)
+        }
+        put(ConfigKeys.NAME.label, defaultDisplayName)
+        put(ConfigKeys.MODEL_TYPE.label, "LLM")
 
-      for ((key, value) in defaultValues) {
-        put(key.label, value)
+        for ((key, value) in defaultValues) {
+          put(key.label, value)
+        }
       }
     }
-  }
-  val values: SnapshotStateMap<String, Any> = remember {
-    mutableStateMapOf<String, Any>().apply { putAll(initialValues) }
-  }
+  val values: SnapshotStateMap<String, Any> =
+    remember(uri, initialValues) {
+      mutableStateMapOf<String, Any>().apply { putAll(initialValues) }
+    }
+  val editedDisplayName = (values[ConfigKeys.NAME.label] as? String)?.trim().orEmpty()
   val interactionSource = remember { MutableInteractionSource() }
 
-  Dialog(onDismissRequest = onDismiss) {
+  Dialog(
+    onDismissRequest = onDismiss,
+    properties = DialogProperties(usePlatformDefaultWidth = false),
+  ) {
     val focusManager = LocalFocusManager.current
     Card(
       modifier =
-        Modifier.fillMaxWidth().clickable(
-          interactionSource = interactionSource,
-          indication = null, // Disable the ripple effect
-        ) {
-          focusManager.clearFocus()
-        },
+        Modifier.padding(horizontal = 24.dp, vertical = 24.dp)
+          .widthIn(max = 560.dp)
+          .fillMaxWidth()
+          .clickable(
+            interactionSource = interactionSource,
+            indication = null, // Disable the ripple effect
+          ) {
+            focusManager.clearFocus()
+          },
       shape = RoundedCornerShape(16.dp),
     ) {
       Column(
@@ -214,12 +272,12 @@ fun ModelImportDialog(
 
           // Import button
           Button(
-            // Disable the import button while fetching file size for URI.
-            enabled = !isFetchingSize,
+            // Disable the import button while fetching file size for URI or when name is blank.
+            enabled = !isFetchingSize && editedDisplayName.isNotEmpty(),
             onClick = {
-              val downloadUrl = getDownloadUrl(uri)
               val importedModel = importedModel {
                 this.fileName = fileName
+                this.displayName = editedDisplayName
                 this.fileSize = fileSize
                 this.url = if (isHttpOrHttps(uri)) downloadUrl else ""
                 this.llmConfig = ModelUtils.createImportedLlmConfig(values)
@@ -301,7 +359,7 @@ fun ModelImportingDialog(
           // Progress bar.
           Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-              "${info.fileName} (${info.fileSize.humanReadableSize()})",
+              "${info.displayName.ifEmpty { info.fileName }} (${info.fileSize.humanReadableSize()})",
               style = MaterialTheme.typography.labelSmall,
             )
             val animatedProgress = remember { Animatable(0f) }

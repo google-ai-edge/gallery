@@ -38,6 +38,9 @@ private const val TAG = "AGHfApiClient"
 private const val HF_API_BASE_URL = "https://huggingface.co/api"
 private const val USER_AGENT = "AIEdgeGallery/1.0 (Android)"
 
+/** HTTP status exception surfaced by [HuggingFaceApiClient.executeGetRequest]. */
+class HfHttpException(val statusCode: Int, message: String) : IOException(message)
+
 open class HuggingFaceApiClient
 @Inject
 constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
@@ -142,7 +145,10 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
     accessToken: String? = null,
   ): HfModelItemProto? =
     withContext(ioDispatcher) {
-      val urlString = "$HF_API_BASE_URL/models/$modelId?blobs=true"
+      if (!HfUrlInfo.isValidModelId(modelId)) {
+        return@withContext null
+      }
+      val urlString = "$HF_API_BASE_URL/models/${modelId.trim()}?blobs=true"
       val responseText = executeGetRequest(urlString = urlString, accessToken = accessToken)
 
       if (responseText.isEmpty()) {
@@ -180,8 +186,26 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
         try {
           getModelDetails(modelId, accessToken = accessToken)
         } catch (e: IOException) {
-          Log.w(TAG, "Failed to fetch model details for file size lookup: $modelId", e)
-          null
+          val isAuthFailure =
+            e is HfHttpException &&
+              (e.statusCode == HttpURLConnection.HTTP_UNAUTHORIZED ||
+                e.statusCode == HttpURLConnection.HTTP_FORBIDDEN)
+          if (!accessToken.isNullOrEmpty() && isAuthFailure) {
+            Log.w(
+              TAG,
+              "Authenticated model details lookup failed with HTTP ${(e as HfHttpException).statusCode} for $modelId; retrying anonymously",
+              e,
+            )
+            try {
+              getModelDetails(modelId, accessToken = null)
+            } catch (retryError: IOException) {
+              Log.w(TAG, "Anonymous model details lookup also failed for $modelId", retryError)
+              null
+            }
+          } else {
+            Log.w(TAG, "Failed to fetch model details for file size lookup: $modelId", e)
+            null
+          }
         } ?: return@withContext null
       val matchingSibling =
         details.siblingsList.firstOrNull {
@@ -221,7 +245,10 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
         connection.inputStream.bufferedReader().use { it.readText() }
       } else {
         Log.e(TAG, "HF API returned HTTP $responseCode for URL: $urlString")
-        throw IOException("HF API returned HTTP $responseCode for URL: $urlString")
+        throw HfHttpException(
+          responseCode,
+          "HF API returned HTTP $responseCode for URL: $urlString",
+        )
       }
     } catch (e: IOException) {
       Log.e(TAG, "Failed HTTP GET request to HF API for URL: $urlString", e)
@@ -264,14 +291,15 @@ constructor(@IoDispatcher private val ioDispatcher: CoroutineDispatcher) {
     }
   }
 
-  private fun parseSiblingFileSize(sibObj: JsonObject): Long? {
-    sibObj.getOrNull("size")?.asLong?.let {
-      return it
-    }
-
-    val lfsObj = sibObj.getOrNull("lfs")?.takeIf { it.isJsonObject }?.asJsonObject
-    return lfsObj?.getOrNull("size")?.asLong
-  }
+  private fun parseSiblingFileSize(sibObj: JsonObject): Long? =
+    sibObj.getOrNull("size")?.asLong?.takeIf { it > 0L }
+      ?: sibObj
+        .getOrNull("lfs")
+        ?.takeIf { it.isJsonObject }
+        ?.asJsonObject
+        ?.getOrNull("size")
+        ?.asLong
+        ?.takeIf { it > 0L }
 
   private fun JsonObject.getOrNull(member: String) =
     if (has(member) && !get(member).isJsonNull) get(member) else null

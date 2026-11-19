@@ -200,13 +200,7 @@ fun GlobalModelManager(
           val targetModelId = urlInfo.modelId
           when {
             urlInfo.isDirectModelFile -> {
-              val fileUri =
-                if (targetModelId != null && urlInfo.fileName != null) {
-                  "https://huggingface.co/${targetModelId}/resolve/main/${urlInfo.fileName}?download=true"
-                    .toUri()
-                } else {
-                  url.toUri()
-                }
+              val fileUri = urlInfo.toResolveDownloadUrl(url).toUri()
               processModelUri(fileUri, /* isWebImport= */ true, origin)
             }
             targetModelId != null -> {
@@ -262,8 +256,8 @@ fun GlobalModelManager(
               allowlistOrderMap[model.name] ?: Int.MAX_VALUE
             }
             .thenBy { model ->
-              // If not in the allowlist, sort by their names.
-              model.name
+              // If not in the allowlist, sort by their display names.
+              model.displayName.ifEmpty { model.name }
             }
         )
     builtInModels.clear()
@@ -647,6 +641,15 @@ fun GlobalModelManager(
   // Import dialog
   if (showImportDialog) {
     pendingModelImport?.let { pending ->
+      val existingModelNames =
+        remember(allTasks, modelImportingUpdateTrigger, supplementaryModelsSize) {
+          uiState.existingModelNames
+        }
+      val existingDisplayNames =
+        remember(allTasks, modelImportingUpdateTrigger, supplementaryModelsSize) {
+          uiState.existingDisplayNames
+        }
+      val storedImportedModels by remember { derivedStateOf { uiState.importedModels } }
       ModelImportDialog(
         uri = pending.uri,
         huggingFaceApiClient = viewModel.huggingFaceApiClient,
@@ -657,7 +660,10 @@ fun GlobalModelManager(
           showHfExploreScreen = false
           showImportingDialog = true
         },
-        accessToken = viewModel.dataStoreRepository.readAccessTokenData()?.accessToken,
+        accessTokenProvider = viewModel::readAccessToken,
+        existingModelNames = existingModelNames,
+        existingDisplayNames = existingDisplayNames,
+        existingImportedModels = storedImportedModels,
       )
     }
   }

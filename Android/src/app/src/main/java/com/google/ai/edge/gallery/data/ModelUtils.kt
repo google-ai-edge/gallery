@@ -17,6 +17,7 @@
 package com.google.ai.edge.gallery.data
 
 import com.google.ai.edge.gallery.huggingface.HuggingFaceApiClient
+import com.google.ai.edge.gallery.huggingface.extractHfUrlInfo
 import com.google.ai.edge.gallery.proto.LlmConfig
 import com.google.ai.edge.gallery.proto.llmConfig
 
@@ -277,4 +278,128 @@ object ModelUtils {
 
     return selectedBudget
   }
+
+  private val GENERIC_MODEL_STEMS = setOf("model", "weights", "checkpoint", "adapter")
+  private val SUPPORTED_MODEL_EXTENSIONS = listOf(".litertlm", ".task")
+  private const val MAX_STORAGE_FILE_NAME_LENGTH = 96
+
+  /**
+   * Derives the default UI display name for a model being imported from [rawUriOrUrl], using the
+   * official Hugging Face file or repository name (or local filename stem) and appending `" (2)"`,
+   * `" (3)"`, etc. when [existingDisplayNames] already contains a case-insensitive match.
+   */
+  fun deriveDefaultImportedDisplayName(
+    rawUriOrUrl: String,
+    fallbackFileName: String,
+    existingDisplayNames: Set<String> = emptySet(),
+    defaultFallbackName: String = "Imported model",
+  ): String {
+    val baseName =
+      if (HuggingFaceUrls.isHuggingFaceUrl(rawUriOrUrl)) {
+        val info = extractHfUrlInfo(rawUriOrUrl)
+        val modelId = info.modelId
+        val infoFileName = info.fileName
+        val rawFile = (infoFileName ?: fallbackFileName).substringAfterLast('/')
+        val stem = stripModelExtension(rawFile)
+        when {
+          stem.isNotEmpty() && stem.lowercase() !in GENERIC_MODEL_STEMS -> stem
+          !modelId.isNullOrEmpty() -> {
+            val repoName = modelId.substringAfterLast('/')
+            val parentDir =
+              infoFileName
+                ?.substringBeforeLast('/', missingDelimiterValue = "")
+                ?.substringAfterLast('/')
+                .orEmpty()
+            if (parentDir.isNotEmpty() && !parentDir.equals(repoName, ignoreCase = true)) {
+              "$repoName ($parentDir)"
+            } else {
+              repoName
+            }
+          }
+          else -> stem.ifEmpty { fallbackFileName }.ifEmpty { defaultFallbackName }
+        }
+      } else {
+        stripModelExtension(fallbackFileName.substringAfterLast('/')).ifEmpty {
+          defaultFallbackName
+        }
+      }
+
+    val lowerExisting = existingDisplayNames.map { it.lowercase() }.toSet()
+    if (baseName.lowercase() !in lowerExisting) {
+      return baseName
+    }
+    var suffix = 2
+    while ("$baseName ($suffix)".lowercase() in lowerExisting) {
+      suffix++
+    }
+    return "$baseName ($suffix)"
+  }
+
+  /**
+   * Derives a unique, `/`-free on-disk filename (and [Model.name] identifier) strictly from the
+   * model's source [rawUriOrUrl] and [fallbackFileName]—never from user-edited display text.
+   *
+   * Preserves the `.litertlm` or `.task` extension and appends `_2`, `_3`, etc. if [existingNames]
+   * already contains a case-insensitive collision.
+   */
+  fun deriveUniqueImportedFileName(
+    rawUriOrUrl: String,
+    fallbackFileName: String,
+    existingNames: Set<String> = emptySet(),
+  ): String {
+    val info =
+      if (HuggingFaceUrls.isHuggingFaceUrl(rawUriOrUrl)) extractHfUrlInfo(rawUriOrUrl) else null
+    val extSource = info?.fileName ?: fallbackFileName
+    val extension = extractModelExtension(extSource)
+
+    val modelId = info?.modelId
+    val infoFileName = info?.fileName
+    val rawStem =
+      if (modelId != null && infoFileName != null) {
+          val repoSlug = sanitizeStorageSegment(modelId.replace("/", "__"))
+          val fileSlug =
+            sanitizeStorageSegment(stripModelExtension(infoFileName).replace("/", "__"))
+          "${repoSlug}__${fileSlug}"
+        } else {
+          sanitizeStorageSegment(stripModelExtension(fallbackFileName.substringAfterLast('/')))
+        }
+        .ifEmpty { "imported_model" }
+
+    val maxStemLen = (MAX_STORAGE_FILE_NAME_LENGTH - extension.length).coerceAtLeast(16)
+    val truncatedStem = rawStem.take(maxStemLen).trimEnd('_', '.', '-')
+    val candidate = "$truncatedStem$extension"
+
+    val lowerExisting = existingNames.map { it.lowercase() }.toSet()
+    if (candidate.lowercase() !in lowerExisting) {
+      return candidate
+    }
+    var suffix = 2
+    while (true) {
+      val suffixStr = "_$suffix"
+      val stemLimit = (maxStemLen - suffixStr.length).coerceAtLeast(8)
+      val numbered = "${truncatedStem.take(stemLimit).trimEnd('_', '.', '-')}$suffixStr$extension"
+      if (numbered.lowercase() !in lowerExisting) {
+        return numbered
+      }
+      suffix++
+    }
+  }
+
+  private fun extractModelExtension(fileName: String): String {
+    val lower = fileName.trim().lowercase()
+    return SUPPORTED_MODEL_EXTENSIONS.firstOrNull { lower.endsWith(it) } ?: ".litertlm"
+  }
+
+  private fun stripModelExtension(fileName: String): String {
+    val trimmed = fileName.trim()
+    for (ext in SUPPORTED_MODEL_EXTENSIONS) {
+      if (trimmed.endsWith(ext, ignoreCase = true)) {
+        return trimmed.dropLast(ext.length)
+      }
+    }
+    return trimmed
+  }
+
+  private fun sanitizeStorageSegment(segment: String): String =
+    segment.replace(Regex("[^a-zA-Z0-9._-]"), "_").replace(Regex("_{3,}"), "__").trim('_')
 }

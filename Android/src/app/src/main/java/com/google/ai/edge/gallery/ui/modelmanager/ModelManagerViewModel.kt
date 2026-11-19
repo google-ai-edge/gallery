@@ -80,6 +80,7 @@ import com.google.ai.edge.gallery.data.supplementary.SpeechSelectionUseCase
 import com.google.ai.edge.gallery.data.supplementary.SupplementarySpeechModelRepository
 import com.google.ai.edge.gallery.di.IoDispatcher
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.huggingface.HfUrlInfo
 import com.google.ai.edge.gallery.huggingface.HuggingFaceApiClient
 import com.google.ai.edge.gallery.proto.AccessTokenData
 import com.google.ai.edge.gallery.proto.HfModelItemProto
@@ -250,13 +251,59 @@ data class ModelManagerUiState(
    * Only populated for models whose runtime installs language packs separately.
    */
   val languagePackStatus: Map<String, Map<String, ModelDownloadStatus>> = mapOf(),
+  /** Stored user-imported model definitions loaded from DataStore. */
+  val importedModels: List<ImportedModel> = listOf(),
 ) {
+  /** Existing model storage IDs and download filenames across [tasks] and [supplementaryModels]. */
+  val existingModelNames: Set<String> by
+    lazy(LazyThreadSafetyMode.PUBLICATION) { deriveExistingModelNames(tasks, supplementaryModels) }
+
+  /** Existing model display titles across [tasks] and [supplementaryModels]. */
+  val existingDisplayNames: Set<String> by
+    lazy(LazyThreadSafetyMode.PUBLICATION) {
+      deriveExistingDisplayNames(tasks, supplementaryModels)
+    }
+
   fun isDownloadOptionalComponentsEnabled(modelName: String): Boolean {
     return downloadOptionalComponents[modelName] ?: true
   }
 
   fun getExtraDataDownloadStatus(modelName: String): ModelDownloadStatus? {
     return extraDataDownloadStatus[modelName]
+  }
+}
+
+private fun deriveExistingModelNames(
+  tasks: List<Task>,
+  supplementaryModels: List<Model>,
+): Set<String> = buildSet {
+  for (task in tasks) {
+    for (model in task.models) {
+      add(model.name)
+      if (model.downloadInfo.downloadFileName.isNotEmpty()) {
+        add(model.downloadInfo.downloadFileName)
+      }
+    }
+  }
+  for (model in supplementaryModels) {
+    add(model.name)
+    if (model.downloadInfo.downloadFileName.isNotEmpty()) {
+      add(model.downloadInfo.downloadFileName)
+    }
+  }
+}
+
+private fun deriveExistingDisplayNames(
+  tasks: List<Task>,
+  supplementaryModels: List<Model>,
+): Set<String> = buildSet {
+  for (task in tasks) {
+    for (model in task.models) {
+      add(model.displayName.ifEmpty { model.name })
+    }
+  }
+  for (model in supplementaryModels) {
+    add(model.displayName.ifEmpty { model.name })
   }
 }
 
@@ -1425,6 +1472,7 @@ constructor(
     // Delete model from the list if model is imported as a local model and
     // removeImportedFromModelList is
     // true.
+    var updatedImportedModels: List<ImportedModel>? = null
     if (model.downloadInfo.imported && removeImportedFromModelList) {
       for (curTask in uiState.value.tasks) {
         val index = curTask.models.indexOf(model)
@@ -1441,6 +1489,7 @@ constructor(
         importedModels.removeAt(importedModelIndex)
       }
       dataStoreRepository.saveImportedModels(importedModels = importedModels)
+      updatedImportedModels = importedModels.toList()
     }
     _uiState.update { currentState ->
       val curModelDownloadStatus = currentState.modelDownloadStatus.toMutableMap()
@@ -1468,6 +1517,7 @@ constructor(
         downloadOptionalComponents = updatedDownloadOptionalComponents,
         extraDataDownloadStatus = curExtraDownloadStatus,
         tasks = currentState.tasks.toList(),
+        importedModels = updatedImportedModels ?: currentState.importedModels,
         modelImportingUpdateTrigger = System.currentTimeMillis(),
       )
     }
@@ -1747,14 +1797,40 @@ constructor(
 
     // Create model.
     val model = createModelFromImportedModelInfo(info = info)
+    val incomingCanonicalUrl = HfUrlInfo.canonicalizeModelUrl(info.url)
+
+    // Determine any pre-existing imported entry matching the same canonical URL or storage file.
+    val importedModels = dataStoreRepository.readImportedModels().toMutableList()
+    val replacedFileNames = mutableSetOf(info.fileName)
+    val obsoleteEntries = mutableListOf<ImportedModel>()
+    importedModels.removeAll { existing ->
+      val sameUrl =
+        incomingCanonicalUrl.isNotEmpty() &&
+          HfUrlInfo.canonicalizeModelUrl(existing.url) == incomingCanonicalUrl
+      val sameFile = existing.fileName == info.fileName
+      if (sameUrl || sameFile) {
+        Log.d(TAG, "duplicated imported model found in data store. Replacing ${existing.fileName}")
+        replacedFileNames.add(existing.fileName)
+        if (existing.fileName != info.fileName && existing.fileName.isNotEmpty()) {
+          obsoleteEntries.add(existing)
+        }
+        true
+      } else {
+        false
+      }
+    }
+
+    for (obsolete in obsoleteEntries) {
+      downloadRepository.cancelDownloadModel(createModelFromImportedModelInfo(info = obsolete))
+      storageManager.deleteFilesFromImportDir(obsolete.fileName)
+    }
 
     // Remove duplicated imported model if existed across all tasks.
     for (task in uiState.value.tasks) {
-      val modelIndex =
-        task.models.indexOfFirst { info.fileName == it.name && it.downloadInfo.imported }
-      if (modelIndex >= 0) {
-        Log.d(TAG, "duplicated imported model found in task. Removing it first")
-        task.models.removeAt(modelIndex)
+      val removed =
+        task.models.removeAll { it.downloadInfo.imported && it.name in replacedFileNames }
+      if (removed) {
+        Log.d(TAG, "duplicated imported model found in task. Removed it first")
         task.updateTrigger.value = System.currentTimeMillis()
       }
     }
@@ -1766,8 +1842,16 @@ constructor(
 
     // Add initial status and states.
     val modelDownloadStatus = uiState.value.modelDownloadStatus.toMutableMap()
+    for (oldName in replacedFileNames) {
+      if (oldName != model.name) {
+        modelDownloadStatus.remove(oldName)
+      }
+    }
     if (model.downloadInfo.url.isNotEmpty()) {
-      modelDownloadStatus[model.name] = getModelDownloadStatus(model = model)
+      val existingStatus = modelDownloadStatus[model.name]
+      if (existingStatus?.status != ModelDownloadStatusType.IN_PROGRESS) {
+        modelDownloadStatus[model.name] = getModelDownloadStatus(model = model)
+      }
     } else {
       modelDownloadStatus[model.name] =
         ModelDownloadStatus(
@@ -1777,29 +1861,29 @@ constructor(
         )
     }
 
+    // Save updated imported models list to DataStore before publishing updated UI state.
+    importedModels.add(info)
+    val updatedImportedModels = importedModels.toList()
+    dataStoreRepository.saveImportedModels(importedModels = updatedImportedModels)
+
     // Update ui state.
     _uiState.update {
       it.copy(
         tasks = it.tasks.toList(),
         modelDownloadStatus = modelDownloadStatus,
+        importedModels = updatedImportedModels,
         modelImportingUpdateTrigger = System.currentTimeMillis(),
       )
     }
-
-    // Add to data store.
-    val importedModels = dataStoreRepository.readImportedModels().toMutableList()
-    val importedModelIndex = importedModels.indexOfFirst { info.fileName == it.fileName }
-    if (importedModelIndex >= 0) {
-      Log.d(TAG, "duplicated imported model found in data store. Removing it first")
-      importedModels.removeAt(importedModelIndex)
-    }
-    importedModels.add(info)
-    dataStoreRepository.saveImportedModels(importedModels = importedModels)
 
     if (origin != null) {
       ossModelImportLogger.logImportSuccess(source = origin.source, modelId = origin.modelId)
     }
   }
+
+  /** Reads the stored Hugging Face access token on [ioDispatcher], or `null` if none is stored. */
+  suspend fun readAccessToken(): String? =
+    withContext(ioDispatcher) { dataStoreRepository.readAccessTokenData()?.accessToken }
 
   /** Logs that a model import from [origin] failed while copying into app storage. */
   fun onModelImportFailed(origin: ImportOrigin) {
@@ -2410,7 +2494,8 @@ constructor(
     }
 
     // Load imported models.
-    for (importedModel in dataStoreRepository.readImportedModels()) {
+    val storedImportedModels = dataStoreRepository.readImportedModels()
+    for (importedModel in storedImportedModels) {
       Log.d(TAG, "stored imported model: $importedModel")
 
       // Create model.
@@ -2452,6 +2537,7 @@ constructor(
       extraDataDownloadStatus = extraDataDownloadStatus,
       supplementaryModels = _supplementaryModels.toList(),
       lastMainModelByTaskId = lastMainModelByTaskId,
+      importedModels = storedImportedModels,
     )
   }
 
@@ -2514,6 +2600,7 @@ constructor(
     val model =
       Model(
         name = info.fileName,
+        displayName = info.displayName,
         configs = configs,
         showRunAgainButton = false,
         downloadInfo = downloadInfo,

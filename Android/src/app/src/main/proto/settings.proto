@@ -50,6 +50,9 @@ message ImportedModel {
   }
   // Only set for models imported from url.
   string url = 4;
+  // User-editable display label shown in UI; falls back to file_name when
+  // empty.
+  string display_name = 5;
 }
 
 message LlmConfig {

@@ -181,7 +181,20 @@ data class HfUrlInfo(
   val modelId: String? = null,
   val fileName: String? = null,
   val isDirectModelFile: Boolean = false,
+  val revision: String? = null,
 ) {
+  /**
+   * Builds the direct Hugging Face download URL preserving [revision] when present (defaulting to
+   * `"main"`), or returns [fallbackUrl] if this is not a direct Hugging Face model file.
+   */
+  fun toResolveDownloadUrl(fallbackUrl: String): String {
+    if (isDirectModelFile && modelId != null && fileName != null) {
+      val resolvedRevision = revision?.takeIf { it.isNotEmpty() } ?: "main"
+      return "https://huggingface.co/$modelId/resolve/$resolvedRevision/$fileName?download=true"
+    }
+    return fallbackUrl
+  }
+
   companion object {
     private val MODEL_FILE_EXTENSIONS = setOf(".litertlm", ".task")
     private val HF_ACTION_KEYWORDS = setOf("resolve", "blob", "tree", "raw")
@@ -189,6 +202,14 @@ data class HfUrlInfo(
     private fun String.isModelFileName(): Boolean = MODEL_FILE_EXTENSIONS.any {
       endsWith(it, ignoreCase = true)
     }
+
+    private fun String.isSafeHfPathSegment(): Boolean =
+      isNotEmpty() &&
+        this != "." &&
+        this != ".." &&
+        none { ch ->
+          ch == '/' || ch == '\\' || ch == '?' || ch == '#' || ch == '%' || ch.isWhitespace()
+        }
 
     /**
      * Parses a Hugging Face URL or model ID string into an [HfUrlInfo]. Handles formats such as:
@@ -207,9 +228,11 @@ data class HfUrlInfo(
 
       val host = uri?.host?.lowercase().orEmpty()
       val isBareId = !trimmed.contains("://") && !host.contains(".")
-      val isHfDomain = host.isEmpty() || host.contains("huggingface.co") || isBareId
+      val isHfDomain =
+        host.isEmpty() || host == "huggingface.co" || host.endsWith(".huggingface.co") || isBareId
 
-      val path = if (isBareId) trimmed else uri?.path.orEmpty()
+      val rawEncodedPath = if (isBareId) trimmed.substringBefore("?") else uri?.rawPath.orEmpty()
+      val path = if (isBareId) trimmed.substringBefore("?") else uri?.path.orEmpty()
       val segments = path.split("/").filter { it.isNotBlank() }
       if (segments.isEmpty()) return HfUrlInfo()
 
@@ -220,9 +243,20 @@ data class HfUrlInfo(
         return HfUrlInfo(fileName = rawLastSegment, isDirectModelFile = isDirectFile)
       }
 
+      if (
+        rawEncodedPath.contains("%2f", ignoreCase = true) ||
+          rawEncodedPath.contains("%5c", ignoreCase = true) ||
+          segments.any { !it.substringBefore("?").isSafeHfPathSegment() }
+      ) {
+        return HfUrlInfo()
+      }
+
       val actionIdx = segments.indexOfFirst { it.lowercase() in HF_ACTION_KEYWORDS }
       if (actionIdx > 0) {
+        if (actionIdx > 2) return HfUrlInfo()
         val modelId = segments.subList(0, actionIdx).joinToString("/")
+        val revision =
+          segments.getOrNull(actionIdx + 1)?.substringBefore("?")?.takeIf { it.isNotEmpty() }
         val fileSegment =
           if (actionIdx + 2 < segments.size) {
             segments.subList(actionIdx + 2, segments.size).joinToString("/").substringBefore("?")
@@ -234,6 +268,7 @@ data class HfUrlInfo(
           modelId = modelId,
           fileName = if (isFile) fileSegment else null,
           isDirectModelFile = isFile,
+          revision = revision,
         )
       }
 
@@ -243,6 +278,57 @@ data class HfUrlInfo(
         fileName = if (isDirectFile) rawLastSegment else null,
         isDirectModelFile = isDirectFile,
       )
+    }
+
+    /**
+     * Returns `true` when [modelId] is a safe Hugging Face repository identifier (`repo` or
+     * `owner/repo`) with no dot-traversal, query, fragment, or percent-encoded path segments.
+     */
+    fun isValidModelId(modelId: String): Boolean {
+      val parts = modelId.trim().split("/")
+      return parts.size in 1..2 && parts.all { it.isSafeHfPathSegment() }
+    }
+
+    /**
+     * Normalizes an HTTP/HTTPS model URL into a canonical comparison key for deduplication.
+     *
+     * - Rejects empty or non-`http`/`https` strings by returning `""`.
+     * - Normalizes Hugging Face direct file URLs (`/blob/`, `/raw/`, `/resolve/`, `http://`,
+     *   `?download=true`, and case variations in `org/repo`) to
+     *   `https://huggingface.co/<lower_model_id>/resolve/<revision>/<file_path>`.
+     * - For non-Hugging Face HTTP/HTTPS URLs, lowercases scheme and host, strips `#fragment` and
+     *   `download=true` query flags, and trims trailing slashes.
+     */
+    fun canonicalizeModelUrl(rawUrl: String): String {
+      val trimmed = rawUrl.trim()
+      if (trimmed.isEmpty()) return ""
+      val uri = runCatching { URI(trimmed) }.getOrNull() ?: return ""
+      val scheme = uri.scheme?.lowercase() ?: return ""
+      if (scheme != "http" && scheme != "https") return ""
+      val host = uri.host?.lowercase()?.takeIf { it.isNotEmpty() } ?: return ""
+
+      if (host == "huggingface.co" || host.endsWith(".huggingface.co")) {
+        val info = parse(trimmed)
+        if (info.isDirectModelFile && info.modelId != null && info.fileName != null) {
+          val rev = info.revision?.takeIf { it.isNotEmpty() } ?: "main"
+          return "https://huggingface.co/${info.modelId.lowercase()}/resolve/$rev/${info.fileName}"
+        }
+        if (info.modelId != null && info.fileName == null) {
+          return "https://huggingface.co/${info.modelId.lowercase()}"
+        }
+        return ""
+      }
+
+      val portPart = if (uri.port != -1) ":${uri.port}" else ""
+      val rawPath = uri.rawPath.orEmpty().let { if (it.length > 1) it.trimEnd('/') else it }
+      val filteredQuery =
+        uri.rawQuery
+          ?.split("&")
+          ?.filter { it.isNotEmpty() && !it.equals("download=true", ignoreCase = true) }
+          ?.joinToString("&")
+          .orEmpty()
+      val queryPart = if (filteredQuery.isNotEmpty()) "?$filteredQuery" else ""
+      return "$scheme://$host$portPart$rawPath$queryPart"
     }
   }
 }
