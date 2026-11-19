@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.ui.modelmanager
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -38,6 +39,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.NoteAdd
 import androidx.compose.material.icons.automirrored.rounded.ListAlt
@@ -70,7 +72,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -107,6 +111,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val TAG = "AGGlobalMM"
+private const val FOCUS_HIGHLIGHT_DURATION_MS = 1500L
 
 private data class PendingModelImport(
   val uri: Uri,
@@ -126,6 +131,8 @@ fun GlobalModelManager(
   modifier: Modifier = Modifier,
   tosViewModel: TosViewModel? = null,
   initialImportUrl: String? = null,
+  initialFocusModelName: String? = null,
+  initialOpenTryIt: Boolean = false,
   supplementaryModelsViewModel: SupplementaryModelsViewModel? = null,
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -156,9 +163,13 @@ fun GlobalModelManager(
   var isLoadingModelCardDetails by remember { mutableStateOf(false) }
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
+  val listState = rememberLazyListState()
   val snackbarHostState = remember { SnackbarHostState() }
   val modelItemExpandedStates = remember { mutableStateMapOf<String, Boolean>() }
   var selectedTab by remember { mutableStateOf(ModelManagerTab.MAIN) }
+  var pendingFocusModelName by rememberSaveable { mutableStateOf<String?>(null) }
+  var pendingOpenTryIt by rememberSaveable { mutableStateOf(false) }
+  var highlightedModelName by remember { mutableStateOf<String?>(null) }
   val supplementaryUiState =
     supplementaryModelsViewModel?.uiState?.collectAsStateWithLifecycle()?.value
   val supplementaryModelCount = supplementaryUiState?.visibleModelCount ?: supplementaryModelsSize
@@ -224,11 +235,30 @@ fun GlobalModelManager(
       }
     }
 
+  // Consumes the deep-link import URL once. Each deep link navigates to a new back stack entry with
+  // its own saved state, so this survives configuration changes without blocking a later deep link.
+  var isInitialImportUrlHandled by rememberSaveable { mutableStateOf(false) }
+  LaunchedEffect(initialImportUrl) {
+    if (!isInitialImportUrlHandled && !initialImportUrl.isNullOrBlank()) {
+      isInitialImportUrlHandled = true
+      handleImportUrl(initialImportUrl)
+    }
+  }
+
+  var isInitialFocusHandled by rememberSaveable { mutableStateOf(false) }
+  LaunchedEffect(initialFocusModelName, initialOpenTryIt) {
+    if (!isInitialFocusHandled && !initialFocusModelName.isNullOrBlank()) {
+      isInitialFocusHandled = true
+      pendingFocusModelName = initialFocusModelName
+      pendingOpenTryIt = initialOpenTryIt
+    }
+  }
+
   val filePickerLauncher: ActivityResultLauncher<Intent> =
     rememberLauncherForActivityResult(
       contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-      if (result.resultCode == android.app.Activity.RESULT_OK) {
+      if (result.resultCode == Activity.RESULT_OK) {
         result.data?.data?.let { uri ->
           processModelUri(
             uri,
@@ -241,7 +271,7 @@ fun GlobalModelManager(
       }
     }
 
-  LaunchedEffect(modelImportingUpdateTrigger) {
+  LaunchedEffect(modelImportingUpdateTrigger, allTasks) {
     val allowlistModels = viewModel.allowlistModels
     val allowlistOrderMap = allowlistModels.withIndex().associate { it.value.name to it.index }
 
@@ -268,12 +298,77 @@ fun GlobalModelManager(
 
   // Calculate model variants by grouping models with a parentModelName.
   val modelVariants by
-    remember(modelImportingUpdateTrigger) {
+    remember(modelImportingUpdateTrigger, allTasks) {
       derivedStateOf {
         val allModels = allTasks.flatMap { it.models }.distinct()
         allModels.filter { it.isVariant }.groupBy { it.hierarchy.parentModelName.orEmpty() }
       }
     }
+
+  LaunchedEffect(pendingFocusModelName, builtInModels.toList(), importedModels.toList()) {
+    val focusName = pendingFocusModelName ?: return@LaunchedEffect
+    val targetModel = viewModel.getModelByName(focusName)
+    val rowModelName =
+      targetModel?.hierarchy?.parentModelName?.takeIf { it.isNotEmpty() } ?: focusName
+    val builtInIdx = builtInModels.indexOfFirst { it.name == rowModelName }
+    val importedIdx = importedModels.indexOfFirst { it.name == rowModelName }
+    if (builtInIdx < 0 && importedIdx < 0) {
+      return@LaunchedEffect
+    }
+
+    val shouldOpenTryIt = pendingOpenTryIt
+
+    selectedTab = ModelManagerTab.MAIN
+    if (builtInIdx >= 0) {
+      modelItemExpandedStates[rowModelName] = true
+    }
+    highlightedModelName = focusName
+
+    val targetLazyIndex = if (builtInIdx >= 0) builtInIdx else builtInModels.size + 1 + importedIdx
+    // Wait one frame for the MAIN tab switch and expanded card state to compose before scrolling.
+    withFrameNanos {}
+    listState.scrollToItem(targetLazyIndex)
+    // Wait one frame after jumping to targetLazyIndex so visibleItemsInfo reflects its laid-out
+    // height before computing the centering scroll offset.
+    withFrameNanos {}
+    val layoutInfo = listState.layoutInfo
+    val viewportHeight =
+      (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset).coerceAtLeast(0)
+    val itemHeight =
+      layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetLazyIndex }?.size ?: 0
+    if (viewportHeight > itemHeight && itemHeight > 0) {
+      listState.scrollToItem(
+        index = targetLazyIndex,
+        scrollOffset = -((viewportHeight - itemHeight) / 2),
+      )
+    }
+
+    if (shouldOpenTryIt && targetModel != null) {
+      val tasksForModel =
+        viewModel.uiState.value.tasks.filter { task ->
+          task.models.any { it.name == targetModel.name }
+        }
+      if (tasksForModel.isNotEmpty()) {
+        taskCandidates.clear()
+        taskCandidates.addAll(tasksForModel)
+        modelForTaskCandidate = targetModel
+        showTaskSelectorBottomSheet = true
+      }
+    }
+
+    // Clear pending focus state only after suspension points complete so LaunchedEffect is not
+    // self-cancelled mid-scroll.
+    pendingFocusModelName = null
+    pendingOpenTryIt = false
+  }
+
+  LaunchedEffect(highlightedModelName) {
+    val activeHighlight = highlightedModelName ?: return@LaunchedEffect
+    delay(FOCUS_HIGHLIGHT_DURATION_MS)
+    if (highlightedModelName == activeHighlight) {
+      highlightedModelName = null
+    }
+  }
 
   val handleClickModel: (Model) -> Unit = { model ->
     val tasks = viewModel.uiState.value.tasks
@@ -409,6 +504,7 @@ fun GlobalModelManager(
         }
 
         LazyColumn(
+          state = listState,
           modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
           verticalArrangement = Arrangement.spacedBy(8.dp),
           contentPadding =
@@ -425,7 +521,7 @@ fun GlobalModelManager(
             )
           }
           if (!showSupplementaryTab) {
-            items(builtInModels) { model ->
+            items(builtInModels, key = { it.name }) { model ->
               val expanded = modelItemExpandedStates.getOrDefault(model.name, true)
               ModelItem(
                 model = model,
@@ -439,6 +535,7 @@ fun GlobalModelManager(
                 showBenchmarkActionButton = true,
                 onExpanded = { modelItemExpandedStates[model.name] = it },
                 tosViewModel = tosViewModel,
+                highlightedModelName = highlightedModelName,
               )
             }
 
@@ -467,6 +564,7 @@ fun GlobalModelManager(
                 isBenchmarkSupported = model.supportModelBenchmark,
                 showBenchmarkActionButton = true,
                 tosViewModel = tosViewModel,
+                highlightedModelName = highlightedModelName,
               )
             }
           }
@@ -680,6 +778,8 @@ fun GlobalModelManager(
           onDone = {
             viewModel.addImportedLlmModel(info = it, origin = pending.origin)
             showImportingDialog = false
+            pendingFocusModelName = it.fileName
+            pendingOpenTryIt = false
 
             // Show a snack bar for successful import.
             scope.launch { snackbarHostState.showSnackbar("Model imported successfully") }

@@ -16,10 +16,13 @@
 
 package com.google.ai.edge.gallery.ui.navigation
 
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
@@ -56,6 +59,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.core.util.Consumer
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -69,8 +73,10 @@ import com.google.ai.edge.gallery.GalleryEvent
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskData
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskDataForBuiltinTask
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.gallery.data.ModelDeepLinkResolution
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.ModelSelectionTarget
+import com.google.ai.edge.gallery.data.ModelUtils
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.isLegacyTasks
 import com.google.ai.edge.gallery.firebaseAnalytics
@@ -101,6 +107,9 @@ private const val ROUTE_MODEL = "route_model"
 private const val ROUTE_BENCHMARK = "benchmark"
 private const val ROUTE_MODEL_MANAGER = "model_manager"
 private const val ARG_IMPORT_URL = "import_url"
+private const val ARG_FOCUS_MODEL = "focus_model"
+private const val ARG_OPEN_TRY_IT = "open_try_it"
+private val SUPPORTED_CUSTOM_SCHEMES = setOf("com.google.ai.edge.gallery", "aiedgegallery")
 private const val ROUTE_NOTIFICATIONS = "notifications"
 private const val ENTER_ANIMATION_DURATION_MS = 500
 private val ENTER_ANIMATION_EASING = EaseOutExpo
@@ -440,14 +449,20 @@ fun GalleryNavHost(
 
     // Global model manager page.
     composable(
-      route = "$ROUTE_MODEL_MANAGER?$ARG_IMPORT_URL={$ARG_IMPORT_URL}",
+      route =
+        "$ROUTE_MODEL_MANAGER?$ARG_IMPORT_URL={$ARG_IMPORT_URL}&$ARG_FOCUS_MODEL={$ARG_FOCUS_MODEL}&$ARG_OPEN_TRY_IT={$ARG_OPEN_TRY_IT}",
       arguments =
         listOf(
           navArgument(ARG_IMPORT_URL) {
             type = NavType.StringType
             nullable = true
             defaultValue = null
-          }
+          },
+          navArgument(ARG_FOCUS_MODEL) {
+            nullable = true
+            defaultValue = null
+          },
+          navArgument(ARG_OPEN_TRY_IT) { defaultValue = false },
         ),
       enterTransition = {
         if (
@@ -471,10 +486,14 @@ fun GalleryNavHost(
       },
     ) { backStackEntry ->
       val importUrl = backStackEntry.arguments?.getString(ARG_IMPORT_URL)
+      val focusModelName = backStackEntry.arguments?.getString(ARG_FOCUS_MODEL)
+      val openTryIt = backStackEntry.arguments?.getBoolean(ARG_OPEN_TRY_IT) ?: false
       GlobalModelManager(
         viewModel = modelManagerViewModel,
         tosViewModel = tosViewModel,
         initialImportUrl = importUrl,
+        initialFocusModelName = focusModelName,
+        initialOpenTryIt = openTryIt,
         supplementaryModelsViewModel = hiltViewModel(),
         navigateUp = {
           enableHomeScreenAnimation = false
@@ -533,65 +552,134 @@ fun GalleryNavHost(
     )
   }
 
-  // Handle incoming intents for deep links
-  val intent = androidx.activity.compose.LocalActivity.current?.intent
-  val data = intent?.data
-  // Wait until the model manager has been initialized and the tasks are available.
-  if (data != null && modelManagerUiState.tasks.isNotEmpty()) {
-    intent.data = null
-    val uriStr = data.toString()
-    Log.d(TAG, "navigation link clicked: $data")
-    // 1. Precise model deep links: com.google.ai.edge.gallery://model/<taskId>/<modelName>
-    if (uriStr.startsWith("com.google.ai.edge.gallery://model/")) {
-      if (data.pathSegments.size >= 2) {
-        val taskId = data.pathSegments.get(data.pathSegments.size - 2)
-        val modelName = data.pathSegments.last()
-        val queryStr = data.getQueryParameter("query")
-        modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
-          val route =
-            if (!queryStr.isNullOrEmpty()) {
-              "$ROUTE_MODEL/${taskId}/${model.name}?query=${Uri.encode(queryStr)}"
-            } else {
-              "$ROUTE_MODEL/${taskId}/${model.name}"
-            }
-          navController.navigate(route)
-        }
-      } else {
-        Log.e(TAG, "Malformed deep link URI received: $data")
-      }
-    } else if (data.host == "global_model_manager" || data.host == "import") {
-      val route =
-          ROUTE_MODEL_MANAGER
-      navController.navigate(route)
-    } else {
-      // 2. Dynamic task-level deep links: com.google.ai.edge.gallery://<taskId>
-      val host = data.host
-      if (host != null) {
-        val queryStr = data.getQueryParameter("query")
-        val task = modelManagerUiState.tasks.find { it.id == host }
-        if (task != null) {
-          // Pick the first successfully downloaded model or the default active model for this task
-          val defaultModel =
-            task.models.firstOrNull { model ->
-              modelManagerUiState.modelDownloadStatus[model.name]?.status ==
-                ModelDownloadStatusType.SUCCEEDED
-            } ?: task.models.firstOrNull()
+  // Handle incoming intents for deep links (both cold start and warm onNewIntent).
+  val activity = LocalActivity.current
+  var intentVersion by remember { mutableIntStateOf(0) }
+  DisposableEffect(activity) {
+    val componentActivity = activity as? ComponentActivity
+    val listener = Consumer<Intent> { intentVersion++ }
+    componentActivity?.addOnNewIntentListener(listener)
+    onDispose { componentActivity?.removeOnNewIntentListener(listener) }
+  }
 
-          if (defaultModel != null) {
-            val route =
-              if (!queryStr.isNullOrEmpty()) {
-                "$ROUTE_MODEL/${task.id}/${defaultModel.name}?query=${Uri.encode(queryStr)}"
-              } else {
-                "$ROUTE_MODEL/${task.id}/${defaultModel.name}"
-              }
-            navController.navigate(route)
+  LaunchedEffect(intentVersion, activity, modelManagerUiState.tasks) {
+    val intent = activity?.intent
+    val data = intent?.data
+    // Wait until the model manager has been initialized and the tasks are available.
+    if (data != null && modelManagerUiState.tasks.isNotEmpty()) {
+      intent.data = null
+      val scheme = data.scheme?.lowercase()
+      Log.d(TAG, "navigation link clicked: $data")
+      when {
+        // 1. Precise model deep links: com.google.ai.edge.gallery://model/<taskId>/<modelName>
+        scheme in SUPPORTED_CUSTOM_SCHEMES && data.host?.lowercase() == "model" -> {
+          if (data.pathSegments.size >= 2) {
+            val taskId = data.pathSegments[data.pathSegments.size - 2]
+            val modelName = data.pathSegments.last()
+            val queryStr = data.getQueryParameter("query")
+            modelManagerViewModel.getModelByName(name = modelName)?.let { model ->
+              val encodedTaskId = Uri.encode(taskId)
+              val encodedModelName = Uri.encode(model.name)
+              val route =
+                if (!queryStr.isNullOrEmpty()) {
+                  "$ROUTE_MODEL/$encodedTaskId/$encodedModelName?query=${Uri.encode(queryStr)}"
+                } else {
+                  "$ROUTE_MODEL/$encodedTaskId/$encodedModelName"
+                }
+              navController.navigate(route)
+            }
           } else {
-            Log.e(TAG, "No available model found for task: $host")
+            Log.e(TAG, "Malformed deep link URI received: $data")
+          }
+        }
+        isModelManagerOrImportDeepLink(data) -> {
+          val importUrl =
+            (data.getQueryParameter(ARG_IMPORT_URL) ?: data.getQueryParameter("url"))?.trim()
+          val requestedTaskId = data.getQueryParameter("task")?.trim()
+          when (
+            val resolution =
+              ModelUtils.resolveModelDeepLink(
+                rawImportUrl = importUrl,
+                models = modelManagerViewModel.getAllModels(),
+                tasks = modelManagerUiState.tasks,
+                downloadStatuses = modelManagerUiState.modelDownloadStatus,
+                requestedTaskId = requestedTaskId,
+              )
+          ) {
+            ModelDeepLinkResolution.OpenModelManagerDefault -> {
+              navController.navigate(ROUTE_MODEL_MANAGER)
+            }
+            is ModelDeepLinkResolution.OpenImportFlow -> {
+              navController.navigate(
+                "$ROUTE_MODEL_MANAGER?$ARG_IMPORT_URL=${Uri.encode(resolution.importUrl)}"
+              )
+            }
+            is ModelDeepLinkResolution.FocusModelInManager -> {
+              navController.navigate(
+                "$ROUTE_MODEL_MANAGER?$ARG_FOCUS_MODEL=${Uri.encode(resolution.modelName)}&$ARG_OPEN_TRY_IT=${resolution.openTryIt}"
+              )
+            }
+            is ModelDeepLinkResolution.NavigateToTask -> {
+              navController.navigate(
+                "$ROUTE_MODEL_MANAGER?$ARG_FOCUS_MODEL=${Uri.encode(resolution.modelName)}"
+              )
+              navController.navigate(
+                "$ROUTE_MODEL/${Uri.encode(resolution.taskId)}/${Uri.encode(resolution.modelName)}"
+              )
+            }
+          }
+        }
+        scheme in SUPPORTED_CUSTOM_SCHEMES -> {
+          // 2. Dynamic task-level deep links: com.google.ai.edge.gallery://<taskId>
+          val host = data.host
+          if (host != null) {
+            val queryStr = data.getQueryParameter("query")
+            val task = modelManagerUiState.tasks.find { it.id == host }
+            if (task != null) {
+              // Pick the first successfully downloaded model or the default active model for this
+              // task
+              val defaultModel =
+                task.models.firstOrNull { model ->
+                  modelManagerUiState.modelDownloadStatus[model.name]?.status ==
+                    ModelDownloadStatusType.SUCCEEDED
+                } ?: task.models.firstOrNull()
+
+              if (defaultModel != null) {
+                val encodedTaskId = Uri.encode(task.id)
+                val encodedModelName = Uri.encode(defaultModel.name)
+                val route =
+                  if (!queryStr.isNullOrEmpty()) {
+                    "$ROUTE_MODEL/$encodedTaskId/$encodedModelName?query=${Uri.encode(queryStr)}"
+                  } else {
+                    "$ROUTE_MODEL/$encodedTaskId/$encodedModelName"
+                  }
+                navController.navigate(route)
+              } else {
+                Log.e(TAG, "No available model found for task: $host")
+              }
+            }
           }
         }
       }
     }
   }
+}
+
+private fun isModelManagerOrImportDeepLink(data: Uri): Boolean {
+  val scheme = data.scheme?.lowercase()
+  val host = data.host?.lowercase()
+  if (scheme in SUPPORTED_CUSTOM_SCHEMES && (host == "global_model_manager" || host == "import")) {
+    return true
+  }
+  val path = data.path
+  if (
+    scheme == "https" &&
+      host == "developers.google.com" &&
+      (path == "/edge/gallery/open" || path?.startsWith("/edge/gallery/open/") == true)
+  ) {
+    return true
+  }
+  return false
 }
 
 @Composable

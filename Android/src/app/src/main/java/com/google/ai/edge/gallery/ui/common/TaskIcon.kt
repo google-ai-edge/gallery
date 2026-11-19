@@ -99,21 +99,24 @@ fun TaskIcon(
     if (animationProgress >= 0.8) {
       iconAnimationProgress = (animationProgress - 0.8f) / 0.2f
     }
-    Icon(
-      task.icon ?: ImageVector.vectorResource(task.iconVectorResourceId!!),
-      tint = Color.White,
-      modifier =
-        Modifier.size(width * 0.55f)
-          .graphicsLayer { alpha = iconAnimationProgress }
-          .scale(iconAnimationProgress),
-      contentDescription = null,
-    )
+    val iconVector = task.icon ?: task.iconVectorResourceId?.let { ImageVector.vectorResource(it) }
+    if (iconVector != null) {
+      Icon(
+        iconVector,
+        tint = Color.White,
+        modifier =
+          Modifier.size(width * 0.55f)
+            .graphicsLayer { alpha = iconAnimationProgress }
+            .scale(iconAnimationProgress),
+        contentDescription = null,
+      )
+    }
   }
 }
 
 @Composable
 private fun getTaskIconBgShape(task: Task): Painter {
-  val colorIndex: Int = task.index % SHAPES.size
+  val colorIndex: Int = task.index.coerceAtLeast(0) % SHAPES.size
   return painterResource(SHAPES[colorIndex])
 }
 

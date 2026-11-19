@@ -20,6 +20,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -117,6 +118,8 @@ fun ModelItem(
   /** Replaces the download status line under the model name when set. */
   statusContent: (@Composable () -> Unit)? = null,
   extraContent: (@Composable () -> Unit)? = null,
+  /** Optional model or variant name to highlight with a primary border pulse. */
+  highlightedModelName: String? = null,
 ) {
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
   // Only this model's download status is read, so other models' download progress doesn't
@@ -130,15 +133,28 @@ fun ModelItem(
     }
 
   val isBestOverall = model.bestForTaskIds.contains(task?.id ?: "")
-  var isExpanded by remember { mutableStateOf(expanded ?: isBestOverall) }
+  var isExpanded by remember(model.name, expanded) { mutableStateOf(expanded ?: isBestOverall) }
 
   val isDownloadFailed = downloadStatus?.status == ModelDownloadStatusType.FAILED
+  val cardShape = RoundedCornerShape(size = 12.dp)
+  val isCardHighlighted = highlightedModelName == model.name && modelVariants.isEmpty()
 
   var boxModifier =
     modifier
       .fillMaxWidth()
-      .clip(RoundedCornerShape(size = 12.dp))
+      .clip(cardShape)
       .background(color = MaterialTheme.customColors.taskCardBgColor)
+      .then(
+        if (isCardHighlighted) {
+          Modifier.border(
+            width = 2.dp,
+            color = MaterialTheme.colorScheme.primary,
+            shape = cardShape,
+          )
+        } else {
+          Modifier
+        }
+      )
   val expandedStateDesc =
     stringResource(if (isExpanded) R.string.cd_expanded else R.string.cd_collapsed)
   boxModifier =
@@ -370,6 +386,8 @@ fun ModelItem(
                     )
                   }
 
+                  val variantShape = RoundedCornerShape(12.dp)
+                  val isVariantHighlighted = highlightedModelName == variantModel.name
                   val containerModifier =
                     Modifier.fillMaxWidth()
                       .sharedElement(
@@ -379,8 +397,19 @@ fun ModelItem(
                           ),
                         animatedVisibilityScope = this,
                       )
-                      .clip(RoundedCornerShape(12.dp))
+                      .clip(variantShape)
                       .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                      .then(
+                        if (isVariantHighlighted) {
+                          Modifier.border(
+                            width = 2.dp,
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = variantShape,
+                          )
+                        } else {
+                          Modifier
+                        }
+                      )
                       .padding(vertical = 12.dp, horizontal = 16.dp)
 
                   if (targetShowColumnLayout) {

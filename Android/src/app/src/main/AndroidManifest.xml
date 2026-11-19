@@ -93,6 +93,24 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data android:scheme="com.google.ai.edge.gallery" />
+                <data android:scheme="aiedgegallery" />
+            </intent-filter>
+            <!--
+              developers.google.com/.well-known/assetlinks.json does not register this package, so
+              Android 12+ opens the web launcher page in the browser and its CTA bounces to
+              com.google.ai.edge.gallery://...; this filter handles users who enable "Open supported
+              links" in system app settings or explicit package intents.
+             -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="https"
+                    android:host="developers.google.com"
+                    android:pathPrefix="/edge/gallery/open" />
             </intent-filter>
         </activity>
 

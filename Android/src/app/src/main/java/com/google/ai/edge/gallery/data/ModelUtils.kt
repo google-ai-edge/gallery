@@ -16,10 +16,36 @@
 
 package com.google.ai.edge.gallery.data
 
+import com.google.ai.edge.gallery.huggingface.HfUrlInfo
 import com.google.ai.edge.gallery.huggingface.HuggingFaceApiClient
 import com.google.ai.edge.gallery.huggingface.extractHfUrlInfo
 import com.google.ai.edge.gallery.proto.LlmConfig
 import com.google.ai.edge.gallery.proto.llmConfig
+
+/** Routing action resolved for an incoming model deep link. */
+sealed interface ModelDeepLinkResolution {
+  /** Opens Global Model Manager at its default top state (missing or invalid target URL). */
+  data object OpenModelManagerDefault : ModelDeepLinkResolution
+
+  /**
+   * Opens Global Model Manager and triggers the model import flow for [importUrl] (either a direct
+   * model file not yet in the catalog, or a Hugging Face repository URL for the file picker).
+   */
+  data class OpenImportFlow(val importUrl: String) : ModelDeepLinkResolution
+
+  /**
+   * Opens Global Model Manager centered and highlighted on [modelName], optionally presenting the
+   * "Try it with ... task" selector bottom sheet immediately when [openTryIt] is `true`.
+   */
+  data class FocusModelInManager(val modelName: String, val openTryIt: Boolean) :
+    ModelDeepLinkResolution
+
+  /**
+   * Navigates directly into [taskId] with [modelName] selected, keeping Global Model Manager on the
+   * back stack.
+   */
+  data class NavigateToTask(val taskId: String, val modelName: String) : ModelDeepLinkResolution
+}
 
 /** Whether this model is restricted to the "Test it" task. */
 val Model.isForTestOnly: Boolean
@@ -402,4 +428,84 @@ object ModelUtils {
 
   private fun sanitizeStorageSegment(segment: String): String =
     segment.replace(Regex("[^a-zA-Z0-9._-]"), "_").replace(Regex("_{3,}"), "__").trim('_')
+
+  /**
+   * Resolves an incoming model deep-link [rawImportUrl] (and optional [requestedTaskId]) into a
+   * [ModelDeepLinkResolution] against all known [models], [tasks], and [downloadStatuses].
+   */
+  fun resolveModelDeepLink(
+    rawImportUrl: String?,
+    models: List<Model>,
+    tasks: List<Task>,
+    downloadStatuses: Map<String, ModelDownloadStatus>,
+    requestedTaskId: String? = null,
+  ): ModelDeepLinkResolution {
+    val trimmedUrl = rawImportUrl?.trim().orEmpty()
+    val canonicalTargetUrl = HfUrlInfo.canonicalizeModelUrl(trimmedUrl)
+    if (canonicalTargetUrl.isEmpty()) {
+      return ModelDeepLinkResolution.OpenModelManagerDefault
+    }
+
+    val urlInfo = extractHfUrlInfo(trimmedUrl)
+    if (!urlInfo.isDirectModelFile) {
+      return ModelDeepLinkResolution.OpenImportFlow(importUrl = trimmedUrl)
+    }
+
+    val prioritizedModels = models.sortedBy { it.downloadInfo.imported }
+    val targetRepoId = urlInfo.modelId
+    val targetFilePath = urlInfo.fileName
+    val targetRevision = urlInfo.revision
+    val isDefaultRevision =
+      targetRevision == null || targetRevision.equals("main", ignoreCase = true)
+
+    val matchedModel =
+      prioritizedModels.firstOrNull { model ->
+        val modelCanonicalUrl = HfUrlInfo.canonicalizeModelUrl(model.downloadInfo.url)
+        modelCanonicalUrl.isNotEmpty() && modelCanonicalUrl == canonicalTargetUrl
+      }
+        ?: if (
+          isDefaultRevision && !targetRepoId.isNullOrEmpty() && !targetFilePath.isNullOrEmpty()
+        ) {
+          val targetBaseFile = targetFilePath.substringAfterLast('/')
+          prioritizedModels.firstOrNull { model ->
+            !model.downloadInfo.imported &&
+              model.modelId.equals(targetRepoId, ignoreCase = true) &&
+              model.downloadInfo.downloadFileName.equals(targetBaseFile, ignoreCase = true)
+          }
+        } else {
+          null
+        }
+
+    if (matchedModel == null) {
+      return ModelDeepLinkResolution.OpenImportFlow(importUrl = trimmedUrl)
+    }
+
+    val isDownloaded =
+      downloadStatuses[matchedModel.name]?.status == ModelDownloadStatusType.SUCCEEDED
+    if (!isDownloaded) {
+      return ModelDeepLinkResolution.FocusModelInManager(
+        modelName = matchedModel.name,
+        openTryIt = false,
+      )
+    }
+
+    val cleanTaskId = requestedTaskId?.trim().orEmpty()
+    val matchingTask =
+      if (cleanTaskId.isNotEmpty()) {
+        tasks.firstOrNull { task ->
+          task.id == cleanTaskId && task.models.any { it.name == matchedModel.name }
+        }
+      } else {
+        null
+      }
+
+    return if (matchingTask != null) {
+      ModelDeepLinkResolution.NavigateToTask(
+        taskId = matchingTask.id,
+        modelName = matchedModel.name,
+      )
+    } else {
+      ModelDeepLinkResolution.FocusModelInManager(modelName = matchedModel.name, openTryIt = true)
+    }
+  }
 }
