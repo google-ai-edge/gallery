@@ -191,6 +191,12 @@ fun AgentChatScreen(
   val mcpUiState by mcpManagerViewModel.uiState.collectAsState()
 
   val skillCount = skillUiState.skills.count { it.skill.selected }
+  val availableSkills =
+    remember(skillUiState.skills) {
+      skillUiState.skills
+        .map { it.skill }
+        .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+    }
   val mcpCount = mcpUiState.mcpServers.count { it.mcpServer.enabled }
   val mcpToolsCount =
     mcpUiState.mcpServers
@@ -296,6 +302,7 @@ fun AgentChatScreen(
         clearHistory = clearHistory,
       )
     },
+    availableSkills = availableSkills,
     onSkillClicked = { showSkillManagerBottomSheet = true },
     onMcpClicked = { showMcpManagerBottomSheet = true },
     showImagePicker = true,

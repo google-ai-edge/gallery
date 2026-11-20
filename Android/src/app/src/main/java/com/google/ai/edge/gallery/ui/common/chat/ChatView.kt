@@ -87,6 +87,7 @@ import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.proto.ChatSessionProto
+import com.google.ai.edge.gallery.proto.Skill
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
 import com.google.ai.edge.gallery.ui.common.copyBitmapToClipboard
 import com.google.ai.edge.gallery.ui.common.saveBitmapToMediaStore
@@ -139,6 +140,7 @@ fun ChatView(
   curSystemPrompt: String = "",
   onSystemPromptChanged: (String) -> Unit = {},
   sendMessageTrigger: SendMessageTrigger? = null,
+  availableSkills: List<Skill> = emptyList(),
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -415,6 +417,7 @@ fun ChatView(
                       emptyStateComposable = emptyStateComposable,
                       onNewChatClicked = onNewChatClicked,
                       ttsController = ttsController,
+                      availableSkills = availableSkills,
                     )
                   // Model download
                   false ->
