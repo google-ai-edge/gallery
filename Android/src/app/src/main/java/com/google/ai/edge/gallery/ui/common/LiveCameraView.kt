@@ -25,12 +25,16 @@ import android.util.Size
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.VisibleForTesting
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraInfoUnavailableException
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
+import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
@@ -51,6 +55,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -66,6 +71,8 @@ import com.google.ai.edge.gallery.R
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
@@ -74,10 +81,11 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
 private const val TAG = "AGLiveCameraView"
+private const val FOCUS_AUTO_CANCEL_DURATION_SECONDS = 5L
 
 /**
  * Displays a live camera feed and delivers frames to [onBitmap], with optional support for taking
- * high-resolution still photos on demand.
+ * high-resolution still photos on demand and focusing on specific normalized coordinates.
  *
  * @param onBitmap Called for each frame from the continuous camera stream. The caller must call
  *   `imageProxy.close()` when done processing the frame.
@@ -90,6 +98,9 @@ private const val TAG = "AGLiveCameraView"
  * @param onPhotoCaptureProviderChanged Provides a suspend function that can be called to capture a
  *   single high-res photo at [photoCapturePreferredSize], or `null` when photo capture is disabled
  *   or the camera is not active.
+ * @param onFocusPointControllerChanged Provides a function that focuses and meters the camera on a
+ *   point, normalized to `[0, 1]` on the upright camera frame (top-left origin), or cancels that
+ *   when passed `null`. Provides `null` when the camera is not active.
  * @param outputImageFormat Pixel format of the raw [ImageProxy] passed to [onBitmap] (the [Bitmap]
  *   passed to [onBitmap] and returned by the photo capture function is always `ARGB_8888`).
  * @param renderPreview Whether to draw the camera preview on screen. Set to `false` if you render
@@ -110,6 +121,7 @@ fun LiveCameraView(
   preferredSize: Int = 500,
   photoCapturePreferredSize: Int? = null,
   onPhotoCaptureProviderChanged: ((suspend () -> Bitmap?)?) -> Unit = {},
+  onFocusPointControllerChanged: (((Offset?) -> Unit)?) -> Unit = {},
   @ImageAnalysis.OutputImageFormat
   outputImageFormat: Int = ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888,
   renderPreview: Boolean = true,
@@ -134,9 +146,12 @@ fun LiveCameraView(
   val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
   // The photo capture function of the currently bound camera, or null if there is none.
   var photoCaptureProvider by remember { mutableStateOf<(suspend () -> Bitmap?)?>(null) }
+  // The focus point controller of the currently bound camera, or null if there is none.
+  var focusPointController by remember { mutableStateOf<((Offset?) -> Unit)?>(null) }
 
   val currentOnBitmap by rememberUpdatedState(onBitmap)
   val currentOnPhotoCaptureProviderChanged by rememberUpdatedState(onPhotoCaptureProviderChanged)
+  val currentOnFocusPointControllerChanged by rememberUpdatedState(onFocusPointControllerChanged)
   val currentIsPaused by rememberUpdatedState(isPaused)
   val currentSkipFramesWhilePaused by rememberUpdatedState(skipFramesWhilePaused)
   val currentOnError by rememberUpdatedState(onError)
@@ -148,6 +163,9 @@ fun LiveCameraView(
   // recomposition, which would otherwise never learn about an already bound camera.
   LaunchedEffect(photoCaptureProvider, onPhotoCaptureProviderChanged) {
     onPhotoCaptureProviderChanged(photoCaptureProvider)
+  }
+  LaunchedEffect(focusPointController, onFocusPointControllerChanged) {
+    onFocusPointControllerChanged(focusPointController)
   }
 
   val onBitmapFn: (Bitmap, ImageProxy) -> Unit = { bitmap, imageProxy ->
@@ -167,6 +185,7 @@ fun LiveCameraView(
         preferredSize = preferredSize,
         photoCapturePreferredSize = photoCapturePreferredSize,
         onPhotoCaptureProviderChanged = { photoCaptureProvider = it },
+        onFocusPointControllerChanged = { focusPointController = it },
         outputImageFormat = outputImageFormat,
         cameraSelector = cameraSelector,
         fallBackToAvailableCamera = fallBackToAvailableCamera,
@@ -177,6 +196,7 @@ fun LiveCameraView(
 
   fun unbindCameraForDeniedPermission() {
     photoCaptureProvider = null
+    focusPointController = null
     cameraProvider?.unbindAll()
     cameraProvider = null
     imageBitmap = null
@@ -243,6 +263,7 @@ fun LiveCameraView(
     onDispose {
       // Effects no longer run after disposal, so the callback is told directly.
       currentOnPhotoCaptureProviderChanged(null)
+      currentOnFocusPointControllerChanged(null)
       cameraProvider?.unbindAll()
       cameraExecutor.shutdown()
     }
@@ -306,6 +327,7 @@ private suspend fun startCamera(
   preferredSize: Int,
   photoCapturePreferredSize: Int?,
   onPhotoCaptureProviderChanged: ((suspend () -> Bitmap?)?) -> Unit,
+  onFocusPointControllerChanged: (((Offset?) -> Unit)?) -> Unit,
   @ImageAnalysis.OutputImageFormat outputImageFormat: Int,
   cameraSelector: CameraSelector,
   fallBackToAvailableCamera: Boolean,
@@ -321,6 +343,8 @@ private suspend fun startCamera(
       cameraSelector
     }
 
+  val frameRotationDegrees = AtomicInteger(0)
+
   val imageAnalysis =
     ImageAnalysis.Builder()
       .setResolutionSelector(buildResolutionSelector(preferredSize))
@@ -329,6 +353,7 @@ private suspend fun startCamera(
       .build()
       .also {
         it.setAnalyzer(cameraExecutor) { imageProxy ->
+          frameRotationDegrees.set(imageProxy.imageInfo.rotationDegrees)
           // When paused (e.g. during LLM inference), avoid any bitmap decoding or CPU overhead.
           if (shouldSkipFrame()) {
             imageProxy.close()
@@ -356,20 +381,94 @@ private suspend fun startCamera(
   try {
     cameraProvider.unbindAll()
     val useCases = listOfNotNull(imageAnalysis, imageCapture).toTypedArray()
-    cameraProvider.bindToLifecycle(lifecycleOwner, effectiveCameraSelector, *useCases)
+    val camera = cameraProvider.bindToLifecycle(lifecycleOwner, effectiveCameraSelector, *useCases)
+    // The rotation of the frames, as ImageAnalysis reports it, until the first frame arrives.
+    frameRotationDegrees.set(
+      camera.cameraInfo.getSensorRotationDegrees(imageAnalysis.targetRotation)
+    )
     onPhotoCaptureProviderChanged(
       imageCapture?.let { capture ->
         { capturePhoto(capture, cameraExecutor, effectiveCameraSelector) }
       }
     )
+    onFocusPointControllerChanged { uprightPoint ->
+      updateCameraFocusPoint(
+        camera = camera,
+        imageAnalysis = imageAnalysis,
+        uprightPoint = uprightPoint,
+        rotationDegrees = frameRotationDegrees.get(),
+        effectiveCameraSelector = effectiveCameraSelector,
+      )
+    }
   } catch (exc: Exception) {
-    // unbindAll() above may already have unbound a previously provided photo capture.
+    // unbindAll() above may already have unbound the previously bound camera.
     onPhotoCaptureProviderChanged(null)
+    onFocusPointControllerChanged(null)
     Log.e(TAG, "Failed to start camera", exc)
     Toast.makeText(context, R.string.camera_init_failed, Toast.LENGTH_LONG).show()
     onError?.invoke()
   }
   return cameraProvider
+}
+
+/**
+ * Focuses and meters the camera on [uprightPoint], normalized on the upright camera frame, or
+ * cancels focus and metering if it is `null`.
+ */
+private fun updateCameraFocusPoint(
+  camera: Camera,
+  imageAnalysis: ImageAnalysis,
+  uprightPoint: Offset?,
+  rotationDegrees: Int,
+  effectiveCameraSelector: CameraSelector,
+) {
+  if (uprightPoint == null) {
+    val unused = camera.cameraControl.cancelFocusAndMetering()
+    return
+  }
+  val isFrontCamera = effectiveCameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA
+  val sensorPoint =
+    uprightToSensorNormalizedPoint(
+      uprightPoint = uprightPoint,
+      rotationDegrees = rotationDegrees,
+      isFrontCamera = isFrontCamera,
+    )
+  val meteringPointFactory =
+    try {
+      SurfaceOrientedMeteringPointFactory(1f, 1f, imageAnalysis)
+    } catch (e: IllegalStateException) {
+      SurfaceOrientedMeteringPointFactory(1f, 1f)
+    }
+  val meteringPoint = meteringPointFactory.createPoint(sensorPoint.x, sensorPoint.y)
+  val action =
+    FocusMeteringAction.Builder(meteringPoint)
+      .setAutoCancelDuration(FOCUS_AUTO_CANCEL_DURATION_SECONDS, TimeUnit.SECONDS)
+      .build()
+  val unused = camera.cameraControl.startFocusAndMetering(action)
+}
+
+/**
+ * Converts a normalized point on the upright bitmap produced by [imageProxyToUprightBitmap] to
+ * normalized sensor coordinates.
+ */
+@VisibleForTesting
+internal fun uprightToSensorNormalizedPoint(
+  uprightPoint: Offset,
+  rotationDegrees: Int,
+  isFrontCamera: Boolean,
+): Offset {
+  val clampedX = uprightPoint.x.coerceIn(0f, 1f)
+  val clampedY = uprightPoint.y.coerceIn(0f, 1f)
+  // Undo the horizontal mirror applied after rotation for the front camera.
+  val rotatedX = if (isFrontCamera) 1f - clampedX else clampedX
+  val rotatedY = clampedY
+  // Undo the clockwise rotation by rotationDegrees.
+  return when (rotationDegrees) {
+    90 -> Offset(rotatedY, 1f - rotatedX)
+    180 -> Offset(1f - rotatedX, 1f - rotatedY)
+    270 -> Offset(1f - rotatedY, rotatedX)
+    else -> Offset(rotatedX, rotatedY)
+  }
 }
 
 /**
