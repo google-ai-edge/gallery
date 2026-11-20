@@ -3,7 +3,7 @@ Mood Music Skill
 
 skill for gallery to generate music based on your mood using Loudly API. 
 
-Loudly API key can be obtained by registrating an account with \
+Loudly API key can be obtained by registering an account with \
 https://www.loudly.com then go to https://www.loudly.com/developers/apps
 
 Copyright 2026 Google LLC
