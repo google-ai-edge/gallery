@@ -23,6 +23,7 @@ import com.google.ai.edge.gallery.agent.sessions.SessionConfig
 import com.google.ai.edge.gallery.agent.sessions.generateSessionId
 import com.google.ai.edge.gallery.runtime.runtimeHelper
 import com.google.ai.edge.gallery.skills.SkillsProvider
+import com.google.ai.edge.gallery.tools.SensitiveDataGuard
 import com.google.ai.edge.gallery.tools.ToolDispatcher
 import com.google.ai.edge.gallery.tools.ToolExecutionContext
 import com.google.ai.edge.gallery.tools.ToolsProvider
@@ -61,6 +62,7 @@ open class DefaultAgentRuntimeExecutor(
 
   /** Active session state for the current conversation. */
   private data class ActiveSession(
+    val sessionId: String,
     val sessionConfig: SessionConfig,
     val toolExecutionContext: ToolExecutionContext,
   )
@@ -71,6 +73,34 @@ open class DefaultAgentRuntimeExecutor(
   override val activeSessionId: String?
     get() = llmSessionManager.activeSessionId
 
+  /**
+   * Creates the [ToolExecutionContext] for the conversation [sessionId] that is being (re)created.
+   *
+   * Re-creating the active conversation (e.g. after a stopped response or a system prompt change)
+   * keeps its [SensitiveDataGuard], because the seeded history still holds whatever sensitive data
+   * was read. A different conversation gets a new guard; if it is seeded with history of unknown
+   * origin (e.g. a restored conversation), that history is treated as possibly holding sensitive
+   * data.
+   *
+   * Some callers re-create the conversation without an action channel; the previous one is kept
+   * then, so that tools can still show progress and ask the user for permission.
+   */
+  private fun toolExecutionContextFor(
+    sessionId: String,
+    config: AgentRuntimeConfig,
+  ): ToolExecutionContext {
+    val previous = activeSession.get()
+    val previousContext = previous?.toolExecutionContext
+    val isSameConversation = previous?.sessionId == sessionId
+    return ToolExecutionContext(
+      taskId = config.taskId,
+      actionChannel = config.actionChannel ?: previousContext?.actionChannel,
+      sensitiveDataGuard =
+        previousContext?.sensitiveDataGuard?.takeIf { isSameConversation }
+          ?: SensitiveDataGuard(hasSensitiveDataInContext = config.initialMessages.isNotEmpty()),
+    )
+  }
+
   override suspend fun initialize(
     context: Context,
     config: AgentRuntimeConfig,
@@ -80,8 +110,7 @@ open class DefaultAgentRuntimeExecutor(
       config.sessionId.ifEmpty { llmSessionManager.activeSessionId ?: generateSessionId() }
     val effectiveSystemInstruction =
       if (!config.systemInstruction.isNullOrEmpty()) Contents.of(config.systemInstruction) else null
-    val executionContext =
-      ToolExecutionContext(taskId = config.taskId, actionChannel = config.actionChannel)
+    val executionContext = toolExecutionContextFor(sessionId = effectiveSessionId, config = config)
 
     val sessionConfig =
       SessionConfig(
@@ -95,7 +124,11 @@ open class DefaultAgentRuntimeExecutor(
       )
 
     activeSession.set(
-      ActiveSession(sessionConfig = sessionConfig, toolExecutionContext = executionContext)
+      ActiveSession(
+        sessionId = effectiveSessionId,
+        sessionConfig = sessionConfig,
+        toolExecutionContext = executionContext,
+      )
     )
 
     toolDispatcher.setupExecutionContext(
@@ -251,8 +284,7 @@ open class DefaultAgentRuntimeExecutor(
   override suspend fun resetSession(config: AgentRuntimeConfig) {
     val effectiveSessionId =
       config.sessionId.ifEmpty { llmSessionManager.activeSessionId ?: generateSessionId() }
-    val executionContext =
-      ToolExecutionContext(taskId = config.taskId, actionChannel = config.actionChannel)
+    val executionContext = toolExecutionContextFor(sessionId = effectiveSessionId, config = config)
 
     val effectiveSystemInstruction =
       if (!config.systemInstruction.isNullOrEmpty()) Contents.of(config.systemInstruction) else null
@@ -268,7 +300,11 @@ open class DefaultAgentRuntimeExecutor(
       )
 
     activeSession.set(
-      ActiveSession(sessionConfig = sessionConfig, toolExecutionContext = executionContext)
+      ActiveSession(
+        sessionId = effectiveSessionId,
+        sessionConfig = sessionConfig,
+        toolExecutionContext = executionContext,
+      )
     )
 
     toolDispatcher.setupExecutionContext(

@@ -46,9 +46,27 @@ class RunIntentTool(private val context: Context, private val skillsProvider: Sk
     parameters: String,
   ): Map<String, String> {
     return runBlocking(Dispatchers.Default) {
-      if (IntentAction.from(intent) == null) {
+      val intentAction = IntentAction.from(intent)
+      if (intentAction == null) {
         Log.w(TAG, "Intent not found: '$intent'")
         return@runBlocking guardMissingEntityWithSkillFallback(name = intent, type = "Intent")
+      }
+      val sensitiveDataType = intentAction.sensitiveDataType()
+      val readAllowed =
+        sensitiveDataType == null ||
+          executionContext?.requestSensitiveRead(type = sensitiveDataType, details = parameters)
+            ?: false
+      if (!readAllowed) {
+        Log.w(TAG, "User did not allow intent '$intent' to read $sensitiveDataType data")
+        executionContext
+          ?.actionChannel
+          ?.send(
+            SkillProgressToolAction(
+              label = "Permission denied for intent \"$intent\"",
+              inProgress = false,
+            )
+          )
+        return@runBlocking mapOf("error" to "Permission denied by user", "status" to "failed")
       }
       Log.d(TAG, "Run intent. Intent: '$intent', parameters: '$parameters'")
       executionContext
@@ -86,3 +104,18 @@ class RunIntentTool(private val context: Context, private val skillsProvider: Sk
     return mapOf("error" to error, "status" to "failed")
   }
 }
+
+/**
+ * Returns the kind of sensitive user data this intent reads back into the conversation, or null if
+ * it reads none. Deliberately exhaustive so that every new intent is classified.
+ */
+private fun IntentAction.sensitiveDataType(): SensitiveDataType? =
+  when (this) {
+    IntentAction.READ_CALENDAR_EVENTS -> SensitiveDataType.CALENDAR
+    // These hand off to a system screen that the user completes, or return no user data.
+    IntentAction.SEND_EMAIL,
+    IntentAction.SEND_SMS,
+    IntentAction.CREATE_CALENDAR_EVENT,
+    IntentAction.GET_CURRENT_DATE_AND_TIME,
+    IntentAction.SCHEDULE_NOTIFICATION -> null
+  }

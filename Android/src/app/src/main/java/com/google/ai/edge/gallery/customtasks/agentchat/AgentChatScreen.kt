@@ -90,9 +90,11 @@ import com.google.ai.edge.gallery.firebaseAnalytics
 import com.google.ai.edge.gallery.skills.formatSelectedSkills
 import com.google.ai.edge.gallery.tools.AskInfoToolAction
 import com.google.ai.edge.gallery.tools.AskMcpToolCallPermissionAction
+import com.google.ai.edge.gallery.tools.AskSensitiveDataPermissionAction
 import com.google.ai.edge.gallery.tools.CallJsToolAction
 import com.google.ai.edge.gallery.tools.PermissionResult
 import com.google.ai.edge.gallery.tools.RequestPermissionToolAction
+import com.google.ai.edge.gallery.tools.SensitiveDataDecision
 import com.google.ai.edge.gallery.tools.SkillProgressToolAction
 import com.google.ai.edge.gallery.ui.common.BaseGalleryWebViewClient
 import com.google.ai.edge.gallery.ui.common.GalleryWebView
@@ -154,6 +156,9 @@ fun AgentChatScreen(
   var currentAskInfoAction by remember { mutableStateOf<AskInfoToolAction?>(null) }
   var currentMcpPermissionAction by remember {
     mutableStateOf<AskMcpToolCallPermissionAction?>(null)
+  }
+  var currentSensitiveDataPermissionAction by remember {
+    mutableStateOf<AskSensitiveDataPermissionAction?>(null)
   }
   var askInfoInputValue by remember { mutableStateOf("") }
   var webViewRef: WebView? by remember { mutableStateOf(null) }
@@ -502,6 +507,12 @@ fun AgentChatScreen(
             is AskMcpToolCallPermissionAction -> {
               currentMcpPermissionAction = action
             }
+            is AskSensitiveDataPermissionAction -> {
+              // Deny a pending prompt that is being replaced, e.g. when two prompts arrive before
+              // recomposition, so its tool does not wait forever.
+              currentSensitiveDataPermissionAction?.result?.complete(SensitiveDataDecision.DENY)
+              currentSensitiveDataPermissionAction = action
+            }
           }
         }
       }
@@ -696,6 +707,19 @@ fun AgentChatScreen(
           }
         }
         currentMcpPermissionAction = null
+      },
+    )
+  }
+
+  currentSensitiveDataPermissionAction?.let { action ->
+    // If the screen goes away before the user answers, deny so that the waiting tool does not
+    // block forever. Completing an already completed action is a no-op.
+    DisposableEffect(action) { onDispose { action.result.complete(SensitiveDataDecision.DENY) } }
+    SensitiveDataPermissionDialog(
+      request = action.request,
+      onResult = { decision ->
+        action.result.complete(decision)
+        currentSensitiveDataPermissionAction = null
       },
     )
   }

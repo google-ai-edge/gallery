@@ -882,6 +882,14 @@
   <string name="mcp_server_header_name" translatable="true" description="Label for the input field where the user enters the authorization header name. [CHAR_LIMIT=26]">Header name</string>
   <string name="mcp_server_header_value" translatable="true" description="Label for the input field where the user enters the authorization header value. [CHAR_LIMIT=26]">Header value</string>
 
+  <!-- Strings for sensitive data permission prompts in Agent Skills -->
+  <string name="sensitive_data_calendar_read_title" translatable="true" description="Title of the dialog asking the user whether the AI assistant may read their calendar events in the current chat. [CHAR_LIMIT=45]">Allow calendar access?</string>
+  <string name="sensitive_data_calendar_read_message" translatable="true" description="Body of the dialog asking the user whether the AI assistant may read their calendar events. Warns the user to allow it only if they asked for it, since a malicious skill could request it. [CHAR_LIMIT=120]">The assistant wants to read your calendar events. Only allow this if you asked for it.</string>
+  <string name="sensitive_data_request_label" translatable="true" description="Label above the technical details (JSON parameters) of a request to read personal data of the user. [CHAR_LIMIT=18]">Request</string>
+  <string name="sensitive_data_allow_for_chat" translatable="true" description="Button label to allow access to personal data of the user without asking again until the current chat ends. [CHAR_LIMIT=25]">Allow for this chat</string>
+  <string name="sensitive_data_allow_once" translatable="true" description="Button label to allow a single access to personal data of the user. [CHAR_LIMIT=20]">Allow once</string>
+  <string name="sensitive_data_dont_allow" translatable="true" description="Button label to deny access to personal data of the user. [CHAR_LIMIT=23]">Don\'t allow</string>
+
   <!-- Strings for ChatHistorySideSheet component (used for the chat history side bar) -->
   <!-- Displayed as the header and section title for the user's past chats. -->
   <string name="chat_history_title" translatable="true" description="Title of the chat history side sheet or screen. [CHAR_LIMIT=26]">Chat history</string>

@@ -26,11 +26,23 @@ import kotlinx.coroutines.channels.SendChannel
  * @property taskId Identifies the specific Gallery feature or task executing the tool.
  * @property actionChannel Channel used by tools to publish live status events or emit dynamic UI
  *   side-effects.
+ * @property sensitiveDataGuard Consent state for sensitive user data, scoped to the conversation
+ *   this context was created for. It is stateful and compared by identity, so copies of this
+ *   context share the same consent. Deliberately has no default: every new context must decide
+ *   whether it continues an existing conversation's consent or starts a new one.
  */
 data class ToolExecutionContext(
   val taskId: String,
+  val sensitiveDataGuard: SensitiveDataGuard,
   val actionChannel: SendChannel<ToolAction>? = null,
-)
+) {
+  /**
+   * Returns whether a tool may read [type] data with the model-supplied [details], asking the user
+   * on [actionChannel] if needed. See [SensitiveDataGuard.requestRead].
+   */
+  suspend fun requestSensitiveRead(type: SensitiveDataType, details: String): Boolean =
+    sensitiveDataGuard.requestRead(type = type, details = details, actionChannel = actionChannel)
+}
 
 /**
  * ToolDefinition interface extending LiteRT-LM's [ToolSet]. It represents a single tool. All

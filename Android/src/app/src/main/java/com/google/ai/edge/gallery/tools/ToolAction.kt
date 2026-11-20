@@ -26,6 +26,7 @@ enum class ToolActionName() {
   ASK_INFO,
   REQUEST_PERMISSION,
   ASK_MCP_TOOL_CALL_PERMISSION,
+  ASK_SENSITIVE_DATA_PERMISSION,
 }
 
 /**
@@ -103,6 +104,42 @@ enum class PermissionResult {
   ALLOW_ONCE,
   ALWAYS_ALLOW,
 }
+
+/** The user's decision on an [AskSensitiveDataPermissionAction]. */
+enum class SensitiveDataDecision {
+  DENY,
+  ALLOW_ONCE,
+  /** Allow without asking again for the rest of the current conversation. */
+  ALLOW_FOR_CONVERSATION,
+}
+
+/** Categories of permission-gated user data that a tool can read into the conversation. */
+enum class SensitiveDataType {
+  CALENDAR
+}
+
+/** A decision that an [AskSensitiveDataPermissionAction] asks the user to make. */
+sealed interface SensitiveDataRequest {
+  /**
+   * A tool is about to read [type] data from the device into the conversation.
+   *
+   * @property details The model-supplied parameters of the read (e.g. the date to read).
+   */
+  data class Read(val type: SensitiveDataType, val details: String) : SensitiveDataRequest
+}
+
+/**
+ * Emitted to ask the user before sensitive user data is accessed on the model's behalf. Unlike
+ * [RequestPermissionToolAction], which asks once for an Android runtime permission, this is asked
+ * per conversation so that a prompt-injected model cannot read the data silently.
+ *
+ * @property request What the user is asked to allow.
+ * @property result Completed with the user's decision.
+ */
+class AskSensitiveDataPermissionAction(
+  val request: SensitiveDataRequest,
+  val result: CompletableDeferred<SensitiveDataDecision> = CompletableDeferred(),
+) : ToolAction(name = ToolActionName.ASK_SENSITIVE_DATA_PERMISSION)
 
 /**
  * Emitted to request user permission for a specific Model Context Protocol (MCP) tool invocation.
