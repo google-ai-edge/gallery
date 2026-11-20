@@ -608,9 +608,8 @@ constructor(
   }
 
   private fun matchesSkillName(actualName: String, targetName: String): Boolean {
-    val normalizedActual = actualName.trim().lowercase().replace("[\\s_]+".toRegex(), "-")
-    val normalizedTarget = targetName.trim().lowercase().replace("[\\s_]+".toRegex(), "-")
-    return normalizedActual == normalizedTarget ||
+    return SlashSkillMatcher.normalizedName(actualName) ==
+      SlashSkillMatcher.normalizedName(targetName) ||
       actualName.equals(targetName.trim(), ignoreCase = true)
   }
 
@@ -623,8 +622,17 @@ constructor(
     return getSelectedSkills()
   }
 
+  override suspend fun getAllSkills(): List<Skill> {
+    return _skills.value
+  }
+
   override suspend fun loadSkill(skillName: String): Skill? {
-    return getSelectedSkills().find { matchesSkillName(it.name, skillName) }
+    return loadSkill(skillName = skillName, includeDisabled = false)
+  }
+
+  override suspend fun loadSkill(skillName: String, includeDisabled: Boolean): Skill? {
+    val candidates = if (includeDisabled) _skills.value else getSelectedSkills()
+    return candidates.find { matchesSkillName(it.name, skillName) }
   }
 
   /**

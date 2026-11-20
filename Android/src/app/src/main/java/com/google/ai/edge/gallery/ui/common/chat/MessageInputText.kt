@@ -51,6 +51,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,6 +70,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Article
 import androidx.compose.material.icons.outlined.Add
@@ -93,30 +98,35 @@ import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -138,6 +148,8 @@ import com.google.ai.edge.gallery.data.MAX_IMAGE_COUNT
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.proto.Skill
+import com.google.ai.edge.gallery.skills.SlashSkillMatcher
 import com.google.ai.edge.gallery.ui.common.PermissionAccessKind
 import com.google.ai.edge.gallery.ui.common.PermissionAccessTracker
 import com.google.ai.edge.gallery.ui.common.PermissionDeniedDialog
@@ -226,6 +238,8 @@ fun MessageInputText(
   onSendAsrDictation: ((onTranscript: (String) -> Unit) -> Unit)? = onFinishAsrDictation,
   onCancelAsrDictation: (() -> Unit)? = null,
   onAsrDictationError: () -> Unit = {},
+  availableSkills: List<Skill> = emptyList(),
+  slashSkillOverlayState: SlashSkillOverlayState? = null,
 ) {
   val context = LocalContext.current
   val lifecycleOwner = LocalLifecycleOwner.current
@@ -350,6 +364,7 @@ fun MessageInputText(
             audioClips = pickedAudioClips,
             textFiles = pickedTextFiles,
             text = mergedText,
+            availableSkills = availableSkills,
           )
         )
         pickedImages = emptyList()
@@ -558,6 +573,64 @@ fun MessageInputText(
         asrDictationActions.uiState.isDictating -> InputMode.ASR_DICTATION
         else -> InputMode.TEXT
       }
+    val slashMatchResult =
+      remember(curMessage, availableSkills) {
+        if (availableSkills.isEmpty()) {
+          null
+        } else {
+          SlashSkillMatcher.match(input = curMessage, skills = availableSkills)
+        }
+      }
+    val recognizedSkillNames =
+      remember(availableSkills) {
+        availableSkills.mapTo(mutableSetOf()) { SlashSkillMatcher.normalizedName(it.name) }
+      }
+    val textFieldState = rememberTextFieldState(initialText = curMessage)
+    val currentCurMessage by rememberUpdatedState(curMessage)
+    val currentOnValueChanged by rememberUpdatedState(onValueChanged)
+    LaunchedEffect(curMessage) {
+      if (textFieldState.text.toString() != curMessage) {
+        textFieldState.setTextAndPlaceCursorAtEnd(curMessage)
+      }
+    }
+    LaunchedEffect(textFieldState) {
+      snapshotFlow { textFieldState.text.toString() }
+        .collect { newText ->
+          if (newText != currentCurMessage) {
+            currentOnValueChanged(newText)
+          }
+        }
+    }
+
+    val matchedSlashSkills = slashMatchResult?.matchedSkills.orEmpty()
+    val overlayState = slashSkillOverlayState ?: LocalSlashSkillOverlayState.current
+    val shouldShowSlashSuggestions = inputMode == InputMode.TEXT && matchedSlashSkills.isNotEmpty()
+    SideEffect {
+      if (overlayState != null) {
+        overlayState.request =
+          if (shouldShowSlashSuggestions) {
+            SlashSkillOverlayRequest(
+              skills = matchedSlashSkills,
+              query = slashMatchResult?.query?.query.orEmpty(),
+              onSelect = { skill ->
+                val updatedMessage =
+                  SlashSkillMatcher.applyingSelection(skill = skill, input = curMessage)
+                textFieldState.setTextAndPlaceCursorAtEnd(updatedMessage)
+                onValueChanged(updatedMessage)
+              },
+            )
+          } else {
+            null
+          }
+      }
+    }
+    DisposableEffect(overlayState) {
+      onDispose {
+        overlayState?.request = null
+        overlayState?.anchorCoordinates = null
+      }
+    }
+
     Box(contentAlignment = Alignment.Center, modifier = Modifier.heightIn(min = 76.dp)) {
       AnimatedContent(targetState = inputMode) { curInputMode ->
         when (curInputMode) {
@@ -567,6 +640,7 @@ fun MessageInputText(
               modifier =
                 Modifier.padding(horizontal = 12.dp)
                   .padding(vertical = 8.dp)
+                  .onGloballyPositioned { overlayState?.anchorCoordinates = it }
                   .background(
                     MaterialTheme.colorScheme.surfaceContainerLow,
                     RoundedCornerShape(16.dp),
@@ -579,25 +653,77 @@ fun MessageInputText(
               ) {
                 // Text field.
                 val cdPromptInput = stringResource(R.string.cd_prompt_input_text_field)
-                @Suppress("DEPRECATION")
-                TextField(
-                  value = curMessage,
-                  minLines = 1,
-                  maxLines = 3,
-                  onValueChange = onValueChanged,
-                  enabled = !isResettingSession && !modelInitializing,
-                  colors =
-                    TextFieldDefaults.colors(
-                      unfocusedContainerColor = Color.Transparent,
-                      focusedContainerColor = Color.Transparent,
-                      focusedIndicatorColor = Color.Transparent,
-                      unfocusedIndicatorColor = Color.Transparent,
-                      disabledIndicatorColor = Color.Transparent,
-                      disabledContainerColor = Color.Transparent,
+                val inputEnabled = !isResettingSession && !modelInitializing
+                val interactionSource = remember { MutableInteractionSource() }
+                var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+                val pillFillColor = MaterialTheme.colorScheme.primaryContainer
+                val outputTransformation =
+                  if (recognizedSkillNames.isEmpty()) {
+                    null
+                  } else {
+                    SlashSkillOutputTransformation(
+                      skillNames = recognizedSkillNames,
+                      pillTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                  }
+                val lineLimits =
+                  TextFieldLineLimits.MultiLine(minHeightInLines = 1, maxHeightInLines = 3)
+                val textFieldColors =
+                  TextFieldDefaults.colors(
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                  )
+                val textFieldDecorator =
+                  TextFieldDefaults.decorator(
+                    state = textFieldState,
+                    enabled = inputEnabled,
+                    lineLimits = lineLimits,
+                    outputTransformation = outputTransformation,
+                    interactionSource = interactionSource,
+                    placeholder = { Text(stringResource(textFieldPlaceHolderRes)) },
+                    colors = textFieldColors,
+                    container = {},
+                  )
+                BasicTextField(
+                  state = textFieldState,
+                  lineLimits = lineLimits,
+                  outputTransformation = outputTransformation,
+                  enabled = inputEnabled,
+                  textStyle =
+                    bodyLargeNarrow.copy(
+                      color =
+                        if (inputEnabled) {
+                          MaterialTheme.colorScheme.onSurface
+                        } else {
+                          MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        }
                     ),
-                  textStyle = bodyLargeNarrow,
+                  cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                  interactionSource = interactionSource,
+                  onTextLayout = { getResult -> textLayoutResult = getResult() },
                   modifier = Modifier.weight(1f).semantics { contentDescription = cdPromptInput },
-                  placeholder = { Text(stringResource(textFieldPlaceHolderRes)) },
+                  decorator = { innerTextField ->
+                    textFieldDecorator.Decoration {
+                      Box(
+                        modifier =
+                          Modifier.drawBehind {
+                            val layout = textLayoutResult ?: return@drawBehind
+                            drawSlashSkillPills(
+                              layout = layout,
+                              input = textFieldState.text.toString(),
+                              skillNames = recognizedSkillNames,
+                              pillFillColor = pillFillColor,
+                            )
+                          }
+                      ) {
+                        innerTextField()
+                      }
+                    }
+                  },
                 )
                 Spacer(modifier = Modifier.width(4.dp))
               }
@@ -1041,6 +1167,7 @@ fun MessageInputText(
                           audioClips = pickedAudioClips,
                           textFiles = pickedTextFiles,
                           text = message,
+                          availableSkills = availableSkills,
                         )
                       )
                       pickedImages = emptyList()
@@ -1098,6 +1225,7 @@ fun MessageInputText(
             audioClips = pickedAudioClips,
             textFiles = pickedTextFiles,
             text = item,
+            availableSkills = availableSkills,
           )
         )
         pickedImages = emptyList()
@@ -1404,6 +1532,7 @@ private fun createMessagesToSend(
   audioClips: List<AudioClip>,
   textFiles: List<TextFile> = listOf(),
   text: String,
+  availableSkills: List<Skill> = emptyList(),
 ): List<ChatMessage> {
   val messages: MutableList<ChatMessage> = mutableListOf()
 
@@ -1457,7 +1586,8 @@ private fun createMessagesToSend(
   }
 
   if (text.isNotEmpty()) {
-    messages.add(ChatMessageText(content = text, side = ChatSide.USER))
+    val normalizedText = SlashSkillMatcher.normalizeSkillSlashes(text, availableSkills)
+    messages.add(ChatMessageText(content = normalizedText, side = ChatSide.USER))
   }
 
   return messages
