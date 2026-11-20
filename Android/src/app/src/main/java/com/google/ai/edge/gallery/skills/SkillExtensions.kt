@@ -27,11 +27,14 @@ fun Skill.getSkillContent(): String {
 
 /** Formats descriptions of selected skills for inclusion in prompt placeholders. */
 fun formatSelectedSkills(skills: List<Skill>): String {
-  return skills
-    .filter { it.selected }
-    .joinToString("\n\n") { skill ->
-      "- Skill name: \"${skill.name}\"\n- Description: ${skill.description}"
-    }
+  return formatAvailableSkills(skills.filter { it.selected })
+}
+
+/** Formats skill metadata for prompt injection without re-filtering [Skill.selected]. */
+fun formatAvailableSkills(skills: List<Skill>): String {
+  return skills.joinToString("\n\n") { skill ->
+    "- Skill name: \"${skill.name}\"\n- Description: ${skill.description}"
+  }
 }
 
 fun Skill.getJsSkillUrl(scriptName: String): String? {
