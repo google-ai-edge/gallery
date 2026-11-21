@@ -35,9 +35,10 @@ import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.proto.McpServers
+import com.google.ai.edge.gallery.skills.ConversationSkillsProvider
 import com.google.ai.edge.gallery.skills.SkillManager
 import com.google.ai.edge.gallery.skills.SkillsProvider
-import com.google.ai.edge.gallery.skills.formatSelectedSkills
+import com.google.ai.edge.gallery.skills.formatAvailableSkills
 import com.google.ai.edge.gallery.tools.RuntimeToolDispatcher
 import com.google.ai.edge.litertlm.Contents
 import dagger.Module
@@ -77,7 +78,7 @@ const val DEFAULT_SYSTEM_PROMPT =
   FLOW A: SKILL EXECUTION
   ==================================================
 
-  2. Find the most relevant skill from the --- SKILLS --- list. You MUST NOT use `run_intent` or `runMcpTool` under any circumstances at this step.
+  2. Find the most relevant skill from the --- SKILLS --- list. You MUST NOT use `run_intent` or `runMcpTool` under any circumstances at this step. If a user specifies a skill using "/", make sure the skill you select EXACTLY matches the user's requested skill.
 
   3. Use the `load_skill` tool to read its instructions. Follow the skill's instructions exactly to complete the task.
      - You MUST NOT output any intermediate thoughts or status updates. No exceptions!
@@ -97,7 +98,7 @@ const val DEFAULT_SYSTEM_PROMPT =
   6. Output ONLY the final result returned by the tool. You MUST NOT output any intermediate thoughts or status updates. No exceptions!
   """
 
-val DEFAULT_SYSTEM_PROMPT_TRIMMED = DEFAULT_SYSTEM_PROMPT.trimIndent()
+val DEFAULT_SYSTEM_PROMPT_TRIMMED: String = DEFAULT_SYSTEM_PROMPT.trimIndent()
 
 // The default system prompt for the agent chat task with only skills.
 const val DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY =
@@ -106,7 +107,7 @@ const val DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY =
 
   CRITICAL RULE: You MUST execute all steps silently. Do NOT generate or output any internal thoughts, reasoning, explanations, or intermediate text at ANY step.
 
-  1. First, find the most relevant skill from the following list:
+  1. First, find the most relevant skill from the following list, if a user specifies a skill using "/", make sure the skill you select EXACTLY matches the user's requested skill:
 
   ___SKILLS___
 
@@ -119,7 +120,8 @@ const val DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY =
   4. If no relevant skill is found, output "No relevant skills found" and stop.
   """
 
-val DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY_TRIMMED = DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY.trimIndent()
+val DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY_TRIMMED: String =
+  DEFAULT_SYSTEM_PROMPT_SKILLS_ONLY.trimIndent()
 
 class AgentChatTask
 @Inject
@@ -178,7 +180,7 @@ constructor(
             template = baseSystemPrompt,
             substitutions =
               mapOf(
-                "___SKILLS___" to formatSelectedSkills(skillsProvider.getAvailableSkills()),
+                "___SKILLS___" to formatAvailableSkills(skillsProvider.getAvailableSkills()),
                 "___TOOLS___" to toolsPrompt,
               ),
           )
@@ -225,20 +227,26 @@ constructor(
 internal object AgentChatTaskModule {
   @Provides
   @Singleton
-  fun provideAgentTools(skillManager: SkillManager): AgentTools {
-    return AgentToolsImpl().apply { skillsProvider = skillManager }
+  fun provideConversationSkillsProvider(skillManager: SkillManager): ConversationSkillsProvider {
+    return ConversationSkillsProvider(baseProvider = skillManager)
+  }
+
+  @Provides
+  @Singleton
+  fun provideAgentTools(conversationSkillsProvider: ConversationSkillsProvider): AgentTools {
+    return AgentToolsImpl().apply { skillsProvider = conversationSkillsProvider }
   }
 
   @Provides
   @Singleton
   @AgentChatExecutor
   fun provideAgentChatExecutor(
-    skillManager: SkillManager,
+    conversationSkillsProvider: ConversationSkillsProvider,
     agentTools: AgentTools,
     llmSessionManager: LlmSessionManager,
   ): AgentRuntimeExecutor {
     return DefaultAgentRuntimeExecutor(
-      skillsProvider = skillManager,
+      skillsProvider = conversationSkillsProvider,
       toolsProvider = agentTools,
       toolDispatcher = RuntimeToolDispatcher(),
       llmSessionManager = llmSessionManager,
@@ -249,11 +257,11 @@ internal object AgentChatTaskModule {
   @IntoSet
   fun provideTask(
     @ApplicationContext context: Context,
-    skillManager: SkillManager,
+    conversationSkillsProvider: ConversationSkillsProvider,
     agentTools: AgentTools,
     @AgentChatExecutor executor: AgentRuntimeExecutor,
   ): CustomTask {
-    return AgentChatTask(context, skillManager, agentTools, executor)
+    return AgentChatTask(context, conversationSkillsProvider, agentTools, executor)
   }
 
   @Provides

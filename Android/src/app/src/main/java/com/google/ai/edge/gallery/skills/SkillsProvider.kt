@@ -26,8 +26,14 @@ interface SkillsProvider {
   /** Returns metadata for all currently enabled skills. */
   suspend fun getAvailableSkills(): List<Skill>
 
-  /** Loads a specific skill by name (e.g., when the load_skill tool is triggered). */
+  /** Returns metadata for all installed skills, regardless of enabled state. */
+  suspend fun getAllSkills(): List<Skill> = getAvailableSkills()
+
+  /** Loads a specific enabled skill by name (e.g., when the load_skill tool is triggered). */
   suspend fun loadSkill(skillName: String): Skill?
+
+  /** Loads a specific skill by name, optionally searching both enabled and disabled skills. */
+  suspend fun loadSkill(skillName: String, includeDisabled: Boolean): Skill? = loadSkill(skillName)
 }
 
 /** No-op implementation of [SkillsProvider] used when skills are disabled. */

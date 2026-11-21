@@ -117,6 +117,7 @@ import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
+import com.google.ai.edge.gallery.proto.Skill
 import com.google.ai.edge.gallery.ui.common.AudioAnimation
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.FloatingBanner
@@ -175,6 +176,7 @@ fun ChatPanel(
   emptyStateComposable: @Composable (Model) -> Unit = {},
   onNewChatClicked: () -> Unit = {},
   ttsController: TtsPlaybackController? = null,
+  availableSkills: List<Skill> = emptyList(),
 ) {
   val uiState by viewModel.uiState.collectAsState()
   val messages = uiState.messagesByModel[selectedModel.name] ?: listOf()
@@ -463,8 +465,12 @@ fun ChatPanel(
       animationSpec = tween(durationMillis = 300),
       label = "emptyStateGradientProgress",
     )
+  val slashSkillOverlayState = rememberSlashSkillOverlayState()
   Box(
-    modifier = Modifier.fillMaxSize().then(dismissPromptModifier),
+    modifier =
+      Modifier.fillMaxSize()
+        .then(dismissPromptModifier)
+        .slashSkillOverlayContainer(slashSkillOverlayState),
     contentAlignment = Alignment.BottomCenter,
   ) {
     if (emptyStateGradientProgress > 0f) {
@@ -1079,8 +1085,11 @@ fun ChatPanel(
         onSendAsrDictation = asrDictationViewModel?.let { vm -> vm::finishAndSend },
         onCancelAsrDictation = asrDictationViewModel?.let { vm -> vm::cancel },
         onAsrDictationError = { customErrorMessage = asrUnavailableMsg },
+        availableSkills = availableSkills,
+        slashSkillOverlayState = slashSkillOverlayState,
       )
     }
+    SlashSkillOverlayLayer(state = slashSkillOverlayState)
   }
 
   // Error dialog.
