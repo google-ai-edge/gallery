@@ -992,6 +992,8 @@
   <string name="cd_copy_to_clipboard_icon" translatable="true" description="Accessibility description for the &quot;Copy to clipboard&quot; button. [CHAR_LIMIT=30]">Copy to clipboard</string>
   <!-- Content description spoken when the "prompt input" text field is focused. -->
   <string name="cd_prompt_input_text_field" translatable="true" description="Accessibility description for the prompt input text field. [CHAR_LIMIT=90]">Prompt input</string>
+  <!-- Content description for the slash-command skill suggestions card shown above the input field. -->
+  <string name="cd_slash_skill_suggestions" translatable="true" description="Accessibility description for the skill suggestions popup shown above the chat input field when typing a slash command. [CHAR_LIMIT=30]">Matching skills</string>
   <!-- Content description spoken when the "send prompt" icon is focused. -->
   <string name="cd_send_prompt_icon" translatable="true" description="Accessibility description for the &quot;Send prompt&quot; button. [CHAR_LIMIT=21]">Send prompt</string>
   <!-- Content description spoken when the "model response" text is focused. -->
