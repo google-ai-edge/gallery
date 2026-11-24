@@ -33,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +49,7 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
@@ -113,6 +115,8 @@ fun ModelPageAppBar(
   // Disables the model picker, config and history buttons but, unlike [inProgress], keeps the back
   // button enabled. For example while a task is still starting its own engines.
   actionsDisabled: Boolean = false,
+  // The height of the app bar, for example a shorter one for a screen that needs the room.
+  expandedHeight: Dp = TopAppBarDefaults.TopAppBarExpandedHeight,
 ) {
   var showConfigDialog by remember { mutableStateOf(false) }
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsStateWithLifecycle()
@@ -146,6 +150,7 @@ fun ModelPageAppBar(
     }
 
   CenterAlignedTopAppBar(
+    expandedHeight = expandedHeight,
     title = {
       Column(
         horizontalAlignment = Alignment.CenterHorizontally,
