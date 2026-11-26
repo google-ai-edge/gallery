@@ -52,6 +52,7 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.ModelCapability
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
+import com.google.ai.edge.gallery.proto.Skill
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessage
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageAudioClip
 import com.google.ai.edge.gallery.ui.common.chat.ChatMessageFile
@@ -96,6 +97,7 @@ fun LlmChatScreen(
   skillCount: Int = 0,
   mcpCount: Int = 0,
   mcpToolsCount: Int = 0,
+  availableSkills: List<Skill> = emptyList(),
 ) {
   ChatViewWrapper(
     viewModel = viewModel,
@@ -121,6 +123,7 @@ fun LlmChatScreen(
     showAudioPicker = showAudioPicker,
     showTextFilePicker = showTextFilePicker,
     getActiveSkills = getActiveSkills,
+    availableSkills = availableSkills,
   )
 }
 
@@ -249,6 +252,7 @@ fun ChatViewWrapper(
   skillCount: Int = 0,
   mcpCount: Int = 0,
   mcpToolsCount: Int = 0,
+  availableSkills: List<Skill> = emptyList(),
 ) {
   val context = LocalContext.current
   val task = modelManagerViewModel.getTaskById(id = taskId)!!
@@ -418,6 +422,7 @@ fun ChatViewWrapper(
     curSystemPrompt = curSystemPrompt,
     onSystemPromptChanged = onSystemPromptChanged,
     sendMessageTrigger = sendMessageTrigger,
+    availableSkills = availableSkills,
     showAudioPicker = showAudioPicker,
     showTextFilePicker = showTextFilePicker,
   )

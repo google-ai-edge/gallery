@@ -18,6 +18,7 @@ package com.google.ai.edge.gallery.customtasks.agentchat
 
 import android.content.Context
 import com.google.ai.edge.gallery.data.DataStoreRepository
+import com.google.ai.edge.gallery.proto.Skill
 import com.google.ai.edge.gallery.skills.SkillsProvider
 import com.google.ai.edge.gallery.tools.CallJsSkillResultImage
 import com.google.ai.edge.gallery.tools.CallJsSkillResultWebview
@@ -61,21 +62,41 @@ open class AgentToolsImpl : AgentTools {
 
   private val activeTools = mutableListOf<ToolDefinition>()
 
-  val loadSkillTool by lazy { LoadSkillTool(skillsProvider = skillsProvider) }
+  private val delegatingSkillsProvider =
+    object : SkillsProvider {
+      override suspend fun loadSkills(defaultDisabledSkills: Set<String>) =
+        skillsProvider.loadSkills(defaultDisabledSkills)
 
-  val runMcpTool by lazy {
+      override suspend fun getAvailableSkills(): List<Skill> = skillsProvider.getAvailableSkills()
+
+      override suspend fun getAllSkills(): List<Skill> = skillsProvider.getAllSkills()
+
+      override suspend fun loadSkill(skillName: String): Skill? =
+        skillsProvider.loadSkill(skillName)
+
+      override suspend fun loadSkill(skillName: String, includeDisabled: Boolean): Skill? =
+        skillsProvider.loadSkill(skillName = skillName, includeDisabled = includeDisabled)
+    }
+
+  val loadSkillTool: LoadSkillTool by lazy {
+    LoadSkillTool(skillsProvider = delegatingSkillsProvider)
+  }
+
+  val runMcpTool: RunMcpTool by lazy {
     RunMcpTool(
       mcpServersProvider = mcpManagerViewModel,
-      skillsProvider = skillsProvider,
+      skillsProvider = delegatingSkillsProvider,
       taskId = taskId,
     )
   }
 
-  val runJsTool by lazy {
-    RunJsTool(skillsProvider = skillsProvider, dataStoreRepository = dataStoreRepository)
+  val runJsTool: RunJsTool by lazy {
+    RunJsTool(skillsProvider = delegatingSkillsProvider, dataStoreRepository = dataStoreRepository)
   }
 
-  val runIntentTool by lazy { RunIntentTool(context = context, skillsProvider = skillsProvider) }
+  val runIntentTool: RunIntentTool by lazy {
+    RunIntentTool(context = context, skillsProvider = delegatingSkillsProvider)
+  }
 
   override fun getAvailableTools(): List<ToolDefinition> {
     return listOf(loadSkillTool, runMcpTool, runJsTool, runIntentTool) + activeTools

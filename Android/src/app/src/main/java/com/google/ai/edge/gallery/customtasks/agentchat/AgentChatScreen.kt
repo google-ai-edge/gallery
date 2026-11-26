@@ -87,7 +87,7 @@ import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.firebaseAnalytics
-import com.google.ai.edge.gallery.skills.formatSelectedSkills
+import com.google.ai.edge.gallery.skills.formatAvailableSkills
 import com.google.ai.edge.gallery.tools.AskInfoToolAction
 import com.google.ai.edge.gallery.tools.AskMcpToolCallPermissionAction
 import com.google.ai.edge.gallery.tools.AskSensitiveDataPermissionAction
@@ -142,8 +142,12 @@ fun AgentChatScreen(
 ) {
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
+  val activeSkillsProvider =
+    remember(viewModel, skillManagerViewModel) {
+      viewModel.bindSkillsProviderIfNeeded(skillManagerViewModel.skillManager)
+    }
   agentTools.context = context
-  agentTools.skillsProvider = skillManagerViewModel.skillManager
+  agentTools.skillsProvider = activeSkillsProvider
   agentTools.dataStoreRepository = skillManagerViewModel.skillManager.dataStoreRepository
   agentTools.mcpManagerViewModel = mcpManagerViewModel
   agentTools.taskId = task.id
@@ -191,6 +195,12 @@ fun AgentChatScreen(
   val mcpUiState by mcpManagerViewModel.uiState.collectAsState()
 
   val skillCount = skillUiState.skills.count { it.skill.selected }
+  val availableSkills =
+    remember(skillUiState.skills) {
+      skillUiState.skills
+        .map { it.skill }
+        .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+    }
   val mcpCount = mcpUiState.mcpServers.count { it.mcpServer.enabled }
   val mcpToolsCount =
     mcpUiState.mcpServers
@@ -199,6 +209,14 @@ fun AgentChatScreen(
 
   LaunchedEffect(uiSystemPrompt, mcpToolsCount) {
     curSystemPrompt = getEffectiveBaseSystemPrompt(uiSystemPrompt, mcpToolsCount > 0)
+  }
+
+  LaunchedEffect(curSystemPrompt, mcpToolsCount, agentTools) {
+    viewModel.configureAgentSession(
+      baseSystemPrompt = curSystemPrompt,
+      toolsPrompt = mcpManagerViewModel.getToolsPrompt(),
+      actionChannel = agentTools.sendActionChannel,
+    )
   }
 
   val selectedModel = modelManagerUiState.selectedModel
@@ -296,6 +314,7 @@ fun AgentChatScreen(
         clearHistory = clearHistory,
       )
     },
+    availableSkills = availableSkills,
     onSkillClicked = { showSkillManagerBottomSheet = true },
     onMcpClicked = { showMcpManagerBottomSheet = true },
     showImagePicker = true,
@@ -842,7 +861,7 @@ private fun updateProgressPanel(viewModel: LlmChatViewModel, model: Model, agent
 }
 
 private fun resetSessionWithCurrentSkillsAndMcps(
-  viewModel: LlmChatViewModel,
+  viewModel: AgentChatViewModel,
   modelManagerViewModel: ModelManagerViewModel,
   skillManagerViewModel: SkillManagerViewModel,
   task: Task,
@@ -852,20 +871,21 @@ private fun resetSessionWithCurrentSkillsAndMcps(
   initialMessages: List<ChatMessage> = listOf(),
   clearHistory: Boolean = true,
 ) {
+  viewModel.resetConversationSkills()
   val model = modelManagerViewModel.uiState.value.selectedModel
   val litertMessages = initialMessages.mapNotNull { convertToLitertMessage(it) }
   val toolsPrompt = agentTools.mcpManagerViewModel.getToolsPrompt()
   val actualSystemPrompt = getEffectiveBaseSystemPrompt(curSystemPrompt, toolsPrompt.isNotEmpty())
 
   val selectedSkills =
-    runBlocking(Dispatchers.Default) { skillManagerViewModel.skillManager.getAvailableSkills() }
+    runBlocking(Dispatchers.Default) { agentTools.skillsProvider.getAvailableSkills() }
   val finalSystemPrompt =
     PromptExpander()
       .formatSystemInstructions(
         template = actualSystemPrompt,
         substitutions =
           mapOf(
-            "___SKILLS___" to formatSelectedSkills(selectedSkills),
+            "___SKILLS___" to formatAvailableSkills(selectedSkills),
             "___TOOLS___" to toolsPrompt,
           ),
       )
