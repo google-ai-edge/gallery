@@ -35,9 +35,10 @@ import com.google.ai.edge.gallery.data.Category
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.proto.McpServers
+import com.google.ai.edge.gallery.skills.ConversationSkillsProvider
 import com.google.ai.edge.gallery.skills.SkillManager
 import com.google.ai.edge.gallery.skills.SkillsProvider
-import com.google.ai.edge.gallery.skills.formatSelectedSkills
+import com.google.ai.edge.gallery.skills.formatAvailableSkills
 import com.google.ai.edge.gallery.tools.RuntimeToolDispatcher
 import com.google.ai.edge.litertlm.Contents
 import dagger.Module
@@ -178,7 +179,7 @@ constructor(
             template = baseSystemPrompt,
             substitutions =
               mapOf(
-                "___SKILLS___" to formatSelectedSkills(skillsProvider.getAvailableSkills()),
+                "___SKILLS___" to formatAvailableSkills(skillsProvider.getAvailableSkills()),
                 "___TOOLS___" to toolsPrompt,
               ),
           )
@@ -225,20 +226,26 @@ constructor(
 internal object AgentChatTaskModule {
   @Provides
   @Singleton
-  fun provideAgentTools(skillManager: SkillManager): AgentTools {
-    return AgentToolsImpl().apply { skillsProvider = skillManager }
+  fun provideConversationSkillsProvider(skillManager: SkillManager): ConversationSkillsProvider {
+    return ConversationSkillsProvider(baseProvider = skillManager)
+  }
+
+  @Provides
+  @Singleton
+  fun provideAgentTools(conversationSkillsProvider: ConversationSkillsProvider): AgentTools {
+    return AgentToolsImpl().apply { skillsProvider = conversationSkillsProvider }
   }
 
   @Provides
   @Singleton
   @AgentChatExecutor
   fun provideAgentChatExecutor(
-    skillManager: SkillManager,
+    conversationSkillsProvider: ConversationSkillsProvider,
     agentTools: AgentTools,
     llmSessionManager: LlmSessionManager,
   ): AgentRuntimeExecutor {
     return DefaultAgentRuntimeExecutor(
-      skillsProvider = skillManager,
+      skillsProvider = conversationSkillsProvider,
       toolsProvider = agentTools,
       toolDispatcher = RuntimeToolDispatcher(),
       llmSessionManager = llmSessionManager,
@@ -249,11 +256,11 @@ internal object AgentChatTaskModule {
   @IntoSet
   fun provideTask(
     @ApplicationContext context: Context,
-    skillManager: SkillManager,
+    conversationSkillsProvider: ConversationSkillsProvider,
     agentTools: AgentTools,
     @AgentChatExecutor executor: AgentRuntimeExecutor,
   ): CustomTask {
-    return AgentChatTask(context, skillManager, agentTools, executor)
+    return AgentChatTask(context, conversationSkillsProvider, agentTools, executor)
   }
 
   @Provides

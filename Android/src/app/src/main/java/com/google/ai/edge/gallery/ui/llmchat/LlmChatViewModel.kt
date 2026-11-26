@@ -99,8 +99,17 @@ open class LlmChatViewModelBase(
   private var observedLiveMetricsModel: Model? = null
   // Map to track if the session was stopped by the model for a given model name.
   private val sessionStoppedByModel = mutableMapOf<String, Boolean>()
+  private val sessionResetOptionsByModel = mutableMapOf<String, SessionResetOptions>()
   // Active session transition job to ensure transitions (restore, new session, reset) do not race.
   private var sessionTransitionJob: Job? = null
+
+  private data class SessionResetOptions(
+    val taskId: String,
+    val actionChannel: SendChannel<ToolAction>?,
+    val supportImage: Boolean,
+    val supportAudio: Boolean,
+    val enableConversationConstrainedDecoding: Boolean,
+  )
 
   private fun Model.InitializationStatus.llmMetricsTracker(): MetricsTracker? =
     ((this as? Model.InitializationStatus.Initialized)?.instance as? LlmModelInstance)
@@ -219,23 +228,37 @@ open class LlmChatViewModelBase(
       setInProgress(true)
       setPreparing(true)
 
-      if (sessionStoppedByModel[model.name] == true) {
+      val normalizedInput = normalizeInputForRequest(input = input)
+      val needsRuntimeReset = prepareRuntimeForRequest(model = model, input = normalizedInput)
+      val wasStopped = sessionStoppedByModel[model.name] == true
+      if (wasStopped || needsRuntimeReset) {
         sessionStoppedByModel[model.name] = false
         // The messages of the current turn (its attached files followed by its text, if any) have
         // already been added to the chat, but they are sent with this request rather than seeded.
-        val currentTurnMessageCount = files.size + (if (input.isNotEmpty()) 1 else 0)
+        val currentTurnMessageCount = files.size + (if (normalizedInput.isNotEmpty()) 1 else 0)
         val initialMessages =
           (uiState.value.messagesByModel[model.name] ?: emptyList())
             .filter { it is ChatMessageText || it is ChatMessageFile }
             .dropLast(currentTurnMessageCount)
             .mapNotNull { convertToLitertMessage(it) }
+        val resetOptions = sessionResetOptionsByModel[model.name]
+        val systemInstruction =
+          resolveSystemInstructionForReset(
+            model = model,
+            baseSystemInstruction = _uiSystemPrompt.value.ifEmpty { null },
+          )
         val config =
           AgentRuntimeConfig(
+            sessionId = currentSessionId,
             model = model,
-            taskId = currentTaskId,
-            supportImage = model.supportImage,
-            supportAudio = model.supportAudio,
-            systemInstruction = _uiSystemPrompt.value.ifEmpty { null },
+            taskId = resetOptions?.taskId ?: currentTaskId,
+            actionChannel = resetOptions?.actionChannel ?: defaultActionChannel(),
+            supportImage = resetOptions?.supportImage ?: model.supportImage,
+            supportAudio = resetOptions?.supportAudio ?: model.supportAudio,
+            enableConversationConstrainedDecoding =
+              resetOptions?.enableConversationConstrainedDecoding
+                ?: defaultEnableConversationConstrainedDecoding(),
+            systemInstruction = systemInstruction,
             initialMessages = initialMessages,
           )
         try {
@@ -250,9 +273,11 @@ open class LlmChatViewModelBase(
           return@launch
         }
         if (initialMessages.isNotEmpty()) {
-          // The stopped turn was never persisted, so persist the in-memory history first. Runs
-          // before the loading message is added so that a compaction divider does not follow it.
-          persistCurrentSession(model = model, taskId = currentTaskId)
+          if (wasStopped) {
+            // The stopped turn was never persisted, so persist the in-memory history first. Runs
+            // before the loading message is added so that a compaction divider does not follow it.
+            persistCurrentSession(model = model, taskId = currentTaskId)
+          }
           compactSeededHistoryIfNeeded(model = model, taskId = currentTaskId)
         }
       }
@@ -272,10 +297,10 @@ open class LlmChatViewModelBase(
         files.joinToString("\n\n") { file -> formatAttachedFilePrompt(file.name, file.content) }
       val finalQuery =
         when {
-          fileAttachmentsContext.isNotEmpty() && input.isNotBlank() ->
-            "$input\n\n$fileAttachmentsContext"
+          fileAttachmentsContext.isNotEmpty() && normalizedInput.isNotBlank() ->
+            "$normalizedInput\n\n$fileAttachmentsContext"
           fileAttachmentsContext.isNotEmpty() -> fileAttachmentsContext
-          else -> input
+          else -> normalizedInput
         }
 
       val enableThinking =
@@ -499,6 +524,33 @@ open class LlmChatViewModelBase(
       }
   }
 
+  /** Normalizes [input] before runtime preparation and model execution. */
+  protected open suspend fun normalizeInputForRequest(input: String): String = input
+
+  /**
+   * Hook invoked before sending [input] so subclasses can prepare conversation runtime state and
+   * request a session reset before inference begins.
+   */
+  protected open suspend fun prepareRuntimeForRequest(model: Model, input: String): Boolean = false
+
+  /**
+   * Hook invoked when resetting the session inside [generateResponse] to resolve the effective
+   * system instruction.
+   */
+  protected open suspend fun resolveSystemInstructionForReset(
+    model: Model,
+    baseSystemInstruction: String?,
+  ): String? = baseSystemInstruction?.ifEmpty { null }
+
+  /** Hook invoked when starting a new conversation or restoring a persisted session. */
+  protected open fun clearConversationState(model: Model? = null) {}
+
+  /** Hook providing the default [ToolAction] channel before a session reset is recorded. */
+  protected open fun defaultActionChannel(): SendChannel<ToolAction>? = null
+
+  /** Hook providing whether constrained decoding should be enabled by default before reset. */
+  protected open fun defaultEnableConversationConstrainedDecoding(): Boolean = false
+
   private suspend fun executeResetSession(
     task: Task,
     model: Model,
@@ -513,7 +565,16 @@ open class LlmChatViewModelBase(
   ) {
     setIsResettingSession(true)
     try {
+      sessionResetOptionsByModel[model.name] =
+        SessionResetOptions(
+          taskId = task.id,
+          actionChannel = actionChannel,
+          supportImage = supportImage,
+          supportAudio = supportAudio,
+          enableConversationConstrainedDecoding = enableConversationConstrainedDecoding,
+        )
       if (clearHistory) {
+        clearConversationState(model)
         currentSessionId = generateSessionId()
         clearAllMessages(model = model)
       }
@@ -598,6 +659,7 @@ open class LlmChatViewModelBase(
           val messages = ChatMessageMapper.deserializeProtoMessages(session.messagesList)
           ensureActive()
 
+          clearConversationState(model)
           currentSessionId = session.sessionId
           setRestoredMessages(model = model, messages = messages)
 
