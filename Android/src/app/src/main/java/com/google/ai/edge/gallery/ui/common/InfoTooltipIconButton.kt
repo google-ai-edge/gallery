@@ -34,6 +34,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -66,6 +67,7 @@ private val TOOLTIP_ANCHOR_SPACING = 6.dp
  *   languages".
  * @param iconTint Tint of the (i) glyph. Override it when the button sits on a surface other than
  *   the theme's, e.g. over video.
+ * @param iconSize Size of the (i) glyph inside the icon button.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,6 +76,7 @@ fun InfoTooltipIconButton(
   contentDescription: String,
   modifier: Modifier = Modifier,
   iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+  iconSize: Dp = INFO_ICON_SIZE,
 ) {
   val tooltipState = rememberTooltipState(isPersistent = true)
   val coroutineScope = rememberCoroutineScope()
@@ -92,7 +95,7 @@ fun InfoTooltipIconButton(
         imageVector = Icons.Outlined.Info,
         contentDescription = contentDescription,
         tint = iconTint,
-        modifier = Modifier.size(INFO_ICON_SIZE),
+        modifier = Modifier.size(iconSize),
       )
     }
   }
