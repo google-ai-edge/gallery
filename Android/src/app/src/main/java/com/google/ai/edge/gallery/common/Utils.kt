@@ -457,12 +457,20 @@ fun isTensorG6(context: Context? = null): Boolean {
 }
 
 /**
- * Returns the base directory for storing models. On Pixel 11 with "CD1A" builds, internal app
- * storage (filesDir) is used to avoid FUSE filesystem DMA mapping issues.
+ * Returns the base directory for storing models. On Pixel 11 with "CD1A" builds and Tensor G5/G6
+ * (Pixel 10/11) devices with "CP4A" builds, internal app storage (filesDir) is used to avoid FUSE
+ * filesystem issues when loading large model buffers.
  */
 fun getModelStorageDir(context: Context): File {
-  val isCd1aBuild = Build.ID != null && Build.ID.startsWith("CD1A")
-  return if (isPixel11() && isCd1aBuild) {
+  val buildId = Build.ID
+  val useInternalStorage =
+    when {
+      buildId == null -> false
+      buildId.startsWith("CD1A") -> isPixel11()
+      buildId.startsWith("CP4A") -> isTensorG5(context) || isTensorG6(context)
+      else -> false
+    }
+  return if (useInternalStorage) {
     context.filesDir
   } else {
     context.getExternalFilesDir(null) ?: context.filesDir
