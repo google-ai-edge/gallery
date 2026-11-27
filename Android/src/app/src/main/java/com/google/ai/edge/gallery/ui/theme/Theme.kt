@@ -367,7 +367,8 @@ fun GalleryTheme(content: @Composable () -> Unit) {
 
   // Make sure the navigation bar stays transparent on manual theme changes.
   LaunchedEffect(darkTheme) {
-    val window = (view.context as Activity).window
-    window.isNavigationBarContrastEnforced = false
+    (view.context as? Activity)?.window?.let { window ->
+      window.isNavigationBarContrastEnforced = false
+    }
   }
 }
